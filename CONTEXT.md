@@ -513,6 +513,14 @@
 
 - **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
 
+- **Interview question category** — The single configurable classification assigned to a bank question. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
+
+- **Interview question tag** — A configurable label that can be combined with other tags on a question, independent of its one category.
+
+- **Interview question placement** — One ordered use of a bank question in an interview station. A bank question may be used more than once in an interview; the builder warns about repetition without preventing it. Editing bank wording updates prepared interviews, while active/completed rounds retain the wording with which they began.
+
+- **Archived interview question** — A bank question hidden from normal browsing while its existing station references and past results are preserved. Archiving does not remove questions from prepared interviews.
+
 ## UCAT content
 
 - **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.

@@ -8,7 +8,7 @@ Run from the repository root:
 pnpm dev:isolated --apps tutor-web
 ```
 
-Open the printed tutor URL, sign in with the disposable seed tutor account from `supabase/seed/test/01z_auth_users.sql`, and use **Interviews · prototype** in the sidebar. Direct path: `/interviews/prototype?variant=C` (also `A` or `B`). C is the selected direction.
+Open the printed tutor URL, sign in with the disposable seed tutor account from `supabase/seed/test/01z_auth_users.sql`, and use **Interviews · prototype** in the sidebar for the bank/builder. Direct live path: `/interviews/prototype?variant=C` (also `A` or `B`). The fullscreen C live direction is accepted.
 
 - A: student video above all questions; station status on the right.
 - B: all questions take priority; compact video and station status on the right.
@@ -22,4 +22,12 @@ Nonempty feedback marks a question answered. Rubrics can be edited in place. In-
 
 All state is in memory and clears on refresh. No video provider, recording, autosave, or realtime backend is connected. No camera/microphone is accessed. No automated tests were added for this throwaway prototype.
 
-The prototype route, navigation entry, and switcher are development-only. Do not merge this prototype into production. Preserve it on `codex/dev-8-interview-prototype`; the current verdict and next questions live in [DEV-8](https://linear.app/altitutor/issue/DEV-8/med-interview-app). C is selected and its fullscreen refinement awaits review. Authoring, round setup, dedicated student screens, and results remain to be explored.
+Bank/builder route: `/interviews/prototype/authoring?variant=A` with `screen=bank` (default) or `screen=builder`. All variants share in-memory content across screen/layout switches:
+
+- A: category rail + bank table; station rail + focused editor with a bank picker.
+- B: bank list + persistent detail preview; station editor beside a searchable bank.
+- C: questions grouped as category cards; an overview board of all stations.
+
+Try creating/editing/archiving/restoring a question, adding or renaming categories/tags, searching and filtering, adding/reordering stations and questions, setting decimal maximum points, and opening per-station/all-station printed prompt previews. Bank editing uses plain text in this prototype; production rich-text authoring remains planned. Print previews do not export PDFs. Shared question edits update the prepared interview; archives retain its existing placements; repetition warns without blocking. Every question has one category and zero or more separate tags. Question 1 always provides the reading/printed prompt, including after reorder.
+
+The prototype routes, navigation entry, and switcher are development-only. Do not merge this prototype into production. Preserve it on `codex/dev-8-interview-prototype`; the current verdict and next questions live in [DEV-8](https://linear.app/altitutor/issue/DEV-8/med-interview-app). Bank/builder layout choices are pending. Round setup, dedicated student screens, and results remain to be explored.
