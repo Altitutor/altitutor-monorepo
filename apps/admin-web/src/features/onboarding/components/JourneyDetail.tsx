@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Badge, Input, SearchableSelect } from "@altitutor/ui";
 import { CheckCircle2, Circle, User } from "lucide-react";
@@ -249,6 +250,11 @@ export function JourneyDetail({
         defaultExpanded
         headerActions={
           <div className="flex flex-wrap gap-2">
+            {journey.student_id && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/students/${journey.student_id}`}>View student</Link>
+              </Button>
+            )}
             <Badge variant="outline">{stages[lifecycle(journey)]}</Badge>
             <ActionBadges actions={actions} />
           </div>
