@@ -29,6 +29,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { useInterviewAccess } from '@/features/interviews/hooks/use-interview-access';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { useResourceSubjectNavItems } from '@/features/resources/hooks/useResources';
 import {
@@ -39,7 +40,7 @@ import {
 import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
-import { isInterviewPrototypeFullscreenPath } from '@/shared/lib/shell-layout';
+import { isInterviewFullscreenPath } from '@/shared/lib/shell-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -118,7 +119,7 @@ function renderUcatDropdownChild(
 
 const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
 
-function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
+function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean): NavItem[] {
   const { data: subjects } = useResourceSubjectNavItems();
 
   return useMemo(() => {
@@ -152,19 +153,27 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
       });
     }
 
+    if (isInterviewTutor) {
+      items.push({ type: 'dropdown', title: 'Interviews', href: '/interviews', icon: Users, children: [
+        { title: 'Interviews', href: '/interviews', icon: Layers },
+        { title: 'Question bank', href: '/interviews/questions', icon: FileQuestion },
+      ] });
+    }
+
     // DEV-8 throwaway entry: keep the new section beside UCAT during UI exploration.
     if (process.env.NODE_ENV !== 'production') {
       items.push({ title: 'Interviews · prototype', href: '/interviews/prototype/authoring', icon: Users });
     }
 
     return items;
-  }, [subjects, isUcatTutor]);
+  }, [subjects, isUcatTutor, isInterviewTutor]);
 }
 
 function getInitialOpenDropdowns(pathname: string): Record<string, boolean> {
   return {
     Resources: isResourcesNavSectionActive(pathname),
     UCAT: pathname.startsWith('/ucat'),
+    Interviews: pathname.startsWith('/interviews'),
   };
 }
 
@@ -176,6 +185,7 @@ function isDropdownParentActive(pathname: string, parentHref: string): boolean {
 }
 
 function isDropdownChildActive(pathname: string, parentHref: string, childHref: string): boolean {
+  if (parentHref === '/interviews' && childHref === '/interviews') return !pathname.startsWith('/interviews/questions') && pathname.startsWith('/interviews');
   if (parentHref === '/resources') {
     return isResourceSubjectNavActive(pathname, childHref);
   }
@@ -255,6 +265,7 @@ function MobileMenu({
       ...prev,
       ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
       ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+      ...(pathname.startsWith('/interviews') ? { Interviews: true } : {}),
     }));
   }, [pathname]);
 
@@ -457,6 +468,7 @@ function SidebarNav({
       ...prev,
       ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
       ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+      ...(pathname.startsWith('/interviews') ? { Interviews: true } : {}),
     }));
   }, [pathname]);
 
@@ -624,13 +636,14 @@ export default function TutorClientLayout({
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const ucatAccess = useUcatAccess();
   const isUcatTutor = !!ucatAccess.data;
-  const primaryItems = useTutorPrimaryNavItems(isUcatTutor);
+  const interviewAccess = useInterviewAccess();
+  const primaryItems = useTutorPrimaryNavItems(isUcatTutor, !!interviewAccess.data);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
 
-  if (isInterviewPrototypeFullscreenPath(pathname)) return <>{children}</>;
+  if (isInterviewFullscreenPath(pathname)) return <>{children}</>;
 
   return (
     <>

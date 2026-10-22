@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_events_legacy: {
@@ -4326,6 +4351,685 @@ export type Database = {
           processing_error?: string | null
           received_at?: string
           temp_guid?: string | null
+        }
+        Relationships: []
+      }
+      interview_categories: {
+        Row: {
+          id: string
+          name: string
+          parent_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          parent_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "interview_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_command_receipts: {
+        Row: {
+          actor_user_id: string
+          command: Json
+          command_id: string
+          created_at: string
+          result: Json
+        }
+        Insert: {
+          actor_user_id: string
+          command: Json
+          command_id: string
+          created_at?: string
+          result: Json
+        }
+        Update: {
+          actor_user_id?: string
+          command?: Json
+          command_id?: string
+          created_at?: string
+          result?: Json
+        }
+        Relationships: []
+      }
+      interview_media_jobs: {
+        Row: {
+          lease_token: string | null
+          lease_until: string | null
+          next_attempt_at: string
+          revision: number
+          round_id: string
+        }
+        Insert: {
+          lease_token?: string | null
+          lease_until?: string | null
+          next_attempt_at?: string
+          revision?: number
+          round_id: string
+        }
+        Update: {
+          lease_token?: string | null
+          lease_until?: string | null
+          next_attempt_at?: string
+          revision?: number
+          round_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_media_sessions: {
+        Row: {
+          attempt_id: string
+          closed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          phase_key: string
+          recording_active: boolean
+          recording_checked_at: string | null
+          recording_enabled: boolean
+          recording_error: string | null
+          recording_requested_at: string | null
+          room_name: string
+          room_url: string | null
+          round_id: string
+          tutor_id: string | null
+        }
+        Insert: {
+          attempt_id: string
+          closed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          kind?: string
+          phase_key: string
+          recording_active?: boolean
+          recording_checked_at?: string | null
+          recording_enabled?: boolean
+          recording_error?: string | null
+          recording_requested_at?: string | null
+          room_name: string
+          room_url?: string | null
+          round_id: string
+          tutor_id?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          closed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          phase_key?: string
+          recording_active?: boolean
+          recording_checked_at?: string | null
+          recording_enabled?: boolean
+          recording_error?: string | null
+          recording_requested_at?: string | null
+          room_name?: string
+          room_url?: string | null
+          round_id?: string
+          tutor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_presence: {
+        Row: {
+          last_seen_at: string
+          round_id: string
+          student_id: string
+        }
+        Insert: {
+          last_seen_at?: string
+          round_id: string
+          student_id: string
+        }
+        Update: {
+          last_seen_at?: string
+          round_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "interview_presence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      interview_questions: {
+        Row: {
+          archived: boolean
+          category_id: string
+          id: string
+          prompt: Json
+          question: Json
+          rubric: Json
+          rubric_version: number
+          suggested_time_seconds: number
+          tag_ids: string[]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          archived?: boolean
+          category_id: string
+          id: string
+          prompt: Json
+          question: Json
+          rubric: Json
+          rubric_version?: number
+          suggested_time_seconds?: number
+          tag_ids?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          archived?: boolean
+          category_id?: string
+          id?: string
+          prompt?: Json
+          question?: Json
+          rubric?: Json
+          rubric_version?: number
+          suggested_time_seconds?: number
+          tag_ids?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_questions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "interview_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_recordings: {
+        Row: {
+          attempt_id: string
+          capture_id: string | null
+          created_at: string
+          expires_at: string
+          expiry_error: string | null
+          expiry_retry_at: string
+          id: string
+          kind: string
+          provider_id: string
+          round_id: string
+          state: string
+          storage_path: string | null
+        }
+        Insert: {
+          attempt_id: string
+          capture_id?: string | null
+          created_at?: string
+          expires_at?: string
+          expiry_error?: string | null
+          expiry_retry_at?: string
+          id?: string
+          kind: string
+          provider_id: string
+          round_id: string
+          state: string
+          storage_path?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          capture_id?: string | null
+          created_at?: string
+          expires_at?: string
+          expiry_error?: string | null
+          expiry_retry_at?: string
+          id?: string
+          kind?: string
+          provider_id?: string
+          round_id?: string
+          state?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_recordings_capture_fk"
+            columns: ["capture_id"]
+            isOneToOne: false
+            referencedRelation: "interview_media_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_result_releases: {
+        Row: {
+          created_at: string
+          released_by: string
+          revision: number
+          round_id: string
+          snapshot: Json
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          released_by: string
+          revision: number
+          round_id: string
+          snapshot: Json
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          released_by?: string
+          revision?: number
+          round_id?: string
+          snapshot?: Json
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      interview_rounds: {
+        Row: {
+          created_by: string
+          data: Json
+          id: string
+          interview_id: string
+          student_ids: string[]
+          tutor_ids: string[]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_by: string
+          data: Json
+          id: string
+          interview_id: string
+          student_ids: string[]
+          tutor_ids: string[]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_by?: string
+          data?: Json
+          id?: string
+          interview_id?: string
+          student_ids?: string[]
+          tutor_ids?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_rounds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_rounds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_rounds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_rounds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_rounds_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_rubric_revisions: {
+        Row: {
+          actor_id: string
+          created_at: string
+          question_id: string
+          rubric: Json
+          version: number
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          question_id: string
+          rubric: Json
+          version: number
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          question_id?: string
+          rubric?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_rubric_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_rubric_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_rubric_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_rubric_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_rubric_revisions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "interview_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_tags: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      interviews: {
+        Row: {
+          data: Json
+          id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          data: Json
+          id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          data?: Json
+          id?: string
+          updated_at?: string
+          version?: number
         }
         Relationships: []
       }
@@ -26520,6 +27224,28 @@ export type Database = {
         }
         Relationships: []
       }
+      vstudent_interview_access: {
+        Row: {
+          has_access: boolean | null
+          student_id: string | null
+        }
+        Relationships: []
+      }
+      vstudent_interview_rounds: {
+        Row: {
+          data: Json | null
+          id: string | null
+        }
+        Insert: {
+          data?: never
+          id?: string | null
+        }
+        Update: {
+          data?: never
+          id?: string | null
+        }
+        Relationships: []
+      }
       vstudent_invoice_items: {
         Row: {
           amount_cents: number | null
@@ -33735,6 +34461,130 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vtutor_interview_access: {
+        Row: {
+          has_access: boolean | null
+          tutor_id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_catalog: {
+        Row: {
+          data: Json | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_result_releases: {
+        Row: {
+          created_at: string | null
+          released_by: string | null
+          revision: number | null
+          round_id: string | null
+          snapshot: Json | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      vtutor_interview_rounds: {
+        Row: {
+          data: Json | null
+          id: string | null
+        }
+        Insert: {
+          data?: never
+          id?: string | null
+        }
+        Update: {
+          data?: never
+          id?: string | null
+        }
+        Relationships: []
       }
       vtutor_notes: {
         Row: {
@@ -43269,6 +44119,88 @@ export type Database = {
         }
         Returns: undefined
       }
+      interview_audio_capture: {
+        Args: { p_round_id: string; p_tutor_id: string }
+        Returns: Json
+      }
+      interview_audio_segment: {
+        Args: {
+          p_capture_id: string
+          p_round_id: string
+          p_segment_id: string
+          p_storage_path: string
+          p_tutor_id: string
+        }
+        Returns: Json
+      }
+      interview_can_receive_round: {
+        Args: { p_round_id: string }
+        Returns: boolean
+      }
+      interview_claim_media_job: {
+        Args: { p_round_id?: string }
+        Returns: {
+          lease_token: string
+          revision: number
+          round_id: string
+        }[]
+      }
+      interview_command: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
+      interview_complete_media_job: {
+        Args: {
+          p_delay_seconds?: number
+          p_lease_token: string
+          p_retire?: boolean
+          p_revision: number
+          p_round_id: string
+        }
+        Returns: undefined
+      }
+      interview_effective_state: { Args: { p_data: Json }; Returns: Json }
+      interview_media_state: { Args: { p_round_id: string }; Returns: Json }
+      interview_question_json: {
+        Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
+        Returns: Json
+      }
+      interview_recording_json: {
+        Args: { r: Database["public"]["Tables"]["interview_recordings"]["Row"] }
+        Returns: Json
+      }
+      interview_recording_update: {
+        Args: {
+          p_attempt_id: string
+          p_kind: string
+          p_provider_id: string
+          p_round_id: string
+          p_state: string
+          p_storage_path?: string
+        }
+        Returns: string
+      }
+      interview_round_json: {
+        Args: { r: Database["public"]["Tables"]["interview_rounds"]["Row"] }
+        Returns: Json
+      }
+      interview_setup_data: {
+        Args: { p_actor: string; p_created_at: string; p_setup: Json }
+        Returns: Json
+      }
+      interview_student_has_access: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
+      interview_student_round_json: {
+        Args: {
+          p_student_id: string
+          r: Database["public"]["Tables"]["interview_rounds"]["Row"]
+        }
+        Returns: Json
+      }
+      interview_tutor_id: { Args: { p_user_id: string }; Returns: string }
+      interview_validate_template: { Args: { d: Json }; Returns: undefined }
       invoice_lifecycle_event_payload: {
         Args: { row_data: Json }
         Returns: Json
@@ -45307,6 +46239,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       billing_type: ["CLASS", "EXAM_COURSE", "DRAFTING"],

@@ -70,6 +70,9 @@ bash supabase/scripts/apply-ucat-test-seed.sh
 section "Database contracts"
 supabase test db
 
+section "Concurrent medicine interview participants"
+python3 supabase/scripts/test-interview-concurrency.py
+
 section "UCAT critical browser journeys"
 pnpm --filter ucat-web exec playwright install chromium
 if [ -z "${UCAT_E2E_BASE_URL:-}" ]; then

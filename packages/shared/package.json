@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./interviews/server": {
+      "types": "./dist/interviews/server/index.d.ts",
+      "default": "./dist/interviews/server/index.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
@@ -54,6 +58,7 @@
   },
   "dependencies": {
     "@altitutor/ucat-response-contract": "workspace:*",
+    "@supabase/supabase-js": "2.112.3",
     "date-fns": "^4.1.0"
   }
 }
