@@ -1407,6 +1407,22 @@ export function generateStudyPlan(
         (remainingDemand.get(demandKey(activity)) ?? 0) +
           Math.max(0.25, activity.dose.sectionEquivalents),
       );
+      useCounts.set(
+        activity.id,
+        Math.max(0, (useCounts.get(activity.id) ?? 0) - 1),
+      );
+      if (activity.kind === "instruction") {
+        consumedOnce.delete(activity.id);
+        if (activity.sectionId) {
+          instructionUseBySection.set(
+            activity.sectionId,
+            Math.max(
+              0,
+              (instructionUseBySection.get(activity.sectionId) ?? 0) - 1,
+            ),
+          );
+        }
+      }
       if (!activity.sectionId || !isPracticeActivity(activity)) return;
       ordinaryCoreSessionCount = Math.max(0, ordinaryCoreSessionCount - 1);
       practiceUseBySection.set(
@@ -1534,7 +1550,6 @@ export function generateStudyPlan(
             });
           }
           if (requestedQuestionCount === 0) continue;
-          canonicalTasks.push(selectedTask);
           const linkedCategories = activity.categoryIds.flatMap(
             (categoryId) => {
               const category = input.categories.find(
@@ -1581,14 +1596,29 @@ export function generateStudyPlan(
             activity.questionTagIds.length === 1
               ? activity.questionTagIds[0]!
               : null;
-          canonicalTasks.push(linkedPractice);
           const linkedReview = reviewTask(
             linkedPractice,
             date,
             sortOrder++,
             "learning",
           );
-          canonicalTasks.push({
+          // General lessons use the same day capacity as the complete section loop.
+          // Defer the entire loop, retaining its demand for the next available day.
+          const usedMinutes = canonicalTasks
+            .slice(firstDayTaskIndex)
+            .reduce((total, task) => total + task.estimatedMinutes, 0);
+          if (
+            generalMinutes > 0 &&
+            usedMinutes +
+              selectedTask.estimatedMinutes +
+              linkedPractice.estimatedMinutes +
+              linkedReview.estimatedMinutes >
+              ORDINARY_STUDY_DAY_MINUTES
+          ) {
+            rollBackSelection(activity);
+            continue;
+          }
+          canonicalTasks.push(selectedTask, linkedPractice, {
             ...linkedReview,
             rationale: linkedPractice.rationale,
             launchConfig: {
@@ -1614,11 +1644,24 @@ export function generateStudyPlan(
         }
         continue;
       }
-      canonicalTasks.push(selectedTask);
       const selectedReviewMinutes =
         typeof selectedTask.launchConfig.reviewMinutes === "number"
           ? selectedTask.launchConfig.reviewMinutes
           : activity.duration.reviewMinutes;
+      if (
+        generalMinutes > 0 &&
+        activity.sectionId != null &&
+        canonicalTasks
+          .slice(firstDayTaskIndex)
+          .reduce((total, task) => total + task.estimatedMinutes, 0) +
+          selectedTask.estimatedMinutes +
+          selectedReviewMinutes >
+          ORDINARY_STUDY_DAY_MINUTES
+      ) {
+        rollBackSelection(activity);
+        continue;
+      }
+      canonicalTasks.push(selectedTask);
       if (selectedReviewMinutes > 0) {
         const review = reviewTask(
           selectedTask,

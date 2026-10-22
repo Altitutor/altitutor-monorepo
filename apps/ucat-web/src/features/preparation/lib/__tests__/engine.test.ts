@@ -217,6 +217,12 @@ describe("prepareStudent", () => {
       completionPercent: 0,
       relevanceScore: 1,
     });
+    fixture.content.learningModules[0]!.targetedPracticeInventory = {
+      strictStemCount: 6,
+      strictQuestionCount: 6,
+      preferredTagStemCount: 6,
+      preferredTagQuestionCount: 6,
+    };
     const tasks = prepareStudent(fixture).plan.tasks;
     expect(
       tasks
@@ -231,6 +237,48 @@ describe("prepareStudent", () => {
         (task) => task.learningModuleId === "intro",
       ),
     ).toHaveLength(1);
+  });
+
+  it("defers a complete Learning loop when general lessons leave too little day capacity", () => {
+    const fixture = input();
+    fixture.goal.profile.availableDays = [{ weekday: 1 }];
+    fixture.content.learningModules.push({
+      id: "intro",
+      title: "Basics",
+      sectionId: null,
+      sectionNumber: null,
+      priority: "essential",
+      journeyPlacement: "orientation",
+      estimatedMinutes: 20,
+      completionPercent: 0,
+      relevanceScore: 1,
+    });
+    const tasks = prepareStudent(fixture).plan.tasks;
+    const firstDay = tasks.filter(
+      (task) => task.scheduledDate === "2026-01-05",
+    );
+    expect(
+      firstDay.reduce((minutes, task) => minutes + task.estimatedMinutes, 0),
+    ).toBeLessThanOrEqual(60);
+    expect(firstDay.map((task) => task.learningModuleId)).toEqual(["intro"]);
+    const deferredLoop = tasks.filter(
+      (task) =>
+        task.scheduledDate === "2026-01-12" &&
+        (task.learningModuleId === "module-vr" ||
+          task.launchConfig.learningModuleId === "module-vr"),
+    );
+    expect(deferredLoop.map((task) => task.taskType)).toEqual([
+      "learn",
+      "practice",
+      "review",
+    ]);
+    expect(deferredLoop[0]?.learningModuleId).toBe("module-vr");
+    expect(
+      deferredLoop.reduce(
+        (minutes, task) => minutes + task.estimatedMinutes,
+        0,
+      ),
+    ).toBe(60);
   });
 
   it("honours priority then authored order without prescribing unclassified or Optional general lessons", () => {

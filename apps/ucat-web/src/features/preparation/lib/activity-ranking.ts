@@ -1,3 +1,4 @@
+import type { LearningModuleJourneyPlacement } from "@altitutor/shared";
 import { addDays } from "@/features/study-plan/lib/dates";
 import type {
   StudyPlanCategorySignal,
@@ -15,6 +16,29 @@ import {
 } from "@/features/preparation/lib/sjt-allocation-policy";
 import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
 import { estimateQuestionReviewMinutes } from "@/features/preparation/lib/review-duration-policy";
+
+const GENERAL_LESSON_POLICIES = {
+  orientation: {
+    studentReason:
+      "Get familiar with UCAT preparation before section learning.",
+    milestone: 350,
+  },
+  later_learning: {
+    studentReason:
+      "Consolidate your methods as you finish the core section lessons.",
+    milestone: 320,
+  },
+  pre_exam: {
+    studentReason: "Prepare for the transition into exam-focused study.",
+    milestone: 330,
+  },
+} satisfies Record<
+  Exclude<LearningModuleJourneyPlacement, "section_learning">,
+  {
+    studentReason: string;
+    milestone: number;
+  }
+>;
 
 export const LEARNING_MODULE_SESSION_MINUTES = 20;
 
@@ -251,7 +275,7 @@ export function rankActivityCandidates(
     });
   const preExamStartsOn = addDays(input.planningDate, -67);
   const preExamInHorizon = preExamStartsOn <= addDays(input.today, 20);
-  const orientation = input.learningModules
+  const eligibleGeneralLessons = input.learningModules
     .filter(
       (module) =>
         input.today < input.planningDate &&
@@ -272,7 +296,10 @@ export function rankActivityCandidates(
           (b.authoredOrder ?? Number.MAX_SAFE_INTEGER) ||
         a.id.localeCompare(b.id),
     );
-  for (const [index, module] of orientation.entries()) {
+  for (const [index, module] of eligibleGeneralLessons.entries()) {
+    const placement = module.journeyPlacement;
+    if (!placement || placement === "section_learning") continue;
+    const policy = GENERAL_LESSON_POLICIES[placement];
     result.push(
       candidate({
         ...(module.journeyPlacement === "pre_exam" &&
@@ -292,19 +319,9 @@ export function rankActivityCandidates(
         },
         objective: "complete_instruction",
         reasonCode: `activity.${module.journeyPlacement}`,
-        studentReason:
-          module.journeyPlacement === "orientation"
-            ? "Get familiar with UCAT preparation before section learning."
-            : module.journeyPlacement === "pre_exam"
-              ? "Prepare for the transition into exam-focused study."
-              : "Consolidate your methods as you finish the core section lessons.",
+        studentReason: policy.studentReason,
         ranking: factors({
-          milestone:
-            (module.journeyPlacement === "orientation"
-              ? 350
-              : module.journeyPlacement === "pre_exam"
-                ? 330
-                : 320) - index,
+          milestone: policy.milestone - index,
           weakness: 0,
           uncertainty: 0,
           targetGap: 0,
