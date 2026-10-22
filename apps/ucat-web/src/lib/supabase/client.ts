@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/lib/supabase/auth-cookie";
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
@@ -30,7 +31,7 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
             detectSessionInUrl: false,
           },
           cookieOptions: {
-            name: "student-auth",
+            name: getAuthCookieName(),
           },
           isSingleton: true,
         },
@@ -57,7 +58,7 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
       detectSessionInUrl: false,
     },
     cookieOptions: {
-      name: "student-auth",
+      name: getAuthCookieName(),
     },
     isSingleton: true,
     ...(diagnostics ? { global: { fetch: diagnostics.fetch } } : {}),

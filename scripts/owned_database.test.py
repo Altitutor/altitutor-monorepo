@@ -13,7 +13,7 @@ import unittest
 
 SCRIPT = Path(__file__).with_name('owned_database.py').resolve()
 CONFIG = 'project_id = "altitutor-admin-app"\n[api]\nport = 55321\n[db]\nport = 55322\nshadow_port = 55320\n'
-FAKE = r"""import json,os,sys,time
+FAKE = r"""import json,os,re,sys,time
 from pathlib import Path
 state=Path(os.environ['FIXTURE_STATE']);data=json.loads(state.read_text());args=sys.argv[1:];name=Path(sys.argv[0]).name
 with open(os.environ['FIXTURE_LOG'],'a') as output: output.write(json.dumps([name,args])+'\n')
@@ -27,7 +27,7 @@ if name=='docker':
  elif args[0]=='exec':
   assert args[2]=='owned-db', 'foreign container seed';sys.stdin.read()
 elif name=='pnpm' and 'next' in args:
- assert os.environ['NEXT_PUBLIC_SUPABASE_URL']==('http://127.0.0.1:57321' if os.environ.get('ALTITUTOR_OWNED_DB_INNER') else 'http://127.0.0.1:1')
+ assert os.environ['NEXT_PUBLIC_SUPABASE_URL']==('http://127.0.0.1:'+data['api_port'] if os.environ.get('ALTITUTOR_OWNED_DB_INNER') else 'http://127.0.0.1:1')
  if os.environ.get('FIXTURE_PREVIEW_SLEEP'):time.sleep(30)
 elif name=='supabase':
  if os.environ.get('FIXTURE_REQUIRE_NO_TELEMETRY') and os.environ.get('SUPABASE_TELEMETRY_DISABLED')!='1':
@@ -36,11 +36,16 @@ elif name=='supabase':
   workdir=Path(args[1]);manifest=json.loads((workdir/'ownership.json').read_text())
   assert manifest['role']=='disposable-test'
   project=manifest['project_id'];data['workdir']=str(workdir)
+  config=(workdir/'supabase/config.toml').read_text()
+  data['api_port']=re.search(r'\[api\]\nport = (\d+)',config)[1]
+  data['db_port']=re.search(r'\[db\]\nport = (\d+)',config)[1]
   records={}
   for identifier in ['owned-db','owned-api']:
    record=data['records'][identifier];service='db' if identifier=='owned-db' else 'kong'
    record['Name']='/supabase_'+service+'_'+project
    record['Config']['Labels']['com.supabase.cli.project']=project
+   internal='5432/tcp' if service=='db' else '8000/tcp'
+   record['NetworkSettings']['Ports'][internal][0]['HostPort']=data['db_port'] if service=='db' else data['api_port']
    records[identifier]=record;records['supabase_'+service+'_'+project]=record
   data['records']=records
  assert args[:2]==['--workdir',data['workdir']], 'foreign workdir'
@@ -48,7 +53,9 @@ elif name=='supabase':
  if args[0]=='start':
   data['started']=True;data['stopped']=False;state.write_text(json.dumps(data))
   if os.environ.get('FIXTURE_START_FAIL'):sys.exit(9)
- elif args[0]=='status': print('API_URL="http://127.0.0.1:57321"\nANON_KEY="synthetic-public"\nSERVICE_ROLE_KEY="synthetic-service"')
+ elif args[0]=='status':
+  database_url=os.environ.get('FIXTURE_DB_URL_OVERRIDE','postgresql://postgres:postgres@127.0.0.1:'+data['db_port']+'/postgres')
+  print('API_URL="http://127.0.0.1:'+data['api_port']+'"\nDB_URL="'+database_url+'"\nANON_KEY="synthetic-public"\nSERVICE_ROLE_KEY="synthetic-service"')
  elif args[:2]==['db','reset'] and os.environ.get('FIXTURE_RESET_REPLACE'):
   for record in data['records'].values():
    if record['Id']=='owned-api':record['Id']='reset-api'
@@ -70,9 +77,9 @@ class OwnedDatabaseTests(unittest.TestCase):
         (self.repo / 'supabase/seed/test-ucat/fixture.sql').write_text('SELECT 1;\n')
         (self.repo / 'packages/shared/src/supabase').mkdir(parents=True)
         (self.repo / 'scripts').mkdir()
-        # Substitute only fixture filesystem lock locations in this disposable
-        # script copy; keep real kernel locks shared by both independent clones.
-        helper=SCRIPT.read_text().replace("Path('/tmp/altitutor-disposable-database.lock')", "Path("+repr(str(self.base/'database.lock'))+")").replace("Path('/tmp/altitutor-prototype-preview.lock')", "Path("+repr(str(self.base/'preview.lock'))+")")
+        # Keep the single routed preview lock inside this fixture. Database
+        # locks are already scoped to each independently prepared runtime.
+        helper=SCRIPT.read_text().replace("Path('/tmp/altitutor-prototype-preview.lock')", "Path("+repr(str(self.base/'preview.lock'))+")")
         # Keep synthetic preview tests away from a real human review server.
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
@@ -211,7 +218,7 @@ class OwnedDatabaseTests(unittest.TestCase):
 
     def test_failure_cleans_owned_stack_and_overrides_remote_consumer_environment(self):
         consumer=self.base/'consumer.py'
-        consumer.write_text('import os,sys\nassert os.environ["NEXT_PUBLIC_SUPABASE_URL"]=="http://127.0.0.1:57321"\nassert os.environ["UCAT_E2E_SUPABASE_URL"]=="http://127.0.0.1:57321"\nassert os.environ["STUDENT_E2E_SUPABASE_URL"]=="http://127.0.0.1:57321"\nassert os.environ["ADMIN_E2E_SUPABASE_URL"]=="http://127.0.0.1:57321"\nassert os.environ["TUTOR_E2E_SUPABASE_URL"]=="http://127.0.0.1:57321"\nsys.exit(7)\n')
+        consumer.write_text('import json,os,sys\nfrom pathlib import Path\nport=json.loads(Path(os.environ["FIXTURE_STATE"]).read_text())["api_port"]\nassert os.environ["NEXT_PUBLIC_SUPABASE_URL"]=="http://127.0.0.1:"+port\nassert os.environ["UCAT_E2E_SUPABASE_URL"]=="http://127.0.0.1:"+port\nassert os.environ["STUDENT_E2E_SUPABASE_URL"]=="http://127.0.0.1:"+port\nassert os.environ["ADMIN_E2E_SUPABASE_URL"]=="http://127.0.0.1:"+port\nassert os.environ["TUTOR_E2E_SUPABASE_URL"]=="http://127.0.0.1:"+port\nsys.exit(7)\n')
         self.env.update(NEXT_PUBLIC_SUPABASE_URL='https://remote.example',UCAT_E2E_SUPABASE_URL='https://remote.example', STUDENT_E2E_SUPABASE_URL='https://remote.example', ADMIN_E2E_SUPABASE_URL='https://remote.example', TUTOR_E2E_SUPABASE_URL='https://remote.example')
         result=self.call('run','--manifest',str(self.manifest),'--',sys.executable,str(consumer))
         self.assertNotEqual(result.returncode,0)
@@ -290,6 +297,65 @@ class OwnedDatabaseTests(unittest.TestCase):
         result=self.call('seed','--manifest',str(self.manifest))
         self.assertNotEqual(result.returncode,0)
         self.assertEqual(self.calls(),[])
+
+    def test_independent_runtimes_run_concurrently_on_distinct_ports(self):
+        other = OwnedDatabaseTests()
+        other.setUp()
+        processes = []
+        try:
+            markers = []
+            for fixture in [self, other]:
+                marker = fixture.base / 'running'
+                markers.append(marker)
+                command = 'from pathlib import Path;import time;Path(' + repr(str(marker)) + ').touch();time.sleep(30)'
+                processes.append(subprocess.Popen(fixture.command('run', '--manifest', str(fixture.manifest),
+                    '--', sys.executable, '-c', command), env=fixture.env,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            deadline = time.monotonic() + 6
+            while not all(marker.exists() for marker in markers) and time.monotonic() < deadline:
+                time.sleep(.05)
+            self.assertTrue(all(marker.exists() for marker in markers), 'Independent database consumers must overlap')
+            first = json.loads(self.state.read_text())
+            second = json.loads(other.state.read_text())
+            self.assertNotEqual(first['api_port'], second['api_port'])
+            self.assertNotEqual(first['db_port'], second['db_port'])
+            self.assertNotEqual(self.project, other.project)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.terminate()
+                process.communicate(timeout=8)
+            other.tearDown()
+
+    def test_occupied_allocated_port_fails_before_starting_or_stopping_a_stack(self):
+        import re
+        api_port = int(re.search(r'\[api\]\nport = (\d+)',
+            (self.runtime / 'supabase/config.toml').read_text())[1])
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', api_port))
+            result = self.call('seed', '--manifest', str(self.manifest))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('port occupied', result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_stopped_owned_service_can_still_be_cleaned_using_exact_container_ids(self):
+        command = ('import json,os;from pathlib import Path;'
+                   'p=Path(os.environ["FIXTURE_STATE"]);d=json.loads(p.read_text());'
+                   '[record["State"].update(Running=False) for record in d["records"].values()];'
+                   'p.write_text(json.dumps(d))')
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', command)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(json.loads(self.state.read_text())['stopped'])
+
+    def test_nonlocal_database_status_connection_is_rejected_before_consumer(self):
+        self.env['FIXTURE_DB_URL_OVERRIDE'] = 'postgresql://postgres:password@remote.invalid:5432/postgres'
+        marker = self.base / 'consumer-must-not-run'
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c',
+                           'from pathlib import Path;Path(' + repr(str(marker)) + ').touch()')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('verified loopback DB port', result.stderr)
+        self.assertFalse(marker.exists())
+        self.assertTrue(json.loads(self.state.read_text())['stopped'])
 
 if __name__=='__main__':
     unittest.main()

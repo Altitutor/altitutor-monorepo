@@ -1,6 +1,6 @@
-"""Disposable Supabase ownership and a machine-wide database consumer lease.
+"""Disposable Supabase ownership and independent runtime consumer leases.
 
-Ordinary Docker/Supabase with a shared lock; no daemon or network customization.
+Ordinary Docker/Supabase with per-runtime locks; no daemon or network customization.
 Unproven targets fail closed.
 Python 3.9+; only the project's literal identity/port fields are parsed here.
 """
@@ -24,7 +24,6 @@ import tempfile
 import uuid
 from urllib.parse import urlparse
 
-LOCK = Path('/tmp/altitutor-disposable-database.lock')
 PREVIEW_LOCK = Path('/tmp/altitutor-prototype-preview.lock')
 PREFIX = 'altitutor-agent-test-'
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +65,47 @@ def configuration(workdir):
     return path, project[0], port(db), port(api)
 
 
+def free_ports(count, excluded=()):
+    """Keep all probes bound until the complete set has been allocated."""
+    probes = []
+    ports = []
+    try:
+        while len(ports) < count:
+            probe = socket.socket()
+            probe.bind(('127.0.0.1', 0))
+            probes.append(probe)
+            port = probe.getsockname()[1]
+            if port not in excluded:
+                ports.append(port)
+        return ports
+    finally:
+        for probe in probes:
+            probe.close()
+
+
+def configured_ports(workdir):
+    text = (workdir / 'supabase/config.toml').read_text()
+    return [int(value) for value in re.findall(
+        r'^(?:port|shadow_port|inspector_port)\s*=\s*(\d+)\s*(?:#.*)?$', text, re.M)
+        if int(value) != 587]  # External SMTP destination, not a local listener.
+
+
+@contextmanager
+def claim_ports(ports):
+    """Independent kernel leases prevent our runtimes sharing a listener."""
+    from contextlib import ExitStack
+    with ExitStack() as leases:
+        for port in sorted(ports):
+            leases.enter_context(exclusive(Path(tempfile.gettempdir()) /
+                ('altitutor-local-port-' + str(port) + '.lock'), wait=False))
+            with socket.socket() as probe:
+                try:
+                    probe.bind(('127.0.0.1', port))
+                except OSError as error:
+                    raise Blocked('Allocated port occupied; retry with a fresh runtime: ' + str(port)) from error
+        yield
+
+
 def prepare(repository, workdir):
     if workdir.exists() or workdir == repository or repository in workdir.parents:
         raise Blocked('Use a fresh disposable runtime directory outside the checkout')
@@ -83,8 +123,13 @@ def prepare(repository, workdir):
     path = workdir / 'supabase/config.toml'
     text = re.sub(r'^project_id\s*=.*$', 'project_id = "' + PREFIX + uuid.uuid4().hex[:8] + '"',
                   path.read_text(), count=1, flags=re.M)
-    # One serialized test port range; never the normal 5532x/5632x stacks.
-    text = re.sub(r'\b5532[0-9]\b', lambda match: str(int(match[0]) + 2000), text)
+    # Allocate every host listener, including the Edge inspector. SMTP's 587
+    # is an outbound destination and must not be rewritten.
+    listeners = re.findall(r'^(?:port|shadow_port|inspector_port)\s*=\s*(\d+)\s*(?:#.*)?$', text, re.M)
+    ports = iter(free_ports(sum(int(value) != 587 for value in listeners)))
+    text = re.sub(r'^((?:port|shadow_port|inspector_port)\s*=\s*)(\d+)(\s*(?:#.*)?)$',
+                  lambda match: match[1] + (str(next(ports)) if int(match[2]) != 587 else match[2]) + match[3],
+                  text, flags=re.M)
     path.write_text(text)
     _, project, _, _ = configuration(workdir)
     manifest = dict(role='disposable-test', repository=str(repository), workdir=str(workdir),
@@ -96,7 +141,7 @@ def prepare(repository, workdir):
     return target
 
 
-def owned_manifest(manifest_path, repository):
+def owned_manifest(manifest_path, repository, *, check_source=True):
     if not manifest_path:
         raise Blocked('Database work requires a disposable ALTITUTOR_TEST_DB_MANIFEST; shared DB is forbidden')
     path = Path(manifest_path).resolve()
@@ -108,14 +153,14 @@ def owned_manifest(manifest_path, repository):
             or workdir == repository or repository in workdir.parents
             or path.parent != workdir or data.get('repository') != str(repository)
             or digest(config) != data.get('config_sha256')
-            or tree_digest(repository / 'supabase') != data.get('source_tree_sha256')
+            or (check_source and tree_digest(repository / 'supabase') != data.get('source_tree_sha256'))
             or tree_digest(workdir / 'supabase') != data.get('prepared_tree_sha256')):
         raise Blocked('Disposable ownership manifest/config/schema does not match this checkout')
     return workdir, project
 
 
 @contextmanager
-def exclusive(path=LOCK, *, wait=True):
+def exclusive(path, *, wait=True):
     descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         info = os.fstat(descriptor)
@@ -126,7 +171,7 @@ def exclusive(path=LOCK, *, wait=True):
         except BlockingIOError:
             if not wait:
                 raise Blocked('Consumer already owns the common lifecycle lock (' + path.name + ')')
-            print('Waiting for the shared disposable database lock', file=sys.stderr, flush=True)
+            print('Waiting for this runtime\'s database lock', file=sys.stderr, flush=True)
             fcntl.flock(descriptor, fcntl.LOCK_EX)
         yield descriptor
     finally:
@@ -180,7 +225,7 @@ def ci_owned(repository):
 def verify_inner(repository, manifest_path):
     workdir, project = owned_manifest(manifest_path, repository)
     descriptor = int(os.environ.get('ALTITUTOR_DB_LOCK_FD', '-1'))
-    inherited, current = os.fstat(descriptor), LOCK.stat()
+    inherited, current = os.fstat(descriptor), (workdir / 'lifecycle.lock').stat()
     if (inherited.st_dev, inherited.st_ino) != (current.st_dev, current.st_ino):
         raise Blocked('Missing exact inherited lifecycle lock')
     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -243,7 +288,7 @@ def supabase_environment():
 
 def clean_environment():
     environment = dict(os.environ)
-    prefixes = ('UCAT_E2E_', 'ADMIN_E2E_', 'STUDENT_E2E_', 'TUTOR_E2E_', 'MARKETING_E2E_', 'SUPABASE_', 'NEXT_PUBLIC_SUPABASE_', 'EXPO_PUBLIC_SUPABASE_',
+    prefixes = ('DATABASE_URL', 'UCAT_E2E_', 'ADMIN_E2E_', 'STUDENT_E2E_', 'TUTOR_E2E_', 'MARKETING_E2E_', 'SUPABASE_', 'NEXT_PUBLIC_SUPABASE_', 'EXPO_PUBLIC_SUPABASE_',
                 'SENTRY_', 'NEXT_PUBLIC_SENTRY_', 'EXPO_PUBLIC_SENTRY_', 'POSTHOG_',
                 'NEXT_PUBLIC_POSTHOG_', 'EXPO_PUBLIC_POSTHOG_')
     for key in list(environment):
@@ -299,9 +344,17 @@ def project_containers(project):
     return records
 
 
-def consumer(repository, manifest_path, command):
+def verify_cleanup_receipt(workdir, records):
+    """Exact IDs remain proof even when an owned service has stopped/crashed."""
+    expected = json.loads((workdir / 'containers.json').read_text())
+    actual = [record.get('Id') for record in records]
+    if len(actual) != len(expected) or set(actual) != set(expected):
+        raise Blocked('Owned database container replaced; cleanup requires fresh ownership proof')
+
+
+def consumer(repository, manifest_path, command=None, *, on_ready=None, before_cleanup=None):
     workdir, project = owned_manifest(manifest_path, repository)
-    with exclusive() as descriptor:
+    with exclusive(workdir / 'lifecycle.lock') as descriptor, claim_ports(configured_ports(workdir)):
         owned_manifest(manifest_path, repository)
         installed = repository / 'node_modules/.bin/supabase'
         executable = str(installed) if installed.is_file() else shutil.which('supabase')
@@ -354,13 +407,28 @@ def consumer(repository, manifest_path, command):
             if not public_key or not service_key:
                 raise Blocked('Owned API status missing local test keys')
             bind_database_environment(environment, url, public_key, service_key)
-            run_child(command, repository, environment, descriptor)
+            database_url = values.get('DB_URL', '')
+            database = urlparse(database_url)
+            if (database.scheme not in {'postgres', 'postgresql'}
+                    or database.hostname not in {'127.0.0.1', 'localhost', '::1'}
+                    or str(database.port) != configuration(workdir)[2]
+                    or database.path != '/postgres' or database.query or database.fragment):
+                raise Blocked('Owned database status URL must match the verified loopback DB port')
+            environment['DATABASE_URL'] = database_url
+            if on_ready:
+                on_ready(environment, descriptor, workdir, project)
+            else:
+                run_child(command, repository, environment, descriptor)
         finally:
+            if before_cleanup:
+                before_cleanup()
             # Never adopt a replacement/foreign stack merely because its name matches.
-            owned_manifest(manifest_path, repository)
+            # Development agents may edit migrations while a snapshot is live.
+            # Cleanup proves the runtime, not equality with the edited source.
+            owned_manifest(manifest_path, repository, check_source=False)
             records = project_containers(project)
-            if identifier is not None and container(workdir, project) != tuple(json.loads((workdir / 'containers.json').read_text())):
-                raise Blocked('Owned database container replaced; cleanup requires fresh ownership proof')
+            if identifier is not None:
+                verify_cleanup_receipt(workdir, records)
             if records:
                 run_child([executable, '--workdir', str(workdir), 'stop',
                            '--project-id', project, '--no-backup'], repository,
@@ -435,7 +503,7 @@ def main():
         raise Blocked('Reset requires the inherited owned database lock')
     if args.action in {'seed', 'types'} and ci_owned(repository):
         _, project, _, _ = configuration(repository)
-        with exclusive():
+        with exclusive(Path(tempfile.gettempdir()) / ('altitutor-ci-' + project + '.lock')):
             container(repository, project, ci=True)
             if args.action == 'seed':
                 seed(repository, repository, project, ci=True)
@@ -451,8 +519,7 @@ def main():
     if args.manifest:
         consumer(repository, args.manifest, command)
     else:
-        # Each clone supplies its own current source; only one test stack runs
-        # in the common port range at a time. No persistent runtime maintenance.
+        # Each invocation supplies its own current source, identity and ports.
         temporary = Path(tempfile.mkdtemp(prefix='altitutor-db-'))
         manifest = prepare(repository, temporary / 'runtime')
         try:

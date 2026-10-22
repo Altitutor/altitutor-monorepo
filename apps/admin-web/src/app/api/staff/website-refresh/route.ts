@@ -18,7 +18,8 @@ export async function POST() {
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const origin =
-      process.env.MARKETING_APP_ORIGIN ??
+      process.env.MARKETING_APP_ORIGIN ||
+      process.env.NEXT_PUBLIC_MARKETING_URL ||
       (process.env.NODE_ENV === "development"
         ? "http://localhost:3003"
         : process.env.VERCEL_ENV === "preview"

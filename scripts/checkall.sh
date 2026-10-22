@@ -26,6 +26,7 @@ node --test \
   scripts/web-system-test-paths.test.mjs
 
 python3 scripts/owned_database.test.py
+python3 scripts/worktree_dev.test.py
 
 section "Generated email artifacts"
 pnpm email:check
@@ -55,8 +56,8 @@ pnpm turbo run build
 
 fi
 
-# Coding/lint/unit/build stages above can run in parallel. DB consumers must
-# enter the same owned lease across clones, including browser-server lifetime.
+# Each DB invocation gets its own owned stack and ports, including the browser
+# server lifetime. Only consumers of the same runtime share a lease.
 if [ "${ALTITUTOR_OWNED_DB_INNER:-}" != "1" ]; then
   exec python3 scripts/owned_database.py gate
 fi
