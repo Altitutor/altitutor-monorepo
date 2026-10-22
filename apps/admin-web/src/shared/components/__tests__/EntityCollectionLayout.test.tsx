@@ -36,8 +36,15 @@ it("keeps the same toolbar and search input when switching collection layouts", 
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search collection"
-          rightPills={[{key:'status',label:'Status',getValue:item=>item.status,renderPill:()=>null}]}
-          getGroupLabel={()=>'Todo'}
+          rightPills={[
+            {
+              key: "status",
+              label: "Status",
+              getValue: (item) => item.status,
+              renderPill: () => null,
+            },
+          ]}
+          getGroupLabel={() => "Todo"}
           groupBy="status"
           board={{
             columnDefs: [
@@ -56,26 +63,27 @@ it("keeps the same toolbar and search input when switching collection layouts", 
     );
   }
   render(<Collection />);
-  const search = screen.getByPlaceholderText("Search collection");
+  const searchButton = screen.getByRole("button", { name: "Search" });
   const display = screen.getByRole("button", { name: "Display options" });
-  await userEvent.type(search, "Al");
-  await userEvent.click(screen.getByRole('button',{name:'Collapse Todo'}));
-  expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Collapse Todo" }));
+  await userEvent.click(searchButton);
+  await userEvent.type(screen.getByPlaceholderText("Search collection"), "Al");
+  await userEvent.keyboard("{Escape}");
   await userEvent.click(display);
   await userEvent.click(
     screen.getByRole("button", { name: "Board", pressed: false }),
   );
+  expect(screen.getByRole("button", { name: "Search" })).toBe(searchButton);
   expect(screen.getByRole("button", { name: "Display options" })).toBe(display);
-  expect(screen.getByPlaceholderText("Search collection")).toBe(search);
-  expect(search).toHaveValue("Al");
   expect(screen.getByText("Alpha")).toBeVisible();
   await userEvent.click(
     screen.getByRole("button", { name: "List", pressed: false }),
   );
-  expect(screen.getByRole("button", { name: "Display options" })).toBe(display);
-  expect(search).toHaveValue("Al");
-  expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button',{name:'Display options'}));
-  await userEvent.click(screen.getByRole('button',{name:'Expand Todo'}));
-  expect(screen.getByText('Alpha')).toBeVisible();
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(searchButton);
+  expect(screen.getByPlaceholderText("Search collection")).toHaveValue("Al");
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Expand Todo" }));
+  expect(screen.getByText("Alpha")).toBeVisible();
 });

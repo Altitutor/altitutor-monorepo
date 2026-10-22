@@ -10,7 +10,7 @@ import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { SessionsCard } from './SessionsCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
-import { Button, SegmentedControl } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
 
 type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
@@ -32,7 +32,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   useEffect(() => {if(parsedInitialDate) setAnchor(parsedInitialDate)},[parsedInitialDate]);
-  const [viewMode, setViewMode] = useState<'day' | 'week'>(initialViewMode ?? 'week');
+  const viewMode = initialViewMode ?? 'week';
 
   // Calculate date range based on view mode
   const rangeStart = useMemo(() => {
@@ -110,15 +110,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
 
   return (
     <div className="flex flex-col gap-3" aria-label="Sessions calendar">
-      <div className="flex items-center justify-between">
-        <SegmentedControl
-          value={viewMode}
-          onValueChange={(value) => setViewMode(value as 'day' | 'week')}
-          options={[
-            { value: 'day', label: '1 day' },
-            { value: 'week', label: '1 week' },
-          ]}
-        />
+      <div className="flex items-center justify-end">
+
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePrevious}>
@@ -249,7 +242,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const left = (idx * columnWidth) + 2.5;
 
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
 
@@ -307,7 +301,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const left = column * columnWidth + 2.5;
 
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
 

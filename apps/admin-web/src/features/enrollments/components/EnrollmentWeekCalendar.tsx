@@ -489,7 +489,7 @@ export function EnrollmentWeekCalendar({
                                 ? (oldClassSubject || (oldClass && oldClass.subject_id ? data?.subjectsById?.[oldClass.subject_id] : undefined))
                                 : isPotential
                                   ? (selectedClass?.subject || (classData && classData.subject_id ? data?.subjectsById?.[classData.subject_id] : undefined))
-                                  : (cls && 'subject_id' in cls && cls.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined);
+                                  : ('subject_id' in s && s.subject_id ? data?.subjectsById?.[s.subject_id] : cls && 'subject_id' in cls && cls.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined);
                               
                               // Get session date to check if student should be included
                               const sessionDate = s.start_at ? new Date(s.start_at) : null;

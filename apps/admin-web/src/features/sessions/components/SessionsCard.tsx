@@ -120,7 +120,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={details?.students ?? students} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={details?.students ?? students} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(

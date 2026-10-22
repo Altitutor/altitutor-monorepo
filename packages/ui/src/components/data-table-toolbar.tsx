@@ -197,6 +197,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
   } = props;
   const narrow = !useMediaQuery("(min-width: 768px)");
   const compact = compactProp || narrow;
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);
@@ -604,7 +606,9 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               </ToolbarSelectRow>
             </>
           ) : null}
-          {typeof viewContent === "function" ? viewContent({filters:state.filters,onChange:onFiltersChange}) : viewContent}
+          {typeof viewContent === "function"
+            ? viewContent({ filters: state.filters, onChange: onFiltersChange })
+            : viewContent}
         </div>
       ) : null}
       {filterDefinitions.length ||
@@ -721,44 +725,153 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     >
       <div
         className={cn(
-          "flex items-center gap-2",
-          compact ? "flex-nowrap justify-center gap-1" : "flex-wrap",
+          "flex min-w-0 items-center gap-2",
+          compact && "gap-1",
           rowClassName,
         )}
       >
-        {/* Search */}
-        {!hideSearch ? (
-          <div
-            className={cn(
-              "flex h-10 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-              compact && "h-9",
-              searchContainerClassName,
-            )}
-          >
-            {searchLeadingContent}
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              className={cn(
-                "h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
-                compact && "text-sm",
-                searchInputClassName,
+        <div className="min-w-0 flex-1 overflow-x-auto py-1">
+          {!hideViews ? (
+            <ToolbarSavedViews
+              views={quickFilters}
+              target={viewTarget ?? quickFilters[0]?.target_entity}
+              current={currentSettings}
+              defaults={defaultsRef.current}
+              onApply={applySavedView}
+              renderEditor={(draft, onChange) => (
+                <DataTableToolbar
+                  {...props}
+                  displayInline
+                  hideViews
+                  hideSearch
+                  filterFooter={undefined}
+                  viewContent={
+                    typeof viewContent === "function" ? viewContent : undefined
+                  }
+                  showDeletedActive={false}
+                  onClearShowDeleted={undefined}
+                  state={{
+                    ...state,
+                    ...draft,
+                    filters:
+                      filterStateAdapter?.read(draft.filters) ?? draft.filters,
+                  }}
+                  onSearchChange={() => {}}
+                  onFiltersChange={(filters) =>
+                    onChange({
+                      ...draft,
+                      filters: filterStateAdapter?.write(filters) ?? filters,
+                    })
+                  }
+                  onSortChange={(sortBy, sortDirection) =>
+                    onChange({ ...draft, sortBy, sortDirection })
+                  }
+                  onGroupByChange={(groupBy) => onChange({ ...draft, groupBy })}
+                  onVisibleColumnsChange={(visibleColumns) =>
+                    onChange({ ...draft, visibleColumns })
+                  }
+                  onQuickFilterApply={() => {}}
+                  onReset={() => {}}
+                  view={
+                    view
+                      ? {
+                          ...view,
+                          value: draft.layout ?? view.value,
+                          onChange: (layout) => onChange({ ...draft, layout }),
+                          onPresetApply: undefined,
+                        }
+                      : undefined
+                  }
+                  conditionFilters={
+                    conditionFilters
+                      ? {
+                          ...conditionFilters,
+                          value: draft.conditions ?? [],
+                          onChange: (conditions) =>
+                            onChange({ ...draft, conditions }),
+                        }
+                      : undefined
+                  }
+                  columnViewGroups={columnViewGroups.map((group) => ({
+                    ...group,
+                    visibleColumns:
+                      draft.columnGroups?.[group.heading] ??
+                      group.visibleColumns,
+                    onVisibleColumnsChange: (columns) =>
+                      onChange({
+                        ...draft,
+                        columnGroups: {
+                          ...draft.columnGroups,
+                          [group.heading]: columns,
+                        },
+                      }),
+                  }))}
+                />
               )}
             />
-            {searchValue && (
-              <button
+          ) : null}
+        </div>
+        {/* Search */}
+        {!hideSearch ? (
+          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
                 type="button"
-                aria-label="Clear search"
-                onClick={() => setSearchValue("")}
-                className="shrink-0 text-muted-foreground hover:text-foreground"
+                variant="outline"
+                size="icon"
+                aria-label="Search"
+                className={cn(
+                  compact ? "size-9" : "size-10",
+                  "shrink-0",
+                  toolbarControlStyles,
+                  searchValue && toolbarControlSelectedStyles,
+                )}
               >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+                <Search className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              aria-label="Search records"
+              className="w-[min(420px,calc(100vw-24px))] p-2"
+              onOpenAutoFocus={(event) => {
+                event.preventDefault();
+                searchInputRef.current?.focus();
+              }}
+            >
+              <div
+                className={cn(
+                  "flex h-10 min-w-0 items-center rounded-md border border-input px-2 focus-within:ring-2 focus-within:ring-ring",
+                  searchContainerClassName,
+                )}
+              >
+                {searchLeadingContent}
+                <Input
+                  ref={searchInputRef}
+                  aria-label="Search records"
+                  placeholder={searchPlaceholder}
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  className={cn(
+                    "h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0",
+                    searchInputClassName,
+                  )}
+                />
+                {searchValue ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setSearchValue("")}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              {searchAccessory}
+            </PopoverContent>
+          </Popover>
         ) : null}
-        {!hideSearch && searchAccessory}
 
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverTrigger asChild>
@@ -766,7 +879,11 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               type="button"
               variant="outline"
               size="sm"
-              className={cn(controlBtnClass(), "relative overflow-visible")}
+              className={cn(
+                controlBtnClass(),
+                "relative shrink-0 overflow-visible",
+                toolbarControlStyles,
+              )}
               aria-label="Display options"
             >
               <SlidersHorizontal className={iconClass()} />
@@ -776,7 +893,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                   role="img"
                   aria-label="Custom display settings"
                   title="Custom display settings"
-                  className="absolute -right-1 -top-1 inline-flex h-2.5 w-4 rounded-full border border-background bg-primary"
+                  className="absolute -right-1 -top-1 inline-flex h-2.5 w-2.5 rounded-full border border-background bg-primary"
                 />
               ) : null}
             </Button>
@@ -790,82 +907,6 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
           </PopoverContent>
         </Popover>
       </div>
-      {!hideViews ? (
-        <ToolbarSavedViews
-          views={quickFilters}
-          target={viewTarget ?? quickFilters[0]?.target_entity}
-          current={currentSettings}
-          defaults={defaultsRef.current}
-          onApply={applySavedView}
-          renderEditor={(draft, onChange) => (
-            <DataTableToolbar
-              {...props}
-              displayInline
-              hideViews
-              hideSearch
-              filterFooter={undefined}
-              viewContent={typeof viewContent === "function" ? viewContent : undefined}
-              showDeletedActive={false}
-              onClearShowDeleted={undefined}
-              state={{
-                ...state,
-                ...draft,
-                filters:
-                  filterStateAdapter?.read(draft.filters) ?? draft.filters,
-              }}
-              onSearchChange={() => {}}
-              onFiltersChange={(filters) =>
-                onChange({
-                  ...draft,
-                  filters: filterStateAdapter?.write(filters) ?? filters,
-                })
-              }
-              onSortChange={(sortBy, sortDirection) =>
-                onChange({ ...draft, sortBy, sortDirection })
-              }
-              onGroupByChange={(groupBy) => onChange({ ...draft, groupBy })}
-              onVisibleColumnsChange={(visibleColumns) =>
-                onChange({ ...draft, visibleColumns })
-              }
-              onQuickFilterApply={() => {}}
-              onReset={() => {}}
-              view={
-                view
-                  ? {
-                      ...view,
-                      value: draft.layout ?? view.value,
-                      onChange: (layout) => onChange({ ...draft, layout }),
-                      onPresetApply: undefined,
-                    }
-                  : undefined
-              }
-              conditionFilters={
-                conditionFilters
-                  ? {
-                      ...conditionFilters,
-                      value: draft.conditions ?? [],
-                      onChange: (conditions) =>
-                        onChange({ ...draft, conditions }),
-                    }
-                  : undefined
-              }
-              columnViewGroups={columnViewGroups.map((group) => ({
-                ...group,
-                visibleColumns:
-                  draft.columnGroups?.[group.heading] ?? group.visibleColumns,
-                onVisibleColumnsChange: (columns) =>
-                  onChange({
-                    ...draft,
-                    columnGroups: {
-                      ...draft.columnGroups,
-                      [group.heading]: columns,
-                    },
-                  }),
-              }))}
-            />
-          )}
-        />
-      ) : null}
     </div>
   );
 }

@@ -650,7 +650,7 @@ export function CalendarView({
                               onClick={() => onClassClick(position.class)}
                             >
                               <ClassCard
-                                details={{students:classStudentsList,staff:classStaffList}}
+                                details={{subject:classSubject,students:classStudentsList,staff:classStaffList}}
                                 class={position.class}
                                 subject={
                                   !visibleProperties ||

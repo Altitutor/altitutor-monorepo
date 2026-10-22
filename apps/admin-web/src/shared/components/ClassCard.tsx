@@ -22,7 +22,7 @@ function getInitials(firstName: string, lastName: string): string {
 
 
 interface ClassCardProps {
-  details?: { students: CalendarStudent[]; staff: CalendarStaff[] };
+  details?: { subject?: Tables<'subjects'>; students: CalendarStudent[]; staff: CalendarStaff[] };
   class: Tables<'classes'> | ClassWithExpandedSubject;
   subject?: Tables<'subjects'> | null;
   staff: Tables<'staff'>[];
@@ -130,7 +130,7 @@ export function ClassCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={details?.students ?? students} staff={details?.staff ?? staff}>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={details?.students ?? students} staff={details?.staff ?? staff}>
     <div
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',

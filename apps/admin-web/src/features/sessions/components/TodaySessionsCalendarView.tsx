@@ -213,7 +213,8 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const left = (idx * columnWidth) + 2.5;
                         
                         const cls = sessionsData?.classesById?.[s.class_id ?? ''];
-                        const subj = cls?.subject_id ? sessionsData?.subjectsById?.[cls.subject_id] : undefined;
+                        const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? sessionsData?.subjectsById?.[subjectId] : undefined;
                         const sessionStudents = sessionsData?.sessionStudents?.[s.id] || [];
                         const sessionStaff = sessionsData?.sessionStaff?.[s.id] || [];
                         
@@ -279,7 +280,8 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const left = column * columnWidth + 2.5;
                         
                         const cls = sessionsData?.classesById?.[s.class_id ?? ''];
-                        const subj = cls?.subject_id ? sessionsData?.subjectsById?.[cls.subject_id] : undefined;
+                        const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? sessionsData?.subjectsById?.[subjectId] : undefined;
                         const sessionStudents = (sessionsData?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                         const sessionStaff = (sessionsData?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                         

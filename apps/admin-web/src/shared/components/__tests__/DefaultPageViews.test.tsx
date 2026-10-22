@@ -63,3 +63,25 @@ it("offers an active built-in page default before saved views load and reapplies
   expect(save).not.toHaveBeenCalled();
   client.clear();
 });
+
+it("opens search from an icon and focuses the search field", async () => {
+  render(
+    <DataTableToolbar
+      state={{ ...settings, search: "", page: 1, pageSize: 50 }}
+      quickFilters={[]}
+      onQuickFilterApply={() => {}}
+      onGroupByChange={() => {}}
+      onReset={() => {}}
+      onSearchChange={() => {}}
+      onFiltersChange={() => {}}
+      onSortChange={() => {}}
+      onVisibleColumnsChange={() => {}}
+      filterDefinitions={[]}
+      sortOptions={[]}
+      columnDefinitions={[]}
+    />,
+  );
+  expect(screen.queryByPlaceholderText("Search...")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Search" }));
+  expect(await screen.findByPlaceholderText("Search...")).toHaveFocus();
+});
