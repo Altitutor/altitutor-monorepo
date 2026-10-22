@@ -587,7 +587,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                         ? option.key === state.sortBy
                           ? state.sortDirection
                           : "asc"
-                        : "desc",
+                        : "asc",
                     )
                   }
                   getItemId={(option) => option.key}

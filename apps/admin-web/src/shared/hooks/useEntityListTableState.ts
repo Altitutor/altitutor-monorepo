@@ -59,7 +59,7 @@ export function useEntityListTableState({
     groupBy: state.groupBy,
     setGroupBy,
     sortBy: state.sortBy ?? 'name',
-    sortDirection: state.sortDirection,
+    sortDirection: state.sortBy === null ? 'asc' : state.sortDirection,
     handleSortChange,
     applyQuickFilter,
     resetFilters,

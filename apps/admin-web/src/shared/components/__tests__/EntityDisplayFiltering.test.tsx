@@ -135,6 +135,7 @@ it("saves and applies a date-filtered entity View without exposing virtual toolb
         ]}
         filters={filters}
         viewTarget="tasks"
+        sortByOptions={[{key:'priority',label:'Priority'}]}
         onApplyQuickFilter={applied}
       />
     </ToolbarViewsProvider>,
@@ -146,12 +147,15 @@ it("saves and applies a date-filtered entity View without exposing virtual toolb
   expect(
     screen.getByRole("button", { name: "Change start date for Due date" }),
   ).toHaveTextContent("2026-10-22");
+  await userEvent.click(screen.getByRole('button',{name:'Choose Sort'}));
+  await userEvent.click(await screen.findByRole('option',{name:'None'}));
   await userEvent.type(
     screen.getByRole("textbox", { name: "View name" }),
     "Due today",
   );
   await userEvent.click(screen.getByRole("button", { name: "Save view" }));
   await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  expect(getViewSettings(saved.mock.calls[0][0].config)?.sortDirection).toBe('asc');
   expect(getViewSettings(saved.mock.calls[0][0].config)?.filters).toEqual(
     filters,
   );
