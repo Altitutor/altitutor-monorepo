@@ -45,7 +45,11 @@ import { SearchableSelectInline } from "./searchable-select-inline";
 export type { ToolbarFilterEditorContext } from "./toolbar-filters";
 import { ToolbarAddFilter, ToolbarFilterPills } from "./toolbar-filters";
 import type { ToolbarConditionFilters } from "./toolbar-filter-pill";
-import { navLinkActiveStyles, navLinkInactiveStyles } from "../lib/styles";
+import {
+  toolbarControlSelectedStyles,
+  toolbarControlStyles,
+  toolbarControlUnselectedStyles,
+} from "../lib/toolbar-control-styles";
 import { cn } from "../lib/cn";
 import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
 import {
@@ -487,17 +491,18 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
   const displayContent = (
     <>
       {view ? (
-        <div className="flex gap-2 border-b p-4" aria-label="View layout">
+        <div className="flex gap-2 px-4 py-3" aria-label="View layout">
           {view.options.map((option) => (
             <Button
               key={option.value}
               type="button"
-              variant={view.value === option.value ? "secondary" : "ghost"}
+              variant="field"
               className={cn(
-                "flex-1 rounded-full",
+                "h-8 flex-1 rounded-full",
+                toolbarControlStyles,
                 view.value === option.value
-                  ? navLinkActiveStyles
-                  : navLinkInactiveStyles,
+                  ? toolbarControlSelectedStyles
+                  : toolbarControlUnselectedStyles,
               )}
               aria-pressed={view.value === option.value}
               onClick={() => view.onChange(option.value)}
@@ -513,7 +518,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         </div>
       ) : null}
       {groupByOptions.length || sortOptions.length || viewContent ? (
-        <div className="border-b px-4 py-3">
+        <div className="px-4 py-3">
           {groupByOptions.length ? (
             <ToolbarSelectRow
               label="Group by"
@@ -605,8 +610,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
       {filterDefinitions.length ||
       conditionFilters?.fields.length ||
       filterFooter ? (
-        <div className="border-b px-4 py-3">
-          <p className="mb-1 text-xs font-medium">Filters</p>
+        <div className="px-4 py-3">
+          <p className="mb-2 text-sm text-muted-foreground">Filters</p>
           <ToolbarFilterPills
             {...filtersProps}
             hideClear
@@ -667,7 +672,10 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                       disabled={required}
                       className={cn(
                         "rounded-full border px-2.5 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                        selected ? navLinkActiveStyles : navLinkInactiveStyles,
+                        toolbarControlStyles,
+                        selected
+                          ? toolbarControlSelectedStyles
+                          : toolbarControlUnselectedStyles,
                       )}
                       onClick={() =>
                         group.onVisibleColumnsChange(
@@ -701,10 +709,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
       ) : null}
     </>
   );
-  if (displayInline)
-    return (
-      <div className="overflow-hidden rounded-lg border">{displayContent}</div>
-    );
+  if (displayInline) return <div className="min-w-0">{displayContent}</div>;
 
   return (
     <div
@@ -761,7 +766,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               type="button"
               variant="outline"
               size="sm"
-              className={controlBtnClass()}
+              className={cn(controlBtnClass(), "relative overflow-visible")}
               aria-label="Display options"
             >
               <SlidersHorizontal className={iconClass()} />
@@ -771,7 +776,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                   role="img"
                   aria-label="Custom display settings"
                   title="Custom display settings"
-                  className="ml-1 h-1.5 w-1.5 rounded-full bg-current"
+                  className="absolute -right-1 -top-1 inline-flex h-2.5 w-4 rounded-full border border-background bg-primary"
                 />
               ) : null}
             </Button>

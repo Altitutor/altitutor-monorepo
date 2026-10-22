@@ -135,7 +135,7 @@ it("saves and applies a date-filtered entity View without exposing virtual toolb
         ]}
         filters={filters}
         viewTarget="tasks"
-        sortByOptions={[{key:'priority',label:'Priority'}]}
+        sortByOptions={[{ key: "priority", label: "Priority" }]}
         onApplyQuickFilter={applied}
       />
     </ToolbarViewsProvider>,
@@ -147,15 +147,17 @@ it("saves and applies a date-filtered entity View without exposing virtual toolb
   expect(
     screen.getByRole("button", { name: "Change start date for Due date" }),
   ).toHaveTextContent("2026-10-22");
-  await userEvent.click(screen.getByRole('button',{name:'Choose Sort'}));
-  await userEvent.click(await screen.findByRole('option',{name:'None'}));
+  await userEvent.click(screen.getByRole("button", { name: "Choose Sort" }));
+  await userEvent.click(await screen.findByRole("option", { name: "None" }));
   await userEvent.type(
     screen.getByRole("textbox", { name: "View name" }),
     "Due today",
   );
   await userEvent.click(screen.getByRole("button", { name: "Save view" }));
   await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
-  expect(getViewSettings(saved.mock.calls[0][0].config)?.sortDirection).toBe('asc');
+  expect(getViewSettings(saved.mock.calls[0][0].config)?.sortDirection).toBe(
+    "asc",
+  );
   expect(getViewSettings(saved.mock.calls[0][0].config)?.filters).toEqual(
     filters,
   );
@@ -166,4 +168,33 @@ it("saves and applies a date-filtered entity View without exposing virtual toolb
   expect(getViewSettings(applied.mock.calls[0][0].config)?.filters).toEqual(
     filters,
   );
+});
+
+it("collapses an entity group independently without losing its rows or toolbar", async () => {
+  render(
+    <EntityList
+      items={[
+        { id: "a", name: "Alpha", status: "todo" },
+        { id: "b", name: "Beta", status: "done" },
+      ]}
+      getItemId={(item) => item.id}
+      renderName={(item) => <span>{item.name}</span>}
+      rightPills={[
+        {
+          key: "status",
+          label: "Status",
+          getValue: (item) => item.status,
+          renderPill: () => null,
+        },
+      ]}
+      groupBy="status"
+      getGroupLabel={(_, value) => (value === "todo" ? "Todo" : "Done")}
+    />,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Collapse Todo" }));
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  expect(screen.getByText("Beta")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Display options" })).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Expand Todo" }));
+  expect(screen.getByText("Alpha")).toBeVisible();
 });

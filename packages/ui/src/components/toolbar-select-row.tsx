@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { cn } from "../lib/cn";
+import { toolbarControlStyles } from "../lib/toolbar-control-styles";
 import { ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
@@ -34,7 +36,10 @@ export function ToolbarSelectRow({
               type="button"
               aria-label={`Choose ${label}`}
               aria-describedby={summaryId}
-              className="inline-flex h-8 w-44 shrink-0 items-center justify-between gap-2 rounded-md border bg-muted/50 px-2.5 text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                "inline-flex h-8 w-44 shrink-0 items-center justify-between gap-2 rounded-md px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                toolbarControlStyles,
+              )}
             >
               <span id={summaryId} className="truncate">
                 {summary || "Select values…"}

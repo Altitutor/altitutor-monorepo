@@ -1,6 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { cn } from "../lib/cn";
+import {
+  toolbarControlStyles,
+  toolbarControlSelectedStyles,
+} from "../lib/toolbar-control-styles";
 import { X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { SearchableSelect } from "./searchable-select";
@@ -47,7 +52,7 @@ export const CHOICE_FILTER_OPERATORS: Array<{
 ];
 
 export const filterSegmentClass =
-  "inline-flex whitespace-nowrap min-h-8 min-w-0 items-center gap-1 px-2.5 text-xs outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  "inline-flex whitespace-nowrap min-h-8 min-w-0 items-center gap-1 px-2.5 text-xs outline-none hover:bg-foreground/5 focus-visible:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 export function FilterPill({
   field,
@@ -75,7 +80,11 @@ export function FilterPill({
     <div
       role="group"
       aria-label={`${field.label} filter`}
-      className="inline-flex max-w-full items-stretch divide-x overflow-hidden rounded-full border bg-background text-foreground"
+      className={cn(
+        "inline-flex max-w-full items-stretch divide-x divide-border/60 overflow-hidden rounded-full dark:divide-white/[0.10]",
+        toolbarControlStyles,
+        toolbarControlSelectedStyles,
+      )}
     >
       <SearchableSelect
         items={fields}

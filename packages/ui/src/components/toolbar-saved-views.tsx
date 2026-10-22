@@ -21,7 +21,11 @@ import {
   DialogFooter,
 } from "./dialog";
 import { cn } from "../lib/cn";
-import { navLinkActiveStyles, navLinkInactiveStyles } from "../lib/styles";
+import {
+  toolbarControlSelectedStyles,
+  toolbarControlStyles,
+  toolbarControlUnselectedStyles,
+} from "../lib/toolbar-control-styles";
 
 export interface ToolbarViewsService {
   userId: string | null;
@@ -135,9 +139,10 @@ export function ToolbarSavedViews({
             title="Click to apply; double-click to edit"
             className={cn(
               "inline-flex h-8 items-center rounded-full border px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              toolbarControlStyles,
               active?.id === view.id
-                ? navLinkActiveStyles
-                : navLinkInactiveStyles,
+                ? toolbarControlSelectedStyles
+                : toolbarControlUnselectedStyles,
             )}
             onClick={(event) => {
               if (event.detail > 1) return;
@@ -178,8 +183,8 @@ export function ToolbarSavedViews({
           if (!open && !saving) setEditing(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] sm:w-[36rem] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex min-h-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[36rem]">
+          <DialogHeader className="shrink-0 px-6 pb-4 pt-6 pr-10">
             <DialogTitle>
               {editing === "new" ? "New view" : "Edit view"}
             </DialogTitle>
@@ -188,29 +193,35 @@ export function ToolbarSavedViews({
               for this view.
             </DialogDescription>
           </DialogHeader>
-          <label className="space-y-1 text-sm">
-            View name
-            <Input
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Name this view"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={shared}
-              onCheckedChange={(checked) => setShared(checked === true)}
-            />
-            Share with all admins
-          </label>
-          {renderEditor(draft, setDraft)}
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
+          <div
+            role="region"
+            aria-label="View settings"
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"
+          >
+            <label className="block space-y-1 text-sm">
+              View name
+              <Input
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Name this view"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={shared}
+                onCheckedChange={(checked) => setShared(checked === true)}
+              />
+              Share with all admins
+            </label>
+            {renderEditor(draft, setDraft)}
+            {error ? (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
             <Button
               type="button"
               variant="outline"

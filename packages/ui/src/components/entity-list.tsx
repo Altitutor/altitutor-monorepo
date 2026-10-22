@@ -14,6 +14,7 @@ import { cn } from '../lib/cn';
 import { type JSONContent } from './rich-text-editor';
 import {
   Plus,
+  ChevronDown,
   Check,
 } from 'lucide-react';
 
@@ -370,6 +371,13 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     return sorted;
   }, [filteredItems, sortBy, sortDirection, rightPills, statusColumn]);
 
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(() => new Set());
+  const groupCollapseKey = (key: string | null) => `${groupBy}:${key}`;
+  const toggleGroup = (key: string | null) => setCollapsedGroups(previous => {
+    const next = new Set(previous);const id = groupCollapseKey(key);
+    if(next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const grouped = React.useMemo(() => {
     if (!groupBy) {
       return [{ key: null as string | null, label: null, items: sortedItems }];
@@ -422,11 +430,15 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             grouped.map((group) => (
               <div key={group.key ?? 'all'} className="mb-4 w-full">
                 {groupBy && (
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2 bg-muted/40 rounded-t-md mb-1 -mx-2">
-                    {group.label}
-                  </div>
+                  <button type="button" className="flex w-full items-center gap-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2 bg-muted/40 rounded-t-md mb-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-expanded={!collapsedGroups.has(groupCollapseKey(group.key))}
+                    aria-label={`${collapsedGroups.has(groupCollapseKey(group.key)) ? 'Expand' : 'Collapse'} ${group.label}`}
+                    onClick={() => toggleGroup(group.key)}>
+                    <ChevronDown aria-hidden="true" className={cn('h-3.5 w-3.5 transition-transform',collapsedGroups.has(groupCollapseKey(group.key)) && '-rotate-90')} />
+                    {group.label}<span className="font-normal">{group.items.length}</span>
+                  </button>
                 )}
-                <div className="space-y-0.5 w-full">
+                {(!groupBy || !collapsedGroups.has(groupCollapseKey(group.key))) && <div className="space-y-0.5 w-full">
                   {group.items.map((item) => (
                     <EntityListRow
                       key={getItemId(item)}
@@ -439,7 +451,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       compact={compact}
                     />
                   ))}
-                </div>
+                </div>}
               </div>
             ))
           )}
