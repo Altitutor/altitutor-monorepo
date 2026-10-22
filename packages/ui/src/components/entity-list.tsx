@@ -1,39 +1,19 @@
 'use client';
 
+import { EntityToolbar } from './entity-toolbar';
+
+
 import * as React from 'react';
 import { useMediaQuery } from '../hooks/use-media-query';
 import { Button } from './button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from './dropdown-menu';
 import { Input } from './input';
 import { ScrollArea } from './scroll-area';
 import { SearchableSelect } from './searchable-select';
-import { SearchableSelectInline } from './searchable-select-inline';
-import { DateRangeFilter } from './date-range-filter';
-import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
-import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import { type JSONContent } from './rich-text-editor';
 import {
-  LayoutGrid,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Filter,
   Plus,
   Check,
-  X,
-  Layers,
-  Search,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -101,7 +81,6 @@ export function selectedFilterMatchesValue(selected: unknown[], value: unknown):
   });
 }
 
-type FilterOption = { value: unknown; label: string };
 
 export interface QuickFilter {
   id: string;
@@ -277,34 +256,6 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
   const [internalSortDirection, setInternalSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
-  const [groupByOpen, setGroupByOpen] = React.useState(false);
-  const [sortOpen, setSortOpen] = React.useState(false);
-  const filterPersistenceKey = `entity-list:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
-  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
-  const [sortSearchValue, setSortSearchValue] = React.useState('');
-  const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
-  const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
-
-  React.useEffect(() => {
-    setLocalSearchValue(searchValue ?? '');
-  }, [searchValue]);
-
-  React.useEffect(() => {
-    if (!onSearchChange) return;
-    const timeout = window.setTimeout(() => {
-      if (localSearchValue !== (searchValue ?? '')) {
-        onSearchChange(localSearchValue);
-      }
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [localSearchValue, onSearchChange, searchValue]);
-
-  React.useEffect(() => {
-    if (!sortOpen) return;
-    requestAnimationFrame(() => sortSearchInputRef.current?.focus());
-  }, [sortOpen]);
-
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
 
@@ -372,19 +323,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   };
 
   const visibleSortByOptions = sortByOptions.filter(o => o.key !== groupBy);
-  const filteredSortByOptions = visibleSortByOptions.filter((option) =>
-    option.label.toLowerCase().includes(sortSearchValue.trim().toLowerCase())
-  );
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
-
-  const removeFilterValue = (columnKey: string, value: unknown) => {
-    const current = filters[columnKey] ?? [];
-    const next = current.filter((v) => v !== value);
-    setFilters({ ...filters, [columnKey]: next });
-  };
-
-  const clearFilters = () => setFilters({});
 
   const activeFilterCount = Object.values(filters).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
 
@@ -453,464 +393,17 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
   return (
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
-      {/* Toolbar */}
-      {!hideToolbar && (
-        <div data-entity-list-toolbar data-work-item-toolbar data-pane-toolbar className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
-          {onSearchChange ? (
-            <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <Search className="h-3.5 w-3.5" />
-              </span>
-              <Input
-                placeholder={searchPlaceholder}
-                value={localSearchValue}
-                onChange={(event) => setLocalSearchValue(event.target.value)}
-                className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-              {localSearchValue ? (
-                <button
-                  type="button"
-                  onClick={() => setLocalSearchValue('')}
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-          {rightPills.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
-                  <LayoutGrid className={cn("h-4 w-4", !narrow && "mr-2")} />
-                  <span className={cn(narrow ? "sr-only" : "inline", !visiblePillKeys.length && "opacity-50")}>View</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] p-0">
-                <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                  items={rightPills.filter((p) => p.filterOnly !== true)}
-                  value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
-                  onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
-                  getItemId={(p) => p.key}
-                  getItemLabel={(p) => p.label}
-                  searchPlaceholder="Search pills..."
-                  emptyMessage="No pills found"
-                  multiSelect
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {groupByOptions.length > 0 && (
-            <div className="relative flex items-center">
-              <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
-                    <Layers className={cn("h-4 w-4", !narrow && "mr-2")} />
-                    <span className={cn(narrow ? "sr-only" : "inline", !groupBy && "opacity-50")}>
-                      Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px] p-0">
-                  <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <SearchableSelectInline<{ key: string; label: string }>
-                    items={groupByOptions}
-                    value={groupBy ? groupByOptions.find((o) => o.key === groupBy) ?? null : null}
-                    onValueChange={(opt) => {
-                      handleSetGroupBy(opt?.key ?? null);
-                      setGroupByOpen(false);
-                    }}
-                    getItemId={(o) => o.key}
-                    getItemLabel={(o) => o.label}
-                    searchPlaceholder="Search..."
-                    emptyMessage="No options found"
-                    allowClear
-                    clearLabel="None"
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {groupBy ? (
-                <ToolbarActiveBadge onClear={() => handleSetGroupBy(null)} ariaLabel="Clear group by">
-                  1
-                </ToolbarActiveBadge>
-              ) : null}
-            </div>
-          )}
-
-          {sortByOptions.length > 0 && (
-            <div className="relative flex items-center">
-              <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
-                    <ArrowUpDown className={cn("h-4 w-4", !narrow && "mr-2")} />
-                    <span className={cn(narrow ? "sr-only" : "inline", sortBy === 'name' && "opacity-50")}>
-                      Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[240px]">
-                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                  <div className="flex items-center border-b px-3">
-                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <Input
-                      ref={sortSearchInputRef}
-                      value={sortSearchValue}
-                      onChange={(event) => setSortSearchValue(event.target.value)}
-                      placeholder="Search sort options..."
-                      className="flex h-11 w-full rounded-md border-0 bg-transparent px-0 py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-                    />
-                  </div>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      setSortBy('name', 'asc');
-                      setSortOpen(false);
-                    }}
-                  >
-                    None (by name)
-                  </DropdownMenuItem>
-                  {filteredSortByOptions.map((option) => {
-                    const selected = sortBy === option.key;
-                    return (
-                      <DropdownMenuItem
-                        key={option.key}
-                        className="flex items-center gap-2"
-                        onSelect={(event) => {
-                          if (selected) {
-                            event.preventDefault();
-                            return;
-                          }
-                          setSortBy(option.key, 'asc');
-                          setSortOpen(false);
-                        }}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                        {selected ? (
-                          <button
-                            type="button"
-                            className="inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs hover:bg-muted"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setSortBy(option.key, sortDirection === 'asc' ? 'desc' : 'asc');
-                            }}
-                            aria-label={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
-                          >
-                            {sortDirection === 'asc' ? (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            )}
-                            {sortDirection === 'asc' ? 'Asc' : 'Desc'}
-                          </button>
-                        ) : null}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                  {sortBy !== 'name' ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          setSortBy('name', 'asc');
-                          setSortOpen(false);
-                        }}
-                      >
-                        Clear sort
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {sortBy !== 'name' ? (
-                <ToolbarActiveBadge onClear={() => setSortBy('name', 'asc')} ariaLabel="Clear sort">
-                  {sortDirection === 'asc' ? (
-                    <ArrowUp className="h-3 w-3" />
-                  ) : (
-                    <ArrowDown className="h-3 w-3" />
-                  )}
-                </ToolbarActiveBadge>
-              ) : null}
-            </div>
-          )}
-
-          <div className="relative flex items-center">
-            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
-                  <Filter className={cn("h-4 w-4", !narrow && "mr-2")} />
-                  <span className={cn(narrow ? "sr-only" : "inline", activeFilterCount === 0 && "opacity-50")}>
-                    Filter
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
-                <DropdownMenuLabel>Filters</DropdownMenuLabel>
-                
-                {quickFilters.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Quick Filters
-                    </div>
-                    <div className="px-2 pb-2 flex flex-wrap gap-1">
-                      {quickFilters.map((qf) => (
-                        <Button
-                          key={qf.id}
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            if (onApplyQuickFilter) {
-                              onApplyQuickFilter(qf);
-                            } else {
-                              setFilters(qf.config);
-                            }
-                          }}
-                        >
-                          {qf.name}
-                        </Button>
-                      ))}
-                    </div>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-
-                {activeFilterCount > 0 && (
-                  <div className="px-2 pb-2 flex flex-wrap gap-1">
-                    {Object.entries(filters).map(([columnKey, selected]) => {
-                      if (!selected?.length) return null;
-                      const pill = rightPills.find((p) => p.key === columnKey);
-                      const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
-                      const label = pill?.label ?? statusCol?.label ?? columnKey;
-                      const isDateRange = pill?.filterType === 'date-range';
-                      const dateRangeVal = isDateRange && selected[0] && typeof selected[0] === 'object' && (selected[0] as { type?: string }).type === 'date_range'
-                        ? selected[0] as { start?: string; end?: string }
-                        : null;
-
-                      return (
-                        <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                          <span className="font-semibold">{label}:</span>
-                          {dateRangeVal ? (
-                            <button
-                              onClick={() => removeFilterValue(columnKey, selected[0])}
-                              className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                            >
-                              {dateRangeVal.start && dateRangeVal.end
-                                ? `${dateRangeVal.start} – ${dateRangeVal.end}`
-                                : dateRangeVal.start
-                                  ? `from ${dateRangeVal.start}`
-                                  : dateRangeVal.end
-                                    ? `to ${dateRangeVal.end}`
-                                    : 'set'}
-                              <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                            </button>
-                          ) : (
-                            selected.map((val, idx) => {
-                              const opt = (pill?.filterOptions ?? statusColumn?.options ?? []).find(o => o.value === val);
-                              const valLabel = opt?.label ?? String(val);
-                              return (
-                                <React.Fragment key={String(val)}>
-                                  {idx > 0 && <span className="opacity-50">OR</span>}
-                                  <button
-                                    onClick={() => removeFilterValue(columnKey, val)}
-                                    className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                                  >
-                                    {valLabel}
-                                    <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                                  </button>
-                                </React.Fragment>
-                              );
-                            })
-                          )}
-                        </div>
-                      );
-                    })}
-                    <button
-                      onClick={clearFilters}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
-                    >
-                      Clear all
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-
-                <DropdownMenuSeparator />
-                
-                <ScrollArea className="flex-1 overflow-y-auto">
-                  {(() => {
-                    const renderedKeys = new Set<string>();
-                    const filterElements: React.ReactNode[] = [];
-
-                    if (statusColumn && statusColumn.filterable !== false) {
-                      renderedKeys.add(statusColumn.key);
-                      const options: FilterOption[] = statusColumn.options.map((o) => ({
-                        value: o.value,
-                        label: o.label,
-                      }));
-                      const selectedOptions = options.filter((o) =>
-                        (filters[statusColumn.key] ?? []).includes(o.value)
-                      );
-                      filterElements.push(
-                        <DropdownMenuSub key={statusColumn.key}>
-                          <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[240px] p-0">
-                            <SearchableSelectInline<FilterOption>
-                              items={options}
-                              value={selectedOptions}
-                              onValueChange={(opts) => {
-                                const next = opts.map((o) => o.value);
-                                if (next.length === 0) {
-                                  const rest = Object.fromEntries(
-                                    Object.entries(filters).filter(([k]) => k !== statusColumn.key)
-                                  );
-                                  setFilters(rest);
-                                } else {
-                                  setFilters({ ...filters, [statusColumn.key]: next });
-                                }
-                              }}
-                              getItemId={(o) => String(o.value)}
-                              getItemLabel={(o) => o.label}
-                              searchPlaceholder={`Search ${statusColumn.label.toLowerCase()}...`}
-                              emptyMessage="No results found"
-                              multiSelect
-                            />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
-
-                    rightPills
-                      .filter(
-                        (p) =>
-                          p.filterable !== false &&
-                          (p.filterType === 'date-range' || (p.filterOptions?.length ?? 0) > 0)
-                      )
-                      .forEach((p) => {
-                        if (renderedKeys.has(p.key)) return;
-                        renderedKeys.add(p.key);
-
-                        if (p.filterType === 'date-range') {
-                          const dr = (filters[p.key] ?? [])[0] as
-                            | { type: 'date_range'; start?: string; end?: string }
-                            | undefined;
-                          const fromVal = dr?.start ?? '';
-                          const toVal = dr?.end ?? '';
-                          filterElements.push(
-                            <DropdownMenuSub
-                              key={p.key}
-                              persistOpenOnRemountKey={`${filterPersistenceKey}:date:${p.key}`}
-                            >
-                              <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-[260px] p-0">
-                                <DateRangeFilter
-                                  fromValue={fromVal}
-                                  toValue={toVal}
-                                  onFromChange={(v) => {
-                                    const next =
-                                      v || toVal
-                                        ? [{ type: 'date_range' as const, start: v || undefined, end: toVal || undefined }]
-                                        : [];
-                                    if (next.length === 0 && !toVal) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                  onToChange={(v) => {
-                                    const next =
-                                      fromVal || v
-                                        ? [{ type: 'date_range' as const, start: fromVal || undefined, end: v || undefined }]
-                                        : [];
-                                    if (next.length === 0 && !fromVal) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                  onRangeChange={(from, to) => {
-                                    const next =
-                                      from || to
-                                        ? [{ type: 'date_range' as const, start: from || undefined, end: to || undefined }]
-                                        : [];
-                                    if (next.length === 0) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                />
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          );
-                          return;
-                        }
-
-                        const options: FilterOption[] = p.filterOptions!.map((o) => ({
-                          value: o.value,
-                          label: o.label,
-                        }));
-                        const selectedOptions = options.filter((o) =>
-                          (filters[p.key] ?? []).includes(o.value)
-                        );
-                        filterElements.push(
-                          <DropdownMenuSub key={p.key}>
-                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-[240px] p-0">
-                              <SearchableSelectInline<FilterOption>
-                                items={options}
-                                value={selectedOptions}
-                                onValueChange={(opts) => {
-                                  const next = opts.map((o) => o.value);
-                                  if (next.length === 0) {
-                                    const rest = Object.fromEntries(
-                                      Object.entries(filters).filter(([k]) => k !== p.key)
-                                    );
-                                    setFilters(rest);
-                                  } else {
-                                    setFilters({ ...filters, [p.key]: next });
-                                  }
-                                }}
-                                getItemId={(o) => String(o.value)}
-                                getItemLabel={(o) => o.label}
-                                searchPlaceholder={`Search ${p.label.toLowerCase()}...`}
-                                emptyMessage="No results found"
-                                multiSelect
-                              />
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        );
-                      });
-
-                    return filterElements;
-                  })()}
-                </ScrollArea>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {activeFilterCount > 0 ? (
-              <ToolbarActiveBadge onClear={clearFilters} ariaLabel="Clear all filters">
-                {activeFilterCount}
-              </ToolbarActiveBadge>
-            ) : null}
-          </div>
-          </div>
-        </div>
-      )}
+      {!hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
+        <EntityToolbar
+          statusColumn={statusColumn} rightPills={rightPills}
+          filters={filters} onFiltersChange={setFilters}
+          sortOptions={visibleSortByOptions} sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSortBy}
+          groupOptions={groupByOptions} groupBy={groupBy} onGroupByChange={handleSetGroupBy}
+          visiblePillKeys={visiblePillKeys} onVisiblePillKeysChange={setVisiblePillKeys}
+          search={searchValue ?? ''} onSearchChange={onSearchChange} searchPlaceholder={searchPlaceholder}
+          quickFilters={quickFilters} onApplyQuickFilter={onApplyQuickFilter} compact={compact}
+        />
+      </div>}
 
       {/* List */}
       <ScrollArea className="flex-1 min-h-0 w-full overflow-x-hidden">

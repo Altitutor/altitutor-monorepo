@@ -1,4 +1,4 @@
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormResponsesPage } from '../FormResponsesPage';
 import { FormReportsPage } from '../FormReportsPage';
@@ -8,6 +8,8 @@ const originalFetch = global.fetch;
 beforeAll(() => {
   global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
   Element.prototype.scrollIntoView = jest.fn();
+  HTMLElement.prototype.hasPointerCapture = jest.fn(() => false);
+  HTMLElement.prototype.releasePointerCapture = jest.fn();
 });
 beforeEach(() => {
   global.fetch = jest.fn(async (input) => {
@@ -24,11 +26,11 @@ afterEach(() => { cleanup(); global.fetch = originalFetch; });
 it.each([['Responses', FormResponsesPage], ['Reports', FormReportsPage]] as const)(
   '%s filters by a specific text answer and can clear the condition', async (_name, Page) => {
     render(<Page />);
-    const add = await screen.findByRole('combobox', { name: 'Add answer filter' });
-    await waitFor(() => expect(add).not.toBeDisabled());
-    await userEvent.click(add);
-    await userEvent.click(await screen.findByRole('option', { name: 'Student feedback · Q1: How was it?' }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'How was it? contains' }), 'helpful');
+    await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q1: How was it?' }));
+    const input = screen.queryByRole('textbox', { name: /How was it\? contains/ });
+    if (!input) await userEvent.click(screen.getByRole('button', { name: /Edit .*How was it\? contains/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: /How was it\? contains/ }), 'helpful');
     if (_name === 'Responses') {
       await waitFor(() => expect(screen.getAllByRole('button', { name: 'Actions' })).toHaveLength(1));
     } else {
@@ -36,19 +38,34 @@ it.each([['Responses', FormResponsesPage], ['Reports', FormReportsPage]] as cons
       expect(screen.getByText('Very HELPFUL lesson')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: 'Subjects' })).toBeInTheDocument();
     }
-    await userEvent.click(screen.getByRole('button', { name: 'Remove filter for How was it?' }));
-    expect(screen.queryByRole('textbox', { name: 'How was it? contains' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Remove filter for .*How was it\?/ }));
+    expect(screen.queryByRole('textbox', { name: /How was it\? contains/ })).not.toBeInTheDocument();
   },
 );
 
 it('displays a subject name in both the choice menu and selected filter', async () => {
   render(<FormResponsesPage />);
-  const add = await screen.findByRole('combobox', { name: 'Add answer filter' });
-  await waitFor(() => expect(add).not.toBeDisabled());
-  await userEvent.click(add);
-  await userEvent.click(await screen.findByRole('option', { name: 'Student feedback · Q2: Subjects' }));
-  await userEvent.click(screen.getByRole('combobox', { name: 'Subjects includes any' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q2: Subjects' }));
   await userEvent.click(await screen.findByRole('option', { name: 'Mathematics' }));
-  expect(screen.getByRole('button', { name: 'Remove Mathematics' })).toBeInTheDocument();
+  await userEvent.keyboard('{Escape}');
+  const pill = screen.getByRole('group', { name: 'Student feedback · Q2: Subjects filter' });
+  expect(within(pill).getByRole('button', { name: /Change value/ })).toHaveTextContent('Mathematics');
   expect(screen.queryByText('subject-uuid')).not.toBeInTheDocument();
+});
+
+it('edits the operator and field directly from the condition pill', async () => {
+  render(<FormResponsesPage />);
+  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q1: How was it?' }));
+  if (!screen.queryByRole('textbox', { name: /How was it\? contains/ })) await userEvent.click(screen.getByRole('button', { name: /Edit .*How was it\? contains/ }));
+  await userEvent.type(screen.getByRole('textbox', { name: /How was it\? contains/ }), 'helpful');
+  await userEvent.click(screen.getByRole('button', { name: /Change operator for .*How was it\?/ }));
+  await userEvent.click(await screen.findByRole('option', { name: 'does not contain' }));
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Actions' })).toHaveLength(1));
+  expect(screen.getByRole('group', { name: 'Student feedback · Q1: How was it? filter' })).toHaveTextContent('does not contain');
+  await userEvent.click(screen.getByRole('button', { name: /Change field for .*How was it\?/ }));
+  await userEvent.click(await screen.findByRole('option', { name: 'Student feedback · Q2: Subjects' }));
+  expect(screen.getByRole('group', { name: 'Student feedback · Q2: Subjects filter' })).toHaveTextContent('Select choices');
+  expect(screen.queryByRole('group', { name: 'Student feedback · Q1: How was it? filter' })).not.toBeInTheDocument();
 });

@@ -1,7 +1,7 @@
 import { getFormQuestionReportingSignature, isQuestionBlock } from '@altitutor/shared';
 import type { FormResponseAnswer, FormResponseDetail } from '../types';
 
-export type AnswerFilter = { questionKey: string; text: string; values: string[] };
+export type AnswerFilter = { questionKey: string; text: string; values: string[]; operator?: 'contains' | 'equals' | 'not_contains' | 'any' | 'all' | 'none' };
 export type AnswerFilterQuestion = {
   key: string;
   title: string;
@@ -78,9 +78,14 @@ export function matchesAnswerFilters(response: FormResponseDetail, filters: Answ
         const values = answer.question_type === 'single_choice'
           ? [answer.choice_value]
           : (answer.choice_values ?? []).map((choice) => choice.value);
-        return values.some((value) => value != null && filter.values.includes(value));
+        if (filter.operator === 'all') return filter.values.every((value) => values.includes(value));
+        const includesAny = values.some((value) => value != null && filter.values.includes(value));
+        return filter.operator === 'none' ? !includesAny : includesAny;
       }
-      return (answer.text_value ?? '').toLowerCase().includes(text);
+      const value = (answer.text_value ?? '').toLowerCase();
+      if (filter.operator === 'equals') return value.trim() === text;
+      if (filter.operator === 'not_contains') return !value.includes(text);
+      return value.includes(text);
     });
   });
 }

@@ -46,3 +46,14 @@ it('groups compatible staff questions across versions but separates changed ques
   const filters = [{ questionKey: questions[0].key, text: '', values: ['inactive-staff-id'] }];
   expect([old, current, changed].filter((row) => matchesAnswerFilters(row, filters)).map((row) => row.id)).toEqual(['helpful', 'current']);
 });
+
+it('supports editable text and choice operators without matching unanswered questions', () => {
+  const questions = buildAnswerFilterQuestions(responses);
+  const text = questions.find((question) => question.title === 'How was it?')!;
+  const subject = questions.find((question) => question.title === 'Subjects')!;
+  expect(responses.filter((row) => matchesAnswerFilters(row, [{ questionKey: text.key, text: 'helpful', values: [], operator: 'not_contains' }])).map((row) => row.id)).toEqual(['other']);
+  expect(matchesAnswerFilters(responses[0], [{ questionKey: text.key, text: 'very helpful lesson', values: [], operator: 'equals' }])).toBe(true);
+  expect(matchesAnswerFilters(responses[0], [{ questionKey: subject.key, text: '', values: ['subject-uuid', 'another-subject'], operator: 'all' }])).toBe(false);
+  expect(matchesAnswerFilters(responses[0], [{ questionKey: subject.key, text: '', values: ['another-subject'], operator: 'none' }])).toBe(true);
+  expect(matchesAnswerFilters(responses[1], [{ questionKey: subject.key, text: '', values: ['another-subject'], operator: 'none' }])).toBe(false);
+});

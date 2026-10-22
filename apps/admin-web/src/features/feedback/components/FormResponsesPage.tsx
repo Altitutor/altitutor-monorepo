@@ -25,7 +25,7 @@ import {
 } from './FormResponseDialog';
 import { DeleteFormResponseConfirmDialog } from './DeleteFormResponseConfirmDialog';
 
-import { FormAnswerFilters } from './FormAnswerFilters';
+import { buildAnswerFilterToolbar } from '../lib/answer-filter-toolbar';
 import { buildAnswerFilterQuestions, matchesAnswerFilters, type AnswerFilter } from '../lib/answer-filters';
 
 const INITIAL_STATE: DataTableState = {
@@ -183,6 +183,7 @@ export function FormResponsesPage() {
       ) : null}
       <DataTableToolbar
         state={state}
+        conditionFilters={buildAnswerFilterToolbar(answerQuestions, answerFilters, (filters) => { setAnswerFilters(filters); setState((current) => ({ ...current, page: 1 })); })}
         onSearchChange={(search) => setState((current) => ({ ...current, search, page: 1 }))}
         onFiltersChange={(filters) => setState((current) => ({ ...current, filters, page: 1 }))}
         onSortChange={(sortBy, sortDirection) => setState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
@@ -193,11 +194,6 @@ export function FormResponsesPage() {
         filterDefinitions={filterDefinitions}
         sortOptions={[{ key: 'submitted_at', label: 'Submitted date' }, { key: 'form', label: 'Form' }]}
         columnDefinitions={columnDefinitions}
-      />
-      <FormAnswerFilters
-        questions={answerQuestions}
-        filters={answerFilters}
-        onChange={(filters) => { setAnswerFilters(filters); setState((current) => ({ ...current, page: 1 })); }}
       />
       <div className="rounded-md border">
         <Table>

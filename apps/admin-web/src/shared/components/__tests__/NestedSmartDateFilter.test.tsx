@@ -50,7 +50,7 @@ describe('nested smart date filter', () => {
     const user = userEvent.setup();
     render(<RemountingDateFilterToolbar />);
 
-    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.click(screen.getByRole('button', { name: 'Display options' }));
     await user.keyboard('{End}{ArrowRight}');
     await user.click((await screen.findAllByRole('button', { name: 'Select date' }))[0]);
     const todayOptions = await screen.findAllByText('Today');

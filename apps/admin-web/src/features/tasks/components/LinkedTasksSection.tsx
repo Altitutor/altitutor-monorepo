@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { SegmentedControl } from '@altitutor/ui';
+import { ToolbarViewProvider } from '@altitutor/ui';
 import { TasksBoard } from './TasksBoard';
 import { TasksList } from './TasksList';
 
@@ -16,17 +16,11 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
   const [view, setView] = useState<LinkedTasksView>('list');
 
   return (
+    <ToolbarViewProvider value={{ value: view, options: [{ value: 'list', label: 'List' }, { value: 'board', label: 'Board' }], onChange: (next) => { if (next === 'list' || next === 'board') setView(next); } }}>
     <div className="space-y-4 min-w-0 max-w-full">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">Linked Tasks</h3>
-        <SegmentedControl
-          value={view}
-          onValueChange={(value) => setView(value as LinkedTasksView)}
-          options={[
-            { value: 'list', label: 'List' },
-            { value: 'board', label: 'Board' },
-          ]}
-        />
+
       </div>
 
       {view === 'list' ? (
@@ -35,7 +29,6 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
             issueId={issueId}
             projectId={projectId}
             compact
-            hideToolbar
             showIssuePill={!issueId}
             showProjectPill={!projectId}
             showLinkPill={false}
@@ -48,5 +41,6 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
         </div>
       )}
     </div>
+    </ToolbarViewProvider>
   );
 }

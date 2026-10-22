@@ -41,7 +41,7 @@ import {
   responsePersonLabel,
 } from './FormResponseDialog';
 
-import { FormAnswerFilters } from './FormAnswerFilters';
+import { buildAnswerFilterToolbar } from '../lib/answer-filter-toolbar';
 import { buildAnswerFilterQuestions, matchesAnswerFilters, type AnswerFilter } from '../lib/answer-filters';
 
 type AnswerRow = FormResponseAnswer & {
@@ -274,6 +274,7 @@ export function FormReportsPage() {
       </div>
       <DataTableToolbar
         state={filterState}
+        conditionFilters={buildAnswerFilterToolbar(answerQuestions, answerFilters, setAnswerFilters)}
         onSearchChange={(search) => setFilterState((current) => ({ ...current, search, page: 1 }))}
         onFiltersChange={(filters) => setFilterState((current) => ({ ...current, filters, page: 1 }))}
         onSortChange={(sortBy, sortDirection) => setFilterState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
@@ -286,7 +287,6 @@ export function FormReportsPage() {
         columnDefinitions={[]}
       />
 
-      <FormAnswerFilters questions={answerQuestions} filters={answerFilters} onChange={setAnswerFilters} />
       {answerFilters.length ? <div className="text-sm text-muted-foreground">{matchingResponseIds.size} of {responseCount} responses match answer filters</div> : null}
 
       <div className="space-y-8">

@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   AccessoryPanelProvider,
@@ -32,8 +33,10 @@ jest.mock("../AccessoryTabPicker", () => ({
 jest.mock("../AccessoryViews", () => ({
   AccessoryView: () => {
     const scope = useAccessoryTab()!;
+    const { EntityList } = jest.requireActual<typeof import('@altitutor/ui')>('@altitutor/ui');
     return (
       <>
+        {scope.tab.kind === 'issues' ? <EntityList items={[]} getItemId={(item: {id: string}) => item.id} renderName={(item) => item.id} rightPills={[]} /> : null}
         <button
           onClick={() =>
             scope.navigate({ kind: "issue", id: "a", title: "Issue A" })
@@ -98,6 +101,9 @@ beforeEach(() => {
     configurable: true,
     value: () => `${Math.random()}`,
   });
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({ matches: false, media: query, addEventListener: jest.fn(), removeEventListener: jest.fn() }));
+  Element.prototype.hasPointerCapture = jest.fn(() => false);
+  Element.prototype.releasePointerCapture = jest.fn();
   Element.prototype.scrollIntoView = jest.fn();
   global.ResizeObserver = class {
     observe() {}
@@ -147,23 +153,21 @@ test("links and bubbled mentions navigate their originating accessory tab", asyn
   expect(tabs()[0]).toMatchObject({ kind: "issue", id: "mentioned" });
 });
 
-test("the active list tab owns its persistent List/Board controls", async () => {
-  render(
-    <AccessoryPanelProvider>
-      <Harness />
-    </AccessoryPanelProvider>,
-  );
-  fireEvent.click(await screen.findByText("Start"));
-  fireEvent.click(screen.getByRole("button", { name: "Issues board view" }));
-  expect(new URLSearchParams(tabs()[0].query).get("view")).toBe("board");
-  fireEvent.click(screen.getByText("Open issue"));
-  expect(
-    screen.queryByRole("button", { name: "Issues board view" }),
-  ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText("Back to issues"));
-  expect(
-    screen.getByRole("button", { name: "Issues board view" }),
-  ).toHaveAttribute("aria-pressed", "true");
+test("the active list tab owns its persistent View menu", async () => {
+  render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
+  await userEvent.click(await screen.findByText('Start'));
+  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+  await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Board' }));
+  expect(new URLSearchParams(tabs()[0].query).get('view')).toBe('board');
+  await userEvent.keyboard('{Escape}{Escape}');
+  await userEvent.click(screen.getByText('Open issue'));
+  expect(screen.queryByRole('button', { name: 'Display options' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByText('Back to issues'));
+  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+  expect(await screen.findByRole('menuitemcheckbox', { name: 'Board' })).toHaveAttribute('aria-checked', 'true');
+  expect(new URLSearchParams(tabs()[0].query).get('search')).toBe('math');
 });
 
 
