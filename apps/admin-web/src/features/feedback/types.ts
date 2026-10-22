@@ -34,4 +34,3 @@ export type FormResponseDetail = {
   subject_parent?: Person;
   form_response_answers?: FormResponseAnswer[];
 };
-
