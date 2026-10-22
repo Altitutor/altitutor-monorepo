@@ -135,6 +135,353 @@ function addRepresentativeScoreEvidence(fixture: PreparationEngineInput): void {
 }
 
 describe("prepareStudent", () => {
+  it("does not treat an empty curriculum or exam proximity as genuine Later Learning readiness", () => {
+    const fixture = input();
+    fixture.goal.planningDate = "2026-01-26";
+    fixture.content.learningModules = [
+      {
+        id: "later",
+        title: "Methods",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        journeyPlacement: "later_learning",
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+      },
+    ];
+    expect(
+      prepareStudent(fixture).plan.tasks.some(
+        (task) => task.learningModuleId === "later",
+      ),
+    ).toBe(false);
+    fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+      (signal) => ({
+        ...signal,
+        learningGraduatedAt: "2026-01-01T00:00:00.000Z",
+        learningGraduationRoute: "accuracy" as const,
+      }),
+    );
+    expect(
+      prepareStudent(fixture).plan.tasks.some(
+        (task) => task.learningModuleId === "later",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps incomplete orientation eligible until familiarity spans all three sections", () => {
+    const fixture = input();
+    fixture.content.learningModules.push({
+      id: "intro",
+      title: "Basics",
+      sectionId: null,
+      sectionNumber: null,
+      priority: "essential",
+      journeyPlacement: "orientation",
+      estimatedMinutes: 10,
+      completionPercent: 40,
+      relevanceScore: 1,
+    });
+    fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+      (signal) => ({
+        ...signal,
+        representativeSectionEquivalents:
+          signal.sectionId === "qr" ? 0.49 : 0.5,
+      }),
+    );
+    expect(prepareStudent(fixture).immediateGuidance[0]?.learningModuleId).toBe(
+      "intro",
+    );
+    fixture.content.learningModules.find(
+      (module) => module.id === "intro",
+    )!.completionPercent = 100;
+    expect(
+      prepareStudent(fixture).plan.tasks.some(
+        (task) => task.learningModuleId === "intro",
+      ),
+    ).toBe(false);
+  });
+
+  it("packs orientation before a complete Learning loop on a sparse available day", () => {
+    const fixture = input();
+    fixture.goal.profile.availableDays = [{ weekday: 1 }];
+    fixture.content.learningModules.push({
+      id: "intro",
+      title: "Basics",
+      sectionId: null,
+      sectionNumber: null,
+      priority: "essential",
+      journeyPlacement: "orientation",
+      estimatedMinutes: 10,
+      completionPercent: 0,
+      relevanceScore: 1,
+    });
+    const tasks = prepareStudent(fixture).plan.tasks;
+    expect(
+      tasks
+        .filter((task) => task.scheduledDate === "2026-01-05")
+        .map((task) => task.taskType),
+    ).toEqual(["learn", "learn", "practice", "review"]);
+    expect(
+      tasks.filter((task) => task.learningModuleId === "intro"),
+    ).toHaveLength(1);
+    expect(
+      prepareStudent(fixture).plan.tasks.filter(
+        (task) => task.learningModuleId === "intro",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("honours priority then authored order without prescribing unclassified or Optional general lessons", () => {
+    const fixture = input();
+    fixture.content.learningModules = [
+      {
+        id: "recommended",
+        priority: "recommended" as const,
+        authoredOrder: 0,
+        journeyPlacement: "orientation" as const,
+      },
+      {
+        id: "essential-late",
+        priority: "essential" as const,
+        authoredOrder: 4,
+        journeyPlacement: "orientation" as const,
+      },
+      {
+        id: "essential-first",
+        priority: "essential" as const,
+        authoredOrder: 2,
+        journeyPlacement: "orientation" as const,
+      },
+      {
+        id: "optional",
+        priority: "optional" as const,
+        authoredOrder: 1,
+        journeyPlacement: "orientation" as const,
+      },
+      {
+        id: "unclassified",
+        priority: "essential" as const,
+        authoredOrder: 1,
+        journeyPlacement: null,
+      },
+    ].map((module) => ({
+      ...module,
+      title: module.id,
+      sectionId: null,
+      sectionNumber: null,
+      estimatedMinutes: 5,
+      completionPercent: 0,
+      relevanceScore: 1,
+    }));
+    expect(
+      prepareStudent(fixture)
+        .plan.tasks.filter((task) => task.taskType === "learn")
+        .map((task) => task.learningModuleId),
+    ).toEqual(["essential-first", "essential-late", "recommended"]);
+  });
+
+  it("budgets Pre-Exam instruction alongside ordinary Timing practice", () => {
+    const fixture = input();
+    fixture.clock.today = "2026-06-06";
+    fixture.clock.now = "2026-06-06T00:00:00.000Z";
+    fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+      (signal) => ({
+        ...signal,
+        learningGraduatedAt: "2026-01-01T00:00:00.000Z",
+        learningGraduationRoute: "accuracy" as const,
+      }),
+    );
+    fixture.content.learningModules.push({
+      id: "exam-prep",
+      title: "Transition",
+      sectionId: null,
+      sectionNumber: null,
+      priority: "essential",
+      journeyPlacement: "pre_exam",
+      estimatedMinutes: 25,
+      completionPercent: 0,
+      relevanceScore: 1,
+    });
+    const tasks = prepareStudent(fixture).plan.tasks;
+    const day = tasks.filter(
+      (task) =>
+        task.scheduledDate ===
+        tasks.find((task) => task.learningModuleId === "exam-prep")
+          ?.scheduledDate,
+    );
+    expect(day.some((task) => task.taskType === "practice")).toBe(true);
+    expect(
+      day.reduce((minutes, task) => minutes + task.estimatedMinutes, 0),
+    ).toBeLessThanOrEqual(60);
+  });
+
+  it.each([
+    ["2026-05-29", "2026-05-30", false],
+    ["2026-05-30", "2026-05-30", true],
+    ["2026-06-05", "2026-06-05", true],
+    ["2026-06-06", "2026-06-06", true],
+    ["2026-08-06", null, false],
+  ] as const)(
+    "places Pre-Exam by each scheduled date from %s",
+    (today, expected, dueNow) => {
+      const fixture = input();
+      fixture.clock.today = today;
+      fixture.clock.now = `${today}T00:00:00.000Z`;
+      fixture.goal.profile.availableDays = ([0, 1, 2, 3, 4, 5, 6] as const).map(
+        (weekday) => ({ weekday }),
+      );
+      fixture.content.learningModules.push({
+        id: "exam-prep",
+        title: "Transition",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        journeyPlacement: "pre_exam",
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+      });
+      const result = prepareStudent(fixture);
+      expect(
+        result.plan.tasks
+          .filter((task) => task.learningModuleId === "exam-prep")
+          .map((task) => task.scheduledDate),
+      ).toEqual(expected ? [expected] : []);
+      expect(
+        result.immediateGuidance.some(
+          (task) => task.learningModuleId === "exam-prep",
+        ),
+      ).toBe(dueNow);
+    },
+  );
+
+  it.each([
+    [2, false],
+    [3, true],
+  ] as const)(
+    "requires all sections to complete 75%% Essential instruction: %s of four",
+    (completed, eligible) => {
+      const fixture = input();
+      fixture.content.learningModules = sections
+        .slice(0, 3)
+        .flatMap((section) =>
+          Array.from({ length: 4 }, (_, index) => ({
+            id: `${section.id}-${index}`,
+            title: "Method",
+            sectionId: section.id,
+            sectionNumber: section.sectionNumber,
+            priority: "essential" as const,
+            estimatedMinutes: 10,
+            completionPercent: index < completed ? 100 : 0,
+            relevanceScore: 1,
+          })),
+        );
+      fixture.content.learningModules.push({
+        id: "later",
+        title: "Later lesson",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        journeyPlacement: "later_learning",
+        estimatedMinutes: 12,
+        completionPercent: 0,
+        relevanceScore: 1,
+      });
+      const result = prepareStudent(fixture);
+      expect(
+        result.activityCandidates.some(
+          (item) => item.learningModuleId === "later",
+        ),
+      ).toBe(eligible);
+      expect(
+        result.plan.tasks.some((item) => item.learningModuleId === "later"),
+      ).toBe(eligible);
+    },
+  );
+
+  it.each(["lessons", "practice", "mock"])(
+    "bypasses orientation from completed %s familiarity without marking it complete",
+    (source) => {
+      const fixture = input();
+      fixture.content.learningModules.push({
+        id: "intro",
+        title: "Intro",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        journeyPlacement: "orientation",
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+      });
+      if (source === "lessons") {
+        fixture.content.learningModules.push(
+          ...sections.slice(0, 3).map((section) => ({
+            id: `complete-${section.id}`,
+            title: "Completed method",
+            sectionId: section.id,
+            sectionNumber: section.sectionNumber,
+            priority: "recommended" as const,
+            estimatedMinutes: 10,
+            completionPercent: 100,
+            relevanceScore: 1,
+          })),
+        );
+      } else if (source === "practice") {
+        fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+          (signal) => ({ ...signal, representativeSectionEquivalents: 0.5 }),
+        );
+      } else fixture.evidence.completedMockCount = 1;
+      const result = prepareStudent(fixture);
+      expect(
+        result.activityCandidates.some(
+          (item) => item.learningModuleId === "intro",
+        ),
+      ).toBe(false);
+      expect(
+        fixture.content.learningModules.find((module) => module.id === "intro")
+          ?.completionPercent,
+      ).toBe(0);
+    },
+  );
+
+  it("schedules beginner orientation first in the calendar and rolling guidance without section practice", () => {
+    const fixture = input();
+    fixture.content.learningModules.push(
+      ...["intro-b", "intro-a"].map((id, index) => ({
+        id,
+        title: id,
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential" as const,
+        journeyPlacement: "orientation" as const,
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+        authoredOrder: 1 - index,
+      })),
+    );
+    const result = prepareStudent(fixture);
+    expect(
+      result.plan.tasks.slice(0, 2).map((task) => task.learningModuleId),
+    ).toEqual(["intro-a", "intro-b"]);
+    expect(result.plan.tasks.slice(0, 2).map((task) => task.sectionId)).toEqual(
+      [null, null],
+    );
+    expect(
+      result.immediateGuidance.map((item) => item.learningModuleId),
+    ).toEqual(["intro-a", "intro-b"]);
+    expect(
+      result.plan.tasks
+        .filter(
+          (task) => task.scheduledDate === result.plan.tasks[0]?.scheduledDate,
+        )
+        .map((task) => task.taskType),
+    ).toEqual(["learn", "learn"]);
+  });
+
   it("keeps full mocks locked when Exam proximity overrides an ungraduated Learning section", () => {
     const fixture = input();
     fixture.goal.planningDate = "2026-01-26";

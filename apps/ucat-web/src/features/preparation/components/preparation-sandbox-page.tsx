@@ -208,6 +208,30 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
         </section>
       ) : null}
 
+      {fixture.input.content.learningModules.some(
+        (module) => module.sectionId == null && !module.journeyPlacement,
+      ) ? (
+        <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+          <h2 className="font-semibold">Unclassified general lessons</h2>
+          <p className="mt-1 text-sm">
+            These lessons need an authored placement before preparation can
+            schedule them.
+          </p>
+          <ul className="mt-2 text-sm">
+            {fixture.input.content.learningModules
+              .filter(
+                (module) =>
+                  module.sectionId == null && !module.journeyPlacement,
+              )
+              .map((module) => (
+                <li key={module.id}>
+                  {module.title} ({module.id})
+                </li>
+              ))}
+          </ul>
+        </section>
+      ) : null}
+
       {result.plan.contentGaps.length > 0 ? (
         <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
           <h2 className="font-semibold">Development catalog gaps</h2>

@@ -197,7 +197,9 @@ function allocatePracticeMinutes(
   activities: PreparationActivityCandidate[],
   availableMinutes: number,
 ): Map<number, number> {
-  let indexes = activities.map((_, index) => index);
+  let indexes = activities.flatMap((activity, index) =>
+    isPracticeActivity(activity) ? [index] : [],
+  );
   while (indexes.length > 1) {
     const totalWeight = indexes.reduce(
       (sum, index) => sum + Math.max(1, activities[index]!.ranking.total),
@@ -749,18 +751,16 @@ function mockDates(
   lastCompletedMockDate: string | null,
 ): Set<string> {
   if (!dates.length || readiness.mode === "learning") return new Set();
-  const eligible = dates.filter(
-    (date) => {
-      const daysUntilExam = daysBetween(date, planningDate);
-      return (
-        daysUntilExam <= UCAT_MOCK_CADENCE_POLICY.beginsDaysBeforeExam &&
-        daysUntilExam > UCAT_MOCK_CADENCE_POLICY.finalRecoveryDays &&
-        (!lastCompletedMockDate ||
-          daysBetween(lastCompletedMockDate, date) >=
-            UCAT_MOCK_CADENCE_POLICY.mockRecoveryDays)
-      );
-    },
-  );
+  const eligible = dates.filter((date) => {
+    const daysUntilExam = daysBetween(date, planningDate);
+    return (
+      daysUntilExam <= UCAT_MOCK_CADENCE_POLICY.beginsDaysBeforeExam &&
+      daysUntilExam > UCAT_MOCK_CADENCE_POLICY.finalRecoveryDays &&
+      (!lastCompletedMockDate ||
+        daysBetween(lastCompletedMockDate, date) >=
+          UCAT_MOCK_CADENCE_POLICY.mockRecoveryDays)
+    );
+  });
   if (!eligible.length) return new Set();
   const horizonEndDaysBeforeExam = Math.max(
     0,
@@ -768,8 +768,7 @@ function mockDates(
   );
   const targets = mockTargetDaysBeforeExam().filter(
     (target) =>
-      target <= readiness.daysUntilExam &&
-      target >= horizonEndDaysBeforeExam,
+      target <= readiness.daysUntilExam && target >= horizonEndDaysBeforeExam,
   );
   const maximumTargets =
     readiness.daysUntilExam > 28
@@ -790,9 +789,7 @@ function mockDates(
       .sort((a, b) => {
         const aDistance = Math.abs(daysBetween(a, planningDate) - target);
         const bDistance = Math.abs(daysBetween(b, planningDate) - target);
-        return (
-          aDistance - bDistance || a.localeCompare(b)
-        );
+        return aDistance - bDistance || a.localeCompare(b);
       })[0];
     if (candidate) picked.add(candidate);
   }
@@ -892,8 +889,7 @@ export function generateStudyPlan(
     scheduledDate,
     isMock: mocks.has(scheduledDate),
     coreSlotCount: mocks.has(scheduledDate) ? 1 : justifiedCoreSlots,
-    includeWarmup:
-      !mocks.has(scheduledDate) && input.skillTrainers.length > 0,
+    includeWarmup: !mocks.has(scheduledDate) && input.skillTrainers.length > 0,
   }));
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
@@ -1078,6 +1074,33 @@ export function generateStudyPlan(
       (activity) => activity.kind === "mock",
     );
     const candidatesForDay: PreparationActivityCandidate[] = [];
+    const generalLessons = envelope.isMock
+      ? []
+      : plannedActivities.filter(
+          (activity) =>
+            activity.kind === "instruction" &&
+            activity.sectionId == null &&
+            !consumedOnce.has(activity.id) &&
+            (!activity.availableFrom || activity.availableFrom <= date) &&
+            date < input.planningDate,
+        );
+    let generalMinutes = 0;
+    for (const activity of generalLessons) {
+      if (
+        generalMinutes > 0 &&
+        generalMinutes + activity.duration.practiceMinutes >
+          ORDINARY_STUDY_DAY_MINUTES
+      )
+        break;
+      candidatesForDay.push(activity);
+      generalMinutes += activity.duration.practiceMinutes;
+      consumedOnce.add(activity.id);
+      remainingDemand.set(demandKey(activity), 0);
+    }
+    const orientationOnly =
+      candidatesForDay.some(
+        (activity) => activity.reasonCode === "activity.orientation",
+      ) && input.profile.availableDays.length > 2;
     let dailySectionEquivalents = 0;
     const dailyCognitiveSections = new Set<string>();
     if (envelope.isMock) {
@@ -1086,12 +1109,17 @@ export function generateStudyPlan(
       const outstandingInstructions = plannedActivities.filter(
         (activity) =>
           activity.kind === "instruction" &&
+          activity.sectionId != null &&
           !consumedOnce.has(activity.id) &&
           (remainingDemand.get(demandKey(activity)) ?? 0) > 0,
       );
       const intensiveLearningDay = envelope.coreSlotCount > ordinaryCoreSlots;
       const learningLoopDay = outstandingInstructions.length > 0;
-      for (let slot = 0; slot < envelope.coreSlotCount; slot += 1) {
+      for (
+        let slot = 0;
+        slot < (orientationOnly ? 0 : envelope.coreSlotCount);
+        slot += 1
+      ) {
         const sectionsRequiringInitialExposure = new Set(
           plannedActivities.flatMap((activity) =>
             activity.kind === "instruction" && activity.sectionId
@@ -1105,7 +1133,13 @@ export function generateStudyPlan(
           (sectionId) => (instructionUseBySection.get(sectionId) ?? 0) > 0,
         );
         const eligible = plannedActivities.filter((activity) => {
-          if (activity.kind === "mock" || activity.kind === "review")
+          if (
+            (activity.kind === "instruction" && activity.sectionId == null) ||
+            activity.kind === "mock" ||
+            activity.kind === "review"
+          )
+            return false;
+          if (activity.kind === "calibration" && generalMinutes > 0)
             return false;
           if (activity.kind === "instruction" && !learningLoopDay) return false;
           if ((remainingDemand.get(demandKey(activity)) ?? 0) <= 0) {
@@ -1301,7 +1335,7 @@ export function generateStudyPlan(
               (instructionUseBySection.get(selected.sectionId) ?? 0) + 1,
             );
           }
-          if (!intensiveLearningDay) break;
+          if (!intensiveLearningDay || generalMinutes > 0) break;
         }
       }
     }
@@ -1347,14 +1381,20 @@ export function generateStudyPlan(
       candidatesForDay.length > 0 &&
       candidatesForDay.every(
         (activity) =>
-          isPracticeActivity(activity) &&
-          activity.sectionId != null &&
-          readinessBySection.get(activity.sectionId)?.mode !== "learning",
+          (activity.kind === "instruction" && activity.sectionId == null) ||
+          (isPracticeActivity(activity) &&
+            activity.sectionId != null &&
+            readinessBySection.get(activity.sectionId)?.mode !== "learning"),
       );
     const allocatedMinutes = usesOrdinaryTimeEnvelope
       ? allocatePracticeMinutes(
           candidatesForDay,
-          Math.max(1, ORDINARY_STUDY_DAY_MINUTES - scheduledWarmupMinutes),
+          Math.max(
+            1,
+            ORDINARY_STUDY_DAY_MINUTES -
+              scheduledWarmupMinutes -
+              generalMinutes,
+          ),
         )
       : new Map<number, number>();
     const rollBackSelection = (activity: PreparationActivityCandidate) => {
@@ -1380,7 +1420,7 @@ export function generateStudyPlan(
     };
     for (const [activityIndex, activity] of candidatesForDay.entries()) {
       let materializedPractice: MaterializedPractice | undefined;
-      if (usesOrdinaryTimeEnvelope) {
+      if (usesOrdinaryTimeEnvelope && isPracticeActivity(activity)) {
         const minutes = allocatedMinutes.get(activityIndex);
         const section = activity.sectionId
           ? sectionById.get(activity.sectionId)
@@ -1607,7 +1647,7 @@ export function generateStudyPlan(
 
     const dayTasks = canonicalTasks.slice(firstDayTaskIndex);
     if (
-      envelope.coreSlotCount > ordinaryCoreSlots &&
+      (envelope.coreSlotCount > ordinaryCoreSlots || generalMinutes > 0) &&
       exceedsOrdinaryStudyDayMinutes(dayTasks)
     ) {
       const firstRequiredTask = dayTasks.find(
