@@ -1,3 +1,4 @@
+import { isLearningModuleJourneyPlacement } from "@altitutor/shared";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -561,9 +562,8 @@ async function loadGenerationInputs(
         supabase
           .from("vstudent_ucat_learning_modules")
           .select(
-            "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
-          )
-          .neq("study_plan_priority", "excluded"),
+            "id, title, kind, ucat_section_id, study_plan_priority, study_plan_journey_placement, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
+          ),
       () =>
         admin
           .from("student_ucat_mock_attempts")
@@ -933,12 +933,7 @@ async function loadGenerationInputs(
   visitModules(null);
   const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap(
     (moduleRow) => {
-      if (
-        !moduleRow.id ||
-        !moduleRow.title ||
-        moduleRow.kind !== "lesson" ||
-        moduleRow.study_plan_priority === "excluded"
-      )
+      if (!moduleRow.id || !moduleRow.title || moduleRow.kind !== "lesson")
         return [];
       const categoryIds = (moduleCategoriesRes.data ?? [])
         .filter((link) => link.learning_module_id === moduleRow.id)
@@ -1009,6 +1004,13 @@ async function loadGenerationInputs(
             sections.find((section) => section.id === moduleRow.ucat_section_id)
               ?.sectionNumber ?? null,
           priority: moduleRow.study_plan_priority ?? "recommended",
+          journeyPlacement: isLearningModuleJourneyPlacement(
+            moduleRow.study_plan_journey_placement,
+          )
+            ? moduleRow.study_plan_journey_placement
+            : moduleRow.ucat_section_id
+              ? "section_learning"
+              : null,
           estimatedMinutes: Math.max(5, moduleRow.estimated_minutes ?? 5),
           completionPercent: moduleRow.completion_percent ?? 0,
           authoredOrder:

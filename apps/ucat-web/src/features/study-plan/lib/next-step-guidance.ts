@@ -316,7 +316,9 @@ function draftForCandidate(
     });
   }
   const learningModule = item.learningModuleId
-    ? input.learningModules.find((candidate) => candidate.id === item.learningModuleId)
+    ? input.learningModules.find(
+        (candidate) => candidate.id === item.learningModuleId,
+      )
     : null;
   if (learningModule) {
     return {
@@ -326,7 +328,9 @@ function draftForCandidate(
     };
   }
   const trainer = item.skillTrainerId
-    ? input.skillTrainers.find((candidate) => candidate.id === item.skillTrainerId)
+    ? input.skillTrainers.find(
+        (candidate) => candidate.id === item.skillTrainerId,
+      )
     : null;
   if (trainer) {
     return {
@@ -361,9 +365,9 @@ function draftForCandidate(
     ? input.categories.find((candidate) => candidate.id === item.categoryIds[0])
     : null;
   if (category) {
-    const readiness = (input.readiness ?? buildReadinessSnapshot(input)).sections.find(
-      (candidate) => candidate.sectionId === section.id,
-    );
+    const readiness = (
+      input.readiness ?? buildReadinessSnapshot(input)
+    ).sections.find((candidate) => candidate.sectionId === section.id);
     return {
       ...targetedPracticeDraft(
         category,
@@ -381,7 +385,8 @@ function draftForCandidate(
         questionCount: item.dose.questionCount,
         timeMode: readiness?.mode === "learning" ? "off" : "speed",
         timeSpeedMultiplier: readiness?.paceMultiplier ?? 0.5,
-        reviewTiming: readiness?.mode === "learning" ? "afterEachStem" : "atEnd",
+        reviewTiming:
+          readiness?.mode === "learning" ? "afterEachStem" : "atEnd",
         activityCandidateId: item.id,
         objective: item.objective,
       },
@@ -392,7 +397,8 @@ function draftForCandidate(
     title: `Practice ${section.name}`,
     description: `${item.dose.questionCount ?? 10} questions across ${section.shortName}.`,
     rationale: item.studentReason,
-    estimatedMinutes: item.duration.practiceMinutes + item.duration.reviewMinutes,
+    estimatedMinutes:
+      item.duration.practiceMinutes + item.duration.reviewMinutes,
     sectionId: section.id,
     launchPath: "/practice",
     launchConfig: {
@@ -409,12 +415,14 @@ function draftForCandidate(
 
 function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
   const drafts = rankedCandidates(input)
+    .filter((item) => !item.availableFrom || item.availableFrom <= input.today)
     .map((item) => draftForCandidate(item, input))
     .filter((item): item is NextStepDraft => item != null);
   const unique = drafts.filter(
     (draft, index, all) =>
-      all.findIndex((candidate) => guidanceItemKey(candidate) === guidanceItemKey(draft)) ===
-      index,
+      all.findIndex(
+        (candidate) => guidanceItemKey(candidate) === guidanceItemKey(draft),
+      ) === index,
   );
   const fallbacks = [
     baseDraft({
@@ -489,7 +497,8 @@ export function buildAlternativeNextStep(
   if (selectedDraft) return selectedDraft;
   const optionalFallback = candidates.find(
     (candidate) =>
-      candidate.requirement === "optional" && !currentIds.includes(candidate.id),
+      candidate.requirement === "optional" &&
+      !currentIds.includes(candidate.id),
   );
   return optionalFallback ? draftForCandidate(optionalFallback, input) : null;
 }

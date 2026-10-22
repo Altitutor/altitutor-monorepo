@@ -384,12 +384,9 @@ test("pnpm checkall runs the same system suites as CI", async () => {
   );
   assert.match(checkall, /supabase test db/u);
   assert.match(checkall, /pnpm --filter ucat-web test:e2e:critical/u);
-  assert.match(checkall, /node scripts\/start-local-supabase\.mjs/u);
-  assert.match(
-    checkall,
-    /supabase status/u,
-    "Local checkall must reset an already-running stack so schema matches CI",
-  );
+  assert.match(checkall, /python3 scripts\/owned_database\.py gate/u);
+  assert.match(checkall, /python3 scripts\/owned_database\.py verify-inner/u);
+  assert.doesNotMatch(checkall, /node scripts\/start-local-supabase\.mjs/u);
   assert.match(checkall, /supabase db reset/u);
   const applyUcatSeedStep = checkall.indexOf(
     "bash supabase/scripts/apply-ucat-test-seed.sh",
@@ -439,9 +436,8 @@ test("automatic seed excludes manual pastes and UCAT study-plan fixtures", async
   );
   assert.match(fixtures, /DISABLE TRIGGER USER/u);
   assert.match(fixtures, /rebuild_ucat_duplicate_stem_pairs/u);
-  assert.match(applyScript, /docker exec -i "\$db_container"/u);
-  assert.match(applyScript, /psql -U postgres -d postgres -v ON_ERROR_STOP=1/u);
-  assert.match(applyScript, /seed\/test-ucat/u);
+  assert.match(applyScript, /python3 scripts\/owned_database\.py seed/u);
+  assert.doesNotMatch(applyScript, /docker ps|head -n 1/u);
   assert.doesNotMatch(applyScript, /--linked/u);
   assert.match(
     typesCheck,

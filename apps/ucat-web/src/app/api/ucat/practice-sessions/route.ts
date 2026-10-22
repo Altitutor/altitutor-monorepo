@@ -20,6 +20,8 @@ import { resolvePracticeTimingScope } from "@/features/practice/model/practice-t
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 import { getRejectedStudyPlanDiagnostics } from "@/features/study-plan/server/rejected-start-diagnostics";
 
+import { parseStudyPlanLaunchDiagnostics } from "@/features/study-plan/model/launch-diagnostics";
+
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
     ucatSectionId: string;
     filtersSnapshot?: unknown;
     stemsSnapshot?: unknown;
+    studyPlanLaunch?: unknown;
     unlimited?: boolean;
   };
 
@@ -213,7 +216,19 @@ export async function POST(request: NextRequest) {
     captureApiError(
       insertError,
       "/api/ucat/practice-sessions",
-      diagnostics ? { study_plan_start: diagnostics } : undefined,
+      diagnostics
+        ? {
+            study_plan_start: diagnostics,
+            ...(diagnostics.task_id
+              ? {
+                  study_plan_launch: parseStudyPlanLaunchDiagnostics(
+                    body.studyPlanLaunch,
+                    "practice",
+                  ),
+                }
+              : {}),
+          }
+        : undefined,
     );
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to create practice session" },
