@@ -25,6 +25,9 @@ import {
 } from './FormResponseDialog';
 import { DeleteFormResponseConfirmDialog } from './DeleteFormResponseConfirmDialog';
 
+import { FormAnswerFilters } from './FormAnswerFilters';
+import { buildAnswerFilterQuestions, matchesAnswerFilters, type AnswerFilter } from '../lib/answer-filters';
+
 const INITIAL_STATE: DataTableState = {
   search: '',
   filters: {},
@@ -52,6 +55,7 @@ function dateInRange(value: string, from?: string, to?: string) {
 }
 
 export function FormResponsesPage() {
+  const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([]);
   const [rows, setRows] = useState<FormResponseDetail[]>([]);
   const [state, setState] = useState<DataTableState>(INITIAL_STATE);
   const [selectedResponse, setSelectedResponse] = useState<FormResponseDetail | null>(null);
@@ -67,6 +71,8 @@ export function FormResponsesPage() {
       })
       .catch((err) => setError(err.message));
   }, []);
+
+  const answerQuestions = useMemo(() => buildAnswerFilterQuestions(rows), [rows]);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
     const forms = new Map<string, string>();
@@ -130,6 +136,7 @@ export function FormResponsesPage() {
     const q = state.search.trim().toLowerCase();
     const filters = state.filters;
     let next = rows.filter((row) => {
+      if (!matchesAnswerFilters(row, answerFilters)) return false;
       if (q) {
         const haystack = [
           row.forms?.name,
@@ -161,7 +168,7 @@ export function FormResponsesPage() {
       return direction * (new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime());
     });
     return next;
-  }, [rows, state.filters, state.search, state.sortBy, state.sortDirection]);
+  }, [rows, answerFilters, state.filters, state.search, state.sortBy, state.sortDirection]);
 
   const pageCount = Math.max(1, Math.ceil(processed.length / state.pageSize));
   const page = Math.min(state.page, pageCount);
@@ -182,10 +189,15 @@ export function FormResponsesPage() {
         onGroupByChange={(groupBy) => setState((current) => ({ ...current, groupBy }))}
         onVisibleColumnsChange={(visibleColumns) => setState((current) => ({ ...current, visibleColumns }))}
         onQuickFilterApply={() => undefined}
-        onReset={() => setState(INITIAL_STATE)}
+        onReset={() => { setState(INITIAL_STATE); setAnswerFilters([]); }}
         filterDefinitions={filterDefinitions}
         sortOptions={[{ key: 'submitted_at', label: 'Submitted date' }, { key: 'form', label: 'Form' }]}
         columnDefinitions={columnDefinitions}
+      />
+      <FormAnswerFilters
+        questions={answerQuestions}
+        filters={answerFilters}
+        onChange={(filters) => { setAnswerFilters(filters); setState((current) => ({ ...current, page: 1 })); }}
       />
       <div className="rounded-md border">
         <Table>

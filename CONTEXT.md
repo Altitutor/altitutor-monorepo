@@ -412,6 +412,9 @@
 - **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
   _Avoid_: Survey result, submission
 
+- **Form answer filter** — A condition on the answer to one specific Form question that selects whole Form responses, preserving their other answers for review and reporting. Several question conditions must all match; selected choices within one condition are alternatives.
+  _Avoid_: Recorded-by filter, question search
+
 - **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
   _Avoid_: Form response, public form link, unenrolment form
 
