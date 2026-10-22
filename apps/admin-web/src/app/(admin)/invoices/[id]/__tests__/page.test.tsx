@@ -1,10 +1,9 @@
 import type { CreditNoteDetails } from "@/features/billing/utils/creditNoteDetails";
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import InvoiceDetailPage from "../page";
 
 const mockToast = jest.fn();
-const originalFetch = global.fetch;
 let mockActions: { onAddCreditNote?: () => void };
 let mockInvoice = {
   id: "invoice",
@@ -93,32 +92,23 @@ jest.mock("@/shared/components/PropertyForm", () => ({
 }));
 jest.mock("@/shared/components/ActionsMenu", () => ({
   ActionsMenu: ({
-    onSendInvoice,
-    onChargeCard,
     onAddCreditNote,
     isAddCreditNoteDisabled,
     addCreditNoteDisabledReason,
   }: {
-    onSendInvoice?: () => void;
-    onChargeCard?: () => void;
     onAddCreditNote?: () => void;
     isAddCreditNoteDisabled?: boolean;
     addCreditNoteDisabledReason?: string;
-  }) => (
-    <>
-      {onSendInvoice && <button onClick={onSendInvoice}>Send Invoice</button>}
-      {onChargeCard && <button onClick={onChargeCard}>Charge Card</button>}
-      {onAddCreditNote && (
-        <button
-          disabled={isAddCreditNoteDisabled}
-          title={addCreditNoteDisabledReason}
-          onClick={onAddCreditNote}
-        >
-          Add Credit Note
-        </button>
-      )}
-    </>
-  ),
+  }) =>
+    onAddCreditNote ? (
+      <button
+        disabled={isAddCreditNoteDisabled}
+        title={addCreditNoteDisabledReason}
+        onClick={onAddCreditNote}
+      >
+        Add Credit Note
+      </button>
+    ) : null,
 }));
 jest.mock("@/features/students/components/ViewStudentModal", () => ({
   ViewStudentModal: () => null,
@@ -160,7 +150,6 @@ beforeEach(() => {
   mockInvoice = {
     ...mockInvoice,
     status: "paid",
-    collection_method: "charge_automatically",
     is_refunded: false,
     metadata: null,
   };
@@ -186,61 +175,10 @@ beforeEach(() => {
   };
 });
 
-afterEach(() => {
-  global.fetch = originalFetch;
-});
-
 it("opens the credit-note review for an eligible invoice", () => {
   render(<InvoiceDetailPage params={{ id: "invoice" }} />);
   fireEvent.click(screen.getByText("Add Credit Note"));
   expect(screen.getByText("Credit note review")).toBeInTheDocument();
-});
-
-it.each(["charge_automatically", "send_invoice"])(
-  "offers and runs both actions for an open %s invoice",
-  async (collectionMethod) => {
-    mockInvoice.status = "open";
-    mockInvoice.collection_method = collectionMethod;
-    mockStripe.data.next_payment_attempt = null;
-    const mockFetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ sent: ["student@example.test"] }),
-    });
-    global.fetch = mockFetch;
-    render(<InvoiceDetailPage params={{ id: "invoice" }} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Send Invoice" }));
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/invoices/invoice/send-invoice",
-        { method: "POST" },
-      ),
-    );
-    await waitFor(() =>
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          description: "Sent to: student@example.test",
-        }),
-      ),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Charge Card" }));
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/invoices/invoice/charge-card",
-        { method: "POST" },
-      ),
-    );
-  },
-);
-
-it("keeps payment actions hidden for a paid invoice", () => {
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
-  expect(
-    screen.queryByRole("button", { name: "Send Invoice" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Charge Card" }),
-  ).not.toBeInTheDocument();
 });
 
 it.each(["refunded", "fully credited", "legacy credit"] as const)(

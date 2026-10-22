@@ -9,6 +9,7 @@ const mockBillingPrefs = jest.fn();
 const mockStudentSingle = jest.fn();
 const mockParents = jest.fn();
 const mockEmailDelivery = jest.fn();
+const mockRecordDomainEvent = jest.fn();
 
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
@@ -29,11 +30,11 @@ jest.mock('next/server', () => ({
 jest.mock('@altitutor/email/node', () => ({
   deliverEmail: (...args: unknown[]) => mockEmailDelivery(...args),
 }));
-jest.mock('@/lib/sentry/capture-api-error', () => ({
-  captureApiError: jest.fn(),
-}));
-jest.mock('@/features/billing/lib/recordInvoiceOperatorEvent', () => ({
-  recordInvoiceOperatorEvent: jest.fn(),
+jest.mock('@sentry/nextjs', () => ({ captureException: jest.fn() }));
+jest.mock('@/shared/lib/supabase/server/admin', () => ({
+  supabaseAdmin: {
+    rpc: (...args: unknown[]) => mockRecordDomainEvent(...args),
+  },
 }));
 jest.mock('@/shared/lib/supabase/server-ssr', () => ({
   createClient: () => ({
@@ -91,6 +92,7 @@ beforeEach(() => {
     data: [{ parent: { id: 'parent-1', email: 'parent@example.test' } }],
   });
   mockEmailDelivery.mockResolvedValue(undefined);
+  mockRecordDomainEvent.mockResolvedValue({ error: null });
 });
 
 it.each(['charge_automatically', 'send_invoice'])(
