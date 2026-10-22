@@ -1,6 +1,12 @@
 import React from "react";
 import { ToastProvider } from "@altitutor/ui";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TrialStudentsPage } from "../components/TrialStudentsPage";
 import { journey } from "./fixtures";
@@ -8,6 +14,7 @@ import { journey } from "./fixtures";
 let mockView = "board";
 let mockCurrentStatus: string | null = "TRIAL";
 let mockClosed = false;
+let mockNextContact: string | null = null;
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/trial-students",
@@ -18,9 +25,11 @@ beforeEach(() => {
   mockView = "board";
   mockCurrentStatus = "TRIAL";
   mockClosed = false;
+  mockNextContact = null;
 });
 
 beforeAll(() => {
+  HTMLElement.prototype.scrollIntoView = jest.fn();
   global.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -39,6 +48,7 @@ jest.mock("@/shared/lib/supabase/client", () => ({
           ? [
               {
                 ...journey("Current student", "student-current"),
+                next_contact_at: mockNextContact,
                 closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
               },
               {
@@ -53,6 +63,10 @@ jest.mock("@/shared/lib/supabase/client", () => ({
     from: (table: string) => {
       const query = {
         select: () => query,
+        update: (values: { next_contact_at: string | null }) => {
+          mockNextContact = values.next_contact_at;
+          return query;
+        },
         eq: () => query,
         in: () => query,
         order: () => query,
@@ -122,7 +136,9 @@ it("opens the linked student's page from the journey dialog", async () => {
     await screen.findByRole("button", { name: /Current student/ }),
   );
   expect(
-    await screen.findByRole("link", { name: "View student" }),
+    within(
+      await screen.findByRole("heading", { name: "Current student" }),
+    ).getByRole("link", { name: "Current student" }),
   ).toHaveAttribute("href", "/students/student-current");
 });
 
@@ -194,7 +210,9 @@ it("does not offer a student-page link for an unlinked family enquiry", async ()
   );
   expect(await screen.findByRole("dialog")).toBeVisible();
   expect(
-    screen.queryByRole("link", { name: "View student" }),
+    within(screen.getByRole("heading", { name: "Family enquiry" })).queryByRole(
+      "link",
+    ),
   ).not.toBeInTheDocument();
 });
 
@@ -224,4 +242,62 @@ it("also hides discontinued students from the completed / closed queue view", as
   expect(
     screen.queryByRole("button", { name: /Discontinued student/ }),
   ).not.toBeInTheDocument();
+});
+
+it("shows status pills in the dialog subheading instead of subjects", async () => {
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <ToastProvider>
+        <TrialStudentsPage />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Current student/ }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  const subheading = document.getElementById(
+    dialog.getAttribute("aria-describedby")!,
+  );
+  expect(subheading).toHaveTextContent("Enquiry");
+  expect(subheading).toHaveTextContent("Our action");
+  expect(subheading).toHaveTextContent("Overdue");
+  expect(subheading).not.toHaveTextContent("Maths");
+  expect(
+    within(dialog).queryByRole("link", { name: "View student" }),
+  ).not.toBeInTheDocument();
+});
+
+it("sets and clears the next contact date using the shared date picker", async () => {
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <ToastProvider>
+        <TrialStudentsPage />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Current student/ }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Agreed next contact date/ }),
+  );
+  const input = await screen.findByPlaceholderText("Type a date...");
+  fireEvent.change(input, { target: { value: "2026-10-24" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  const selected = await screen.findByRole("button", {
+    name: /Agreed next contact date/,
+  });
+  await waitFor(() => expect(selected).toHaveTextContent("24 Oct 2026"));
+  fireEvent.click(selected);
+  fireEvent.click(await screen.findByRole("option", { name: /Clear/ }));
+  await waitFor(() => expect(selected).toHaveTextContent("Select date"));
 });
