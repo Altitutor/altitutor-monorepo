@@ -493,6 +493,42 @@
 - **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
   _Avoid_: Anki note model, front/back row
 
+## Medicine interview practice
+
+- **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
+
+- **Interview feedback mode** — A coordinated mock interview mode with two-way communication throughout reading, question and feedback time. When recording is enabled, it covers question time and verbal feedback, excluding reading time.
+
+- **Interview rotation** — One allocation of students across the stations of a coordinated mock interview. Any participating tutor may explicitly advance the group once the required station work is finished; losing a connection does not itself stop the interview.
+
+- **Scheduled interview round** — A coordinated mock interview arranged for a future date and time and shown in the selected students' upcoming interviews. Students may come from different interview classes while holding current interview enrolment. The scheduled time does not start the round automatically; a participating tutor explicitly starts it.
+
+- **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
+
+- **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
+
+- **Interview tutor assignment** — A tutor's responsibility for one station throughout a round. Assignments are fixed once the round starts; another tutor cannot take over that station mid-round.
+
+- **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
+
+- **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
+
+- **Interview reading prompt** — The prompt of the first question in a station, shown during reading time and used for that station's printed prompt. Reordering the prepared station's questions changes its reading prompt; the station has no independently authored prompt.
+
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, reading or question time. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student.
+
+- **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
+
+- **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
+
+- **Interview question category** — The single configurable classification assigned to a bank question. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
+
+- **Interview question tag** — A configurable label that can be combined with other tags on a question, independent of its one category.
+
+- **Interview question placement** — One ordered use of a bank question in an interview station. A bank question may be used more than once in an interview; the builder warns about repetition without preventing it. Editing bank wording updates prepared interviews, while active/completed rounds retain the wording with which they began.
+
+- **Archived interview question** — A bank question hidden from normal browsing while its existing station references and past results are preserved. Archiving does not remove questions from prepared interviews.
+
 ## UCAT content
 
 - **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.

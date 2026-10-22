@@ -89,6 +89,16 @@ class OwnedDatabaseTests(unittest.TestCase):
         shutil.copy2(SCRIPT.with_name('checkall.sh'), self.repo / 'scripts/checkall.sh')
         (self.repo / 'supabase/scripts').mkdir()
         shutil.copy2(SCRIPT.parents[1] / 'supabase/scripts/apply-ucat-test-seed.sh', self.repo / 'supabase/scripts/apply-ucat-test-seed.sh')
+        # Simulate the interview HTTP consumer while retaining its real lease check.
+        for filename, event in [('test-interview-concurrency.py', 'interview-concurrency')]:
+            (self.repo / 'supabase/scripts' / filename).write_text(
+                'import json, os, subprocess, sys\nfrom pathlib import Path\n'
+                'root = Path(__file__).resolve().parents[2]\n'
+                'subprocess.run([sys.executable, str(root / "scripts/owned_database.py"), "verify-inner"], '
+                'check=True, pass_fds=(int(os.environ["ALTITUTOR_DB_LOCK_FD"]),))\n'
+                'with open(os.environ["FIXTURE_LOG"], "a") as output:\n'
+                f'    output.write(json.dumps([{event!r}, []]) + "\\n")\n'
+            )
         self.runtime = self.base / 'runtime'
         result = self.call('prepare', '--workdir', str(self.runtime))
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -176,6 +186,9 @@ class OwnedDatabaseTests(unittest.TestCase):
         self.assertIn(('supabase',['db','reset','--local']),actions)
         self.assertIn(('supabase',['test','db']),actions)
         self.assertIn(('pnpm',['--filter','ucat-web','test:e2e:critical']),actions)
+        self.assertIn(('interview-concurrency',[]),actions)
+        self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-concurrency',[])))
+        self.assertLess(actions.index(('interview-concurrency',[])),actions.index(('pnpm',['--filter','ucat-web','test:e2e:critical'])))
         self.assertEqual(actions[-1],('supabase',['stop','--project-id',self.project,'--no-backup']))
 
     def test_type_commands_use_owned_stack_and_preserve_existing_output_on_failure(self):

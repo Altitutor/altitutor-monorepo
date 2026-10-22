@@ -1,0 +1,5 @@
+# Allow live interview rubric updates while preserving question wording
+
+Mock interview rounds retain the prompt and question wording with which they began, but saved shared-rubric changes also reach active rounds using that question. Tutors need to improve marking guidance during delivery without changing the questions faced by students halfway through a circuit. Retain rubric revision history and notify active tutors of updates; do not freeze rubrics together with question content. This accepts changing guidance during a round in exchange for useful live corrections, as decided during DEV-8 discovery on 22 October 2026.
+
+Prepared interviews continue to reference shared bank questions: bank prompt/question edits update every prepared interview using them. The preservation boundary is the start of a round, not the act of adding a question to an interview. This avoids maintaining disconnected copies while keeping the wording of active and completed attempts stable, confirmed during the bank/builder review.
