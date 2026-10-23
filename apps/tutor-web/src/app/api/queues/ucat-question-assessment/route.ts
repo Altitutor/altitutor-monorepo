@@ -11,7 +11,7 @@ import {
   runBackgroundUcatQuestionAssessment,
 } from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
 
-export const maxDuration = 600
+export const maxDuration = 300
 
 const consumeAssessment = handleCallback<UcatQuestionAssessmentQueueMessage>(
   async (message, metadata) => {
