@@ -1,19 +1,24 @@
 'use client';
 
 import * as React from 'react';
-import { Calendar } from 'lucide-react';
-import { addDays, format, startOfDay } from 'date-fns';
-import { cn } from '../lib/cn'
+import { Calendar, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
+import { cn } from '../lib/cn';
 import { fieldTriggerClassName } from '../lib/field-trigger';
 import { parseNaturalDate } from '../lib/smart-date-parser';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from './command';
+import { navActiveStyles, navHoverStyles } from '../lib/styles';
+import { Button } from './button';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type SmartDatePickerValueFormat = 'date' | 'iso';
@@ -34,9 +39,9 @@ export interface SmartDatePickerPopoverProps {
   stopPropagation?: boolean;
   minDate?: string | null;
   maxDate?: string | null;
-  /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
+  /** When false, hides caller-provided presets. Default true. */
   showPresets?: boolean;
-  /** Replaces the default future-oriented presets when provided. */
+  /** Optional shortcuts displayed below the calendar. */
   presets?: ReadonlyArray<SmartDatePickerPreset>;
   /** Force typed month/day into this calendar year. */
   anchorYear?: number;
@@ -72,9 +77,9 @@ export interface SmartDatePickerFieldProps {
   stopPropagation?: boolean;
   minDate?: string | null;
   maxDate?: string | null;
-  /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
+  /** When false, hides caller-provided presets. Default true. */
   showPresets?: boolean;
-  /** Replaces the default future-oriented presets when provided. */
+  /** Optional shortcuts displayed below the calendar. */
   presets?: ReadonlyArray<SmartDatePickerPreset>;
   /** Force typed month/day into this calendar year. */
   anchorYear?: number;
@@ -107,17 +112,6 @@ function dateToIsoDate(date: Date): string {
   return new Date(dateOnly).toISOString();
 }
 
-function nextWeekday(from: Date, weekday: number): Date {
-  const daysUntil = (weekday - from.getDay() + 7) % 7 || 7;
-  return addDays(from, daysUntil);
-}
-
-function getThisWeekend(from: Date): Date {
-  const day = from.getDay();
-  if (day === 0 || day === 6) return from;
-  return addDays(from, 6 - day);
-}
-
 function formatDateOption(date: Date): string {
   return format(date, 'EEE, d MMM yyyy');
 }
@@ -148,19 +142,19 @@ export function SmartDatePickerPopover({
 }: SmartDatePickerPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const inputValue = toDateInputValue(value);
+  const [month, setMonth] = React.useState(() =>
+    startOfMonth(inputValue ? parseISO(inputValue) : new Date()),
+  );
   const today = React.useMemo(() => startOfDay(new Date()), [open]);
 
-  const presets = React.useMemo<ReadonlyArray<SmartDatePickerPreset>>(() => {
-    if (!showPresets) return [];
-    if (presetOptions) return presetOptions;
-    return [
-      { label: 'Today', value: today },
-      { label: 'Tomorrow', value: addDays(today, 1) },
-      { label: 'This weekend', value: getThisWeekend(today) },
-      { label: 'Next week', value: nextWeekday(today, 1) },
-    ];
-  }, [presetOptions, showPresets, today]);
+  const presets = showPresets ? presetOptions ?? [] : [];
+  const days = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+  });
+  const todayValue = format(today, 'yyyy-MM-dd');
 
   const parsedQueryDate = React.useMemo(() => {
     const trimmed = query.trim();
@@ -175,11 +169,13 @@ export function SmartDatePickerPopover({
     onChange(date ? dateToIsoDate(date) : null);
     setQuery('');
     setOpen(false);
+    onBlur?.();
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (disabled && nextOpen) return;
     setOpen(nextOpen);
+    if (nextOpen) setMonth(startOfMonth(inputValue ? parseISO(inputValue) : new Date()));
     if (!nextOpen) {
       setQuery('');
       onBlur?.();
@@ -190,70 +186,128 @@ export function SmartDatePickerPopover({
     <Popover open={open} onOpenChange={handleOpenChange} modal={modal}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="w-[20rem] p-0"
+        className="w-[20rem] max-w-[calc(100vw-2rem)] p-0"
+        collisionPadding={16}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+        }}
         align={align}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
         onKeyDown={stopPropagation ? (event) => event.stopPropagation() : undefined}
       >
         {name ? <input type="hidden" name={name} value={inputValue} /> : null}
-        <Command shouldFilter={false}>
-          <CommandInput
+        <div className="flex items-center gap-2 border-b px-3">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <input
+            ref={inputRef}
+            aria-label="Type a date"
+            className="h-11 min-w-0 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             value={query}
-            onValueChange={setQuery}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder={inputPlaceholder}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && parsedQueryDate) {
+              if (event.key === 'Enter') {
                 event.preventDefault();
                 event.stopPropagation();
-                selectDate(parsedQueryDate);
+                if (parsedQueryDate) selectDate(parsedQueryDate);
               }
             }}
           />
-          <CommandList>
-            {parsedQueryDate ? (
-              <CommandGroup heading="Typed date">
-                <CommandItem
-                  value={`custom-${query}`}
-                  disabled={!isDateAllowed(parsedQueryDate, minDate, maxDate)}
-                  onSelect={() => selectDate(parsedQueryDate)}
-                  className="gap-2"
+        </div>
+        <div className="max-h-[min(32rem,65vh)] overflow-y-auto overscroll-contain p-3">
+          {query.trim() ? (
+            parsedQueryDate ? (
+              <button
+                type="button"
+                disabled={!isDateAllowed(parsedQueryDate, minDate, maxDate)}
+                onClick={() => selectDate(parsedQueryDate)}
+                className="mb-2 w-full rounded-md px-2 py-2 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                Use {formatDateOption(parsedQueryDate)}
+              </button>
+            ) : (
+              <p role="status" className="mb-2 px-2 py-2 text-sm text-muted-foreground">No date found</p>
+            )
+          ) : null}
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Previous month"
+              onClick={() => setMonth((previous) => addMonths(previous, -1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-medium" aria-live="polite">{format(month, 'MMMM yyyy')}</div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              aria-label="Next month"
+              onClick={() => setMonth((previous) => addMonths(previous, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="mb-2 grid grid-cols-7 gap-1" aria-hidden="true">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+              <div key={day} className="text-center text-xs text-muted-foreground">{day}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1" role="group" aria-label={format(month, 'MMMM yyyy')}>
+            {days.map((day) => {
+              const date = format(day, 'yyyy-MM-dd');
+              if (!isSameMonth(day, month)) return <div key={date} aria-hidden="true" className="aspect-square" />;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  aria-label={format(day, 'EEEE, d MMMM yyyy')}
+                  aria-pressed={date === inputValue}
+                  aria-current={date === todayValue ? 'date' : undefined}
+                  disabled={!isDateAllowed(day, minDate, maxDate)}
+                  onClick={() => selectDate(day)}
+                  className={cn(
+                    'aspect-square min-w-0 rounded-md border border-transparent text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+                    date === inputValue ? navActiveStyles : navHoverStyles,
+                    date === todayValue && 'font-semibold ring-1 ring-border',
+                  )}
                 >
-                  <span className="font-medium">Use "{query.trim()}"</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {formatDateOption(parsedQueryDate)}
-                  </span>
-                </CommandItem>
-              </CommandGroup>
-            ) : query.trim() ? (
-              <CommandEmpty>No date found</CommandEmpty>
-            ) : null}
-
-            {presets.length > 0 ? (
-              <CommandGroup heading="Presets">
-                {presets.map((preset) => (
-                  <CommandItem
-                    key={preset.label}
-                    value={`${preset.label} ${formatDateOption(preset.value)}`}
-                    disabled={!isDateAllowed(preset.value, minDate, maxDate)}
-                    onSelect={() => selectDate(preset.value)}
-                    className="gap-2"
-                  >
-                    <span className="font-medium">{preset.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {formatDateOption(preset.value)}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ) : null}
-
-            <CommandGroup>
-              <CommandItem value="clear no date" onSelect={() => selectDate(null)}>
-                Clear date
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                  {format(day, 'd')}
+                </button>
+              );
+            })}
+          </div>
+          {presets.length > 0 ? (
+            <div className="mt-3 border-t pt-2">
+              {presets.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  disabled={!isDateAllowed(preset.value, minDate, maxDate)}
+                  onClick={() => selectDate(preset.value)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  <span>{preset.label}</span>
+                  <span className="text-xs text-muted-foreground">{formatDateOption(preset.value)}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="border-t p-1">
+          <button
+            type="button"
+            onClick={() => selectDate(null)}
+            className="w-full rounded-md px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clear date
+          </button>
+        </div>
       </PopoverContent>
     </Popover>
   );

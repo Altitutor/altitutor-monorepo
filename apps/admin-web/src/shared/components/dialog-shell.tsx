@@ -51,7 +51,7 @@ export function AdminDialogShell({
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;

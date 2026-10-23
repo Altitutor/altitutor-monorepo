@@ -1,0 +1,23 @@
+import type { InterviewRound } from '../index';
+import { interviewMediaPolicy } from '../media';
+
+const round = {
+  id: 'round', delivery: 'online', mode: 'exam', phase: 'reading', pausedAt: null,
+  phaseStartedAt: '2026-10-22T10:00:00Z', phaseDeadline: '2026-10-22T10:02:00Z',
+  recordingEnabled: true, progress: [{stationId:'station',tutorId:'tutor',studentId:'student',endedEarly:false,feedbackComplete:false}],
+  attempts: [{id:'attempt',stationId:'station',studentId:'student'}],
+} as InterviewRound;
+
+describe('interview media authorisation', () => {
+  it('enforces one-way exam reading at provider permission boundary', () => {
+    expect(interviewMediaPolicy(round, 'tutor', 'tutor')).toMatchObject({canSend:false,canReceive:true,recordingEnabled:false});
+    expect(interviewMediaPolicy(round, 'student', 'student')).toMatchObject({canSend:true,canReceive:false,recordingEnabled:false});
+    expect(interviewMediaPolicy(round, 'outsider', 'student')).toBeNull();
+  });
+  it('cuts off only the finished exam pair and allows feedback-mode discussion', () => {
+    const ended = {...round, phase: 'questions' as const, progress: round.progress.map((entry) => ({...entry,endedEarly:true}))};
+    expect(interviewMediaPolicy(ended, 'student', 'student')).toBeNull();
+    expect(interviewMediaPolicy({...ended,mode:'feedback'}, 'student', 'student')).toMatchObject({phase:'feedback',canSend:true,canReceive:true,recordingEnabled:true});
+    expect(interviewMediaPolicy({...round,pausedAt:'2026-10-22T10:01:00Z'}, 'tutor', 'tutor')).toBeNull();
+  });
+});

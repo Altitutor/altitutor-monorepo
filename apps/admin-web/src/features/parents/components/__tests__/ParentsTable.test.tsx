@@ -71,9 +71,10 @@ describe('ParentsTable', () => {
     expect(screen.getByText('robert.williams@parent.test · +61420000001')).toBeInTheDocument();
   });
 
-  it('searches name, email or phone by default', () => {
+  it('searches name, email or phone by default', async () => {
     renderWithProviders(<ParentsTable />);
 
+    await userEvent.click(screen.getByRole('button',{name:'Search'}));
     expect(screen.getByPlaceholderText('Search name, email or phone...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /all fields/i })).toBeInTheDocument();
     expect(mockedUseParentsList).toHaveBeenCalledWith(

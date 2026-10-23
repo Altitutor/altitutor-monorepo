@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import type { Database } from '@altitutor/shared';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
         },
       },
       cookieOptions: {
-        name: 'student-auth',
+        name: getAuthCookieName(),
       },
     },
   ));

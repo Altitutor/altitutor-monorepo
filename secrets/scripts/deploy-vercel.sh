@@ -15,16 +15,29 @@ SECRETS_DIR="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/common.sh"
 
 ONLY_SECRET=""
-if [ "${1:-}" = "--only" ]; then
-    ONLY_SECRET="${2:-}"
-    if [ "$ONLY_SECRET" != "CRON_SECRET" ] && [ "$ONLY_SECRET" != "ADMIN_REPORTING_DATABASE_URL" ] && [ "$ONLY_SECRET" != "UCAT_LIFECYCLE_CRON_SECRET_KEY" ] && [ "$ONLY_SECRET" != "UCAT_WEB_URL" ]; then
-        echo "Targeted deployment supports CRON_SECRET, ADMIN_REPORTING_DATABASE_URL, UCAT_LIFECYCLE_CRON_SECRET_KEY, or UCAT_WEB_URL." >&2
-        exit 1
-    fi
-elif [ "$#" -gt 0 ]; then
-    echo "Usage: $0 [--only CRON_SECRET|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL]" >&2
-    exit 1
-fi
+DEPLOY_ENVIRONMENT="all"
+usage() {
+    echo "Usage: $0 [--only CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL] [--environment development|production|all]" >&2
+}
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --only)
+            case "${2:-}" in
+                CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL) ONLY_SECRET="$2" ;;
+                *) usage; exit 1 ;;
+            esac
+            shift 2
+            ;;
+        --environment)
+            case "${2:-}" in
+                development|production|all) DEPLOY_ENVIRONMENT="$2" ;;
+                *) usage; exit 1 ;;
+            esac
+            shift 2
+            ;;
+        *) usage; exit 1 ;;
+    esac
+done
 
 # Load VERCEL_TOKEN from .env.shared if it exists
 if [ -f "$SECRETS_DIR/.env.shared" ]; then
@@ -63,12 +76,15 @@ echo ""
 # Check prerequisites
 check_command "vercel" "Install with: npm install -g vercel" || exit 1
 check_command "jq" "Install with: brew install jq" || exit 1
-check_env_file "$SECRETS_DIR/.env.development" || exit 1
-check_env_file "$SECRETS_DIR/.env.production" || exit 1
-if [ -z "$ONLY_SECRET" ] || [ "$ONLY_SECRET" = "CRON_SECRET" ]; then
-    ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
-    ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
-fi
+for environment in development production; do
+    if [ "$DEPLOY_ENVIRONMENT" != "all" ] && [ "$DEPLOY_ENVIRONMENT" != "$environment" ]; then
+        continue
+    fi
+    check_env_file "$SECRETS_DIR/.env.$environment" || exit 1
+    if [ -z "$ONLY_SECRET" ] || [ "$ONLY_SECRET" = "CRON_SECRET" ]; then
+        ensure_env_secret "$SECRETS_DIR/.env.$environment" "CRON_SECRET" || exit 1
+    fi
+done
 
 # Verify Vercel token is loaded
 if [ -n "$VERCEL_TOKEN" ]; then
@@ -180,7 +196,7 @@ deploy_vercel_secret() {
     else
         echo -e "${RED}  ✗ Vercel ($project - $environment): $secret_name${NC}"
         if [ -n "$DEBUG_VERCEL" ]; then
-            echo "    Response: $response" >&2
+            echo "    Vercel rejected the update; response omitted to protect secret values." >&2
         fi
         FAILURE_COUNT=$((FAILURE_COUNT + 1))
     fi
@@ -275,6 +291,7 @@ deploy_all_web_public_config() {
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
 
+if [ "$DEPLOY_ENVIRONMENT" = "all" ] || [ "$DEPLOY_ENVIRONMENT" = "development" ]; then
 echo -e "${BLUE}1. Deploying Development Secrets (Preview)${NC}"
 echo -e "${YELLOW}Vercel Preview Environment:${NC}"
 
@@ -311,9 +328,14 @@ while IFS='=' read -r key value; do
     # Deploy UCAT server-rendered social sign-in feature flags.
     elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
         deploy_ucat_web_server_config "$key" "$value" "preview"
-    # Vercel Cron authenticates only to the UCAT maintenance route.
+    # Vercel Cron authenticates UCAT and interview maintenance routes.
     elif [[ "$key" == "CRON_SECRET" ]]; then
         deploy_ucat_web_server_config "$key" "$value" "preview"
+        deploy_tutor_web_server_secret "$key" "$value" "preview"
+    # Daily is server-only and used by the two interview portals.
+    elif [[ "$key" == "DAILY_API_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
@@ -341,6 +363,7 @@ done < <({
     parse_env_file "$SECRETS_DIR/.env.shared"
     derive_env_vars "$SECRETS_DIR/.env.development"
 })
+fi
 
 echo ""
 
@@ -348,6 +371,7 @@ echo ""
 # Deploy Production Secrets
 # ============================================================
 
+if [ "$DEPLOY_ENVIRONMENT" = "all" ] || [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
 echo -e "${BLUE}2. Deploying Production Secrets${NC}"
 echo -e "${YELLOW}Vercel Production Environment:${NC}"
 
@@ -384,9 +408,14 @@ while IFS='=' read -r key value; do
     # Deploy UCAT server-rendered social sign-in feature flags.
     elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
         deploy_ucat_web_server_config "$key" "$value" "production"
-    # Vercel Cron authenticates only to the UCAT maintenance route.
+    # Vercel Cron authenticates UCAT and interview maintenance routes.
     elif [[ "$key" == "CRON_SECRET" ]]; then
         deploy_ucat_web_server_config "$key" "$value" "production"
+        deploy_tutor_web_server_secret "$key" "$value" "production"
+    # Daily is server-only and used by the two interview portals.
+    elif [[ "$key" == "DAILY_API_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
@@ -414,6 +443,7 @@ done < <({
     parse_env_file "$SECRETS_DIR/.env.shared"
     derive_env_vars "$SECRETS_DIR/.env.production"
 })
+fi
 
 echo ""
 

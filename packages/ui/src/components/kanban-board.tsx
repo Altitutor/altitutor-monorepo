@@ -1,5 +1,8 @@
 'use client';
 
+import { EntityToolbar, BoardEmptyColumnsControl } from './entity-toolbar';
+
+
 import * as React from 'react';
 import {
   type CollisionDetection,
@@ -25,35 +28,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from './button';
-import { Input } from './input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
-import { SearchableSelectInline } from './searchable-select-inline';
-import { DateRangeFilter } from './date-range-filter';
-import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
-import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import {
-  LayoutGrid,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Filter,
   Plus,
-  X,
-  Layers,
-  Search,
 } from 'lucide-react';
+import { isFilterMetadata } from '@altitutor/shared';
 import { EntityListPillColumn, EntityListStatusColumn, QuickFilter, selectedFilterMatchesValue } from './entity-list';
 
 // ---------------------------------------------------------------------------
@@ -70,9 +50,10 @@ export interface KanbanColumnDef<TItem, TValue = unknown> {
 }
 
 export interface KanbanBoardProps<TItem> {
+  hideToolbar?: boolean;
   items: TItem[];
   getItemId: (item: TItem) => string;
-  
+
   /** Configuration for what defines the kanban columns */
   columnDefs: KanbanColumnDef<TItem, unknown>[];
   activeColumnKey: string;
@@ -83,7 +64,7 @@ export interface KanbanBoardProps<TItem> {
   // Shared features with EntityList
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
-  
+
   groupByOptions?: { key: string; label: string }[];
   groupBy?: string | null;
   onGroupByChange?: (key: string | null) => void;
@@ -103,6 +84,7 @@ export interface KanbanBoardProps<TItem> {
   visiblePillKeys?: string[];
   onVisiblePillKeysChange?: (keys: string[]) => void;
 
+  viewTarget?: string;
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
 
@@ -146,14 +128,13 @@ function getPropValue<TItem>(
   }
   const pill = pills.find((p) => p.key === key);
   if (pill) return pill.getValue(item);
-  
+
   const colDef = columnDefs?.find((c) => c.key === key);
   if (colDef) return colDef.getValue(item);
-  
+
   return undefined;
 }
 
-type FilterOption = { value: unknown; label: string };
 
 const animateSettlingLayoutChanges: AnimateLayoutChanges = () => true;
 
@@ -195,8 +176,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     filters: controlledFilters,
     onFiltersChange,
     hideEmptyColumns: controlledHideEmptyColumns,
+    onHideEmptyColumnsChange,
     visiblePillKeys: controlledVisiblePills,
     onVisiblePillKeysChange,
+    viewTarget,
     quickFilters = [],
     onApplyQuickFilter,
     searchValue,
@@ -226,35 +209,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   } | null>(null);
   const [settlingColumn, setSettlingColumn] = React.useState<{ value: unknown } | null>(null);
   const settlingTimeoutRef = React.useRef<number | null>(null);
-  const [columnSelectOpen, setColumnSelectOpen] = React.useState(false);
-  const [sortOpen, setSortOpen] = React.useState(false);
-  const filterPersistenceKey = `kanban-board:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
-  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
-  const [sortSearchValue, setSortSearchValue] = React.useState('');
-  const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
-  const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
-
-  React.useEffect(() => {
-    setLocalSearchValue(searchValue ?? '');
-  }, [searchValue]);
-
-  React.useEffect(() => {
-    if (!onSearchChange) return;
-    const timeout = window.setTimeout(() => {
-      if (localSearchValue !== (searchValue ?? '')) {
-        onSearchChange(localSearchValue);
-      }
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [localSearchValue, onSearchChange, searchValue]);
-
-  React.useEffect(() => {
-    if (!sortOpen) return;
-    requestAnimationFrame(() => sortSearchInputRef.current?.focus());
-  }, [sortOpen]);
-
-  const groupBy = controlledGroupBy ?? internalGroupBy;
+  const groupBy = controlledGroupBy !== undefined ? controlledGroupBy : internalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
   const setSortBy = onSortChange
     ? (k: string, d: 'asc' | 'desc') => onSortChange(k, d)
@@ -275,9 +230,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
   const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
-  const filteredSortByOptions = visibleSortByOptions.filter((option) =>
-    option.label.toLowerCase().includes(sortSearchValue.trim().toLowerCase())
-  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -287,14 +239,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     })
   );
 
-  const removeFilterValue = (columnKey: string, value: unknown) => {
-    const current = filters[columnKey] ?? [];
-    const next = current.filter((v) => v !== value);
-    setFilters({ ...filters, [columnKey]: next });
-  };
-
-  const clearFilters = () => setFilters({});
-
   const activeFilterCount = Object.values(filters).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
 
   const filteredItems = React.useMemo(() => {
@@ -302,11 +246,12 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     if (activeFilterCount > 0) {
       result = result.filter((item) => {
         for (const columnKey of Object.keys(filters)) {
+          if (isFilterMetadata(columnKey)) continue;
           const selected = filters[columnKey];
           if (!selected?.length) continue;
-          
+
           const value = getPropValue(item, columnKey, rightPills, statusColumn, columnDefs);
-          const match = selectedFilterMatchesValue(selected, value);
+          const match = selectedFilterMatchesValue(selected, value, filters[`${columnKey}__operator`]?.[0]);
           if (!match) return false;
         }
         return true;
@@ -323,14 +268,14 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     const pill = rightPills.find((p) => p.key === sortBy);
     const statusCol = statusColumn?.key === sortBy ? statusColumn : undefined;
     const colDef = columnDefs.find(c => c.key === sortBy);
-    
+
     const getVal = (item: TItem) =>
       statusCol ? statusCol.getValue(item) : pill ? pill.getValue(item) : colDef ? colDef.getValue(item) : undefined;
-      
+
     const compare = pill?.compare
       ? (a: TItem, b: TItem) => pill.compare!(getVal(a), getVal(b)) as number
       : (a: TItem, b: TItem) => compareValues(getVal(a), getVal(b));
-      
+
     sorted.sort((a, b) => {
       const cmp = compare(a, b);
       return sortDirection === 'asc' ? cmp : -cmp;
@@ -515,520 +460,20 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   return (
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
-      {/* Toolbar */}
-      <div data-work-item-toolbar className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-2 overflow-hidden border-b p-2">
-        {onSearchChange ? (
-          <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <Search className="h-3.5 w-3.5" />
-            </span>
-            <Input
-              placeholder={searchPlaceholder}
-              value={localSearchValue}
-              onChange={(event) => setLocalSearchValue(event.target.value)}
-              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            {localSearchValue ? (
-              <button
-                type="button"
-                onClick={() => setLocalSearchValue('')}
-                className="shrink-0 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
-                <LayoutGrid className="h-4 w-4 md:mr-2" />
-                <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px] p-0">
-              <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                items={rightPills.filter((p) => p.filterOnly !== true)}
-                value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
-                onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
-                getItemId={(p) => p.key}
-                getItemLabel={(p) => p.label}
-                searchPlaceholder="Search pills..."
-                emptyMessage="No pills found"
-                multiSelect
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {columnDefs.length > 1 && (
-            <div className="relative flex items-center">
-              <DropdownMenu open={columnSelectOpen} onOpenChange={setColumnSelectOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
-                  <Layers className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline">Group by {activeColumnDef.label}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] p-0">
-                <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <SearchableSelectInline<KanbanColumnDef<TItem>>
-                  items={columnDefs}
-                  value={activeColumnDef}
-                  onValueChange={(col) => {
-                    if (col) {
-                      onActiveColumnKeyChange?.(col.key);
-                      setColumnSelectOpen(false);
-                    }
-                  }}
-                  getItemId={(c) => c.key}
-                  getItemLabel={(c) => c.label}
-                  searchPlaceholder="Search..."
-                  emptyMessage="No options found"
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        {sortByOptions.length > 0 && (
-          <div className="relative flex items-center">
-            <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="size-9 p-0 sm:h-10 sm:w-auto sm:px-3">
-                  <ArrowUpDown className="h-4 w-4 sm:mr-2" />
-                  <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
-                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[240px]">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <div className="flex items-center border-b px-3">
-                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                  <Input
-                    ref={sortSearchInputRef}
-                    value={sortSearchValue}
-                    onChange={(event) => setSortSearchValue(event.target.value)}
-                    placeholder="Search sort options..."
-                    className="flex h-11 w-full rounded-md border-0 bg-transparent px-0 py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                </div>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setSortBy('name', 'asc');
-                    setSortOpen(false);
-                  }}
-                >
-                  None (by name)
-                </DropdownMenuItem>
-                {filteredSortByOptions.map((option) => {
-                  const selected = sortBy === option.key;
-                  return (
-                    <DropdownMenuItem
-                      key={option.key}
-                      className="flex items-center gap-2"
-                      onSelect={(event) => {
-                        if (selected) {
-                          event.preventDefault();
-                          return;
-                        }
-                        setSortBy(option.key, 'asc');
-                        setSortOpen(false);
-                      }}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      {selected ? (
-                        <button
-                          type="button"
-                          className="inline-flex h-7 items-center gap-1 rounded-[var(--radius)] border bg-background px-2 text-xs hover:bg-muted"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setSortBy(option.key, sortDirection === 'asc' ? 'desc' : 'asc');
-                          }}
-                          aria-label={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
-                        >
-                          {sortDirection === 'asc' ? (
-                            <ArrowUp className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowDown className="h-3.5 w-3.5" />
-                          )}
-                          {sortDirection === 'asc' ? 'Asc' : 'Desc'}
-                        </button>
-                      ) : null}
-                    </DropdownMenuItem>
-                  );
-                })}
-                {sortBy !== 'name' ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setSortBy('name', 'asc');
-                        setSortOpen(false);
-                      }}
-                    >
-                      Clear sort
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {sortBy !== 'name' ? (
-              <ToolbarActiveBadge onClear={() => setSortBy('name', 'asc')} ariaLabel="Clear sort">
-                {sortDirection === 'asc' ? (
-                  <ArrowUp className="h-3 w-3" />
-                ) : (
-                  <ArrowDown className="h-3 w-3" />
-                )}
-              </ToolbarActiveBadge>
-            ) : null}
-          </div>
-        )}
-
-        <div className="relative flex items-center">
-          <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
-                <Filter className="h-4 w-4 md:mr-2" />
-                <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
-                  Filter
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
-                <DropdownMenuLabel>Filters</DropdownMenuLabel>
-                
-                {quickFilters.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Quick Filters
-                    </div>
-                    <div className="px-2 pb-2 flex flex-wrap gap-1">
-                      {quickFilters.map((qf) => (
-                        <Button
-                          key={qf.id}
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            if (onApplyQuickFilter) {
-                              onApplyQuickFilter(qf);
-                            } else {
-                              setFilters(qf.config);
-                            }
-                          }}
-                        >
-                          {qf.name}
-                        </Button>
-                      ))}
-                    </div>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-
-                {activeFilterCount > 0 && (
-                  <div className="px-2 pb-2 flex flex-wrap gap-1">
-                    {Object.entries(filters).map(([columnKey, selected]: [string, unknown[]]) => {
-                      if (!selected?.length) return null;
-                      const pill = rightPills.find((p) => p.key === columnKey);
-                      const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
-                      const colDef = columnDefs.find(c => c.key === columnKey);
-                      const label = pill?.label ?? statusCol?.label ?? colDef?.label ?? columnKey;
-                      const isDateRange = pill?.filterType === 'date-range';
-                      const dateRangeVal =
-                        isDateRange &&
-                        selected[0] &&
-                        typeof selected[0] === 'object' &&
-                        (selected[0] as { type?: string }).type === 'date_range'
-                          ? (selected[0] as { start?: string; end?: string })
-                          : null;
-
-                      return (
-                        <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                          <span className="font-semibold">{label}:</span>
-                          {dateRangeVal ? (
-                            <button
-                              onClick={() => removeFilterValue(columnKey, selected[0])}
-                              className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                            >
-                              {dateRangeVal.start && dateRangeVal.end
-                                ? `${dateRangeVal.start} – ${dateRangeVal.end}`
-                                : dateRangeVal.start
-                                  ? `from ${dateRangeVal.start}`
-                                  : dateRangeVal.end
-                                    ? `to ${dateRangeVal.end}`
-                                    : 'set'}
-                              <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                            </button>
-                          ) : (
-                            selected.map((val, idx) => {
-                              const options =
-                                pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
-                              const opt = options.find(
-                                (o: { value: unknown; label: string }) => String(o.value) === String(val)
-                              );
-                              const valLabel = opt?.label ?? String(val);
-                              return (
-                                <React.Fragment key={String(val)}>
-                                  {idx > 0 && <span className="opacity-50">OR</span>}
-                                  <button
-                                    onClick={() => removeFilterValue(columnKey, val)}
-                                    className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                                  >
-                                    {valLabel}
-                                    <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                                  </button>
-                                </React.Fragment>
-                              );
-                            })
-                          )}
-                        </div>
-                      );
-                    })}
-                    <button
-                      onClick={clearFilters}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-xs font-medium transition-colors"
-                    >
-                      Clear all
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-
-                <DropdownMenuSeparator />
-                
-                <ScrollArea className="flex-1 overflow-y-auto">
-                  {(() => {
-                    const renderedKeys = new Set<string>();
-                    const filterElements: React.ReactNode[] = [];
-
-                    if (statusColumn && statusColumn.filterable !== false) {
-                      renderedKeys.add(statusColumn.key);
-                      const options: FilterOption[] = statusColumn.options.map((o) => ({
-                        value: o.value,
-                        label: o.label,
-                      }));
-                      const selectedOptions = options.filter((o) =>
-                        (filters[statusColumn.key] ?? []).includes(o.value)
-                      );
-                      filterElements.push(
-                        <DropdownMenuSub key={statusColumn.key}>
-                          <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[240px] p-0">
-                            <SearchableSelectInline<FilterOption>
-                              items={options}
-                              value={selectedOptions}
-                              onValueChange={(opts) => {
-                                const next = opts.map((o) => o.value);
-                                if (next.length === 0) {
-                                  const rest = Object.fromEntries(
-                                    Object.entries(filters).filter(([k]) => k !== statusColumn.key)
-                                  );
-                                  setFilters(rest);
-                                } else {
-                                  setFilters({ ...filters, [statusColumn.key]: next });
-                                }
-                              }}
-                              getItemId={(o) => String(o.value)}
-                              getItemLabel={(o) => o.label}
-                              searchPlaceholder={`Search ${statusColumn.label.toLowerCase()}...`}
-                              emptyMessage="No results found"
-                              multiSelect
-                            />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
-
-                    columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
-                      if (col.filterable === false) return;
-                      if (renderedKeys.has(col.key)) return;
-                      renderedKeys.add(col.key);
-                      const options: FilterOption[] = col.options.map((o) => ({
-                        value: o.value,
-                        label: o.label,
-                      }));
-                      const selectedOptions = options.filter((o) =>
-                        (filters[col.key] ?? []).includes(o.value)
-                      );
-                      filterElements.push(
-                        <DropdownMenuSub key={col.key}>
-                          <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[240px] p-0">
-                            <SearchableSelectInline<FilterOption>
-                              items={options}
-                              value={selectedOptions}
-                              onValueChange={(opts) => {
-                                const next = opts.map((o) => o.value);
-                                if (next.length === 0) {
-                                  const rest = Object.fromEntries(
-                                    Object.entries(filters).filter(([k]) => k !== col.key)
-                                  );
-                                  setFilters(rest);
-                                } else {
-                                  setFilters({ ...filters, [col.key]: next });
-                                }
-                              }}
-                              getItemId={(o) => String(o.value)}
-                              getItemLabel={(o) => o.label}
-                              searchPlaceholder={`Search ${col.label.toLowerCase()}...`}
-                              emptyMessage="No results found"
-                              multiSelect
-                            />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    });
-
-                    rightPills
-                      .filter(
-                        (p: EntityListPillColumn<TItem, unknown>) =>
-                          p.filterable !== false &&
-                          (p.filterType === 'date-range' || (p.filterOptions?.length ?? 0) > 0)
-                      )
-                      .forEach((p: EntityListPillColumn<TItem, unknown>) => {
-                        if (renderedKeys.has(p.key)) return;
-                        renderedKeys.add(p.key);
-
-                        if (p.filterType === 'date-range') {
-                          const dr = (filters[p.key] ?? [])[0] as
-                            | { type: 'date_range'; start?: string; end?: string }
-                            | undefined;
-                          const fromVal = dr?.start ?? '';
-                          const toVal = dr?.end ?? '';
-                          filterElements.push(
-                            <DropdownMenuSub
-                              key={p.key}
-                              persistOpenOnRemountKey={`${filterPersistenceKey}:date:${p.key}`}
-                            >
-                              <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-[260px] p-0">
-                                <DateRangeFilter
-                                  fromValue={fromVal}
-                                  toValue={toVal}
-                                  onFromChange={(v) => {
-                                    const next =
-                                      v || toVal
-                                        ? [
-                                            {
-                                              type: 'date_range' as const,
-                                              start: v || undefined,
-                                              end: toVal || undefined,
-                                            },
-                                          ]
-                                        : [];
-                                    if (next.length === 0 && !toVal) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                  onToChange={(v) => {
-                                    const next =
-                                      fromVal || v
-                                        ? [
-                                            {
-                                              type: 'date_range' as const,
-                                              start: fromVal || undefined,
-                                              end: v || undefined,
-                                            },
-                                          ]
-                                        : [];
-                                    if (next.length === 0 && !fromVal) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                  onRangeChange={(from, to) => {
-                                    const next =
-                                      from || to
-                                        ? [
-                                            {
-                                              type: 'date_range' as const,
-                                              start: from || undefined,
-                                              end: to || undefined,
-                                            },
-                                          ]
-                                        : [];
-                                    if (next.length === 0) {
-                                      const rest = Object.fromEntries(
-                                        Object.entries(filters).filter(([k]) => k !== p.key)
-                                      );
-                                      setFilters(rest);
-                                    } else {
-                                      setFilters({ ...filters, [p.key]: next });
-                                    }
-                                  }}
-                                />
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          );
-                          return;
-                        }
-
-                        const options: FilterOption[] = p.filterOptions!.map((o) => ({
-                          value: o.value,
-                          label: o.label,
-                        }));
-                        const selectedOptions = options.filter((o) =>
-                          (filters[p.key] ?? []).includes(o.value)
-                        );
-                        filterElements.push(
-                          <DropdownMenuSub key={p.key}>
-                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-[240px] p-0">
-                              <SearchableSelectInline<FilterOption>
-                                items={options}
-                                value={selectedOptions}
-                                onValueChange={(opts) => {
-                                  const next = opts.map((o) => o.value);
-                                  if (next.length === 0) {
-                                    const rest = Object.fromEntries(
-                                      Object.entries(filters).filter(([k]) => k !== p.key)
-                                    );
-                                    setFilters(rest);
-                                  } else {
-                                    setFilters({ ...filters, [p.key]: next });
-                                  }
-                                }}
-                                getItemId={(o) => String(o.value)}
-                                getItemLabel={(o) => o.label}
-                                searchPlaceholder={`Search ${p.label.toLowerCase()}...`}
-                                emptyMessage="No results found"
-                                multiSelect
-                              />
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        );
-                      });
-
-                    return filterElements;
-                  })()}
-                </ScrollArea>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {activeFilterCount > 0 ? (
-              <ToolbarActiveBadge onClear={clearFilters} ariaLabel="Clear all filters">
-                {activeFilterCount}
-              </ToolbarActiveBadge>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      {!props.hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
+        <EntityToolbar
+            viewTarget={viewTarget}
+          statusColumn={statusColumn} rightPills={rightPills} columnDefs={columnDefs}
+          filters={filters} onFiltersChange={setFilters}
+          sortOptions={visibleSortByOptions} sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSortBy}
+          groupOptions={columnDefs.length > 1 ? columnDefs.map((column) => ({ key: column.key, label: column.label })) : []}
+          groupBy={activeColumnDef.key} onGroupByChange={(key) => { if (key) onActiveColumnKeyChange?.(key); }} groupByRequired
+          visiblePillKeys={visiblePillKeys} onVisiblePillKeysChange={setVisiblePillKeys}
+          search={searchValue ?? ''} onSearchChange={onSearchChange} searchPlaceholder={searchPlaceholder}
+          quickFilters={quickFilters} onApplyQuickFilter={onApplyQuickFilter}
+          viewContent={onHideEmptyColumnsChange ? <BoardEmptyColumnsControl checked={hideEmptyColumns} onChange={onHideEmptyColumnsChange} /> : undefined}
+        />
+      </div>}
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">
@@ -1037,7 +482,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             <span className="text-sm text-muted-foreground">Loading...</span>
           </div>
         )}
-        
+
         <DndContext
           sensors={sensors}
           collisionDetection={kanbanCollisionDetection}
@@ -1075,7 +520,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     columnItems.splice(dragPreview.index, 0, previewItem);
                   }
                 }
-                
+
                 if (hideEmptyColumns && persistedColumnItems.length === 0) return null;
 
                 return (

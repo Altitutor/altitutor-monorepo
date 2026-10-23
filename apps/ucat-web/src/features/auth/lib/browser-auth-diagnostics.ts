@@ -1,3 +1,4 @@
+import { isAuthCookie } from "@/lib/supabase/auth-cookie";
 import * as Sentry from "@sentry/nextjs";
 import type { Database } from "@altitutor/shared";
 import {
@@ -82,7 +83,7 @@ function environment(): Pick<
     if (typeof document !== "undefined") {
       cookiePresent = document.cookie
         .split(";")
-        .some((cookie) => /^student-auth(?:\.\d+)?=/.test(cookie.trim()));
+        .some((cookie) => isAuthCookie(cookie.trim().split("=", 1)[0]));
     }
   } catch {
     /* Cookie access can be disabled by the browser. */

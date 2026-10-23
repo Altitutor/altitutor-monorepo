@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { loadStudentPortalAccess } from "./portal-access";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
@@ -60,7 +61,7 @@ export async function issueNativeHandoff(request: NextRequest) {
     if (!input || !isChallenge(input.challenge)) return reply({ error: "Invalid handoff request" }, 400);
     const { url, anon, secret } = config();
     const caller = createServerClient(url, anon, {
-      cookieOptions: { name: "student-auth" },
+      cookieOptions: { name: getAuthCookieName() },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (entries) => {

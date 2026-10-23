@@ -29,8 +29,8 @@ export default function ResourceFileScreen() {
   const next = index >= 0 && index < ordered.length - 1 ? ordered[index + 1] : null;
   const solutionId = file && !file.isSolutions ? ordered.find((entry) => entry.isSolutionsOfId === file.id)?.id ?? null : null;
   const [resolved, setResolved] = useState<{ id: string; url: string | null; error: string | null } | null>(null);
-  const url = resolved?.id === file?.id ? resolved.url : null;
-  const error = resolved?.id === file?.id ? resolved.error : null;
+  const url = resolved && resolved.id === file?.id ? resolved.url : null;
+  const error = resolved && resolved.id === file?.id ? resolved.error : null;
 
   useEffect(() => {
     if (!file) return;
