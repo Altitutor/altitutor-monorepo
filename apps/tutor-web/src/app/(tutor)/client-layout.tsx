@@ -154,15 +154,22 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean
     }
 
     if (isInterviewTutor) {
-      items.push({ type: 'dropdown', title: 'Interviews', href: '/interviews', icon: Users, children: [
-        { title: 'Interviews', href: '/interviews', icon: Layers },
-        { title: 'Question bank', href: '/interviews/questions', icon: FileQuestion },
-      ] });
-    }
-
-    // DEV-8 throwaway entry: keep the new section beside UCAT during UI exploration.
-    if (process.env.NODE_ENV !== 'production') {
-      items.push({ title: 'Interviews · prototype', href: '/interviews/prototype/authoring', icon: Users });
+      items.push({
+        type: 'dropdown',
+        title: 'Interviews',
+        href: '/interviews',
+        icon: Users,
+        children: [
+          { type: 'heading', title: 'Scheduling' },
+          { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
+          { type: 'heading', title: 'Content' },
+          { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
+          { title: 'Station bank', href: '/interviews/stations', icon: FileQuestion },
+          { type: 'heading', title: 'Settings' },
+          { title: 'Station categories', href: '/interviews/station-categories', icon: FolderTree },
+          { title: 'Question tags', href: '/interviews/question-tags', icon: Tag },
+        ],
+      });
     }
 
     return items;
@@ -185,7 +192,7 @@ function isDropdownParentActive(pathname: string, parentHref: string): boolean {
 }
 
 function isDropdownChildActive(pathname: string, parentHref: string, childHref: string): boolean {
-  if (parentHref === '/interviews' && childHref === '/interviews') return !pathname.startsWith('/interviews/questions') && pathname.startsWith('/interviews');
+  if (parentHref === '/interviews') return isInterviewDropdownChildActive(pathname, childHref);
   if (parentHref === '/resources') {
     return isResourceSubjectNavActive(pathname, childHref);
   }
@@ -199,6 +206,23 @@ function isNavLinkActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === '/') return false;
   return pathname.startsWith(`${href}/`);
+}
+
+function isInterviewDropdownChildActive(pathname: string, href: string): boolean {
+  if (href === '/interviews/bank') {
+    if (pathname === '/interviews/bank' || pathname.startsWith('/interviews/bank/')) return true;
+    if (
+      pathname.startsWith('/interviews/stations') ||
+      pathname.startsWith('/interviews/rounds') ||
+      pathname.startsWith('/interviews/station-categories') ||
+      pathname.startsWith('/interviews/question-tags') ||
+      pathname === '/interviews'
+    ) {
+      return false;
+    }
+    return /^\/interviews\/[^/]+/.test(pathname);
+  }
+  return isNavLinkActive(pathname, href);
 }
 
 function isUcatDropdownChildActive(pathname: string, href: string): boolean {

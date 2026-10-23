@@ -43,12 +43,12 @@ const round: StudentInterviewRound = {
       id: "station-1",
       name: "SECRET STATION NAME",
       maximumPoints: 6,
+      prompt: "",
       questions: [
         {
           id: "placement-1",
           questionId: "question-1",
           question: "Released question",
-          prompt: "",
           rubric: "SECRET RUBRIC",
           rubricVersion: 1,
         },

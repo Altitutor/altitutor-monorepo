@@ -20,26 +20,27 @@ export interface InterviewTag {
 }
 export interface InterviewQuestion {
   id: string;
-  version: number;
-  categoryId: string;
+  stationId: string;
   tagIds: string[];
   question: InterviewRichText;
-  prompt: InterviewRichText;
   rubric: InterviewRichText;
   rubricVersion: number;
   suggestedTimeSeconds: number;
-  archived: boolean;
-  updatedAt: string;
-}
-export interface InterviewPlacement {
-  id: string;
-  questionId: string;
 }
 export interface InterviewStation {
   id: string;
+  version: number;
   name: string;
+  categoryId: string;
+  prompt: InterviewRichText;
   maximumPoints: number;
-  questions: InterviewPlacement[];
+  questions: InterviewQuestion[];
+  archived: boolean;
+  updatedAt: string;
+}
+export interface InterviewStationPlacement {
+  id: string;
+  stationId: string;
 }
 export interface InterviewTemplate {
   id: string;
@@ -48,7 +49,7 @@ export interface InterviewTemplate {
   readingTimeSeconds: number;
   questionTimeSeconds: number;
   recordingEnabled: boolean;
-  stations: InterviewStation[];
+  stations: InterviewStationPlacement[];
   archived: boolean;
   updatedAt: string;
 }
@@ -63,7 +64,7 @@ export interface InterviewCatalog {
   actorId: string;
   categories: InterviewCategory[];
   tags: InterviewTag[];
-  questions: InterviewQuestion[];
+  stations: InterviewStation[];
   interviews: InterviewTemplate[];
   tutors: InterviewPerson[];
   students: InterviewStudent[];
@@ -83,15 +84,31 @@ export interface InterviewRoundSetup {
   studentIds: string[];
   assignments: InterviewAssignment[];
 }
-export interface InterviewSnapshotQuestion extends InterviewPlacement {
+export interface InterviewSnapshotQuestion {
+  id: string;
+  questionId: string;
   question: InterviewRichText;
-  prompt: InterviewRichText;
   rubric: InterviewRichText;
   rubricVersion: number;
+  // Older rounds did not snapshot pacing guidance.
+  suggestedTimeSeconds?: number;
 }
-export interface InterviewSnapshotStation
-  extends Omit<InterviewStation, "questions"> {
+export interface InterviewSnapshotStation {
+  id: string;
+  stationId?: string;
+  name: string;
+  prompt: InterviewRichText;
+  maximumPoints: number;
   questions: InterviewSnapshotQuestion[];
+}
+export function resolveInterviewStations(
+  interview: InterviewTemplate,
+  stations: InterviewStation[],
+): (Omit<InterviewStation, "id"> & InterviewStationPlacement)[] {
+  return interview.stations.flatMap((placement) => {
+    const station = stations.find((item) => item.id === placement.stationId);
+    return station ? [{ ...station, ...placement }] : [];
+  });
 }
 export interface InterviewStationProgress {
   stationId: string;
@@ -105,7 +122,7 @@ export interface InterviewFeedback {
   placementId: string;
   value: InterviewRichText;
 }
-export interface InterviewAttempt {
+export interface InterviewStationAttempt {
   id: string;
   studentId: string;
   stationId: string;
@@ -132,7 +149,7 @@ export interface InterviewReleasedResult {
   score: number;
   possiblePoints: number;
   partial: boolean;
-  attempts: InterviewAttempt[];
+  attempts: InterviewStationAttempt[];
   recordings: InterviewRecording[];
 }
 export interface InterviewRound extends InterviewRoundSetup {
@@ -154,7 +171,7 @@ export interface InterviewRound extends InterviewRoundSetup {
   progress: InterviewStationProgress[];
   students: InterviewPerson[];
   tutors: InterviewPerson[];
-  attempts: InterviewAttempt[];
+  attempts: InterviewStationAttempt[];
   releasedResults: InterviewReleasedResult[];
   recordings: InterviewRecording[];
   connectedStudentIds: string[];
@@ -203,14 +220,14 @@ export type InterviewCommand =
   | (Command & { type: "saveCategory"; category: InterviewCategory })
   | (Command & { type: "saveTag"; tag: InterviewTag })
   | (VersionedCommand & {
-      type: "saveQuestion";
-      question: Omit<
-        InterviewQuestion,
-        "version" | "rubricVersion" | "updatedAt"
-      >;
+      type: "saveStation";
+      station: Omit<InterviewStation, "version" | "updatedAt" | "questions"> & {
+        questions: Omit<InterviewQuestion, "rubricVersion">[];
+      };
     })
   | (VersionedCommand & {
       type: "saveRubric";
+      stationId: string;
       questionId: string;
       rubric: InterviewRichText;
     })

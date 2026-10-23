@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { InterviewTemplate } from "@altitutor/shared";
 
 export function useBuilderDraft(actorId: string, original: InterviewTemplate) {
-  const key = `interview-builder:${actorId}:${original.id}`;
+  const key = `interview-builder:v2:${actorId}:${original.id}`;
   const [state, setState] = useState(() => {
     try {
       const raw = sessionStorage.getItem(key);

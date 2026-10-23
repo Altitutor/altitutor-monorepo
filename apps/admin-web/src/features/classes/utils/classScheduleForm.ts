@@ -4,11 +4,30 @@ import type {
   ClassScheduleRow,
 } from '../types/schedule';
 
+const ADELAIDE_TIME_ZONE = 'Australia/Adelaide';
+
 interface LegacyClassSchedule {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
   room: string | null;
+}
+
+export function adelaideCalendarDate(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ADELAIDE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/**
+ * New offerings may start in the past, but session generation cannot.
+ * Keep the offering start date, and begin the timetable on today when that start is earlier.
+ */
+export function resolveScheduleEffectiveFrom(startDate: string, today = adelaideCalendarDate()): string {
+  return startDate > today ? startDate : today;
 }
 
 export function resolveClassScheduleRows(
