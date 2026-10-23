@@ -38,30 +38,12 @@ hooks:
       .agents/skills/code-review/SKILL.md; do
       test -r "$required"
     done
-    # Reviewed repo-local setup guard and instructions; fail on source drift.
-    patch='/Users/matthewchua/Documents/Codex/2026-10-08/task-2/symphony-adoption/parallel-db-bootstrap-e39b983926d6.patch'
-    test "$(shasum -a 256 "$patch" | cut -d ' ' -f 1)" = 'e39b983926d624969019f52e3e58f6acf0830ff9a36f8d5748b9344e4b83cb2c'
-    if ! git apply --reverse --check "$patch" 2>/dev/null; then
-      git apply --check "$patch"
-      git apply "$patch"
-    fi
-    telemetry_patch='/Users/matthewchua/Documents/Codex/2026-10-08/task-2/symphony-adoption/telemetry-helper-614318fcb706.patch'
-    test "$(shasum -a 256 "$telemetry_patch" | cut -d ' ' -f 1)" = '614318fcb7061a604b3e2306795e9f78565427b9a3a717a1a733bb2d2541729b'
-    if ! git apply --reverse --check "$telemetry_patch" 2>/dev/null; then
-      git apply --check "$telemetry_patch"
-      git apply "$telemetry_patch"
-    fi
-    preview_tests_patch='/Users/matthewchua/Documents/Codex/2026-10-16/task/preview-fix/preview-test-isolation.patch'
-    test "$(shasum -a 256 "$preview_tests_patch" | cut -d ' ' -f 1)" = '8c21e45a851e8b91d5405b34a7ed473781d2e8220e61249e9728a729220945b5'
-    if ! git apply --reverse --check "$preview_tests_patch" 2>/dev/null; then
-      git apply --check "$preview_tests_patch"
-      git apply "$preview_tests_patch"
-    fi
-    seams_patch='/Users/matthewchua/Documents/Codex/2026-10-08/task-2/symphony-adoption/technical-test-seams-25fd6b46241e.patch'
-    test "$(shasum -a 256 "$seams_patch" | cut -d ' ' -f 1)" = '25fd6b46241e1e4808718e72bb87bd9f5f5953eab83abfa0d753191f26d8bb8a'
-    if ! git apply --reverse --check "$seams_patch" 2>/dev/null; then
-      git apply --check "$seams_patch"
-      git apply "$seams_patch"
+    # Retired mandatory expiring previews; upstream now contains the DB guards.
+    policy_patch='/Users/matthewchua/Documents/Codex/2026-10-16/task/preview-retirement/policy.patch'
+    test "$(shasum -a 256 "$policy_patch" | cut -d ' ' -f 1)" = '912128fb49988ede66f42a71b2826bc0e85c0c9d58dc59ffc100e561ae6e564d'
+    if ! git apply --reverse --check "$policy_patch" 2>/dev/null; then
+      git apply --check "$policy_patch"
+      git apply "$policy_patch"
     fi
     mkdir -p .codex/skills/linear
     cp '/Users/matthewchua/Library/Application Support/AltitutorSymphony/skills/linear/SKILL.md' .codex/skills/linear/SKILL.md
@@ -93,7 +75,7 @@ do not repeat completed work blindly.
 
 Work only in this issue's repository copy. Preserve the reviewed DB bootstrap
 scaffolding and exclude its preexisting changes from unrelated issue commits.
-Read docs/agents/local-database-tests.md: use guarded DB/preview entrypoints;
+Read docs/agents/local-database-tests.md: use guarded DB test entrypoints;
 DB commands automatically prepare a separate disposable test stack and wait for
 the shared startup/reset/seed/tests/cleanup lock. Normal Docker bindings are
 approved. Non-DB work stays concurrent. Do not start/reset normal/shared stacks.
@@ -233,28 +215,16 @@ Use synthetic/in-memory data and stub mutations, preserve the repository's
 routing/components, and keep prototype variants out of the production release.
 Do not connect a prototype to production data or write to a shared database.
 
-For remote prototype review, use the actual prototype's normal app server via
-already approved private Tailscale routing, or an existing protected app preview,
-within the issue's execution scope. Use the existing private tailnet access policy
-and keep public Funnel off; Matthew retired the custom three-device filter.
-Record the server's lifetime; do not assume a worker child survives Awaiting Input.
-Keep any approved review server independent of worker shutdown without creating
-a new daemon/coordinator. Repointing Serve or starting networking/services needs
-the applicable execution approval. Verify the actual URL serves this
-candidate's interactive prototype and variant controls with appropriate private
-access; a localhost URL, screenshot or stopped/expired host is not a working
-remote preview. Verify phone/iPad suitability and state honestly whether an
-actual device was tested. Record the durable Linear preview link, exact branch/
-SHA/artifact version, expiry/access instructions, question and specific feedback
-choices in the brief, then move to Awaiting Input and stop. If suitable hosting
-is unavailable or needs new access/publication approval, record the limitation
-and ask for that decision; do not restart services, widen access or invent a
-coordinator to obtain a link. The custom Python preview/catalog is retired.
-A normal loopback app server can use port 57340 without repointing the saved
-private Serve route; leave other Tailscale services/grants unchanged. For Next.js
-use its installed normal CLI, with explicit --hostname 127.0.0.1 --port 57340
-(the default hostname listens on all interfaces). Record the owning issue and
-stop time; do not replace another issue's listener.
+For prototype feedback, record the actual artifact/candidate, question and
+focused feedback choices. Use inspected screenshots, a portable local artifact,
+or another existing user-approved review method appropriate to the question.
+An expiring Tailscale URL, shared preview slot, booked hosting window or remote
+server is no longer required. This supersedes older prototype-hosting guidance
+for Symphony; it does not waive a genuine unresolved product decision.
+Do not automatically start or replace review servers, change routes or add a
+hosting provider/service. Existing manual work and services remain owned by their
+sessions. Describe tested interactions and unverified visual/device behavior
+honestly; screenshots do not prove persistence or external delivery.
 On feedback and return to runnable, reread and preserve the verdict, revise the
 prototype if needed or implement the accepted direction. Capture prototype
 source on a clearly named throwaway branch with a context pointer/verdict on the
@@ -343,27 +313,23 @@ Final implementation review evidence (required before In Review):
   candidate with representative synthetic/test cases and relevant layout states.
   Attach useful images in Linear with app, full SHA, capture/test-data scope and a
   short checklist. Do not substitute generated mockups or only localhost paths.
-- When Matthew needs to exercise changed UI functionality, provide an actually
-  checked interactive private preview of that candidate with representative test
-  data. Record app/SHA, steps and expected results, access requirements, server
-  owner and explicit lifetime/stop time; state which interactions were tested.
-  Screenshots alone do not prove interactive behavior, API work or persistence.
-- Use the existing normal Next server/private Tailscale route and preview-port
-  lease; check ownership first. One preview at a time; queue others rather than
-  overwriting a review server or inventing a platform/port fleet. No Funnel,
-  credentials, allowlist, network/security changes or persistent services.
-- Prefer in-memory fixtures/stub writes where they faithfully cover the reviewed
-  behavior; label their limits. Never use real customer data. Do not leave the
-  shared disposable DB lock held across a human wait or depend on a test DB after
-  its owning consumer ends. A DB-backed guarded preview is a bounded validation
-  window, not an indefinite review host. If real functionality needs different
-  data/hosting/lifetime support, ask for the smallest decision first.
-- Verify the private URL serves the right SHA and interactions, not just an HTTP
-  200/login page. Check that the server can survive the review pause within its
-  recorded lifetime; a worker child is not implicitly persistent. If hosting,
-  data or access prevents a usable preview, record the exact blocker in Linear
-  and pause Awaiting Input for what is needed. Do not tell Matthew to pull a
-  branch/run a server, claim missing evidence complete, or advance In Review.
+- Provide the exact candidate, meaningful functional test results and concrete
+  review steps. Use inspected candidate screenshots or an existing agreed review
+  method when useful; no custom private URL, shared port slot or timed hosting
+  window is required for completion or In Review.
+- Human UX review and product decisions remain required where applicable. Ask a
+  concrete question and identify the next responsible actor. Do not fabricate
+  visual/device verification or treat automated tests as human acceptance.
+- Use synthetic data and label fixture/stub limits. No real customer data,
+  credentials, external payments/email or remote database changes are implied.
+  Keep owned test cleanup and independent database isolation intact.
+- Preserve existing manual servers/routes. Do not automatically start a server,
+  add a provider/service or change networking as a replacement. Optional local
+  review until explicitly stopped is a proposal requiring a scoped owner/start/
+  stop arrangement; it is not installed by this workflow.
+- An absent or expired Tailscale preview alone is not an Awaiting Input reason.
+  Genuine product questions, missing incident evidence, denied actions and
+  applicable protected approvals retain their existing holds.
 - Ordinary non-UI changes can use relevant test/contract evidence and a SHA-pinned
   checklist; do not require screenshots or a web server where they add no value.
 
