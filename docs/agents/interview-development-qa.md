@@ -49,13 +49,17 @@ details. Production delivery remains separate from this QA procedure.
    with tutors assigned the **Medicine interview** subject. Students must have
    current interview enrolment. Use the private development test-account source
    described in [web smoke testing](development-web-smoke-testing.md).
-2. Open **Question bank**. Create a QA category, two tags and at least four
-   questions with distinct reading prompts and rubrics. Check search/filter,
-   one category per question, multiple tags and the persistent preview.
-3. Create a two-station interview, two questions per station. Set one maximum
-   to **6.5** and the other to **6**. Reuse a question once: a warning should
-   appear without blocking. Reorder questions and check printed prompts follow
-   the first question of each station.
+2. Open **Station bank**. Create a QA category, two question tags and two
+   stations with distinct prompts and at least two linked questions each. Check
+   search/filter, exactly one category per station, multiple tags independently
+   on each question, per-question rubric and recommended timing.
+3. Create an interview from both whole stations. Set one bank station maximum
+   to **6.5** and the other to **6**. Repeat a whole station: a warning should
+   appear without blocking. Reorder stations and check each printed page uses
+   its station prompt. Questions can be reordered only in the station editor;
+   reordering questions must never change the shared prompt. Duplicate a bank
+   station for an independent variant. Archive hides it from new selection while
+   preserving existing prepared references.
 4. Create an online exam round with short reading/question durations, recording
    enabled, two distinct tutors and two students. Check cross-class selection,
    scheduling with the shared date/time pickers, then use Start now for the test.
@@ -70,7 +74,7 @@ details. Production delivery remains separate from this QA procedure.
    should see the connection check and a deliberate override. Rejoin before
    continuing normally.
 3. In reading, tutors see/hear their student; students see their own preview,
-   numbered station and first-question prompt, with a countdown. Students must
+   numbered station and shared station prompt, with a countdown. Students must
    not see/hear the tutor, rubric or station name.
 4. In questions, both directions work. Tutor sees the timer; student does not.
    Record the delay before media reconnects and before recording is confirmed.

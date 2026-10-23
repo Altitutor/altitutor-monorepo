@@ -495,6 +495,13 @@
 
 ## Medicine interview practice
 
+- **Interview station** — A reusable interview exercise comprising one shared reading prompt and one or more ordered, linked questions, with exactly one category and an overall score maximum. Interviews are assembled from whole stations.
+
+- **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
+  _Avoid_: Standalone bank question, independently reusable question
+
+- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score and feedback for its individual questions.
+
 - **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
 
 - **Interview feedback mode** — A coordinated mock interview mode with two-way communication throughout reading, question and feedback time. When recording is enabled, it covers question time and verbal feedback, excluding reading time.
@@ -513,7 +520,7 @@
 
 - **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
 
-- **Interview reading prompt** — The prompt of the first question in a station, shown during reading time and used for that station's printed prompt. Reordering the prepared station's questions changes its reading prompt; the station has no independently authored prompt.
+- **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
 
 - **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, reading or question time. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student.
 
@@ -521,13 +528,13 @@
 
 - **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
 
-- **Interview question category** — The single configurable classification assigned to a bank question. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
+- **Interview station category** — The single configurable classification assigned to a bank station. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
 
-- **Interview question tag** — A configurable label that can be combined with other tags on a question, independent of its one category.
+- **Interview question tag** — A configurable label assigned to an individual station question. A question may have multiple tags, independently of the category of its owning station.
 
-- **Interview question placement** — One ordered use of a bank question in an interview station. A bank question may be used more than once in an interview; the builder warns about repetition without preventing it. Editing bank wording updates prepared interviews, while active/completed rounds retain the wording with which they began.
+- **Interview station placement** — One ordered use of a whole bank station in an interview, including that station's prompt and complete sequence of questions. The same station may appear more than once in an interview, with a repetition warning.
 
-- **Archived interview question** — A bank question hidden from normal browsing while its existing station references and past results are preserved. Archiving does not remove questions from prepared interviews.
+- **Live interview rubric correction** — A saved change to the marking guidance for a station question during delivery. Active tutors receive revision notices; the station's question wording and order remain fixed for that round.
 
 ## UCAT content
 

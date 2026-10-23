@@ -18,14 +18,7 @@ export function createBlankInterview(): InterviewTemplate {
     readingTimeSeconds: 120,
     questionTimeSeconds: 480,
     recordingEnabled: false,
-    stations: [
-      {
-        id: crypto.randomUUID(),
-        name: "Station 1",
-        maximumPoints: 6,
-        questions: [],
-      },
-    ],
+    stations: [],
     archived: false,
     updatedAt: "",
   };
@@ -66,7 +59,7 @@ export function InterviewEditorDialog({
       open={!!original}
       onClose={onClose}
       title={mode === "create" ? "New interview" : original?.name || "Edit interview"}
-      subtitle="Stations, timing, and the questions placed on each station."
+      subtitle="Assemble whole stations from the station bank and configure shared timing."
       onSave={() => void saveRef.current().catch(() => undefined)}
       saveLabel="Save interview"
       saveDisabled={!canSave}
@@ -79,7 +72,7 @@ export function InterviewEditorDialog({
                 label: "Print prompts",
                 description: canPrint
                   ? undefined
-                  : "Save the interview with at least one question before printing",
+                  : "Save the interview with at least one station before printing",
                 icon: <Printer className="h-4 w-4" />,
                 onClick: () => {
                   if (!canPrint) return;

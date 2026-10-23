@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
-  InterviewAttempt,
+  InterviewStationAttempt,
   InterviewFeedback,
   InterviewCommand,
 } from "@altitutor/shared";
@@ -13,7 +13,7 @@ export interface AttemptDraft {
   notAssessedReason: string | null;
   feedback: InterviewFeedback[];
 }
-export function attemptDraft(attempt: InterviewAttempt): AttemptDraft {
+export function attemptDraft(attempt: InterviewStationAttempt): AttemptDraft {
   return {
     score: attempt.score,
     notAssessedReason: attempt.notAssessedReason,
@@ -22,7 +22,7 @@ export function attemptDraft(attempt: InterviewAttempt): AttemptDraft {
 }
 
 /** Serial saves retain edits made while an earlier revision is in flight. A rejected write never discards the draft. */
-export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
+export function useAttemptDraft(roundId: string, attempt: InterviewStationAttempt) {
   const [draft, setDraft] = useState<AttemptDraft>(() => attemptDraft(attempt));
   const current = useRef(draft);
   const saved = useRef(JSON.stringify(draft));

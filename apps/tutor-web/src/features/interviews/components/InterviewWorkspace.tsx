@@ -15,7 +15,7 @@ import {
 } from "@altitutor/ui";
 import {
   interviewText,
-  type InterviewAttempt,
+  type InterviewStationAttempt,
   type InterviewCommand,
   type InterviewRound,
   type InterviewSnapshotStation,
@@ -81,7 +81,7 @@ export function AttemptEditor({
 }: {
   round: InterviewRound;
   station: InterviewSnapshotStation;
-  attempt: InterviewAttempt;
+  attempt: InterviewStationAttempt;
   registerFlush?: (flush: (() => Promise<void>) | null) => void;
   actions?: React.ReactNode;
 }) {
@@ -246,6 +246,7 @@ export function AttemptEditor({
         <>
           <InterviewPanel title={`Question ${questionIndex + 1}`}>
             <InterviewDocument value={question.question as JSONContent} />
+            {question.suggestedTimeSeconds && <p className="text-sm text-muted-foreground">Recommended answer time: {question.suggestedTimeSeconds}s</p>}
             <InterviewField label="Feedback">
               <InterviewDocument
                 key={question.id}
@@ -328,6 +329,7 @@ export function AttemptEditor({
                 void command
                   .mutateAsync({
                     type: "saveRubric",
+                    stationId: station.stationId ?? "",
                     commandId: crypto.randomUUID(),
                     questionId: question.questionId,
                     expectedVersion: editingRubricVersion,
@@ -595,6 +597,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.4fr)]">
             <div className="space-y-4">
               <PhaseTimer round={round} />
+              {station && <InterviewPanel title="Reading prompt"><InterviewDocument value={station.prompt as JSONContent} /></InterviewPanel>}
               <InterviewPanel title={station?.name ?? "Your station"}>
                 <InterviewMedia
                   role="tutor"

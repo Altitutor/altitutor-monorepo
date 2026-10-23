@@ -37,14 +37,14 @@ const sections: { heading: string; cards: InterviewNavCard[] }[] = [
     cards: [
       {
         title: "Interview bank",
-        description: "Prepare stations, timing, and the questions placed on each station",
+        description: "Assemble whole stations and configure interview timing",
         href: "/interviews/bank",
         icon: Layers,
       },
       {
-        title: "Question bank",
-        description: "Manage shared questions, reading prompts, and marking guidance",
-        href: "/interviews/questions",
+        title: "Station bank",
+        description: "Create stations with shared prompts, linked questions, and rubrics",
+        href: "/interviews/stations",
         icon: FileQuestion,
       },
     ],
@@ -53,14 +53,14 @@ const sections: { heading: string; cards: InterviewNavCard[] }[] = [
     heading: "Settings",
     cards: [
       {
-        title: "Question categories",
-        description: "Organize shared questions into a category hierarchy",
-        href: "/interviews/question-categories",
+        title: "Station categories",
+        description: "Organize stations into a category hierarchy",
+        href: "/interviews/station-categories",
         icon: FolderTree,
       },
       {
         title: "Question tags",
-        description: "Label questions so they can be filtered and reused",
+        description: "Label individual station questions for filtering",
         href: "/interviews/question-tags",
         icon: Tag,
       },

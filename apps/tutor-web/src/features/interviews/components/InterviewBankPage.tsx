@@ -11,6 +11,7 @@ import type {
   DataTableColumnDefinition,
   DataTableSortOption,
   InterviewTemplate,
+  InterviewStation,
 } from "@altitutor/shared";
 import { Pencil, Plus, Printer } from "lucide-react";
 import { UcatRowActions } from "@/features/ucat/shared/row-actions";
@@ -42,16 +43,16 @@ const sortOptions: DataTableSortOption[] = [
   { key: "name", label: "Name" },
 ];
 
-function questionCount(interview: InterviewTemplate) {
+function questionCount(interview: InterviewTemplate, bank: InterviewStation[]) {
   return interview.stations.reduce(
-    (sum, station) => sum + station.questions.length,
+    (sum, station) => sum + (bank.find((s) => s.id === station.stationId)?.questions.length ?? 0),
     0,
   );
 }
 
-function totalPoints(interview: InterviewTemplate) {
+function totalPoints(interview: InterviewTemplate, bank: InterviewStation[]) {
   return interview.stations.reduce(
-    (sum, station) => sum + station.maximumPoints,
+    (sum, station) => sum + (bank.find((s) => s.id === station.stationId)?.maximumPoints ?? 0),
     0,
   );
 }
@@ -171,7 +172,7 @@ export function InterviewBankPage() {
                       id: "questions",
                       header: "Questions",
                       cell: ({ row }: { row: { original: InterviewTemplate } }) =>
-                        questionCount(row.original),
+                        questionCount(row.original, catalog?.stations ?? []),
                     },
                   ]
                 : []),
@@ -191,7 +192,7 @@ export function InterviewBankPage() {
                       id: "points",
                       header: "Total points",
                       cell: ({ row }: { row: { original: InterviewTemplate } }) =>
-                        totalPoints(row.original),
+                        totalPoints(row.original, catalog?.stations ?? []),
                     },
                   ]
                 : []),

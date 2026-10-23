@@ -90,7 +90,10 @@ class OwnedDatabaseTests(unittest.TestCase):
         (self.repo / 'supabase/scripts').mkdir()
         shutil.copy2(SCRIPT.parents[1] / 'supabase/scripts/apply-ucat-test-seed.sh', self.repo / 'supabase/scripts/apply-ucat-test-seed.sh')
         # Simulate the interview HTTP consumer while retaining its real lease check.
-        for filename, event in [('test-interview-concurrency.py', 'interview-concurrency')]:
+        for filename, event in [
+            ('test-interview-station-upgrade.py', 'interview-station-upgrade'),
+            ('test-interview-concurrency.py', 'interview-concurrency'),
+        ]:
             (self.repo / 'supabase/scripts' / filename).write_text(
                 'import json, os, subprocess, sys\nfrom pathlib import Path\n'
                 'root = Path(__file__).resolve().parents[2]\n'
@@ -187,6 +190,9 @@ class OwnedDatabaseTests(unittest.TestCase):
         self.assertIn(('supabase',['test','db']),actions)
         self.assertIn(('pnpm',['--filter','ucat-web','test:e2e:critical']),actions)
         self.assertIn(('interview-concurrency',[]),actions)
+        self.assertIn(('interview-station-upgrade',[]),actions)
+        self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-station-upgrade',[])))
+        self.assertLess(actions.index(('interview-station-upgrade',[])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('interview-concurrency',[])),actions.index(('pnpm',['--filter','ucat-web','test:e2e:critical'])))
         self.assertEqual(actions[-1],('supabase',['stop','--project-id',self.project,'--no-backup']))

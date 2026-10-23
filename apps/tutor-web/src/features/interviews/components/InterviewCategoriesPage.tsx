@@ -34,7 +34,7 @@ type CategoryNode = TaxonomyHierarchyNode;
 
 function buildTree(
   categories: InterviewCategory[],
-  questionCount: (id: string) => number,
+  stationCount: (id: string) => number,
   parentId: string | null,
   direction: "asc" | "desc",
 ): CategoryNode[] {
@@ -43,12 +43,12 @@ function buildTree(
     .filter((category) => category.parentId === parentId)
     .sort((a, b) => a.name.localeCompare(b.name) * sign)
     .map((category) => {
-      const children = buildTree(categories, questionCount, category.id, direction);
+      const children = buildTree(categories, stationCount, category.id, direction);
       return {
         id: category.id,
         name: category.name,
         child_count: children.length,
-        item_count: questionCount(category.id),
+        item_count: stationCount(category.id),
         children,
       };
     });
@@ -78,14 +78,14 @@ export function InterviewCategoriesPage() {
   const [parentId, setParentId] = useState<string | null>(null);
 
   const categories = catalog?.categories ?? [];
-  const questionCount = (id: string) =>
-    (catalog?.questions ?? []).filter(
-      (question) => !question.archived && question.categoryId === id,
+  const stationCount = (id: string) =>
+    (catalog?.stations ?? []).filter(
+      (station) => !station.archived && station.categoryId === id,
     ).length;
   const nodes = filterTree(
     buildTree(
       categories,
-      questionCount,
+      stationCount,
       null,
       table.state.sortDirection === "desc" ? "desc" : "asc",
     ),
@@ -175,7 +175,7 @@ export function InterviewCategoriesPage() {
       {nodes.length ? (
         <TaxonomyHierarchyTree
           nodes={nodes}
-          itemCountNoun="question"
+          itemCountNoun="station"
           onItemClick={openEdit}
           searchQuery={table.state.search}
           editMode={editMode}
@@ -193,10 +193,10 @@ export function InterviewCategoriesPage() {
   return (
     <div className="space-y-6 py-8 md:py-10">
       <InterviewPageHeader
-        title="Question categories"
+        title="Station categories"
         backHref="/interviews"
         backLabel="Back to interviews"
-        breadcrumbs={interviewCrumbs("Question categories")}
+        breadcrumbs={interviewCrumbs("Station categories")}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -259,7 +259,7 @@ export function InterviewCategoriesPage() {
           setParentId(null);
         }}
         title={editing ? "Edit category" : "Create category"}
-        subtitle="Categories group shared interview questions."
+        subtitle="Categories group whole interview stations."
         onSave={() => void save().catch(() => undefined)}
         saveLabel={editing ? "Save" : "Create"}
         saveDisabled={!name.trim() || command.isPending}

@@ -164,9 +164,9 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean
           { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
           { type: 'heading', title: 'Content' },
           { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
-          { title: 'Question bank', href: '/interviews/questions', icon: FileQuestion },
+          { title: 'Station bank', href: '/interviews/stations', icon: FileQuestion },
           { type: 'heading', title: 'Settings' },
-          { title: 'Question categories', href: '/interviews/question-categories', icon: FolderTree },
+          { title: 'Station categories', href: '/interviews/station-categories', icon: FolderTree },
           { title: 'Question tags', href: '/interviews/question-tags', icon: Tag },
         ],
       });
@@ -212,9 +212,9 @@ function isInterviewDropdownChildActive(pathname: string, href: string): boolean
   if (href === '/interviews/bank') {
     if (pathname === '/interviews/bank' || pathname.startsWith('/interviews/bank/')) return true;
     if (
-      pathname.startsWith('/interviews/questions') ||
+      pathname.startsWith('/interviews/stations') ||
       pathname.startsWith('/interviews/rounds') ||
-      pathname.startsWith('/interviews/question-categories') ||
+      pathname.startsWith('/interviews/station-categories') ||
       pathname.startsWith('/interviews/question-tags') ||
       pathname === '/interviews'
     ) {

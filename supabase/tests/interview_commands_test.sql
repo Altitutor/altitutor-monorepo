@@ -17,10 +17,11 @@ CREATE FUNCTION pg_temp.round_cmd(kind text,extra jsonb DEFAULT '{}',actor uuid 
  (SELECT data->'version' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'))||extra,actor);
 $$;
 SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveCategory","category":{"id":"e8000000-0000-4000-8000-000000000001","name":"Personal","parentId":null}}')$q$,'Medicine tutor can create a configurable category');
-SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveQuestion","expectedVersion":0,"question":{"id":"e8000000-0000-4000-8000-000000000002","categoryId":"e8000000-0000-4000-8000-000000000001","tagIds":[],"question":"Why medicine?","prompt":"Read this scenario","rubric":"Listen for motivation","suggestedTimeSeconds":60,"archived":false}}')$q$,'Medicine tutor can create a bank question');
-SELECT is((SELECT data->'questions'->0->>'question' FROM public.vtutor_interview_catalog),'Why medicine?','Saved bank question is readable from tutor facade');
-SELECT throws_ok($q$SELECT pg_temp.cmd('{"type":"saveRubric","expectedVersion":0,"questionId":"e8000000-0000-4000-8000-000000000002","rubric":"stale"}')$q$,'PT409','Question changed; reload before saving','Stale bank edit is rejected');
-SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveInterview","expectedVersion":0,"interview":{"id":"e8000000-0000-4000-8000-000000000010","name":"Mock MMI","readingTimeSeconds":60,"questionTimeSeconds":60,"recordingEnabled":true,"archived":false,"stations":[{"id":"e8000000-0000-4000-8000-000000000011","name":"Motivation","maximumPoints":6.5,"questions":[{"id":"e8000000-0000-4000-8000-000000000012","questionId":"e8000000-0000-4000-8000-000000000002"}]},{"id":"e8000000-0000-4000-8000-000000000013","name":"Follow up","maximumPoints":6,"questions":[{"id":"e8000000-0000-4000-8000-000000000014","questionId":"e8000000-0000-4000-8000-000000000002"}]}]}}')$q$,'Decimal maxima and repeated questions are allowed');
+SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveStation","expectedVersion":0,"station":{"id":"e8000000-0000-4000-8000-000000000100","name":"Motivation","categoryId":"e8000000-0000-4000-8000-000000000001","prompt":"Read this scenario","maximumPoints":6.5,"archived":false,"questions":[{"id":"e8000000-0000-4000-8000-000000000002","stationId":"e8000000-0000-4000-8000-000000000100","tagIds":[],"question":"Why medicine?","rubric":"Listen for motivation","suggestedTimeSeconds":60}]}}')$q$,'Medicine tutor can create a station with owned questions');
+SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveStation","expectedVersion":0,"station":{"id":"e8000000-0000-4000-8000-000000000101","name":"Follow up","categoryId":"e8000000-0000-4000-8000-000000000001","prompt":"Read this scenario","maximumPoints":6,"archived":false,"questions":[{"id":"e8000000-0000-4000-8000-000000000003","stationId":"e8000000-0000-4000-8000-000000000101","tagIds":[],"question":"Why medicine?","rubric":"Listen for motivation","suggestedTimeSeconds":60}]}}')$q$,'Medicine tutor can create a station with owned questions');
+SELECT is((SELECT data->'stations'->0->'questions'->0->>'question' FROM public.vtutor_interview_catalog),'Why medicine?','Saved station question is readable from tutor facade');
+SELECT throws_ok($q$SELECT pg_temp.cmd('{"type":"saveRubric","stationId":"e8000000-0000-4000-8000-000000000100","expectedVersion":0,"questionId":"e8000000-0000-4000-8000-000000000002","rubric":"stale"}')$q$,'PT409','Question changed; reload before saving','Stale bank edit is rejected');
+SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveInterview","expectedVersion":0,"interview":{"id":"e8000000-0000-4000-8000-000000000010","name":"Mock MMI","readingTimeSeconds":60,"questionTimeSeconds":60,"recordingEnabled":true,"archived":false,"stations":[{"id":"e8000000-0000-4000-8000-000000000011","stationId":"e8000000-0000-4000-8000-000000000100"},{"id":"e8000000-0000-4000-8000-000000000013","stationId":"e8000000-0000-4000-8000-000000000101"}]}}')$q$,'Interview references complete stations with decimal maxima');
 SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"createRound","roundId":"e8000000-0000-4000-8000-000000000020","setup":{"interviewId":"e8000000-0000-4000-8000-000000000010","name":"Practice","delivery":"online","mode":"exam","recordingEnabled":true,"scheduledAt":null,"studentIds":["10000000-0000-0000-0000-000000000001"],"assignments":[{"stationId":"e8000000-0000-4000-8000-000000000011","tutorId":"00000000-0000-0000-0000-000000000010"},{"stationId":"e8000000-0000-4000-8000-000000000013","tutorId":"00000000-0000-0000-0000-000000000011"}]}}')$q$,'A round supports fewer students than stations');
 SELECT is((SELECT jsonb_array_length(data->'attempts') FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),2,'One attempt is prepared for each student/station occurrence');
 SELECT is((SELECT data->'progress'->1->>'studentId' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),NULL,'Unoccupied station is idle');
@@ -38,7 +39,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SELECT is((SELECT data->>'prompt' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Read this scenario','Student sees own current reading prompt');
 SELECT is((SELECT data->'result' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'null'::jsonb,'Unreleased assessments stay hidden');
-SELECT is((SELECT count(*) FROM public.vtutor_interview_catalog),0::bigint,'Student cannot read tutor question bank');
+SELECT is((SELECT count(*) FROM public.vtutor_interview_catalog),0::bigint,'Student cannot read tutor station bank');
 SELECT is((SELECT count(*) FROM public.interview_rounds),0::bigint,'Student cannot read base rounds');
 SELECT ok(NOT has_function_privilege('authenticated','public.interview_command(uuid,jsonb)','EXECUTE'),'Browser cannot invoke service-only command RPC');
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}',true);
@@ -60,7 +61,7 @@ END;
 $fn$;
 SELECT lives_ok($q$SELECT pg_temp.mark(0,6.25)$q$,'Assigned tutor can save fractional score and question feedback');
 SELECT throws_ok($q$SELECT pg_temp.mark(0,7)$q$,'22023','Invalid station assessment','Score cannot exceed the station maximum');
-SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveRubric","expectedVersion":1,"questionId":"e8000000-0000-4000-8000-000000000002","rubric":"Updated globally"}')$q$,'Shared rubric updates while the round is live');
+SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveRubric","stationId":"e8000000-0000-4000-8000-000000000100","expectedVersion":1,"questionId":"e8000000-0000-4000-8000-000000000002","rubric":"Updated globally"}')$q$,'Shared rubric updates while the round is live');
 SELECT is((SELECT data->'stations'->0->'questions'->0->>'rubric' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Updated globally','Active round sees latest shared rubric');
 UPDATE public.interview_rounds SET data=jsonb_set(data,'{phaseDeadline}',to_jsonb(now()-interval '2 minutes')) WHERE id='e8000000-0000-4000-8000-000000000020';
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('tick')$q$,'A reconnect normalizes elapsed server deadlines');
@@ -120,7 +121,7 @@ SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"100
 SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}','00000000-0000-0000-0000-000000000011')$q$,'22023','Student is already at another station or not in this round','A second tutor cannot claim the same student');
 CREATE FUNCTION pg_temp.physical_mark() RETURNS jsonb LANGUAGE sql AS $$
  SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version','score',3,'notAssessedReason',NULL,
- 'feedback',jsonb_build_array(jsonb_build_object('placementId','e8000000-0000-4000-8000-000000000012','value','Notes for arriving student'))))
+ 'feedback',jsonb_build_array(jsonb_build_object('placementId','e8000000-0000-4000-8000-000000000002','value','Notes for arriving student'))))
  FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a
  WHERE r.id='e8000000-0000-4000-8000-000000000030' AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000001';
 $$;

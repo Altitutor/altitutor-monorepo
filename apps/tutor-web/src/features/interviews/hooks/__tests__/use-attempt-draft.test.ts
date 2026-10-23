@@ -1,11 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
-import type { InterviewAttempt, InterviewCommand } from "@altitutor/shared";
+import type { InterviewStationAttempt, InterviewCommand } from "@altitutor/shared";
 import { useAttemptDraft } from "../use-attempt-draft";
 import { sendInterviewCommand } from "../../api/interviews";
 
 jest.mock("../../api/interviews", () => ({ sendInterviewCommand: jest.fn() }));
 const send = jest.mocked(sendInterviewCommand);
-const attempt: InterviewAttempt = {
+const attempt: InterviewStationAttempt = {
   id: "attempt",
   studentId: "student",
   stationId: "station",

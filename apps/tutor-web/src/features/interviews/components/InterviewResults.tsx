@@ -9,7 +9,7 @@ import {
   type JSONContent,
 } from "@altitutor/ui";
 import {
-  type InterviewAttempt,
+  type InterviewStationAttempt,
   type InterviewRound,
   type InterviewSnapshotStation,
 } from "@altitutor/shared";
@@ -43,7 +43,7 @@ function ResultStationEditor({
 }: {
   round: InterviewRound;
   station: InterviewSnapshotStation;
-  attempt: InterviewAttempt;
+  attempt: InterviewStationAttempt;
   registerFlush: (save: (() => Promise<void>) | null) => void;
   readOnly: boolean;
 }) {

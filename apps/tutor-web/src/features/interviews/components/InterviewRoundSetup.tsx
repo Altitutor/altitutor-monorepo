@@ -16,6 +16,7 @@ import {
   SmartDatePickerField,
   TimePicker,
 } from "@altitutor/ui";
+import { resolveInterviewStations } from "@altitutor/shared";
 import type {
   InterviewCatalog,
   InterviewRoundSetup as RoundSetup,
@@ -91,7 +92,7 @@ function SetupEditor({
           recordingEnabled: interview.recordingEnabled,
           scheduledAt: null,
           studentIds: [],
-          assignments: interview.stations.map((station, index) => ({
+          assignments: resolveInterviewStations(interview, catalog.stations).map((station, index) => ({
             stationId: station.id,
             tutorId: index === 0 ? catalog.actorId : "",
           })),
@@ -377,7 +378,7 @@ function SetupEditor({
               Assign one different Medicine interview tutor to every station.
               Assignments are fixed once the round starts.
             </p>
-            {interview.stations.map((station, index) => (
+            {resolveInterviewStations(interview, catalog.stations).map((station, index) => (
               <InterviewField
                 key={station.id}
                 label={`${index + 1}. ${station.name}`}
@@ -448,7 +449,7 @@ function SetupEditor({
                   <thead>
                     <tr>
                       <th className="p-2">Station / Tutor</th>
-                      {interview.stations.map((_, index) => (
+                      {resolveInterviewStations(interview, catalog.stations).map((_, index) => (
                         <th className="p-2" key={index}>
                           Rotation {index + 1}
                         </th>
@@ -456,7 +457,7 @@ function SetupEditor({
                     </tr>
                   </thead>
                   <tbody>
-                    {interview.stations.map((station, stationIndex) => (
+                    {resolveInterviewStations(interview, catalog.stations).map((station, stationIndex) => (
                       <tr key={station.id} className="border-t">
                         <th className="p-2 font-medium">
                           {station.name}
@@ -473,7 +474,7 @@ function SetupEditor({
                             }
                           </span>
                         </th>
-                        {interview.stations.map((_, rotation) => (
+                        {resolveInterviewStations(interview, catalog.stations).map((_, rotation) => (
                           <td className="p-2" key={rotation}>
                             {selectedStudents[
                               (stationIndex -

@@ -4610,12 +4610,12 @@ export type Database = {
       interview_questions: {
         Row: {
           archived: boolean
-          category_id: string
           id: string
-          prompt: Json
+          position: number
           question: Json
           rubric: Json
           rubric_version: number
+          station_id: string
           suggested_time_seconds: number
           tag_ids: string[]
           updated_at: string
@@ -4623,12 +4623,12 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
-          category_id: string
           id: string
-          prompt: Json
+          position?: number
           question: Json
           rubric: Json
           rubric_version?: number
+          station_id: string
           suggested_time_seconds?: number
           tag_ids?: string[]
           updated_at?: string
@@ -4636,12 +4636,12 @@ export type Database = {
         }
         Update: {
           archived?: boolean
-          category_id?: string
           id?: string
-          prompt?: Json
+          position?: number
           question?: Json
           rubric?: Json
           rubric_version?: number
+          station_id?: string
           suggested_time_seconds?: number
           tag_ids?: string[]
           updated_at?: string
@@ -4649,10 +4649,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "interview_questions_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "interview_questions_station_id_fkey"
+            columns: ["station_id"]
             isOneToOne: false
-            referencedRelation: "interview_categories"
+            referencedRelation: "interview_stations"
             referencedColumns: ["id"]
           },
         ]
@@ -4968,6 +4968,47 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "interview_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_stations: {
+        Row: {
+          archived: boolean
+          category_id: string
+          id: string
+          maximum_points: number
+          name: string
+          prompt: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          archived?: boolean
+          category_id: string
+          id: string
+          maximum_points?: number
+          name: string
+          prompt: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          archived?: boolean
+          category_id?: string
+          id?: string
+          maximum_points?: number
+          name?: string
+          prompt?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_stations_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "interview_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -44161,6 +44202,10 @@ export type Database = {
       }
       interview_setup_data: {
         Args: { p_actor: string; p_created_at: string; p_setup: Json }
+        Returns: Json
+      }
+      interview_station_json: {
+        Args: { s: Database["public"]["Tables"]["interview_stations"]["Row"] }
         Returns: Json
       }
       interview_student_has_access: {

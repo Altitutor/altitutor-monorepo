@@ -29,8 +29,8 @@ export function InterviewTagsPage() {
   const [name, setName] = useState("");
 
   const questionCount = (id: string) =>
-    (catalog?.questions ?? []).filter(
-      (question) => !question.archived && question.tagIds.includes(id),
+    (catalog?.stations ?? []).filter((station) => !station.archived).flatMap((station) => station.questions).filter(
+      (question) => question.tagIds.includes(id),
     ).length;
 
   const tags = useMemo(() => {
@@ -38,8 +38,8 @@ export function InterviewTagsPage() {
     const counts = new Map(
       (catalog?.tags ?? []).map((tag) => [
         tag.id,
-        (catalog?.questions ?? []).filter(
-          (question) => !question.archived && question.tagIds.includes(tag.id),
+        (catalog?.stations ?? []).filter((station) => !station.archived).flatMap((station) => station.questions).filter(
+          (question) => question.tagIds.includes(tag.id),
         ).length,
       ]),
     );
@@ -50,7 +50,7 @@ export function InterviewTagsPage() {
       name: (tag) => tag.name,
       questions: (tag) => counts.get(tag.id) ?? 0,
     });
-  }, [catalog?.questions, catalog?.tags, table.state]);
+  }, [catalog?.stations, catalog?.tags, table.state]);
 
   const showQuestionCount = table.state.visibleColumns.includes("questions");
 
