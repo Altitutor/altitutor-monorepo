@@ -317,7 +317,7 @@ export function AssignStaffWeekCalendar({
                                 ? selectedClasses[0]
                                 : data?.classesById?.[s.class_id || ''];
                             const subj =
-                              cls && 'subject_id' in cls && cls.subject_id
+                              'subject_id' in s && s.subject_id ? data?.subjectsById?.[s.subject_id] : cls && 'subject_id' in cls && cls.subject_id
                                 ? data?.subjectsById?.[cls.subject_id]
                                 : classSubject;
 
@@ -396,6 +396,7 @@ export function AssignStaffWeekCalendar({
                                 }}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={mockSession}
                                   classData={cls}
                                   subject={subj}

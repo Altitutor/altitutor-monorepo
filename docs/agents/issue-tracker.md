@@ -80,10 +80,11 @@ that limitation and retain a reviewable commit/PR/version in Linear.
 
 ## States and eligibility
 
-Current Dev states are Icebox (Backlog category), Backlog, Todo, In Progress, In Review,
-Done, Canceled and Duplicate. Icebox is verified as `f605c1b0-62ce-4129-afc2-768a6613e8f4`. Triage is currently a
-Backlog + needs-triage role; optional native Triage/Ready to Merge setup follows
-the migration. The former Needs Grill state
+Verified Dev states are Triage, Icebox (Backlog category), Backlog, Todo, In Progress,
+Awaiting Input, In Review, Merging, In QA, Ready for Release, Done, Canceled and Duplicate.
+Icebox is verified as `f605c1b0-62ce-4129-afc2-768a6613e8f4`. Native Triage now exists;
+triage labels still describe their documented roles. Ready for Release does not
+mean Ready to Merge or authorize deployment. The former Needs Grill state
 maps to Backlog with unresolved questions and `needs-info`; approved ready work
 maps to Todo with the relevant triage role. See `triage-labels.md`.
 
@@ -98,6 +99,11 @@ Do not resurrect completed, canceled or duplicate work during intake. Reconcile
 new fixed-release regressions explicitly. Partial implementation, a nearby green
 test, or a mitigation does not prove the whole request complete. Keep ambiguous
 completion open with specific evidence and the next discriminating check.
+
+The verified branch rules map develop merges to In QA and main merges to Done.
+Merging is the explicit owner-approved handoff for the exact PR/head, not inferred
+approval from an answer or Todo. Ready for Release is currently empty and retained
+pending the status-cleanup recommendation; no executable dependency was observed.
 
 Record implementation, develop merge, main inclusion, deployment, client uptake
 and production effectiveness separately. Done does not imply a production release.

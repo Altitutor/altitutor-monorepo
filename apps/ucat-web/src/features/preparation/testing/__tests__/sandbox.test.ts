@@ -11,6 +11,10 @@ import {
 } from "@/features/preparation/testing/sandbox";
 
 const REQUIRED_PERSONAS = [
+  "general-orientation",
+  "general-later-learning",
+  "general-transition",
+  "general-late-entry",
   "new-student",
   "learning-progressing",
   "benchmark-ready",
@@ -33,6 +37,18 @@ const PRODUCTION_SKILL_TRAINER_KEYS = [
 ] as const;
 
 describe("Preparation policy sandbox", () => {
+  it("exposes a general curriculum journey with orientation, later learning and transition checkpoints", () => {
+    const journey = PREPARATION_SANDBOX_JOURNEYS.find(
+      (item) => item.key === "general-curriculum",
+    );
+    expect(journey?.checkpoints.map((item) => item.fixtureKey)).toEqual([
+      "general-orientation",
+      "general-later-learning",
+      "general-transition",
+      "general-late-entry",
+    ]);
+  });
+
   it("groups every release persona into a human-readable journey checkpoint", () => {
     const checkpointKeys = PREPARATION_SANDBOX_JOURNEYS.flatMap((journey) =>
       journey.checkpoints.map((checkpoint) => checkpoint.fixtureKey),
@@ -274,7 +290,7 @@ describe("Preparation policy sandbox", () => {
     for (const key of REQUIRED_PERSONAS) {
       const run = runPreparationSandboxCase(PREPARATION_SANDBOX_PERSONAS[key]);
       expect(run.result.plan.capacityRisk.level).toBe(
-        key === "low-availability" ? "warning" : "none",
+        ["low-availability", "general-late-entry"].includes(key) ? "warning" : "none",
       );
     }
   });

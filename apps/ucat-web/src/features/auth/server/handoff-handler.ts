@@ -1,3 +1,4 @@
+import { getAuthCookieName, isAuthCookie } from "@/lib/supabase/auth-cookie";
 import { resolveUcatPortalAccess } from "./portal-access";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
@@ -94,7 +95,7 @@ export async function issueHandoff(
     const caller =
       purpose === "native"
         ? createServerClient(url, anon, {
-            cookieOptions: { name: "student-auth" },
+            cookieOptions: { name: getAuthCookieName() },
             cookies: {
               getAll: () => request.cookies.getAll(),
               setAll: (entries) => {
@@ -182,7 +183,7 @@ export async function exchangeHandoff(
       );
     if (payload.purpose === "browser" && input.confirmed !== true) {
       const source = createServerClient(url, anon, {
-        cookieOptions: { name: "student-auth" },
+        cookieOptions: { name: getAuthCookieName() },
         cookies: {
           getAll: () => request.cookies.getAll(),
           setAll: (entries) => {
@@ -218,7 +219,7 @@ export async function exchangeHandoff(
     const client =
       purpose === "browser"
         ? createServerClient(url, anon, {
-            cookieOptions: { name: "student-auth" },
+            cookieOptions: { name: getAuthCookieName() },
             cookies: {
               getAll: () => [],
               setAll: (entries) => {
@@ -246,7 +247,7 @@ export async function exchangeHandoff(
     const response = reply({ path: payload.path });
     // Remove old chunks before writing the new identity; never return session tokens to browser JavaScript.
     for (const cookie of request.cookies.getAll()) {
-      if (/^student-auth(?:\.\d+)?$/.test(cookie.name))
+      if (isAuthCookie(cookie.name))
         response.cookies.set(cookie.name, "", { path: "/", maxAge: 0 });
     }
     for (const cookie of pendingCookies)

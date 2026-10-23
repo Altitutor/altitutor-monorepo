@@ -1,3 +1,4 @@
+import type { LearningModuleJourneyPlacement } from '@altitutor/shared'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatLearningModuleBlockType } from '@/features/ucat/learning-modules/types'
 
@@ -51,6 +52,7 @@ export function snapshotSettings(input: {
   parentId: string | null
   index: number
   accessScope: string
+  journeyPlacement?: LearningModuleJourneyPlacement | null
   studyPlanPriority: string
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]

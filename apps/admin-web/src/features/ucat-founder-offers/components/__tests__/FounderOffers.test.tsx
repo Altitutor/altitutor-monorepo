@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { FounderOffers } from '../FounderOffers';
 import { listFounderOffers, type FounderOffer } from '../../api/founder-offers';
 import { renderWithProviders } from '@/shared/test-utils';
@@ -46,6 +47,7 @@ describe('FounderOffers', () => {
     expect(await screen.findByText('Founding students')).toBeInTheDocument();
     expect(screen.getByText('F-FOUNDERS')).toBeInTheDocument();
     expect(screen.getByText('founders-2026')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button',{name:'Search'}));
     expect(screen.getByPlaceholderText('Search founder offers...')).toBeInTheDocument();
   });
 

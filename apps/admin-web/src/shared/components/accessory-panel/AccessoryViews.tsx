@@ -1,38 +1,23 @@
 "use client";
+const TasksCollection = dynamic(() =>
+  import("@/features/tasks/components/TasksCollection").then(
+    (module) => module.TasksCollection,
+  ),
+);
+const IssuesCollection = dynamic(() =>
+  import("@/features/issues/components/IssuesCollection").then(
+    (module) => module.IssuesCollection,
+  ),
+);
+const ProjectsCollection = dynamic(() =>
+  import("@/features/projects/components/ProjectsCollection").then(
+    (module) => module.ProjectsCollection,
+  ),
+);
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 const TodayView = dynamic(() =>
   import("./TodayView").then((module) => module.TodayView),
-);
-const TasksBoard = dynamic(() =>
-  import("@/features/tasks/components/TasksBoard").then(
-    (module) => module.TasksBoard,
-  ),
-);
-const IssuesBoard = dynamic(() =>
-  import("@/features/issues/components/IssuesBoard").then(
-    (module) => module.IssuesBoard,
-  ),
-);
-const ProjectsBoard = dynamic(() =>
-  import("@/features/projects/components/ProjectsBoard").then(
-    (module) => module.ProjectsBoard,
-  ),
-);
-const TasksList = dynamic(() =>
-  import("@/features/tasks/components/TasksList").then(
-    (module) => module.TasksList,
-  ),
-);
-const IssuesList = dynamic(() =>
-  import("@/features/issues/components/IssuesList").then(
-    (module) => module.IssuesList,
-  ),
-);
-const ProjectsList = dynamic(() =>
-  import("@/features/projects/components/ProjectsList").then(
-    (module) => module.ProjectsList,
-  ),
 );
 const TaskDetailView = dynamic(() =>
   import("@/features/tasks/components/TaskDetailView").then(
@@ -72,9 +57,6 @@ export function AccessoryView() {
   if (!scope) return null;
   const { tab, close } = scope;
   const board = new URLSearchParams(tab.query).get("view") === "board";
-  const TaskView = board ? TasksBoard : TasksList;
-  const IssueView = board ? IssuesBoard : IssuesList;
-  const ProjectView = board ? ProjectsBoard : ProjectsList;
   let content;
   switch (tab.kind) {
     case "today":
@@ -84,7 +66,8 @@ export function AccessoryView() {
       content = isLoading ? (
         <p className="p-4">Loading tasks…</p>
       ) : (
-        <TaskView
+        <TasksCollection
+          mode={board ? "board" : "list"}
           defaultFilters={{
             status: ["backlog", "todo", "in_progress", "in_review"],
             ...(staff?.id ? { assignee: [staff.id] } : {}),
@@ -94,12 +77,16 @@ export function AccessoryView() {
       break;
     case "issues":
       content = (
-        <IssueView defaultFilters={{ status: ["open", "awaiting_response"] }} />
+        <IssuesCollection
+          mode={board ? "board" : "list"}
+          defaultFilters={{ status: ["open", "awaiting_response"] }}
+        />
       );
       break;
     case "projects":
       content = (
-        <ProjectView
+        <ProjectsCollection
+          mode={board ? "board" : "list"}
           defaultFilters={{ status: ["backlog", "planned", "in_progress"] }}
         />
       );

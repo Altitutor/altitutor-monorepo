@@ -79,12 +79,19 @@ Or individually:
 ./deploy-supabase.sh
 ```
 
-For a narrowly scoped UCAT cron-secret deployment, without touching any other
+For a narrowly scoped UCAT and interview cron-secret deployment, without touching any other
 Vercel variables:
 
 ```bash
-./deploy-vercel.sh --only CRON_SECRET
+./deploy-vercel.sh --only CRON_SECRET --environment development
+./deploy-vercel.sh --only DAILY_API_KEY --environment development
 ```
+
+The environment selector accepts `development` (Vercel Preview), `production`, or
+`all` (the backwards-compatible default). Only selected environment files are
+required or changed. Put `DAILY_API_KEY` in the matching gitignored
+`secrets/.env.development` / `.env.production` file; app `.env.local` files are
+not deployment inputs. Redeploy the affected apps after updating secrets.
 
 ### Print bridge (Mac Mini)
 
@@ -145,7 +152,7 @@ Environment-specific values such as:
 
 Typical values include `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN` when it differs by environment. Branch mapping: `develop` → development, `main` → production.
 
-Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
+Vercel-only runtime secrets such as `OPENROUTER_API_KEY` and `DAILY_API_KEY` are skipped here. Daily is also excluded from repository secrets if placed in `.env.shared`.
 
 ### Vercel
 
@@ -153,6 +160,7 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 - Production: `NEXT_PUBLIC_*` from `.env.production`
 - `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT apps
 - `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
+- `DAILY_API_KEY` only to `altitutor-tutor-web` and `altitutor-student-web`
 - `RESEND_API_KEY` to all web apps managed by the script
 - Per-app Sentry values are mapped to framework-standard target names:
   `{APP}_SENTRY_DSN` → `NEXT_PUBLIC_SENTRY_DSN` and
@@ -166,7 +174,7 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
   `altitutor-ucat-web`; provider credentials stay in GitHub Actions and are
   applied to hosted Supabase Auth by CI
 - `CRON_SECRET` is generated once when missing and sent only to
-  `altitutor-ucat-web` for authenticated Preview and Production cron routes
+  `altitutor-ucat-web` and `altitutor-tutor-web` for authenticated Preview and Production cron routes
 - `UCAT_LIFECYCLE_CRON_SECRET_KEY` is sent only to `altitutor-admin-web`,
   whose authenticated server routes proxy lifecycle previews and dry runs
 - `UCAT_WEB_URL` is expanded into the public aliases consumed by admin,

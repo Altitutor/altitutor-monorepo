@@ -50,11 +50,14 @@ describe('nested smart date filter', () => {
     const user = userEvent.setup();
     render(<RemountingDateFilterToolbar />);
 
-    await user.click(screen.getByRole('button', { name: 'Filter' }));
-    await user.keyboard('{End}{ArrowRight}');
+    await user.click(screen.getByRole('button', { name: 'Display options' }));
+    await user.click(screen.getByRole('button', {name: 'Add filter'}));
+    await user.click(screen.getByRole('menuitem', {name: 'Date'}));
     await user.click((await screen.findAllByRole('button', { name: 'Select date' }))[0]);
-    const todayOptions = await screen.findAllByText('Today');
-    await user.click(todayOptions[todayOptions.length - 1]);
+    const today = document.querySelector<HTMLButtonElement>('button[aria-current="date"]');
+    expect(today).not.toBeNull();
+    if (!today) throw new Error('Calendar must mark today');
+    await user.click(today);
 
     expect(screen.getByText('Filters')).toBeVisible();
     expect(screen.getByText('From date')).toBeVisible();

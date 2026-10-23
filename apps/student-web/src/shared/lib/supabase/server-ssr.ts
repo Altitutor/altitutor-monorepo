@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@altitutor/shared';
@@ -20,6 +21,7 @@ export function createClient(options: { fetch?: typeof fetch } = {}) {
           getAll: () => [],
           setAll: () => {},
         },
+        cookieOptions: { name: getAuthCookieName() },
       }
     ));
   }
@@ -48,7 +50,7 @@ export function createClient(options: { fetch?: typeof fetch } = {}) {
         },
       },
       cookieOptions: {
-        name: 'student-auth',
+        name: getAuthCookieName(),
       },
     }
   ));

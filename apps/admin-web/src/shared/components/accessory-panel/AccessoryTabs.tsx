@@ -11,7 +11,7 @@ import {
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
 import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
 import { panelShortcut } from "@/shared/shortcuts/registry";
-import { List, Columns, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   useAccessoryPanel,
   useAccessoryPanelActions,
@@ -22,7 +22,7 @@ import {
 import { AccessoryTabContext } from "@/shared/contexts/AccessoryTabContext";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
 import { AccessoryView } from "./AccessoryViews";
-import { Button } from "@altitutor/ui";
+import { ToolbarViewProvider } from "@altitutor/ui";
 import { AccessoryIcon } from "./AccessoryIcon";
 import { useUnreadConversationCount } from "@/features/messages/api/queries";
 import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
@@ -97,6 +97,16 @@ const TabContent = memo(function TabContent({
     node?.addEventListener("accessory-navigate", handle);
     return () => node?.removeEventListener("accessory-navigate", handle);
   }, [navigate]);
+  const toolbarView = useMemo(() => ["tasks", "issues", "projects"].includes(tab.kind) ? {
+    value: new URLSearchParams(tab.query).get("view") === "board" ? "board" : "list",
+    options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }],
+    onChange: (view: string) => {
+      if (view !== "list" && view !== "board") return;
+      const params = new URLSearchParams(tab.query);
+      params.set("view", view);
+      updateQuery?.(tab.key, params.toString());
+    },
+  } : undefined, [tab.kind, tab.key, tab.query, updateQuery]);
   const scope = useMemo(
     () => ({ tab, active, close, registerClose, navigate }),
     [tab, active, close, registerClose, navigate],
@@ -116,7 +126,7 @@ const TabContent = memo(function TabContent({
     >
       <AccessoryTabContext.Provider value={scope}>
         <ResponsivePane className="h-full overflow-auto">
-          <AccessoryView key={`${tab.kind}:${tab.id ?? ""}`} />
+          <ToolbarViewProvider value={toolbarView}><AccessoryView key={`${tab.kind}:${tab.id ?? ""}`} /></ToolbarViewProvider>
         </ResponsivePane>
       </AccessoryTabContext.Provider>
     </div>
@@ -201,38 +211,6 @@ export function AccessoryTabs() {
                 {tab.kind === "messages" && !tab.id && <MessageUnreadBadge count={unreadCount} />}
                 {panelShortcut(tab.kind) && <ShortcutKeys id={panelShortcut(tab.kind)!} />}
               </button>
-              {tab.key === panel.activeKey &&
-                ["tasks", "issues", "projects"].includes(tab.kind) && (
-                  <div
-                    role="group"
-                    aria-label={`${tab.title} view`}
-                    className="flex items-center gap-0.5 pr-1"
-                  >
-                    {(["list", "board"] as const).map((view) => {
-                      const selected =
-                        (new URLSearchParams(tab.query).get("view") ??
-                          "list") === view;
-                      const Icon = view === "list" ? List : Columns;
-                      return (
-                        <Button
-                          key={view}
-                          variant="ghost"
-                          size="icon"
-                          className={`h-7 w-7 ${selected ? navLinkActiveStyles : navLinkInactiveStyles}`}
-                          aria-label={`${tab.title} ${view} view`}
-                          aria-pressed={selected}
-                          onClick={() => {
-                            const params = new URLSearchParams(tab.query);
-                            params.set("view", view);
-                            panel.updateQuery(tab.key, params.toString());
-                          }}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
               <button
                 type="button"
                 aria-label={`Close ${tab.title} tab`}

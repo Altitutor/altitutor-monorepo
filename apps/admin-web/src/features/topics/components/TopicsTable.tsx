@@ -41,8 +41,8 @@ interface TopicsTableProps {
 
 type TopicWithSubject = Tables<'topics'> & { subject: Tables<'subjects'> };
 
-export function TopicsTable({ 
-  onRefresh: _onRefresh, 
+export function TopicsTable({
+  onRefresh: _onRefresh,
   onViewTopic,
   subjectId,
   basePath: _basePath = '/topics',
@@ -51,7 +51,7 @@ export function TopicsTable({
   useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('topics');
-  
+
   const defaultFilters = useMemo(() => {
     const filters: Record<string, unknown[]> = {};
     if (subjectId) {
@@ -59,7 +59,7 @@ export function TopicsTable({
     }
     return filters;
   }, [subjectId]);
-  
+
   const defaultSort = useMemo(() => ({ field: 'name', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['subject', 'name', 'files'], []);
 
@@ -100,12 +100,12 @@ export function TopicsTable({
   const effectiveSubjectIds = subjectId ? [subjectId] : (state.filters.subject as string[] || undefined);
   const isSearching = !!state.search?.trim();
 
-  const { 
-    data: topicsData, 
-    isLoading, 
-    error, 
+  const {
+    data: topicsData,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useSearchTopics({
     search: state.search || undefined,
     subjectIds: effectiveSubjectIds,
@@ -147,7 +147,7 @@ export function TopicsTable({
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
     if (hideSubjectFilter) return [];
-    
+
     return [
       {
         key: 'subject',
@@ -199,7 +199,7 @@ export function TopicsTable({
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="topics"
           filterSearchValues={{ subject: subjectFilterSearch }}
           onFilterSearchChange={(filterKey, value) => {
             if (filterKey === 'subject') setSubjectFilterSearch(value);
@@ -207,9 +207,9 @@ export function TopicsTable({
           searchPlaceholder="Search topics..."
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length + 1} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading topics...
         </div>
@@ -222,8 +222,8 @@ export function TopicsTable({
     return (
       <div className="text-red-500 p-4">
         Failed to load topics. Please try again.
-        <button 
-          onClick={() => refetch()} 
+        <button
+          onClick={() => refetch()}
           className="ml-2 text-blue-600 hover:text-blue-800 underline"
         >
           Retry
@@ -246,7 +246,7 @@ export function TopicsTable({
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="topics"
         filterSearchValues={{ subject: subjectFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'subject') setSubjectFilterSearch(value);
@@ -432,7 +432,7 @@ function TopicRow({
   const { data: topicFiles = [] } = useTopicFilesByTopic(topic.id);
   const { data: flashcards = [] } = useFlashcards(topic.id);
   const { data: childTopics = [] } = useChildTopics(isExpanded && hasChildren ? topic.id : null);
-  
+
   // Get subject info for child topics
   const childTopicsWithSubjects = useMemo(() => {
     return childTopics.map(child => ({
@@ -451,7 +451,7 @@ function TopicRow({
 
   return (
     <>
-      <TableRow 
+      <TableRow
         className={onViewTopic ? "cursor-pointer hover:bg-muted/50" : undefined}
         onClick={onViewTopic ? handleRowClick : undefined}
       >

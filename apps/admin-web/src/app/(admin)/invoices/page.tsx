@@ -157,7 +157,7 @@ export default function InvoicesPage() {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="invoices"
         filterSearchValues={{ student: studentFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'student') setStudentFilterSearch(value);
