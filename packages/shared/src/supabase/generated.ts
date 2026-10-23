@@ -44176,6 +44176,7 @@ export type Database = {
         Returns: undefined
       }
       interview_effective_state: { Args: { p_data: Json }; Returns: Json }
+      interview_feedback_has_text: { Args: { value: Json }; Returns: boolean }
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }

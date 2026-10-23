@@ -500,7 +500,7 @@
 - **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
   _Avoid_: Standalone bank question, independently reusable question
 
-- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score and feedback for its individual questions.
+- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score, optional general station feedback and feedback for its individual questions.
 
 - **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
 

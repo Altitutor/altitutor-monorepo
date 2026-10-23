@@ -72,3 +72,40 @@ test("a station cannot contain another station's question or repeat a child iden
     }),
   ).toBe(false);
 });
+
+test("station feedback uses the bounded rich-text command boundary", () => {
+  const assessment = {
+    type: "saveAttempt",
+    commandId: command.commandId,
+    roundId: stationId,
+    attemptId: question.id,
+    expectedAttemptVersion: 1,
+    score: null,
+    notAssessedReason: null,
+    feedback: [],
+  };
+  expect(isInterviewCommand(assessment)).toBe(true);
+  expect(isInterviewCommand({ ...assessment, generalFeedback: null })).toBe(
+    true,
+  );
+  expect(
+    isInterviewCommand({
+      ...assessment,
+      generalFeedback: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Clear communication" }],
+          },
+        ],
+      },
+    }),
+  ).toBe(true);
+  expect(
+    isInterviewCommand({ ...assessment, generalFeedback: "x".repeat(100_001) }),
+  ).toBe(false);
+  expect(
+    isInterviewCommand({ ...assessment, generalFeedback: () => "unsafe" }),
+  ).toBe(false);
+});

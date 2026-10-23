@@ -59,7 +59,17 @@ BEGIN
  'feedback',jsonb_build_array(jsonb_build_object('placementId',st->'questions'->0->'id','value','Useful feedback'))),tutor);
 END;
 $fn$;
+CREATE FUNCTION pg_temp.general_note(note jsonb) RETURNS jsonb LANGUAGE sql AS $$
+ SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version',
+ 'score',a->'score','notAssessedReason',a->'notAssessedReason','feedback',a->'feedback','generalFeedback',note))
+ FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a
+ WHERE r.id='e8000000-0000-4000-8000-000000000020' AND a->>'stationId'='e8000000-0000-4000-8000-000000000011';
+$$;
+SELECT lives_ok($q$SELECT pg_temp.general_note('"Overall empathy"')$q$,'General feedback can save without a score or question feedback');
+SELECT is((SELECT data->'attempts'->0->>'generalFeedback' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Overall empathy','Assigned tutor reads saved general feedback');
+SELECT is((SELECT jsonb_array_length(data->'attempts'->0->'feedback') FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),0,'General feedback does not answer an individual question');
 SELECT lives_ok($q$SELECT pg_temp.mark(0,6.25)$q$,'Assigned tutor can save fractional score and question feedback');
+SELECT is((SELECT data->'attempts'->0->>'generalFeedback' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Overall empathy','Legacy question-only save preserves general feedback');
 SELECT throws_ok($q$SELECT pg_temp.mark(0,7)$q$,'22023','Invalid station assessment','Score cannot exceed the station maximum');
 SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"saveRubric","stationId":"e8000000-0000-4000-8000-000000000100","expectedVersion":1,"questionId":"e8000000-0000-4000-8000-000000000002","rubric":"Updated globally"}')$q$,'Shared rubric updates while the round is live');
 SELECT is((SELECT data->'stations'->0->'questions'->0->>'rubric' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Updated globally','Active round sees latest shared rubric');
@@ -95,12 +105,15 @@ SELECT is((SELECT data->'resultStations'->0->'questions'->0->'rubric' FROM publi
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 SELECT pg_temp.mark(0,4.5);
+SELECT pg_temp.general_note('"Improve the overall summary"');
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SELECT is((SELECT data->'result'->>'score' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'6.25','Draft correction does not silently replace published result');
+SELECT is((SELECT data->'result'->'attempts'->0->>'generalFeedback' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Overall empathy','General feedback correction stays private until updated release');
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 SELECT pg_temp.round_cmd('release');
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SELECT is((SELECT data->'result'->>'score' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'4.5','Explicit updated release publishes the correction');
+SELECT is((SELECT data->'result'->'attempts'->0->>'generalFeedback' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'Improve the overall summary','Updated release publishes general feedback correction');
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT snapshot->>'score' FROM public.vtutor_interview_result_releases WHERE round_id='e8000000-0000-4000-8000-000000000020' AND (snapshot->>'partial')::boolean ORDER BY revision LIMIT 1),'6.25','Earlier published snapshot remains immutable after draft correction and updated release');
@@ -119,6 +132,22 @@ SELECT pg_temp.physical_cmd('start');
 SELECT is((SELECT data->'progress'->0->'studentId' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),'null'::jsonb,'Physical stations start without a system-assigned order');
 SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}')$q$,'Tutor chooses arriving student in waiting time');
 SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}','00000000-0000-0000-0000-000000000011')$q$,'22023','Student is already at another station or not in this round','A second tutor cannot claim the same student');
+CREATE FUNCTION pg_temp.physical_general(student_id text,note jsonb) RETURNS jsonb LANGUAGE sql AS $$
+ SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version',
+ 'score',NULL,'notAssessedReason',NULL,'feedback','[]'::jsonb,'generalFeedback',note))
+ FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a
+ WHERE r.id='e8000000-0000-4000-8000-000000000030' AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'=student_id;
+$$;
+SELECT pg_temp.physical_general('10000000-0000-0000-0000-000000000001','{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Overall station note"}]}]}');
+SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000002"}')$q$,'22023','Confirm moving existing feedback and score','General-only feedback requires student correction confirmation');
+SELECT pg_temp.physical_general('10000000-0000-0000-0000-000000000002','"Existing target feedback"');
+SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000002","confirmMove":true}')$q$,'22023','Target student already has assessment entries','Correction cannot overwrite target general feedback');
+SELECT pg_temp.physical_general('10000000-0000-0000-0000-000000000002','null');
+SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000002","confirmMove":true}')$q$,'Confirmed correction moves general-only feedback');
+SELECT is((SELECT a->'generalFeedback'->'content'->0->'content'->0->>'text' FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a WHERE r.id='e8000000-0000-4000-8000-000000000030' AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000002'),'Overall station note','Corrected student receives rich general feedback');
+SELECT is((SELECT a->'generalFeedback' FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a WHERE r.id='e8000000-0000-4000-8000-000000000030' AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000001'),'null'::jsonb,'General feedback is cleared from the former student');
+SELECT pg_temp.physical_general('10000000-0000-0000-0000-000000000002','{"type":"doc","content":[{"type":"paragraph"}]}');
+SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}')$q$,'Empty rich text does not require a move confirmation');
 CREATE FUNCTION pg_temp.physical_mark() RETURNS jsonb LANGUAGE sql AS $$
  SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version','score',3,'notAssessedReason',NULL,
  'feedback',jsonb_build_array(jsonb_build_object('placementId','e8000000-0000-4000-8000-000000000002','value','Notes for arriving student'))))

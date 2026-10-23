@@ -221,6 +221,13 @@ export function AttemptEditor({
           </span>
         </div>
       </div>
+      <InterviewPanel title="General station feedback">
+        <InterviewDocument
+          value={draft.generalFeedback as JSONContent | null}
+          onChange={(value) => update({ ...draft, generalFeedback: value })}
+          placeholder="Write overall feedback for this station (optional)…"
+        />
+      </InterviewPanel>
       <div className="flex flex-wrap gap-2">
         {station.questions.map((item, index) => (
           <Button
@@ -246,7 +253,11 @@ export function AttemptEditor({
         <>
           <InterviewPanel title={`Question ${questionIndex + 1}`}>
             <InterviewDocument value={question.question as JSONContent} />
-            {question.suggestedTimeSeconds && <p className="text-sm text-muted-foreground">Recommended answer time: {question.suggestedTimeSeconds}s</p>}
+            {question.suggestedTimeSeconds && (
+              <p className="text-sm text-muted-foreground">
+                Recommended answer time: {question.suggestedTimeSeconds}s
+              </p>
+            )}
             <InterviewField label="Feedback">
               <InterviewDocument
                 key={question.id}
@@ -597,7 +608,11 @@ export function InterviewWorkspace({ id }: { id: string }) {
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.4fr)]">
             <div className="space-y-4">
               <PhaseTimer round={round} />
-              {station && <InterviewPanel title="Reading prompt"><InterviewDocument value={station.prompt as JSONContent} /></InterviewPanel>}
+              {station && (
+                <InterviewPanel title="Reading prompt">
+                  <InterviewDocument value={station.prompt as JSONContent} />
+                </InterviewPanel>
+              )}
               <InterviewPanel title={station?.name ?? "Your station"}>
                 <InterviewMedia
                   role="tutor"
@@ -654,6 +669,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
                           attempt &&
                           (attempt.score !== null ||
                             attempt.notAssessedReason !== null ||
+                            !!interviewText(
+                              attempt.generalFeedback ?? null,
+                            ).trim() ||
                             attempt.feedback.length > 0 ||
                             round.recordings.some(
                               (recording) => recording.attemptId === attempt.id,
@@ -711,9 +729,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
                         variant="outline"
                         className={tutorBtnOutline}
                       >
-                        <Link
-                          href={`/interviews/rounds?edit=${round.id}`}
-                        >
+                        <Link href={`/interviews/rounds?edit=${round.id}`}>
                           Edit setup
                         </Link>
                       </Button>

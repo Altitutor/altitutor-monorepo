@@ -181,6 +181,17 @@ function ResultStationEditor({
           </p>
         </InterviewField>
       )}
+      <InterviewPanel title="General station feedback">
+        <InterviewDocument
+          value={draft.generalFeedback as JSONContent | null}
+          onChange={
+            readOnly
+              ? undefined
+              : (value) => update({ ...draft, generalFeedback: value })
+          }
+          placeholder="Write overall feedback for this station (optional)…"
+        />
+      </InterviewPanel>
       {station.questions.map((question, index) => (
         <InterviewPanel key={question.id} title={`Question ${index + 1}`}>
           <InterviewDocument value={question.question as JSONContent} />

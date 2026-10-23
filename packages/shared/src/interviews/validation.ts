@@ -152,6 +152,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         (value.score === null || number(value.score, 0, 1000)) &&
         (value.notAssessedReason === null ||
           text(value.notAssessedReason, 2000)) &&
+        (value.generalFeedback === undefined || rich(value.generalFeedback)) &&
         array(
           value.feedback,
           (f) => record(f) && uuid(f.placementId) && rich(f.value),
