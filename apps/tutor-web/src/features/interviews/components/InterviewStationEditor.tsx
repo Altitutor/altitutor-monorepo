@@ -14,10 +14,14 @@ import {
   type InterviewStation,
   type InterviewTemplate,
 } from "@altitutor/shared";
-import { X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
 import { UcatSetPropertyRow } from "@/features/ucat/sets/components/UcatSetPropertyRow";
 import { tutorCardCn } from "@/shared/lib/tutor-visual";
+import {
+  suggestInterviewQuestionTags,
+  suggestInterviewStationName,
+} from "../api/interviews";
 import { useInterviewCommand } from "../hooks/use-interviews";
 import { blankQuestion } from "../lib/station-draft";
 import {
@@ -27,6 +31,37 @@ import {
   InterviewSelect,
 } from "./interview-ui";
 import { InterviewEditorDialog } from "./InterviewEditorDialog";
+
+function AiHoverButton({
+  label,
+  pending,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  pending: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled || pending}
+      onClick={onClick}
+      className="group relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+    >
+      {pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      ) : (
+        <Sparkles className="h-3.5 w-3.5" aria-hidden />
+      )}
+      <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1 hidden -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-sm group-hover:block group-focus-visible:block">
+        {label}
+      </span>
+    </button>
+  );
+}
 
 export function InterviewStationEditor({
   station,
@@ -43,7 +78,55 @@ export function InterviewStationEditor({
 }) {
   const [draft, setDraft] = useState(station);
   const [baseVersion] = useState(station.version);
+  const [naming, setNaming] = useState(false);
+  const [taggingId, setTaggingId] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const command = useInterviewCommand();
+  const canName =
+    !!interviewText(draft.prompt).trim() ||
+    draft.questions.some((question) => interviewText(question.question).trim());
+  const nameStation = async () => {
+    setAiError(null);
+    setNaming(true);
+    try {
+      const result = await suggestInterviewStationName({
+        prompt: interviewText(draft.prompt),
+        questions: draft.questions.map((question) =>
+          interviewText(question.question),
+        ),
+      });
+      setDraft((current) => ({ ...current, name: result.name }));
+    } catch (error) {
+      setAiError(
+        error instanceof Error ? error.message : "Unable to name this station.",
+      );
+    } finally {
+      setNaming(false);
+    }
+  };
+  const tagQuestion = async (question: InterviewQuestion) => {
+    setAiError(null);
+    setTaggingId(question.id);
+    try {
+      const result = await suggestInterviewQuestionTags({
+        prompt: interviewText(draft.prompt),
+        question: interviewText(question.question),
+        tags: catalog.tags.map((tag) => ({ id: tag.id, name: tag.name })),
+      });
+      setDraft((current) => ({
+        ...current,
+        questions: current.questions.map((item) =>
+          item.id === question.id ? { ...item, tagIds: result.tagIds } : item,
+        ),
+      }));
+    } catch (error) {
+      setAiError(
+        error instanceof Error ? error.message : "Unable to tag this question.",
+      );
+    } finally {
+      setTaggingId(null);
+    }
+  };
   const updateQuestion = (question: InterviewQuestion) =>
     setDraft((previous) => ({
       ...previous,
@@ -136,9 +219,9 @@ export function InterviewStationEditor({
       defaultExpanded
     >
       <div className="flex h-full min-h-0 flex-col">
-        {command.error ? (
+        {command.error || aiError ? (
           <div className="shrink-0 px-6 pt-4">
-            <InterviewError error={command.error} />
+            <InterviewError error={command.error ?? new Error(aiError ?? "")} />
           </div>
         ) : null}
         <ResponsiveResizablePanels
@@ -241,7 +324,19 @@ export function InterviewStationEditor({
                       />
                     </InterviewField>
                     <div className="space-y-2">
-                      <div className="text-sm font-medium">Tags</div>
+                      <div className="flex items-center gap-1">
+                        <div className="text-sm font-medium">Tags</div>
+                        <AiHoverButton
+                          label="Auto tag"
+                          pending={taggingId === question.id}
+                          disabled={
+                            taggingId != null ||
+                            !catalog.tags.length ||
+                            !interviewText(question.question).trim()
+                          }
+                          onClick={() => void tagQuestion(question)}
+                        />
+                      </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {question.tagIds.map((id) => {
                           const name =
@@ -308,7 +403,19 @@ export function InterviewStationEditor({
             <aside className="flex h-full min-h-0 flex-col overflow-y-auto bg-background p-4">
               <h2 className="mb-3 text-sm font-semibold">Properties</h2>
               <div className={tutorCardCn("space-y-1 p-3")}>
-                <UcatSetPropertyRow label="Station name">
+                <UcatSetPropertyRow
+                  label={
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                      Station name
+                      <AiHoverButton
+                        label="Auto generate"
+                        pending={naming}
+                        disabled={!canName}
+                        onClick={() => void nameStation()}
+                      />
+                    </span>
+                  }
+                >
                   <Input
                     value={draft.name}
                     onChange={(e) =>

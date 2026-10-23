@@ -100,9 +100,11 @@ details. Production delivery remains separate from this QA procedure.
    Record the delay before media reconnects and before recording is confirmed.
    Previous synthetic tests observed roughly 3–5 seconds and 6–9 seconds,
    respectively; recording can miss the beginning of an answer.
-5. Type feedback: the unanswered badge clears and save status completes. Move
+5. Enter optional **General station feedback**: it autosaves but leaves every
+   question unanswered. Type question feedback: its unanswered badge clears and
+   save status completes. Move
    between questions and refresh after saving: feedback and fractional score
-   remain. Edit a rubric and check another tutor sees the revision notice.
+   remain, including general station feedback. Edit a rubric and check another tutor sees the revision notice.
 6. Disconnect one student for 30–45 seconds, then reconnect. Other stations keep
    running; the student returns to the current phase. Test manual pause/resume.
 7. End one station early. Only that exam pair loses media/recording. At the
@@ -118,14 +120,17 @@ details. Production delivery remains separate from this QA procedure.
   missing station using a reasoned Not assessed exception: its points are
   excluded and the result is Partial. Missing marks must never silently become 0.
 - Release when every result is resolved. Check total earned/possible points,
-  per-question feedback, recording playback and 90-day expiry display.
-- Draft a score correction: students keep the prior published value. Release
+  general station feedback, per-question feedback, recording playback and 90-day expiry display.
+- Draft score and general-feedback corrections: students keep the prior published
+  values. Release
   the update and confirm the new value. An unenrolled student loses result access.
 - Run a short **feedback-mode** round: two-way reading without recording;
   recorded questions and verbal feedback; Finish feedback ends that pair's media.
 - Run **in person**: no assigned student order. Tutors select walk-in students;
   simultaneous claims for the same student cannot both succeed. Changing a
-  student after notes requires confirmation. Audio records during eligible
+  student after general feedback alone requires confirmation and moves the note
+  to the corrected student, clearing it from the former student. Existing target
+  feedback must not be overwritten. Audio records during eligible
   phases, uploads in segments and flushes at the phase boundary.
 - Repeat a round with recording disabled: calls work and no recordings are
   created. Deny microphone permission in an in-person test: a visible recording

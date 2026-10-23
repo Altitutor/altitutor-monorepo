@@ -27,6 +27,7 @@ import {
   createBlankInterview,
   InterviewEditorDialog,
 } from "./InterviewEditorDialog";
+import { InterviewPrintDialog } from "./InterviewPrintDialog";
 import { pageRows, sortRows, useInterviewTable } from "./interview-table";
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -72,6 +73,7 @@ export function InterviewBankPage() {
   );
   const [creating, setCreating] = useState<InterviewTemplate | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [printing, setPrinting] = useState<InterviewTemplate | null>(null);
 
   const interviews = useMemo(() => {
     const query = table.state.search.trim().toLowerCase();
@@ -226,12 +228,7 @@ export function InterviewBankPage() {
                         {
                           label: "Print prompts",
                           icon: <Printer className="h-4 w-4" />,
-                          onClick: () =>
-                            window.open(
-                              `/interviews/${row.original.id}/print`,
-                              "_blank",
-                              "noopener",
-                            ),
+                          onClick: () => setPrinting(row.original),
                         },
                       ]}
                     />
@@ -252,6 +249,13 @@ export function InterviewBankPage() {
           />
         </>
       )}
+      {catalog ? (
+        <InterviewPrintDialog
+          interview={printing}
+          catalog={catalog}
+          onClose={() => setPrinting(null)}
+        />
+      ) : null}
       {catalog ? (
         <InterviewEditorDialog
           original={dialogInterview}

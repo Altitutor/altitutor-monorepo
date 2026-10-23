@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Play, CheckCircle } from "lucide-react";
 import { Badge, Button } from "@altitutor/ui";
-import type { InterviewRecording } from "@altitutor/shared";
+import { interviewText, type InterviewRecording } from "@altitutor/shared";
 import { useInterviewRound } from "../hooks/use-interviews";
 import { getInterviewRecording } from "../api/interviews";
 import { InterviewContent } from "./interview-content";
@@ -244,6 +244,16 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
               </p>
             </div>
           ) : null}
+          <div className="rounded-lg bg-muted/50 p-4">
+            <h3 className="mb-2 font-medium">General station feedback</h3>
+            {interviewText(attempt.generalFeedback ?? null).trim() ? (
+              <InterviewContent value={attempt.generalFeedback ?? null} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No general feedback for this station.
+              </p>
+            )}
+          </div>
           {station.questions.map((question, index) => {
             const feedback = attempt.feedback.find(
               (entry) => entry.placementId === question.id,

@@ -97,6 +97,7 @@ describe("student released result boundary", () => {
             version: 1,
             score: null,
             notAssessedReason: "Missed because connection failed",
+            generalFeedback: "Overall: clear empathy and structure",
             feedback: [
               { placementId: "placement-1", value: "Released feedback" },
             ],
@@ -114,6 +115,9 @@ describe("student released result boundary", () => {
       screen.getByText("Missed because connection failed"),
     ).toBeInTheDocument();
     expect(screen.getByText("Released feedback")).toBeInTheDocument();
+    expect(
+      screen.getByText("Overall: clear empathy and structure"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("SECRET STATION NAME")).not.toBeInTheDocument();
     expect(screen.queryByText("SECRET RUBRIC")).not.toBeInTheDocument();
   });

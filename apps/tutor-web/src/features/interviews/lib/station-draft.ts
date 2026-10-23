@@ -10,7 +10,7 @@ export function blankQuestion(stationId: string): InterviewQuestion {
     question: emptyDocument,
     rubric: emptyDocument,
     rubricVersion: 0,
-    suggestedTimeSeconds: 60,
+    suggestedTimeSeconds: 120,
   };
 }
 export function blankStation(categoryId: string): InterviewStation {

@@ -5,24 +5,30 @@ import type {
   InterviewStationAttempt,
   InterviewFeedback,
   InterviewCommand,
+  InterviewRichText,
 } from "@altitutor/shared";
 import { sendInterviewCommand } from "../api/interviews";
 
 export interface AttemptDraft {
   score: number | null;
   notAssessedReason: string | null;
+  generalFeedback: InterviewRichText;
   feedback: InterviewFeedback[];
 }
 export function attemptDraft(attempt: InterviewStationAttempt): AttemptDraft {
   return {
     score: attempt.score,
     notAssessedReason: attempt.notAssessedReason,
+    generalFeedback: attempt.generalFeedback ?? null,
     feedback: attempt.feedback,
   };
 }
 
 /** Serial saves retain edits made while an earlier revision is in flight. A rejected write never discards the draft. */
-export function useAttemptDraft(roundId: string, attempt: InterviewStationAttempt) {
+export function useAttemptDraft(
+  roundId: string,
+  attempt: InterviewStationAttempt,
+) {
   const [draft, setDraft] = useState<AttemptDraft>(() => attemptDraft(attempt));
   const current = useRef(draft);
   const saved = useRef(JSON.stringify(draft));
@@ -45,6 +51,15 @@ export function useAttemptDraft(roundId: string, attempt: InterviewStationAttemp
         draft: AttemptDraft;
         version: number;
         pendingCommand?: Extract<InterviewCommand, { type: "saveAttempt" }>;
+      };
+      recovery.draft = {
+        score: recovery.draft.score,
+        notAssessedReason: recovery.draft.notAssessedReason,
+        generalFeedback:
+          recovery.draft.generalFeedback === undefined
+            ? (attempt.generalFeedback ?? null)
+            : recovery.draft.generalFeedback,
+        feedback: recovery.draft.feedback,
       };
       pendingCommand.current = recovery.pendingCommand ?? null;
       version.current = recovery.version;
@@ -130,6 +145,10 @@ export function useAttemptDraft(roundId: string, attempt: InterviewStationAttemp
         const snapshot: AttemptDraft = {
           score: command.score,
           notAssessedReason: command.notAssessedReason,
+          generalFeedback:
+            command.generalFeedback === undefined
+              ? (JSON.parse(saved.current) as AttemptDraft).generalFeedback
+              : command.generalFeedback,
           feedback: command.feedback,
         };
         pendingCommand.current = null;

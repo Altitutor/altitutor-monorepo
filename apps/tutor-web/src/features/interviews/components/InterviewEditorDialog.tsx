@@ -9,6 +9,7 @@ import {
   BuilderEditor,
   type InterviewEditorBind,
 } from "./InterviewBuilder";
+import { InterviewPrintDialog } from "./InterviewPrintDialog";
 
 export function createBlankInterview(): InterviewTemplate {
   return {
@@ -41,6 +42,7 @@ export function InterviewEditorDialog({
   const [canSave, setCanSave] = useState(false);
   const [saving, setSaving] = useState(false);
   const [canPrint, setCanPrint] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const onBind = useCallback((state: InterviewEditorBind) => {
     saveRef.current = state.save;
     setCanSave((previous) =>
@@ -76,11 +78,7 @@ export function InterviewEditorDialog({
                 icon: <Printer className="h-4 w-4" />,
                 onClick: () => {
                   if (!canPrint) return;
-                  window.open(
-                    `/interviews/${original.id}/print`,
-                    "_blank",
-                    "noopener",
-                  );
+                  setPrinting(true);
                 },
               },
             ]}
@@ -90,7 +88,7 @@ export function InterviewEditorDialog({
       defaultExpanded
     >
       {original ? (
-        <div className="h-full min-h-0 overflow-y-auto">
+        <div className="h-full min-h-0 overflow-hidden">
           <BuilderEditor
             key={original.id}
             original={original}
@@ -103,6 +101,13 @@ export function InterviewEditorDialog({
       ) : (
         <div />
       )}
+      {original ? (
+        <InterviewPrintDialog
+          interview={printing ? original : null}
+          catalog={catalog}
+          onClose={() => setPrinting(false)}
+        />
+      ) : null}
     </UcatDialogShell>
   );
 }

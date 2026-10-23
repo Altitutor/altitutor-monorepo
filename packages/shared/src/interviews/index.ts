@@ -129,6 +129,8 @@ export interface InterviewStationAttempt {
   version: number;
   score: number | null;
   notAssessedReason: string | null;
+  /** Optional on attempts and clients created before station feedback was added. */
+  generalFeedback?: InterviewRichText;
   feedback: InterviewFeedback[];
   completed: boolean;
   updatedAt: string;
@@ -258,6 +260,8 @@ export type InterviewCommand =
       expectedAttemptVersion: number;
       score: number | null;
       notAssessedReason: string | null;
+      /** Optional on attempts and clients created before station feedback was added. */
+      generalFeedback?: InterviewRichText;
       feedback: InterviewFeedback[];
     });
 export interface InterviewCommandResult {
