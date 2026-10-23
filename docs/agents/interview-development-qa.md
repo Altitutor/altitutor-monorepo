@@ -2,8 +2,7 @@
 
 Use development accounts and synthetic interview content. Start with two tutors
 and two students on separate devices, then repeat the live checks with six pairs.
-Use headphones to avoid feedback. Do not use the `/interviews/prototype` pages:
-they are design fixtures, not the persisted feature.
+Use headphones to avoid feedback.
 
 ## Deployment prerequisites
 

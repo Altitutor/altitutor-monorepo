@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Badge,
   Button,
@@ -23,6 +22,7 @@ import {
   useInterviewCatalog,
   useInterviewCommand,
 } from "../hooks/use-interviews";
+import { UcatPropertyRow } from "@/features/ucat/shared/components/UcatPropertyRow";
 import {
   InterviewDocument,
   InterviewError,
@@ -31,9 +31,30 @@ import {
   InterviewSearch,
   InterviewSelect,
 } from "./interview-ui";
-import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
+import { tutorBtnOutline, tutorBtnPrimary } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
 import { useBuilderDraft } from "../hooks/use-builder-draft";
+import { InterviewPageHeader } from "./interview-page";
+
+export type InterviewEditorBind = {
+  save: () => Promise<void>;
+  canSave: boolean;
+  saving: boolean;
+  canPrint: boolean;
+};
+
+function EditorField({
+  embedded,
+  label,
+  children,
+}: {
+  embedded: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  if (embedded) return <UcatPropertyRow label={label}>{children}</UcatPropertyRow>;
+  return <InterviewField label={label}>{children}</InterviewField>;
+}
 
 function move<T>(items: T[], index: number, offset: number): T[] {
   const next = [...items];
@@ -43,14 +64,19 @@ function move<T>(items: T[], index: number, offset: number): T[] {
   return next;
 }
 
-function BuilderEditor({
+export function BuilderEditor({
   original,
   catalog,
+  embedded = false,
+  onBind,
+  onSaved,
 }: {
   original: InterviewTemplate;
   catalog: InterviewCatalog;
+  embedded?: boolean;
+  onBind?: (state: InterviewEditorBind) => void;
+  onSaved?: (id: string) => void;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const recovery = useBuilderDraft(catalog.actorId, original);
   const { draft, dirty } = recovery;
@@ -83,7 +109,29 @@ function BuilderEditor({
       interview: draft,
     });
     recovery.saved(result.version, draft);
+    onSaved?.(draft.id);
   };
+  const canSave =
+    !recovery.conflict &&
+    !command.isPending &&
+    !!draft.name.trim() &&
+    (recovery.dirty || original.version === 0);
+  const canPrint =
+    original.version > 0 &&
+    !recovery.dirty &&
+    draft.stations.some((station) => station.questions.length > 0);
+  const onBindRef = useRef(onBind);
+  const saveRef = useRef(save);
+  onBindRef.current = onBind;
+  saveRef.current = save;
+  useEffect(() => {
+    onBindRef.current?.({
+      save: () => saveRef.current(),
+      canSave,
+      saving: command.isPending,
+      canPrint,
+    });
+  }, [canPrint, canSave, command.isPending]);
   const print = (stationId?: string) => {
     window.open(
       `/interviews/${draft.id}/print${stationId ? `?station=${stationId}` : ""}`,
@@ -102,56 +150,45 @@ function BuilderEditor({
   const duplicates = draft.stations
     .flatMap((item) => item.questions)
     .map((placement) => placement.questionId);
+  const printPrompts = (
+    <Button
+      variant="outline"
+      className={tutorBtnOutline}
+      disabled={dirty || !draft.stations.length}
+      onClick={() => print()}
+    >
+      Print prompts
+    </Button>
+  );
+  const saveInterview = (
+    <Button
+      className={tutorBtnPrimary}
+      disabled={!canSave}
+      onClick={() => void save().catch(() => undefined)}
+    >
+      {command.isPending ? "Saving…" : dirty ? "Save interview" : "Saved"}
+    </Button>
+  );
   return (
-    <div className="space-y-6 py-8">
-      <Link
-        href="/interviews"
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← All interviews
-      </Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{draft.name}</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className={tutorBtnOutline}
-            disabled={dirty || !draft.stations.length}
-            onClick={() => print()}
-          >
-            Print prompts
-          </Button>
-          <Button
-            variant="outline"
-            className={tutorBtnOutline}
-            disabled={
-              command.isPending ||
-              recovery.conflict ||
-              !draft.stations.length ||
-              draft.stations.some((item) => !item.questions.length)
-            }
-            onClick={() =>
-              void (async () => {
-                if (dirty) await save();
-                router.push(`/interviews/${draft.id}/setup`);
-              })().catch(() => undefined)
-            }
-          >
-            Set up round
-          </Button>
-          <Button
-            disabled={
-              !dirty ||
-              recovery.conflict ||
-              command.isPending ||
-              !draft.name.trim()
-            }
-            onClick={() => void save().catch(() => undefined)}
-          >
-            {command.isPending ? "Saving…" : dirty ? "Save interview" : "Saved"}
-          </Button>
-        </div>
-      </div>
+    <div className={embedded ? "space-y-6 p-6" : "space-y-6 py-8 md:py-10"}>
+      {embedded ? null : (
+        <InterviewPageHeader
+          title={draft.name || "Interview"}
+          backHref="/interviews/bank"
+          backLabel="Back to interview bank"
+          breadcrumbs={[
+            { label: "Interviews", href: "/interviews" },
+            { label: "Interview bank", href: "/interviews/bank" },
+            { label: draft.name || "Interview" },
+          ]}
+          actions={
+            <div className="flex gap-2">
+              {printPrompts}
+              {saveInterview}
+            </div>
+          }
+        />
+      )}
       <InterviewError error={command.error} />
       {(recovery.recovered || recovery.conflict) && (
         <div role="status" className="rounded-xl border bg-muted p-4 text-sm">
@@ -169,16 +206,16 @@ function BuilderEditor({
         </p>
       )}
       <InterviewPanel>
-        <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
-          <InterviewField label="Interview name">
+        <div className={embedded ? "space-y-1" : "grid gap-4 md:grid-cols-[2fr_1fr_1fr]"}>
+          <EditorField embedded={embedded} label="Interview name">
             <Input
               value={draft.name}
               onChange={(event) =>
                 change({ ...draft, name: event.target.value })
               }
             />
-          </InterviewField>
-          <InterviewField label="Reading time (seconds)">
+          </EditorField>
+          <EditorField embedded={embedded} label="Reading time (seconds)">
             <Input
               type="number"
               min={1}
@@ -191,8 +228,8 @@ function BuilderEditor({
                 })
               }
             />
-          </InterviewField>
-          <InterviewField label="Question time (seconds)">
+          </EditorField>
+          <EditorField embedded={embedded} label="Question time (seconds)">
             <Input
               type="number"
               min={1}
@@ -205,7 +242,7 @@ function BuilderEditor({
                 })
               }
             />
-          </InterviewField>
+          </EditorField>
         </div>
         <label className="mt-4 flex items-center gap-2 text-sm">
           <Checkbox
@@ -298,14 +335,16 @@ function BuilderEditor({
           <InterviewPanel
             title="Station editor"
             action={
-              <Button
-                variant="outline"
-                className={tutorBtnOutline}
-                disabled={dirty || !station.questions.length}
-                onClick={() => print(station.id)}
-              >
-                Print prompt
-              </Button>
+              embedded ? null : (
+                <Button
+                  variant="outline"
+                  className={tutorBtnOutline}
+                  disabled={dirty || !station.questions.length}
+                  onClick={() => print(station.id)}
+                >
+                  Print prompt
+                </Button>
+              )
             }
           >
             <div className="space-y-5">

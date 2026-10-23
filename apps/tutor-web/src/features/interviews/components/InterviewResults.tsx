@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
   Badge,
   Button,
@@ -33,6 +32,7 @@ import {
   tutorTableShell,
 } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
+import { InterviewPageHeader } from "./interview-page";
 
 function ResultStationEditor({
   round,
@@ -295,22 +295,23 @@ export function InterviewResults({ id }: { id: string }) {
     });
   };
   return (
-    <div className="space-y-6 py-8">
-      <Link
-        href="/interviews"
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← All interviews
-      </Link>
+    <div className="space-y-6 py-8 md:py-10">
+      <InterviewPageHeader
+        title={`${round.name} · Results`}
+        backHref="/interviews/rounds"
+        backLabel="Back to interview rounds"
+        breadcrumbs={[
+          { label: "Interviews", href: "/interviews" },
+          { label: "Interview rounds", href: "/interviews/rounds" },
+          { label: "Results" },
+        ]}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{round.name} · Results</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {released
-              ? "Corrections remain drafts until you release an update. Students keep seeing their previous release."
-              : "Scores, feedback and recordings stay private until explicitly released."}
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {released
+            ? "Corrections remain drafts until you release an update. Students keep seeing their previous release."
+            : "Scores, feedback and recordings stay private until explicitly released."}
+        </p>
         <Button
           disabled={
             command.isPending || round.phase !== "completed" || missing > 0

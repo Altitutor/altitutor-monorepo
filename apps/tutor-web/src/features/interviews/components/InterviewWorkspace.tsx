@@ -709,7 +709,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
                         className={tutorBtnOutline}
                       >
                         <Link
-                          href={`/interviews/${round.interviewId}/setup?round=${round.id}`}
+                          href={`/interviews/rounds?edit=${round.id}`}
                         >
                           Edit setup
                         </Link>

@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Badge,
   Button,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   SmartDatePickerField,
   TimePicker,
@@ -17,33 +22,54 @@ import type {
   InterviewTemplate,
   InterviewRound,
 } from "@altitutor/shared";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
-  useInterviewCatalog,
-  useInterviewCommand,
-  useInterviewRound,
-} from "../hooks/use-interviews";
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+  WIZARD_DIALOG_HEIGHT_CLASS,
+} from "@/shared/components/expandable-dialog";
+import { useInterviewCommand } from "../hooks/use-interviews";
 import {
   InterviewError,
   InterviewField,
-  InterviewPanel,
   InterviewSearch,
   InterviewSelect,
 } from "./interview-ui";
-import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
+import {
+  tutorBtnIconOutline,
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogFooterStrip,
+  tutorDialogHeaderStrip,
+} from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
+
+const roundSteps = ["Details", "Students", "Tutor assignments", "Review"];
+
+type RoundWizardBind = {
+  canAdvance: boolean;
+  pending: boolean;
+  submit: () => Promise<void>;
+  submitLabel: string;
+};
 
 function SetupEditor({
   interview,
   catalog,
   existingRound,
+  step,
+  onBind,
 }: {
   interview: InterviewTemplate;
   catalog: InterviewCatalog;
   existingRound?: InterviewRound;
+  step: number;
+  onBind: (bind: RoundWizardBind) => void;
 }) {
   const router = useRouter();
   const command = useInterviewCommand();
-  const [step, setStep] = useState(0);
   const [roundVersion] = useState(existingRound?.version ?? 0);
   const [setup, setSetup] = useState<RoundSetup>(
     existingRound
@@ -92,7 +118,6 @@ function SetupEditor({
       (!classId || student.classIds.includes(classId)) &&
       student.name.toLowerCase().includes(search.toLowerCase()),
   );
-  const steps = ["Details", "Students", "Tutor assignments", "Review"];
   const selectedStudents = catalog.students.filter((student) =>
     setup.studentIds.includes(student.id),
   );
@@ -135,42 +160,31 @@ function SetupEditor({
     );
     router.push(`/interviews/rounds/${roundId}/waiting`);
   };
+  const onBindRef = useRef(onBind);
+  const createRef = useRef(create);
+  onBindRef.current = onBind;
+  createRef.current = create;
+  const submitLabel = command.isPending
+    ? existingRound
+      ? "Saving…"
+      : "Creating…"
+    : schedule === "later"
+      ? "Schedule round"
+      : "Open waiting room";
+  useLayoutEffect(() => {
+    onBindRef.current({
+      canAdvance,
+      pending: command.isPending,
+      submit: () => createRef.current(),
+      submitLabel,
+    });
+  }, [canAdvance, command.isPending, submitLabel]);
   return (
-    <div className="mx-auto max-w-5xl space-y-6 py-8">
-      <Link
-        href={`/interviews/${interview.id}`}
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← {interview.name}
-      </Link>
-      <div>
-        <h1 className="text-2xl font-semibold">
-          {existingRound ? "Edit round setup" : "Set up a round"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Prepare the circuit before opening the fullscreen waiting room.
-        </p>
-      </div>
-      <ol className="grid grid-cols-4 gap-2">
-        {steps.map((label, index) => (
-          <li
-            key={label}
-            className={cn(
-              "rounded-xl px-3 py-3 text-sm",
-              index === step
-                ? "bg-muted font-semibold"
-                : "text-muted-foreground",
-            )}
-          >
-            <span className="mr-2">{index + 1}.</span>
-            {label}
-          </li>
-        ))}
-      </ol>
+    <div className="space-y-5">
       <InterviewError
         error={command.error ?? (validation ? new Error(validation) : null)}
       />
-      <InterviewPanel title={steps[step]}>
+      <div>
         {step === 0 && (
           <div className="space-y-5">
             <InterviewField label="Round name">
@@ -404,6 +418,7 @@ function SetupEditor({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <h3 className="font-medium">{setup.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{interview.name}</p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {setup.delivery === "online" ? "Online" : "In person"} ·{" "}
                   {setup.mode === "exam" ? "Exam" : "Feedback"} · Recording{" "}
@@ -487,72 +502,183 @@ function SetupEditor({
             </p>
           </div>
         )}
-      </InterviewPanel>
-      <div className="flex justify-between gap-3">
-        <Button
-          variant="outline"
-          className={tutorBtnOutline}
-          disabled={step === 0 || command.isPending}
-          onClick={() => setStep(step - 1)}
-        >
-          Previous
-        </Button>
-        {step < 3 ? (
-          <Button disabled={!canAdvance} onClick={() => setStep(step + 1)}>
-            Continue
-          </Button>
-        ) : (
-          <Button
-            disabled={command.isPending}
-            onClick={() => void create().catch(() => undefined)}
-          >
-            {command.isPending
-              ? "Creating…"
-              : schedule === "later"
-                ? "Schedule round"
-                : "Open waiting room"}
-          </Button>
-        )}
       </div>
     </div>
   );
 }
 
-export function InterviewRoundSetup({ id }: { id: string }) {
-  const query = useInterviewCatalog();
-  const params = useSearchParams();
-  const roundId = params.get("round");
-  const roundQuery = useInterviewRound(roundId ?? "");
-  const interview = query.data?.interviews.find((item) => item.id === id);
-  if (!query.data || !interview)
-    return (
-      <div className="py-8">
-        <InterviewError error={query.error} />
-        {query.isPending ? "Loading setup…" : "Interview not found."}
-      </div>
-    );
-  if (roundId && !roundQuery.data)
-    return (
-      <div className="py-8">
-        <InterviewError error={roundQuery.error} />
-        Loading round setup…
-      </div>
-    );
-  if (roundQuery.data?.startedAt)
-    return (
-      <div className="py-8">
-        <p>This round has started. Tutor assignments and setup are fixed.</p>
-        <Link href={`/interviews/rounds/${roundId}/live`}>
-          Return to interview
-        </Link>
-      </div>
-    );
+export function InterviewRoundDialog({
+  open,
+  onClose,
+  catalog,
+  existingRound,
+}: {
+  open: boolean;
+  onClose: () => void;
+  catalog: InterviewCatalog;
+  existingRound?: InterviewRound;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [step, setStep] = useState(0);
+  const [interviewId, setInterviewId] = useState<string | null>(
+    existingRound?.interviewId ?? null,
+  );
+  const [bind, setBind] = useState<RoundWizardBind>({
+    canAdvance: false,
+    pending: false,
+    submit: async () => undefined,
+    submitLabel: "Open waiting room",
+  });
+  const interview =
+    catalog.interviews.find((item) => item.id === interviewId) ?? null;
+  const interviews = catalog.interviews.filter(
+    (item) => !item.archived || item.id === interviewId,
+  );
+  const onBind = useCallback((next: RoundWizardBind) => {
+    setBind(next);
+  }, []);
+
   return (
-    <SetupEditor
-      key={roundId ?? id}
-      interview={interview}
-      catalog={query.data}
-      existingRound={roundQuery.data}
-    />
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setExpanded(false);
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        hideCloseButton
+        className={cn(
+          "flex w-full flex-col gap-0 overflow-hidden p-0 [&>button]:hidden md:max-w-4xl",
+          tutorDialogContentClass,
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS,
+        )}
+      >
+        <div className={cn("flex-shrink-0", tutorDialogHeaderStrip)}>
+          <DialogHeader className="px-6 pb-4 pt-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Close"
+                  className={tutorBtnIconOutline}
+                  onClick={onClose}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate">
+                    {existingRound ? "Edit round" : "New round"}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1">
+                    Step {step + 1} of {roundSteps.length}: {roundSteps[step]}
+                  </DialogDescription>
+                </div>
+              </div>
+              <ExpandButton
+                expanded={expanded}
+                onToggle={() => setExpanded((current) => !current)}
+              />
+            </div>
+          </DialogHeader>
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {roundSteps.map((label, index) => (
+                <div
+                  key={label}
+                  className={cn(
+                    "h-2 flex-1 rounded-full transition-colors duration-300",
+                    index < step && "bg-primary",
+                    index === step && "bg-primary/50",
+                    index > step && "bg-muted",
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 p-6">
+            {step === 0 ? (
+              <InterviewField label="Interview">
+                <InterviewSelect
+                  label="Interview"
+                  value={interviewId}
+                  disabled={!!existingRound}
+                  options={interviews.map((item) => ({
+                    id: item.id,
+                    label: item.name,
+                  }))}
+                  onChange={(value) => {
+                    setInterviewId(value);
+                    setStep(0);
+                  }}
+                />
+                {!interviews.length ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Create an interview in the interview bank before scheduling a round.
+                  </p>
+                ) : null}
+              </InterviewField>
+            ) : null}
+            {interview ? (
+              <SetupEditor
+                key={existingRound?.id ?? interview.id}
+                interview={interview}
+                catalog={catalog}
+                existingRound={existingRound}
+                step={step}
+                onBind={onBind}
+              />
+            ) : null}
+          </div>
+        </div>
+        <DialogFooter
+          className={cn(
+            "flex-shrink-0 flex-row justify-between gap-2 px-6 py-4 sm:justify-between",
+            tutorDialogFooterStrip,
+          )}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            className={tutorBtnOutline}
+            onClick={() => setStep((current) => current - 1)}
+            disabled={step === 0 || bind.pending}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Previous
+          </Button>
+          {step < roundSteps.length - 1 ? (
+            <Button
+              type="button"
+              className={tutorBtnPrimary}
+              disabled={!interview || !bind.canAdvance || bind.pending}
+              onClick={() => {
+                setBind((current) => ({ ...current, canAdvance: false }));
+                setStep((current) => current + 1);
+              }}
+            >
+              Next
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className={tutorBtnPrimary}
+              disabled={!interview || bind.pending}
+              onClick={() => void bind.submit().catch(() => undefined)}
+            >
+              {bind.submitLabel}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
