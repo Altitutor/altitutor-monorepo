@@ -65,6 +65,26 @@ details. Production delivery remains separate from this QA procedure.
    scheduling with the shared date/time pickers, then use Start now for the test.
    Another short round with one student should show an idle station correctly.
 
+## Import a station
+
+1. In Station bank, choose **Import station**. Paste a prompt by itself or a
+   whole Word station document in the first step. The supplied MMI 1 Station 2
+   and Station 3 formats should detect five and four linked questions respectively.
+   Administrative interview/feedback tables must not become prompt content, and
+   repeated Word text-box copies of the same Prompt must appear only once.
+2. Continue to questions. Check the auto-filled Question table, or paste a
+   separate numbered list/table. A **Rubric** column supplies each question's
+   marking guidance; **Feedback** columns are ignored. Rubrics may be empty.
+   Plain-text tab-separated tables and `Rubric:` under numbered questions are
+   supported; preserve rich formatting in rubric lists and question content.
+3. Preview the station. Correct the name, prompt, ordered questions, rubrics,
+   pacing, category, tags and maximum score. Go Back and forward without source
+   changes: preview edits should remain. No station should exist before clicking
+   **Add station**. Missing prompt, name/category or questions must prevent save.
+4. Add, reopen and check persistence. A failed save must keep the preview for
+   retry; cancel/discard must not create a partial station. Repeat at a narrow
+   viewport and check paste/preview scrolling and footer navigation.
+
 ## Live online exam
 
 1. Students open [their Interviews page](https://student.development.altitutor.com/interviews)

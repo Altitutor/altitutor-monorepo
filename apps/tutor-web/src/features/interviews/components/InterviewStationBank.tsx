@@ -5,21 +5,16 @@ import {
   Button,
   DataTable,
   DataTableToolbar,
-  Input,
   TablePagination,
-  type JSONContent,
 } from "@altitutor/ui";
 import {
   interviewText,
   type DataTableColumnDefinition,
   type DataTableFilterDefinition,
   type DataTableSortOption,
-  type InterviewCatalog,
-  type InterviewQuestion,
   type InterviewStation,
 } from "@altitutor/shared";
-import { Archive, Copy, Pencil, Plus, RotateCcw } from "lucide-react";
-import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
+import { Archive, Copy, Pencil, Plus, RotateCcw, Upload } from "lucide-react";
 import { UcatRowActions } from "@/features/ucat/shared/row-actions";
 import {
   tutorBtnPrimary,
@@ -30,13 +25,10 @@ import {
   useInterviewCatalog,
   useInterviewCommand,
 } from "../hooks/use-interviews";
-import {
-  InterviewDocument,
-  InterviewError,
-  InterviewField,
-  InterviewSelect,
-  emptyDocument,
-} from "./interview-ui";
+import { InterviewError } from "./interview-ui";
+import { InterviewStationEditor } from "./InterviewStationEditor";
+import { InterviewStationImport } from "./InterviewStationImport";
+import { blankStation, duplicateStation } from "../lib/station-draft";
 import { InterviewPageHeader, interviewCrumbs } from "./interview-page";
 import {
   matchesMulti,
@@ -57,288 +49,6 @@ const sorts: DataTableSortOption[] = [
   { key: "updated", label: "Updated" },
   { key: "name", label: "Name" },
 ];
-function blankQuestion(stationId: string): InterviewQuestion {
-  return {
-    id: crypto.randomUUID(),
-    stationId,
-    tagIds: [],
-    question: emptyDocument,
-    rubric: emptyDocument,
-    rubricVersion: 0,
-    suggestedTimeSeconds: 60,
-  };
-}
-function blankStation(categoryId: string): InterviewStation {
-  const id = crypto.randomUUID();
-  return {
-    id,
-    version: 0,
-    name: "",
-    categoryId,
-    prompt: emptyDocument,
-    maximumPoints: 6,
-    questions: [blankQuestion(id)],
-    archived: false,
-    updatedAt: "",
-  };
-}
-function duplicateStation(original: InterviewStation): InterviewStation {
-  const id = crypto.randomUUID();
-  return {
-    ...original,
-    id,
-    version: 0,
-    name: `${original.name} (copy)`,
-    archived: false,
-    updatedAt: "",
-    questions: original.questions.map((q) => ({
-      ...q,
-      id: crypto.randomUUID(),
-      stationId: id,
-      rubricVersion: 0,
-    })),
-  };
-}
-
-function StationEditor({
-  station,
-  catalog,
-  close,
-}: {
-  station: InterviewStation;
-  catalog: InterviewCatalog;
-  close: () => void;
-}) {
-  const [draft, setDraft] = useState(station);
-  const [baseVersion] = useState(station.version);
-  const command = useInterviewCommand();
-  const updateQuestion = (question: InterviewQuestion) =>
-    setDraft((previous) => ({
-      ...previous,
-      questions: previous.questions.map((q) =>
-        q.id === question.id ? question : q,
-      ),
-    }));
-  const moveQuestion = (index: number, offset: number) =>
-    setDraft((previous) => {
-      const questions = [...previous.questions];
-      [questions[index], questions[index + offset]] = [
-        questions[index + offset],
-        questions[index],
-      ];
-      return { ...previous, questions };
-    });
-  const save = async () => {
-    await command.mutateAsync({
-      type: "saveStation",
-      commandId: crypto.randomUUID(),
-      expectedVersion: baseVersion,
-      station: draft,
-    });
-    close();
-  };
-  const usedBy = catalog.interviews.filter((interview) =>
-    interview.stations.some((p) => p.stationId === station.id),
-  );
-  return (
-    <UcatDialogShell
-      open
-      onClose={() => {
-        if (
-          !command.isPending &&
-          (draft === station ||
-            window.confirm("Discard unsaved station changes?"))
-        )
-          close();
-      }}
-      title={baseVersion ? "Edit station" : "New station"}
-      subtitle="Edit the whole station here. Changes update prepared interviews; started rounds keep their wording. Rubric corrections also reach active rounds."
-      onSave={() => void save().catch(() => undefined)}
-      saveLabel="Save station"
-      isSaving={command.isPending}
-      saveDisabled={
-        command.isPending ||
-        !draft.name.trim() ||
-        !draft.categoryId ||
-        !interviewText(draft.prompt).trim() ||
-        draft.maximumPoints <= 0 ||
-        draft.maximumPoints > 1000 ||
-        draft.questions.some(
-          (q) =>
-            !interviewText(q.question).trim() ||
-            !Number.isInteger(q.suggestedTimeSeconds) ||
-            q.suggestedTimeSeconds < 1 ||
-            q.suggestedTimeSeconds > 7200,
-        )
-      }
-      defaultExpanded
-    >
-      <div className="h-full space-y-5 overflow-y-auto p-6">
-        <InterviewError error={command.error} />
-        {usedBy.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Used in: {usedBy.map((i) => i.name).join(", ")}. Duplicate this
-            station to create an independent variant.
-          </p>
-        )}
-        <InterviewField label="Station name">
-          <Input
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </InterviewField>
-        <InterviewField label="Category">
-          <InterviewSelect
-            label="Category"
-            value={draft.categoryId}
-            options={catalog.categories.map((c) => ({
-              id: c.id,
-              label: c.name,
-            }))}
-            onChange={(id) => setDraft({ ...draft, categoryId: id ?? "" })}
-          />
-        </InterviewField>
-        <InterviewField label="Reading prompt">
-          <InterviewDocument
-            value={draft.prompt as JSONContent}
-            onChange={(prompt) => setDraft({ ...draft, prompt })}
-          />
-        </InterviewField>
-        <InterviewField label="Maximum station score">
-          <Input
-            type="number"
-            min={0.01}
-            max={1000}
-            step="any"
-            value={draft.maximumPoints}
-            onChange={(e) =>
-              setDraft({ ...draft, maximumPoints: Number(e.target.value) })
-            }
-          />
-        </InterviewField>
-        {draft.questions.map((question, index) => (
-          <section
-            key={question.id}
-            className="space-y-4 rounded-lg border p-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold">Question {index + 1}</h3>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label={`Move question ${index + 1} up`}
-                  disabled={index === 0}
-                  onClick={() => moveQuestion(index, -1)}
-                >
-                  ↑
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label={`Move question ${index + 1} down`}
-                  disabled={index === draft.questions.length - 1}
-                  onClick={() => moveQuestion(index, 1)}
-                >
-                  ↓
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={draft.questions.length === 1}
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      questions: draft.questions.filter(
-                        (q) => q.id !== question.id,
-                      ),
-                    })
-                  }
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-            <InterviewField label="Question">
-              <InterviewDocument
-                value={question.question as JSONContent}
-                onChange={(value) =>
-                  updateQuestion({ ...question, question: value })
-                }
-              />
-            </InterviewField>
-            <InterviewField label="Question tags">
-              <div className="mb-2 flex flex-wrap gap-2">
-                {question.tagIds.map((id) => (
-                  <Button
-                    key={id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateQuestion({
-                        ...question,
-                        tagIds: question.tagIds.filter((tag) => tag !== id),
-                      })
-                    }
-                  >
-                    {catalog.tags.find((t) => t.id === id)?.name} ×
-                  </Button>
-                ))}
-              </div>
-              <InterviewSelect
-                label="Add question tag"
-                value={null}
-                options={catalog.tags
-                  .filter((t) => !question.tagIds.includes(t.id))
-                  .map((t) => ({ id: t.id, label: t.name }))}
-                onChange={(id) => {
-                  if (id)
-                    updateQuestion({
-                      ...question,
-                      tagIds: [...question.tagIds, id],
-                    });
-                }}
-              />
-            </InterviewField>
-            <InterviewField label="Rubric">
-              <InterviewDocument
-                value={question.rubric as JSONContent}
-                onChange={(rubric) => updateQuestion({ ...question, rubric })}
-              />
-            </InterviewField>
-            <InterviewField label="Recommended answer time (seconds)">
-              <Input
-                type="number"
-                min={1}
-                max={7200}
-                value={question.suggestedTimeSeconds}
-                onChange={(e) =>
-                  updateQuestion({
-                    ...question,
-                    suggestedTimeSeconds: Number(e.target.value),
-                  })
-                }
-              />
-            </InterviewField>
-          </section>
-        ))}
-        <Button
-          variant="outline"
-          disabled={draft.questions.length >= 100}
-          onClick={() =>
-            setDraft({
-              ...draft,
-              questions: [...draft.questions, blankQuestion(draft.id)],
-            })
-          }
-        >
-          Add question
-        </Button>
-      </div>
-    </UcatDialogShell>
-  );
-}
-
 export function InterviewStationBank() {
   const query = useInterviewCatalog();
   const catalog = query.data;
@@ -347,6 +57,7 @@ export function InterviewStationBank() {
     columns.filter((c) => c.visibleByDefault).map((c) => c.key),
     { status: ["active"] },
   );
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<InterviewStation | null>(null);
   const filters: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -418,17 +129,27 @@ export function InterviewStationBank() {
         backLabel="Back to interviews"
         breadcrumbs={interviewCrumbs("Station bank")}
         actions={
-          <Button
-            className={tutorBtnPrimary}
-            disabled={!catalog}
-            onClick={() => {
-              if (catalog)
-                setEditing(blankStation(catalog.categories[0]?.id ?? ""));
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New station
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={!catalog}
+              onClick={() => setImporting(true)}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import station
+            </Button>
+            <Button
+              className={tutorBtnPrimary}
+              disabled={!catalog}
+              onClick={() => {
+                if (catalog)
+                  setEditing(blankStation(catalog.categories[0]?.id ?? ""));
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New station
+            </Button>
+          </div>
         }
       />
       <InterviewError
@@ -607,8 +328,14 @@ export function InterviewStationBank() {
           />
         </>
       )}
+      {importing && catalog && (
+        <InterviewStationImport
+          catalog={catalog}
+          close={() => setImporting(false)}
+        />
+      )}
       {editing && catalog && (
-        <StationEditor
+        <InterviewStationEditor
           key={editing.id}
           station={editing}
           catalog={catalog}
