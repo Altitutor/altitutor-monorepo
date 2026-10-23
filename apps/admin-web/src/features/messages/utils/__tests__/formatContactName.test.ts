@@ -95,6 +95,29 @@ describe('formatContactName', () => {
   });
 
   describe('PARENT contacts', () => {
+    it('lists every linked student in the conversation title', () => {
+      const conversation: Pick<ConversationWithRelations, 'contacts'> = {
+        contacts: {
+          id: 'contact-1',
+          contact_type: 'PARENT',
+          phone_e164: null,
+          students: null,
+          staff: null,
+          parents: {
+            id: 'parent-1',
+            first_name: 'Jane',
+            last_name: 'Smith',
+            parents_students: [
+              { students: { id: 'student-1', first_name: 'Alice', last_name: 'Smith' } },
+              { students: { id: 'student-2', first_name: 'Bob', last_name: 'Smith' } },
+            ],
+          },
+        },
+      };
+
+      expect(formatContactName(conversation)).toBe('Jane Smith (parent of Alice Smith, Bob Smith)');
+    });
+
     it('should format parent name', () => {
       const conversation: ConversationWithRelations = {
         id: 'conv-1',

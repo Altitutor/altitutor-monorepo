@@ -25,7 +25,7 @@ export async function createServerComponentClient(globalFetch?: typeof fetch) {
             }
           },
         },
-        cookieOptions: { name: "tutor-auth" },
+        cookieOptions: { name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth" },
         ...(globalFetch ? { global: { fetch: globalFetch } } : {}),
       },
     ),

@@ -445,6 +445,7 @@ export function ClassesTab({
                   classes={timetableClasses}
                   classSubjects={timetableSubjects}
                   classStaff={timetableStaff}
+                  classStudents={allClassesWithDetailsData?.classStudents}
                   onClassClick={(cls) => handleClassClick(cls.id)}
                   showFilters={false}
                 />

@@ -1,3 +1,4 @@
+import { getAuthCookieName, isAuthCookie } from "@/shared/lib/supabase/auth-cookie";
 import { getClaimsWithJwtIssuedInFutureRetry } from "@altitutor/shared";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
@@ -129,7 +130,7 @@ export async function exchangeBrowserHandoff(request: NextRequest) {
     const payload = openBrowserHandoff(input.ticket, secret);
     if (input.confirmed !== true) {
       const source = createServerClient(url, anon, {
-        cookieOptions: { name: "student-auth" },
+        cookieOptions: { name: getAuthCookieName() },
         cookies: {
           getAll: () => request.cookies.getAll(),
           setAll: (entries) => {
@@ -154,7 +155,7 @@ export async function exchangeBrowserHandoff(request: NextRequest) {
     }
     const pendingCookies: CookieEntry[] = [];
     const client = createServerClient(url, anon, {
-      cookieOptions: { name: "student-auth" },
+      cookieOptions: { name: getAuthCookieName() },
       cookies: {
         getAll: () => [],
         setAll: (entries) => {
@@ -170,7 +171,7 @@ export async function exchangeBrowserHandoff(request: NextRequest) {
       throw new Error("Invalid handoff");
     const response = reply({ path: payload.path });
     for (const cookie of request.cookies.getAll()) {
-      if (/^student-auth(?:\.\d+)?$/.test(cookie.name))
+      if (isAuthCookie(cookie.name))
         response.cookies.set(cookie.name, "", { path: "/", maxAge: 0 });
     }
     for (const cookie of pendingCookies) response.cookies.set(cookie.name, cookie.value, cookie.options);

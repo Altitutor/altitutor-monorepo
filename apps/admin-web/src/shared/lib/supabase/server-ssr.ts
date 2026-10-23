@@ -19,6 +19,7 @@ export function createClient() {
           getAll: () => [],
           setAll: () => {},
         },
+        cookieOptions: { name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth" },
       }
     ));
   }
@@ -48,7 +49,7 @@ export function createClient() {
         },
       },
       cookieOptions: {
-        name: 'admin-auth',
+        name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',

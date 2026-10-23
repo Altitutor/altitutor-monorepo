@@ -1,3 +1,4 @@
+import { filterQueryCandidates } from '@altitutor/shared';
 import { useQuery } from '@tanstack/react-query';
 import { projectsApi } from './projects';
 import { projectKeys } from './queryKeys';
@@ -25,8 +26,8 @@ export function useProjects(filters?: ProjectFilters) {
   });
 
   return useQuery({
-    queryKey: projectKeys.list(JSON.stringify(filters || {})),
-    queryFn: () => projectsApi.list(filters),
+    queryKey: projectKeys.list(JSON.stringify(filterQueryCandidates(filters) || {})),
+    queryFn: () => projectsApi.list(filterQueryCandidates(filters)),
   });
 }
 

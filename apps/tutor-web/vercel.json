@@ -29,6 +29,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/interview-media",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/ucat-question-assessments",
       "schedule": "*/5 * * * *"
     }

@@ -1,0 +1,40 @@
+import type { Journey } from "../lib/model";
+
+export function journey(id: string, studentId: string | null = id): Journey {
+  return {
+    id,
+    student_id: studentId,
+    label: id,
+    contact_id: null,
+    enquiry_email: null,
+    enquiry_at: "2026-09-01T00:00:00Z",
+    created_at: "2026-09-01T00:00:00Z",
+    historical: false,
+    is_returning: false,
+    closed_at: null,
+    closed_evidence: null,
+    closure_reason: null,
+    closure_detail: null,
+    next_contact_at: null,
+    preferences: [],
+    evidence: {
+      trial_start_at: null,
+      trial_booked_at: null,
+      trial_session_id: null,
+      trial_attended_at: null,
+      trial_form_at: null,
+      registration_link_at: null,
+      billing_at: null,
+      registered_at: null,
+      subjects: [{ id: "maths", name: "Maths" }],
+      classes: [],
+      followups: [],
+      checkin_booked_at: null,
+      converted_at: null,
+      paid_session_id: null,
+      paid_invoice_id: null,
+      checkin_at: null,
+      checkin_session_id: null,
+    },
+  };
+}

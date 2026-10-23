@@ -1,6 +1,6 @@
 /** @jest-environment node */
 const cookieClient = { auth: { getUser: jest.fn() } };
-const makeCookieClient = jest.fn(() => cookieClient);
+const makeCookieClient = jest.fn((_url: string, _key: string, _options: unknown) => cookieClient);
 const getHeaders = jest.fn(() => new Headers());
 const getCookies = jest.fn(() => ({
   getAll: () => [{ name: "student-auth", value: "browser-session" }],
@@ -11,7 +11,7 @@ jest.mock("next/headers", () => ({
   cookies: () => getCookies(),
 }));
 jest.mock("@supabase/ssr", () => ({
-  createServerClient: () => makeCookieClient(),
+  createServerClient: (url: string, key: string, options: unknown) => makeCookieClient(url, key, options),
 }));
 jest.mock("@/lib/sentry/instrument-supabase-client", () => ({
   instrumentSupabaseClient: <T>(client: T) => client,
@@ -77,3 +77,23 @@ test("invalid bearer credentials cannot fall back to a valid browser cookie", as
   expect(error).not.toBeNull();
   expect(getCookies).not.toHaveBeenCalled();
 });
+
+
+test.each([undefined, "isolated-project-ucat-auth"])(
+  "server requests read and refresh the configured cookie namespace (%s)",
+  async (override) => {
+    const previous = process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+    try {
+      if (override === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+      else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = override;
+      await getSupabaseServerClient();
+      expect(makeCookieClient).toHaveBeenCalledWith(
+        expect.any(String), expect.any(String),
+        expect.objectContaining({ cookieOptions: { name: override || "student-auth" } }),
+      );
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+      else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = previous;
+    }
+  },
+);

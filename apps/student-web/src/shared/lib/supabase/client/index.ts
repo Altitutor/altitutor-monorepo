@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -39,7 +40,7 @@ function getBrowserClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
       {
         cookieOptions: {
-          name: 'student-auth',
+          name: getAuthCookieName(),
         },
         isSingleton: true,
       }
@@ -56,7 +57,7 @@ function getBrowserClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: {
-        name: 'student-auth',
+        name: getAuthCookieName(),
       },
       isSingleton: true,
     }

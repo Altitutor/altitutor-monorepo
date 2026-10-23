@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev-web": "turbo run dev --filter='./apps/*-web'",
+    "dev:isolated": "python3 scripts/worktree_dev.py",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
@@ -18,13 +19,13 @@
     "typecheck": "turbo run typecheck",
     "check": "turbo run lint && turbo run typecheck && turbo run test",
     "checkall": "bash scripts/checkall.sh",
-    "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm turbo run build --filter=@altitutor/shared",
+    "db:types": "python3 scripts/owned_database.py types",
     "db:seed:ucat": "bash supabase/scripts/apply-ucat-test-seed.sh",
     "db:email-templates": "pnpm --filter @altitutor/email generate:auth && bash supabase/scripts/render-email-templates.sh",
     "email:check": "pnpm --filter @altitutor/email check:auth",
     "email:preview": "node supabase/scripts/watch-ucat-email-previews.mjs",
     "ucat:email-preview": "pnpm email:preview",
-    "db:committypes": "supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
+    "db:committypes": "python3 scripts/owned_database.py committypes"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.21.0",
