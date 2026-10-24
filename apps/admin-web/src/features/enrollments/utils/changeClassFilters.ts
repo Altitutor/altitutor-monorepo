@@ -3,7 +3,7 @@ import type { Tables } from '@altitutor/shared';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 
 /**
- * Filter classes for change class modal (same subject only, exclude old class)
+ * Filter active classes for change class modal (same subject only, exclude old class)
  * Supports search by day, time, staff, or student names, plus day filter
  */
 export function filterClassesForChange(
@@ -13,6 +13,8 @@ export function filterClassesForChange(
   dayFilters: number[] = []
 ): ClassWithExpandedSubject[] {
   return classes.filter(c => {
+    if (c.status !== 'ACTIVE') return false;
+
     // Only show classes with the same subject
     if (c.subject_id !== oldClass.subject_id) return false;
     
