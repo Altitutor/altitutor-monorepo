@@ -3,11 +3,21 @@
 import { NextRequest } from 'next/server'
 import { PATCH } from '../[id]/route'
 import { POST } from '../route'
-import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { createServerClient } from '@supabase/ssr'
 import { setDetailToUpdatePayload } from '@/features/ucat/sets/lib/set-payload-mappers'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 
-jest.mock('@/features/ucat/shared/server/guard', () => ({ requireUcatTutor: jest.fn() }))
+jest.mock('@supabase/ssr', () => ({ createServerClient: jest.fn() }))
+jest.mock('next/headers', () => ({ cookies: () => ({ getAll: () => [], set: jest.fn() }) }))
+jest.mock('@sentry/nextjs', () => ({ instrumentSupabaseClient: jest.fn() }))
+
+function authorize(rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>) {
+  // Execute the real tutor guard; only the external Supabase boundary is simulated.
+  jest.mocked(createServerClient).mockReturnValue({
+    rpc: (name: string, args: Record<string, unknown>) => name === 'is_ucat_tutor'
+      ? Promise.resolve({ data: true, error: null }) : rpc(name, args),
+  } as never)
+}
 
 const SET_ID = 'f3000000-0000-4000-8000-000000000001'
 const detail = {
@@ -33,7 +43,7 @@ describe('question-set timing saves', () => {
     { method, timingMode: 'fixed', paceMultiplier: null, fixedTimeLimitSeconds: 120 },
   ]))('normalizes stale fields for $method $timingMode', async ({ method, ...expected }) => {
     const rpc = jest.fn().mockResolvedValue({ data: SET_ID, error: null })
-    jest.mocked(requireUcatTutor).mockResolvedValue({ ok: true, userClient: { rpc } } as never)
+    authorize(rpc)
     const request = new NextRequest('http://localhost/api/ucat/question-sets', {
       method,
       body: JSON.stringify({ ...expected, paceMultiplier: 1.5, fixedTimeLimitSeconds: 120 }),
@@ -60,7 +70,7 @@ describe('question-set timing saves', () => {
   ].flatMap((timing) => ['POST', 'PATCH'].map((method) => ({ method, timing }))))(
     'rejects invalid active timing before RPC: %j', async ({ method, timing }) => {
     const rpc = jest.fn().mockResolvedValue({ data: SET_ID, error: null })
-    jest.mocked(requireUcatTutor).mockResolvedValue({ ok: true, userClient: { rpc } } as never)
+    authorize(rpc)
     const request = new NextRequest('http://localhost/api/ucat/question-sets', {
       method, body: JSON.stringify(timing),
     })
@@ -81,7 +91,7 @@ describe('question-set timing saves', () => {
       }
       return { data: SET_ID, error: null }
     })
-    jest.mocked(requireUcatTutor).mockResolvedValue({ ok: true, userClient: { rpc } } as never)
+    authorize(rpc)
     global.fetch = jest.fn(async (_url: unknown, init?: RequestInit) => PATCH(
       new NextRequest(`http://localhost/api/ucat/question-sets/${SET_ID}`, {
         method: init?.method, headers: init?.headers, body: init?.body,
