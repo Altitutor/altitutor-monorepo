@@ -7,7 +7,7 @@ import type {
   InterviewMediaTicket,
   InterviewPhase,
 } from "@altitutor/shared";
-import { Camera, CameraOff, Mic, MicOff, Volume2 } from "lucide-react";
+import { Camera, CameraOff, MicOff, Volume2 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
@@ -557,15 +557,6 @@ export function InterviewMedia({
             ),
           );
         }
-        instance.setSubscribeToTracksAutomatically(policy.canReceive);
-        instance.setLocalAudio(
-          devicesRequested && policy.canSend && devicePreferences.current.micOn,
-        );
-        instance.setLocalVideo(
-          devicesRequested &&
-            policy.canSend &&
-            devicePreferences.current.cameraOn,
-        );
         if (sessionId !== policy.sessionId) {
           if (!policy.url || !policy.token)
             throw new Error("A fresh call connection is required. Retrying…");
@@ -591,6 +582,17 @@ export function InterviewMedia({
           if (instance !== call) return;
           sessionId = policy.sessionId;
         }
+        // Daily only permits subscription updates after join has completed.
+        // Keep the initial call unsubscribed until its server policy is applied.
+        instance.setSubscribeToTracksAutomatically(policy.canReceive);
+        instance.setLocalAudio(
+          devicesRequested && policy.canSend && devicePreferences.current.micOn,
+        );
+        instance.setLocalVideo(
+          devicesRequested &&
+            policy.canSend &&
+            devicePreferences.current.cameraOn,
+        );
         updateParticipants();
       } catch (failure) {
         if (!disposed) setError(mediaError(failure));

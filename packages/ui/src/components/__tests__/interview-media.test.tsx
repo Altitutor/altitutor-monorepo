@@ -81,6 +81,11 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   jest.clearAllMocks();
+  mockSubscribe.mockReset();
+  jest.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  jest
+    .spyOn(HTMLMediaElement.prototype, "pause")
+    .mockImplementation(() => undefined);
   mockCreate.mockReturnValue(mockCall);
   mockParticipants.mockReturnValue({});
   mockCall.on.mockReturnValue(mockCall);
@@ -95,6 +100,7 @@ afterEach(async () => {
     root.unmount();
   });
   container.remove();
+  jest.restoreAllMocks();
   jest.useRealTimers();
   meterGlobals.forEach((name, index) => {
     const original = originalMeterGlobals[index];
@@ -224,6 +230,168 @@ it("contains microphone-meter resume and cleanup failures", async () => {
 });
 
 describe("interview media lifecycle", () => {
+  it("joins before subscribing so a feedback call can receive remote video and audio", async () => {
+    let joined = false;
+    let finishJoin!: () => void;
+    // Daily 0.94 rejects this method until join() resolves, including during joining.
+    mockSubscribe.mockImplementation(() => {
+      if (!joined)
+        throw new Error(
+          "setSubscribeToTracksAutomatically() only supported after join. Use the subscribeToTracksAutomatically configuration property.",
+        );
+    });
+    mockJoin.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishJoin = () => {
+            joined = true;
+            resolve();
+          };
+        }),
+    );
+    const remoteVideo = { kind: "video" } as MediaStreamTrack;
+    const remoteAudio = { kind: "audio" } as MediaStreamTrack;
+    mockParticipants.mockReturnValue({
+      remote: {
+        local: false,
+        session_id: "remote",
+        user_name: "Student",
+        tracks: {
+          video: { state: "playable", persistentTrack: remoteVideo },
+          audio: { state: "playable", persistentTrack: remoteAudio },
+        },
+      } as unknown as DailyParticipant,
+    });
+    Object.defineProperty(globalThis, "MediaStream", {
+      configurable: true,
+      value: class {
+        constructor(private tracks: MediaStreamTrack[]) {}
+        getTracks() {
+          return this.tracks;
+        }
+      },
+    });
+    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, canReceive: true }));
+    try {
+      await render(
+        <InterviewMedia
+          roundId="round"
+          phase="feedback"
+          delivery="online"
+          enabled
+        />,
+      );
+      expect(container.textContent).not.toContain("only supported after join");
+      expect(mockJoin).toHaveBeenCalledTimes(1);
+      expect(mockSubscribe).not.toHaveBeenCalled();
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ subscribeToTracksAutomatically: false }),
+      );
+      await act(async () => finishJoin());
+      expect(mockSubscribe).toHaveBeenCalledWith(true);
+      const video = container.querySelector<HTMLVideoElement>(
+        '[aria-label="Student video"]',
+      );
+      const audio = container.querySelector("audio");
+      expect((video?.srcObject as MediaStream)?.getTracks()).toEqual([
+        remoteVideo,
+      ]);
+      expect((audio?.srcObject as MediaStream)?.getTracks()).toEqual([remoteAudio]);
+    } finally {
+      await render(null);
+    }
+  });
+
+  it("keeps remote participants hidden until receiving is permitted, without rejoining", async () => {
+    jest.useFakeTimers();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, expiresAt }));
+    mockParticipants.mockReturnValue({
+      remote: {
+        local: false,
+        session_id: "remote",
+        user_name: "Tutor",
+        tracks: { video: { state: "off" }, audio: { state: "off" } },
+      } as unknown as DailyParticipant,
+    });
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="reading"
+        delivery="online"
+        enabled
+      />,
+    );
+    await waitFor(() => expect(mockSubscribe).toHaveBeenLastCalledWith(false));
+    expect(container.querySelector('[aria-label="Tutor video"]')).toBeNull();
+    jest.mocked(fetch).mockResolvedValue(
+      response({
+        ...ticket,
+        expiresAt,
+        url: undefined,
+        token: undefined,
+        canReceive: true,
+        canSend: false,
+      }),
+    );
+    await act(async () => jest.advanceTimersByTime(10_000));
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockSubscribe).toHaveBeenLastCalledWith(true);
+    expect(mockAudio).toHaveBeenLastCalledWith(false);
+    expect(mockVideo).toHaveBeenLastCalledWith(false);
+    expect(container.querySelector('[aria-label="Tutor video"]')).not.toBeNull();
+  });
+
+  it("does not resume media if a join completes after its lease expired", async () => {
+    jest.useFakeTimers();
+    let finishJoin!: () => void;
+    mockJoin.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishJoin = resolve)),
+    );
+    jest.mocked(fetch).mockResolvedValue(
+      response({
+        ...ticket,
+        canReceive: true,
+        expiresAt: new Date(Date.now() + 1000).toISOString(),
+      }),
+    );
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    await act(async () => jest.advanceTimersByTime(1001));
+    expect(mockDestroy).toHaveBeenCalledTimes(1);
+    await act(async () => finishJoin());
+    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(mockAudio).not.toHaveBeenCalledWith(true);
+    expect(mockVideo).not.toHaveBeenCalledWith(true);
+  });
+
+  it("retries a failed join before applying subscriptions", async () => {
+    jest.useFakeTimers();
+    mockJoin.mockRejectedValueOnce(new Error("Call connection failed"));
+    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, canReceive: true }));
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    expect(container.textContent).toContain("Call connection failed");
+    expect(mockSubscribe).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(10_000));
+    expect(mockJoin).toHaveBeenCalledTimes(2);
+    expect(mockSubscribe).toHaveBeenCalledWith(true);
+    expect(container.textContent).not.toContain("Call connection failed");
+  });
+
   it("waits for a waiting-room preview to finish destroying before creating the live call", async () => {
     let destroyed!: () => void;
     await render(
