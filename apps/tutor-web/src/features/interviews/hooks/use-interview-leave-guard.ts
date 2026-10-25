@@ -80,5 +80,9 @@ export function useInterviewLeaveGuard() {
             : (destination ?? "/interviews"),
         );
     },
+    leaveTo: (href: string) => {
+      allowed.current = true;
+      window.location.assign(href);
+    },
   };
 }

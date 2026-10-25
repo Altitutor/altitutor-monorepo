@@ -54,6 +54,7 @@ import {
 import { InterviewError } from "./interview-ui";
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { InterviewPageHeader, interviewCrumbs } from "./interview-page";
+import { roundCanEdit } from "../lib/round-calendar";
 import {
   matchesMulti,
   pageRows,
@@ -104,7 +105,7 @@ function RoundActions({
   return (
     <UcatRowActions
       actions={[
-        ...(!started && !completed
+        ...(roundCanEdit(round)
           ? [
               {
                 label: "Edit round",

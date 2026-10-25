@@ -16,6 +16,7 @@ import {
   SmartDatePickerField,
   TimePicker,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { resolveInterviewStations } from "@altitutor/shared";
 import type {
   InterviewCatalog,
@@ -23,7 +24,7 @@ import type {
   InterviewTemplate,
   InterviewRound,
 } from "@altitutor/shared";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -39,7 +40,6 @@ import {
 } from "./interview-ui";
 import {
   tutorBtnIconOutline,
-  tutorBtnOutline,
   tutorBtnPrimary,
   tutorDialogContentClass,
   tutorDialogFooterStrip,
@@ -47,10 +47,12 @@ import {
 } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
 
+import { createRoundSubmission } from "../lib/round-submission";
+
 const roundSteps = ["Details", "Students", "Tutor assignments", "Review"];
 
 type RoundWizardBind = {
-  canAdvance: boolean;
+  canSubmit: boolean;
   pending: boolean;
   submit: () => Promise<void>;
   submitLabel: string;
@@ -62,15 +64,20 @@ function SetupEditor({
   existingRound,
   step,
   onBind,
+  onScheduled,
 }: {
   interview: InterviewTemplate;
   catalog: InterviewCatalog;
   existingRound?: InterviewRound;
   step: number;
   onBind: (bind: RoundWizardBind) => void;
+  onScheduled: () => void;
 }) {
   const router = useRouter();
   const command = useInterviewCommand();
+  const [submitNewRound] = useState(() =>
+    createRoundSubmission(command.mutateAsync),
+  );
   const [roundVersion] = useState(existingRound?.version ?? 0);
   const [setup, setSetup] = useState<RoundSetup>(
     existingRound
@@ -92,14 +99,20 @@ function SetupEditor({
           recordingEnabled: interview.recordingEnabled,
           scheduledAt: null,
           studentIds: [],
-          assignments: resolveInterviewStations(interview, catalog.stations).map((station, index) => ({
+          assignments: resolveInterviewStations(
+            interview,
+            catalog.stations,
+          ).map((station, index) => ({
             stationId: station.id,
             tutorId: index === 0 ? catalog.actorId : "",
           })),
         },
   );
-  const [schedule, setSchedule] = useState(
-    existingRound?.scheduledAt ? "later" : "now",
+  const [schedule, setSchedule] = useState(() =>
+    existingRound?.scheduledAt &&
+    Date.parse(existingRound.scheduledAt) > Date.now()
+      ? "later"
+      : "now",
   );
   const [date, setDate] = useState<string | null>(() => {
     if (!existingRound?.scheduledAt) return null;
@@ -122,43 +135,50 @@ function SetupEditor({
   const selectedStudents = catalog.students.filter((student) =>
     setup.studentIds.includes(student.id),
   );
-  const canAdvance =
-    step === 0
-      ? !!setup.name.trim() && (schedule === "now" || !!date)
-      : step === 1
-        ? setup.studentIds.length > 0
-        : step === 2
-          ? setup.assignments.every((assignment) => !!assignment.tutorId) &&
-            new Set(setup.assignments.map((assignment) => assignment.tutorId))
-              .size === interview.stations.length
-          : true;
+  const started = !!existingRound?.startedAt;
+  const canSubmit =
+    !started &&
+    !!setup.name.trim() &&
+    (schedule === "now" || !!date) &&
+    setup.studentIds.length > 0 &&
+    setup.assignments.every((assignment) => !!assignment.tutorId) &&
+    new Set(setup.assignments.map((assignment) => assignment.tutorId)).size ===
+      interview.stations.length;
   const create = async () => {
     setValidation(null);
+    if (started) return;
     const scheduledAt =
       schedule === "later" && date
         ? new Date(`${date.slice(0, 10)}T${time}:00`).toISOString()
-        : null;
-    if (scheduledAt && Date.parse(scheduledAt) <= Date.now()) {
+        : (existingRound?.scheduledAt ?? new Date().toISOString());
+    if (
+      schedule === "later" &&
+      !submitNewRound.pending &&
+      Date.parse(scheduledAt) <= Date.now()
+    ) {
       setValidation("Choose a future date and time.");
       return;
     }
-    const roundId = existingRound?.id ?? crypto.randomUUID();
-    await command.mutateAsync(
-      existingRound
-        ? {
-            type: "updateRound",
-            commandId: crypto.randomUUID(),
-            roundId,
-            expectedVersion: roundVersion,
-            setup: { ...setup, scheduledAt },
-          }
-        : {
-            type: "createRound",
-            commandId: crypto.randomUUID(),
-            roundId,
-            setup: { ...setup, scheduledAt },
-          },
-    );
+    let roundId: string;
+    let submittedSchedule: string | null = scheduledAt;
+    if (existingRound) {
+      roundId = existingRound.id;
+      await command.mutateAsync({
+        type: "updateRound",
+        commandId: randomUuid(),
+        roundId,
+        expectedVersion: roundVersion,
+        setup: { ...setup, scheduledAt },
+      });
+    } else {
+      const submitted = await submitNewRound.submit({ ...setup, scheduledAt });
+      roundId = submitted.roundId;
+      submittedSchedule = submitted.setup.scheduledAt;
+    }
+    if (submittedSchedule && Date.parse(submittedSchedule) > Date.now()) {
+      onScheduled();
+      return;
+    }
     router.push(`/interviews/rounds/${roundId}/waiting`);
   };
   const onBindRef = useRef(onBind);
@@ -166,25 +186,36 @@ function SetupEditor({
   onBindRef.current = onBind;
   createRef.current = create;
   const submitLabel = command.isPending
-    ? existingRound
-      ? "Saving…"
-      : "Creating…"
-    : schedule === "later"
-      ? "Schedule round"
-      : "Open waiting room";
+    ? "Saving…"
+    : existingRound
+      ? "Save"
+      : schedule === "later"
+        ? "Schedule round"
+        : "Open waiting room";
   useLayoutEffect(() => {
     onBindRef.current({
-      canAdvance,
+      canSubmit,
       pending: command.isPending,
       submit: () => createRef.current(),
       submitLabel,
     });
-  }, [canAdvance, command.isPending, submitLabel]);
+  }, [canSubmit, command.isPending, submitLabel]);
   return (
     <div className="space-y-5">
       <InterviewError
         error={command.error ?? (validation ? new Error(validation) : null)}
       />
+      {!existingRound && command.error ? (
+        <p className="text-sm text-muted-foreground">
+          If the connection failed, retrying uses the original round details to
+          avoid creating a duplicate.
+        </p>
+      ) : null}
+      {started ? (
+        <p className="text-sm text-muted-foreground">
+          This round has started, so the setup can no longer be changed.
+        </p>
+      ) : null}
       <div>
         {step === 0 && (
           <div className="space-y-5">
@@ -378,40 +409,42 @@ function SetupEditor({
               Assign one different Medicine interview tutor to every station.
               Assignments are fixed once the round starts.
             </p>
-            {resolveInterviewStations(interview, catalog.stations).map((station, index) => (
-              <InterviewField
-                key={station.id}
-                label={`${index + 1}. ${station.name}`}
-              >
-                <InterviewSelect
-                  label={`Tutor for station ${index + 1}`}
-                  value={
-                    setup.assignments.find(
-                      (assignment) => assignment.stationId === station.id,
-                    )?.tutorId ?? null
-                  }
-                  options={catalog.tutors.map((tutor) => ({
-                    id: tutor.id,
-                    label: tutor.name,
-                    disabled: setup.assignments.some(
-                      (assignment) =>
-                        assignment.tutorId === tutor.id &&
-                        assignment.stationId !== station.id,
-                    ),
-                  }))}
-                  onChange={(id) =>
-                    setSetup({
-                      ...setup,
-                      assignments: setup.assignments.map((assignment) =>
-                        assignment.stationId === station.id
-                          ? { ...assignment, tutorId: id ?? "" }
-                          : assignment,
+            {resolveInterviewStations(interview, catalog.stations).map(
+              (station, index) => (
+                <InterviewField
+                  key={station.id}
+                  label={`${index + 1}. ${station.name}`}
+                >
+                  <InterviewSelect
+                    label={`Tutor for station ${index + 1}`}
+                    value={
+                      setup.assignments.find(
+                        (assignment) => assignment.stationId === station.id,
+                      )?.tutorId ?? null
+                    }
+                    options={catalog.tutors.map((tutor) => ({
+                      id: tutor.id,
+                      label: tutor.name,
+                      disabled: setup.assignments.some(
+                        (assignment) =>
+                          assignment.tutorId === tutor.id &&
+                          assignment.stationId !== station.id,
                       ),
-                    })
-                  }
-                />
-              </InterviewField>
-            ))}
+                    }))}
+                    onChange={(id) =>
+                      setSetup({
+                        ...setup,
+                        assignments: setup.assignments.map((assignment) =>
+                          assignment.stationId === station.id
+                            ? { ...assignment, tutorId: id ?? "" }
+                            : assignment,
+                        ),
+                      })
+                    }
+                  />
+                </InterviewField>
+              ),
+            )}
           </div>
         )}
         {step === 3 && (
@@ -419,7 +452,9 @@ function SetupEditor({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <h3 className="font-medium">{setup.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{interview.name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {interview.name}
+                </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {setup.delivery === "online" ? "Online" : "In person"} ·{" "}
                   {setup.mode === "exam" ? "Exam" : "Feedback"} · Recording{" "}
@@ -428,7 +463,9 @@ function SetupEditor({
                 <p className="text-sm text-muted-foreground">
                   {schedule === "later"
                     ? `${date?.slice(0, 10)} at ${time}`
-                    : "Start now"}
+                    : existingRound?.scheduledAt
+                      ? new Date(existingRound.scheduledAt).toLocaleString()
+                      : "Start now"}
                 </p>
               </div>
               <div>
@@ -449,7 +486,10 @@ function SetupEditor({
                   <thead>
                     <tr>
                       <th className="p-2">Station / Tutor</th>
-                      {resolveInterviewStations(interview, catalog.stations).map((_, index) => (
+                      {resolveInterviewStations(
+                        interview,
+                        catalog.stations,
+                      ).map((_, index) => (
                         <th className="p-2" key={index}>
                           Rotation {index + 1}
                         </th>
@@ -457,35 +497,40 @@ function SetupEditor({
                     </tr>
                   </thead>
                   <tbody>
-                    {resolveInterviewStations(interview, catalog.stations).map((station, stationIndex) => (
-                      <tr key={station.id} className="border-t">
-                        <th className="p-2 font-medium">
-                          {station.name}
-                          <span className="block text-xs font-normal text-muted-foreground">
-                            {
-                              catalog.tutors.find(
-                                (tutor) =>
-                                  tutor.id ===
-                                  setup.assignments.find(
-                                    (assignment) =>
-                                      assignment.stationId === station.id,
-                                  )?.tutorId,
-                              )?.name
-                            }
-                          </span>
-                        </th>
-                        {resolveInterviewStations(interview, catalog.stations).map((_, rotation) => (
-                          <td className="p-2" key={rotation}>
-                            {selectedStudents[
-                              (stationIndex -
-                                rotation +
-                                interview.stations.length) %
-                                interview.stations.length
-                            ]?.name ?? "Idle"}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {resolveInterviewStations(interview, catalog.stations).map(
+                      (station, stationIndex) => (
+                        <tr key={station.id} className="border-t">
+                          <th className="p-2 font-medium">
+                            {station.name}
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {
+                                catalog.tutors.find(
+                                  (tutor) =>
+                                    tutor.id ===
+                                    setup.assignments.find(
+                                      (assignment) =>
+                                        assignment.stationId === station.id,
+                                    )?.tutorId,
+                                )?.name
+                              }
+                            </span>
+                          </th>
+                          {resolveInterviewStations(
+                            interview,
+                            catalog.stations,
+                          ).map((_, rotation) => (
+                            <td className="p-2" key={rotation}>
+                              {selectedStudents[
+                                (stationIndex -
+                                  rotation +
+                                  interview.stations.length) %
+                                  interview.stations.length
+                              ]?.name ?? "Idle"}
+                            </td>
+                          ))}
+                        </tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -525,10 +570,10 @@ export function InterviewRoundDialog({
     existingRound?.interviewId ?? null,
   );
   const [bind, setBind] = useState<RoundWizardBind>({
-    canAdvance: false,
+    canSubmit: false,
     pending: false,
     submit: async () => undefined,
-    submitLabel: "Open waiting room",
+    submitLabel: existingRound ? "Save" : "Open waiting room",
   });
   const interview =
     catalog.interviews.find((item) => item.id === interviewId) ?? null;
@@ -577,7 +622,9 @@ export function InterviewRoundDialog({
                     {existingRound ? "Edit round" : "New round"}
                   </DialogTitle>
                   <DialogDescription className="mt-1">
-                    Step {step + 1} of {roundSteps.length}: {roundSteps[step]}
+                    {existingRound
+                      ? "Update this round before it starts."
+                      : "Set up the round, then open the waiting room."}
                   </DialogDescription>
                 </div>
               </div>
@@ -588,17 +635,27 @@ export function InterviewRoundDialog({
             </div>
           </DialogHeader>
           <div className="px-6 pb-4">
-            <div className="flex items-center gap-2">
+            <div
+              role="tablist"
+              aria-label="Round setup"
+              className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1"
+            >
               {roundSteps.map((label, index) => (
-                <div
+                <button
                   key={label}
+                  type="button"
+                  role="tab"
+                  aria-selected={step === index}
                   className={cn(
-                    "h-2 flex-1 rounded-full transition-colors duration-300",
-                    index < step && "bg-primary",
-                    index === step && "bg-primary/50",
-                    index > step && "bg-muted",
+                    "flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm",
+                    step === index
+                      ? "bg-background font-medium text-foreground shadow-sm"
+                      : "text-muted-foreground",
                   )}
-                />
+                  onClick={() => setStep(index)}
+                >
+                  {label}
+                </button>
               ))}
             </div>
           </div>
@@ -622,7 +679,8 @@ export function InterviewRoundDialog({
                 />
                 {!interviews.length ? (
                   <p className="mt-3 text-sm text-muted-foreground">
-                    Create an interview in the interview bank before scheduling a round.
+                    Create an interview in the interview bank before scheduling
+                    a round.
                   </p>
                 ) : null}
               </InterviewField>
@@ -635,49 +693,25 @@ export function InterviewRoundDialog({
                 existingRound={existingRound}
                 step={step}
                 onBind={onBind}
+                onScheduled={onClose}
               />
             ) : null}
           </div>
         </div>
         <DialogFooter
           className={cn(
-            "flex-shrink-0 flex-row justify-between gap-2 px-6 py-4 sm:justify-between",
+            "flex-shrink-0 flex-row justify-end gap-2 px-6 py-4 sm:justify-end",
             tutorDialogFooterStrip,
           )}
         >
           <Button
             type="button"
-            variant="outline"
-            className={tutorBtnOutline}
-            onClick={() => setStep((current) => current - 1)}
-            disabled={step === 0 || bind.pending}
+            className={tutorBtnPrimary}
+            disabled={!interview || !bind.canSubmit || bind.pending}
+            onClick={() => void bind.submit().catch(() => undefined)}
           >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Previous
+            {bind.submitLabel}
           </Button>
-          {step < roundSteps.length - 1 ? (
-            <Button
-              type="button"
-              className={tutorBtnPrimary}
-              disabled={!interview || !bind.canAdvance || bind.pending}
-              onClick={() => {
-                setBind((current) => ({ ...current, canAdvance: false }));
-                setStep((current) => current + 1);
-              }}
-            >
-              Next
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              className={tutorBtnPrimary}
-              disabled={!interview || bind.pending}
-              onClick={() => void bind.submit().catch(() => undefined)}
-            >
-              {bind.submitLabel}
-            </Button>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

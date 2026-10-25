@@ -7,6 +7,7 @@ import {
   ResponsiveResizablePanels,
   type JSONContent,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
   interviewText,
   type InterviewCatalog,
@@ -146,7 +147,7 @@ export function InterviewStationEditor({
   const save = async () => {
     const result = await command.mutateAsync({
       type: "saveStation",
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       expectedVersion: baseVersion,
       station: draft,
     });

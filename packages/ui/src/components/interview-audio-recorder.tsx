@@ -8,29 +8,131 @@ import {
   flushInterviewAudio,
   saveInterviewAudio,
 } from "../lib/interview-audio-outbox";
+import { randomUuid } from "../lib/random-uuid";
 
 export function InterviewAudioRecorder({
   roundId,
   phase,
   enabled,
+  plain = false,
+  registerFinalize,
 }: {
   roundId: string;
   phase: InterviewPhase;
   enabled: boolean;
+  plain?: boolean;
+  registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
 }) {
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
-  const [status, setStatus] = useState(
-    "Enable your microphone to record in-person answers.",
-  );
+  const [armed, setArmed] = useState(false);
   const [error, setError] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
   const [retry, setRetry] = useState(0);
+  const [serverRecording, setServerRecording] = useState(false);
   const activeRecorder = useRef<MediaRecorder | null>(null);
   const activeStream = useRef<MediaStream | null>(null);
+  const muted = useRef(true);
+  const captureArmed = useRef(false);
+  const finishing = useRef(false);
+  const pendingSegments = useRef(new Set<Promise<void>>());
+  const lastActorId = useRef<string | null>(null);
+  const finalize = useRef<() => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    registerFinalize?.(() => finalize.current());
+    return () => registerFinalize?.(null);
+  }, [registerFinalize]);
   const [recording, setRecording] = useState(false);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [bars, setBars] = useState<number[]>(() =>
+    Array.from({ length: 32 }, () => 8),
+  );
+  useEffect(() => {
+    if (!armed || !enabled) {
+      setMicStream(null);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Audio recording is not supported in this browser.");
+      return;
+    }
+    let cancelled = false;
+    let local: MediaStream | null = null;
+    void navigator.mediaDevices
+      .getUserMedia({ audio: true, video: false })
+      .then((next) => {
+        if (cancelled) {
+          next.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        (next.getAudioTracks?.() ?? next.getTracks()).forEach((track) => {
+          track.enabled = !muted.current;
+        });
+        local = next;
+        activeStream.current = next;
+        setMicStream(next);
+        setError("");
+      })
+      .catch((failure: unknown) => {
+        if (!cancelled)
+          setError(
+            failure instanceof Error
+              ? failure.message
+              : "Microphone permission was denied.",
+          );
+      });
+    return () => {
+      cancelled = true;
+      local?.getTracks().forEach((track) => track.stop());
+      if (activeStream.current === local) activeStream.current = null;
+      setMicStream(null);
+    };
+  }, [armed, enabled]);
+  useEffect(() => {
+    if (!micStream || !recording) return;
+    const AudioCtor =
+      globalThis.AudioContext ??
+      (globalThis as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtor || typeof requestAnimationFrame !== "function") return;
+    let context: AudioContext;
+    try {
+      context = new AudioCtor();
+      const source = context.createMediaStreamSource(micStream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      let frame = 0;
+      let last = 0;
+      const tick = (time: number) => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const value of data) {
+          const sample = (value - 128) / 128;
+          sum += sample * sample;
+        }
+        if (time - last > 80) {
+          last = time;
+          const next = Math.min(
+            100,
+            Math.max(8, Math.round(Math.sqrt(sum / data.length) * 280)),
+          );
+          setBars((current) => [...current.slice(1), next]);
+        }
+        frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+      return () => {
+        cancelAnimationFrame(frame);
+        void context.close();
+      };
+    } catch {
+      return;
+    }
+  }, [micStream, recording]);
   useEffect(() => {
     let disposed = false;
-    let stream: MediaStream | null = null;
+    const stream: MediaStream | null = micStream;
     let recorder: MediaRecorder | null = null;
     let attemptId: string | null = null;
     let captureId: string | null = null;
@@ -59,8 +161,28 @@ export function InterviewAudioRecorder({
       if (previous && previous.state !== "inactive") previous.stop();
       if (!disposed) setRecording(false);
     };
+    finalize.current = async () => {
+      finishing.current = true;
+      stop();
+      // Capture is stopped even if uploads fail and navigation stays blocked.
+      // Keep the control truthful and permit one-click microphone re-enable.
+      muted.current = true;
+      setMicrophoneEnabled(false);
+      setArmed(false);
+      // onstop emits its final data asynchronously. Every active segment has
+      // a promise before recording starts, including segments from old phases.
+      await Promise.all([...pendingSegments.current]);
+      if (!lastActorId.current) return;
+      const result = await flushInterviewAudio(roundId, lastActorId.current);
+      if (!disposed) setPendingCount(result.pending);
+      if (result.pending > 0 || result.error)
+        throw new Error(
+          result.error ??
+            "Audio is still waiting to upload. Keep this page open and retry.",
+        );
+    };
     const startSegment = (selectedAttempt: string, selectedCapture: string) => {
-      if (!stream || disposed || !enabled || !microphoneEnabled || !actorId)
+      if (!stream || disposed || !enabled || !actorId || finishing.current)
         return;
       const recordingActorId = actorId;
       const mimeType = [
@@ -77,7 +199,13 @@ export function InterviewAudioRecorder({
         audioBitsPerSecond: 64_000,
       });
       const chunks: Blob[] = [];
-      const id = crypto.randomUUID();
+      const id = randomUuid();
+      let segmentSaved!: () => void;
+      const saved = new Promise<void>((resolve) => {
+        segmentSaved = resolve;
+      });
+      pendingSegments.current.add(saved);
+      void saved.then(() => pendingSegments.current.delete(saved));
       let continued = false;
       recorder = instance;
       activeRecorder.current = instance;
@@ -112,11 +240,19 @@ export function InterviewAudioRecorder({
                   "Audio could not be saved on this device. Keep this page open while it uploads.",
                 );
             })
-            .then(flush);
-        }
+            .then(flush)
+            .catch(() => {
+              if (!disposed)
+                setError(
+                  "Audio is still waiting to upload. Keep this page open and retry.",
+                );
+            })
+            .finally(segmentSaved);
+        } else segmentSaved();
         if (
           continued &&
           !disposed &&
+          !finishing.current &&
           attemptId === selectedAttempt &&
           captureId === selectedCapture
         ) {
@@ -129,9 +265,13 @@ export function InterviewAudioRecorder({
           }
         }
       };
-      instance.start();
+      try {
+        instance.start();
+      } catch (failure) {
+        segmentSaved();
+        throw failure;
+      }
       setRecording(true);
-      setStatus("Recording audio at this station.");
       segmentTimer = setTimeout(() => {
         if (recorder === instance && instance.state !== "inactive") {
           continued = true;
@@ -142,7 +282,7 @@ export function InterviewAudioRecorder({
     const poll = async () => {
       try {
         const response = await fetch(
-          `/api/interviews/rounds/${encodeURIComponent(roundId)}/media${enabled && microphoneEnabled ? '?capture=1' : ''}`,
+          `/api/interviews/rounds/${encodeURIComponent(roundId)}/media${enabled && captureArmed.current ? "?capture=1" : ""}`,
           { cache: "no-store", signal: controller.signal },
         );
         if (!response.ok)
@@ -152,50 +292,32 @@ export function InterviewAudioRecorder({
         const policy = (await response.json()) as InterviewMediaTicket;
         if (disposed) return;
         actorId = policy.actorId ?? null;
+        if (actorId) lastActorId.current = actorId;
         await flush();
         if (disposed) return;
         clockOffset = policy.serverNow
           ? Date.parse(policy.serverNow) - Date.now()
           : 0;
-        if (
-          !enabled ||
-          !actorId ||
-          !policy.recordingEnabled ||
-          !policy.attemptId ||
-          !policy.captureId ||
-          !microphoneEnabled
-        ) {
+        const allowed = Boolean(
+          enabled &&
+            !finishing.current &&
+            actorId &&
+            policy.recordingEnabled &&
+            policy.attemptId &&
+            policy.captureId,
+        );
+        setServerRecording(Boolean(enabled && policy.recordingEnabled));
+        if (!allowed || !stream || !policy.attemptId || !policy.captureId) {
           stop();
-          setStatus(
-            !microphoneEnabled && policy.recordingEnabled
-              ? "Microphone is off. This answer is not being recorded."
-              : "Audio recording is off for this phase.",
-          );
           return;
         }
+        if (typeof MediaRecorder === "undefined")
+          throw new Error("Audio recording is not supported in this browser.");
         if (
           attemptId &&
           (attemptId !== policy.attemptId || captureId !== policy.captureId)
         )
           stop();
-        if (!stream) {
-          if (
-            !navigator.mediaDevices?.getUserMedia ||
-            typeof MediaRecorder === "undefined"
-          )
-            throw new Error(
-              "Audio recording is not supported in this browser.",
-            );
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: false,
-          });
-          if (disposed) {
-            stream.getTracks().forEach((track) => track.stop());
-            return;
-          }
-          activeStream.current = stream;
-        }
         if (!recorder) startSegment(policy.attemptId, policy.captureId);
         if (expiryTimer) clearTimeout(expiryTimer);
         if (policy.expiresAt)
@@ -217,9 +339,12 @@ export function InterviewAudioRecorder({
           );
       } finally {
         if (!disposed)
-          timer = setTimeout(() => {
-            void poll();
-          }, 3_000);
+          timer = setTimeout(
+            () => {
+              void poll();
+            },
+            enabled && microphoneEnabled ? 10_000 : 30_000,
+          );
       }
     };
     void poll();
@@ -228,10 +353,8 @@ export function InterviewAudioRecorder({
       controller.abort();
       if (timer) clearTimeout(timer);
       stop();
-      stream?.getTracks().forEach((track) => track.stop());
-      if (activeStream.current === stream) activeStream.current = null;
     };
-  }, [roundId, phase, enabled, microphoneEnabled, retry]);
+  }, [roundId, phase, enabled, retry, micStream]);
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("altitutor:interview-audio-pending", {
@@ -248,20 +371,63 @@ export function InterviewAudioRecorder({
     return () => window.removeEventListener("beforeunload", warn);
   }, [roundId, pendingCount, recording]);
   const toggle = () => {
-    if (microphoneEnabled) {
-      if (activeRecorder.current?.state === "recording")
-        activeRecorder.current.stop();
-      activeStream.current?.getTracks().forEach((track) => track.stop());
-    }
     setError("");
-    setMicrophoneEnabled(!microphoneEnabled);
+    if (microphoneEnabled) {
+      muted.current = true;
+      (
+        activeStream.current?.getAudioTracks?.() ??
+        activeStream.current?.getTracks() ??
+        []
+      ).forEach((track) => {
+        track.enabled = false;
+      });
+      setMicrophoneEnabled(false);
+      return;
+    }
+    muted.current = false;
+    finishing.current = false;
+    captureArmed.current = true;
+    (
+      activeStream.current?.getAudioTracks?.() ??
+      activeStream.current?.getTracks() ??
+      []
+    ).forEach((track) => {
+      track.enabled = true;
+    });
+    setArmed(true);
+    setMicrophoneEnabled(true);
   };
+  const caption = recording
+    ? null
+    : phase === "waiting" || phase === "reading"
+      ? "Recording will start during question time"
+      : serverRecording
+        ? null
+        : enabled
+          ? "Recording has finished"
+          : null;
   return (
-    <div className="space-y-3 rounded-lg border p-4">
+    <div className={plain ? "space-y-3" : "space-y-3 rounded-lg border p-4"}>
       <h3 className="text-sm font-medium">In-person audio</h3>
-      <p role="status" className="text-sm text-muted-foreground">
-        {recording && enabled ? "Recording audio at this station." : status}
-      </p>
+      {caption && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {caption}
+        </p>
+      )}
+      {recording && (
+        <div
+          aria-label="Recording waveform"
+          className="flex h-12 items-center gap-[3px]"
+        >
+          {bars.map((bar, index) => (
+            <span
+              key={index}
+              className="w-[3px] rounded-full bg-neutral-900 dark:bg-neutral-100"
+              style={{ height: `${bar}%` }}
+            />
+          ))}
+        </div>
+      )}
       {pendingCount > 0 && (
         <p className="text-xs text-muted-foreground">
           {pendingCount} audio segment{pendingCount === 1 ? "" : "s"} waiting to
@@ -293,6 +459,7 @@ export function InterviewAudioRecorder({
             variant="outline"
             onClick={() => {
               setError("");
+              finishing.current = false;
               setRetry((value) => value + 1);
             }}
           >

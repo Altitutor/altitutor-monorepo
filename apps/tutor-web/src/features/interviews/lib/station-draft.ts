@@ -1,10 +1,11 @@
 import type { InterviewQuestion, InterviewStation } from "@altitutor/shared";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 
 const emptyDocument = { type: "doc", content: [{ type: "paragraph" }] };
 
 export function blankQuestion(stationId: string): InterviewQuestion {
   return {
-    id: crypto.randomUUID(),
+    id: randomUuid(),
     stationId,
     tagIds: [],
     question: emptyDocument,
@@ -14,7 +15,7 @@ export function blankQuestion(stationId: string): InterviewQuestion {
   };
 }
 export function blankStation(categoryId: string): InterviewStation {
-  const id = crypto.randomUUID();
+  const id = randomUuid();
   return {
     id,
     version: 0,
@@ -28,7 +29,7 @@ export function blankStation(categoryId: string): InterviewStation {
   };
 }
 export function duplicateStation(original: InterviewStation): InterviewStation {
-  const id = crypto.randomUUID();
+  const id = randomUuid();
   return {
     ...original,
     id,
@@ -38,7 +39,7 @@ export function duplicateStation(original: InterviewStation): InterviewStation {
     updatedAt: "",
     questions: original.questions.map((q) => ({
       ...q,
-      id: crypto.randomUUID(),
+      id: randomUuid(),
       stationId: id,
       rubricVersion: 0,
     })),

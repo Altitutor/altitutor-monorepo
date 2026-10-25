@@ -2,13 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Input,
-  Textarea,
+  Switch,
   type JSONContent,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
+  INTERVIEW_NOT_SCORED,
   type InterviewStationAttempt,
   type InterviewRound,
   type InterviewSnapshotStation,
@@ -54,10 +64,11 @@ function ResultStationEditor({
     state,
     error,
     newerRevision,
+    recoveryUnavailable,
     loadSaved,
     keepDraft,
   } = useAttemptDraft(round.id, attempt);
-  const [exception, setException] = useState(!!attempt.notAssessedReason);
+  const notScored = !!draft.notAssessedReason?.trim();
   useEffect(() => {
     registerFlush(flush);
     return () => registerFlush(null);
@@ -68,6 +79,7 @@ function ResultStationEditor({
         error={error}
         retry={() => void flush().catch(() => undefined)}
       />
+{recoveryUnavailable && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Local recovery is unavailable. Online saving still works; wait for Saved before leaving or refreshing.</p>}
       {newerRevision && (
         <div
           role="alert"
@@ -127,8 +139,8 @@ function ResultStationEditor({
               step="any"
               min={0}
               max={station.maximumPoints}
-              disabled={exception || readOnly}
-              value={draft.score ?? ""}
+              disabled={notScored || readOnly}
+              value={notScored ? "" : (draft.score ?? "")}
               onChange={(event) =>
                 update({
                   ...draft,
@@ -145,41 +157,27 @@ function ResultStationEditor({
             </span>
           </div>
         </InterviewField>
-        <Button
-          variant="outline"
-          className={cn(tutorBtnOutline, "self-end")}
-          disabled={readOnly}
-          onClick={() => {
-            setException(!exception);
-            update({
-              ...draft,
-              score: null,
-              notAssessedReason: exception ? null : "",
-            });
-          }}
-        >
-          {exception ? "Assess this station" : "Mark not assessed"}
-        </Button>
-      </div>
-      {exception && (
-        <InterviewField label="Not assessed — required reason">
-          <Textarea
-            value={draft.notAssessedReason ?? ""}
+        <label className="inline-flex items-center gap-2 self-end text-sm">
+          Not scored
+          <Switch
+            checked={notScored}
             disabled={readOnly}
-            onChange={(event) =>
+            aria-label="Not scored"
+            onCheckedChange={(checked) =>
               update({
                 ...draft,
                 score: null,
-                notAssessedReason: event.target.value,
+                notAssessedReason: checked ? INTERVIEW_NOT_SCORED : null,
               })
             }
-            placeholder="Explain the agreed exception…"
           />
-          <p className="text-sm text-muted-foreground">
-            Excluded from possible points. This student’s result will be
-            labelled partial.
-          </p>
-        </InterviewField>
+        </label>
+      </div>
+      {notScored && (
+        <p className="text-sm text-muted-foreground">
+          Excluded from possible points. This student’s result will be labelled
+          partial.
+        </p>
       )}
       <InterviewPanel title="General station feedback">
         <InterviewDocument
@@ -259,6 +257,7 @@ export function InterviewResults({ id }: { id: string }) {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [stationId, setStationId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [releaseConfirm, setReleaseConfirm] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
   const registerFlush = useRef((save: (() => Promise<void>) | null) => {
     flush.current = save;
@@ -289,10 +288,6 @@ export function InterviewResults({ id }: { id: string }) {
     (item) =>
       item.studentId === selectedStudent?.id && item.stationId === station?.id,
   );
-  const missing = round.students.reduce(
-    (total, student) => total + studentSummary(round, student.id).missing,
-    0,
-  );
   const released = round.releasedResults.length > 0;
   const release = async () => {
     await flush.current?.();
@@ -301,7 +296,7 @@ export function InterviewResults({ id }: { id: string }) {
     await command.mutateAsync({
       type: "release",
       roundId: id,
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       expectedVersion: latest.data.version,
     });
   };
@@ -324,30 +319,42 @@ export function InterviewResults({ id }: { id: string }) {
             : "Scores, feedback and recordings stay private until explicitly released."}
         </p>
         <Button
-          disabled={
-            command.isPending || round.phase !== "completed" || missing > 0
-          }
-          onClick={() =>
-            void release().catch((reason: unknown) =>
-              setError(
-                reason instanceof Error
-                  ? reason
-                  : new Error("Unable to release results."),
-              ),
-            )
-          }
+          disabled={command.isPending || round.phase !== "completed"}
+          onClick={() => setReleaseConfirm(true)}
         >
           {released ? "Release updated results" : "Release all results"}
         </Button>
       </div>
       <InterviewError error={error ?? command.error ?? query.error} />
-      {missing > 0 && (
-        <div className="rounded-xl bg-amber-500/10 p-4 text-sm">
-          {missing} station result{missing === 1 ? "" : "s"} need a score or an
-          agreed not-assessed reason before release. Missing scores are never
-          counted as zero.
-        </div>
-      )}
+      <AlertDialog open={releaseConfirm} onOpenChange={setReleaseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {released ? "Release updated results?" : "Release results?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Students will be able to see their scores, feedback, and
+              recordings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                void release().catch((reason: unknown) =>
+                  setError(
+                    reason instanceof Error
+                      ? reason
+                      : new Error("Unable to release results."),
+                  ),
+                )
+              }
+            >
+              Release results
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className={tutorTableShell}>
         <table className="w-full text-left text-sm">
           <thead>
@@ -509,10 +516,6 @@ export function InterviewResults({ id }: { id: string }) {
           )}
         </InterviewPanel>
       )}
-      <p className="text-xs text-muted-foreground">
-        Student access ends when interview enrolment ends. Recording links
-        expire after 90 days; written results remain stored.
-      </p>
     </div>
   );
 }

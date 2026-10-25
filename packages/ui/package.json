@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./lib/random-uuid": {
+      "types": "./dist/lib/random-uuid.d.ts",
+      "default": "./dist/lib/random-uuid.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
@@ -12,7 +16,11 @@
     "./styles/native-datetime-input.css": "./src/styles/native-datetime-input.css",
     "./styles/quiet-scrollbars.css": "./src/styles/quiet-scrollbars.css",
     "./styles/prosemirror-tables.css": "./src/styles/prosemirror-tables.css",
-    "./styles/sentry-feedback.css": "./src/styles/sentry-feedback.css"
+    "./styles/sentry-feedback.css": "./src/styles/sentry-feedback.css",
+    "./hooks/use-interview-round-sync": {
+      "types": "./dist/hooks/use-interview-round-sync.d.ts",
+      "default": "./dist/hooks/use-interview-round-sync.js"
+    }
   },
   "sideEffects": [
     "*.css"

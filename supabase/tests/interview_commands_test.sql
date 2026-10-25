@@ -26,14 +26,22 @@ SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"createRound","roundId":"e8000000
 SELECT is((SELECT jsonb_array_length(data->'attempts') FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),2,'One attempt is prepared for each student/station occurrence');
 SELECT is((SELECT data->'progress'->1->>'studentId' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),NULL,'Unoccupied station is idle');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('start')$q$,'Tutor explicitly opens waiting room');
+SELECT is((SELECT data->'sharedAction'->>'actorId' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'00000000-0000-0000-0000-000000000010','Start records who opened the interview');
+SELECT throws_ok($q$SELECT pg_temp.round_cmd('skipReading')$q$,'22023','Cannot skip reading now','Reading can only be skipped during reading time');
+SELECT lives_ok($q$SELECT pg_temp.round_cmd('heartbeat')$q$,'Tutor heartbeat records presence');
+SELECT is((SELECT data->'connectedTutorIds' ? '00000000-0000-0000-0000-000000000010' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),true,'Assigned tutor appears connected');
 SELECT throws_ok($q$SELECT pg_temp.round_cmd('startReading')$q$,'22023','Every tutor must be ready','Reading requires tutor readiness');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('ready','{"ready":true}')$q$,'First tutor becomes ready');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('ready','{"ready":true}','00000000-0000-0000-0000-000000000011')$q$,'Second tutor becomes ready');
 SELECT throws_ok($q$SELECT pg_temp.round_cmd('startReading')$q$,'22023','Students are disconnected; explicit override required','Missing student connection requires deliberate override');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('startReading','{"overrideMissingStudents":true}')$q$,'Any assigned tutor can override missing connection');
 SELECT is((SELECT data->>'phase' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'reading','Round starts reading');
+SELECT is((SELECT data->'phaseHistory'->0->>'phase' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'waiting','Opening reading records the waiting phase');
+SELECT is((SELECT data->'sharedAction'->>'type' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'startReading','Reading records who started it');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('pause')$q$,'Any assigned tutor can pause');
+SELECT is((SELECT data->>'pausedBy' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'00000000-0000-0000-0000-000000000010','Pause records who paused');
 SELECT lives_ok($q$SELECT pg_temp.round_cmd('resume')$q$,'Any assigned tutor can resume');
+SELECT is((SELECT data->>'pausedBy' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),NULL,'Resume clears who paused');
 SELECT throws_ok($q$SELECT pg_temp.round_cmd('updateRound','{"setup":{}}')$q$,'22023','Assignments are fixed after start','Assignments cannot be changed after start');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
@@ -85,8 +93,11 @@ SELECT pg_temp.round_cmd('ready','{"ready":true}','00000000-0000-0000-0000-00000
 SELECT pg_temp.round_cmd('startReading','{"overrideMissingStudents":true}');
 UPDATE public.interview_rounds SET data=jsonb_set(data,'{phaseDeadline}',to_jsonb(now()-interval '2 minutes')) WHERE id='e8000000-0000-4000-8000-000000000020';
 SELECT pg_temp.round_cmd('tick');
-SELECT pg_temp.round_cmd('finishFeedback','{}','00000000-0000-0000-0000-000000000011');
+SELECT throws_ok($q$SELECT pg_temp.round_cmd('finishFeedback','{}','00000000-0000-0000-0000-000000000011')$q$,'22023','Score this station or mark it not scored','Feedback cannot finish without a score or not scored');
+SELECT lives_ok($q$SELECT pg_temp.mark(1,4)$q$,'Second station is scored before feedback can finish');
+SELECT lives_ok($q$SELECT pg_temp.round_cmd('finishFeedback','{}','00000000-0000-0000-0000-000000000011')$q$,'Assigned tutor finishes scored feedback');
 SELECT pg_temp.round_cmd('next');
+UPDATE public.interview_rounds SET data=jsonb_set(data,'{attempts}',(SELECT jsonb_agg(CASE WHEN a->>'stationId'='e8000000-0000-4000-8000-000000000013' THEN a || '{"score":null,"notAssessedReason":null,"completed":false}'::jsonb ELSE a END) FROM jsonb_array_elements(data->'attempts') a)) WHERE id='e8000000-0000-4000-8000-000000000020';
 SELECT throws_ok($q$SELECT pg_temp.round_cmd('release')$q$,'22023','Every station needs a completed score or an explicit not-assessed reason before release','Missing score blocks release instead of silently becoming zero');
 -- Fixture a wholly missed station rather than a marked zero. An explicit
 -- post-round score is itself the tutor's audited resolution of that station.
@@ -130,6 +141,8 @@ $$;
 SELECT lives_ok($q$SELECT pg_temp.cmd('{"type":"createRound","roundId":"e8000000-0000-4000-8000-000000000030","setup":{"interviewId":"e8000000-0000-4000-8000-000000000010","name":"In-person mock","delivery":"in_person","mode":"feedback","recordingEnabled":true,"scheduledAt":null,"studentIds":["10000000-0000-0000-0000-000000000001","10000000-0000-0000-0000-000000000002"],"assignments":[{"stationId":"e8000000-0000-4000-8000-000000000011","tutorId":"00000000-0000-0000-0000-000000000010"},{"stationId":"e8000000-0000-4000-8000-000000000013","tutorId":"00000000-0000-0000-0000-000000000011"}]}}')$q$,'In-person round accepts enrolled students');
 SELECT pg_temp.physical_cmd('start');
 SELECT is((SELECT data->'progress'->0->'studentId' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),'null'::jsonb,'Physical stations start without a system-assigned order');
+SELECT lives_ok($q$SELECT pg_temp.physical_cmd('ready','{"ready":true}')$q$,'An unoccupied in-person tutor can explicitly ready as idle');
+SELECT pg_temp.physical_cmd('ready','{"ready":false}');
 SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}')$q$,'Tutor chooses arriving student in waiting time');
 SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}','00000000-0000-0000-0000-000000000011')$q$,'22023','Student is already at another station or not in this round','A second tutor cannot claim the same student');
 CREATE FUNCTION pg_temp.physical_general(student_id text,note jsonb) RETURNS jsonb LANGUAGE sql AS $$
@@ -167,16 +180,17 @@ SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attem
 FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a WHERE r.id='e8000000-0000-4000-8000-000000000030'
  AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000002';
 SELECT is(public.interview_audio_capture('e8000000-0000-4000-8000-000000000030','00000000-0000-0000-0000-000000000010'),NULL::jsonb,'Waiting time cannot create a recording capture');
+SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}','00000000-0000-0000-0000-000000000011')$q$,'Second station claims the remaining student before anyone is ready');
 SELECT pg_temp.physical_cmd('ready','{"ready":true}');
 SELECT pg_temp.physical_cmd('ready','{"ready":true}','00000000-0000-0000-0000-000000000011');
+SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001","confirmMove":true}')$q$,'22023','Cannot select a student now','Ready station locks the arriving student');
 SELECT pg_temp.physical_cmd('startReading');
 UPDATE public.interview_rounds SET data=jsonb_set(data,'{phaseDeadline}',to_jsonb(now()-interval '1 second')) WHERE id='e8000000-0000-4000-8000-000000000030';
 SELECT pg_temp.physical_cmd('tick');
 CREATE TEMP TABLE audio_capture AS SELECT public.interview_audio_capture('e8000000-0000-4000-8000-000000000030','00000000-0000-0000-0000-000000000010') AS data;
 SELECT ok((SELECT data->>'id' IS NOT NULL FROM audio_capture),'Question time creates a durable capture before uploading bytes');
 SELECT is(public.interview_audio_capture('e8000000-0000-4000-8000-000000000030','00000000-0000-0000-0000-000000000010'),(SELECT data FROM audio_capture),'Repeated capture request returns the same capture');
-SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}')$q$,'22023','Confirm moving existing feedback and score','Pending recording requires confirmation despite no written entries');
-SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001","confirmMove":true}')$q$,'Confirmed correction moves the pending capture');
+SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001","confirmMove":true}')$q$,'22023','Cannot select a student now','Started station keeps the locked student');
 SELECT throws_ok($q$SELECT public.interview_audio_segment('e8000000-0000-4000-8000-000000000030','00000000-0000-0000-0000-000000000011',(SELECT (data->>'id')::uuid FROM audio_capture),'e8000000-0000-4000-8000-000000000081','wrong/path.webm')$q$,'42501','Audio capture unavailable','Another tutor cannot upload into the capture');
 SELECT throws_ok($q$SELECT public.interview_audio_segment('e8000000-0000-4000-8000-000000000030','00000000-0000-0000-0000-000000000010',(SELECT (data->>'id')::uuid FROM audio_capture),'e8000000-0000-4000-8000-000000000081','wrong/path.webm')$q$,'22023','Invalid audio storage path','Upload path must match its exact round, capture and segment');
 CREATE FUNCTION pg_temp.upload_segment(segment uuid) RETURNS jsonb LANGUAGE sql AS $$
@@ -185,8 +199,8 @@ CREATE FUNCTION pg_temp.upload_segment(segment uuid) RETURNS jsonb LANGUAGE sql 
 $$;
 SELECT is(pg_temp.upload_segment('e8000000-0000-4000-8000-000000000081')->>'attemptId',
  (SELECT a->>'id' FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a WHERE r.id='e8000000-0000-4000-8000-000000000030'
- AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000001'),
- 'Offline segment resolves to corrected student when it eventually arrives');
+ AND a->>'stationId'='e8000000-0000-4000-8000-000000000011' AND a->>'studentId'='10000000-0000-0000-0000-000000000002'),
+ 'Offline segment resolves to the student locked at the station');
 SELECT is(pg_temp.upload_segment('e8000000-0000-4000-8000-000000000081'),pg_temp.upload_segment('e8000000-0000-4000-8000-000000000081'),'Audio upload retries preserve segment identity');
 SELECT is((SELECT jsonb_array_length(data->'recordings') FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),1,'Real segment replaces pending anchor in displayed recording list');
 -- Release the capture as part of an otherwise completed fixture, then show that
@@ -196,10 +210,10 @@ UPDATE public.interview_rounds SET data=data || jsonb_build_object('phase','comp
 SELECT pg_temp.physical_cmd('release');
 SELECT pg_temp.upload_segment('e8000000-0000-4000-8000-000000000082');
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
-SELECT is((SELECT jsonb_array_length(data->'result'->'recordings') FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),2,'Late segments of a released capture become visible as processing completion');
 SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}',true);
-SELECT is((SELECT jsonb_array_length(data->'result'->'recordings') FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),0,'Original mistaken student cannot see corrected audio');
+SELECT is((SELECT jsonb_array_length(data->'result'->'recordings') FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),2,'Late segments of a released capture stay with the student locked at the station');
+SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+SELECT is((SELECT jsonb_array_length(data->'result'->'recordings') FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000030'),0,'A student who did not sit the station cannot see its audio');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 CREATE TEMP TABLE old_lease AS SELECT * FROM public.interview_claim_media_job('e8000000-0000-4000-8000-000000000030');
@@ -238,6 +252,38 @@ UPDATE public.interview_recordings SET expires_at=now()-interval '1 second' WHER
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT data->'result'->'recordings'->0->>'state' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'expired','Expired recording is marked unavailable even before cleanup runs');
 RESET ROLE;
+
+
+-- One student/two stations: explicit idle readiness and an agreed missed encounter.
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
+SELECT pg_temp.cmd('{"type":"createRound","roundId":"e8000000-0000-4000-8000-000000000040","setup":{"interviewId":"e8000000-0000-4000-8000-000000000010","name":"In-person mock","delivery":"in_person","mode":"feedback","recordingEnabled":false,"scheduledAt":null,"studentIds":["10000000-0000-0000-0000-000000000001"],"assignments":[{"stationId":"e8000000-0000-4000-8000-000000000011","tutorId":"00000000-0000-0000-0000-000000000010"},{"stationId":"e8000000-0000-4000-8000-000000000013","tutorId":"00000000-0000-0000-0000-000000000011"}]}}');
+CREATE FUNCTION pg_temp.missed_cmd(kind text,extra jsonb DEFAULT '{}',actor uuid DEFAULT '00000000-0000-0000-0000-000000000010') RETURNS jsonb LANGUAGE sql AS $$
+ SELECT pg_temp.cmd(jsonb_build_object('type',kind,'roundId','e8000000-0000-4000-8000-000000000040','expectedVersion',
+ (SELECT data->'version' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000040'))||extra,actor);
+$$;
+SELECT pg_temp.missed_cmd('start');
+SELECT pg_temp.missed_cmd('ready','{"ready":true}');
+SELECT pg_temp.missed_cmd('ready','{"ready":true}','00000000-0000-0000-0000-000000000011');
+SELECT throws_ok($q$SELECT pg_temp.missed_cmd('startReading')$q$,'22023','At least one station needs a student','An all-idle rotation cannot start');
+SELECT pg_temp.missed_cmd('ready','{"ready":false}');
+SELECT pg_temp.missed_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}');
+SELECT pg_temp.missed_cmd('ready','{"ready":true}');
+SELECT lives_ok($q$SELECT pg_temp.missed_cmd('startReading')$q$,'One occupied and one explicitly idle station can start');
+SELECT pg_temp.missed_cmd('skipReading');
+SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version',
+ 'score',CASE WHEN a->>'stationId'='e8000000-0000-4000-8000-000000000011' THEN to_jsonb(3) ELSE 'null'::jsonb END,
+ 'notAssessedReason',CASE WHEN a->>'stationId'='e8000000-0000-4000-8000-000000000013' THEN 'Student had to leave' ELSE NULL END,'feedback','[]'::jsonb),
+ CASE WHEN a->>'stationId'='e8000000-0000-4000-8000-000000000011' THEN '00000000-0000-0000-0000-000000000010'::uuid ELSE '00000000-0000-0000-0000-000000000011'::uuid END)
+ FROM public.vtutor_interview_rounds r CROSS JOIN jsonb_array_elements(data->'attempts') a WHERE r.id='e8000000-0000-4000-8000-000000000040';
+SELECT pg_temp.missed_cmd('endStation');
+SELECT pg_temp.missed_cmd('finishFeedback');
+SELECT pg_temp.missed_cmd('next');
+SELECT is((SELECT data->>'phase' FROM public.vtutor_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000040'),'completed','An explicit missed-station reason resolves in-person completion');
+SELECT lives_ok($q$SELECT pg_temp.missed_cmd('release')$q$,'Resolved missed encounter permits partial release');
+SELECT set_config('request.jwt.claims','{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+SELECT is((SELECT data->'result'->>'partial' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000040'),'true','Missed-station exception is published as partial');
+SELECT is((SELECT data->'result'->>'possiblePoints' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000040'),'6.5','Missed encounter is excluded from possible points');
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 
 UPDATE public.classes_students SET unenrolled_at=now()-interval '1 day',unenrolled_by='00000000-0000-0000-0000-000000000001' WHERE student_id='10000000-0000-0000-0000-000000000001' AND class_id='20000000-0000-0000-0000-000000000001';
 SET LOCAL ROLE authenticated;
