@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, DataTableToolbar, Input } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import type { DataTableSortOption, InterviewCategory } from "@altitutor/shared";
 import { Pencil, Plus } from "lucide-react";
 import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
@@ -118,10 +119,10 @@ export function InterviewCategoriesPage() {
   };
 
   const save = async () => {
-    const id = editing?.id ?? crypto.randomUUID();
+    const id = editing?.id ?? randomUuid();
     await command.mutateAsync({
       type: "saveCategory",
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       category: { id, name: name.trim(), parentId },
     });
     setCreating(false);
@@ -147,7 +148,7 @@ export function InterviewCategoriesPage() {
     }
     await command.mutateAsync({
       type: "saveCategory",
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       category: { ...category, parentId: nextParent },
     });
   };

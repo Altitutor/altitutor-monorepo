@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { useInterviewRoundEvents } from '../hooks/useInterviewRoundEvents';
 import type { Tables } from '@altitutor/shared';
 
 type SessionsData = {
@@ -15,6 +17,7 @@ import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionsCard } from './SessionsCard';
+import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 
 type Props = {
@@ -24,6 +27,7 @@ type Props = {
 
 export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
   const [dayColumnRef, dayColumnSize] = useElementSize<HTMLDivElement>();
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
   const selectedDate = date ? parseISO(date) : new Date();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const today = new Date();
@@ -34,6 +38,9 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
     rangeEnd: selectedDateStr,
     includeInactive: false // Only show active sessions in calendar view
   });
+  const roundsQuery = useInterviewRoundEvents(selectedDateStr, selectedDateStr);
+  const dayRounds = (roundsQuery.data ?? []).filter((round) => isSameDay(new Date(round.scheduledAt), selectedDate));
+  const selectedRound = dayRounds.find((round) => round.id === selectedRoundId) ?? null;
 
   const slotHeight = 75; // px per hour
 
@@ -47,7 +54,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
 
   // Calculate dynamic time range based on sessions
   const calculateTimeRange = () => {
-    if (todaySessions.length === 0) {
+    if (todaySessions.length === 0 && dayRounds.length === 0) {
       // Default range if no sessions
       return { startHour: 9, endHour: 20, slots: Array.from({ length: 12 }, (_, i) => 9 + i) };
     }
@@ -64,6 +71,10 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
         const endMinutes = adelaideTimeToMinutes(s.end_at);
         latestEnd = Math.max(latestEnd, endMinutes);
       }
+    });
+    dayRounds.forEach((round) => {
+      earliestStart = Math.min(earliestStart, adelaideTimeToMinutes(round.scheduledAt));
+      latestEnd = Math.max(latestEnd, adelaideTimeToMinutes(round.endAt));
     });
 
     // Snap to the hour containing the first session start; end at the hour boundary
@@ -104,7 +115,10 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
     return overlapCount > 1 || estimatedCardWidth < 220;
   };
 
-  if (todaySessions.length === 0) {
+  if (todaySessions.length === 0 && dayRounds.length === 0) {
+    if (roundsQuery.isPending) {
+      return <p className="py-8 text-center text-sm text-muted-foreground">Loading today’s schedule…</p>;
+    }
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No sessions scheduled for this day</p>
@@ -154,6 +168,20 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                     // Separate ADMIN_SHIFT sessions from regular sessions
                     const adminShiftSessions = daySessions.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
                     const regularSessions = daySessions.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
+                    const dayPlacements = new Map(
+                      layoutCalendarColumns([
+                        ...regularSessions.map((session) => ({
+                          id: session.id,
+                          startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
+                          endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
+                        })),
+                        ...dayRounds.map((round) => ({
+                          id: `round:${round.id}`,
+                          startMinutes: adelaideTimeToMinutes(round.scheduledAt),
+                          endMinutes: adelaideTimeToMinutes(round.endAt),
+                        })),
+                      ]).map((placement) => [placement.id, placement]),
+                    );
                     
                     // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                     const regularGroups: Tables<'sessions'>[][] = [];
@@ -259,15 +287,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                     
                     // Render regular sessions AFTER (on top) with higher z-index
                     regularGroups.forEach((group) => {
-                      const placements = new Map(
-                        layoutCalendarColumns(
-                          group.map((session) => ({
-                            id: session.id,
-                            startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
-                            endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
-                          })),
-                        ).map((placement) => [placement.id, placement]),
-                      );
+                      const placements = dayPlacements;
                       group.forEach((s: Tables<'sessions'>) => {
                         const placement = placements.get(s.id);
                         const total = placement?.columnCount ?? 1;
@@ -323,6 +343,33 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         );
                       });
                     });
+                    dayRounds.forEach((round) => {
+                      const placement = dayPlacements.get(`round:${round.id}`);
+                      const total = placement?.columnCount ?? 1;
+                      const column = placement?.column ?? 0;
+                      const columnWidth = total > 1 ? 95 / total : 95;
+                      const startMinutes = adelaideTimeToMinutes(round.scheduledAt);
+                      const endMinutes = adelaideTimeToMinutes(round.endAt);
+                      const top = Math.max(0, (minutesFromStart(round.scheduledAt) / 60) * slotHeight);
+                      const height = Math.max(30, ((endMinutes - startMinutes) / 60) * slotHeight);
+                      const left = column * columnWidth + 2.5;
+                      blocks.push(
+                        <div
+                          key={round.id}
+                          className="absolute"
+                          style={{
+                            top: `${top}px`,
+                            height: `${Math.max(height, 45)}px`,
+                            left: `${left}%`,
+                            width: `${columnWidth}%`,
+                            zIndex: 10,
+                            minHeight: '45px',
+                          }}
+                        >
+                          <InterviewRoundCalendarCard round={round} onOpen={() => setSelectedRoundId(round.id)} />
+                        </div>
+                      );
+                    });
                     return blocks;
                   })()}
                 </div>
@@ -331,6 +378,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
           </div>
         ))}
       </div>
+      <InterviewRoundInfoDialog round={selectedRound} onClose={() => setSelectedRoundId(null)} />
     </div>
   );
 }

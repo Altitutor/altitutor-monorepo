@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, isSameDay, parse, isValid } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { useInterviewRoundEvents } from '../hooks/useInterviewRoundEvents';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { SessionsCard } from './SessionsCard';
+import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button } from "@altitutor/ui";
 
@@ -31,6 +33,7 @@ function parseDateParam(value?: string): Date | null {
 export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
   useEffect(() => {if(parsedInitialDate) setAnchor(parsedInitialDate)},[parsedInitialDate]);
   const viewMode = initialViewMode ?? 'week';
 
@@ -57,6 +60,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
   const data = source ?? fetchedData;
   const from = format(rangeStart,'yyyy-MM-dd');
   const to = format(rangeEnd,'yyyy-MM-dd');
+  const { data: roundEvents = [] } = useInterviewRoundEvents(from, to);
+  const selectedRound = roundEvents.find((round) => round.id === selectedRoundId) ?? null;
   useEffect(() => onRangeChange?.(from,to),[from,to,onRangeChange]);
   const showProperty = (key:string) => !visibleProperties || visibleProperties.includes(key);
 
@@ -183,6 +188,21 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                         // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
                         const adminShiftSessions = deduped.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
                         const regularSessions = deduped.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
+                        const dayRounds = roundEvents.filter((round) => isSameDay(new Date(round.scheduledAt), d));
+                        const dayPlacements = new Map(
+                          layoutCalendarColumns([
+                            ...regularSessions.flatMap((session) => session.start_at && session.end_at ? [{
+                              id: session.id,
+                              startMinutes: adelaideTimeToMinutes(session.start_at),
+                              endMinutes: adelaideTimeToMinutes(session.end_at),
+                            }] : []),
+                            ...dayRounds.map((round) => ({
+                              id: `round:${round.id}`,
+                              startMinutes: adelaideTimeToMinutes(round.scheduledAt),
+                              endMinutes: adelaideTimeToMinutes(round.endAt),
+                            })),
+                          ]).map((placement) => [placement.id, placement]),
+                        );
 
                         // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                         // Fix: Check if session overlaps with ANY session in the group, not just the first one
@@ -280,15 +300,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
 
                         // Render regular sessions AFTER (on top) with higher z-index
                         regularGroups.forEach((group) => {
-                          const placements = new Map(
-                            layoutCalendarColumns(
-                              group.map((session) => ({
-                                id: session.id,
-                                startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
-                                endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
-                              })),
-                            ).map((placement) => [placement.id, placement]),
-                          );
+                          const placements = dayPlacements;
                           group.forEach((s: Tables<'sessions'>, idx: number) => {
                             const placement = placements.get(s.id);
                             const total = placement?.columnCount ?? 1;
@@ -336,6 +348,25 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             );
                           });
                         });
+                        dayRounds.forEach((round) => {
+                          const placement = dayPlacements.get(`round:${round.id}`);
+                          const total = placement?.columnCount ?? 1;
+                          const column = placement?.column ?? 0;
+                          const columnWidth = total > 1 ? 95 / total : 95;
+                          const startMinutes = adelaideTimeToMinutes(round.scheduledAt);
+                          const endMinutes = adelaideTimeToMinutes(round.endAt);
+                          const top = Math.max(0, (minutesFromStart(round.scheduledAt) / 60) * slotHeight);
+                          const height = Math.max(30, ((endMinutes - startMinutes) / 60) * slotHeight);
+                          blocks.push(
+                            <div
+                              key={round.id}
+                              className="absolute"
+                              style={{ top: `${top}px`, height: `${Math.max(height, 45)}px`, left: `${column * columnWidth + 2.5}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
+                            >
+                              <InterviewRoundCalendarCard round={round} onOpen={() => setSelectedRoundId(round.id)} />
+                            </div>
+                          );
+                        });
                           return blocks;
                         })()}
                       </div>
@@ -347,6 +378,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
           ))}
         </div>
       </div>
+      <InterviewRoundInfoDialog round={selectedRound} onClose={() => setSelectedRoundId(null)} />
     </div>
   );
 }

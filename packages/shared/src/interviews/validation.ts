@@ -183,6 +183,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
     case "start":
     case "pause":
     case "resume":
+    case "skipReading":
     case "next":
     case "release":
     case "endStation":

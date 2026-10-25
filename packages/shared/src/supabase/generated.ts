@@ -5028,6 +5028,74 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_tutor_presence: {
+        Row: {
+          last_seen_at: string
+          round_id: string
+          tutor_id: string
+        }
+        Insert: {
+          last_seen_at?: string
+          round_id: string
+          tutor_id: string
+        }
+        Update: {
+          last_seen_at?: string
+          round_id?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interviews: {
         Row: {
           data: Json
@@ -44135,6 +44203,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      interview_attempt_resolved: { Args: { attempt: Json }; Returns: boolean }
       interview_audio_capture: {
         Args: { p_round_id: string; p_tutor_id: string }
         Returns: Json
@@ -44160,6 +44229,10 @@ export type Database = {
           revision: number
           round_id: string
         }[]
+      }
+      interview_close_phase: {
+        Args: { d: Json; ended_at: string }
+        Returns: Json
       }
       interview_command: {
         Args: { p_actor_user_id: string; p_command: Json }

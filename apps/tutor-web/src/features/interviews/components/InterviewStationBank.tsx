@@ -7,6 +7,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
   interviewText,
   type DataTableColumnDefinition,
@@ -40,8 +41,9 @@ import {
 const columns: DataTableColumnDefinition[] = [
   { key: "name", label: "Station", visibleByDefault: true },
   { key: "prompt", label: "Prompt", visibleByDefault: true },
-  { key: "category", label: "Category", visibleByDefault: true },
   { key: "questions", label: "Questions", visibleByDefault: true },
+  { key: "category", label: "Category", visibleByDefault: true },
+  { key: "questionCount", label: "Questions (number)", visibleByDefault: false },
   { key: "points", label: "Maximum score", visibleByDefault: true },
   { key: "updated", label: "Updated", visibleByDefault: false },
 ];
@@ -218,6 +220,27 @@ export function InterviewStationBank() {
                     },
                   ]
                 : []),
+              ...(visible.has("questions")
+                ? [
+                    {
+                      id: "questions",
+                      header: "Questions",
+                      cell: ({
+                        row,
+                      }: {
+                        row: { original: InterviewStation };
+                      }) => (
+                        <div className="max-w-xl space-y-1">
+                          {row.original.questions.map((question, index) => (
+                            <p key={question.id}>
+                              {index + 1}. {interviewText(question.question)}
+                            </p>
+                          ))}
+                        </div>
+                      ),
+                    },
+                  ]
+                : []),
               ...(visible.has("category")
                 ? [
                     {
@@ -234,11 +257,11 @@ export function InterviewStationBank() {
                     },
                   ]
                 : []),
-              ...(visible.has("questions")
+              ...(visible.has("questionCount")
                 ? [
                     {
-                      id: "questions",
-                      header: "Questions",
+                      id: "questionCount",
+                      header: "Questions (number)",
                       cell: ({
                         row,
                       }: {
@@ -301,7 +324,7 @@ export function InterviewStationBank() {
                           onClick: () =>
                             command.mutate({
                               type: "saveStation",
-                              commandId: crypto.randomUUID(),
+                              commandId: randomUuid(),
                               expectedVersion: row.original.version,
                               station: {
                                 ...row.original,

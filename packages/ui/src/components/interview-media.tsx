@@ -8,8 +8,15 @@ import type {
   InterviewPhase,
 } from "@altitutor/shared";
 import { Camera, CameraOff, Mic, MicOff, Volume2 } from "lucide-react";
+import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./tooltip";
 
 export interface InterviewMediaProps {
   roundId: string;
@@ -17,6 +24,257 @@ export interface InterviewMediaProps {
   delivery: InterviewDelivery;
   enabled: boolean;
   role?: "tutor" | "student";
+  plain?: boolean;
+  className?: string;
+  registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
+}
+
+const blockedMediaMessage =
+  "This browser is blocking camera and microphone access. On iPad, open the interview in Safari, allow Camera and Microphone for this site, and turn off Lockdown Mode.";
+const deviceDeniedMessage =
+  "Camera or microphone unavailable. Check browser permissions and try again.";
+
+type DeviceAccess = "granted" | "denied" | "needs-gesture" | "unsupported";
+
+function permissionState(name: "camera" | "microphone") {
+  const query = navigator.permissions?.query?.bind(navigator.permissions);
+  if (!query) return Promise.resolve("unknown");
+  return query({ name: name as PermissionName })
+    .then((status) => status.state)
+    .catch(() => "unknown");
+}
+
+let deviceCapture: Promise<DeviceAccess> | null = null;
+// Daily permits one call object per page. A new layout owner must also await
+// teardown from an unmounted waiting-room/previous-round owner.
+let dailyClosing = Promise.resolve();
+
+/** Ask for the camera and microphone. A shared request avoids two prompts from one join. */
+function captureDevices() {
+  if (!deviceCapture) {
+    deviceCapture = (async (): Promise<DeviceAccess> => {
+      prepareMediaDevices();
+      const request = navigator.mediaDevices?.getUserMedia?.bind(
+        navigator.mediaDevices,
+      );
+      if (!request) return "unsupported";
+      try {
+        const stream = await request({ audio: true, video: true });
+        stream.getTracks().forEach((track) => track.stop());
+        return "granted";
+      } catch (error) {
+        const blocked =
+          error instanceof DOMException &&
+          (error.name === "NotAllowedError" || error.name === "SecurityError");
+        if (!blocked) return "denied";
+        const states = await Promise.all([
+          permissionState("camera"),
+          permissionState("microphone"),
+        ]);
+        return states.includes("denied") ? "denied" : "needs-gesture";
+      }
+    })().finally(() => {
+      deviceCapture = null;
+    });
+  }
+  return deviceCapture;
+}
+
+function MicLevelIcon({
+  track,
+  muted,
+}: {
+  track: MediaStreamTrack | null;
+  muted: boolean;
+}) {
+  const clipId = React.useId().replace(/:/g, "");
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    if (!track || muted || track.readyState !== "live") {
+      setLevel(0);
+      return;
+    }
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioContextCtor) return;
+    let context: AudioContext | undefined;
+    let source: MediaStreamAudioSourceNode | undefined;
+    let disposed = false;
+    let frame = 0;
+    const cleanup = () => {
+      disposed = true;
+      if (frame) cancelAnimationFrame(frame);
+      try {
+        source?.disconnect();
+      } catch {
+        /* Already disconnected. */
+      }
+      try {
+        void context?.close().catch(() => undefined);
+      } catch {
+        /* Already closed. */
+      }
+    };
+    try {
+      context = new AudioContextCtor();
+      source = context.createMediaStreamSource(new MediaStream([track]));
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      let shown = 0;
+      const tick = () => {
+        if (disposed) return;
+        try {
+          analyser.getByteTimeDomainData(samples);
+          let sum = 0;
+          for (const value of samples) {
+            const sample = (value - 128) / 128;
+            sum += sample * sample;
+          }
+          const next = Math.min(1, Math.sqrt(sum / samples.length) * 4);
+          shown = next > shown ? next : shown * 0.8;
+          const bucket = Math.round(shown * 16) / 16;
+          setLevel((current) => (current === bucket ? current : bucket));
+          frame = requestAnimationFrame(tick);
+        } catch {
+          cleanup();
+        }
+      };
+      void context
+        .resume()
+        .then(() => {
+          if (!disposed) frame = requestAnimationFrame(tick);
+        })
+        .catch(cleanup);
+    } catch {
+      // The level meter is decorative; Web Audio failures must not stop calls.
+      cleanup();
+    }
+    return cleanup;
+  }, [muted, track]);
+  const filled = 10 * (muted ? 0 : level);
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path
+        d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19 10v2a7 7 0 0 1-14 0v-2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12 19v3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <clipPath id={clipId}>
+        <rect x="8" y={12 - filled} width="8" height={filled} />
+      </clipPath>
+      <path
+        d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+        clipPath={`url(#${clipId})`}
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function prepareMediaDevices() {
+  type LegacyGetUserMedia = (
+    constraints: MediaStreamConstraints,
+    success: (stream: MediaStream) => void,
+    failure: (error: Error) => void,
+  ) => void;
+  const nav = navigator as Navigator & {
+    webkitGetUserMedia?: LegacyGetUserMedia;
+    getUserMedia?: LegacyGetUserMedia;
+  };
+  if (typeof nav.mediaDevices?.getUserMedia === "function") return true;
+  const legacy = nav.webkitGetUserMedia ?? nav.getUserMedia;
+  if (!legacy) return false;
+  const devices = nav.mediaDevices ?? ({} as MediaDevices);
+  try {
+    if (!nav.mediaDevices)
+      Object.defineProperty(nav, "mediaDevices", {
+        configurable: true,
+        value: devices,
+      });
+  } catch {
+    return false;
+  }
+  try {
+    nav.mediaDevices.getUserMedia = (constraints) =>
+      new Promise((resolve, reject) => {
+        legacy.call(
+          nav,
+          constraints ?? { audio: true, video: true },
+          resolve,
+          reject,
+        );
+      });
+  } catch {
+    return false;
+  }
+  return typeof nav.mediaDevices.getUserMedia === "function";
+}
+
+function mediaError(failure: unknown) {
+  const message =
+    failure instanceof Error
+      ? failure.message
+      : "Unable to connect to interview media.";
+  return message.includes("WebRTC not supported")
+    ? blockedMediaMessage
+    : message;
+}
+
+function MediaControl({
+  label,
+  pressed,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          disabled={disabled}
+          aria-label={label}
+          aria-pressed={pressed}
+          onClick={onClick}
+          className={cn(
+            "rounded-full text-white hover:bg-white/20 hover:text-white",
+            pressed === false && "bg-red-600 text-white hover:bg-red-500",
+          )}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
@@ -55,7 +313,7 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
     };
   }, [audioTrack, participant.local]);
   return (
-    <div className="relative overflow-hidden rounded-lg bg-slate-950">
+    <div className="relative h-full min-h-0 overflow-hidden bg-slate-950">
       <video
         ref={video}
         muted
@@ -66,7 +324,7 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
             ? "Your video preview"
             : `${participant.user_name || "Participant"} video`
         }
-        className={`aspect-video w-full object-cover ${participant.local ? "-scale-x-100" : ""}`}
+        className={`h-full w-full object-cover ${participant.local ? "-scale-x-100" : ""}`}
       />
       {!videoTrack && (
         <div className="absolute inset-0 flex items-center justify-center text-slate-400">
@@ -74,7 +332,7 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
         </div>
       )}
       {!participant.local && <audio ref={audio} autoPlay />}
-      <span className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
+      <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
         {participant.local ? "You" : participant.user_name || "Participant"}
       </span>
       {soundBlocked && (
@@ -104,8 +362,11 @@ export function InterviewMedia({
   delivery,
   enabled,
   role = "student",
+  plain = false,
+  className,
+  registerFinalize,
 }: InterviewMediaProps) {
-  const [devicesRequested, setDevicesRequested] = useState(false);
+  const [devicesRequested, setDevicesRequested] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const devicePreferences = useRef({ micOn, cameraOn });
@@ -114,7 +375,7 @@ export function InterviewMedia({
   const closing = useRef<Promise<void>>(Promise.resolve());
   const [participants, setParticipants] = useState<DailyParticipant[]>([]);
   const [ticket, setTicket] = useState<InterviewMediaTicket | null>(null);
-  const [status, setStatus] = useState("Your camera and microphone are off.");
+  const [status, setStatus] = useState("Preparing your devices…");
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const scope = `${roundId}:${phase}:${enabled}:${devicesRequested}:${retry}`;
@@ -160,7 +421,13 @@ export function InterviewMedia({
       } catch {
         /* A provider event may already have destroyed the call. */
       }
-      await previous.destroy().catch(() => undefined);
+      const destroyed = Promise.resolve()
+        .then(() => previous.destroy())
+        .catch(() => undefined);
+      dailyClosing = Promise.all([dailyClosing, destroyed]).then(
+        () => undefined,
+      );
+      await destroyed;
       if (!disposed) setParticipants([]);
     };
     const updateParticipants = () => {
@@ -170,13 +437,20 @@ export function InterviewMedia({
     const create = async () => {
       if (call) return call;
       await closing.current;
+      await dailyClosing;
+      prepareMediaDevices();
       const { default: Daily } = await import("@daily-co/daily-js");
       if (disposed) return null;
-      const instance = Daily.createCallObject({
-        subscribeToTracksAutomatically: false,
-        startAudioOff: true,
-        startVideoOff: true,
-      });
+      let instance: DailyCall;
+      try {
+        instance = Daily.createCallObject({
+          subscribeToTracksAutomatically: false,
+          startAudioOff: true,
+          startVideoOff: true,
+        });
+      } catch (failure) {
+        throw new Error(mediaError(failure));
+      }
       call = instance;
       callRef.current = instance;
       instance
@@ -204,10 +478,7 @@ export function InterviewMedia({
         }
       });
       instance.on("camera-error", () => {
-        if (!disposed)
-          setError(
-            "Camera or microphone unavailable. Check browser permissions and try again.",
-          );
+        if (!disposed) setError(deviceDeniedMessage);
       });
       if (devicesRequested) {
         await instance.startCamera({
@@ -223,6 +494,7 @@ export function InterviewMedia({
       return instance;
     };
     const poll = async () => {
+      let nextPoll = 3_000;
       try {
         const query = sessionId
           ? `?sessionId=${encodeURIComponent(sessionId)}`
@@ -232,6 +504,7 @@ export function InterviewMedia({
           { cache: "no-store", signal: abort.signal },
         );
         const body: unknown = await response.json();
+        nextPoll = enabled ? 10_000 : 30_000;
         if (!response.ok) {
           await close();
           throw new Error(
@@ -260,7 +533,7 @@ export function InterviewMedia({
             setStatus("Audio and video are paused.");
           } else if (devicesRequested) {
             await create();
-            setStatus("Only your local preview is active.");
+            setStatus("");
           }
           return;
         }
@@ -320,30 +593,37 @@ export function InterviewMedia({
         }
         updateParticipants();
       } catch (failure) {
-        if (!disposed)
-          setError(
-            failure instanceof Error
-              ? failure.message
-              : "Unable to connect to interview media.",
-          );
+        if (!disposed) setError(mediaError(failure));
       } finally {
         if (!disposed)
           timer = setTimeout(() => {
             void poll();
-          }, 3_000);
+          }, nextPoll);
       }
     };
+    const openingDevices =
+      devicesRequested && enabled ? captureDevices() : null;
     void (async () => {
       await closing.current;
       if (disposed) return;
-      if (devicesRequested && enabled) {
+      if (openingDevices) {
+        const access = await openingDevices;
+        if (disposed) return;
+        if (access !== "granted") {
+          setError(
+            access === "denied"
+              ? deviceDeniedMessage
+              : access === "unsupported"
+                ? blockedMediaMessage
+                : "",
+          );
+          setDevicesRequested(false);
+          return;
+        }
         try {
           await create();
         } catch {
-          if (!disposed)
-            setError(
-              "Camera or microphone unavailable. Check browser permissions and try again.",
-            );
+          if (!disposed) setError(deviceDeniedMessage);
         }
       }
       if (!disposed) void poll();
@@ -390,6 +670,8 @@ export function InterviewMedia({
         roundId={roundId}
         phase={phase}
         enabled={enabled}
+        plain={plain}
+        registerFinalize={registerFinalize}
       />
     );
   if (delivery === "in_person")
@@ -404,9 +686,32 @@ export function InterviewMedia({
         (participant) => participant.local || (enabled && ticket?.canReceive),
       )
     : [];
+  const localAudio =
+    participants.find((participant) => participant.local)?.tracks.audio
+      .persistentTrack ?? null;
+  const requestDevices = () => {
+    void captureDevices().then((access) => {
+      if (access === "granted") {
+        setError("");
+        setDevicesRequested(true);
+      } else if (access === "denied") setError(deviceDeniedMessage);
+      else if (access === "unsupported") setError(blockedMediaMessage);
+      else setError("");
+    });
+  };
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3">
+    <div
+      className={cn(
+        "relative flex h-full min-h-[18rem] flex-col overflow-hidden rounded-xl bg-slate-950",
+        className,
+      )}
+    >
+      <div
+        className={cn(
+          "grid min-h-0 flex-1",
+          visible.length > 1 && "sm:grid-cols-2",
+        )}
+      >
         {visible.map((participant) => (
           <ParticipantMedia
             key={participant.session_id}
@@ -414,86 +719,93 @@ export function InterviewMedia({
           />
         ))}
         {!visible.length && (
-          <div className="flex aspect-video items-center justify-center rounded-lg bg-muted">
-            <CameraOff className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <div className="flex items-center justify-center text-slate-400">
+            <CameraOff className="h-8 w-8" aria-hidden />
           </div>
         )}
       </div>
-      <p role="status" className="text-xs text-muted-foreground">
-        {current ? status : "Updating your station…"}
-      </p>
-      {current && ticket?.sessionId && !ticket.canReceive && (
-        <p className="text-xs text-muted-foreground">
-          You will see and hear your tutor when question time starts.
-        </p>
-      )}
-      {current && ticket?.recordingEnabled && (
-        <p className="text-xs font-medium">
-          {ticket.recordingActive
-            ? phase === "feedback"
-              ? "Recording feedback"
-              : "Recording this answer"
-            : "Recording is preparing"}
-        </p>
-      )}
-      {current && ticket?.warning && (
-        <p role="alert" className="rounded-md bg-amber-500/10 p-3 text-sm">
-          {ticket.warning}
-        </p>
-      )}
-      {current && error && (
-        <div
-          role="alert"
-          className="space-y-2 rounded-md border border-amber-500/40 p-3"
-        >
-          <p className="text-sm">{error}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setRetry((value) => value + 1)}
+      <div className="pointer-events-none absolute inset-x-3 bottom-16 space-y-2">
+        {(current ? status : "Updating your station…") ? (
+          <p role="status" className="text-xs text-white/80">
+            {current ? status : "Updating your station…"}
+          </p>
+        ) : null}
+        {current && ticket?.sessionId && !ticket.canReceive && (
+          <p className="text-xs text-white/80">
+            You will see and hear your tutor when question time starts.
+          </p>
+        )}
+        {current && ticket?.recordingEnabled && (
+          <p className="text-xs font-medium text-white">
+            {ticket.recordingActive
+              ? phase === "feedback"
+                ? "Recording feedback"
+                : "Recording this answer"
+              : "Recording is preparing"}
+          </p>
+        )}
+        {current && ticket?.warning && (
+          <p
+            role="alert"
+            className="rounded-md bg-amber-500/90 p-3 text-sm text-black"
           >
-            Reconnect
-          </Button>
-        </div>
-      )}
-      {enabled && !devicesRequested ? (
-        <Button variant="outline" onClick={() => setDevicesRequested(true)}>
-          <Camera className="mr-2 h-4 w-4" />
-          Enable camera and microphone
-        </Button>
-      ) : (
-        devicesRequested && (
-          <div className="flex gap-2">
+            {ticket.warning}
+          </p>
+        )}
+        {current && error && (
+          <div
+            role="alert"
+            className="pointer-events-auto space-y-2 rounded-md bg-black/80 p-3 text-white"
+          >
+            <p className="text-sm">{error}</p>
             <Button
               variant="outline"
               size="sm"
-              disabled={!enabled}
-              onClick={toggleMic}
-              aria-pressed={micOn}
+              onClick={() => setRetry((value) => value + 1)}
             >
-              {micOn ? (
-                <Mic className="mr-2 h-4 w-4" />
-              ) : (
-                <MicOff className="mr-2 h-4 w-4" />
-              )}
-              {micOn ? "Mute" : "Unmute"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!enabled}
-              onClick={toggleCamera}
-              aria-pressed={cameraOn}
-            >
-              {cameraOn ? (
-                <Camera className="mr-2 h-4 w-4" />
-              ) : (
-                <CameraOff className="mr-2 h-4 w-4" />
-              )}
-              {cameraOn ? "Camera off" : "Camera on"}
+              Reconnect
             </Button>
           </div>
-        )
+        )}
+      </div>
+      {(enabled || devicesRequested) && (
+        <div className="absolute inset-x-0 bottom-3 flex justify-center">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-2">
+              {enabled && !devicesRequested ? (
+                <MediaControl
+                  label="Enable camera and microphone"
+                  onClick={requestDevices}
+                >
+                  <Camera />
+                </MediaControl>
+              ) : (
+                <>
+                  <MediaControl
+                    label={micOn ? "Mute" : "Unmute"}
+                    pressed={micOn}
+                    disabled={!enabled}
+                    onClick={toggleMic}
+                  >
+                    {micOn ? (
+                      <MicLevelIcon track={localAudio} muted={!micOn} />
+                    ) : (
+                      <MicOff />
+                    )}
+                  </MediaControl>
+                  <MediaControl
+                    label={cameraOn ? "Turn camera off" : "Turn camera on"}
+                    pressed={cameraOn}
+                    disabled={!enabled}
+                    onClick={toggleCamera}
+                  >
+                    {cameraOn ? <Camera /> : <CameraOff />}
+                  </MediaControl>
+                </>
+              )}
+            </div>
+          </TooltipProvider>
+        </div>
       )}
     </div>
   );

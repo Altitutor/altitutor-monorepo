@@ -15,6 +15,7 @@ jest.mock("../../lib/interview-audio-outbox", () => ({
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 const stopTrack = jest.fn();
+const track = { enabled: true, stop: stopTrack };
 const getUserMedia = jest.fn();
 const instances: Recorder[] = [];
 class Recorder {
@@ -44,6 +45,10 @@ class Recorder {
 }
 let container: HTMLDivElement;
 let root: Root;
+let finalizeAudio: (() => Promise<void>) | null = null;
+const registerFinalize = (callback: (() => Promise<void>) | null) => {
+  finalizeAudio = callback;
+};
 async function render(
   phase: "reading" | "questions" | "feedback",
   enabled = true,
@@ -54,6 +59,7 @@ async function render(
         roundId="round"
         phase={phase}
         enabled={enabled}
+        registerFinalize={registerFinalize}
       />,
     );
   });
@@ -90,7 +96,8 @@ beforeEach(() => {
     configurable: true,
     value: { getUserMedia },
   });
-  getUserMedia.mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] });
+  track.enabled = true;
+  getUserMedia.mockResolvedValue({ getTracks: () => [track] });
   jest.mocked(saveInterviewAudio).mockResolvedValue(undefined);
   jest
     .mocked(flushInterviewAudio)
@@ -109,16 +116,76 @@ async function enableMicrophone() {
 }
 
 describe("in-person recorder boundaries", () => {
+  it("finalizes muted audio and waits for persistence and upload before allowing exit", async () => {
+    let saved!: () => void;
+    jest.mocked(saveInterviewAudio).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          saved = resolve;
+        }),
+    );
+    await render("questions");
+    await enableMicrophone();
+    await enableMicrophone(); // Muting leaves the server-authorized recorder running.
+    expect(instances[0]?.state).toBe("recording");
+    let finished = false;
+    let finishing!: Promise<void>;
+    await act(async () => {
+      finishing = finalizeAudio!().then(() => {
+        finished = true;
+      });
+    });
+    expect(instances[0]?.state).toBe("inactive");
+    expect(saveInterviewAudio).toHaveBeenCalledTimes(1);
+    expect(finished).toBe(false);
+    await act(async () => {
+      saved();
+      await finishing;
+    });
+    expect(finished).toBe(true);
+    expect(instances).toHaveLength(1);
+  });
+
+  it("refuses exit while the finalized audio still needs uploading", async () => {
+    await render("questions");
+    await enableMicrophone();
+    jest
+      .mocked(flushInterviewAudio)
+      .mockResolvedValue({ pending: 1, error: "Upload failed" });
+    await act(async () => {
+      await expect(finalizeAudio!()).rejects.toThrow("Upload failed");
+    });
+    expect(instances[0]?.state).toBe("inactive");
+    jest
+      .mocked(flushInterviewAudio)
+      .mockResolvedValue({ pending: 0, error: null });
+    expect(container.textContent).toContain("Enable microphone");
+    await act(async () => {
+      await finalizeAudio!();
+    });
+  });
+
   it("requires a device action and records only server-enabled answer phases", async () => {
     jest.mocked(fetch).mockResolvedValue(policy("attempt-1", false));
     await render("reading");
     await enableMicrophone();
-    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: true, video: false });
+    expect(instances).toHaveLength(0);
+    expect(container.textContent).toContain(
+      "Recording will start during question time",
+    );
     jest.mocked(fetch).mockResolvedValue(policy("attempt-1", true));
     await render("questions");
     expect(instances).toHaveLength(1);
     expect(instances[0]?.options.audioBitsPerSecond).toBe(64_000);
     expect(instances[0]?.state).toBe("recording");
+    expect(
+      container.querySelector("[aria-label='Recording waveform']"),
+    ).toBeTruthy();
+    await enableMicrophone();
+    expect(track.enabled).toBe(false);
+    expect(instances[0]?.state).toBe("recording");
+    expect(stopTrack).not.toHaveBeenCalled();
   });
   it("flushes the original student audio and closes capture on pause, retaining upload failure warnings", async () => {
     await render("questions");
@@ -163,7 +230,7 @@ describe("in-person recorder boundaries", () => {
     await enableMicrophone();
     jest.mocked(fetch).mockResolvedValue(policy("corrected-attempt", true));
     await act(async () => {
-      jest.advanceTimersByTime(3001);
+      jest.advanceTimersByTime(10_001);
     });
     expect(saveInterviewAudio).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -7,6 +7,7 @@ import type {
   InterviewCommand,
   InterviewRichText,
 } from "@altitutor/shared";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { sendInterviewCommand } from "../api/interviews";
 
 export interface AttemptDraft {
@@ -42,9 +43,33 @@ export function useAttemptDraft(
     "saved",
   );
   const [error, setError] = useState<Error | null>(null);
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
   const storageKey = `interview-draft:${roundId}:${attempt.id}`;
+  const writeRecovery = useCallback(
+    (value: string) => {
+      try {
+        sessionStorage.setItem(storageKey, value);
+      } catch {
+        setRecoveryUnavailable(true);
+      }
+    },
+    [storageKey],
+  );
+  const removeRecovery = useCallback(() => {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      setRecoveryUnavailable(true);
+    }
+  }, [storageKey]);
   useEffect(() => {
-    const stored = sessionStorage.getItem(storageKey);
+    let stored: string | null;
+    try {
+      stored = sessionStorage.getItem(storageKey);
+    } catch {
+      setRecoveryUnavailable(true);
+      return;
+    }
     if (!stored) return;
     try {
       const recovery = JSON.parse(stored) as {
@@ -78,11 +103,11 @@ export function useAttemptDraft(
         );
       }
     } catch {
-      sessionStorage.removeItem(storageKey);
+      removeRecovery();
     }
     // Keyed editor mounts once per attempt. Later server updates are reconciled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  }, [storageKey, removeRecovery]);
   useEffect(() => {
     if (
       !flight.current &&
@@ -102,8 +127,7 @@ export function useAttemptDraft(
       setDraft(next);
       setState("unsaved");
       setError(null);
-      sessionStorage.setItem(
-        storageKey,
+      writeRecovery(
         JSON.stringify({
           draft: next,
           version: version.current,
@@ -111,7 +135,7 @@ export function useAttemptDraft(
         }),
       );
     },
-    [storageKey],
+    [writeRecovery],
   );
   const flush = useCallback(async (): Promise<void> => {
     if (flight.current) {
@@ -125,15 +149,14 @@ export function useAttemptDraft(
       ) {
         const command = pendingCommand.current ?? {
           type: "saveAttempt" as const,
-          commandId: crypto.randomUUID(),
+          commandId: randomUuid(),
           roundId,
           attemptId: attempt.id,
           expectedAttemptVersion: version.current,
           ...current.current,
         };
         pendingCommand.current = command;
-        sessionStorage.setItem(
-          storageKey,
+        writeRecovery(
           JSON.stringify({
             draft: current.current,
             version: version.current,
@@ -155,7 +178,7 @@ export function useAttemptDraft(
         version.current = result.version;
         saved.current = JSON.stringify(snapshot);
       }
-      sessionStorage.removeItem(storageKey);
+      removeRecovery();
       setState("saved");
       setError(null);
     };
@@ -169,8 +192,7 @@ export function useAttemptDraft(
           reason.status < 500
         ) {
           pendingCommand.current = null;
-          sessionStorage.setItem(
-            storageKey,
+          writeRecovery(
             JSON.stringify({
               draft: current.current,
               version: version.current,
@@ -190,7 +212,7 @@ export function useAttemptDraft(
       });
     flight.current = pending;
     await pending;
-  }, [attempt.id, roundId, storageKey]);
+  }, [attempt.id, roundId, writeRecovery, removeRecovery]);
   useEffect(() => {
     if (state !== "unsaved") return;
     const timer = setTimeout(() => {
@@ -211,7 +233,7 @@ export function useAttemptDraft(
     setDraft(next);
     setState("saved");
     setError(null);
-    sessionStorage.removeItem(storageKey);
+    removeRecovery();
   };
   const keepDraft = () => {
     if (flight.current) return;
@@ -227,6 +249,7 @@ export function useAttemptDraft(
     state,
     error,
     newerRevision,
+    recoveryUnavailable,
     loadSaved,
     keepDraft,
   };
