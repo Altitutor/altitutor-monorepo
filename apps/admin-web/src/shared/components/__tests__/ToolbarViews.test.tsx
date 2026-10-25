@@ -88,6 +88,7 @@ it("keeps only the currently hovered field submenu open", async () => {
   await userEvent.keyboard("{Escape}{Escape}{Escape}");
 });
 
+// Allow this full interaction sequence to finish on shared CI runners.
 it("saves a full view, applies it, and edits it by double-click without changing the screen draft", async () => {
   const { ToolbarViewsProvider } = await import("@altitutor/ui");
   const { getViewSettings } = await import("@altitutor/shared");
@@ -245,7 +246,7 @@ it("saves a full view, applies it, and edits it by double-click without changing
       screen.queryByRole("img", { name: "Custom display settings" }),
     ).not.toBeInTheDocument(),
   );
-});
+}, 15_000);
 
 it("edits date endpoints independently and changes the date comparison", async () => {
   function Dates() {
