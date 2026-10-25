@@ -7,10 +7,26 @@ import type {
   InterviewMediaTicket,
   InterviewPhase,
 } from "@altitutor/shared";
-import { Camera, CameraOff, MicOff, Volume2 } from "lucide-react";
+import {
+  Camera,
+  CameraOff,
+  Columns,
+  MicOff,
+  PictureInPicture,
+  Volume2,
+} from "lucide-react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
+import {
+  InterviewDeviceSettings,
+  type InterviewInputSelection,
+} from "./interview-device-settings";
+import { reportLocalCallFailure } from "./interview-media-diagnostics";
+import {
+  InterviewVideoStage,
+  type InterviewVideoView,
+} from "./interview-video-stage";
 import {
   Tooltip,
   TooltipContent,
@@ -324,7 +340,7 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
             ? "Your video preview"
             : `${participant.user_name || "Participant"} video`
         }
-        className={`h-full w-full object-cover ${participant.local ? "-scale-x-100" : ""}`}
+        className={`h-full w-full object-contain ${participant.local ? "-scale-x-100" : ""}`}
       />
       {!videoTrack && (
         <div className="absolute inset-0 flex items-center justify-center text-slate-400">
@@ -369,9 +385,14 @@ export function InterviewMedia({
   const [devicesRequested, setDevicesRequested] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
+  const [videoView, setVideoView] = useState<InterviewVideoView>("pip");
   const devicePreferences = useRef({ micOn, cameraOn });
   devicePreferences.current = { micOn, cameraOn };
   const callRef = useRef<DailyCall | null>(null);
+  const inputSelection = useRef<InterviewInputSelection>({
+    audio: "",
+    video: "",
+  });
   const closing = useRef<Promise<void>>(Promise.resolve());
   const [participants, setParticipants] = useState<DailyParticipant[]>([]);
   const [ticket, setTicket] = useState<InterviewMediaTicket | null>(null);
@@ -447,23 +468,53 @@ export function InterviewMedia({
           subscribeToTracksAutomatically: false,
           startAudioOff: true,
           startVideoOff: true,
+          ...(inputSelection.current.audio || inputSelection.current.video
+            ? {
+                inputSettings: {
+                  ...(inputSelection.current.audio
+                    ? {
+                        audio: {
+                          settings: { deviceId: inputSelection.current.audio },
+                        },
+                      }
+                    : {}),
+                  ...(inputSelection.current.video
+                    ? {
+                        video: {
+                          settings: { deviceId: inputSelection.current.video },
+                        },
+                      }
+                    : {}),
+                },
+              }
+            : {}),
         });
       } catch (failure) {
         throw new Error(mediaError(failure));
       }
       call = instance;
       callRef.current = instance;
+      const interruptedConnections = new Set<string>();
       instance
         .on("participant-joined", updateParticipants)
         .on("participant-updated", updateParticipants)
         .on("participant-left", updateParticipants)
         .on("track-started", updateParticipants)
         .on("track-stopped", updateParticipants);
-      instance.on("network-connection", () => {
-        if (!disposed) setStatus("Checking call connection…");
+      instance.on("network-connection", ({ type, event }) => {
+        if (disposed || instance !== call) return;
+        if (event === "interrupted") interruptedConnections.add(type);
+        else if (event === "connected") interruptedConnections.delete(type);
+        else return;
+        setStatus(
+          interruptedConnections.size ? "Reconnecting to your station…" : "",
+        );
       });
       instance.on("joined-meeting", () => {
-        if (!disposed) setStatus("Connected to your station.");
+        if (!disposed && instance === call)
+          setStatus(
+            interruptedConnections.size ? "Reconnecting to your station…" : "",
+          );
       });
       instance.on("left-meeting", () => {
         if (!disposed) {
@@ -471,8 +522,12 @@ export function InterviewMedia({
           setStatus("Reconnecting to your station…");
         }
       });
-      instance.on("error", () => {
+      instance.on("error", (event) => {
         if (!disposed) {
+          reportLocalCallFailure(
+            event.error?.type,
+            instance !== call ? "obsolete" : sessionId ? "joined" : "joining",
+          );
           setError("The call was interrupted. Reconnecting automatically.");
           void close();
         }
@@ -691,6 +746,10 @@ export function InterviewMedia({
   const localAudio =
     participants.find((participant) => participant.local)?.tracks.audio
       .persistentTrack ?? null;
+  const localParticipant = visible.find((participant) => participant.local);
+  const remoteParticipants = visible.filter(
+    (participant) => !participant.local,
+  );
   const requestDevices = () => {
     void captureDevices().then((access) => {
       if (access === "granted") {
@@ -704,74 +763,82 @@ export function InterviewMedia({
   return (
     <div
       className={cn(
-        "relative flex h-full min-h-[18rem] flex-col overflow-hidden rounded-xl bg-slate-950",
+        "relative w-full overflow-hidden rounded-xl bg-slate-950",
         className,
       )}
     >
-      <div
-        className={cn(
-          "grid min-h-0 flex-1",
-          visible.length > 1 && "sm:grid-cols-2",
-        )}
-      >
-        {visible.map((participant) => (
-          <ParticipantMedia
-            key={participant.session_id}
-            participant={participant}
-          />
-        ))}
-        {!visible.length && (
-          <div className="flex items-center justify-center text-slate-400">
-            <CameraOff className="h-8 w-8" aria-hidden />
-          </div>
-        )}
-      </div>
-      <div className="pointer-events-none absolute inset-x-3 bottom-16 space-y-2">
-        {(current ? status : "Updating your station…") ? (
-          <p role="status" className="text-xs text-white/80">
-            {current ? status : "Updating your station…"}
-          </p>
-        ) : null}
-        {current && ticket?.sessionId && !ticket.canReceive && (
-          <p className="text-xs text-white/80">
-            You will see and hear your tutor when question time starts.
-          </p>
-        )}
-        {current && ticket?.recordingEnabled && (
-          <p className="text-xs font-medium text-white">
-            {ticket.recordingActive
-              ? phase === "feedback"
-                ? "Recording feedback"
-                : "Recording this answer"
-              : "Recording is preparing"}
-          </p>
-        )}
-        {current && ticket?.warning && (
-          <p
-            role="alert"
-            className="rounded-md bg-amber-500/90 p-3 text-sm text-black"
-          >
-            {ticket.warning}
-          </p>
-        )}
-        {current && error && (
-          <div
-            role="alert"
-            className="pointer-events-auto space-y-2 rounded-md bg-black/80 p-3 text-white"
-          >
-            <p className="text-sm">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRetry((value) => value + 1)}
+      <InterviewVideoStage
+        view={videoView}
+        localVideo={
+          localParticipant ? (
+            <ParticipantMedia participant={localParticipant} />
+          ) : undefined
+        }
+        remoteVideo={
+          remoteParticipants.length ? (
+            <div
+              className={cn(
+                "grid h-full min-h-0",
+                remoteParticipants.length > 1 && "grid-cols-2",
+              )}
             >
-              Reconnect
-            </Button>
-          </div>
-        )}
-      </div>
+              {remoteParticipants.map((participant) => (
+                <ParticipantMedia
+                  key={participant.session_id}
+                  participant={participant}
+                />
+              ))}
+            </div>
+          ) : undefined
+        }
+      >
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 space-y-2">
+          {(current ? status : "Updating your station…") ? (
+            <p role="status" className="text-xs text-white/80">
+              {current ? status : "Updating your station…"}
+            </p>
+          ) : null}
+          {current && ticket?.sessionId && !ticket.canReceive && (
+            <p className="text-xs text-white/80">
+              You will see and hear your tutor when question time starts.
+            </p>
+          )}
+          {current && ticket?.recordingEnabled && (
+            <p className="text-xs font-medium text-white">
+              {ticket.recordingActive
+                ? phase === "feedback"
+                  ? "Recording feedback"
+                  : "Recording this answer"
+                : "Recording is preparing"}
+            </p>
+          )}
+          {current && ticket?.warning && (
+            <p
+              role="alert"
+              className="rounded-md bg-amber-500/90 p-3 text-sm text-black"
+            >
+              {ticket.warning}
+            </p>
+          )}
+          {current && error && (
+            <div
+              role="alert"
+              className="pointer-events-auto space-y-2 rounded-md bg-black/80 p-3 text-white"
+            >
+              <p className="text-sm">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRetry((value) => value + 1)}
+              >
+                Reconnect
+              </Button>
+            </div>
+          )}
+        </div>
+      </InterviewVideoStage>
       {(enabled || devicesRequested) && (
-        <div className="absolute inset-x-0 bottom-3 flex justify-center">
+        <div className="flex justify-center p-3">
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-2">
               {enabled && !devicesRequested ? (
@@ -805,6 +872,31 @@ export function InterviewMedia({
                   </MediaControl>
                 </>
               )}
+              <MediaControl
+                label={
+                  videoView === "pip"
+                    ? "Switch to side by side"
+                    : "Switch to picture in picture"
+                }
+                onClick={() =>
+                  setVideoView((previous) =>
+                    previous === "pip" ? "side-by-side" : "pip",
+                  )
+                }
+              >
+                {videoView === "pip" ? <Columns /> : <PictureInPicture />}
+              </MediaControl>
+              <InterviewDeviceSettings
+                call={callRef.current}
+                callRef={callRef}
+                selection={inputSelection}
+                disabled={!current || !enabled || !devicesRequested}
+                canSend={
+                  current && enabled && (!ticket?.sessionId || ticket.canSend)
+                }
+                micOn={micOn}
+                cameraOn={cameraOn}
+              />
             </div>
           </TooltipProvider>
         </div>

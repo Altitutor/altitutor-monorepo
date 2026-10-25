@@ -203,7 +203,7 @@ function OnlineInterviewRoom({
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-auto">
           <InterviewMedia
-            className="min-h-[18rem] w-full flex-1 rounded-none"
+            className="w-full shrink-0 rounded-none"
             roundId={round.id}
             phase={round.phase}
             delivery={round.delivery}

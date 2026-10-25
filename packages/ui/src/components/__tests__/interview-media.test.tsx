@@ -28,6 +28,10 @@ const mockVideo = jest.fn();
 const mockSubscribe = jest.fn();
 const mockStartCamera = jest.fn();
 const mockCreate = jest.fn();
+const mockEnumerateDevices = jest.fn();
+const mockSetInputDevices = jest.fn();
+const mockUpdateInputSettings = jest.fn();
+const mockListeners = new Map<string, (event: unknown) => void>();
 const mockParticipants = jest.fn<Record<string, DailyParticipant>, []>(
   () => ({}),
 );
@@ -42,6 +46,7 @@ const originalMeterGlobals = meterGlobals.map((name) =>
 );
 const mockCall = {
   on: jest.fn(),
+  off: jest.fn(),
   participants: mockParticipants,
   join: mockJoin,
   destroy: mockDestroy,
@@ -49,6 +54,9 @@ const mockCall = {
   setLocalVideo: mockVideo,
   setSubscribeToTracksAutomatically: mockSubscribe,
   startCamera: mockStartCamera,
+  enumerateDevices: mockEnumerateDevices,
+  setInputDevicesAsync: mockSetInputDevices,
+  updateInputSettings: mockUpdateInputSettings,
 };
 jest.mock("@daily-co/daily-js", () => ({
   __esModule: true,
@@ -88,10 +96,34 @@ beforeEach(() => {
     .mockImplementation(() => undefined);
   mockCreate.mockReturnValue(mockCall);
   mockParticipants.mockReturnValue({});
-  mockCall.on.mockReturnValue(mockCall);
+  mockListeners.clear();
+  mockCall.on.mockImplementation(
+    (event: string, listener: (event: unknown) => void) => {
+      mockListeners.set(event, listener);
+      return mockCall;
+    },
+  );
   mockJoin.mockResolvedValue({});
   mockDestroy.mockResolvedValue(undefined);
   mockStartCamera.mockResolvedValue({});
+  mockEnumerateDevices.mockResolvedValue({
+    devices: [
+      {
+        deviceId: "built-in-mic",
+        kind: "audioinput",
+        label: "Built-in microphone",
+      },
+      { deviceId: "usb-mic", kind: "audioinput", label: "USB microphone" },
+      {
+        deviceId: "built-in-camera",
+        kind: "videoinput",
+        label: "Built-in camera",
+      },
+      { deviceId: "usb-camera", kind: "videoinput", label: "USB camera" },
+    ],
+  });
+  mockSetInputDevices.mockResolvedValue({ camera: {}, mic: {}, speaker: {} });
+  mockUpdateInputSettings.mockResolvedValue({ inputSettings: {} });
   global.fetch = jest.fn().mockResolvedValue(response(ticket));
 });
 
@@ -230,6 +262,435 @@ it("contains microphone-meter resume and cleanup failures", async () => {
 });
 
 describe("interview media lifecycle", () => {
+  async function openSettings() {
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Camera and microphone settings"]',
+        )
+        ?.click(),
+    );
+  }
+
+  async function chooseInput(label: "Microphone" | "Camera", value: string) {
+    const input = document.querySelector<HTMLSelectElement>(
+      `[aria-label="${label}"]`,
+    );
+    expect(input).not.toBeNull();
+    await act(async () => {
+      if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+  }
+
+  it("unblocks input selection after a station change even when an old switch never resolves", async () => {
+    let finishOld!: () => void;
+    mockSetInputDevices.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishOld = resolve)),
+    );
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await openSettings();
+    await chooseInput("Microphone", "usb-mic");
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Microphone"]')
+        ?.disabled,
+    ).toBe(true);
+    let finishNew!: () => void;
+    const replacementSwitch = jest.fn(
+      () => new Promise<void>((resolve) => (finishNew = resolve)),
+    );
+    mockCreate.mockReturnValueOnce({
+      ...mockCall,
+      setInputDevicesAsync: replacementSwitch,
+    });
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="reading"
+        delivery="online"
+        enabled
+      />,
+    );
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Microphone"]')
+        ?.disabled,
+    ).toBe(false);
+    await chooseInput("Microphone", "built-in-mic");
+    expect(replacementSwitch).toHaveBeenCalledWith({
+      audioDeviceId: "built-in-mic",
+    });
+    await act(async () => finishOld());
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Microphone"]')
+        ?.disabled,
+    ).toBe(true);
+    await act(async () => finishNew());
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Microphone"]')
+        ?.value,
+    ).toBe("built-in-mic");
+  });
+
+  it("preserves camera-off and receiving-only policy during device switches", async () => {
+    jest.useFakeTimers();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, expiresAt }));
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Turn camera off"]')
+        ?.click(),
+    );
+    await openSettings();
+    await chooseInput("Camera", "usb-camera");
+    expect(mockVideo).toHaveBeenLastCalledWith(false);
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        response({ ...ticket, expiresAt, canSend: false, canReceive: true }),
+      );
+    await act(async () => jest.advanceTimersByTime(10_000));
+    await chooseInput("Microphone", "usb-mic");
+    expect(mockAudio).toHaveBeenLastCalledWith(false);
+    expect(mockVideo).toHaveBeenLastCalledWith(false);
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the latest mute choice when a device switch completes", async () => {
+    let finish!: () => void;
+    mockSetInputDevices.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await openSettings();
+    await chooseInput("Microphone", "usb-mic");
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Mute"]')
+        ?.click(),
+    );
+    await act(async () => finish());
+    expect(mockAudio).toHaveBeenLastCalledWith(false);
+  });
+
+  it("retains selected inputs across call recreation and can return to automatic defaults", async () => {
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await openSettings();
+    await chooseInput("Camera", "usb-camera");
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="reading"
+        delivery="online"
+        enabled
+      />,
+    );
+    expect(mockCreate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        inputSettings: { video: { settings: { deviceId: "usb-camera" } } },
+      }),
+    );
+    await chooseInput("Camera", "");
+    expect(mockUpdateInputSettings).toHaveBeenCalledWith({
+      video: { settings: {} },
+    });
+    expect(mockJoin).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows unavailable inputs and keeps the call alive when switching fails", async () => {
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await openSettings();
+    await chooseInput("Camera", "usb-camera");
+    await act(async () =>
+      mockListeners.get("available-devices-updated")?.({
+        availableDevices: [],
+      }),
+    );
+    expect(document.body.textContent).toContain("Unavailable camera");
+    expect(document.body.textContent).toContain("no longer available");
+    mockUpdateInputSettings.mockRejectedValueOnce(new Error("Device denied"));
+    await chooseInput("Camera", "");
+    expect(document.body.textContent).toContain("Unable to switch input");
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Camera"]')?.value,
+    ).toBe("usb-camera");
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it("handles device enumeration permissions failures without disrupting the call", async () => {
+    mockEnumerateDevices.mockRejectedValueOnce(new Error("Permission denied"));
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await openSettings();
+    expect(document.body.textContent).toContain("Unable to list inputs");
+    expect(
+      document.querySelector<HTMLSelectElement>('[aria-label="Camera"]')
+        ?.disabled,
+    ).toBe(false);
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it("switches microphone without unmuting or rejoining", async () => {
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    expect(mockEnumerateDevices).not.toHaveBeenCalled();
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Mute"]')
+        ?.click(),
+    );
+    const settings = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Camera and microphone settings"]',
+    );
+    expect(settings).not.toBeNull();
+    await act(async () => settings?.click());
+    const microphone = document.querySelector<HTMLSelectElement>(
+      '[aria-label="Microphone"]',
+    );
+    expect(microphone).not.toBeNull();
+    expect(microphone?.value).toBe("");
+    await act(async () => {
+      if (microphone) {
+        microphone.value = "usb-mic";
+        microphone.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    expect(mockSetInputDevices).toHaveBeenCalledWith({
+      audioDeviceId: "usb-mic",
+    });
+    expect(mockAudio).toHaveBeenLastCalledWith(false);
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["connection-error", "connection-error"],
+    ["private provider value", "unclassified"],
+  ])(
+    "reports only an approved SDK category and coarse state (%s)",
+    async (category, expected) => {
+      jest.replaceProperty(process, "env", {
+        ...process.env,
+        NODE_ENV: "development",
+      });
+      const warn = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined);
+      await render(
+        <InterviewMedia
+          roundId="round"
+          phase="feedback"
+          delivery="online"
+          enabled
+        />,
+      );
+      await act(async () => {
+        mockListeners.get("error")?.({
+          errorMsg: "private raw provider message",
+          error: {
+            type: category,
+            details: { uri: "private provider URL" },
+          },
+        });
+      });
+      expect(warn).toHaveBeenCalledWith(
+        "[Interview media] Local call failure",
+        {
+          category: expected,
+          state: "joined",
+        },
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("private");
+      expect(container.textContent).toContain("The call was interrupted");
+    },
+  );
+
+  it("does not emit temporary call diagnostics outside local development", async () => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      NODE_ENV: "production",
+    });
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await act(async () =>
+      mockListeners.get("error")?.({ error: { type: "connection-error" } }),
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("defaults to movable PIP and changes view without reconnecting the call", async () => {
+    mockParticipants.mockReturnValue({
+      local: {
+        local: true,
+        session_id: "local",
+        tracks: { video: { state: "off" }, audio: { state: "off" } },
+      } as unknown as DailyParticipant,
+      remote: {
+        local: false,
+        session_id: "remote",
+        user_name: "Student",
+        tracks: { video: { state: "off" }, audio: { state: "off" } },
+      } as unknown as DailyParticipant,
+    });
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(response({ ...ticket, canReceive: true }));
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    const preview = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Move your video preview (bottom right)"]',
+    );
+    expect(preview).not.toBeNull();
+    await act(async () => {
+      preview?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+      );
+      preview?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+      );
+    });
+    expect(
+      container.querySelector(
+        '[aria-label="Move your video preview (top left)"]',
+      ),
+    ).not.toBeNull();
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Switch to side by side"]',
+        )
+        ?.click();
+    });
+    expect(
+      container.querySelector('[aria-label^="Move your video preview"]'),
+    ).toBeNull();
+    expect(container.querySelectorAll("video")).toHaveLength(2);
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Switch to picture in picture"]',
+        )
+        ?.click();
+    });
+    expect(
+      container.querySelector(
+        '[aria-label="Move your video preview (top left)"]',
+      ),
+    ).not.toBeNull();
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it("does not show a connection warning for a healthy Daily network event", async () => {
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    await act(async () => {
+      mockListeners.get("joined-meeting")?.({ action: "joined-meeting" });
+      mockListeners.get("network-connection")?.({
+        action: "network-connection",
+        type: "sfu",
+        event: "connected",
+      });
+    });
+    expect(container.textContent).not.toContain("Checking call connection");
+    expect(container.textContent).not.toContain("Reconnecting");
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
+  it("waits for every interrupted connection to recover without restarting the call", async () => {
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="feedback"
+        delivery="online"
+        enabled
+      />,
+    );
+    const network = mockListeners.get("network-connection");
+    expect(network).toBeDefined();
+    await act(async () => {
+      network?.({ type: "signaling", event: "interrupted" });
+      network?.({ type: "sfu", event: "interrupted" });
+      network?.({ type: "signaling", event: "connected" });
+    });
+    expect(container.textContent).toContain("Reconnecting to your station");
+    await act(async () => network?.({ type: "sfu", event: "connected" }));
+    expect(container.textContent).not.toContain("Reconnecting");
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockDestroy).not.toHaveBeenCalled();
+  });
+
   it("joins before subscribing so a feedback call can receive remote video and audio", async () => {
     let joined = false;
     let finishJoin!: () => void;
@@ -271,7 +732,9 @@ describe("interview media lifecycle", () => {
         }
       },
     });
-    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, canReceive: true }));
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(response({ ...ticket, canReceive: true }));
     try {
       await render(
         <InterviewMedia
@@ -296,7 +759,9 @@ describe("interview media lifecycle", () => {
       expect((video?.srcObject as MediaStream)?.getTracks()).toEqual([
         remoteVideo,
       ]);
-      expect((audio?.srcObject as MediaStream)?.getTracks()).toEqual([remoteAudio]);
+      expect((audio?.srcObject as MediaStream)?.getTracks()).toEqual([
+        remoteAudio,
+      ]);
     } finally {
       await render(null);
     }
@@ -339,7 +804,9 @@ describe("interview media lifecycle", () => {
     expect(mockSubscribe).toHaveBeenLastCalledWith(true);
     expect(mockAudio).toHaveBeenLastCalledWith(false);
     expect(mockVideo).toHaveBeenLastCalledWith(false);
-    expect(container.querySelector('[aria-label="Tutor video"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Tutor video"]'),
+    ).not.toBeNull();
   });
 
   it("does not resume media if a join completes after its lease expired", async () => {
@@ -375,7 +842,9 @@ describe("interview media lifecycle", () => {
   it("retries a failed join before applying subscriptions", async () => {
     jest.useFakeTimers();
     mockJoin.mockRejectedValueOnce(new Error("Call connection failed"));
-    jest.mocked(fetch).mockResolvedValue(response({ ...ticket, canReceive: true }));
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(response({ ...ticket, canReceive: true }));
     await render(
       <InterviewMedia
         roundId="round"
