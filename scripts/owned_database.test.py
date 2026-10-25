@@ -89,8 +89,9 @@ class OwnedDatabaseTests(unittest.TestCase):
         shutil.copy2(SCRIPT.with_name('checkall.sh'), self.repo / 'scripts/checkall.sh')
         (self.repo / 'supabase/scripts').mkdir()
         shutil.copy2(SCRIPT.parents[1] / 'supabase/scripts/apply-ucat-test-seed.sh', self.repo / 'supabase/scripts/apply-ucat-test-seed.sh')
-        # Simulate the interview HTTP consumer while retaining its real lease check.
+        # Simulate HTTP consumers while retaining their real lease check.
         for filename, event in [
+            ('test-student-registration.py', 'student-registration'),
             ('test-interview-station-upgrade.py', 'interview-station-upgrade'),
             ('test-interview-concurrency.py', 'interview-concurrency'),
         ]:
@@ -188,6 +189,7 @@ class OwnedDatabaseTests(unittest.TestCase):
         actions=[(name,args[2:] if name=='supabase' else args) for name,args in self.calls()]
         self.assertIn(('supabase',['db','reset','--local']),actions)
         self.assertIn(('supabase',['test','db']),actions)
+        self.assertIn(('student-registration',[]),actions)
         self.assertIn(('pnpm',['--filter','ucat-web','test:e2e:critical']),actions)
         self.assertIn(('interview-concurrency',[]),actions)
         self.assertIn(('interview-station-upgrade',[]),actions)
