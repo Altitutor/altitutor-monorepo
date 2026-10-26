@@ -791,7 +791,7 @@ function WaitingRoom({
     <div className="mx-auto w-full max-w-5xl space-y-5">
       {round.delivery === "online" ? (
         <InterviewMedia
-          className="h-[28rem]"
+          className="mx-auto max-w-4xl"
           role="tutor"
           roundId={round.id}
           phase={round.phase}
@@ -1197,7 +1197,7 @@ function InPersonRoundView({
               >
                 {online ? (
                   <InterviewMedia
-                    className="h-full"
+                    className="self-start"
                     role="tutor"
                     roundId={round.id}
                     phase={round.phase}
