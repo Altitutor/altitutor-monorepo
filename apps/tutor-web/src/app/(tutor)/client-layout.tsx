@@ -29,6 +29,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { useInterviewAccess } from '@/features/interviews/hooks/use-interview-access';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { useResourceSubjectNavItems } from '@/features/resources/hooks/useResources';
 import {
@@ -39,6 +40,7 @@ import {
 import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
+import { isInterviewFullscreenPath } from '@/shared/lib/shell-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -117,7 +119,7 @@ function renderUcatDropdownChild(
 
 const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
 
-function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
+function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean): NavItem[] {
   const { data: subjects } = useResourceSubjectNavItems();
 
   return useMemo(() => {
@@ -151,14 +153,34 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
       });
     }
 
+    if (isInterviewTutor) {
+      items.push({
+        type: 'dropdown',
+        title: 'Interviews',
+        href: '/interviews',
+        icon: Users,
+        children: [
+          { type: 'heading', title: 'Scheduling' },
+          { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
+          { type: 'heading', title: 'Content' },
+          { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
+          { title: 'Station bank', href: '/interviews/stations', icon: FileQuestion },
+          { type: 'heading', title: 'Settings' },
+          { title: 'Station categories', href: '/interviews/station-categories', icon: FolderTree },
+          { title: 'Question tags', href: '/interviews/question-tags', icon: Tag },
+        ],
+      });
+    }
+
     return items;
-  }, [subjects, isUcatTutor]);
+  }, [subjects, isUcatTutor, isInterviewTutor]);
 }
 
 function getInitialOpenDropdowns(pathname: string): Record<string, boolean> {
   return {
     Resources: isResourcesNavSectionActive(pathname),
     UCAT: pathname.startsWith('/ucat'),
+    Interviews: pathname.startsWith('/interviews'),
   };
 }
 
@@ -170,6 +192,7 @@ function isDropdownParentActive(pathname: string, parentHref: string): boolean {
 }
 
 function isDropdownChildActive(pathname: string, parentHref: string, childHref: string): boolean {
+  if (parentHref === '/interviews') return isInterviewDropdownChildActive(pathname, childHref);
   if (parentHref === '/resources') {
     return isResourceSubjectNavActive(pathname, childHref);
   }
@@ -183,6 +206,23 @@ function isNavLinkActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === '/') return false;
   return pathname.startsWith(`${href}/`);
+}
+
+function isInterviewDropdownChildActive(pathname: string, href: string): boolean {
+  if (href === '/interviews/bank') {
+    if (pathname === '/interviews/bank' || pathname.startsWith('/interviews/bank/')) return true;
+    if (
+      pathname.startsWith('/interviews/stations') ||
+      pathname.startsWith('/interviews/rounds') ||
+      pathname.startsWith('/interviews/station-categories') ||
+      pathname.startsWith('/interviews/question-tags') ||
+      pathname === '/interviews'
+    ) {
+      return false;
+    }
+    return /^\/interviews\/[^/]+/.test(pathname);
+  }
+  return isNavLinkActive(pathname, href);
 }
 
 function isUcatDropdownChildActive(pathname: string, href: string): boolean {
@@ -249,6 +289,7 @@ function MobileMenu({
       ...prev,
       ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
       ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+      ...(pathname.startsWith('/interviews') ? { Interviews: true } : {}),
     }));
   }, [pathname]);
 
@@ -451,6 +492,7 @@ function SidebarNav({
       ...prev,
       ...(isResourcesNavSectionActive(pathname) ? { Resources: true } : {}),
       ...(pathname.startsWith('/ucat') ? { UCAT: true } : {}),
+      ...(pathname.startsWith('/interviews') ? { Interviews: true } : {}),
     }));
   }, [pathname]);
 
@@ -613,15 +655,19 @@ export default function TutorClientLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const ucatAccess = useUcatAccess();
   const isUcatTutor = !!ucatAccess.data;
-  const primaryItems = useTutorPrimaryNavItems(isUcatTutor);
+  const interviewAccess = useInterviewAccess();
+  const primaryItems = useTutorPrimaryNavItems(isUcatTutor, !!interviewAccess.data);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
+
+  if (isInterviewFullscreenPath(pathname)) return <>{children}</>;
 
   return (
     <>

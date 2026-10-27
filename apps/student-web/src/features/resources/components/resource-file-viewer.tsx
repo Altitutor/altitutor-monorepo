@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 import { ResourcePdfPages } from './resource-pdf-pages';
 
@@ -30,6 +30,22 @@ export function ResourceFileViewer({
   const isImage = useMemo(
     () => (mimetype ?? '').startsWith('image/'),
     [mimetype],
+  );
+  const pdfIdentity = `${filename}\u0000${mimetype ?? ''}\u0000${resourceType}\u0000${externalUrl ?? ''}`;
+  const loadedPdfRef = useRef<{ identity: string; url: string | null }>({
+    identity: pdfIdentity,
+    url: null,
+  });
+  if (loadedPdfRef.current.identity !== pdfIdentity) {
+    loadedPdfRef.current = { identity: pdfIdentity, url: null };
+  }
+  const handlePdfReady = useCallback(
+    (loadedUrl: string) => {
+      if (loadedPdfRef.current.identity === pdfIdentity) {
+        loadedPdfRef.current.url = loadedUrl;
+      }
+    },
+    [pdfIdentity],
   );
 
   const videoEmbed = useMemo(() => {
@@ -73,10 +89,12 @@ export function ResourceFileViewer({
   }
 
   if (isPdf) {
+    const previewUrl = loadedPdfRef.current.url ?? signedUrl;
     return (
       <ResourcePdfPages
-        url={signedUrl}
+        url={previewUrl}
         filename={filename}
+        onReady={handlePdfReady}
         className={[
           'h-[calc(100dvh-var(--navbar-height)-4rem)] w-full',
           frameClassName,

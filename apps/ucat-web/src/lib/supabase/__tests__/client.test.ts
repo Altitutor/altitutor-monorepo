@@ -68,3 +68,33 @@ describe("getSupabaseBrowserClient", () => {
     );
   });
 });
+
+
+describe("browser cookie namespace", () => {
+  const previous = process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+  afterEach(() => {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+    else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = previous;
+  });
+
+  it.each([undefined, "isolated-project-ucat-auth"])(
+    "uses the configured cookie name (%s)",
+    async (override) => {
+      createBrowserClient.mockClear();
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+      delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+      if (override === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+      else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = override;
+      await jest.isolateModulesAsync(async () => {
+        const { getSupabaseBrowserClient: create } = await import("../client");
+        create();
+      });
+      expect(createBrowserClient).toHaveBeenCalledWith(
+        "https://project.supabase.co",
+        "anon-key",
+        expect.objectContaining({ cookieOptions: { name: override || "student-auth" } }),
+      );
+    },
+  );
+});

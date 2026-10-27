@@ -1,4 +1,5 @@
 "use client";
+import type { Tables } from "@altitutor/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { evidenceSchema, type Journey } from "../lib/model";
@@ -92,12 +93,39 @@ async function fetchJourneys(): Promise<Journey[]> {
   return fetchJourneysFallback();
 }
 
+async function fetchJourneysWithStudentStatus() {
+  const journeys = await fetchJourneys();
+  const studentIds = [
+    ...new Set(
+      journeys.flatMap((journey) =>
+        journey.student_id ? [journey.student_id] : [],
+      ),
+    ),
+  ];
+  const statuses = new Map<string, Tables<"students">["status"]>();
+  // Bound each request below the API row limit and keep URLs small.
+  for (let offset = 0; offset < studentIds.length; offset += 200) {
+    const { data, error } = await getSupabaseClient()
+      .from("students")
+      .select("id, status")
+      .in("id", studentIds.slice(offset, offset + 200));
+    if (error) throw error;
+    for (const student of data) statuses.set(student.id, student.status);
+  }
+  return journeys.map((journey) => ({
+    ...journey,
+    student_status: journey.student_id
+      ? (statuses.get(journey.student_id) ?? null)
+      : null,
+  }));
+}
+
 export function useOnboardingJourneys() {
   return useQuery({
     queryKey: [...onboardingKey, "journeys"],
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
-    queryFn: fetchJourneys,
+    queryFn: fetchJourneysWithStudentStatus,
   });
 }
 export function useOnboardingSettings() {

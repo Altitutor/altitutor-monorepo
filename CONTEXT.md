@@ -412,6 +412,9 @@
 - **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
   _Avoid_: Survey result, submission
 
+- **Form answer filter** — A condition on the answer to one specific Form question that selects whole Form responses, preserving their other answers for review and reporting. Each condition specifies how an answer must match; several question conditions must all match.
+  _Avoid_: Recorded-by filter, question search
+
 - **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
   _Avoid_: Form response, public form link, unenrolment form
 
@@ -489,6 +492,53 @@
 
 - **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
   _Avoid_: Anki note model, front/back row
+
+## Medicine interview practice
+
+- **Interview station** — A reusable interview exercise comprising one shared reading prompt and one or more ordered, linked questions, with exactly one category and an overall score maximum. Interviews are assembled from whole stations.
+
+- **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
+  _Avoid_: Standalone bank question, independently reusable question
+
+- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score, optional general station feedback and feedback for its individual questions.
+
+- **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
+
+- **Interview feedback mode** — A coordinated mock interview mode with two-way communication throughout reading, question and feedback time. When recording is enabled, it covers question time and verbal feedback, excluding reading time.
+
+- **Interview rotation** — One allocation of students across the stations of a coordinated mock interview. Any participating tutor may explicitly advance the group once the required station work is finished; losing a connection does not itself stop the interview.
+
+- **Scheduled interview round** — A coordinated mock interview arranged for a future date and time and shown in the selected students' upcoming interviews. Students may come from different interview classes while holding current interview enrolment. The scheduled time does not start the round automatically; a participating tutor explicitly starts it.
+
+- **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
+
+- **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
+
+- **Interview tutor assignment** — A tutor's responsibility for one station throughout a round. Assignments are fixed once the round starts; another tutor cannot take over that station mid-round.
+
+- **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
+
+- **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
+
+- **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
+
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, before that tutor marks ready. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student. Claims stay locked after readiness and throughout the encounter.
+
+- **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
+
+- **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
+
+- **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
+
+- **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
+
+- **Interview station category** — The single configurable classification assigned to a bank station. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
+
+- **Interview question tag** — A configurable label assigned to an individual station question. A question may have multiple tags, independently of the category of its owning station.
+
+- **Interview station placement** — One ordered use of a whole bank station in an interview, including that station's prompt and complete sequence of questions. The same station may appear more than once in an interview, with a repetition warning.
+
+- **Live interview rubric correction** — A saved change to the marking guidance for a station question during delivery. Active tutors receive revision notices; the station's question wording and order remain fixed for that round.
 
 ## UCAT content
 
@@ -1213,8 +1263,21 @@
 - **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
   _Avoid_: Minimum accuracy gate, mandatory lesson sequence, weekday preference alone
 
-- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. While a section remains in Learning, incomplete Essential lessons remain strongly prioritised in authored order and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended lessons follow only after the Essential tier, while Optional and Excluded lessons are not automatically prescribed.
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Within Section learning, incomplete Essential lessons remain strongly prioritised in authored order while their section remains in Learning and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended section lessons follow only after that section's Essential tier. Within each eligible General learning lesson placement, Essential lessons likewise precede Recommended lessons in authored order within each tier; Optional and Excluded lessons are not automatically prescribed.
   _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
+
+- **Learning module journey placement** — The authored point in UCAT preparation at which a lesson belongs: Section learning, Orientation, Later Learning, or Pre-Exam. Placement is independent of Study-plan priority and informs both the Study plan and Next-step guidance.
+  _Avoid_: Lesson priority, global section sequence
+
+- **General learning lesson** — A deliberately sectionless Learning module lesson with Orientation, Later Learning, or Pre-Exam journey placement. Its completion is independent of each cognitive section's Learning graduation; an unclassified sectionless lesson is not automatically a General learning lesson.
+  _Avoid_: Unassigned section lesson, fourth cognitive section
+
+- **Orientation lesson** — A General learning lesson introducing UCAT preparation before a beginner's section learning and benchmarks are scheduled. Its position guides the Student's preparation without restricting access to later activities or requiring completion before the Student may proceed.
+  _Avoid_: Mandatory onboarding, prerequisite access gate
+
+- **Later Learning lesson** — A General learning lesson intended for the point when every cognitive section is nearing the end of its Essential instruction or has genuinely graduated from Learning. Once relevant, an unfinished lesson remains useful in later preparation phases without delaying section graduation.
+
+- **Pre-Exam lesson** — A General learning lesson preparing a Student for the transition into Exam phase, shortly before that phase begins 60 days before the test or provisional planning date. It is distinct from a lesson first introduced in the final days before the test.
 
 - **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
   _Avoid_: Study-plan tags, category arrays, polymorphic taxonomy link
@@ -1371,3 +1434,5 @@
 
 - **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
   _Avoid_: Row trigger, changed-column automation, scheduled event
+
+- **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.

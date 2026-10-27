@@ -7,6 +7,8 @@ import type {
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 import { StudyPlanLessonConflictError } from "@/features/learning/lib/lesson-start-error";
 
+import { consumeStudyPlanLessonLaunch } from "@/features/study-plan/lib/launch-diagnostics";
+
 async function parseJson<T>(response: Response): Promise<T> {
   await assertOkOrQuotaExceeded(response);
   if (!response.ok) {
@@ -39,12 +41,16 @@ export const learningApi = {
     lessonId: string,
     studyPlanTaskId: string | null,
   ): Promise<{ created: boolean }> {
+    const studyPlanLaunch = consumeStudyPlanLessonLaunch(studyPlanTaskId);
     const response = await fetch(
       `/api/ucat/learning-modules/${lessonId}/start`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studyPlanTaskId }),
+        body: JSON.stringify({
+          studyPlanTaskId,
+          ...(studyPlanLaunch ? { studyPlanLaunch } : {}),
+        }),
       },
     );
     if (!response.ok && response.status === 500) {

@@ -41,3 +41,39 @@ it.each(['QUEUED', 'FAILED', 'UNDELIVERED'])('retains contact and group unread s
     p_conversation_ids: ['contact-thread', 'group-thread'],
   });
 });
+
+it('shows System for an automated outbound conversation preview', async () => {
+  const conversations = [{
+    id: 'contact-thread',
+    status: 'OPEN',
+    last_message_at: '2026-10-03T01:00:00Z',
+    last_message_id: 'contact-message',
+    last_message_direction: 'OUTBOUND',
+    owned_number_id: 'number',
+    owned_numbers: { provider: 'IMESSAGE' },
+    conversation_reads: [],
+    group_chat_participants: [],
+    contact_id: 'contact',
+    is_group_chat: false,
+    contacts: { id: 'contact', students: { first_name: 'Ada' } },
+  }];
+  const messages = [{
+    id: 'contact-message',
+    conversation_id: 'contact-thread',
+    body: 'Your trial is booked',
+    direction: 'OUTBOUND',
+    status: 'QUEUED',
+    is_reaction: false,
+    imessage_temp_guid: null,
+    staff: null,
+    message_attachments: [],
+  }];
+  const rpc = jest.fn(() => queryResult([]));
+  jest.mocked(getSupabaseClient).mockReturnValue({
+    from: jest.fn((table) => queryResult(table === 'conversations' ? conversations : messages)), rpc,
+  } as unknown as ReturnType<typeof getSupabaseClient>);
+
+  const [conversation] = await fetchConversationList();
+
+  expect(conversation.latestMessage?.preview?.senderName).toBe('System');
+});

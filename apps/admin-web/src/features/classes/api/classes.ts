@@ -331,6 +331,22 @@ export const classesApi = {
       };
 
       const rpcClasses = rpcData.classes || [];
+      // Calendar detail cards need enrollment dates, which the search RPC omits.
+      const classIds = rpcClasses.map(cls => cls.id);
+      const enrollmentDates = new Map<string, string>();
+      if (classIds.length) {
+        const { data: enrollments, error: enrollmentError } = await supabase
+          .from('classes_students')
+          .select('class_id,student_id,enrolled_at')
+          .gt('enrolled_at',new Date().toISOString())
+          .in('class_id', classIds)
+          .is('unenrolled_at', null);
+        if (enrollmentError) throw enrollmentError;
+        for (const enrollment of enrollments ?? []) {
+          enrollmentDates.set(`${enrollment.class_id}:${enrollment.student_id}`, enrollment.enrolled_at);
+        }
+      }
+
       
       // Transform RPC response to match expected format
       const classes: Tables<'classes'>[] = [];
@@ -367,7 +383,7 @@ export const classesApi = {
         
         // Add students if available
         if (rpcData.classStudents?.[cls.id]) {
-          classStudents[cls.id] = (rpcData.classStudents[cls.id] || []) as Tables<'students'>[];
+          classStudents[cls.id] = (rpcData.classStudents[cls.id] || []).map(student => ({...student,enrolled_at:enrollmentDates.get(`${cls.id}:${student.id}`) ?? null}));
         } else {
           classStudents[cls.id] = [];
         }

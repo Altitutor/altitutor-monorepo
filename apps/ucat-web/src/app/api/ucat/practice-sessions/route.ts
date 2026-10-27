@@ -18,7 +18,9 @@ import {
 import { ServerTiming } from "@/lib/performance/server-timing";
 import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
-import { getRejectedStudyPlanDiagnostics } from "@/features/practice/server/rejected-study-plan-diagnostics";
+import { getRejectedStudyPlanDiagnostics } from "@/features/study-plan/server/rejected-start-diagnostics";
+
+import { parseStudyPlanLaunchDiagnostics } from "@/features/study-plan/model/launch-diagnostics";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
     ucatSectionId: string;
     filtersSnapshot?: unknown;
     stemsSnapshot?: unknown;
+    studyPlanLaunch?: unknown;
     unlimited?: boolean;
   };
 
@@ -204,6 +207,7 @@ export async function POST(request: NextRequest) {
       insertError?.code === "22023" &&
       insertError.message === "invalid_study_plan_task"
         ? await getRejectedStudyPlanDiagnostics(supabaseAdmin, {
+            operation: "practice",
             studentId: student.id,
             taskId: insertPayload.study_plan_task_id,
             sectionId: insertPayload.ucat_section_id,
@@ -212,7 +216,19 @@ export async function POST(request: NextRequest) {
     captureApiError(
       insertError,
       "/api/ucat/practice-sessions",
-      diagnostics ? { study_plan_start: diagnostics } : undefined,
+      diagnostics
+        ? {
+            study_plan_start: diagnostics,
+            ...(diagnostics.task_id
+              ? {
+                  study_plan_launch: parseStudyPlanLaunchDiagnostics(
+                    body.studyPlanLaunch,
+                    "practice",
+                  ),
+                }
+              : {}),
+          }
+        : undefined,
     );
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to create practice session" },

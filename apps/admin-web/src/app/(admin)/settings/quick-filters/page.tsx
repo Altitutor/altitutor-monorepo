@@ -18,8 +18,8 @@ export default function QuickFiltersSettingsPage() {
       const data = await quickFiltersApi.listAll();
       setFilters(data);
     } catch (error) {
-      console.error('Failed to load quick filters:', error);
-      alert('Failed to load quick filters: ' + (error as Error).message);
+      console.error('Failed to load views:', error);
+      alert('Failed to load views: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -36,11 +36,11 @@ export default function QuickFiltersSettingsPage() {
   return (
     <div className="p-6">
       <SettingsPageHeader
-        title="Quick Filters"
+        title="Views"
         actions={(
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Add Quick Filter"
+            label="Add View"
             onClick={() => setCreateButtonClick((prev) => prev + 1)}
           />
         )}

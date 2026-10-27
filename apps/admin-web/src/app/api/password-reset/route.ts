@@ -10,20 +10,14 @@ function getBaseUrl(userType: ResetUserType) {
   const isDev = process.env.NODE_ENV === 'development';
 
   if (userType === 'student') {
-    return isDev
-      ? 'http://localhost:3001'
-      : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+    return process.env.NEXT_PUBLIC_STUDENT_URL || (isDev ? 'http://localhost:3001' : 'https://student.altitutor.com');
   }
 
   if (userType === 'tutor') {
-    return isDev
-      ? 'http://localhost:3002'
-      : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+    return process.env.NEXT_PUBLIC_TUTOR_URL || (isDev ? 'http://localhost:3002' : 'https://tutor.altitutor.com');
   }
 
-  return isDev
-    ? 'http://localhost:3000'
-    : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+  return process.env.NEXT_PUBLIC_ADMIN_URL || (isDev ? 'http://localhost:3000' : 'https://admin.altitutor.com');
 }
 
 function buildRecoveryCallbackUrl(userType: ResetUserType, tokenHash: string) {

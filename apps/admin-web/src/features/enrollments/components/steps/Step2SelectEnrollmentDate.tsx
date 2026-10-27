@@ -2,11 +2,11 @@
 
 import { useMemo } from 'react';
 import { SearchableSelect } from '@altitutor/ui';
-import { formatDate, cn } from '@/shared/utils';
-import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { cn } from '@/shared/utils';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext } from '../../types/enrollment';
+import { enrollmentStartDateOptions } from '../../utils/enrollmentStartDates';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
 
 interface Step2SelectEnrollmentDateProps {
@@ -47,35 +47,20 @@ export function Step2SelectEnrollmentDate({
     }
   }, [context, selectedClass, classData, classSubject]);
 
-  const today = getMidnightAdelaide(new Date());
-  const rangeStart = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(today);
   const classId = classForValidation?.id;
   const { data: classSessionsData, isLoading: isLoadingClassSessions } = useSessionsWithDetails({
     classId,
-    rangeStart,
     rangeEnd: classForValidation?.session_end_date ?? undefined,
     includeInactive: false,
     orderBy: 'start_at',
     ascending: true,
   }, { enabled: !!classId });
 
-  // Use the generated Sessions so multi-day and fortnightly Classes are represented accurately.
-  const futureSessionDates = useMemo(() => {
-    const seenDates = new Set<string>();
-    const dates: Array<{ value: string; label: string }> = [];
-    for (const session of classSessionsData?.sessions ?? []) {
-      if (!session.start_at) continue;
-      const sessionDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date(session.start_at));
-      if (seenDates.has(sessionDate)) continue;
-      seenDates.add(sessionDate);
-      dates.push({ value: sessionDate, label: formatDate(new Date(`${sessionDate}T12:00:00`)) });
-    }
-    return dates;
-  }, [classSessionsData?.sessions]);
+  // Generated Sessions, including one that was moved before today.
+  const futureSessionDates = useMemo(
+    () => enrollmentStartDateOptions(classSessionsData?.sessions ?? []),
+    [classSessionsData?.sessions],
+  );
 
   // Get student name for info card
   const studentName = selectedStudent
@@ -143,7 +128,7 @@ export function Step2SelectEnrollmentDate({
               />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
-                {classForValidation ? 'No future Sessions' : 'choose class'}
+                {classForValidation ? 'No Sessions' : 'choose class'}
               </span>
             )}
           </span>

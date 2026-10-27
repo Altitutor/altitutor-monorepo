@@ -15,6 +15,7 @@ import {
   ReceiptText,
   Repeat2,
   WalletCards,
+  MessagesSquare,
 } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import {
@@ -37,6 +38,8 @@ import { useDueFlashcardCount } from '@/features/flashcards/hooks/useFlashcards'
 import { UcatResourcesNavigationDialog, useResourceSubjectNavItems } from '@/features/resources';
 import { getUcatSessionsUrl, isUcatSubject } from '@/features/resources/lib/ucat-resources';
 import type { LucideIcon } from 'lucide-react';
+import { useInterviewAccess } from '@/features/interviews/hooks/use-interviews';
+import { isStudentInterviewRoom } from '@/features/interviews/lib/routes';
 import { STUDENT_CONTENT_MAX, STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -284,6 +287,7 @@ function renderNavItem(
 
 function useStudentPrimaryNavItems(): NavItem[] {
   const { data: subjects } = useResourceSubjectNavItems();
+  const { data: interviewAccess } = useInterviewAccess();
   const { data: dueCount = 0 } = useDueFlashcardCount();
 
   return useMemo(() => {
@@ -301,6 +305,7 @@ function useStudentPrimaryNavItems(): NavItem[] {
     return [
       { title: 'Dashboard', href: '/dashboard', icon: Home },
       { title: 'Classes', href: '/classes', icon: Calendar },
+      ...(interviewAccess?.hasAccess ? [{ title: 'Interviews', href: '/interviews', icon: MessagesSquare }] : []),
       {
         type: 'dropdown',
         title: 'Resources',
@@ -322,7 +327,7 @@ function useStudentPrimaryNavItems(): NavItem[] {
         ],
       },
     ];
-  }, [dueCount, subjects]);
+  }, [dueCount, subjects, interviewAccess?.hasAccess]);
 }
 
 function MobileMenu({
@@ -565,6 +570,7 @@ export default function StudentClientLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const primaryItems = useStudentPrimaryNavItems();
@@ -572,6 +578,8 @@ export default function StudentClientLayout({
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
+
+  if (isStudentInterviewRoom(pathname)) return <>{children}</>;
 
   return (
     <OnboardingProvider>

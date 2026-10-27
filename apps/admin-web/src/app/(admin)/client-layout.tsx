@@ -1,5 +1,6 @@
 'use client';
 
+import { AdminToolbarViewsProvider } from '@/features/quick-filters/components/ToolbarViewsService';
 import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
 import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
 import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
@@ -103,11 +104,6 @@ const navItems: NavItem[] = [
   {
     title: 'Classes',
     href: '/classes',
-    icon: Calendar,
-  },
-  {
-    title: 'Admin Shifts',
-    href: '/admin-shifts',
     icon: Calendar,
   },
   {
@@ -521,7 +517,7 @@ function AdminLayoutContent({
   const showBreadcrumbs = pathname !== '/messages' && !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+/.test(pathname);
 
   return (
-    <AdminShortcuts>
+    <AdminToolbarViewsProvider><AdminShortcuts>
       <Navbar />
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       <CommandPaletteModal
@@ -635,7 +631,7 @@ function AdminLayoutContent({
           )}
         </AccessoryPanelLayout>
       </div>
-    </AdminShortcuts>
+    </AdminShortcuts></AdminToolbarViewsProvider>
   );
 }
 

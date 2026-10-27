@@ -1,6 +1,7 @@
 import {
   buildClassScheduleProposal,
   resolveClassScheduleRows,
+  resolveScheduleEffectiveFrom,
   validateClassScheduleRows,
 } from '../classScheduleForm';
 
@@ -46,6 +47,31 @@ describe('Class schedule form', () => {
         { day_of_week: 2, start_time: '13:00', end_time: '14:00', room: 'Room 1', position: 0 },
         { day_of_week: 3, position: 1 },
       ],
+    });
+  });
+
+  it('schedules a new offering from today when its start date is already past', () => {
+    expect(resolveScheduleEffectiveFrom('2026-09-01', '2026-10-23')).toBe('2026-10-23');
+    expect(resolveScheduleEffectiveFrom('2026-10-23', '2026-10-23')).toBe('2026-10-23');
+    expect(resolveScheduleEffectiveFrom('2026-11-02', '2026-10-23')).toBe('2026-11-02');
+
+    expect(
+      buildClassScheduleProposal({
+        classId: '90000000-0000-0000-0000-000000000001',
+        sessionType: 'CLASS',
+        subjectId: null,
+        billingType: 'CLASS',
+        cohortLabel: 'A',
+        startDate: '2026-09-01',
+        endDate: '2026-12-31',
+        effectiveFrom: resolveScheduleEffectiveFrom('2026-09-01', '2026-10-23'),
+        frequencyWeeks: 1,
+        rows: [tuesday],
+      })
+    ).toMatchObject({
+      start_date: '2026-09-01',
+      effective_from: '2026-10-23',
+      anchor_date: '2026-09-01',
     });
   });
 
