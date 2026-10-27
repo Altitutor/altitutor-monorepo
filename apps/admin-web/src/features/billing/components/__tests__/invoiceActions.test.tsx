@@ -4,8 +4,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InvoiceDetailPage from '@/app/(admin)/invoices/[id]/page';
 import { StudentInvoicesTable } from '@/features/students/components/StudentInvoicesTable';
+import { useStudentInvoiceOwing } from '@/features/billing/hooks/useInvoicesQuery';
 
 const originalFetch = global.fetch;
+let mockOwingError = false;
 let mockInvoice = {
   id: 'invoice',
   student_id: 'student',
@@ -32,7 +34,7 @@ jest.mock('@supabase/ssr', () => ({
     from: (table: string) => {
       const result = () => ({
         data: table === 'invoices' ? [mockInvoice] : [],
-        error: null,
+        error: null as Error | null,
         count: 1,
       });
       const builder: Record<string, unknown> = {};
@@ -40,6 +42,7 @@ jest.mock('@supabase/ssr', () => ({
         'select',
         'eq',
         'is',
+        'not',
         'in',
         'order',
         'range',
@@ -52,7 +55,7 @@ jest.mock('@supabase/ssr', () => ({
         error: null,
       });
       builder.then = (resolve: (value: ReturnType<typeof result>) => unknown) =>
-        Promise.resolve(result()).then(resolve);
+        Promise.resolve(mockOwingError && table === 'invoices' ? { ...result(), error: new Error('Unavailable') } : result()).then(resolve);
       return builder;
     },
     rpc: async (name: string) => ({
@@ -69,7 +72,8 @@ const clients: QueryClient[] = [];
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'synthetic-fixture';
-  mockInvoice = { ...mockInvoice, status: 'open' };
+  mockInvoice = { ...mockInvoice, status: 'open', amount_paid_cents: 0 };
+  mockOwingError = false;
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -95,13 +99,18 @@ function renderSurface(surface: 'detail' | 'student') {
     <QueryClientProvider client={client}>
       <ToastProvider>
         {surface === 'detail' ? (
-          <InvoiceDetailPage params={{ id: 'invoice' }} />
+          <><InvoiceDetailPage params={{ id: 'invoice' }} /><OwingProbe /></>
         ) : (
           <StudentInvoicesTable studentId="student" />
         )}
       </ToastProvider>
     </QueryClientProvider>,
   );
+}
+
+function OwingProbe() {
+  const owing = useStudentInvoiceOwing('student');
+  return <output aria-label="Owing probe">{owing.data?.[0]?.amountCents}</output>;
 }
 
 async function openActions(surface: 'detail' | 'student') {
@@ -161,5 +170,38 @@ describe.each(['detail', 'student'] as const)(
         screen.queryByRole('menuitem', { name: 'Charge Card' }),
       ).not.toBeInTheDocument();
     });
+
+    it('refreshes the independent total after a successful payment attempt', async () => {
+      renderSurface(surface);
+      if (surface === 'student') await screen.findByText(/AUD\s*50\.00/);
+      else await waitFor(() => expect(screen.getByLabelText('Owing probe')).toHaveTextContent('5000'));
+      const user = await openActions(surface);
+      (global.fetch as jest.Mock).mockImplementation(async () => {
+        mockInvoice = { ...mockInvoice, amount_paid_cents: 2500 };
+        return {ok: true, json: async () => ({attempt_count:0,next_payment_attempt:null,auto_retry_active:false})};
+      });
+      await user.click(screen.getByRole('menuitem', { name: 'Charge Card' }));
+      await screen.findByText('Payment attempt initiated successfully');
+      if (surface === 'student') await screen.findByText(/AUD\s*25\.00/);
+      else await waitFor(() => expect(screen.getByLabelText('Owing probe')).toHaveTextContent('2500'));
+    });
   },
 );
+
+it('keeps the total independent of invoice search', async () => {
+  renderSurface('student');
+  await screen.findByText(/AUD\s*50\.00/);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Search' }));
+  const search = screen.getAllByRole('textbox').find(input => input.getAttribute('placeholder')?.toLowerCase().includes('search'));
+  expect(search).toBeDefined();
+  await user.type(search!, 'different invoice');
+  expect(screen.getByText(/AUD\s*50\.00/)).toBeInTheDocument();
+});
+
+it('shows an unavailable total rather than zero when its query fails', async () => {
+  mockOwingError = true;
+  renderSurface('student');
+  await screen.findByText('Unable to load total');
+  expect(screen.queryByText('No open invoices')).not.toBeInTheDocument();
+});

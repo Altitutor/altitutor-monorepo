@@ -7,9 +7,19 @@ export const invoicesKeys = {
   all: ['invoices'] as const,
   lists: () => [...invoicesKeys.all, 'list'] as const,
   list: (filters: string) => [...invoicesKeys.lists(), { filters }] as const,
+  studentOwing: (studentId: string) => [...invoicesKeys.lists(), 'owing', studentId] as const,
   details: () => [...invoicesKeys.all, 'detail'] as const,
   detail: (id: string) => [...invoicesKeys.details(), id] as const,
 };
+
+export function useStudentInvoiceOwing(studentId: string) {
+  return useQuery({
+    queryKey: invoicesKeys.studentOwing(studentId),
+    queryFn: () => billingApi.getStudentInvoiceOwing(studentId),
+    enabled: Boolean(studentId),
+    staleTime: 1000 * 60 * 3,
+  });
+}
 
 /** Trims, strips leading `#`, returns undefined when empty (matches prior client filter behavior). */
 export function normalizeInvoiceNumberSearch(raw: string | undefined): string | undefined {
