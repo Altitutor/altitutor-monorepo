@@ -92,6 +92,24 @@ async function send(payload: Record<string, unknown>) {
   return { status: response.status, body: await response.json() };
 }
 
+const predecessor = await insert("messages", {
+  ...base,
+  body: "Synthetic predecessor",
+});
+const otherPredecessor = await insert("messages", {
+  ...base,
+  body: "Other predecessor",
+});
+const journey = await insert("onboarding_journeys", {
+  contact_id: contact.id,
+  label: "Synthetic inbound history",
+  historical: true,
+});
+const otherJourney = await insert("onboarding_journeys", {
+  contact_id: contact.id,
+  label: "Other inbound history",
+  historical: true,
+});
 const guid = crypto.randomUUID();
 const tempGuid = crypto.randomUUID();
 const provider = await insert("messages", {
@@ -99,6 +117,9 @@ const provider = await insert("messages", {
   body: "Provider copy",
   imessage_guid: guid,
   status: "DELIVERED",
+  resent_from_message_id: predecessor.id,
+  onboarding_journey_id: journey.id,
+  onboarding_purpose: "followup",
 });
 const original = await insert("messages", {
   ...base,
@@ -184,6 +205,9 @@ assertEquals(messages![0].id, original.id);
 assertEquals(messages![0].body, "Original staff reply");
 assertEquals(messages![0].created_by_staff_id, staff.id);
 assertEquals(messages![0].status, "READ");
+assertEquals(messages![0].resent_from_message_id, predecessor.id);
+assertEquals(messages![0].onboarding_journey_id, journey.id);
+assertEquals(messages![0].onboarding_purpose, "followup");
 assertEquals(
   (await row("message_attachments", attachment.id)).message_id,
   original.id,
@@ -269,6 +293,79 @@ assertEquals(failed.processed_at, null);
 assert(failed.processing_error);
 console.log(
   "PASS conflicting provider identity stays unresolved without mutation",
+);
+
+const historyConflicts: Array<{
+  name: string;
+  first: Record<string, unknown>;
+  second: Record<string, unknown>;
+}> = [
+  {
+    name: "resend predecessor",
+    first: { resent_from_message_id: predecessor.id },
+    second: { resent_from_message_id: otherPredecessor.id },
+  },
+  {
+    name: "onboarding journey",
+    first: {
+      onboarding_journey_id: journey.id,
+      onboarding_purpose: "followup",
+    },
+    second: {
+      onboarding_journey_id: otherJourney.id,
+      onboarding_purpose: "followup",
+    },
+  },
+  {
+    name: "onboarding purpose",
+    first: {
+      onboarding_journey_id: journey.id,
+      onboarding_purpose: "followup",
+    },
+    second: {
+      onboarding_journey_id: journey.id,
+      onboarding_purpose: "registration_link",
+    },
+  },
+];
+for (const conflict of historyConflicts) {
+  const historyGuid = crypto.randomUUID();
+  const historyTemp = crypto.randomUUID();
+  const first = await insert("messages", {
+    ...base,
+    ...conflict.first,
+    imessage_temp_guid: historyTemp,
+  });
+  const second = await insert("messages", {
+    ...base,
+    ...conflict.second,
+    imessage_guid: historyGuid,
+  });
+  const historyEventId = crypto.randomUUID();
+  assertEquals(
+    (await send({
+      ...event(historyGuid, historyTemp),
+      EventId: historyEventId,
+    })).status,
+    500,
+    conflict.name,
+  );
+  assertEquals((await row("messages", first.id)).imessage_guid, null);
+  for (const [key, value] of Object.entries(conflict.first)) {
+    assertEquals((await row("messages", first.id))[key], value);
+  }
+  for (const [key, value] of Object.entries(conflict.second)) {
+    assertEquals((await row("messages", second.id))[key], value);
+  }
+  const { data: unresolved, error } = await db.from("imessage_events").select(
+    "processed_at,processing_error",
+  ).eq("event_key", historyEventId).single();
+  if (error) throw error;
+  assertEquals(unresolved.processed_at, null);
+  assert(unresolved.processing_error);
+}
+console.log(
+  "PASS conflicting outgoing history stays unresolved without mutation",
 );
 
 const inboundGuid = crypto.randomUUID();

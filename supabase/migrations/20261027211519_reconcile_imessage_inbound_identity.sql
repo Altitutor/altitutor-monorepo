@@ -24,7 +24,11 @@ DECLARE
   current_rank integer;
   candidate_rank integer;
   is_new boolean := false;
+  status_ranks CONSTANT jsonb := '{"QUEUED":0,"SENDING":1,"AMBIGUOUS":2,"UNDELIVERED":2,"FAILED":2,"SENT":3,"DELIVERED":4}';
 BEGIN
+  IF COALESCE(auth.jwt()->>'role', '') <> 'service_role' AND current_user <> 'postgres' THEN
+    RAISE EXCEPTION 'Service role required' USING ERRCODE = '42501';
+  END IF;
   incoming := pg_catalog.jsonb_populate_record(NULL::public.messages, p_message);
   IF incoming.imessage_guid IS NULL OR incoming.conversation_id IS NULL
     OR incoming.direction IS NULL OR incoming.direction NOT IN ('INBOUND', 'OUTBOUND')
@@ -87,6 +91,13 @@ BEGIN
         AND retained.created_by_staff_id <> duplicate.created_by_staff_id)
       OR (retained.apple_service IS NOT NULL AND duplicate.apple_service IS NOT NULL
         AND retained.apple_service <> duplicate.apple_service)
+      OR (retained.resent_from_message_id IS NOT NULL
+        AND duplicate.resent_from_message_id IS NOT NULL
+        AND retained.resent_from_message_id <> duplicate.resent_from_message_id)
+      OR (retained.onboarding_journey_id IS NOT NULL
+        AND duplicate.onboarding_journey_id IS NOT NULL
+        AND (retained.onboarding_journey_id <> duplicate.onboarding_journey_id
+          OR retained.onboarding_purpose <> duplicate.onboarding_purpose))
       OR retained.resent_from_message_id = duplicate.id
       OR duplicate.resent_from_message_id = retained.id THEN
       RAISE EXCEPTION 'Conflicting iMessage message history';
@@ -154,14 +165,8 @@ BEGIN
       ELSIF next_status = 'FAILED' AND candidate_status = 'SENT' THEN
         CONTINUE;
       ELSE
-        current_rank := CASE next_status
-          WHEN 'QUEUED' THEN 0 WHEN 'SENDING' THEN 1
-          WHEN 'AMBIGUOUS' THEN 2 WHEN 'UNDELIVERED' THEN 2 WHEN 'FAILED' THEN 2
-          WHEN 'SENT' THEN 3 WHEN 'DELIVERED' THEN 4 ELSE 5 END;
-        candidate_rank := CASE candidate_status
-          WHEN 'QUEUED' THEN 0 WHEN 'SENDING' THEN 1
-          WHEN 'AMBIGUOUS' THEN 2 WHEN 'UNDELIVERED' THEN 2 WHEN 'FAILED' THEN 2
-          WHEN 'SENT' THEN 3 WHEN 'DELIVERED' THEN 4 ELSE 5 END;
+        current_rank := COALESCE((status_ranks->>next_status)::integer, 5);
+        candidate_rank := COALESCE((status_ranks->>candidate_status)::integer, 5);
         IF candidate_rank >= current_rank THEN next_status := candidate_status; END IF;
       END IF;
     END LOOP;
@@ -184,6 +189,9 @@ BEGIN
         THEN COALESCE(incoming.provider_error_code, retained.provider_error_code, duplicate.provider_error_code)
         ELSE retained.provider_error_code END,
       created_by_staff_id = COALESCE(retained.created_by_staff_id, duplicate.created_by_staff_id),
+      resent_from_message_id = COALESCE(retained.resent_from_message_id, duplicate.resent_from_message_id),
+      onboarding_journey_id = COALESCE(retained.onboarding_journey_id, duplicate.onboarding_journey_id),
+      onboarding_purpose = COALESCE(retained.onboarding_purpose, duplicate.onboarding_purpose),
       is_historical_import = CASE WHEN p_from_live THEN false
         ELSE retained.is_historical_import AND COALESCE(duplicate.is_historical_import, true) END,
       apple_service = COALESCE(retained.apple_service, duplicate.apple_service, incoming.apple_service)
