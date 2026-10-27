@@ -149,69 +149,16 @@ alternatives; logic/state questions use the portable free-play/walkthrough HTML.
 Use synthetic/in-memory data and stub writes. A prototype answers a question;
 it is not production-ready code or permission to touch shared data.
 
-Record the exact prototype branch/SHA, interactive preview link, access/expiry,
-question and focused feedback choices in Linear, then Awaiting Input. After
-answers and promotion, preserve feedback while revising/implementing. Capture the
-prototype as a primary source on a throwaway branch with a Linear context pointer;
-only validated implementation belongs in the delivery branch. Publishing or
-hosting requires the existing issue execution scope; no new service is implied.
-
-### Normal prototype hosting
-
-Matthew approved normal prototype servers through existing private Tailscale and
-explicitly retired the custom Python preview service and three-device filter.
-`com.altitutor.preview` is unloaded; its LaunchAgent, nine Python source modules
-across two installed releases, compiled caches, logs and 24 catalog files were
-moved to private local recovery storage. No replacement proxy/catalog or new
-service is installed. Standard language runtimes and independent utilities remain.
-
-The saved private HTTPS 443 route still targets `http://127.0.0.1:57340`, with
-public Funnel off. A normal app server on loopback port 57340 can use that mapping
-without a route change. It is subject to the existing tailnet ACL/grants; the
-administrative policy and exact permitted audience were not available from the
-safe status/Serve reads. The extra Python device filter is deliberately removed,
-not reimplemented. No tailnet ACL, grant, route or unrelated service was changed.
-
-Distinguish network from app state. Earlier setup checks reported a responding
-Tailscale backend with Stopped/Self.Online=false and no listener on57340; that was
-a dated observation, not a permanent hosting state. Check current status, Serve
-hostname and listener ownership for every review window. The later final-handoff
-observation below records the connected client and concrete HTTPS-route failure.
-No connect/disconnect/restart or route change is implied by these checks.
-
-Use the actual prototype's normal app command, loopback binding, synthetic data
-and stub writes. Keep an approved review server independent of Symphony worker
-shutdown, with an explicit review lifetime and ownership recorded on the issue;
-a worker child can stop on Awaiting Input. Do not terminate another issue's server
-or assume a background child is persistent. An existing protected app Preview
-deployment is another normal hosting option when publication is authorized.
-Do not revive the retired catalog, introduce a proxy, enable public Funnel or
-modify unrelated networking. Verify the real interactive URL and variant controls;
-NODE_ENV development-only controls can be hidden in production-mode preview builds.
-Record actual phone/iPad checks honestly and pause with a concrete hosting blocker
-if the link cannot be provided within the existing scope.
-
-### Concrete Next.js server command
-
-From the issue checkout, choose the web app that actually contains the prototype:
-
-```sh
-python3 scripts/owned_database.py preview --app <target-web-app>
-```
-
-This launches the repository's installed normal Next.js server with the common
-preview-port lease, explicit loopback binding and the saved Serve target's port. `exec next` avoids the fixed 3001–3004
-ports in several app dev scripts. The installed CLI help confirmed both flags;
-YAML/runtime settings remain unchanged. No new wrapper, proxy, launch service or
-prototype application is installed. No actual app/issue-specific prototype was
-selected or run during these configuration checks.
-
-Use synthetic prototype data/stub mutations and development configuration; do not
-point a prototype at production data. One foreground review server owns this port
-at a time, independently of the implementation worker, for its recorded review
-lifetime. Confirm the client is connected and the actual interactive private URL
-works before posting it as ready. A persisted Serve mapping and a successful CLI
-help check do not prove remote reachability or a runnable prototype route.
+For prototype feedback, record the actual artifact/candidate, question and
+focused feedback choices. Use inspected screenshots, a portable local artifact,
+or another existing user-approved review method appropriate to the question.
+An expiring Tailscale URL, shared preview slot, booked hosting window or remote
+server is no longer required. This supersedes older prototype-hosting guidance
+for Symphony; it does not waive a genuine unresolved product decision.
+Do not automatically start or replace review servers, change routes or add a
+hosting provider/service. Existing manual work and services remain owned by their
+sessions. Describe tested interactions and unverified visual/device behavior
+honestly; screenshots do not prove persistence or external delivery.
 
 ### Implementation and review
 
@@ -430,43 +377,31 @@ existing status was deleted, renamed, reordered or bulk-migrated during the audi
 
 ## Final implementation review handoff
 
-Exploratory prototype feedback answers unsettled design choices; final review
-shows the implemented candidate. An established pattern or seven green checks
-never waives that evidence. Before In Review, attach inspected actual-candidate
-screenshots for presentation-only corrections (representative synthetic cases,
-app/full SHA, layout states and checklist). For changed user functionality,
-provide a verified interactive private URL with representative test data, exact
-app/SHA, tested steps/results, access requirements, server owner and stop time.
-Relevant test evidence suffices for ordinary non-UI work. Screenshot-only evidence
-must not be described as end-to-end fetching/sending/persistence validation.
+Exploratory feedback answers unresolved product/design choices; final review shows
+what was implemented. Keep inspected presentation evidence and real functional
+tests distinct. Record exact candidate, representative synthetic cases, tested
+interactions, limits, review steps and next responsible actor. Never claim a
+physical device or visual interaction was checked when it was not.
 
-Use the existing normal Next CLI and preview-port lease. Only one review server
-owns57340/private Serve at a time; verify ownership, queue other previews and
-never overwrite an issue's host. A temporary exact-candidate clone can supply
-in-memory fixtures through real components without modifying the delivery branch.
-Do not copy env files or real customer records. If pnpm's dependency verification
-tries to reinstall symlinked dependencies in such a fixture, invoke the installed
-Next CLI directly under the same existing port lease instead of purging modules.
+- Provide the exact candidate, meaningful functional test results and concrete
+  review steps. Use inspected candidate screenshots or an existing agreed review
+  method when useful; no custom private URL, shared port slot or timed hosting
+  window is required for completion or In Review.
+- Human UX review and product decisions remain required where applicable. Ask a
+  concrete question and identify the next responsible actor. Do not fabricate
+  visual/device verification or treat automated tests as human acceptance.
+- Use synthetic data and label fixture/stub limits. No real customer data,
+  credentials, external payments/email or remote database changes are implied.
+  Keep owned test cleanup and independent database isolation intact.
+- Preserve existing manual servers/routes. Do not automatically start a server,
+  add a provider/service or change networking as a replacement. Optional local
+  review until explicitly stopped is a proposal requiring a scoped owner/start/
+  stop arrangement; it is not installed by this workflow.
+- An absent or expired Tailscale preview alone is not an Awaiting Input reason.
+  Genuine product questions, missing incident evidence, denied actions and
+  applicable protected approvals retain their existing holds.
 
-Check the actual private URL against the expected candidate and interactions;
-connection/Serve configuration or HTTP200/login alone is insufficient. Record
-server lifetime honestly; do not assume a worker child survives Awaiting Input.
-A disposable DB-backed preview may be used only for a bounded validation window;
-never hold the shared test DB lock across a human wait or reuse its DB after
-consumer cleanup. If functional review needs stable test data or hosting beyond
-these mechanisms, ask for the smallest data/lifetime/hosting decision. Do not
-build a new coordinator, preview platform, service fleet, allowlist or credential
-flow. No Funnel or network/security change is implied. Missing usable review
-support pauses Awaiting Input with the exact blocker; Matthew should not have
-to pull a branch or run a server to review.
-
-2026-10-14 observation: DEV199 visual evidence was captured from actual e14493c
-components in an isolated synthetic fixture and attached to Linear. Capture
-server was then stopped and57340 released; no DB lease was acquired. Tailscale
-reports Running/Self.Online=true, but saved Serve HTTPS hostname is
-matthews-mac-mini-4.tail882d1c.ts.net while current self DNS is
-matthews-mac-mini-8.tail882d1c.ts.net. The saved hostname failed DNS resolution;
-the current hostname returned a TLS internal alert. No verified private preview
-URL is claimed, and no route/certificate/security setting was changed. Repairing
-the existing private HTTPS mapping is the smallest hosting decision before a
-functional review window; do not bypass TLS warnings or enable public exposure.
+The former Tailscale slot/deadline procedure is retired by Matthew's 2026-10-22
+direction. Existing routes and manually owned services are unchanged; their
+removal needs separate exact-action approval. Historical preview URLs are not
+promised live. No new hosting or credential mechanism replaces the retired flow.

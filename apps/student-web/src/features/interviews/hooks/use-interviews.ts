@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useInterviewRoundSync } from "@altitutor/ui/hooks/use-interview-round-sync";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
@@ -35,59 +36,33 @@ export function useInterviewRounds() {
 export function useInterviewRound(id: string, participate = false) {
   const { user, loading } = useAuthStore();
   const client = useQueryClient();
-  const [heartbeatFailed, setHeartbeatFailed] = useState(false);
+  const enabled = !loading && !!user && !!id;
   const query = useQuery({
     queryKey: ["interviews", "round", id, user?.id],
-    enabled: !loading && Boolean(user),
+    enabled,
     queryFn: () => getInterviewRound(id),
-    refetchInterval: participate ? 3_000 : 15_000,
-    refetchIntervalInBackground: participate,
-    refetchOnWindowFocus: "always",
+    refetchOnWindowFocus: false,
   });
-  useEffect(() => {
-    if (!participate || loading || !user?.id) return;
-    let mounted = true;
-    const refresh = () => {
-      void client.invalidateQueries({ queryKey: ["interviews", "round", id] });
-    };
-    const supabase = getSupabaseClient();
-    const channel = supabase
-      .channel(`interview-round:${id}`, { config: { private: true } })
-      .on("broadcast", { event: "changed" }, refresh)
-      .subscribe();
-    const heartbeat = async () => {
-      try {
-        await sendInterviewCommand({
-          type: "heartbeat",
-          roundId: id,
-          commandId: crypto.randomUUID(),
-        });
-        if (mounted) setHeartbeatFailed(false);
-        await sendInterviewCommand({
-          type: "tick",
-          roundId: id,
-          commandId: crypto.randomUUID(),
-        });
-        refresh();
-      } catch {
-        if (mounted) setHeartbeatFailed(true);
-      }
-    };
-    void heartbeat();
-    const interval = setInterval(() => {
-      void heartbeat();
-    }, 5_000);
-    const reconnect = () => {
-      void heartbeat();
-      refresh();
-    };
-    window.addEventListener("online", reconnect);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-      window.removeEventListener("online", reconnect);
-      void supabase.removeChannel(channel);
-    };
-  }, [client, id, participate, loading, user?.id]);
-  return { ...query, heartbeatFailed };
+  const sync = useInterviewRoundSync({
+    scope: enabled ? `${user.id}:${id}` : null,
+    round: query.data,
+    participate,
+    adapter: {
+      refresh: () =>
+        client.invalidateQueries({ queryKey: ["interviews", "round", id] }),
+      send: (type) =>
+        sendInterviewCommand({ type, roundId: id, commandId: randomUuid() }),
+      subscribe: (changed, connected) => {
+        const supabase = getSupabaseClient();
+        const channel = supabase
+          .channel(`interview-round:${id}`, { config: { private: true } })
+          .on("broadcast", { event: "changed" }, changed)
+          .subscribe((status) => connected(status === "SUBSCRIBED"));
+        return () => {
+          void supabase.removeChannel(channel);
+        };
+      },
+    },
+  });
+  return { ...query, ...sync };
 }

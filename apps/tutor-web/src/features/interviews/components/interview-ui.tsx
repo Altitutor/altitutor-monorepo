@@ -1,7 +1,15 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import React, { useId, type ReactNode } from "react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Input,
   RichTextEditor,
@@ -145,16 +153,22 @@ export function InterviewDocument({
   onChange?: (value: JSONContent) => void;
   placeholder?: string;
 }) {
-  return (
+  const editor = (
     <RichTextEditor
       content={value ?? emptyDocument}
       onChange={onChange}
       editable={!!onChange}
       placeholder={placeholder}
-      minHeight={onChange ? "120px" : "0"}
+      minHeight={onChange ? "96px" : "0"}
       autoHeight
       floatingToolbar={!!onChange}
     />
+  );
+  if (!onChange) return editor;
+  return (
+    <div className="overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 [&_.ProseMirror]:min-h-[4rem] [&_.ProseMirror]:px-0">
+      {editor}
+    </div>
   );
 }
 
@@ -183,5 +197,40 @@ export function InterviewError({
         </Button>
       )}
     </div>
+  );
+}
+
+export function ConfirmAction({
+  open,
+  title,
+  description,
+  confirmLabel,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

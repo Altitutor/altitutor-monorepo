@@ -1,11 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
-import type { InterviewAttempt, InterviewCommand } from "@altitutor/shared";
+import type {
+  InterviewStationAttempt,
+  InterviewCommand,
+} from "@altitutor/shared";
 import { useAttemptDraft } from "../use-attempt-draft";
 import { sendInterviewCommand } from "../../api/interviews";
 
 jest.mock("../../api/interviews", () => ({ sendInterviewCommand: jest.fn() }));
 const send = jest.mocked(sendInterviewCommand);
-const attempt: InterviewAttempt = {
+const attempt: InterviewStationAttempt = {
   id: "attempt",
   studentId: "student",
   stationId: "station",
@@ -29,6 +32,40 @@ beforeEach(() => {
   });
 });
 
+test("unavailable recovery storage does not prevent authoritative feedback saving", async () => {
+  send.mockResolvedValue({ id: "attempt", version: 2 });
+  const { result } = renderHook(() => useAttemptDraft("round", attempt));
+  act(() =>
+    result.current.update({
+      score: 4,
+      notAssessedReason: null,
+      generalFeedback: null,
+      feedback: [],
+    }),
+  );
+  const write = jest
+    .spyOn(Storage.prototype, "setItem")
+    .mockImplementation(() => {
+      throw new DOMException("Storage full", "QuotaExceededError");
+    });
+  const remove = jest
+    .spyOn(Storage.prototype, "removeItem")
+    .mockImplementation(() => {
+      throw new DOMException("Storage denied", "SecurityError");
+    });
+  try {
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ score: 4 }));
+    expect(result.current.state).toBe("saved");
+    expect(result.current.recoveryUnavailable).toBe(true);
+  } finally {
+    write.mockRestore();
+    remove.mockRestore();
+  }
+});
+
 test("retry after a lost response uses the same command identity and retains the feedback", async () => {
   send
     .mockRejectedValueOnce(new Error("Connection lost"))
@@ -38,6 +75,7 @@ test("retry after a lost response uses the same command identity and retains the
     result.current.update({
       score: 4.5,
       notAssessedReason: null,
+      generalFeedback: null,
       feedback: [{ placementId: "question", value: "Clear reasoning" }],
     }),
   );
@@ -73,6 +111,7 @@ test("a save acknowledgement never replaces feedback typed while the request was
     result.current.update({
       score: 3,
       notAssessedReason: null,
+      generalFeedback: null,
       feedback: [{ placementId: "question", value: "First note" }],
     }),
   );
@@ -84,6 +123,7 @@ test("a save acknowledgement never replaces feedback typed while the request was
     result.current.update({
       score: 4,
       notAssessedReason: null,
+      generalFeedback: null,
       feedback: [{ placementId: "question", value: "More detailed note" }],
     }),
   );
@@ -111,6 +151,7 @@ test("a newer server revision leaves the local draft intact until the tutor reso
     result.current.update({
       score: 4.5,
       notAssessedReason: null,
+      generalFeedback: null,
       feedback: [{ placementId: "question", value: "Local note" }],
     }),
   );
@@ -137,7 +178,12 @@ test("a rejected invalid score can be corrected without retrying the rejected pa
     .mockResolvedValueOnce({ id: "attempt", version: 2 });
   const { result } = renderHook(() => useAttemptDraft("round", attempt));
   act(() =>
-    result.current.update({ score: 8, notAssessedReason: null, feedback: [] }),
+    result.current.update({
+      score: 8,
+      notAssessedReason: null,
+      generalFeedback: null,
+      feedback: [],
+    }),
   );
   await act(async () => {
     await expect(result.current.flush()).rejects.toThrow(
@@ -145,7 +191,12 @@ test("a rejected invalid score can be corrected without retrying the rejected pa
     );
   });
   act(() =>
-    result.current.update({ score: 5, notAssessedReason: null, feedback: [] }),
+    result.current.update({
+      score: 5,
+      notAssessedReason: null,
+      generalFeedback: null,
+      feedback: [],
+    }),
   );
   await act(async () => {
     await result.current.flush();
@@ -162,6 +213,7 @@ test("restoring a draft against a newer saved revision requires an explicit conf
       draft: {
         score: 4,
         notAssessedReason: null,
+        generalFeedback: null,
         feedback: [{ placementId: "question", value: "Recovered note" }],
       },
     }),
@@ -173,4 +225,163 @@ test("restoring a draft against a newer saved revision requires an explicit conf
   expect(result.current.newerRevision).toBe(true);
   expect(result.current.state).toBe("failed");
   expect(send).not.toHaveBeenCalled();
+});
+
+test("general feedback survives an in-flight save and remains separate from question feedback", async () => {
+  let finishFirst!: (value: { id: string; version: number }) => void;
+  send
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    )
+    .mockResolvedValueOnce({ id: "attempt", version: 3 });
+  const { result } = renderHook(() => useAttemptDraft("round", attempt));
+  expect(result.current.draft.generalFeedback).toBeNull();
+  act(() =>
+    result.current.update({
+      ...result.current.draft,
+      generalFeedback: "Strong empathy overall",
+    }),
+  );
+  let saving!: Promise<void>;
+  act(() => {
+    saving = result.current.flush();
+  });
+  act(() =>
+    result.current.update({
+      ...result.current.draft,
+      generalFeedback: "Strong empathy; structure your summary",
+      feedback: [
+        { placementId: "question", value: "Explain the alternatives" },
+      ],
+    }),
+  );
+  await act(async () => {
+    finishFirst({ id: "attempt", version: 2 });
+    await saving;
+  });
+  expect(send).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      expectedAttemptVersion: 2,
+      generalFeedback: "Strong empathy; structure your summary",
+      feedback: [
+        { placementId: "question", value: "Explain the alternatives" },
+      ],
+    }),
+  );
+  expect(result.current.state).toBe("saved");
+});
+
+test("recovery retains an explicit general-feedback clear rather than restoring the saved note", async () => {
+  sessionStorage.setItem(
+    "interview-draft:round:attempt",
+    JSON.stringify({
+      version: 1,
+      draft: {
+        score: null,
+        notAssessedReason: null,
+        generalFeedback: null,
+        feedback: [],
+      },
+    }),
+  );
+  send.mockResolvedValue({ id: "attempt", version: 2 });
+  const { result } = renderHook(() =>
+    useAttemptDraft("round", {
+      ...attempt,
+      generalFeedback: "Saved overall note",
+    }),
+  );
+  expect(result.current.draft.generalFeedback).toBeNull();
+  await act(async () => {
+    await result.current.flush();
+  });
+  expect(send).toHaveBeenCalledWith(
+    expect.objectContaining({ generalFeedback: null }),
+  );
+});
+
+test("clearing general feedback during a legacy pending-command replay sends a separate clear", async () => {
+  const legacy = {
+    type: "saveAttempt",
+    commandId: "legacy-command",
+    roundId: "round",
+    attemptId: "attempt",
+    expectedAttemptVersion: 1,
+    score: 3,
+    notAssessedReason: null,
+    feedback: [],
+  };
+  sessionStorage.setItem(
+    "interview-draft:round:attempt",
+    JSON.stringify({
+      version: 1,
+      draft: { score: 3, notAssessedReason: null, feedback: [] },
+      pendingCommand: legacy,
+    }),
+  );
+  let acknowledge!: (value: { id: string; version: number }) => void;
+  send
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        }),
+    )
+    .mockResolvedValueOnce({ id: "attempt", version: 3 });
+  const { result } = renderHook(() =>
+    useAttemptDraft("round", {
+      ...attempt,
+      generalFeedback: "Saved station note",
+    }),
+  );
+  expect(result.current.draft.generalFeedback).toBe("Saved station note");
+  let saving!: Promise<void>;
+  act(() => {
+    saving = result.current.flush();
+  });
+  act(() =>
+    result.current.update({ ...result.current.draft, generalFeedback: null }),
+  );
+  await act(async () => {
+    acknowledge({ id: "attempt", version: 2 });
+    await saving;
+  });
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      expectedAttemptVersion: 2,
+      generalFeedback: null,
+    }),
+  );
+  expect(result.current.state).toBe("saved");
+});
+
+test("denied recovery reads still allow editing and server saving", async () => {
+  send.mockResolvedValue({ id: "attempt", version: 2 });
+  const read = jest
+    .spyOn(Storage.prototype, "getItem")
+    .mockImplementation(() => {
+      throw new DOMException("Denied", "SecurityError");
+    });
+  try {
+    const { result } = renderHook(() => useAttemptDraft("round", attempt));
+    act(() =>
+      result.current.update({
+        score: 2,
+        notAssessedReason: null,
+        generalFeedback: null,
+        feedback: [],
+      }),
+    );
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect(result.current.state).toBe("saved");
+    expect(result.current.recoveryUnavailable).toBe(true);
+  } finally {
+    read.mockRestore();
+  }
 });

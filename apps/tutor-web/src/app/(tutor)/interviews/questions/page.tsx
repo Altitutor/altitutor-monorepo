@@ -1,4 +1,2 @@
-import { InterviewQuestionBank } from "@/features/interviews/components/InterviewQuestionBank";
-export default function Page() {
-  return <InterviewQuestionBank />;
-}
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/interviews/stations"); }

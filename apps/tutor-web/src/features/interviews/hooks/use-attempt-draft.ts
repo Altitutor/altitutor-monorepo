@@ -2,27 +2,34 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
-  InterviewAttempt,
+  InterviewStationAttempt,
   InterviewFeedback,
   InterviewCommand,
+  InterviewRichText,
 } from "@altitutor/shared";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { sendInterviewCommand } from "../api/interviews";
 
 export interface AttemptDraft {
   score: number | null;
   notAssessedReason: string | null;
+  generalFeedback: InterviewRichText;
   feedback: InterviewFeedback[];
 }
-export function attemptDraft(attempt: InterviewAttempt): AttemptDraft {
+export function attemptDraft(attempt: InterviewStationAttempt): AttemptDraft {
   return {
     score: attempt.score,
     notAssessedReason: attempt.notAssessedReason,
+    generalFeedback: attempt.generalFeedback ?? null,
     feedback: attempt.feedback,
   };
 }
 
 /** Serial saves retain edits made while an earlier revision is in flight. A rejected write never discards the draft. */
-export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
+export function useAttemptDraft(
+  roundId: string,
+  attempt: InterviewStationAttempt,
+) {
   const [draft, setDraft] = useState<AttemptDraft>(() => attemptDraft(attempt));
   const current = useRef(draft);
   const saved = useRef(JSON.stringify(draft));
@@ -36,15 +43,48 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
     "saved",
   );
   const [error, setError] = useState<Error | null>(null);
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
   const storageKey = `interview-draft:${roundId}:${attempt.id}`;
+  const writeRecovery = useCallback(
+    (value: string) => {
+      try {
+        sessionStorage.setItem(storageKey, value);
+      } catch {
+        setRecoveryUnavailable(true);
+      }
+    },
+    [storageKey],
+  );
+  const removeRecovery = useCallback(() => {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      setRecoveryUnavailable(true);
+    }
+  }, [storageKey]);
   useEffect(() => {
-    const stored = sessionStorage.getItem(storageKey);
+    let stored: string | null;
+    try {
+      stored = sessionStorage.getItem(storageKey);
+    } catch {
+      setRecoveryUnavailable(true);
+      return;
+    }
     if (!stored) return;
     try {
       const recovery = JSON.parse(stored) as {
         draft: AttemptDraft;
         version: number;
         pendingCommand?: Extract<InterviewCommand, { type: "saveAttempt" }>;
+      };
+      recovery.draft = {
+        score: recovery.draft.score,
+        notAssessedReason: recovery.draft.notAssessedReason,
+        generalFeedback:
+          recovery.draft.generalFeedback === undefined
+            ? (attempt.generalFeedback ?? null)
+            : recovery.draft.generalFeedback,
+        feedback: recovery.draft.feedback,
       };
       pendingCommand.current = recovery.pendingCommand ?? null;
       version.current = recovery.version;
@@ -63,11 +103,11 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
         );
       }
     } catch {
-      sessionStorage.removeItem(storageKey);
+      removeRecovery();
     }
     // Keyed editor mounts once per attempt. Later server updates are reconciled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  }, [storageKey, removeRecovery]);
   useEffect(() => {
     if (
       !flight.current &&
@@ -87,8 +127,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
       setDraft(next);
       setState("unsaved");
       setError(null);
-      sessionStorage.setItem(
-        storageKey,
+      writeRecovery(
         JSON.stringify({
           draft: next,
           version: version.current,
@@ -96,7 +135,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
         }),
       );
     },
-    [storageKey],
+    [writeRecovery],
   );
   const flush = useCallback(async (): Promise<void> => {
     if (flight.current) {
@@ -110,15 +149,14 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
       ) {
         const command = pendingCommand.current ?? {
           type: "saveAttempt" as const,
-          commandId: crypto.randomUUID(),
+          commandId: randomUuid(),
           roundId,
           attemptId: attempt.id,
           expectedAttemptVersion: version.current,
           ...current.current,
         };
         pendingCommand.current = command;
-        sessionStorage.setItem(
-          storageKey,
+        writeRecovery(
           JSON.stringify({
             draft: current.current,
             version: version.current,
@@ -130,13 +168,17 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
         const snapshot: AttemptDraft = {
           score: command.score,
           notAssessedReason: command.notAssessedReason,
+          generalFeedback:
+            command.generalFeedback === undefined
+              ? (JSON.parse(saved.current) as AttemptDraft).generalFeedback
+              : command.generalFeedback,
           feedback: command.feedback,
         };
         pendingCommand.current = null;
         version.current = result.version;
         saved.current = JSON.stringify(snapshot);
       }
-      sessionStorage.removeItem(storageKey);
+      removeRecovery();
       setState("saved");
       setError(null);
     };
@@ -150,8 +192,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
           reason.status < 500
         ) {
           pendingCommand.current = null;
-          sessionStorage.setItem(
-            storageKey,
+          writeRecovery(
             JSON.stringify({
               draft: current.current,
               version: version.current,
@@ -171,7 +212,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
       });
     flight.current = pending;
     await pending;
-  }, [attempt.id, roundId, storageKey]);
+  }, [attempt.id, roundId, writeRecovery, removeRecovery]);
   useEffect(() => {
     if (state !== "unsaved") return;
     const timer = setTimeout(() => {
@@ -192,7 +233,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
     setDraft(next);
     setState("saved");
     setError(null);
-    sessionStorage.removeItem(storageKey);
+    removeRecovery();
   };
   const keepDraft = () => {
     if (flight.current) return;
@@ -208,6 +249,7 @@ export function useAttemptDraft(roundId: string, attempt: InterviewAttempt) {
     state,
     error,
     newerRevision,
+    recoveryUnavailable,
     loadSaved,
     keepDraft,
   };

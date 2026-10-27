@@ -33,6 +33,31 @@ is never recorded. In-person recording uses independent 30-second audio segments
 
 ## Recovery and validation
 
+Live tutor/student participation shares one scheduler. Healthy realtime uses a
+30-second fallback read; disconnected subscriptions use a 10-second fallback.
+Focus and reconnection refresh immediately. Active participants send a heartbeat
+every 10 seconds; the database accepts one presence update per five seconds and
+uses a 35-second freshness window. New/reconnected presence sends one scoped
+invalidation so waiting-room status updates promptly; ordinary beats do not
+broadcast. Presence writes do not lock the assessment
+round or create idempotency receipts. Completed/result pages do not heartbeat,
+and their fallback reads run at most once per minute while visible.
+
+Phase ticks occur at server deadlines, with bounded retries, rather than every
+few seconds. Media capability monitoring uses a 10-second fallback (30 seconds
+when disabled), while online ticket errors retry after three seconds. Phase
+changes, pause/end controls and independent capability expiry timers continue
+to enforce access without waiting for that monitor. Ticket provisioning reuses
+its initial round read and rechecks current authorization before issuing a token.
+
+Recording object bytes are not stored in PostgreSQL: in-person audio uses the
+private Storage bucket and online recordings use Daily. Database disk I/O still
+includes metadata, indexes, WAL and temporary query files. A Supabase Disk I/O
+budget warning concerns burst performance above compute baseline, rather than
+recording storage capacity. Diagnose its timestamp using disk-balance metrics,
+request rates and query statistics; cumulative counters alone cannot attribute
+a particular warning. See [Supabase compute and disk](https://supabase.com/docs/guides/platform/compute-and-disk).
+
 Round updates enqueue durable jobs. Claims carry a lease token so a stale worker
 cannot acknowledge a newer lease. Failed room deletion leaves the job retryable.
 Optimistic command conflicts use `PT409` (HTTP 409); do not raise custom `40001`

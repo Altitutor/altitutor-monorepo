@@ -2,7 +2,8 @@
 
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import { useToast } from "@altitutor/ui";
-import { useEffect } from "react";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
+import { useInterviewRoundSync } from "@altitutor/ui/hooks/use-interview-round-sync";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import {
@@ -40,55 +41,57 @@ export function useInterviewCommand() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: sendInterviewCommand,
-    onSuccess: async (result) => {
+    onSuccess: async (result, command) => {
       if (result.mediaWarning)
         toast({
           title: "Interview updated · media needs attention",
           description: result.mediaWarning,
           variant: "destructive",
         });
-      await client.invalidateQueries({ queryKey: ["interviews"] });
+      if ("roundId" in command) {
+        await Promise.all([
+          client.invalidateQueries({
+            queryKey: interviewKeys.round(command.roundId),
+          }),
+          ...(command.type === "saveAttempt"
+            ? []
+            : [client.invalidateQueries({ queryKey: interviewKeys.rounds })]),
+        ]);
+      } else
+        await client.invalidateQueries({ queryKey: interviewKeys.catalog });
     },
   });
 }
-export function useInterviewRound(id: string) {
+export function useInterviewRound(id: string, participate = false) {
   const { user, loading } = useAuthStore();
   const client = useQueryClient();
+  const enabled = !loading && !!user && !!id;
   const query = useQuery({
     queryKey: [...interviewKeys.round(id), user?.id],
-    enabled: !loading && !!user && !!id,
+    enabled,
     queryFn: () => getInterviewRound(id),
-    refetchInterval: 3_000,
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: "always",
+    refetchOnWindowFocus: false,
   });
-  useEffect(() => {
-    if (!user || loading || !id) return;
-    const channel = getSupabaseClient()
-      .channel(`interview-round:${id}`, { config: { private: true } })
-      .on("broadcast", { event: "changed" }, () => {
-        void client.invalidateQueries({ queryKey: interviewKeys.round(id) });
-      })
-      .subscribe();
-    const heartbeat = () => {
-      void sendInterviewCommand({
-        type: "heartbeat",
-        roundId: id,
-        commandId: crypto.randomUUID(),
-      }).catch(() => undefined);
-    };
-    heartbeat();
-    const interval = setInterval(heartbeat, 10_000);
-    const reconnect = () => {
-      heartbeat();
-      void client.invalidateQueries({ queryKey: interviewKeys.round(id) });
-    };
-    window.addEventListener("online", reconnect);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("online", reconnect);
-      void getSupabaseClient().removeChannel(channel);
-    };
-  }, [client, id, user, loading]);
-  return query;
+  const sync = useInterviewRoundSync({
+    scope: enabled ? `${user.id}:${id}` : null,
+    round: query.data,
+    participate,
+    adapter: {
+      refresh: () =>
+        client.invalidateQueries({ queryKey: interviewKeys.round(id) }),
+      send: (type) =>
+        sendInterviewCommand({ type, roundId: id, commandId: randomUuid() }),
+      subscribe: (changed, connected) => {
+        const supabase = getSupabaseClient();
+        const channel = supabase
+          .channel(`interview-round:${id}`, { config: { private: true } })
+          .on("broadcast", { event: "changed" }, changed)
+          .subscribe((status) => connected(status === "SUBSCRIBED"));
+        return () => {
+          void supabase.removeChannel(channel);
+        };
+      },
+    },
+  });
+  return { ...query, ...sync };
 }
