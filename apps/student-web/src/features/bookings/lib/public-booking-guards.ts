@@ -8,6 +8,13 @@ export const PUBLIC_BOOKING_SESSION_TYPES = ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW
 
 export type PublicBookingSessionType = (typeof PUBLIC_BOOKING_SESSION_TYPES)[number];
 
+export interface PublicBookingStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+}
+
 export interface PublicBookingSessionRecord {
   id: string;
   start_at: string;
@@ -15,6 +22,8 @@ export interface PublicBookingSessionRecord {
   type: PublicBookingSessionType;
   status: string;
   subject_id: string | null;
+  students: PublicBookingStudent[];
+  // Preserve the original active enrollment as the booking contact for existing callers.
   student_id: string;
   student_first_name: string;
   student_last_name: string;
@@ -83,28 +92,40 @@ export async function loadPublicBookingSession(
     return null;
   }
 
-  const { data: enrollment, error: enrollmentError } = await supabase
+  const { data: enrollments, error: enrollmentError } = await supabase
     .from('sessions_students')
     .select('student_id')
     .eq('session_id', session.id)
     .eq('planned_absence', false)
-    .maybeSingle();
+    .order('created_at')
+    .order('id');
 
-  if (enrollmentError || !enrollment) {
+  if (enrollmentError || !enrollments?.length) {
     return null;
   }
 
-  const { data: student, error: studentError } = await supabase
+  const { data: studentRows, error: studentError } = await supabase
     .from('students')
     .select('id, first_name, last_name, email')
-    .eq('id', enrollment.student_id)
-    .single();
+    .in('id', enrollments.map((enrollment) => enrollment.student_id));
 
-  if (studentError || !student) {
+  if (studentError || !studentRows) {
+    return null;
+  }
+
+  // Database result order is unspecified; retain enrollment order for the contact.
+  const studentsById = new Map(studentRows.map((student) => [student.id, student]));
+  const students = enrollments.flatMap((enrollment) => {
+    const student = studentsById.get(enrollment.student_id);
+    return student ? [student] : [];
+  });
+  const student = students[0];
+  if (!student || students.length !== enrollments.length) {
     return null;
   }
 
   return {
+    students,
     id: session.id,
     start_at: session.start_at,
     end_at: session.end_at,
