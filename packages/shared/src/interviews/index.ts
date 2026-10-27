@@ -122,6 +122,9 @@ export interface InterviewFeedback {
   placementId: string;
   value: InterviewRichText;
 }
+/** Stored when a tutor turns on Not scored. A score and this reason never apply together. */
+export const INTERVIEW_NOT_SCORED = "Not scored";
+
 export interface InterviewStationAttempt {
   id: string;
   studentId: string;
@@ -154,6 +157,21 @@ export interface InterviewReleasedResult {
   attempts: InterviewStationAttempt[];
   recordings: InterviewRecording[];
 }
+export interface InterviewPhaseDuration {
+  rotation: number;
+  phase: InterviewPhase;
+  milliseconds: number;
+}
+export interface InterviewSharedAction {
+  type:
+    | "start"
+    | "pause"
+    | "resume"
+    | "startReading"
+    | "skipReading"
+    | "next";
+  actorId: string;
+}
 export interface InterviewRound extends InterviewRoundSetup {
   id: string;
   version: number;
@@ -166,7 +184,10 @@ export interface InterviewRound extends InterviewRoundSetup {
   phaseStartedAt: string;
   phaseDeadline: string | null;
   pausedAt: string | null;
+  pausedBy?: string | null;
   remainingMilliseconds: number | null;
+  phaseHistory?: InterviewPhaseDuration[];
+  sharedAction?: InterviewSharedAction | null;
   readingTimeSeconds: number;
   questionTimeSeconds: number;
   stations: InterviewSnapshotStation[];
@@ -177,6 +198,7 @@ export interface InterviewRound extends InterviewRoundSetup {
   releasedResults: InterviewReleasedResult[];
   recordings: InterviewRecording[];
   connectedStudentIds: string[];
+  connectedTutorIds?: string[];
   serverNow: string;
 }
 export interface StudentInterviewStation {
@@ -243,7 +265,9 @@ export type InterviewCommand =
       setup: InterviewRoundSetup;
     })
   | (RoundCommand & { type: "updateRound"; setup: InterviewRoundSetup })
-  | (RoundCommand & { type: "start" | "pause" | "resume" | "next" | "release" })
+  | (RoundCommand & {
+      type: "start" | "pause" | "resume" | "next" | "release" | "skipReading";
+    })
   | (RoundCommand & { type: "startReading"; overrideMissingStudents?: boolean })
   | (RoundCommand & { type: "ready"; ready: boolean })
   | (RoundCommand & { type: "endStation" | "finishFeedback" })
@@ -280,3 +304,14 @@ export function interviewText(value: InterviewRichText): string {
 }
 
 export { isInterviewCommand } from "./validation";
+
+/** Calendar estimate: each station is a rotation; manual feedback can extend it. */
+export function interviewRoundDurationMinutes(
+  readingSeconds: number,
+  questionSeconds: number,
+  stationCount = 1,
+): number {
+  const rotations = Number.isFinite(stationCount) ? Math.max(1, stationCount) : 1;
+  const minutes = ((readingSeconds + questionSeconds) * rotations) / 60;
+  return Math.max(30, Number.isFinite(minutes) ? minutes : 30);
+}

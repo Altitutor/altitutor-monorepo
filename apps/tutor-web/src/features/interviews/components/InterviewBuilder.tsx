@@ -17,6 +17,7 @@ import {
   ResponsiveResizablePanels,
   type JSONContent,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
   resolveInterviewStations,
   type InterviewCatalog,
@@ -109,7 +110,7 @@ export function BuilderEditor({
       throw new Error("Load the latest saved interview before saving.");
     const result = await command.mutateAsync({
       type: "saveInterview",
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       expectedVersion: recovery.version,
       interview,
     });
@@ -134,7 +135,7 @@ export function BuilderEditor({
       ...current,
       stations: [
         ...current.stations,
-        { id: crypto.randomUUID(), stationId },
+        { id: randomUuid(), stationId },
       ],
     });
   };
@@ -473,7 +474,7 @@ export function BuilderEditor({
                 ...current,
                 stations: [
                   ...current.stations,
-                  { id: crypto.randomUUID(), stationId: saved.id },
+                  { id: randomUuid(), stationId: saved.id },
                 ],
               };
               change(next);

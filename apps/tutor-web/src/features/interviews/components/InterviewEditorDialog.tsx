@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import type { InterviewCatalog, InterviewTemplate } from "@altitutor/shared";
 import { Printer } from "lucide-react";
 import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
@@ -13,7 +14,7 @@ import { InterviewPrintDialog } from "./InterviewPrintDialog";
 
 export function createBlankInterview(): InterviewTemplate {
   return {
-    id: crypto.randomUUID(),
+    id: randomUuid(),
     version: 0,
     name: "Untitled interview",
     readingTimeSeconds: 120,

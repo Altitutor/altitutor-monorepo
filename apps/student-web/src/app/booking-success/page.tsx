@@ -31,6 +31,7 @@ interface BookingData {
   status?: string;
   start_at: string;
   end_at: string;
+  students?: { first_name: string; last_name: string }[];
   student_first_name: string;
   student_last_name: string;
   student_email: string;
@@ -114,6 +115,11 @@ export default function BookingSuccessPage() {
     date.setHours(0, 0, 0, 0);
     return date;
   }, [bookingData]);
+
+  const students = bookingData?.students ?? (bookingData ? [{
+    first_name: bookingData.student_first_name,
+    last_name: bookingData.student_last_name,
+  }] : []);
 
   const isCancelled = bookingData?.status === 'INACTIVE';
   const canManage =
@@ -251,6 +257,12 @@ export default function BookingSuccessPage() {
         </div>
       )}
 
+      {students.length > 1 && canManage && (
+        <p className="mb-6 text-center text-sm text-muted-foreground">
+          Changes and cancellations apply to everyone in this booking.
+        </p>
+      )}
+
       {thresholdBlocksManage && (
         <p className="mb-6 text-center text-sm text-muted-foreground">
           Changes and cancellations must be made at least{' '}
@@ -269,9 +281,9 @@ export default function BookingSuccessPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div className="text-sm font-medium text-muted-foreground">Student:</div>
+                  <div className="text-sm font-medium text-muted-foreground">{students.length > 1 ? 'Students:' : 'Student:'}</div>
                   <div className="text-sm">
-                    {bookingData.student_first_name} {bookingData.student_last_name}
+                    {students.map((student) => [student.first_name, student.last_name].filter(Boolean).join(' ')).join(', ')}
                   </div>
 
                   {!bookingData.is_terminal && (

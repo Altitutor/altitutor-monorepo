@@ -89,14 +89,16 @@ class OwnedDatabaseTests(unittest.TestCase):
         shutil.copy2(SCRIPT.with_name('checkall.sh'), self.repo / 'scripts/checkall.sh')
         (self.repo / 'supabase/scripts').mkdir()
         shutil.copy2(SCRIPT.parents[1] / 'supabase/scripts/apply-ucat-test-seed.sh', self.repo / 'supabase/scripts/apply-ucat-test-seed.sh')
-        # Simulate the interview HTTP consumer while retaining its real lease check.
-        for filename, event in [
-            ('test-interview-station-upgrade.py', 'interview-station-upgrade'),
-            ('test-interview-concurrency.py', 'interview-concurrency'),
+        # Simulate HTTP consumers while retaining their real lease checks.
+        for relative_path, event, root_parent in [
+            ('supabase/scripts/test-student-registration.py', 'student-registration', 2),
+            ('scripts/test-imessage-inbound.py', 'imessage-inbound', 1),
+            ('supabase/scripts/test-interview-station-upgrade.py', 'interview-station-upgrade', 2),
+            ('supabase/scripts/test-interview-concurrency.py', 'interview-concurrency', 2),
         ]:
-            (self.repo / 'supabase/scripts' / filename).write_text(
+            (self.repo / relative_path).write_text(
                 'import json, os, subprocess, sys\nfrom pathlib import Path\n'
-                'root = Path(__file__).resolve().parents[2]\n'
+                f'root = Path(__file__).resolve().parents[{root_parent}]\n'
                 'subprocess.run([sys.executable, str(root / "scripts/owned_database.py"), "verify-inner"], '
                 'check=True, pass_fds=(int(os.environ["ALTITUTOR_DB_LOCK_FD"]),))\n'
                 'with open(os.environ["FIXTURE_LOG"], "a") as output:\n'
@@ -188,10 +190,14 @@ class OwnedDatabaseTests(unittest.TestCase):
         actions=[(name,args[2:] if name=='supabase' else args) for name,args in self.calls()]
         self.assertIn(('supabase',['db','reset','--local']),actions)
         self.assertIn(('supabase',['test','db']),actions)
+        self.assertIn(('student-registration',[]),actions)
         self.assertIn(('pnpm',['--filter','ucat-web','test:e2e:critical']),actions)
+        self.assertIn(('imessage-inbound',[]),actions)
         self.assertIn(('interview-concurrency',[]),actions)
         self.assertIn(('interview-station-upgrade',[]),actions)
-        self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-station-upgrade',[])))
+        self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('student-registration',[])))
+        self.assertLess(actions.index(('student-registration',[])),actions.index(('imessage-inbound',[])))
+        self.assertLess(actions.index(('imessage-inbound',[])),actions.index(('interview-station-upgrade',[])))
         self.assertLess(actions.index(('interview-station-upgrade',[])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('interview-concurrency',[])),actions.index(('pnpm',['--filter','ucat-web','test:e2e:critical'])))

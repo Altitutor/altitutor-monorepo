@@ -35,9 +35,11 @@ export function setDetailToUpdatePayload(
     authoringNote: overrides?.authoringNote ?? detail.authoring_note ?? null,
     description: overrides?.description ?? proseMirrorToPlainText(detail.description ?? null) ?? '',
     timingMode: overrides?.timingMode ?? detail.timing_mode ?? 'pace',
-    paceMultiplier: overrides?.paceMultiplier ?? detail.pace_multiplier ?? null,
+    paceMultiplier: overrides?.paceMultiplier !== undefined
+      ? overrides.paceMultiplier : detail.pace_multiplier ?? null,
     fixedTimeLimitSeconds:
-      overrides?.fixedTimeLimitSeconds ?? detail.fixed_time_limit_seconds ?? null,
+      overrides?.fixedTimeLimitSeconds !== undefined
+        ? overrides.fixedTimeLimitSeconds : detail.fixed_time_limit_seconds ?? null,
     setFormat: overrides?.setFormat ?? detail.set_format ?? 'partial_section',
     accessScope: overrides?.accessScope ?? detail.access_scope ?? 'public',
     sectionId,

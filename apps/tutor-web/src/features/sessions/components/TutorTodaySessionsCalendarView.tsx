@@ -1,7 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useTutorSessionDetailsBatch } from '../hooks/useSessionsQuery';
+import { useInterviewRounds } from '@/features/interviews/hooks/use-interviews';
+import { toScheduledRound, type ScheduledInterviewRound } from '@/features/interviews/lib/round-calendar';
+import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from '@/features/interviews/components/InterviewRoundInfoDialog';
+import { clusterTimed } from '../utils/clusterTimed';
 import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { useElementSize } from '@/shared/hooks/useElementSize';
@@ -20,9 +25,15 @@ type Props = {
 
 export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOpenSession }: Props) {
   const [dayColumnRef, dayColumnSize] = useElementSize<HTMLDivElement>();
+  const [selectedRound, setSelectedRound] = useState<ScheduledInterviewRound | null>(null);
   const selectedDate = parseISO(date);
   const today = new Date();
   const isViewingToday = isSameDay(selectedDate, today);
+  const roundsQuery = useInterviewRounds();
+  const dayRounds = (roundsQuery.data ?? []).flatMap((round) => {
+    const scheduled = toScheduledRound(round, '');
+    return scheduled && isSameDay(new Date(scheduled.scheduledAt), selectedDate) ? [scheduled] : [];
+  });
 
   const todaySessions = sessions.filter(
     (session): session is TutorSessionRow & { session_id: string; start_at: string } =>
@@ -35,7 +46,7 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
   const slotHeight = 75;
 
   const calculateTimeRange = () => {
-    if (todaySessions.length === 0) {
+    if (todaySessions.length === 0 && dayRounds.length === 0) {
       return { startHour: 9, slots: Array.from({ length: 12 }, (_, index) => 9 + index) };
     }
 
@@ -50,6 +61,10 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
         latestEnd = Math.max(latestEnd, adelaideTimeToMinutes(session.end_at));
       }
     });
+    dayRounds.forEach((round) => {
+      earliestStart = Math.min(earliestStart, adelaideTimeToMinutes(round.scheduledAt));
+      latestEnd = Math.max(latestEnd, adelaideTimeToMinutes(round.endAt));
+    });
 
     const startHour = Math.max(0, Math.floor(earliestStart / 60));
     const endAtHourBoundary = latestEnd % 60 === 0 ? latestEnd / 60 : Math.ceil(latestEnd / 60);
@@ -61,18 +76,17 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
   };
 
   const { startHour, slots } = calculateTimeRange();
-  const minutesFromStart = (isoString: string) => adelaideTimeToMinutes(isoString) - startHour * 60;
   const currentMinutesFromStart = today.getHours() * 60 + today.getMinutes() - startHour * 60;
   const totalMinutesInRange = slots.length * 60;
   const showTodayIndicator =
     isViewingToday && currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
   const dayColumnWidth = dayColumnSize.width;
 
-  if (isLoading) {
+  if (isLoading || (todaySessions.length === 0 && roundsQuery.isPending)) {
     return <p className="px-4 py-8 text-center text-sm text-muted-foreground">Loading today’s sessions…</p>;
   }
 
-  if (todaySessions.length === 0) {
+  if (todaySessions.length === 0 && dayRounds.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
         <p className="text-sm text-muted-foreground">No sessions scheduled for today.</p>
@@ -116,54 +130,60 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
                     </div>
                   )}
                   {(() => {
-                    const daySessions = [...todaySessions].sort(
-                      (a, b) => new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime()
-                    );
-                    const groups: typeof daySessions[] = [];
-                    const processed = new Set<string>();
-
-                    daySessions.forEach((session) => {
-                      if (processed.has(session.session_id)) return;
-                      const group = [session];
-                      processed.add(session.session_id);
-
-                      let foundNewOverlap = true;
-                      while (foundNewOverlap) {
-                        foundNewOverlap = false;
-                        daySessions.forEach((other) => {
-                          if (processed.has(other.session_id) || !other.start_at || !other.end_at) return;
-                          const otherStart = adelaideTimeToMinutes(other.start_at);
-                          const otherEnd = adelaideTimeToMinutes(other.end_at);
-                          const overlapsWithGroup = group.some((groupSession) => {
-                            if (!groupSession.start_at || !groupSession.end_at) return false;
-                            const groupStart = adelaideTimeToMinutes(groupSession.start_at);
-                            const groupEnd = adelaideTimeToMinutes(groupSession.end_at);
-                            return groupStart < otherEnd && groupEnd > otherStart;
-                          });
-                          if (overlapsWithGroup) {
-                            group.push(other);
-                            processed.add(other.session_id);
-                            foundNewOverlap = true;
-                          }
-                        });
-                      }
-                      groups.push(group);
-                    });
-
+                    const entries = [
+                      ...todaySessions.flatMap((session) =>
+                        session.start_at && session.end_at
+                          ? [{
+                              id: session.session_id,
+                              start: adelaideTimeToMinutes(session.start_at),
+                              end: adelaideTimeToMinutes(session.end_at),
+                              value: { kind: 'session' as const, session },
+                            }]
+                          : [],
+                      ),
+                      ...dayRounds.map((round) => ({
+                        id: `round:${round.id}`,
+                        start: adelaideTimeToMinutes(round.scheduledAt),
+                        end: adelaideTimeToMinutes(round.endAt),
+                        value: { kind: 'round' as const, round },
+                      })),
+                    ];
+                    const groups = clusterTimed<(typeof entries)[number]["value"]>(entries);
                     const blocks: JSX.Element[] = [];
                     groups.forEach((group) => {
                       const total = group.length;
                       const columnWidth = total > 1 ? 95 / total : 95;
-                      group.forEach((session, sessionIndex) => {
-                        if (!session.start_at || !session.end_at) return;
-                        const startMinutes = adelaideTimeToMinutes(session.start_at);
-                        const endMinutes = adelaideTimeToMinutes(session.end_at);
-                        const top = Math.max(0, (minutesFromStart(session.start_at) / 60) * slotHeight);
-                        const height = Math.max(30, ((endMinutes - startMinutes) / 60) * slotHeight);
-                        const left = sessionIndex * columnWidth + 2.5;
+                      group.forEach((entry, entryIndex) => {
+                        const top = Math.max(0, ((entry.start - startHour * 60) / 60) * slotHeight);
+                        const height = Math.max(30, ((entry.end - entry.start) / 60) * slotHeight);
+                        const left = entryIndex * columnWidth + 2.5;
                         const cardHeight = Math.max(height, 45);
                         const cardWidth =
                           dayColumnWidth > 0 ? (dayColumnWidth * columnWidth) / 100 : columnWidth;
+                        if (entry.value.kind === 'round') {
+                          blocks.push(
+                            <div
+                              key={entry.id}
+                              className="absolute"
+                              style={{
+                                top: `${top}px`,
+                                height: `${cardHeight}px`,
+                                left: `${left}%`,
+                                width: `${columnWidth}%`,
+                                zIndex: 10,
+                                minHeight: '45px',
+                              }}
+                            >
+                              <InterviewRoundCalendarCard
+                                name={entry.value.round.name}
+                                start={entry.value.round.scheduledAt}
+                                onClick={() => setSelectedRound(entry.value.kind === 'round' ? entry.value.round : null)}
+                              />
+                            </div>
+                          );
+                          return;
+                        }
+                        const session = entry.value.session;
                         const details = detailsMap?.[session.session_id];
                         const students: SessionStudent[] = details?.students ?? [];
                         const hasAttendingStudents =
@@ -230,6 +250,11 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
           </div>
         ))}
       </div>
+      <InterviewRoundInfoDialog
+        round={selectedRound}
+        onClose={() => setSelectedRound(null)}
+        waitingLabel="Open waiting room"
+      />
     </div>
   );
 }

@@ -32,6 +32,40 @@ beforeEach(() => {
   });
 });
 
+test("unavailable recovery storage does not prevent authoritative feedback saving", async () => {
+  send.mockResolvedValue({ id: "attempt", version: 2 });
+  const { result } = renderHook(() => useAttemptDraft("round", attempt));
+  act(() =>
+    result.current.update({
+      score: 4,
+      notAssessedReason: null,
+      generalFeedback: null,
+      feedback: [],
+    }),
+  );
+  const write = jest
+    .spyOn(Storage.prototype, "setItem")
+    .mockImplementation(() => {
+      throw new DOMException("Storage full", "QuotaExceededError");
+    });
+  const remove = jest
+    .spyOn(Storage.prototype, "removeItem")
+    .mockImplementation(() => {
+      throw new DOMException("Storage denied", "SecurityError");
+    });
+  try {
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ score: 4 }));
+    expect(result.current.state).toBe("saved");
+    expect(result.current.recoveryUnavailable).toBe(true);
+  } finally {
+    write.mockRestore();
+    remove.mockRestore();
+  }
+});
+
 test("retry after a lost response uses the same command identity and retains the feedback", async () => {
   send
     .mockRejectedValueOnce(new Error("Connection lost"))
@@ -323,4 +357,31 @@ test("clearing general feedback during a legacy pending-command replay sends a s
     }),
   );
   expect(result.current.state).toBe("saved");
+});
+
+test("denied recovery reads still allow editing and server saving", async () => {
+  send.mockResolvedValue({ id: "attempt", version: 2 });
+  const read = jest
+    .spyOn(Storage.prototype, "getItem")
+    .mockImplementation(() => {
+      throw new DOMException("Denied", "SecurityError");
+    });
+  try {
+    const { result } = renderHook(() => useAttemptDraft("round", attempt));
+    act(() =>
+      result.current.update({
+        score: 2,
+        notAssessedReason: null,
+        generalFeedback: null,
+        feedback: [],
+      }),
+    );
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect(result.current.state).toBe("saved");
+    expect(result.current.recoveryUnavailable).toBe(true);
+  } finally {
+    read.mockRestore();
+  }
 });

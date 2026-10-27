@@ -165,6 +165,20 @@ def main():
                  "recordingEnabled": False, "scheduledAt": None, "studentIds": students,
                  "assignments": [{"stationId": station["id"], "tutorId": tutor} for station, tutor in zip(stations, tutors)]}
         command(tutors[0], {"type": "createRound", "roundId": online_id, "setup": setup})
+        # Liveness must not wait behind an unrelated assessment transaction.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            locked = executor.submit(sql, f"BEGIN; SET LOCAL application_name='interview_heartbeat_lock_test'; SELECT 1 FROM public.interview_rounds WHERE id='{online_id}' FOR UPDATE; SELECT pg_sleep(4); ROLLBACK;")
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                if sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='interview_heartbeat_lock_test' AND wait_event='PgSleep';") == '1':
+                    break
+                time.sleep(0.02)
+            else:
+                raise AssertionError("Owned lock fixture did not acquire the round")
+            command(tutors[0], {"type": "heartbeat", "roundId": online_id})
+            assert not locked.done(), "Heartbeat must finish while the assessment round is still locked"
+            locked.result(timeout=10)
+        print("PASS: heartbeat completes without waiting for the assessment round lock")
         control("start")
         for tutor in tutors:
             control("ready", actor=tutor, ready=True)
@@ -172,7 +186,13 @@ def main():
         assert all(status == 200 for status, _ in outcomes), "Every one of twelve selected participants can reconnect"
         control("startReading")
         time.sleep(2.2)  # Both one-second server deadlines elapse; clients do not advance the clock.
-        for tutor in tutors:
+        for index, tutor in enumerate(tutors):
+            current = snapshot(online_id)
+            progress = next(p for p in current["progress"] if p["tutorId"] == tutor)
+            attempt = next(a for a in current["attempts"] if a["stationId"] == progress["stationId"] and a["studentId"] == progress["studentId"])
+            command(tutor, {"type": "saveAttempt", "roundId": online_id, "attemptId": attempt["id"],
+                           "expectedAttemptVersion": attempt["version"], "score": index + 0.5,
+                           "notAssessedReason": None, "feedback": []})
             control("finishFeedback", actor=tutor)
         before = snapshot(online_id)
         assert before["phase"] == "feedback" and before["rotation"] == 0
@@ -236,6 +256,7 @@ def main():
           DROP TRIGGER IF EXISTS test_interview_concurrency_delay ON public.interview_rounds;
           DROP FUNCTION IF EXISTS private.test_interview_concurrency_delay();
           DELETE FROM public.notifications WHERE metadata->>'roundId' IN ('{online_id}','{physical_id}');
+          DELETE FROM public.interview_tutor_presence WHERE round_id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_presence WHERE round_id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_rounds WHERE id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_command_receipts WHERE command_id IN ({quoted_commands});

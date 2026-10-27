@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, DataTableToolbar, Input } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import type { DataTableSortOption, InterviewTag } from "@altitutor/shared";
 import { Plus } from "lucide-react";
 import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
@@ -55,10 +56,10 @@ export function InterviewTagsPage() {
   const showQuestionCount = table.state.visibleColumns.includes("questions");
 
   const save = async () => {
-    const id = editing?.id ?? crypto.randomUUID();
+    const id = editing?.id ?? randomUuid();
     await command.mutateAsync({
       type: "saveTag",
-      commandId: crypto.randomUUID(),
+      commandId: randomUuid(),
       tag: { id, name: name.trim() },
     });
     setCreating(false);

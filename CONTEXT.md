@@ -522,7 +522,11 @@
 
 - **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
 
-- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, reading or question time. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student.
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, before that tutor marks ready. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student. Claims stay locked after readiness and throughout the encounter.
+
+- **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
+
+- **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
 
 - **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
 
