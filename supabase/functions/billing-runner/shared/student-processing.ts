@@ -17,7 +17,8 @@ import {
   updateInvoicePaymentStatus,
   voidInvoice,
 } from './invoice-creation.ts';
-import { sendInvoiceEmail } from './invoice-email.ts';
+import { resolveInvoiceEmailRecipients, sendInvoiceEmail } from './invoice-email.ts';
+import { warnInvoiceMissingRecipients } from './invoice-delivery-warning.ts';
 import { formatStripeErrorMessage, getStripeErrorDetails } from './stripe-errors.ts';
 
 const LOG_PREFIX = '[billing-runner]';
@@ -488,11 +489,19 @@ export async function processStudentInvoicing(
           throw itemsErr;
         }
 
+        const studentEmail = studentEmailById[studentId];
+        const parentEmails = parentEmailsByStudent[studentId] || [];
+        if (
+          (invoiceEmailToStudent || invoiceEmailToParents) &&
+          resolveInvoiceEmailRecipients(
+            invoiceEmailToStudent, invoiceEmailToParents, studentEmail, parentEmails,
+          ).length === 0
+        ) {
+          await warnInvoiceMissingRecipients(supabase, dbInvoice.id);
+        }
+
         // Send invoice email based on billing preferences
         if (resendApiKey) {
-          const studentEmail = studentEmailById[studentId];
-          const parentEmails = parentEmailsByStudent[studentId] || [];
-
           try {
             const emailResult = await sendInvoiceEmail(
               stripe,
