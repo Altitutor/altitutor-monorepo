@@ -252,11 +252,11 @@ export default function InvoiceDetailPage({
         }
       : undefined,
     onSendInvoice:
-      collectionMethod === "send_invoice" && invoice?.status !== "paid"
+      invoice?.status !== "paid"
         ? handleSendInvoiceEmail
         : undefined,
     onChargeCard:
-      collectionMethod === "charge_automatically" && invoice?.status !== "paid"
+      invoice?.status !== "paid"
         ? handleChargeCard
         : undefined,
     onAddCreditNote:

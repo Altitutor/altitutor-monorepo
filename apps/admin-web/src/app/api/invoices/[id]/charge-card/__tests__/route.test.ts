@@ -1,11 +1,11 @@
 import { POST } from '../route';
-import { captureApiError } from '@/lib/sentry/capture-api-error';
-import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
+import { captureException } from '@sentry/nextjs';
 
 const mockPayInvoice = jest.fn();
 const mockGetSession = jest.fn();
 const mockStaffSingle = jest.fn();
 const mockInvoiceSingle = jest.fn();
+const mockRecordDomainEvent = jest.fn();
 
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
@@ -24,12 +24,14 @@ jest.mock('next/server', () => ({
   },
 }));
 
-jest.mock('@/lib/sentry/capture-api-error', () => ({
-  captureApiError: jest.fn(),
+jest.mock('@sentry/nextjs', () => ({
+  captureException: jest.fn(),
 }));
 
-jest.mock('@/features/billing/lib/recordInvoiceOperatorEvent', () => ({
-  recordInvoiceOperatorEvent: jest.fn(),
+jest.mock('@/shared/lib/supabase/server/admin', () => ({
+  supabaseAdmin: {
+    rpc: (...args: unknown[]) => mockRecordDomainEvent(...args),
+  },
 }));
 
 jest.mock('@/shared/lib/supabase/server-ssr', () => ({
@@ -65,8 +67,7 @@ jest.mock('@/shared/lib/supabase/server-ssr', () => ({
   }),
 }));
 
-const captureApiErrorMock = jest.mocked(captureApiError);
-const recordInvoiceOperatorEventMock = jest.mocked(recordInvoiceOperatorEvent);
+const captureApiErrorMock = jest.mocked(captureException);
 
 describe('POST /api/invoices/[id]/charge-card', () => {
   beforeEach(() => {
@@ -88,57 +89,101 @@ describe('POST /api/invoices/[id]/charge-card', () => {
       },
       error: null,
     });
-    recordInvoiceOperatorEventMock.mockResolvedValue(undefined);
+    mockRecordDomainEvent.mockResolvedValue({ error: null });
   });
 
-  it('returns an expected Stripe card decline without capturing it as an application error', async () => {
-    mockPayInvoice.mockRejectedValue({
-      type: 'StripeCardError',
-      code: 'card_declined',
-      statusCode: 402,
-      message: 'Your card was declined.',
-    });
+  it.each(['charge_automatically', 'send_invoice'])(
+    'returns an expected %s card decline without capturing it as an application error',
+    async (collectionMethod) => {
+      mockInvoiceSingle.mockResolvedValue({
+        data: {
+          stripe_invoice_id: 'in_test',
+          collection_method: collectionMethod,
+          student_id: 'student-1',
+        },
+      });
+      mockPayInvoice.mockRejectedValue({
+        type: 'StripeCardError',
+        code: 'card_declined',
+        statusCode: 402,
+        message: 'Your card was declined.',
+      });
 
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
 
-    expect(response.status).toBe(402);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Your card was declined.',
-      code: 'card_declined',
-    });
-    expect(captureApiErrorMock).not.toHaveBeenCalled();
-    expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
-      invoiceId: 'invoice-id',
-      studentId: 'student-1',
-      eventName: 'invoice.payment_attempted',
-      actorStaffId: 'staff-1',
-      payload: {
-        outcome: 'declined',
-        error_code: 'card_declined',
-      },
-    });
-  });
+      expect(response.status).toBe(402);
+      await expect(response.json()).resolves.toEqual({
+        error: 'Your card was declined.',
+        code: 'card_declined',
+      });
+      expect(captureApiErrorMock).not.toHaveBeenCalled();
+      expect(mockRecordDomainEvent).toHaveBeenCalledWith(
+        'record_domain_event',
+        expect.objectContaining({
+          p_subject_id: 'invoice-id',
+          p_event_name: 'invoice.payment_attempted',
+          p_actor_staff_id: 'staff-1',
+          p_payload: {
+            outcome: 'declined',
+            error_code: 'card_declined',
+          },
+        }),
+      );
+    },
+  );
 
-  it('records a staff charge attempt when Stripe accepts the payment', async () => {
-    mockPayInvoice.mockResolvedValue({
-      id: 'in_test',
-      status: 'paid',
-    });
+  it.each(['TUTOR', 'STUDENT'])(
+    'rejects a %s without attempting payment',
+    async (role) => {
+      mockStaffSingle.mockResolvedValue({
+        data: { id: 'staff-1', role, status: 'ACTIVE' },
+      });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
+      expect(response.status).toBe(403);
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+    },
+  );
 
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+  it.each(['charge_automatically', 'send_invoice'])(
+    'attempts payment on the existing %s invoice',
+    async (collectionMethod) => {
+      mockInvoiceSingle.mockResolvedValue({
+        data: {
+          stripe_invoice_id: 'in_test',
+          collection_method: collectionMethod,
+          student_id: 'student-1',
+        },
+        error: null,
+      });
+      mockPayInvoice.mockResolvedValue({
+        id: 'in_test',
+        status: 'paid',
+      });
 
-    expect(response.status).toBe(200);
-    expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
-      invoiceId: 'invoice-id',
-      studentId: 'student-1',
-      eventName: 'invoice.payment_attempted',
-      actorStaffId: 'staff-1',
-      payload: {
-        outcome: 'succeeded',
-        stripe_status: 'paid',
-      },
-    });
-  });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockPayInvoice).toHaveBeenCalledWith('in_test');
+      expect(mockRecordDomainEvent).toHaveBeenCalledWith(
+        'record_domain_event',
+        expect.objectContaining({
+          p_subject_id: 'invoice-id',
+          p_event_name: 'invoice.payment_attempted',
+          p_actor_staff_id: 'staff-1',
+          p_payload: {
+            outcome: 'succeeded',
+            stripe_status: 'paid',
+          },
+        }),
+      );
+    },
+  );
 
   it('continues to capture unexpected Stripe failures as server errors', async () => {
     const error = new Error('Stripe unavailable');
@@ -147,10 +192,12 @@ describe('POST /api/invoices/[id]/charge-card', () => {
     const response = await POST({} as never, { params: { id: 'invoice-id' } });
 
     expect(response.status).toBe(500);
-    expect(captureApiErrorMock).toHaveBeenCalledWith(
-      error,
-      '/api/invoices/[id]/charge-card',
-    );
-    expect(recordInvoiceOperatorEventMock).not.toHaveBeenCalled();
+    expect(captureApiErrorMock).toHaveBeenCalledWith(error, {
+      tags: {
+        'api.handled': 'true',
+        'api.route': '/api/invoices/[id]/charge-card',
+      },
+    });
+    expect(mockRecordDomainEvent).not.toHaveBeenCalled();
   });
 });
