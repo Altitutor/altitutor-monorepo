@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { TodaySessionsCalendarView } from '../TodaySessionsCalendarView';
 
+jest.mock('../../hooks/useInterviewRoundEvents', () => ({
+  useInterviewRoundEvents: () => ({ data: [], isPending: false }),
+}));
+
 class ResizeObserverStub {
   observe() {}
   unobserve() {}

@@ -1,4 +1,5 @@
-import { InterviewsPage } from "@/features/interviews/components/InterviewsPage";
-export default function Page() {
-  return <InterviewsPage />;
+import { InterviewHomePage } from "@/features/interviews/components/InterviewHomePage";
+
+export default function InterviewsPage() {
+  return <InterviewHomePage />;
 }

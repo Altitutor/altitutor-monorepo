@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { Calendar, ChevronRight, Video, MapPin } from "lucide-react";
 import { Badge, Button } from "@altitutor/ui";
@@ -66,16 +67,16 @@ function RoundCard({ round }: { round: StudentInterviewRound }) {
               </Link>
             </Button>
           ) : null
-        ) : (
+        ) : round.delivery === "online" ? (
           <Button asChild variant={active ? "default" : "outline"}>
             <Link href={interviewRoomHref(round.id)}>
               {round.startedAt ? "Rejoin interview" : "Enter waiting room"}
               <ChevronRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-        )}
+        ) : null}
       </div>
-      {active && (
+      {active && round.delivery === "online" && (
         <p className="mt-4 text-sm text-muted-foreground">
           Enter the waiting room to get ready. Your tutor starts each rotation.
         </p>

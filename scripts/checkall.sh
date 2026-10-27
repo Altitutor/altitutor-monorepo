@@ -70,6 +70,9 @@ bash supabase/scripts/apply-ucat-test-seed.sh
 section "Database contracts"
 supabase test db
 
+section "Medicine interview station migration preservation"
+python3 supabase/scripts/test-interview-station-upgrade.py
+
 section "Concurrent medicine interview participants"
 python3 supabase/scripts/test-interview-concurrency.py
 

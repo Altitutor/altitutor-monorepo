@@ -86,33 +86,18 @@ shutdown can leave a disposable stack; inspect its manifest/config/container
 state before recovery. Never blindly stop a foreign stack. No stale-stack daemon
 or automatic deletion of an existing project is installed.
 
-## Prototypes
+## Review evidence and optional local development
 
-Use the normal Next.js server through the foreground port lock:
+A custom Tailscale preview, shared port slot or timed hosting window is no longer
+a Symphony completion gate. Retain functional tests, inspected candidate evidence
+where relevant, honest fixture/device limits and meaningful human review. Missing
+or expired remote hosting alone is not a product question or reason to park work.
 
-```sh
-python3 scripts/owned_database.py preview --app ucat-web
-```
-
-The existing loopback 57340/private Serve route permits one preview. An occupied
-port or another preview blocks startup. Without a manifest, inert database values
-support the prototype skill's in-memory data and stub mutations; this takes no
-DB lock. An explicitly approved DB-backed preview can supply the optional
-manifest: its stack startup/server/cleanup then hold that runtime's DB lock for
-the foreground lifetime. Independent DB tests continue. Do not leave background
-servers beyond the consumer lifetime. This does not change Tailscale routes or
-claim remote/device verification.
-
-
-For final human review, keep screenshots/interactive evidence distinct from
-exploratory prototypes. In-memory review fixtures take only the existing preview
-port lease and do not block database testing. DB-backed guarded previews are
-bounded foreground validation windows: stop them before waiting for human review;
-never borrow a disposable runtime that
-another consumer will clean up. If the implemented functionality needs stable
-test data and a pause-safe interactive host, record that limitation and request
-the smallest explicit setup decision instead of adding a stack/service fleet.
-See WORKFLOW.md and docs/agents/symphony.md for final handoff requirements.
-
-For concurrent app development with local fixtures and automatic app/backend
-connection settings, use the foreground command in [Worktree development](worktree-development.md).
+No review server is started by this policy. For a future local manual review,
+the repository's existing isolated development command can be proposed with
+independent app/database ports, loopback access and an explicit owner/stop
+procedure. A terminal-backed server can remain available until that owner stops
+it, but closing the terminal or machine shutdown may end it. This is a proposal,
+not permission to start a server, keep disposable test resources indefinitely,
+add persistent services or change routes/access. Preserve manual sessions and
+owned test cleanup; never borrow another consumer's database or credentials.

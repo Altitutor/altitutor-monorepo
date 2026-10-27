@@ -1,509 +1,495 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
-  Badge,
   Button,
   Checkbox,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ResponsiveResizablePanels,
   type JSONContent,
 } from "@altitutor/ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
-  interviewText,
+  resolveInterviewStations,
   type InterviewCatalog,
+  type InterviewStation,
   type InterviewTemplate,
 } from "@altitutor/shared";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import {
   useInterviewCatalog,
   useInterviewCommand,
 } from "../hooks/use-interviews";
-import {
-  InterviewDocument,
-  InterviewError,
-  InterviewField,
-  InterviewPanel,
-  InterviewSearch,
-  InterviewSelect,
-} from "./interview-ui";
-import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
-import { cn } from "@/shared/utils";
+import { UcatSetPropertyRow } from "@/features/ucat/sets/components/UcatSetPropertyRow";
+import { InterviewDocument, InterviewError } from "./interview-ui";
+import { tutorBtnOutline, tutorBtnPrimary, tutorCardCn } from "@/shared/lib/tutor-visual";
 import { useBuilderDraft } from "../hooks/use-builder-draft";
+import { blankStation } from "../lib/station-draft";
+import { InterviewPageHeader } from "./interview-page";
 
-function move<T>(items: T[], index: number, offset: number): T[] {
-  const next = [...items];
-  const target = index + offset;
-  if (target < 0 || target >= items.length) return items;
-  [next[index], next[target]] = [next[target], next[index]];
-  return next;
-}
+const InterviewStationEditor = lazy(() =>
+  import("./InterviewStationEditor").then((module) => ({
+    default: module.InterviewStationEditor,
+  })),
+);
 
-function BuilderEditor({
-  original,
-  catalog,
-}: {
-  original: InterviewTemplate;
-  catalog: InterviewCatalog;
-}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const recovery = useBuilderDraft(catalog.actorId, original);
-  const { draft, dirty } = recovery;
-  const [selected, setSelected] = useState(
-    searchParams.get("station") ?? original.stations[0]?.id,
-  );
-  const [picker, setPicker] = useState(false);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
+const MAX_STATIONS = 6;
 
-  const command = useInterviewCommand();
-  const station =
-    draft.stations.find((item) => item.id === selected) ?? draft.stations[0];
-  const change = recovery.change;
-  const updateStation = (value: typeof station) => {
-    change({
-      ...draft,
-      stations: draft.stations.map((item) =>
-        item.id === value.id ? value : item,
-      ),
-    });
-  };
-  const save = async () => {
-    if (recovery.conflict)
-      throw new Error("Load the latest saved interview before saving.");
-    const result = await command.mutateAsync({
-      type: "saveInterview",
-      commandId: crypto.randomUUID(),
-      expectedVersion: recovery.version,
-      interview: draft,
-    });
-    recovery.saved(result.version, draft);
-  };
-  const print = (stationId?: string) => {
-    window.open(
-      `/interviews/${draft.id}/print${stationId ? `?station=${stationId}` : ""}`,
-      "_blank",
-      "noopener",
-    );
-  };
-  const options = catalog.questions.filter(
-    (question) =>
-      !question.archived &&
-      (!category || question.categoryId === category) &&
-      interviewText(question.question)
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
-  const duplicates = draft.stations
-    .flatMap((item) => item.questions)
-    .map((placement) => placement.questionId);
+function StationBody({ station }: { station: InterviewStation }) {
   return (
-    <div className="space-y-6 py-8">
-      <Link
-        href="/interviews"
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← All interviews
-      </Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{draft.name}</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className={tutorBtnOutline}
-            disabled={dirty || !draft.stations.length}
-            onClick={() => print()}
-          >
-            Print prompts
-          </Button>
-          <Button
-            variant="outline"
-            className={tutorBtnOutline}
-            disabled={
-              command.isPending ||
-              recovery.conflict ||
-              !draft.stations.length ||
-              draft.stations.some((item) => !item.questions.length)
-            }
-            onClick={() =>
-              void (async () => {
-                if (dirty) await save();
-                router.push(`/interviews/${draft.id}/setup`);
-              })().catch(() => undefined)
-            }
-          >
-            Set up round
-          </Button>
-          <Button
-            disabled={
-              !dirty ||
-              recovery.conflict ||
-              command.isPending ||
-              !draft.name.trim()
-            }
-            onClick={() => void save().catch(() => undefined)}
-          >
-            {command.isPending ? "Saving…" : dirty ? "Save interview" : "Saved"}
-          </Button>
-        </div>
-      </div>
-      <InterviewError error={command.error} />
-      {(recovery.recovered || recovery.conflict) && (
-        <div role="status" className="rounded-xl border bg-muted p-4 text-sm">
-          {recovery.conflict
-            ? "Another tutor saved a newer interview. Your draft is retained here; saving is blocked to protect their changes. Copy anything you need before loading the saved interview."
-            : "Your unsaved interview draft has been restored on this device."}
-          <Button variant="outline" className="ml-3" onClick={recovery.discard}>
-            Discard draft and load saved interview
-          </Button>
-        </div>
-      )}
-      {recovery.storageError && (
-        <p role="alert" className="text-sm text-destructive">
-          Browser draft storage is unavailable. Save before leaving this page.
-        </p>
-      )}
-      <InterviewPanel>
-        <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
-          <InterviewField label="Interview name">
-            <Input
-              value={draft.name}
-              onChange={(event) =>
-                change({ ...draft, name: event.target.value })
-              }
-            />
-          </InterviewField>
-          <InterviewField label="Reading time (seconds)">
-            <Input
-              type="number"
-              min={1}
-              max={3600}
-              value={draft.readingTimeSeconds}
-              onChange={(event) =>
-                change({
-                  ...draft,
-                  readingTimeSeconds: Number(event.target.value),
-                })
-              }
-            />
-          </InterviewField>
-          <InterviewField label="Question time (seconds)">
-            <Input
-              type="number"
-              min={1}
-              max={7200}
-              value={draft.questionTimeSeconds}
-              onChange={(event) =>
-                change({
-                  ...draft,
-                  questionTimeSeconds: Number(event.target.value),
-                })
-              }
-            />
-          </InterviewField>
-        </div>
-        <label className="mt-4 flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={draft.recordingEnabled}
-            onCheckedChange={(checked) =>
-              change({ ...draft, recordingEnabled: checked === true })
-            }
-          />
-          Record interviews by default (can be changed for each round)
-        </label>
-      </InterviewPanel>
-      {new Set(duplicates).size < duplicates.length && (
-        <div className="rounded-xl bg-amber-500/10 p-4 text-sm">
-          A question is used more than once in this interview. This is allowed;
-          check that the repetition is intentional.
-        </div>
-      )}
-      <div className="grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <InterviewPanel title="Stations">
-          <div className="space-y-2">
-            {draft.stations.map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "rounded-xl p-2",
-                  item.id === station?.id && "bg-muted",
-                )}
-              >
-                <button
-                  className="w-full p-2 text-left text-sm font-medium"
-                  onClick={() => setSelected(item.id)}
-                >
-                  {index + 1}. {item.name}
-                </button>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={index === 0}
-                    aria-label={`Move ${item.name} up`}
-                    onClick={() =>
-                      change({
-                        ...draft,
-                        stations: move(draft.stations, index, -1),
-                      })
-                    }
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={index === draft.stations.length - 1}
-                    aria-label={`Move ${item.name} down`}
-                    onClick={() =>
-                      change({
-                        ...draft,
-                        stations: move(draft.stations, index, 1),
-                      })
-                    }
-                  >
-                    ↓
-                  </Button>
-                  <span className="self-center text-xs text-muted-foreground">
-                    {item.questions.length} questions
-                  </span>
-                </div>
-              </div>
-            ))}
+    <div className="space-y-3">
+      <InterviewDocument value={station.prompt as JSONContent} />
+      {station.questions.map((question, index) => (
+        <div key={question.id} className="flex gap-2">
+          <span className="pt-0.5 text-sm font-semibold tabular-nums">
+            {index + 1}.
+          </span>
+          <div className="min-w-0 flex-1">
+            <InterviewDocument value={question.question as JSONContent} />
           </div>
-          <Button
-            className={cn(tutorBtnOutline, "mt-4 w-full")}
-            disabled={draft.stations.length >= 6}
-            variant="outline"
-            onClick={() => {
-              const next = {
-                id: crypto.randomUUID(),
-                name: `Station ${draft.stations.length + 1}`,
-                maximumPoints: 6,
-                questions: [],
-              };
-              change({ ...draft, stations: [...draft.stations, next] });
-              setSelected(next.id);
-            }}
-          >
-            Add station
-          </Button>
-        </InterviewPanel>
-        {station && (
-          <InterviewPanel
-            title="Station editor"
-            action={
-              <Button
-                variant="outline"
-                className={tutorBtnOutline}
-                disabled={dirty || !station.questions.length}
-                onClick={() => print(station.id)}
-              >
-                Print prompt
-              </Button>
-            }
-          >
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-                <InterviewField label="Station name">
-                  <Input
-                    value={station.name}
-                    onChange={(event) =>
-                      updateStation({ ...station, name: event.target.value })
-                    }
-                  />
-                </InterviewField>
-                <InterviewField label="Maximum points">
-                  <Input
-                    type="number"
-                    step="any"
-                    min={0.01}
-                    value={station.maximumPoints}
-                    onChange={(event) =>
-                      updateStation({
-                        ...station,
-                        maximumPoints: Number(event.target.value),
-                      })
-                    }
-                  />
-                </InterviewField>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The first question supplies the reading and printed prompt.
-                Reordering questions changes it.
-              </p>
-              {station.questions.map((placement, index) => {
-                const question = catalog.questions.find(
-                  (item) => item.id === placement.questionId,
-                );
-                return (
-                  <div key={placement.id} className="rounded-xl border p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{index + 1}</Badge>
-                        {index === 0 && (
-                          <Badge variant="outline">Reading prompt</Badge>
-                        )}
-                        {question?.archived && (
-                          <Badge variant="outline">Archived</Badge>
-                        )}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={index === 0}
-                          aria-label={`Move question ${index + 1} up`}
-                          onClick={() =>
-                            updateStation({
-                              ...station,
-                              questions: move(station.questions, index, -1),
-                            })
-                          }
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={index === station.questions.length - 1}
-                          aria-label={`Move question ${index + 1} down`}
-                          onClick={() =>
-                            updateStation({
-                              ...station,
-                              questions: move(station.questions, index, 1),
-                            })
-                          }
-                        >
-                          ↓
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            updateStation({
-                              ...station,
-                              questions: station.questions.filter(
-                                (item) => item.id !== placement.id,
-                              ),
-                            })
-                          }
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                    <InterviewDocument
-                      value={(question?.question as JSONContent) ?? null}
-                    />
-                    {index === 0 && (
-                      <div className="mt-3 rounded-lg bg-muted/40 p-3">
-                        <InterviewDocument
-                          value={(question?.prompt as JSONContent) ?? null}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <Button
-                variant="outline"
-                className={tutorBtnOutline}
-                onClick={() => setPicker(true)}
-              >
-                Add questions
-              </Button>
-              <div className="border-t pt-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        `Remove ${station.name} and its question placements from this interview?`,
-                      )
-                    )
-                      change({
-                        ...draft,
-                        stations: draft.stations.filter(
-                          (item) => item.id !== station.id,
-                        ),
-                      });
-                  }}
-                >
-                  Remove station
-                </Button>
-              </div>
-            </div>
-          </InterviewPanel>
-        )}
-      </div>
-      <Dialog open={picker} onOpenChange={setPicker}>
-        <DialogContent className="max-h-[85dvh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add questions to {station?.name}</DialogTitle>
-          </DialogHeader>
-          <InterviewSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Search bank questions…"
-          >
-            <InterviewSelect
-              label="Category"
-              clear
-              value={category}
-              onChange={setCategory}
-              options={catalog.categories.map((item) => ({
-                id: item.id,
-                label: item.name,
-              }))}
-            />
-          </InterviewSearch>
-          {options.map((question) => (
-            <div
-              key={question.id}
-              className="flex items-center justify-between gap-4 border-b py-3"
-            >
-              <div>
-                <p className="text-sm">{interviewText(question.question)}</p>
-                {duplicates.includes(question.id) && (
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Already used in this interview
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                className={tutorBtnOutline}
-                onClick={() => {
-                  if (station)
-                    updateStation({
-                      ...station,
-                      questions: [
-                        ...station.questions,
-                        { id: crypto.randomUUID(), questionId: question.id },
-                      ],
-                    });
-                }}
-              >
-                Add
-              </Button>
-            </div>
-          ))}
-          <Button onClick={() => setPicker(false)}>Done adding</Button>
-        </DialogContent>
-      </Dialog>
+        </div>
+      ))}
     </div>
   );
 }
 
+export type InterviewEditorBind = {
+  save: () => Promise<void>;
+  canSave: boolean;
+  saving: boolean;
+  canPrint: boolean;
+};
+export function BuilderEditor({
+  original,
+  catalog,
+  embedded = false,
+  onBind,
+  onSaved,
+}: {
+  original: InterviewTemplate;
+  catalog: InterviewCatalog;
+  embedded?: boolean;
+  onBind?: (state: InterviewEditorBind) => void;
+  onSaved?: (id: string) => void;
+}) {
+  const recovery = useBuilderDraft(catalog.actorId, original);
+  const { draft, dirty, change } = recovery;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [savedStations, setSavedStations] = useState<InterviewStation[]>([]);
+  const [stationDialog, setStationDialog] = useState<{
+    mode: "create" | "edit";
+    station: InterviewStation;
+  } | null>(null);
+  const command = useInterviewCommand();
+  const stationFor = (stationId: string) => {
+    const saved = savedStations.find((station) => station.id === stationId);
+    const bank = catalog.stations.find((station) => station.id === stationId);
+    if (saved && (!bank || saved.version >= bank.version)) return saved;
+    return bank;
+  };
+  const resolvedCount = draft.stations.filter((placement) =>
+    stationFor(placement.stationId),
+  ).length;
+  const canSave =
+    !command.isPending && !recovery.conflict && !!draft.name.trim();
+  const canPrint = original.version > 0 && !dirty && resolvedCount > 0;
+  const persistInterview = async (interview: InterviewTemplate) => {
+    if (recovery.conflict)
+      throw new Error("Load the latest saved interview before saving.");
+    const result = await command.mutateAsync({
+      type: "saveInterview",
+      commandId: randomUuid(),
+      expectedVersion: recovery.version,
+      interview,
+    });
+    recovery.saved(result.version, interview);
+    onSaved?.(interview.id);
+  };
+  const bankStations = [
+    ...catalog.stations,
+    ...savedStations.filter(
+      (saved) => !catalog.stations.some((bank) => bank.id === saved.id),
+    ),
+  ]
+    .map((station) => stationFor(station.id) ?? station)
+    .filter((station) => !station.archived)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const preview =
+    bankStations.find((station) => station.id === previewId) ?? null;
+  const appendStation = (stationId: string) => {
+    const current = draftRef.current;
+    if (current.stations.length >= MAX_STATIONS) return;
+    change({
+      ...current,
+      stations: [
+        ...current.stations,
+        { id: randomUuid(), stationId },
+      ],
+    });
+  };
+  const rememberStation = (station: InterviewStation) =>
+    setSavedStations((previous) => [
+      ...previous.filter((saved) => saved.id !== station.id),
+      station,
+    ]);
+  const save = () => persistInterview(draft);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(
+    () =>
+      onBind?.({
+        save: () => saveRef.current(),
+        canSave,
+        saving: command.isPending,
+        canPrint,
+      }),
+    [onBind, canSave, command.isPending, canPrint],
+  );
+  const move = (index: number, offset: number) => {
+    const next = [...draft.stations];
+    [next[index], next[index + offset]] = [next[index + offset], next[index]];
+    change({ ...draft, stations: next });
+  };
+  return (
+    <div
+      className={
+        embedded
+          ? "flex h-full min-h-0 flex-col"
+          : "flex h-[75vh] min-h-0 flex-col gap-6 py-8"
+      }
+    >
+      {!embedded && (
+        <InterviewPageHeader
+          title={draft.name || "New interview"}
+          backHref="/interviews/bank"
+          actions={
+            <Button
+              className={tutorBtnPrimary}
+              disabled={!canSave}
+              onClick={() => void save().catch(() => undefined)}
+            >
+              Save interview
+            </Button>
+          }
+        />
+      )}
+      {(command.error ||
+        recovery.recovered ||
+        recovery.conflict ||
+        recovery.storageError) && (
+        <div
+          className={embedded ? "shrink-0 space-y-3 px-4 pt-4" : "space-y-3"}
+        >
+          <InterviewError error={command.error} />
+          {(recovery.recovered ||
+            recovery.conflict ||
+            recovery.storageError) && (
+            <div
+              role="status"
+              className="space-y-2 rounded-lg border p-3 text-sm"
+            >
+              {recovery.conflict
+                ? "This interview changed while you were editing. Your draft is preserved; load the latest saved version before continuing."
+                : recovery.storageError
+                  ? "Your browser could not store this draft. Save before leaving."
+                  : "Recovered your unsaved interview draft."}
+              <Button variant="outline" size="sm" onClick={recovery.discard}>
+                Load latest saved interview
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="min-h-0 flex-1">
+        <ResponsiveResizablePanels
+          id="interview-editor"
+          breakpoint="lg"
+          stackOnNarrow
+          primaryDefaultSize="70%"
+          primaryMinSize={480}
+          secondaryDefaultSize={320}
+          secondaryMinSize={280}
+          secondaryMaxSize={420}
+          handleLabel="Resize interview properties sidebar"
+          primary={
+            <section className="flex h-full min-h-0 flex-col overflow-y-auto p-4 lg:p-6">
+              <div className="space-y-4">
+                {draft.stations.map((placement, index) => {
+                  const station = stationFor(placement.stationId);
+                  const repeated =
+                    draft.stations.filter(
+                      (item) => item.stationId === placement.stationId,
+                    ).length > 1;
+                  return (
+                    <article
+                      key={placement.id}
+                      className={tutorCardCn("p-4")}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold">Station {index + 1}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {station?.name || "Unavailable station"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 px-0"
+                            aria-label={`Move station ${index + 1} up`}
+                            title="Move up"
+                            disabled={index === 0}
+                            onClick={() => move(index, -1)}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 px-0"
+                            aria-label={`Move station ${index + 1} down`}
+                            title="Move down"
+                            disabled={index === draft.stations.length - 1}
+                            onClick={() => move(index, 1)}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 px-0"
+                            aria-label={`Edit station ${index + 1}`}
+                            title="Edit"
+                            disabled={!station}
+                            onClick={() =>
+                              station &&
+                              setStationDialog({ mode: "edit", station })
+                            }
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 px-0"
+                            aria-label={`Remove station ${index + 1}`}
+                            title="Remove"
+                            onClick={() =>
+                              change({
+                                ...draft,
+                                stations: draft.stations.filter(
+                                  (item) => item.id !== placement.id,
+                                ),
+                              })
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {station ? (
+                        <div className="mt-4">
+                          <StationBody station={station} />
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm text-muted-foreground">
+                          This station is no longer in the bank.
+                        </p>
+                      )}
+                      {repeated && (
+                        <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+                          Repeated station
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+                {!draft.stations.length && (
+                  <p className="text-sm text-muted-foreground">
+                    Add a station to this interview.
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Popover
+                  open={pickerOpen}
+                  onOpenChange={(open) => {
+                    setPickerOpen(open);
+                    if (!open) setPreviewId(null);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={tutorBtnOutline}
+                      disabled={draft.stations.length >= MAX_STATIONS}
+                    >
+                      Add existing station
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    enableModalScroll
+                    className="z-[100] w-[min(42rem,calc(100vw-2rem))] p-0"
+                  >
+                    <div className="grid grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+                      <Command>
+                        <CommandInput placeholder="Search stations…" />
+                        <CommandList className="max-h-80">
+                          <CommandEmpty>No stations found.</CommandEmpty>
+                          <CommandGroup>
+                            {bankStations.map((station) => (
+                              <CommandItem
+                                key={station.id}
+                                value={station.id}
+                                keywords={[station.name]}
+                                onMouseEnter={() => setPreviewId(station.id)}
+                                onSelect={() => {
+                                  appendStation(station.id);
+                                  setPickerOpen(false);
+                                  setPreviewId(null);
+                                }}
+                              >
+                                {station.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                      <div className="max-h-96 overflow-y-auto border-l p-3">
+                        {preview ? (
+                          <article className={tutorCardCn("p-4")}>
+                            <h3 className="font-semibold">{preview.name}</h3>
+                            <div className="mt-3">
+                              <StationBody station={preview} />
+                            </div>
+                          </article>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Hover a station to preview it.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="outline"
+                  className={tutorBtnOutline}
+                  disabled={draft.stations.length >= MAX_STATIONS}
+                  onClick={() =>
+                    setStationDialog({
+                      mode: "create",
+                      station: blankStation(catalog.categories[0]?.id ?? ""),
+                    })
+                  }
+                >
+                  Create new station
+                </Button>
+              </div>
+            </section>
+          }
+          secondary={
+            <aside className="flex h-full min-h-0 flex-col overflow-y-auto bg-background p-4">
+              <h2 className="mb-3 text-sm font-semibold">Properties</h2>
+              <div className={tutorCardCn("space-y-1 p-3")}>
+                <UcatSetPropertyRow label="Interview name">
+                  <Input
+                    value={draft.name}
+                    onChange={(e) => change({ ...draft, name: e.target.value })}
+                  />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Reading time (seconds)">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3600}
+                    value={draft.readingTimeSeconds}
+                    onChange={(e) =>
+                      change({
+                        ...draft,
+                        readingTimeSeconds: Number(e.target.value),
+                      })
+                    }
+                  />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Answer time per station (seconds)">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={7200}
+                    value={draft.questionTimeSeconds}
+                    onChange={(e) =>
+                      change({
+                        ...draft,
+                        questionTimeSeconds: Number(e.target.value),
+                      })
+                    }
+                  />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Recording">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={draft.recordingEnabled}
+                      onCheckedChange={(checked) =>
+                        change({
+                          ...draft,
+                          recordingEnabled: checked === true,
+                        })
+                      }
+                    />
+                    Record by default
+                  </label>
+                </UcatSetPropertyRow>
+              </div>
+            </aside>
+          }
+        />
+      </div>
+      {stationDialog ? (
+        <Suspense fallback={null}>
+          <InterviewStationEditor
+            station={stationDialog.station}
+            catalog={catalog}
+            close={() => setStationDialog(null)}
+            onSaved={(saved) => {
+              rememberStation(saved);
+              if (stationDialog.mode !== "create") return;
+              const current = draftRef.current;
+              if (current.stations.length >= MAX_STATIONS) return;
+              const next = {
+                ...current,
+                stations: [
+                  ...current.stations,
+                  { id: randomUuid(), stationId: saved.id },
+                ],
+              };
+              change(next);
+              if (!next.name.trim()) return;
+              void persistInterview(next).catch(() => undefined);
+            }}
+          />
+        </Suspense>
+      ) : null}
+    </div>
+  );
+}
 export function InterviewBuilder({ id }: { id: string }) {
   const query = useInterviewCatalog();
-  const interview = query.data?.interviews.find((item) => item.id === id);
+  const interview = query.data?.interviews.find((i) => i.id === id);
   if (!query.data || !interview)
     return (
       <div className="py-8">
@@ -522,15 +508,10 @@ export function InterviewBuilder({ id }: { id: string }) {
     />
   );
 }
-
 export function InterviewPrint({ id }: { id: string }) {
   const query = useInterviewCatalog();
-  const search = useSearchParams();
-  const interview = query.data?.interviews.find((item) => item.id === id);
-  if (!interview) return <InterviewError error={query.error} />;
-  const stations = interview.stations.filter(
-    (station) => !search.get("station") || station.id === search.get("station"),
-  );
+  const interview = query.data?.interviews.find((i) => i.id === id);
+  if (!interview || !query.data) return <InterviewError error={query.error} />;
   return (
     <div className="space-y-6 py-8">
       <div className="print:hidden">
@@ -545,24 +526,17 @@ export function InterviewPrint({ id }: { id: string }) {
           "@media print { nav, aside { display:none !important; } body { background:white!important; } .interview-print-page { break-after:page; min-height:90vh; } .interview-print-page:last-child { break-after:auto; } }"
         }
       </style>
-      {stations.map((station) => (
-        <section
-          key={station.id}
-          className="interview-print-page rounded-xl border p-10 print:border-0"
-        >
-          <h1 className="mb-8 text-3xl font-semibold">
-            Station{" "}
-            {interview.stations.findIndex((item) => item.id === station.id) + 1}
-          </h1>
-          <InterviewDocument
-            value={
-              (query.data?.questions.find(
-                (question) => question.id === station.questions[0]?.questionId,
-              )?.prompt as JSONContent) ?? null
-            }
-          />
-        </section>
-      ))}
+      {resolveInterviewStations(interview, query.data.stations).map(
+        (s, index) => (
+          <section
+            key={s.id}
+            className="interview-print-page rounded-xl border p-10 print:border-0"
+          >
+            <h1 className="mb-8 text-3xl font-semibold">Station {index + 1}</h1>
+            <InterviewDocument value={s.prompt as JSONContent} />
+          </section>
+        ),
+      )}
     </div>
   );
 }

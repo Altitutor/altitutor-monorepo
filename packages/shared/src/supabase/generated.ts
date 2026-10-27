@@ -4610,12 +4610,12 @@ export type Database = {
       interview_questions: {
         Row: {
           archived: boolean
-          category_id: string
           id: string
-          prompt: Json
+          position: number
           question: Json
           rubric: Json
           rubric_version: number
+          station_id: string
           suggested_time_seconds: number
           tag_ids: string[]
           updated_at: string
@@ -4623,12 +4623,12 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
-          category_id: string
           id: string
-          prompt: Json
+          position?: number
           question: Json
           rubric: Json
           rubric_version?: number
+          station_id: string
           suggested_time_seconds?: number
           tag_ids?: string[]
           updated_at?: string
@@ -4636,12 +4636,12 @@ export type Database = {
         }
         Update: {
           archived?: boolean
-          category_id?: string
           id?: string
-          prompt?: Json
+          position?: number
           question?: Json
           rubric?: Json
           rubric_version?: number
+          station_id?: string
           suggested_time_seconds?: number
           tag_ids?: string[]
           updated_at?: string
@@ -4649,10 +4649,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "interview_questions_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "interview_questions_station_id_fkey"
+            columns: ["station_id"]
             isOneToOne: false
-            referencedRelation: "interview_categories"
+            referencedRelation: "interview_stations"
             referencedColumns: ["id"]
           },
         ]
@@ -4972,6 +4972,47 @@ export type Database = {
           },
         ]
       }
+      interview_stations: {
+        Row: {
+          archived: boolean
+          category_id: string
+          id: string
+          maximum_points: number
+          name: string
+          prompt: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          archived?: boolean
+          category_id: string
+          id: string
+          maximum_points?: number
+          name: string
+          prompt: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          archived?: boolean
+          category_id?: string
+          id?: string
+          maximum_points?: number
+          name?: string
+          prompt?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_stations_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "interview_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interview_tags: {
         Row: {
           id: string
@@ -4986,6 +5027,74 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      interview_tutor_presence: {
+        Row: {
+          last_seen_at: string
+          round_id: string
+          tutor_id: string
+        }
+        Insert: {
+          last_seen_at?: string
+          round_id: string
+          tutor_id: string
+        }
+        Update: {
+          last_seen_at?: string
+          round_id?: string
+          tutor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_tutor_id_fkey"
+            columns: ["tutor_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interviews: {
         Row: {
@@ -44094,6 +44203,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      interview_attempt_resolved: { Args: { attempt: Json }; Returns: boolean }
       interview_audio_capture: {
         Args: { p_round_id: string; p_tutor_id: string }
         Returns: Json
@@ -44120,6 +44230,10 @@ export type Database = {
           round_id: string
         }[]
       }
+      interview_close_phase: {
+        Args: { d: Json; ended_at: string }
+        Returns: Json
+      }
       interview_command: {
         Args: { p_actor_user_id: string; p_command: Json }
         Returns: Json
@@ -44135,6 +44249,7 @@ export type Database = {
         Returns: undefined
       }
       interview_effective_state: { Args: { p_data: Json }; Returns: Json }
+      interview_feedback_has_text: { Args: { value: Json }; Returns: boolean }
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
@@ -44161,6 +44276,10 @@ export type Database = {
       }
       interview_setup_data: {
         Args: { p_actor: string; p_created_at: string; p_setup: Json }
+        Returns: Json
+      }
+      interview_station_json: {
+        Args: { s: Database["public"]["Tables"]["interview_stations"]["Row"] }
         Returns: Json
       }
       interview_student_has_access: {

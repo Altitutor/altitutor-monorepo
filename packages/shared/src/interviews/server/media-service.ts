@@ -22,7 +22,11 @@ export class InterviewMediaService {
   constructor(private readonly store:InterviewMediaStore,private readonly provider:DailyInterviewProvider,private readonly now:()=>number=Date.now) {}
 
   async reconcile(roundId:string,refreshRecordings=true):Promise<void> {
-    const round=await this.store.round(roundId);
+    await this.reconcileRound(await this.store.round(roundId),refreshRecordings);
+  }
+
+  private async reconcileRound(round:InterviewRound,refreshRecordings:boolean):Promise<void> {
+    const roundId=round.id;
     const keys=new Set(round.progress.map((station)=>interviewMediaPolicy(round,station.tutorId,'tutor')?.key).filter(Boolean));
     const sessions=await this.store.sessions(roundId);
     await Promise.all(sessions.map(async(session)=>{
@@ -52,8 +56,8 @@ export class InterviewMediaService {
   }
 
   async ticket(roundId:string,actor:{id:string;name:string;role:'tutor'|'student'},knownSessionId?:string):Promise<InterviewMediaTicket> {
-    await this.reconcile(roundId,false);
     const round=await this.store.round(roundId);
+    await this.reconcileRound(round,false);
     const policy=interviewMediaPolicy(round,actor.id,actor.role);
     const empty:InterviewMediaTicket={sessionId:null,canSend:false,canReceive:false,recordingEnabled:false,serverNow:round.serverNow};
     if (!policy) return empty;

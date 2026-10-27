@@ -33,16 +33,35 @@ function rich(v: unknown, depth = 0): boolean {
   );
 }
 function station(v: unknown): boolean {
+  return record(v) && uuid(v.id) && uuid(v.stationId);
+}
+function bankStation(v: unknown): boolean {
   return (
     record(v) &&
     uuid(v.id) &&
     text(v.name) &&
+    uuid(v.categoryId) &&
+    rich(v.prompt) &&
     number(v.maximumPoints, 0.01, 1000) &&
+    typeof v.archived === "boolean" &&
     array(
       v.questions,
-      (p) => record(p) && uuid(p.id) && uuid(p.questionId),
+      (q) =>
+        record(q) &&
+        uuid(q.id) &&
+        q.stationId === v.id &&
+        array(q.tagIds, uuid) &&
+        Array.isArray(q.tagIds) &&
+        unique(q.tagIds) &&
+        rich(q.question) &&
+        rich(q.rubric) &&
+        number(q.suggestedTimeSeconds, 1, 7200) &&
+        Number.isInteger(q.suggestedTimeSeconds),
       100,
-    )
+    ) &&
+    Array.isArray(v.questions) &&
+    v.questions.length > 0 &&
+    unique(v.questions.map((q: RecordValue) => q.id))
   );
 }
 function setup(v: unknown): boolean {
@@ -89,25 +108,12 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
       );
     case "saveTag":
       return record(value.tag) && uuid(value.tag.id) && text(value.tag.name);
-    case "saveQuestion": {
-      const q = value.question;
-      return (
-        version(value.expectedVersion) &&
-        record(q) &&
-        uuid(q.id) &&
-        uuid(q.categoryId) &&
-        array(q.tagIds, uuid) &&
-        rich(q.question) &&
-        rich(q.prompt) &&
-        rich(q.rubric) &&
-        number(q.suggestedTimeSeconds, 1, 7200) &&
-        Number.isInteger(q.suggestedTimeSeconds) &&
-        typeof q.archived === "boolean"
-      );
-    }
+    case "saveStation":
+      return version(value.expectedVersion) && bankStation(value.station);
     case "saveRubric":
       return (
         version(value.expectedVersion) &&
+        uuid(value.stationId) &&
         uuid(value.questionId) &&
         rich(value.rubric)
       );
@@ -146,6 +152,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         (value.score === null || number(value.score, 0, 1000)) &&
         (value.notAssessedReason === null ||
           text(value.notAssessedReason, 2000)) &&
+        (value.generalFeedback === undefined || rich(value.generalFeedback)) &&
         array(
           value.feedback,
           (f) => record(f) && uuid(f.placementId) && rich(f.value),
@@ -176,6 +183,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
     case "start":
     case "pause":
     case "resume":
+    case "skipReading":
     case "next":
     case "release":
     case "endStation":

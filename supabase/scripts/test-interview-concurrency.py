@@ -35,6 +35,8 @@ def main():
     tutors = [f"00000000-0000-0000-0000-{index:012d}" for index in range(10, 16)]
     students = [f"10000000-0000-0000-0000-{index:012d}" for index in range(1, 7)]
     class_id, category_id, question_id, interview_id, online_id, physical_id = [str(uuid.uuid4()) for _ in range(6)]
+    shared_question_id = str(uuid.uuid4())
+    owner_station_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
     command_ids = set()
     grant_ids = []
 
@@ -119,12 +121,42 @@ def main():
           COMMIT;
         """)
         command(tutors[0], {"type": "saveCategory", "category": {"id": category_id, "name": "Concurrency", "parentId": None}})
-        command(tutors[0], {"type": "saveQuestion", "expectedVersion": 0, "question": {
-            "id": question_id, "categoryId": category_id, "tagIds": [], "question": "Why medicine?",
-            "prompt": "Explain your motivation.", "rubric": "Listen for reflection.", "suggestedTimeSeconds": 60, "archived": False,
+        # Force two station saves to observe the same missing child identity.
+        # Only one may claim it; the loser must roll back without changing it.
+        sql(f"""
+          CREATE FUNCTION private.test_interview_question_owner_delay() RETURNS trigger LANGUAGE plpgsql AS $body$
+          BEGIN
+            IF NEW.id='{shared_question_id}' THEN PERFORM pg_sleep(0.2); END IF;
+            RETURN NEW;
+          END;
+          $body$;
+          CREATE TRIGGER test_interview_question_owner_delay BEFORE INSERT ON public.interview_questions
+            FOR EACH ROW EXECUTE FUNCTION private.test_interview_question_owner_delay();
+        """)
+        competing = [payload(tutor, {"type": "saveStation", "expectedVersion": 0, "station": {
+            "id": owner, "name": f"Ownership contender {index}", "categoryId": category_id,
+            "prompt": "Ownership scenario", "maximumPoints": 6, "archived": False,
+            "questions": [{"id": shared_question_id, "stationId": owner, "tagIds": [],
+                           "question": f"Owned question {index}", "rubric": "Ownership rubric", "suggestedTimeSeconds": 60}],
+        }}) for index, (tutor, owner) in enumerate(zip(tutors, owner_station_ids))]
+        ownership = parallel(competing)
+        assert sum(status == 200 for status, _ in ownership) == 1, "Only one station may claim a new question identity"
+        loser = next(body for status, body in ownership if status != 200)
+        assert loser.get("code") == "22023", "Losing station must reject rather than overwrite another owner's question"
+        winner = next(index for index, (status, _) in enumerate(ownership) if status == 200)
+        status, bank = rpc("interview_station_json", {"s": {"id": owner_station_ids[winner]}})
+        assert status == 200 and bank and len(bank["questions"]) == 1, "Winning station must retain its one owned question"
+        assert bank["questions"][0]["question"] == f"Owned question {winner}", "Losing save must not change the winner's wording"
+        sql("DROP TRIGGER test_interview_question_owner_delay ON public.interview_questions; DROP FUNCTION private.test_interview_question_owner_delay();")
+        print("PASS: concurrent cross-station inserts preserve exclusive question ownership")
+        station_id = str(uuid.uuid4())
+        command(tutors[0], {"type": "saveStation", "expectedVersion": 0, "station": {
+            "id": station_id, "name": "Motivation", "categoryId": category_id,
+            "prompt": "Explain your motivation.", "maximumPoints": 6, "archived": False,
+            "questions": [{"id": question_id, "stationId": station_id, "tagIds": [], "question": "Why medicine?",
+                           "rubric": "Listen for reflection.", "suggestedTimeSeconds": 60}],
         }})
-        stations = [{"id": str(uuid.uuid4()), "name": f"Station {index + 1}", "maximumPoints": 6,
-                     "questions": [{"id": str(uuid.uuid4()), "questionId": question_id}]} for index in range(6)]
+        stations = [{"id": str(uuid.uuid4()), "stationId": station_id} for _ in range(6)]
         command(tutors[0], {"type": "saveInterview", "expectedVersion": 0, "interview": {
             "id": interview_id, "name": "Concurrent MMI", "readingTimeSeconds": 1, "questionTimeSeconds": 1,
             "recordingEnabled": False, "archived": False, "stations": stations,
@@ -133,6 +165,20 @@ def main():
                  "recordingEnabled": False, "scheduledAt": None, "studentIds": students,
                  "assignments": [{"stationId": station["id"], "tutorId": tutor} for station, tutor in zip(stations, tutors)]}
         command(tutors[0], {"type": "createRound", "roundId": online_id, "setup": setup})
+        # Liveness must not wait behind an unrelated assessment transaction.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            locked = executor.submit(sql, f"BEGIN; SET LOCAL application_name='interview_heartbeat_lock_test'; SELECT 1 FROM public.interview_rounds WHERE id='{online_id}' FOR UPDATE; SELECT pg_sleep(4); ROLLBACK;")
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                if sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='interview_heartbeat_lock_test' AND wait_event='PgSleep';") == '1':
+                    break
+                time.sleep(0.02)
+            else:
+                raise AssertionError("Owned lock fixture did not acquire the round")
+            command(tutors[0], {"type": "heartbeat", "roundId": online_id})
+            assert not locked.done(), "Heartbeat must finish while the assessment round is still locked"
+            locked.result(timeout=10)
+        print("PASS: heartbeat completes without waiting for the assessment round lock")
         control("start")
         for tutor in tutors:
             control("ready", actor=tutor, ready=True)
@@ -140,7 +186,13 @@ def main():
         assert all(status == 200 for status, _ in outcomes), "Every one of twelve selected participants can reconnect"
         control("startReading")
         time.sleep(2.2)  # Both one-second server deadlines elapse; clients do not advance the clock.
-        for tutor in tutors:
+        for index, tutor in enumerate(tutors):
+            current = snapshot(online_id)
+            progress = next(p for p in current["progress"] if p["tutorId"] == tutor)
+            attempt = next(a for a in current["attempts"] if a["stationId"] == progress["stationId"] and a["studentId"] == progress["studentId"])
+            command(tutor, {"type": "saveAttempt", "roundId": online_id, "attemptId": attempt["id"],
+                           "expectedAttemptVersion": attempt["version"], "score": index + 0.5,
+                           "notAssessedReason": None, "feedback": []})
             control("finishFeedback", actor=tutor)
         before = snapshot(online_id)
         assert before["phase"] == "feedback" and before["rotation"] == 0
@@ -160,7 +212,7 @@ def main():
                     for station, student in zip(stations, students)]
         save_commands = [{"type": "saveAttempt", "roundId": online_id, "attemptId": attempt["id"], "expectedAttemptVersion": attempt["version"],
                           "score": index + 0.5, "notAssessedReason": None,
-                          "feedback": [{"placementId": stations[index]["questions"][0]["id"], "value": f"Independent tutor {index}"}]}
+                          "feedback": [{"placementId": question_id, "value": f"Independent tutor {index}"}]}
                          for index, attempt in enumerate(attempts)]
         requests = [payload(tutor, save) for tutor, save in zip(tutors, save_commands)]
         requests += [payload(student, {"type": "heartbeat", "roundId": online_id}) for student in students]
@@ -199,15 +251,19 @@ def main():
         quoted_commands = ",".join("'" + value + "'" for value in command_ids) or "NULL"
         quoted_grants = ",".join("'" + value + "'" for value in grant_ids) or "NULL"
         sql(f"""
+          DROP TRIGGER IF EXISTS test_interview_question_owner_delay ON public.interview_questions;
+          DROP FUNCTION IF EXISTS private.test_interview_question_owner_delay();
           DROP TRIGGER IF EXISTS test_interview_concurrency_delay ON public.interview_rounds;
           DROP FUNCTION IF EXISTS private.test_interview_concurrency_delay();
           DELETE FROM public.notifications WHERE metadata->>'roundId' IN ('{online_id}','{physical_id}');
+          DELETE FROM public.interview_tutor_presence WHERE round_id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_presence WHERE round_id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_rounds WHERE id IN ('{online_id}','{physical_id}');
           DELETE FROM public.interview_command_receipts WHERE command_id IN ({quoted_commands});
           DELETE FROM public.interviews WHERE id='{interview_id}';
-          DELETE FROM public.interview_rubric_revisions WHERE question_id='{question_id}';
-          DELETE FROM public.interview_questions WHERE id='{question_id}';
+          DELETE FROM public.interview_rubric_revisions WHERE question_id IN ('{question_id}','{shared_question_id}');
+          DELETE FROM public.interview_questions WHERE id IN ('{question_id}','{shared_question_id}');
+          DELETE FROM public.interview_stations WHERE category_id='{category_id}';
           DELETE FROM public.interview_categories WHERE id='{category_id}';
           DELETE FROM public.classes_students WHERE class_id='{class_id}';
           DELETE FROM public.classes WHERE id='{class_id}';
