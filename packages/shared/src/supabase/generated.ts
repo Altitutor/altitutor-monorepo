@@ -44509,6 +44509,15 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: string
       }
+      reconcile_imessage_inbound: {
+        Args: {
+          p_attachments: Json
+          p_from_live: boolean
+          p_historical: boolean
+          p_message: Json
+        }
+        Returns: string
+      }
       record_current_ucat_authenticated_visit: {
         Args: never
         Returns: {

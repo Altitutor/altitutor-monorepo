@@ -17,9 +17,6 @@ import {
   extractChatIdentifier,
   firstString,
   isRecord,
-  knownAppleService,
-  monotonicAppleService,
-  monotonicStatus,
   parseAppleService,
   type ParsedIMessageEvent,
   parseIMessageEvent,
@@ -27,8 +24,8 @@ import {
 import { getErrorMessage } from "../_shared/types.ts";
 import { updateMessageFromDeliveryEvent } from "./delivery.ts";
 import {
-  normalizeInboundReactionType,
   type MessageReactionType,
+  normalizeInboundReactionType,
 } from "./reactions.ts";
 
 interface OwnedNumber {
@@ -235,19 +232,6 @@ async function ensureMessageConversation(
   return ensureConversation(supabase, contactId, owned.id);
 }
 
-async function upsertAttachments(
-  supabase: SupabaseClient,
-  messageId: string,
-  attachments: NormalizedMessage["attachments"],
-): Promise<void> {
-  if (attachments.length === 0) return;
-  const { error } = await supabase.from("message_attachments").upsert(
-    attachments.map((attachment) => ({ ...attachment, message_id: messageId })),
-    { onConflict: "message_id,storage_url", ignoreDuplicates: true },
-  );
-  if (error) throw error;
-}
-
 /** Reconciliation overlap re-emits recent live traffic; only older catch-up is historical. */
 const HISTORICAL_IMPORT_AGE_MS = 10 * 60 * 1000;
 
@@ -278,72 +262,16 @@ async function processMessage(
     owned,
     message,
   );
-  let existing: Record<string, unknown> | null = null;
-
-  const { data: byGuid, error: guidError } = await supabase
-    .from("messages")
-    .select(
-      "id, status, imessage_guid, imessage_temp_guid, is_historical_import, apple_service",
-    )
-    .eq("imessage_guid", message.guid)
-    .maybeSingle();
-  if (guidError) throw guidError;
-  existing = byGuid;
-
-  if (!existing && message.tempGuid) {
-    const { data: byTempGuid, error: tempError } = await supabase
-      .from("messages")
-      .select(
-        "id, status, imessage_guid, imessage_temp_guid, is_historical_import, apple_service",
-      )
-      .eq("imessage_temp_guid", message.tempGuid)
-      .maybeSingle();
-    if (tempError) throw tempError;
-    existing = byTempGuid;
-  }
-
-  const incomingStatus = message.status;
-  let messageId: string;
-  const isNewRow = !existing;
-  if (existing) {
-    messageId = String(existing.id);
-    const status = monotonicStatus(String(existing.status), incomingStatus);
-    // Never upgrade a live row to historical via reconciliation overlap.
-    // Live webhooks clear the flag if a missed webhook arrives after catch-up.
-    const nextHistorical = fromLiveWebhook
-      ? false
-      : existing.is_historical_import === true;
-    const currentAppleService = knownAppleService(existing.apple_service);
-    const { error } = await supabase.from("messages").update({
-      imessage_guid: message.guid,
-      imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
-      message_sid: message.messageId,
-      status,
-      created_at: message.date,
-      status_updated_at: statusUpdatedAt,
-      sent_at: message.isFromMe ? message.date : undefined,
-      received_at: message.isFromMe ? undefined : message.date,
-      delivered_at: message.deliveredAt ?? undefined,
-      read_at: message.readAt ?? undefined,
-      provider_error_at: status === "FAILED" ? message.date : undefined,
-      provider_error_code: status === "FAILED" ? message.errorCode : undefined,
-      is_historical_import: nextHistorical,
-      apple_service: monotonicAppleService(currentAppleService, message.appleService),
-    }).eq("id", messageId);
-    if (error) throw error;
-  } else {
-    const recipient = message.isFromMe
-      ? message.to ?? message.chatId ?? owned.phone_e164
-      : owned.phone_e164;
-    const sender = message.isFromMe ? owned.phone_e164 : message.from;
-    const { data, error } = await supabase.from("messages").insert({
+  const { error } = await supabase.rpc("reconcile_imessage_inbound", {
+    p_message: {
       conversation_id: conversationId,
       direction: message.isFromMe ? "OUTBOUND" : "INBOUND",
       body: message.body,
-      created_at: message.date,
-      from_number_e164: sender,
-      to_number_e164: recipient,
-      status: incomingStatus,
+      from_number_e164: message.isFromMe ? owned.phone_e164 : message.from,
+      to_number_e164: message.isFromMe
+        ? message.to ?? message.chatId ?? owned.phone_e164
+        : owned.phone_e164,
+      status: message.status,
       status_updated_at: statusUpdatedAt,
       message_sid: message.messageId,
       imessage_guid: message.guid,
@@ -351,6 +279,7 @@ async function processMessage(
       is_reaction: message.isReaction,
       reaction_type: message.reactionType,
       associated_message_guid: message.associatedMessageGuid,
+      created_at: message.date,
       sent_at: message.isFromMe ? message.date : null,
       received_at: message.isFromMe ? null : message.date,
       delivered_at: message.deliveredAt,
@@ -360,42 +289,13 @@ async function processMessage(
       error_message: message.status === "FAILED"
         ? "iMessage delivery failed"
         : null,
-      is_historical_import: isHistoricalImport,
       apple_service: message.appleService,
-    }).select("id").single();
-    if (error || !data) throw error ?? new Error("Message insert failed");
-    messageId = String(data.id);
-  }
-
-  await upsertAttachments(supabase, messageId, message.attachments);
-  // Reactions are not a new message for inbox ordering or unreplied state.
-  // The last-message trigger also ignores them.
-  if (!message.isReaction) {
-    const { error: conversationError } = await supabase.from("conversations")
-      .update({
-        last_message_at: message.date,
-      }).eq("id", conversationId).or(
-        `last_message_at.is.null,last_message_at.lt."${message.date}"`,
-      );
-    if (conversationError) throw conversationError;
-  }
-
-  if (!message.isFromMe) {
-    // New inserts sync unread/historical read state. Reconciliation updates of
-    // already-imported rows must not re-mark chats read. Late live webhooks
-    // clear unread after a prior historical insert.
-    if (isNewRow || fromLiveWebhook) {
-      const { error: readStateError } = await supabase.rpc(
-        "sync_imessage_message_read_state",
-        {
-          p_conversation_id: conversationId,
-          p_message_id: messageId,
-          p_historical: isNewRow ? isHistoricalImport : false,
-        },
-      );
-      if (readStateError) throw readStateError;
-    }
-  }
+    },
+    p_attachments: message.attachments,
+    p_from_live: fromLiveWebhook,
+    p_historical: isHistoricalImport,
+  });
+  if (error) throw error;
 }
 
 async function updateCorrelatedMessage(
