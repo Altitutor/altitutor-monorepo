@@ -314,6 +314,10 @@ jobs:
         if: needs.web-system-tests-needed.outputs.database == 'true'
         run: supabase test db
 
+      - name: Test Student registration with real Auth
+        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.student == 'true'
+        run: python3 supabase/scripts/test-student-registration.py
+
       - name: Run admin browser journeys
         if: needs.web-system-tests-needed.outputs.admin == 'true'
         env:

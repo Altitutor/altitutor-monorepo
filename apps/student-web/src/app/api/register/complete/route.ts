@@ -406,6 +406,11 @@ export async function POST(request: NextRequest) {
         user_metadata: {
           first_name: student.first_name,
           last_name: student.last_name,
+          // Defer email matching until Auth applies the trusted app metadata.
+          registration_student_id: studentId,
+        },
+        // Only this server may select the Student, after validating their link.
+        app_metadata: {
           registration_student_id: studentId,
         },
       });
@@ -414,6 +419,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to create auth user:", createAuthError);
       // Check if error is due to email already existing
       if (
+        createAuthError.code === "email_exists" ||
         createAuthError.message?.includes("already registered") ||
         createAuthError.message?.includes("already exists")
       ) {
@@ -426,9 +432,9 @@ export async function POST(request: NextRequest) {
           { status: 409 },
         );
       }
-      // Note: The database function already updated the student, but we can't rollback
-      // In a real scenario, we might want to revert the student status
-      // For now, we'll return an error and the student can try again with a new token
+      // Details are saved, but the Student remains TRIAL and the durable link
+      // remains available for retry. Auth creation and trigger linking roll back
+      // together when the Auth transaction fails.
       captureApiError(createAuthError, "/api/register/complete", {
         journey: "student_registration",
         registration_stage: "account_creation",
@@ -453,23 +459,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // The link_precreated_user trigger should have linked the user, but let's verify
-    // and manually link if needed (in case trigger didn't fire)
+    // The Auth transaction links exactly the server-authorized Student. Verify
+    // that ownership before activating the In-person relationship.
     const { data: updatedStudent, error: updateError } = await supabaseAdmin
       .from("students")
       .select("id, user_id, status")
       .eq("id", studentId)
       .single();
 
-    if (updateError) {
+    if (updateError || updatedStudent?.user_id !== authData.user.id) {
       console.error("Failed to verify student update:", updateError);
-      captureApiError(updateError, "/api/register/complete", {
-        journey: "student_registration",
-        registration_stage: "account_link_verification",
-        result_code: "account_link_verification_failed",
-      });
-      // Clean up auth user
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      captureApiError(
+        updateError ?? new Error("Registration account ownership mismatch"),
+        "/api/register/complete",
+        {
+          journey: "student_registration",
+          registration_stage: "account_link_verification",
+          result_code: "account_link_verification_failed",
+        },
+      );
+      // Preserve the linked login for retry. Deleting it can cascade-delete the
+      // precreated Student and their history through students_user_fk.
       return NextResponse.json(
         {
           error: "Failed to verify registration",
@@ -479,16 +489,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Link the account, activate the In-person relationship, and retire any
+    // Activate the In-person relationship and retire any
     // now-obsolete account invite. The durable registration link is retained.
     const { error: linkError } = await supabaseAdmin
       .from("students")
       .update({
-        user_id: updatedStudent.user_id ?? authData.user.id,
         status: "ACTIVE",
         invite_token: null,
       })
-      .eq("id", studentId!);
+      .eq("id", studentId)
+      .eq("user_id", authData.user.id)
+      .eq("status", "TRIAL")
+      .select("id")
+      .single();
 
     if (linkError) {
       console.error("Failed to link user:", linkError);
@@ -497,7 +510,7 @@ export async function POST(request: NextRequest) {
         registration_stage: "account_link",
         result_code: "account_link_failed",
       });
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      // The same durable link can finish activation with the existing login.
       return NextResponse.json(
         { error: "Failed to link account", code: "account_link_failed" },
         { status: 500 },
