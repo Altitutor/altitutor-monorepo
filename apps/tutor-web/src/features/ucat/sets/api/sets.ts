@@ -9,6 +9,7 @@ import {
   throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
 import { patchUcatContentStatus } from '@/features/ucat/shared/lib/content-status-request'
+import { normalizeSetTiming } from '@/features/ucat/sets/lib/set-timing-payload'
 
 export const ucatSetsApi = {
   async list() {
@@ -168,9 +169,7 @@ function serialize(payload: UcatQuestionSetPayload) {
     id: payload.id ?? null,
     authoringNote: payload.authoringNote ?? null,
     description,
-    timingMode: payload.timingMode,
-    paceMultiplier: payload.paceMultiplier ?? null,
-    fixedTimeLimitSeconds: payload.fixedTimeLimitSeconds ?? null,
+    ...normalizeSetTiming(payload),
     setFormat: payload.setFormat,
     accessScope: payload.accessScope,
     sectionId: payload.sectionId,
