@@ -4,6 +4,18 @@ import {
   deliverEdgeEmail,
 } from '../../_shared/email.generated.ts';
 
+export function resolveInvoiceEmailRecipients(
+  toStudent: boolean,
+  toParents: boolean,
+  studentEmail: string | undefined,
+  parentEmails: string[],
+): string[] {
+  return [...new Set([
+    ...(toStudent && studentEmail ? [studentEmail] : []),
+    ...(toParents ? parentEmails.filter(Boolean) : []),
+  ])];
+}
+
 /**
  * Send invoice email to recipients based on billing preferences
  * Uses Resend instead of Stripe's built-in email system for better control
@@ -32,19 +44,7 @@ export async function sendInvoiceEmail(
   }
 
   // Build recipient list based on preferences
-  const recipients: string[] = [];
-  
-  if (invoiceEmailToStudent && studentEmail) {
-    recipients.push(studentEmail);
-  }
-  
-  if (invoiceEmailToParents && parentEmails.length > 0) {
-    for (const email of parentEmails) {
-      if (email && !recipients.includes(email)) {
-        recipients.push(email);
-      }
-    }
-  }
+  const recipients = resolveInvoiceEmailRecipients(invoiceEmailToStudent, invoiceEmailToParents, studentEmail, parentEmails);
 
   if (recipients.length === 0) {
     console.warn(`[invoice-email] No recipients configured for invoice ${invoiceId} (student: ${invoiceEmailToStudent}, parents: ${invoiceEmailToParents})`);
