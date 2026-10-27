@@ -2,6 +2,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
+import { createAdminAuthDiagnostics } from '@/lib/sentry/admin-auth-diagnostics';
 
 // Environment variable validation - only check at runtime, not during build
 function validateEnvVars() {
@@ -48,6 +49,10 @@ function getBrowserClient() {
   }
   
   validateEnvVars();
+  const diagnostics = createAdminAuthDiagnostics({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    anonymousKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  });
   
   // Use isSingleton: true to ensure only one instance per URL+key combination
   // This is the recommended approach for Next.js App Router
@@ -59,8 +64,10 @@ function getBrowserClient() {
         name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
       },
       isSingleton: true,
+      ...(diagnostics ? { global: { fetch: diagnostics.fetch } } : {}),
     }
   ));
+  diagnostics?.attach(browserClientInstance);
   return browserClientInstance;
 }
 

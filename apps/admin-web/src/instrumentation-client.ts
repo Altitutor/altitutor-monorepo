@@ -1,5 +1,6 @@
 import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
+import { recordAdminAuthNavigation } from "@/lib/sentry/admin-auth-diagnostics";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const hostname = typeof window === "undefined" ? undefined : window.location.hostname;
@@ -55,4 +56,7 @@ Sentry.init({
   ],
 });
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (...args) => {
+  recordAdminAuthNavigation();
+  Sentry.captureRouterTransitionStart(...args);
+};
