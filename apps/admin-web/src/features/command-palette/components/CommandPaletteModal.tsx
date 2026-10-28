@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   lockOverlayPageScroll,
   overlayPinStyle,
@@ -10,6 +11,8 @@ import {
 import { cn } from '@/shared/utils';
 import { AdminDialogShell } from '@/shared/components';
 import { CommandPalette } from './CommandPalette';
+import { PalettePrototype } from './PalettePrototype';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 interface CommandPaletteModalProps {
@@ -22,6 +25,10 @@ interface CommandPaletteModalProps {
  * Provides the darkened background overlay for the Raycast-like search experience
  */
 export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProps) {
+  const params = useSearchParams();
+  const { open } = useCommandPalette();
+  const showPrototype = process.env.NODE_ENV !== 'production' && params.get('palettePrototype') === '1';
+  useEffect(() => { if (showPrototype) open(); }, [showPrototype, open]);
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const dragStartYRef = useRef<number | null>(null);
   const dragOffsetRef = useRef(0);
@@ -113,7 +120,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+        {showPrototype ? <PalettePrototype onClose={onClose} /> : <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />}
       </div>
 
       {isDesktop ? (
@@ -129,7 +136,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
             onOpenAutoFocus: (event) => event.preventDefault(),
           }}
         >
-          <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+          {showPrototype ? <PalettePrototype onClose={onClose} /> : <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />}
         </AdminDialogShell>
       ) : null}
     </>
