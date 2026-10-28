@@ -1,4 +1,6 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -16,7 +18,6 @@ import {
   Button,
   Checkbox,
   DataTable,
-  DataTableToolbar,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -1099,7 +1100,9 @@ export function UcatLearningModulesPage() {
             <p className="text-sm text-muted-foreground">Showing deleted lessons. Restore returns them to draft.</p>
           )}
 
-          <DataTableToolbar
+          <TutorEntityToolbar
+        pageKey={'ucat_learning_modules'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
             state={tableState.state}
             onSearchChange={tableState.actions.onSearchChange}
             onFiltersChange={tableState.actions.onFiltersChange}

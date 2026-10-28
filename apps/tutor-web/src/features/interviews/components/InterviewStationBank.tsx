@@ -1,10 +1,11 @@
 "use client";
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from "react";
 import {
   Button,
   DataTable,
-  DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -158,7 +159,10 @@ export function InterviewStationBank() {
         error={query.error ?? command.error}
         retry={() => void query.refetch()}
       />
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'interview_stations'}
+        defaultViewName="Active"
+        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [], { filters: { status: ['active'] } })}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}
@@ -171,7 +175,6 @@ export function InterviewStationBank() {
         columnDefinitions={columns}
         sortOptions={sorts}
         searchPlaceholder="Search stations, prompts, questions and rubrics"
-        viewTarget="interview_stations"
         {...tutorToolbarProps}
       />
       {!catalog ? (

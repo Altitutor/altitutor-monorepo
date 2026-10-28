@@ -1,4 +1,6 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -23,7 +25,6 @@ import {
   Button,
   Checkbox,
   DataTable,
-  DataTableToolbar,
   SearchableSelect,
   TablePagination,
   useToast,
@@ -354,7 +355,9 @@ export function UcatSkillTrainerQuestionsPage() {
           }))}
       />
 
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'ucat_skill_trainer_questions'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}

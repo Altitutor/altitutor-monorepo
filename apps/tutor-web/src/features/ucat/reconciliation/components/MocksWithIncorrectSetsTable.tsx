@@ -1,7 +1,9 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useState } from 'react'
-import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
+import { TableRow, TableCell, Button } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { ReconciliationTable } from './ReconciliationTable'
 import type { MockWithIncorrectSets } from '../api/reconciliation'
@@ -59,7 +61,9 @@ export function MocksWithIncorrectSetsTable({
   }, [items, tableState.state, accessors, searchScopes])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_incorrect_mocks'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

@@ -1,9 +1,11 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, DataTable, DataTableToolbar, TablePagination, useToast } from '@altitutor/ui'
+import { Button, DataTable, TablePagination, useToast } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
@@ -158,7 +160,9 @@ export function UcatMockBlueprintsPage() {
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mock Blueprints' }]}
         actions={<Button className={tutorBtnPrimary} onClick={() => { setSource(null); setDialogOpen(true) }}>Add Blueprint</Button>}
       />
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'ucat_mock_blueprints'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}

@@ -29,9 +29,11 @@ import {
 
 export interface ToolbarViewsService {
   userId: string | null;
+  shareLabel?: string;
   save: (
     view: Omit<SavedView, "id" | "created_at" | "updated_at"> & { id?: string },
   ) => Promise<SavedView>;
+  remove?: (id: string) => Promise<void>;
 }
 const ViewsContext = React.createContext<ToolbarViewsService | null>(null);
 export const ToolbarViewsProvider = ViewsContext.Provider;
@@ -72,12 +74,15 @@ export function ToolbarSavedViews({
   const [overrides, setOverrides] = React.useState<Record<string, SavedView>>(
     {},
   );
+  const [removedIds, setRemovedIds] = React.useState<Record<string, true>>(
+    {},
+  );
   const combined = [
     ...views.map((view) => overrides[view.id] ?? view),
     ...Object.values(overrides).filter(
       (view) => !views.some((item) => item.id === view.id),
     ),
-  ];
+  ].filter((view) => !removedIds[view.id]);
   const active = useMatchingView(combined, current, defaults);
   const [editing, setEditing] = React.useState<SavedView | "new" | null>(null);
   const [draft, setDraft] = React.useState(current);
@@ -122,6 +127,34 @@ export function ToolbarSavedViews({
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not save the view.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async () => {
+    if (
+      !service?.remove ||
+      !editing ||
+      editing === "new" ||
+      editing.id.startsWith("builtin:")
+    )
+      return;
+    setSaving(true);
+    setError(null);
+    try {
+      await service.remove(editing.id);
+      const removedId = editing.id;
+      setRemovedIds((previous) => ({ ...previous, [removedId]: true }));
+      setOverrides((previous) => {
+        const next = { ...previous };
+        delete next[removedId];
+        return next;
+      });
+      setEditing(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not delete the view.",
       );
     } finally {
       setSaving(false);
@@ -225,7 +258,7 @@ export function ToolbarSavedViews({
                 checked={shared}
                 onCheckedChange={(checked) => setShared(checked === true)}
               />
-              Share with all admins
+              {service?.shareLabel ?? "Share with all admins"}
             </label>
             {renderEditor(draft, setDraft)}
             {error ? (
@@ -235,6 +268,17 @@ export function ToolbarSavedViews({
             ) : null}
           </div>
           <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
+            {editing !== "new" && service?.remove ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mr-auto"
+                disabled={saving}
+                onClick={() => void remove()}
+              >
+                Delete
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

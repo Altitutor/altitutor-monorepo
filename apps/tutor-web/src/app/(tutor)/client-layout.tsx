@@ -41,6 +41,7 @@ import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { isInterviewFullscreenPath } from '@/shared/lib/shell-layout';
+import { TutorToolbarViewsProvider } from '@/features/quick-filters/components/TutorToolbarViewsProvider';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -667,10 +668,12 @@ export default function TutorClientLayout({
     setCollapsed(!collapsed);
   };
 
-  if (isInterviewFullscreenPath(pathname)) return <>{children}</>;
+  if (isInterviewFullscreenPath(pathname)) {
+    return <TutorToolbarViewsProvider>{children}</TutorToolbarViewsProvider>;
+  }
 
   return (
-    <>
+    <TutorToolbarViewsProvider>
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} primaryItems={primaryItems} />
       <div className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 overflow-hidden bg-background md:gap-3 md:p-3">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} primaryItems={primaryItems} />
@@ -680,6 +683,6 @@ export default function TutorClientLayout({
           </div>
         </div>
       </div>
-    </>
+    </TutorToolbarViewsProvider>
   );
 }

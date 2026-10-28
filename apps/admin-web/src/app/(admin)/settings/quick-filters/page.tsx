@@ -16,7 +16,7 @@ export default function QuickFiltersSettingsPage() {
     setLoading(true);
     try {
       const data = await quickFiltersApi.listAll();
-      setFilters(data);
+      setFilters(data.filter((row) => !row.target_entity.startsWith('tutor:')));
     } catch (error) {
       console.error('Failed to load views:', error);
       alert('Failed to load views: ' + (error as Error).message);
