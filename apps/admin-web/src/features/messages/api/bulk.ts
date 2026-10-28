@@ -140,7 +140,7 @@ export async function getStudentsBySubject(subjectId: string): Promise<Tables<'s
   const typedData = (data || []) as StudentSubjectRow[];
   return typedData
     .map((item) => item.student)
-    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE' && !student.deleted_at);
 }
 
 type ClassStudentRow = {
@@ -165,7 +165,7 @@ export async function getStudentsByClass(classId: string): Promise<Tables<'stude
   const typedData = (data || []) as ClassStudentRow[];
   return typedData
     .map((item) => item.student)
-    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE' && !student.deleted_at);
 }
 
 /**
@@ -202,7 +202,7 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')
     .select('id')
-    .is('deleted_at', null).eq('status', 'ACTIVE')
+    .eq('status', 'ACTIVE')
     .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso);
@@ -228,7 +228,7 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   const typedSessionStudents = (sessionStudents || []) as SessionStudentRow[];
   return typedSessionStudents
     .map((item) => item.student)
-    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE');
+    .filter((student): student is Tables<'students'> => student !== null && student.status === 'ACTIVE' && !student.deleted_at);
 }
 
 type ClassWithSubjectRow = {
@@ -440,7 +440,7 @@ export async function getAllClasses(): Promise<Array<{
       *,
       subject:subjects(*)
     `)
-    .is('deleted_at', null).eq('status', 'ACTIVE')
+    .eq('status', 'ACTIVE')
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
   

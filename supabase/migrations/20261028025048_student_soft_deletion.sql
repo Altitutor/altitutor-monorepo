@@ -107,7 +107,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM public.classes_students WHERE student_id=p_student_id AND (unenrolled_at IS NULL OR unenrolled_at>now())) THEN
       RAISE EXCEPTION 'Resolve active enrolments before deleting this Student';
     END IF;
-    IF EXISTS (SELECT 1 FROM public.sessions_students AS participant JOIN public.sessions AS session ON session.id=participant.session_id WHERE participant.student_id=p_student_id AND session.status='ACTIVE' AND session.start_at>now())
+    IF EXISTS (SELECT 1 FROM public.sessions_students AS participant JOIN public.sessions AS session ON session.id=participant.session_id WHERE participant.student_id=p_student_id AND participant.planned_absence=false AND session.status='ACTIVE' AND session.start_at>now())
       OR EXISTS (SELECT 1 FROM public.slot_reservations WHERE reserved_by=v_student.user_id AND expires_at>now() AND start_at>now()) THEN
       RAISE EXCEPTION 'Resolve future bookings before deleting this Student';
     END IF;
@@ -1123,8 +1123,8 @@ CREATE FUNCTION public.guard_future_session_students() RETURNS trigger LANGUAGE 
 BEGIN
   IF NEW.status='ACTIVE' AND NEW.start_at>now() THEN
     PERFORM student.id FROM public.students student JOIN public.sessions_students participant ON participant.student_id=student.id
-    WHERE participant.session_id=NEW.id ORDER BY student.id FOR UPDATE OF student;
-    IF EXISTS(SELECT 1 FROM public.sessions_students participant JOIN public.students student ON student.id=participant.student_id WHERE participant.session_id=NEW.id AND student.deleted_at IS NOT NULL) THEN
+    WHERE participant.session_id=NEW.id AND participant.planned_absence=false ORDER BY student.id FOR UPDATE OF student;
+    IF EXISTS(SELECT 1 FROM public.sessions_students participant JOIN public.students student ON student.id=participant.student_id WHERE participant.session_id=NEW.id AND participant.planned_absence=false AND student.deleted_at IS NOT NULL) THEN
       RAISE EXCEPTION 'Restore this Student before starting new activity';
     END IF;
   END IF;
@@ -1160,4 +1160,41 @@ CREATE INDEX student_deletion_history_student_idx ON public.student_deletion_his
 CREATE INDEX student_retired_logins_student_idx ON public.student_retired_logins(student_id,deleted_at);
 CREATE INDEX student_retired_logins_email_idx ON public.student_retired_logins USING gin(login_emails);
 REVOKE ALL ON FUNCTION public.guard_student_retirement_changes(),public.guard_student_identity_admission(),public.guard_retired_contact_identity() FROM PUBLIC,anon,authenticated,service_role;
+NOTIFY pgrst,'reload schema';
+
+-- Resolved future assignments are history, but cannot be reactivated while retired.
+CREATE FUNCTION public.guard_resolved_student_booking() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ IF NOT NEW.planned_absence AND EXISTS(SELECT 1 FROM public.sessions WHERE id=NEW.session_id AND status='ACTIVE' AND start_at>now()) THEN
+  PERFORM id FROM public.students WHERE id=NEW.student_id FOR UPDATE;
+  IF EXISTS(SELECT 1 FROM public.students WHERE id=NEW.student_id AND deleted_at IS NOT NULL) THEN
+   RAISE EXCEPTION 'Restore this Student before starting new activity';
+  END IF;
+ END IF;
+ RETURN NEW;
+END;
+$$;
+CREATE TRIGGER guard_resolved_student_booking BEFORE UPDATE OF planned_absence ON public.sessions_students FOR EACH ROW EXECUTE FUNCTION public.guard_resolved_student_booking();
+
+-- Reservations belong to an Auth actor. Serialize against the Student row before
+-- deciding whether the actor is retired; preserve unrelated live Staff/Parent use.
+CREATE FUNCTION public.guard_retired_student_reservation() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE student_ids uuid[];
+BEGIN
+ SELECT array_agg(id) INTO student_ids FROM (
+  SELECT id FROM public.students WHERE user_id=NEW.reserved_by
+  UNION SELECT student_id FROM public.student_retired_logins WHERE auth_user_id=NEW.reserved_by
+ ) identities;
+ -- Capture stable IDs before waiting so unlinking user_id cannot remove the lock target.
+ PERFORM id FROM public.students WHERE id=ANY(student_ids) ORDER BY id FOR UPDATE;
+ IF EXISTS(SELECT 1 FROM public.student_retired_logins login JOIN public.students student ON student.id=login.student_id AND student.deleted_at=login.deleted_at WHERE login.auth_user_id=NEW.reserved_by)
+  AND NOT EXISTS(SELECT 1 FROM public.staff WHERE user_id=NEW.reserved_by AND status IN ('ACTIVE','TRIAL'))
+  AND NOT EXISTS(SELECT 1 FROM public.parents WHERE user_id=NEW.reserved_by) THEN
+  RAISE EXCEPTION 'Restore this Student before starting new activity';
+ END IF;
+ RETURN NEW;
+END;
+$$;
+CREATE TRIGGER guard_retired_student_reservation BEFORE INSERT OR UPDATE OF reserved_by,start_at,expires_at ON public.slot_reservations FOR EACH ROW WHEN(NEW.start_at>now() AND NEW.expires_at>now()) EXECUTE FUNCTION public.guard_retired_student_reservation();
+REVOKE ALL ON FUNCTION public.guard_resolved_student_booking(),public.guard_retired_student_reservation() FROM PUBLIC,anon,authenticated,service_role;
 NOTIFY pgrst,'reload schema';

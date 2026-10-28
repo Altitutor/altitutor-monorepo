@@ -62,5 +62,6 @@ REVOKE ALL ON FUNCTION public.retire_student_identity(uuid,uuid),
   public.restore_deleted_student_identity(uuid,uuid),public.normalize_retired_auth_identity(),
   public.require_live_student_for_activity(),public.guard_student_retirement_changes(),
   public.guard_student_identity_admission(),public.guard_retired_contact_identity(),
-  public.guard_future_session_students(),public.suppress_retired_student_email()
+  public.guard_future_session_students(),public.suppress_retired_student_email(),
+  public.guard_resolved_student_booking(),public.guard_retired_student_reservation()
   FROM PUBLIC,anon,authenticated,service_role;

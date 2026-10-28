@@ -1,0 +1,10 @@
+BEGIN;
+SELECT plan(2);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+INSERT INTO public.students(id,first_name,last_name,status) VALUES('fd243000-0000-4000-8000-000000000101','Retirement','Resolved booking',NULL);
+INSERT INTO public.sessions(id,type,status,start_at,end_at) VALUES('fd243000-0000-4000-8000-000000000102','TRIAL_SESSION','ACTIVE',now()+interval '2 days',now()+interval '2 days 1 hour');
+INSERT INTO public.sessions_students(id,student_id,session_id,planned_absence) VALUES('fd243000-0000-4000-8000-000000000103','fd243000-0000-4000-8000-000000000101','fd243000-0000-4000-8000-000000000102',true);
+SELECT lives_ok($$SELECT public.retire_student('fd243000-0000-4000-8000-000000000101')$$,'resolved planned absence preserves history without blocking deletion');
+SELECT throws_ok($$UPDATE public.sessions_students SET planned_absence=false WHERE id='fd243000-0000-4000-8000-000000000103'$$,'P0001','Restore this Student before starting new activity','resolved future booking cannot be reactivated while Student is retired');
+SELECT * FROM finish();
+ROLLBACK;
