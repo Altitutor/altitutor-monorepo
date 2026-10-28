@@ -52,6 +52,7 @@ export const COURSE_LINKS = [
 export const NAV_ITEMS = [
   { href: "/classes/", label: "In person courses" },
   { href: "/online-courses/", label: "Online courses" },
+  { href: "/blog/", label: "Blog" },
   { href: "/about/", label: "About us" },
   { href: "/about/contact/", label: "Contact" },
 ];
