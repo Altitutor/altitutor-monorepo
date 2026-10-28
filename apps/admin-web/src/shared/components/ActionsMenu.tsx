@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { Button } from '@altitutor/ui';
+import { useMemo, useState } from "react";
+import { Button } from "@altitutor/ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,17 +12,26 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   useToast,
-} from '@altitutor/ui';
-import { MessageSquare, MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, UserCheck, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import type { Editor } from '@tiptap/react';
-import type { JSONContent } from '@tiptap/core';
-import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
-import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
-import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
-import type { IssueTagInsert } from '@/features/issues/types';
+} from "@altitutor/ui";
+import {
+  MoreVertical,
+  ExternalLink,
+  Mail,
+  Calendar,
+  Download,
+  CreditCard,
+  Copy,
+  Receipt,
+} from "lucide-react";
+import type { Editor } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/core";
+import { CreateIssueDialog } from "@/features/issues/components/CreateIssueDialog";
+import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import type { IssueTagInsert } from "@/features/issues/types";
 
-import { useOpenPersonMessages } from '@/features/messages/hooks/useOpenPersonMessages';
+import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
+import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
+import { useOpenPersonMessages } from "@/features/messages/hooks/useOpenPersonMessages";
 
 interface BaseActionsMenuProps {
   onOpenInPage?: () => void;
@@ -32,7 +41,7 @@ interface BaseActionsMenuProps {
 }
 
 interface StudentActionsMenuProps extends BaseActionsMenuProps {
-  type: 'student';
+  type: "student";
   onEditDetails: () => void;
   onPasswordResetOrRegistration?: () => void;
   passwordResetLabel?: string;
@@ -51,7 +60,7 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
 }
 
 interface StaffActionsMenuProps extends BaseActionsMenuProps {
-  type: 'staff';
+  type: "staff";
   onEditDetails: () => void;
   onPasswordResetOrRegistration?: () => void;
   passwordResetLabel?: string;
@@ -61,7 +70,7 @@ interface StaffActionsMenuProps extends BaseActionsMenuProps {
 }
 
 interface SessionActionsMenuProps extends BaseActionsMenuProps {
-  type: 'session';
+  type: "session";
   onLogSession?: () => void;
   hasTutorLog: boolean;
   onEditTutorLog?: () => void;
@@ -73,7 +82,7 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
 }
 
 interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
-  type: 'invoice';
+  type: "invoice";
   /** Hosted invoice URL (customer payment page) */
   onViewPaymentPage?: () => void;
   /** Stripe Dashboard for this invoice */
@@ -92,35 +101,35 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
 }
 
 interface ClassActionsMenuProps extends BaseActionsMenuProps {
-  type: 'class';
+  type: "class";
   onDelete?: () => void;
 }
 
 interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
-  type: 'adminShift';
+  type: "adminShift";
   onDelete?: () => void;
 }
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
-  type: 'parent';
+  type: "parent";
   onDelete?: () => void;
   onBookCheckIn?: () => void;
 }
 
 interface TopicActionsMenuProps extends BaseActionsMenuProps {
-  type: 'topic';
+  type: "topic";
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
 interface SubjectActionsMenuProps extends BaseActionsMenuProps {
-  type: 'subject';
+  type: "subject";
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
 interface TutorLogActionsMenuProps extends BaseActionsMenuProps {
-  type: 'tutorLog';
+  type: "tutorLog";
   onEdit: () => void;
 }
 
@@ -131,114 +140,100 @@ interface RichTextTemplateConfig {
 }
 
 interface IssueActionsMenuProps extends BaseActionsMenuProps {
-  type: 'issue';
+  type: "issue";
   onDelete: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface TaskActionsMenuProps extends BaseActionsMenuProps {
-  type: 'task';
+  type: "task";
   onDelete: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface ProjectActionsMenuProps extends BaseActionsMenuProps {
-  type: 'project';
+  type: "project";
   onDelete: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface DocumentActionsMenuProps extends BaseActionsMenuProps {
-  type: 'document';
+  type: "document";
   onDelete: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps | DocumentActionsMenuProps;
+export type ActionsMenuProps =
+  | StudentActionsMenuProps
+  | StaffActionsMenuProps
+  | SessionActionsMenuProps
+  | InvoiceActionsMenuProps
+  | ClassActionsMenuProps
+  | AdminShiftActionsMenuProps
+  | ParentActionsMenuProps
+  | TopicActionsMenuProps
+  | SubjectActionsMenuProps
+  | TutorLogActionsMenuProps
+  | IssueActionsMenuProps
+  | TaskActionsMenuProps
+  | ProjectActionsMenuProps
+  | DocumentActionsMenuProps;
 
-type BookMeetingItem = {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  onSelect: () => void;
-};
-
-function BookMeetingSubmenu({ items }: { items: BookMeetingItem[] }) {
-  if (items.length === 0) return null;
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <Calendar className="h-4 w-4 mr-2" />
-        Book meeting
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <DropdownMenuItem key={item.key} onClick={item.onSelect}>
-              <Icon className="h-4 w-4 mr-2" />
-              {item.label}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
-}
-
-const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], string>> = {
-  student: 'student',
-  staff: 'staff',
-  session: 'session',
-  invoice: 'invoice',
-  class: 'class',
-  adminShift: 'adminShift',
-  parent: 'parent',
-  topic: 'topic',
-  subject: 'subject',
-  tutorLog: 'tutorLog',
-  issue: 'issue',
-  task: 'task',
-  project: 'project',
-  document: 'note',
+const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<
+  Record<ActionsMenuProps["type"], string>
+> = {
+  student: "student",
+  staff: "staff",
+  session: "session",
+  invoice: "invoice",
+  class: "class",
+  adminShift: "adminShift",
+  parent: "parent",
+  topic: "topic",
+  subject: "subject",
+  tutorLog: "tutorLog",
+  issue: "issue",
+  task: "task",
+  project: "project",
+  document: "note",
 };
 
 export function ActionsMenu(props: ActionsMenuProps) {
   const { toast } = useToast();
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
 
-  const issueInitialTags = useMemo<Omit<IssueTagInsert, 'issue_id'>[]>(() => {
+  const issueInitialTags = useMemo<Omit<IssueTagInsert, "issue_id">[]>(() => {
     if (!props.entityId) return [];
 
-    if (props.type === 'student') return [{ student_id: props.entityId }];
-    if (props.type === 'staff') return [{ staff_id: props.entityId }];
-    if (props.type === 'parent') return [{ parent_id: props.entityId }];
-    if (props.type === 'class') return [{ class_id: props.entityId }];
-    if (props.type === 'session') return [{ session_id: props.entityId }];
+    if (props.type === "student") return [{ student_id: props.entityId }];
+    if (props.type === "staff") return [{ staff_id: props.entityId }];
+    if (props.type === "parent") return [{ parent_id: props.entityId }];
+    if (props.type === "class") return [{ class_id: props.entityId }];
+    if (props.type === "session") return [{ session_id: props.entityId }];
 
     return [];
   }, [props]);
 
   const messageAction = useOpenPersonMessages(
-    props.type === 'student' || props.type === 'parent' || props.type === 'staff' ? props.type : null,
+    props.type === "student" ||
+      props.type === "parent" ||
+      props.type === "staff"
+      ? props.type
+      : null,
     props.entityId,
     props.copyTagDisplayText,
   );
-  const messageMenuItem = messageAction.available ? (
-    <DropdownMenuItem disabled={messageAction.isOpening} onSelect={() => void messageAction.openMessages()}>
-      <MessageSquare className="h-4 w-4 mr-2" />
-      Message
-    </DropdownMenuItem>
-  ) : null;
-
   const canAddIssue = issueInitialTags.length > 0;
 
   const handleCopyId = async () => {
     if (!props.entityId) return;
 
-    const tagType = props.copyTagType || DEFAULT_TAG_TYPE_BY_MENU_TYPE[props.type];
-    const displayText = (props.copyTagDisplayText || props.entityId).replace(/\]/g, '');
+    const tagType =
+      props.copyTagType || DEFAULT_TAG_TYPE_BY_MENU_TYPE[props.type];
+    const displayText = (props.copyTagDisplayText || props.entityId).replace(
+      /\]/g,
+      "",
+    );
     const copyValue = tagType
       ? `@[${tagType}:${props.entityId}:${displayText}]`
       : props.entityId;
@@ -246,14 +241,14 @@ export function ActionsMenu(props: ActionsMenuProps) {
     try {
       await navigator.clipboard.writeText(copyValue);
       toast({
-        title: 'Copied ID',
-        description: 'Copied taggable ID to clipboard',
+        title: "Copied ID",
+        description: "Copied taggable ID to clipboard",
       });
     } catch {
       toast({
-        title: 'Failed to copy',
-        description: 'Please try again',
-        variant: 'destructive',
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
       });
     }
   };
@@ -265,248 +260,41 @@ export function ActionsMenu(props: ActionsMenuProps) {
     </DropdownMenuItem>
   ) : null;
 
-  if (props.type === 'student') {
-    return (
-      <>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+  const actions = recordMenuActions(props, {
+    copy: props.entityId
+      ? () => {
+          void handleCopyId();
+        }
+      : undefined,
+    message: messageAction.available
+      ? () => {
+          void messageAction.openMessages();
+        }
+      : undefined,
+    messageDisabled: messageAction.isOpening,
+    addIssue: canAddIssue ? () => setIsCreateIssueOpen(true) : undefined,
+  });
+  useRegisterRecordActions(
+    props.type,
+    props.entityId,
+    props.copyTagDisplayText,
+    actions,
+  );
 
-            {copyMenuItem}
-          {messageMenuItem}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={props.onEditDetails}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit details
-            </DropdownMenuItem>
-            {props.onPasswordResetOrRegistration && props.passwordResetLabel ? (
-              <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
-                <Mail className="h-4 w-4 mr-2" />
-                {props.passwordResetLabel}
-              </DropdownMenuItem>
-            ) : null}
-            {props.onLogAbsence && (
-              <DropdownMenuItem onClick={props.onLogAbsence}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Log absence
-              </DropdownMenuItem>
-            )}
-            {props.onAddToHomeworkHelp && (
-              <DropdownMenuItem onClick={props.onAddToHomeworkHelp}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Add to homework help
-              </DropdownMenuItem>
-            )}
-            <BookMeetingSubmenu
-              items={[
-                props.onBookTrialSession
-                  ? { key: 'trial', label: 'Book trial session', icon: Calendar, onSelect: props.onBookTrialSession }
-                  : null,
-                props.onBookDraftingSession
-                  ? { key: 'drafting', label: 'Book drafting session', icon: FileText, onSelect: props.onBookDraftingSession }
-                  : null,
-                props.onBookSubsidyInterview
-                  ? { key: 'subsidy', label: 'Book subsidy interview', icon: Calendar, onSelect: props.onBookSubsidyInterview }
-                  : null,
-                props.onBookCheckIn
-                  ? { key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }
-                  : null,
-              ].filter((item): item is BookMeetingItem => item !== null)}
-            />
-            {canAddIssue && (
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {props.onReEnroll && (
-              <DropdownMenuItem onClick={props.onReEnroll}>
-                <UserCheck className="h-4 w-4 mr-2" />
-                Re-enroll
-              </DropdownMenuItem>
-            )}
-            {props.onSendDiscontinuationLink && (
-              <DropdownMenuItem onClick={props.onSendDiscontinuationLink}>
-                <Mail className="h-4 w-4 mr-2" />
-                Send discontinuation link
-              </DropdownMenuItem>
-            )}
-            {props.onDiscontinue && (
-              <DropdownMenuItem onClick={props.onDiscontinue} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <UserX className="h-4 w-4 mr-2" />
-                Discontinue
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete student
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <CreateIssueDialog
-          isOpen={isCreateIssueOpen}
-          onClose={() => setIsCreateIssueOpen(false)}
-          initialTags={issueInitialTags}
-        />
-      </>
-    );
-  }
-
-  if (props.type === 'staff') {
+  if (props.type === "invoice") {
     return (
-      <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            disabled={props.isLoadingAction}
+          >
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {messageMenuItem}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onEditDetails}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit details
-          </DropdownMenuItem>
-          {props.onPasswordResetOrRegistration && props.passwordResetLabel ? (
-            <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
-              <Mail className="h-4 w-4 mr-2" />
-              {props.passwordResetLabel}
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem onClick={props.onLogAbsence}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Log absence
-          </DropdownMenuItem>
-          <BookMeetingSubmenu
-            items={
-              props.onBookCheckIn
-                ? [{ key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }]
-                : []
-            }
-          />
-          {canAddIssue && (
-            <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add issue
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete staff
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreateIssueDialog
-        isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
-        initialTags={issueInitialTags}
-      />
-      </>
-    );
-  }
-
-  if (props.type === 'session') {
-    const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
-    const canLogSession = !props.hasTutorLog && props.onLogSession;
-    const showEditTutorLog = canEditTutorLog;
-    const showLogSession = canLogSession;
-    const canSendBookingConfirmation =
-      props.sessionType !== 'CLASS' &&
-      props.onSendBookingConfirmation &&
-      props.sessionStudents &&
-      props.sessionStudents.length > 0;
-    const sendBookingAction = SESSION_QUICK_ACTIONS.find((a) => a.sessionActionType === 'send-booking-confirmation');
-    const SendBookingIcon = sendBookingAction?.icon ?? Mail;
-
-    return (
-      <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          <DropdownMenuSeparator />
-          {canSendBookingConfirmation && sendBookingAction && props.sessionStudents && (
-            <>
-              {props.sessionStudents.length === 1 ? (
-                <DropdownMenuItem
-                  onClick={() => props.onSendBookingConfirmation!(props.sessionStudents![0].id)}
-                >
-                  <SendBookingIcon className="h-4 w-4 mr-2" />
-                  {sendBookingAction.title}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <SendBookingIcon className="h-4 w-4 mr-2" />
-                    {sendBookingAction.title}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {props.sessionStudents.map((s) => (
-                      <DropdownMenuItem
-                        key={s.id}
-                        onClick={() => props.onSendBookingConfirmation!(s.id)}
-                      >
-                        Send to {s.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              )}
-              <DropdownMenuSeparator />
-            </>
-          )}
-          {showEditTutorLog ? (
-            <DropdownMenuItem onClick={props.onEditTutorLog}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit tutor log
-            </DropdownMenuItem>
-          ) : showLogSession ? (
-            <DropdownMenuItem onClick={props.onLogSession}>
-              <FileText className="h-4 w-4 mr-2" />
-              Log session
-            </DropdownMenuItem>
-          ) : null}
-          {canAddIssue && (
-            <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add issue
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreateIssueDialog
-        isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
-        initialTags={issueInitialTags}
-      />
-      </>
-    );
-  }
-
-  if (props.type === 'invoice') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" disabled={props.isLoadingAction}>
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
           {copyMenuItem}
           {(props.onViewPaymentPage || props.onViewInStripe) && (
             <>
@@ -534,7 +322,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {props.onSendInvoice && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onSendInvoice} disabled={props.isLoadingAction}>
+              <DropdownMenuItem
+                onClick={props.onSendInvoice}
+                disabled={props.isLoadingAction}
+              >
                 <Mail className="h-4 w-4 mr-2" />
                 Send Invoice
               </DropdownMenuItem>
@@ -543,7 +334,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {props.onChargeCard && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onChargeCard} disabled={props.isLoadingAction}>
+              <DropdownMenuItem
+                onClick={props.onChargeCard}
+                disabled={props.isLoadingAction}
+              >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Charge Card
               </DropdownMenuItem>
@@ -553,15 +347,19 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className={props.isAddCreditNoteDisabled ? 'opacity-60 text-muted-foreground' : undefined}
+                className={
+                  props.isAddCreditNoteDisabled
+                    ? "opacity-60 text-muted-foreground"
+                    : undefined
+                }
                 onClick={() => {
                   if (props.isAddCreditNoteDisabled) {
                     toast({
-                      title: 'Cannot add credit note',
+                      title: "Cannot add credit note",
                       description:
                         props.addCreditNoteDisabledReason ??
-                        'This invoice has already been fully credited.',
-                      variant: 'destructive',
+                        "This invoice has already been fully credited.",
+                      variant: "destructive",
                     });
                     return;
                   }
@@ -579,346 +377,75 @@ export function ActionsMenu(props: ActionsMenuProps) {
     );
   }
 
-  if (props.type === 'subject') {
-    return (
+  const renderAction = (action: RecordMenuAction) => (
+    <DropdownMenuItem
+      key={action.id}
+      disabled={action.disabled}
+      onSelect={action.action}
+      className={
+        action.destructive
+          ? "!text-destructive focus:!text-destructive focus:bg-destructive/10"
+          : undefined
+      }
+    >
+      <action.icon className="h-4 w-4 mr-2" />
+      {action.title}
+    </DropdownMenuItem>
+  );
+  const groups = [
+    ...new Set(
+      actions
+        .map((action) => action.group)
+        .filter((group): group is string => !!group),
+    ),
+  ];
+  return (
+    <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.onEdit && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onEdit}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit subject
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete subject
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'topic') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.onEdit && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onEdit}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit topic
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete topic
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'tutorLog') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open session in page
-          </DropdownMenuItem>
-          {copyMenuItem}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onEdit}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit tutor log
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'class') {
-    return (
-      <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {canAddIssue && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete class
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreateIssueDialog
-        isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
-        initialTags={issueInitialTags}
-      />
-      </>
-    );
-  }
-
-  if (props.type === 'adminShift') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {canAddIssue && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete admin shift
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'parent') {
-    return (
-      <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {messageMenuItem}
-          {props.onBookCheckIn && (
-            <>
-              <DropdownMenuSeparator />
-              <BookMeetingSubmenu
-                items={[{ key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }]}
-              />
-            </>
-          )}
-          {canAddIssue && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete parent
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreateIssueDialog
-        isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
-        initialTags={issueInitialTags}
-      />
-      </>
-    );
-  }
-
-  if (props.type === 'issue') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.richTextTemplateConfig && (
-            <RichTextTemplateMenuItems
-              getEditor={props.richTextTemplateConfig.getEditor}
-              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
-              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
-            />
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={props.onDelete}
-            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            aria-label="Record actions"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete issue
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'task') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.richTextTemplateConfig && (
-            <RichTextTemplateMenuItems
-              getEditor={props.richTextTemplateConfig.getEditor}
-              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
-              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
-            />
+          {actions
+            .filter((action) => !action.group && !action.destructive)
+            .map(renderAction)}
+          {"richTextTemplateConfig" in props &&
+            props.richTextTemplateConfig && (
+              <RichTextTemplateMenuItems {...props.richTextTemplateConfig} />
+            )}
+          {groups.map((group) => (
+            <DropdownMenuSub key={group}>
+              <DropdownMenuSubTrigger>
+                <Calendar className="h-4 w-4 mr-2" />
+                {group}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {actions
+                  .filter((action) => action.group === group)
+                  .map(renderAction)}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+          {actions.some((action) => action.destructive) && (
+            <DropdownMenuSeparator />
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={props.onDelete}
-            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete task
-          </DropdownMenuItem>
+          {actions.filter((action) => action.destructive).map(renderAction)}
         </DropdownMenuContent>
       </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'project') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.richTextTemplateConfig && (
-            <RichTextTemplateMenuItems
-              getEditor={props.richTextTemplateConfig.getEditor}
-              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
-              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
-            />
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={props.onDelete}
-            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete project
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  if (props.type === 'document') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-
-          {copyMenuItem}
-          {props.richTextTemplateConfig && (
-            <RichTextTemplateMenuItems
-              getEditor={props.richTextTemplateConfig.getEditor}
-              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
-              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
-            />
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={props.onDelete}
-            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete document
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  return null;
+      {canAddIssue && (
+        <CreateIssueDialog
+          isOpen={isCreateIssueOpen}
+          onClose={() => setIsCreateIssueOpen(false)}
+          initialTags={issueInitialTags}
+        />
+      )}
+    </>
+  );
 }

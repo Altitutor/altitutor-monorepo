@@ -222,6 +222,9 @@ export function TaskDetailView({
                   <ActionsMenu
                     type="task"
                     entityId={taskId}
+                    copyTagDisplayText={
+                      form.watch("title") || task?.title || "Untitled task"
+                    }
                     onDelete={() => {
                       if (editor.editable) setIsDeleteDialogOpen(true);
                     }}

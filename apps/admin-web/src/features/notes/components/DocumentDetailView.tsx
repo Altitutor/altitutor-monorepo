@@ -100,6 +100,9 @@ export function DocumentDetailView({
                 <ActionsMenu
                   type="document"
                   entityId={noteId}
+                  copyTagDisplayText={
+                    form.watch("title") || "Untitled document"
+                  }
                   onDelete={() => {
                     if (!editor.editable) return;
                     if (window.confirm("Permanently delete this document?"))
