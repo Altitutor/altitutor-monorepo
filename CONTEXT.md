@@ -36,6 +36,9 @@
 - **Online product signup** — A Product app's product-specific process for establishing an online relationship with a Student. Completing the signup activates that online relationship; creating an auth user or an incomplete Student profile does not.
   _Avoid_: Account creation, In-person registration, first login
 
+- **Student deletion** — An AdminStaff action that hides a Student from normal directories, blocks Student access and new activity, and retains the Student and all history. Existing services must be resolved first. The Student's released contact details can belong to a new person without transferring history. The original login or an AdminStaff restore can make the same Student available again without reclaiming those details or recreating ended services. This is separate from discontinuing an In-person relationship, Product account deletion and Student merge.
+  _Avoid_: Permanent Student deletion, discontinuation
+
 - **Online product relationship** — A Student's relationship with one online SaaS product, such as Altitutor UCAT or the future Altitutor Student Online SaaS offering. Each product relationship has an independent lifecycle; using Altitutor Student Online as the portal included with in-person tutoring does not create an online SaaS relationship.
 - **Product account deletion** — A Student's request to end their account in one Product app. It closes that Online product relationship, removes that product's learning data, and removes their login only when no other relationship needs it, while the Student and their invoicing and attendance records remain. A later signup with the same email reopens that product on the same Student without restoring the deleted learning data.
   _Avoid_: Deleting the Student, account deactivation

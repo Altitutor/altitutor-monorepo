@@ -32,6 +32,7 @@ export * from "./forms";
 export * from "./constants/online-products";
 export * from "./auth/verified-request";
 export * from "./auth/session-verification";
+export * from './auth/student-login';
 export * from "./observability/sentry-environment";
 export * from "./observability/sentry-collection";
 export * from "./session-billing/obligation";

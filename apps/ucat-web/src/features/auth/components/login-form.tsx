@@ -6,7 +6,7 @@ import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { captureException } from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
-import { MARKETING_TOKENS } from "@altitutor/shared";
+import { signInWithStudentLoginRecovery, MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -70,7 +70,7 @@ export function LoginForm({
 
     let result;
     try {
-      result = await supabase.auth.signInWithPassword({ email, password });
+      result = await signInWithStudentLoginRecovery(supabase, { email, password }, { restoreStudent: true });
     } catch (cause) {
       const retryMessage = retryableSignInMessage(cause);
       if (!retryMessage) captureException(cause);

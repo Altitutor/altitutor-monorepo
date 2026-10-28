@@ -120,6 +120,8 @@ const mockStudents: Tables<'students'>[] = [
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   },
   {
     id: 'student-2',
@@ -161,6 +163,8 @@ const mockStudents: Tables<'students'>[] = [
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   },
 ];
 

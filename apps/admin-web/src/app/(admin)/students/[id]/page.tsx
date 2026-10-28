@@ -113,6 +113,17 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const restoreStudent = async () => {
+    setIsRestoring(true);
+    try {
+      await studentsApi.restoreStudent(id);
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+      toast({ title: 'Student restored', description: 'Ended services and released contact details remain unchanged.' });
+    } catch (error) {
+      toast({ title: 'Unable to restore Student', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally { setIsRestoring(false); }
+  };
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -250,14 +261,16 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         <PrimaryEntityBreadcrumb />
         <NoteAlertPills entityType="student" entityId={student.id} />
 
-        <ActionsMenu
+        {!student.deleted_at && <ActionsMenu
           type="student"
           entityId={student.id}
           copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}
-        />
+        />}
+        {student.deleted_at && currentStaff?.role === 'ADMINSTAFF' && <Button onClick={() => void restoreStudent()} disabled={isRestoring}>{isRestoring ? 'Restoring…' : 'Restore Student'}</Button>}
       </div>
 
+      {student.deleted_at && <p role="status" className="my-4 rounded-md border p-4 text-sm">Deleted {new Date(student.deleted_at).toLocaleString()}. History is retained. Restore this Student before editing their details or starting new services. Their existing login can also restore the record; released contact details belong to their current owners.</p>}
       {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
@@ -428,8 +441,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the student
-                "{student.first_name} {student.last_name}" and all associated data from the database.
+                This will hide the Student
+                "{student.first_name} {student.last_name}" and block their access while retaining all history. Resolve active enrolments, future bookings, subscriptions and open checkouts first. Their existing login or an AdminStaff restore can make the record available again.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -1,5 +1,6 @@
 "use client";
 
+import { restoreStudentAfterSignIn } from "@altitutor/shared";
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { useSearchParams } from "next/navigation";
@@ -100,6 +101,16 @@ function AuthCallbackInner() {
 
     const continueAfterSocialAuth = async () => {
       if (!provider) return false;
+      if (intent === "login" || intent === "signup") {
+        try {
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (error) throw error;
+          await restoreStudentAfterSignIn(supabase, user);
+        } catch {
+          finish("Your Student record could not be restored. Please try again.", "student_restore");
+          return true;
+        }
+      }
 
       if (intent === "signup") {
         const referralCode = normalizeReferralCode(searchParams.get("ref"));

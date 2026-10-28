@@ -1,3 +1,4 @@
+import { signInWithStudentLoginRecovery } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdatePasswordRequest } from '../types';
 
@@ -6,10 +7,10 @@ export const authApi = {
    * Login with email and password
    */
   login: async (credentials: LoginRequest) => {
-    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+    const { data, error } = await signInWithStudentLoginRecovery(getSupabaseClient(), {
       email: credentials.email,
       password: credentials.password,
-    });
+    }, { restoreStudent: true });
 
     if (error) throw error;
 

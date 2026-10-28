@@ -21,7 +21,7 @@ export async function ensureContactForStudent(
   // Check if contact already exists
   const { data: existingContact } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id').is('retired_at', null)
     .eq('student_id', studentId)
     .maybeSingle();
   
@@ -31,7 +31,7 @@ export async function ensureContactForStudent(
   
   const { data: student, error: studentError } = await supabase
     .from('students')
-    .select('phone, email')
+    .select('phone, email').is('deleted_at', null)
     .eq('id', studentId)
     .single();
 
@@ -61,7 +61,7 @@ export async function ensureContactForStudent(
     if (createError.code === '23505') {
       const { data: retryContact } = await supabase
         .from('contacts')
-        .select('id')
+        .select('id').is('retired_at', null)
         .eq('student_id', studentId)
         .maybeSingle();
       return retryContact?.id || null;

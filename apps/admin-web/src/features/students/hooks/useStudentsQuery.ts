@@ -331,8 +331,8 @@ export function useDeleteStudent() {
       // Remove from detail cache
       queryClient.removeQueries({ queryKey: studentsKeys.detailFull(deletedId) });
       
-      // Invalidate ONLY entity's minimal list
-      queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
+      // Refresh ordinary and deleted Student directories together.
+      queryClient.invalidateQueries({ queryKey: studentsKeys.all });
     },
   });
 }

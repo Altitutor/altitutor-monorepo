@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
       .select('*')
       .single();
 
+    if (error?.code === 'P0001' && error.message === 'Restore this Student before starting new activity') {
+      return NextResponse.json({ error: 'Sign in again to restore your Student before booking.' }, { status: 409 });
+    }
     if (error) throw error;
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

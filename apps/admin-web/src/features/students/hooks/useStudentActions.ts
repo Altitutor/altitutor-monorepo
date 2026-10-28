@@ -91,7 +91,7 @@ export function useStudentActions({
   onDelete,
 }: UseStudentActionsProps) {
   const router = useRouter();
-  const canBook = isBookableStatus(student?.status);
+  const canBook = !student?.deleted_at && isBookableStatus(student?.status);
 
   const handleOpenInPage = useCallback(() => {
     if (onOpenInPage) {
@@ -114,7 +114,7 @@ export function useStudentActions({
     onAddToHomeworkHelp: canBook ? onAddToHomeworkHelp : undefined,
     onSendDiscontinuationLink: canBook ? onSendDiscontinuationLink : undefined,
     onDiscontinue: canBook ? onDiscontinue : undefined,
-    onReEnroll: student?.status === 'DISCONTINUED' ? onReEnroll : undefined,
+    onReEnroll: !student?.deleted_at && student?.status === 'DISCONTINUED' ? onReEnroll : undefined,
     onDelete,
   };
 }
