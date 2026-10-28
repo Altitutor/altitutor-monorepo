@@ -776,6 +776,42 @@ export type Database = {
           },
         ]
       }
+      automation_message_action_skips: {
+        Row: {
+          action_id: string
+          created_at: string
+          execution_id: string
+          reason: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          execution_id: string
+          reason?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          execution_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_message_action_skips_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "automation_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_action_skips_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "automation_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_message_deliveries: {
         Row: {
           action_id: string
@@ -44517,6 +44553,10 @@ export type Database = {
           p_message: Json
         }
         Returns: string
+      }
+      record_automation_message_skip: {
+        Args: { p_action_id: string; p_execution_id: string }
+        Returns: undefined
       }
       record_current_ucat_authenticated_visit: {
         Args: never
