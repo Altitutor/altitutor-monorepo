@@ -214,6 +214,8 @@ export interface StudentInterviewRound {
   mode: InterviewMode;
   recordingEnabled: boolean;
   scheduledAt: string | null;
+  /** Calendar estimate only; feedback and pauses may extend the round. */
+  scheduledEndAt?: string | null;
   startedAt: string | null;
   phase: InterviewPhase;
   rotation: number;
