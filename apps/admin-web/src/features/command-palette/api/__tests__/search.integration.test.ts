@@ -127,6 +127,24 @@ localDatabaseTest("palette search against its owned local database", () => {
     });
     expect(onlineOnly.results.map((student) => student.id)).toEqual([ids[3]]);
   });
+  it("finds multiword topic names as well as subject-qualified codes", async () => {
+    const byName = await api.search({
+      type: "topic",
+      search: "Functions and Graphs",
+      limit: 20,
+    });
+    expect(byName.results.map((topic) => topic.title)).toEqual([
+      "1 Functions and Graphs",
+    ]);
+    const byCode = await api.search({
+      type: "topic",
+      search: "12MATH 1.1",
+      limit: 20,
+    });
+    expect(byCode.results.map((topic) => topic.title)).toEqual([
+      "1.1 Linear Functions",
+    ]);
+  });
   it("returns complete topic ancestry and restricts descendant searches to the selected subtree", async () => {
     const root = await api.search({
       type: "topic",
@@ -183,5 +201,42 @@ localDatabaseTest("palette search against its owned local database", () => {
         .map((file) => file.title.replace(/^\S+\s/, ""))
         .sort(),
     ).toEqual(["functions_answers.pdf", "functions_worksheet.pdf"]);
+  });
+  it("finds a multiword file name whose final word resembles a code", async () => {
+    const fileId = randomUUID();
+    const linkId = randomUUID();
+    const filename = `${marker} guide`;
+    const topic = await db.from("topics").select("id").limit(1).single();
+    if (topic.error) throw topic.error;
+    try {
+      const file = await db.from("files").insert({
+        id: fileId,
+        mimetype: "application/pdf",
+        filename,
+        size_bytes: 1,
+        storage_provider: "supabase",
+        bucket: "resources",
+        storage_path: `palette-tests/${fileId}.pdf`,
+      });
+      if (file.error) throw file.error;
+      const link = await db.from("topics_files").insert({
+        id: linkId,
+        topic_id: topic.data.id,
+        file_id: fileId,
+        type: "NOTES",
+        index: 99,
+        code: `palette-${linkId}`,
+      });
+      if (link.error) throw link.error;
+      const result = await api.search({
+        type: "file",
+        search: filename,
+        limit: 20,
+      });
+      expect(result.results.map((file) => file.id)).toEqual([linkId]);
+    } finally {
+      await db.from("topics_files").delete().eq("id", linkId);
+      await db.from("files").delete().eq("id", fileId);
+    }
   });
 });

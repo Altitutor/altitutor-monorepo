@@ -309,13 +309,16 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
                   .select("id")
                   .or(buildSubjectNameOrFilter(parsed.subjectQuery)),
               );
-              if (!subjects.length) return finish([]);
-              query = query
-                .in(
-                  "subject_id",
-                  subjects.map((subject) => subject.id),
-                )
-                .ilike("code", buildCodeContainsPattern(parsed.codeQuery));
+              if (subjects.length)
+                query = query
+                  .in(
+                    "subject_id",
+                    subjects.map((subject) => subject.id),
+                  )
+                  .ilike("code", buildCodeContainsPattern(parsed.codeQuery));
+              // Short final words also look like codes. Without a matching
+              // subject, retain ordinary name search for the complete phrase.
+              else query = textFilter(query, search, ["code", "name"]);
             } else query = textFilter(query, search, ["code", "name"]);
             data = await rows(
               query
@@ -398,6 +401,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
             .is("file.deleted_at", null);
           const parsed = parseSubjectQualifiedSearch(search);
+          let qualified = false;
           if (parsed.mode === "qualified") {
             const subjects = await rows(
               db
@@ -405,14 +409,17 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
                 .select("id")
                 .or(buildSubjectNameOrFilter(parsed.subjectQuery)),
             );
-            if (!subjects.length) return finish([]);
-            query = query
-              .in(
-                "topic.subject_id",
-                subjects.map((subject) => subject.id),
-              )
-              .ilike("code", buildCodeContainsPattern(parsed.codeQuery));
-          } else if (search.trim()) {
+            if (subjects.length) {
+              qualified = true;
+              query = query
+                .in(
+                  "topic.subject_id",
+                  subjects.map((subject) => subject.id),
+                )
+                .ilike("code", buildCodeContainsPattern(parsed.codeQuery));
+            }
+          }
+          if (!qualified && search.trim()) {
             query = query
               .ilike(
                 "filename_match.filename",
