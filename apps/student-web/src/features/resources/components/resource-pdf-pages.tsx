@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@altitutor/ui';
 
 type Pdfjs = {
   GlobalWorkerOptions: { workerSrc: string };
@@ -60,12 +61,17 @@ export function ResourcePdfPages({
   filename,
   className,
   onReady,
+  onRetry,
+  isRetrying = false,
 }: {
   url: string;
   filename: string;
   className?: string;
   onReady?: (loadedUrl: string) => void;
+  onRetry?: () => void;
+  isRetrying?: boolean;
 }) {
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const onReadyRef = useRef(onReady);
@@ -137,7 +143,7 @@ export function ResourcePdfPages({
       pages.replaceChildren();
       if (doc) void doc.destroy();
     };
-  }, [url]);
+  }, [url, retryAttempt]);
 
   return (
     <div
@@ -152,7 +158,13 @@ export function ResourcePdfPages({
         <p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>
       ) : null}
       {status === 'error' ? (
-        <p className="p-4 text-sm text-destructive">Couldn’t load this PDF.</p>
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-destructive">Couldn’t load this PDF.</p>
+          {onRetry ? <Button type="button" variant="outline" disabled={isRetrying}
+            onClick={() => { onRetry(); setRetryAttempt((attempt) => attempt + 1); }}>
+            {isRetrying ? 'Retrying…' : 'Retry PDF'}
+          </Button> : null}
+        </div>
       ) : null}
       <div ref={pagesRef} className="w-full" />
     </div>
