@@ -120,7 +120,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        {showPrototype ? <PalettePrototype onClose={onClose} /> : <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />}
+        {showPrototype ? (!isDesktop && <PalettePrototype onClose={onClose} />) : <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />}
       </div>
 
       {isDesktop ? (
@@ -134,6 +134,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
           bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
           dialogContentProps={{
             onOpenAutoFocus: (event) => event.preventDefault(),
+            onEscapeKeyDown: (event) => { if (showPrototype) event.preventDefault(); },
           }}
         >
           {showPrototype ? <PalettePrototype onClose={onClose} /> : <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />}

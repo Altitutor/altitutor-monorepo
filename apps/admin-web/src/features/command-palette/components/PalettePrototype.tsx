@@ -93,8 +93,8 @@ export function PalettePrototype({ onClose }: { onClose: () => void }) {
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   });
   const categoryButtons = roots.map(root => <button key={root.id} onClick={() => changePath([root])} className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${path[0]?.id === root.id ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-muted'}`}><root.icon className="h-4 w-4 shrink-0" />{root.title}</button>);
-  return <div className="flex min-h-0 flex-1 flex-col">
-    <div className="flex items-center justify-between border-b px-4 py-2 text-xs text-muted-foreground"><span>DEV-211 · THROWAWAY DESIGN PREVIEW · commands simulate only</span><button aria-label="Close prototype" onClick={onClose}><X className="h-4 w-4" /></button></div>
+  return <div className="flex h-full min-h-0 flex-1 flex-col">
+    <div className="flex shrink-0 items-center justify-between border-b px-4 py-2 text-xs text-muted-foreground"><span>DEV-211 · THROWAWAY DESIGN PREVIEW · commands simulate only</span><button aria-label="Close prototype" onClick={onClose}><X className="h-4 w-4" /></button></div>
     <div className="flex min-h-0 flex-1">
       {variant === 'B' && <aside aria-label="Entity categories" className="hidden w-48 shrink-0 flex-col gap-1 overflow-auto border-r p-2 md:flex"><button className="px-3 py-2 text-left text-sm" onClick={() => changePath([])}>All results</button>{categoryButtons}</aside>}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -103,7 +103,7 @@ export function PalettePrototype({ onClose }: { onClose: () => void }) {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setSelected((selected + (event.key === 'ArrowDown' ? 1 : -1) + visible.length) % Math.max(visible.length, 1)); }
           if (event.key === 'Enter' && visible[selected]) { event.preventDefault(); choose(visible[selected]); }
           if (event.key === 'Backspace' && !query && path.length) { event.preventDefault(); changePath(path.slice(0, -1)); }
-          if (event.key === 'Escape') { event.preventDefault(); if (path.length) changePath(path.slice(0, -1)); else onClose(); }
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (path.length) changePath(path.slice(0, -1)); else onClose(); }
         }}/>{isLoading && <span className="text-xs">Loading…</span>}</div>
         {variant === 'C' && <div aria-label="Entity tabs" className="flex shrink-0 gap-1 overflow-auto border-b p-2">{categoryButtons}</div>}
         <div className="min-h-0 flex-1 overflow-auto p-2">
