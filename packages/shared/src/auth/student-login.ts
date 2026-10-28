@@ -10,6 +10,10 @@ export async function restoreStudentAfterSignIn(client: SupabaseClient<Database>
   if (!user?.app_metadata?.retired_student_id) return;
   const { error } = await client.rpc('restore_my_deleted_student');
   if (error) throw new AuthError('Your Student record could not be restored. Please try again.');
+  // Installing credentials can start profile queries before restoration commits.
+  // Publish the updated session afterward so portal auth listeners refetch them.
+  const { error: refreshError } = await client.auth.refreshSession();
+  if (refreshError) throw new AuthError('Your session could not be refreshed. Please sign in again.');
 }
 
 export async function signInWithStudentLoginRecovery(

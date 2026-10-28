@@ -6,7 +6,7 @@ const credentials = { email: 'reused@example.test', password: 'original-password
 const success = { data: { user: { id: 'original', app_metadata: { retired_student_id: 'student' } }, session: {} }, error: null };
 
 function fixture(result: unknown) {
-  const auth = { signInWithPassword: jest.fn().mockResolvedValue(result), setSession: jest.fn().mockResolvedValue(success) };
+  const auth = { signInWithPassword: jest.fn().mockResolvedValue(result), setSession: jest.fn().mockResolvedValue(success), refreshSession: jest.fn().mockResolvedValue(success) };
   const rpc = jest.fn().mockResolvedValue({ data: 'student', error: null });
   return { auth, rpc, client: { auth, rpc } as unknown as SupabaseClient<Database> };
 }
@@ -14,15 +14,18 @@ function fixture(result: unknown) {
 describe('Student login recovery', () => {
   beforeEach(() => { globalThis.fetch = jest.fn(); });
   it('restores only after a successful Student login carrying the server retirement flag', async () => {
-    const { client, rpc } = fixture(success);
+    const { client, rpc, auth } = fixture(success);
     await signInWithStudentLoginRecovery(client, credentials, { restoreStudent: true });
     expect(rpc).toHaveBeenCalledWith('restore_my_deleted_student');
+    expect(auth.refreshSession).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(auth.refreshSession.mock.invocationCallOrder[0]);
     expect(fetch).not.toHaveBeenCalled();
   });
   it('does not restore a Student when signing into a staff portal', async () => {
-    const { client, rpc } = fixture(success);
+    const { client, rpc, auth } = fixture(success);
     await signInWithStudentLoginRecovery(client, credentials);
     expect(rpc).not.toHaveBeenCalled();
+    expect(auth.refreshSession).not.toHaveBeenCalled();
   });
   it('tries retained credentials only after invalid credentials, then installs the verified session', async () => {
     const { client, auth, rpc } = fixture({ data: { user: null, session: null }, error: new AuthApiError('Invalid credentials', 400, 'invalid_credentials') });
@@ -39,9 +42,16 @@ describe('Student login recovery', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
   it('fails sign-in if restoration cannot complete', async () => {
-    const { client, rpc } = fixture(success);
+    const { client, rpc, auth } = fixture(success);
     rpc.mockResolvedValue({ data: null, error: { message: 'internal detail' } });
     const result = await signInWithStudentLoginRecovery(client, credentials, { restoreStudent: true });
     expect(result.error?.message).toBe('Your Student record could not be restored. Please try again.');
+    expect(auth.refreshSession).not.toHaveBeenCalled();
+  });
+  it('does not report a completed sign-in when the post-restore session refresh fails', async () => {
+    const { client, auth } = fixture(success);
+    auth.refreshSession.mockResolvedValue({ data: { user: null, session: null }, error: new AuthApiError('Unavailable', 503, 'unexpected_failure') });
+    const result = await signInWithStudentLoginRecovery(client, credentials, { restoreStudent: true });
+    expect(result.error).not.toBeNull();
   });
 });
