@@ -17,8 +17,10 @@ import { Navigation } from "./navigation";
 import { SiteLogo } from "./site-logo";
 import { AnnouncementBanner } from "./announcement-banner";
 import styles from "../marketing.module.css";
+import type { PrimaryAction } from "../conversion-actions";
 
 const companyLinks = [
+  ["/blog/", "Blog"],
   ["/about/", "About us"],
   ["/about/testimonials/", "Results & testimonials"],
   ["/about/subsidy/", "Tuition subsidy"],
@@ -34,11 +36,17 @@ const socialLinks = [
   ["Twitter", "https://twitter.com/Altitutor", Twitter],
 ] as const;
 
-export function SiteFrame({ children }: { children: ReactNode }) {
+export function SiteFrame({
+  children,
+  primaryAction,
+}: {
+  children: ReactNode;
+  primaryAction?: PrimaryAction;
+}) {
   return (
     <div className={styles.site}>
       <AnnouncementBanner />
-      <Navigation />
+      <Navigation primaryAction={primaryAction} />
       <PageMotion>{children}</PageMotion>
       <SectionNavigation />
       <FindYourCourseDialog />

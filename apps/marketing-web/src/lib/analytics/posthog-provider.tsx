@@ -10,7 +10,12 @@ function PostHogPageView() {
   const searchParams = useSearchParams();
   const query = searchParams.toString();
   useEffect(() => {
-    if (pathname.startsWith("/ucat")) {
+    if (
+      pathname === "/ucat" ||
+      pathname.startsWith("/ucat/") ||
+      pathname === "/blog" ||
+      pathname.startsWith("/blog/")
+    ) {
       captureUcatObservedFirstTouchInBrowser({
         pathname,
         searchParams: new URLSearchParams(query),

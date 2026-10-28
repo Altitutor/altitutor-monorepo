@@ -19,12 +19,14 @@ import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { IN_PERSON_COURSES, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { SiteLogo } from "./site-logo";
 import styles from "../marketing.module.css";
+import type { PrimaryAction } from "../conversion-actions";
 
 const groups = [
   { href: "/classes/", label: "In person courses", items: IN_PERSON_COURSES },
   { href: "/online-courses/", label: "Online courses", items: ONLINE_COURSES },
 ] as const;
 const links = [
+  ["/blog/", "Blog"],
   ["/about/", "About us"],
   ["/about/contact/", "Contact"],
 ] as const;
@@ -60,7 +62,9 @@ const courseDetails = {
   },
 } as const;
 
-export function Navigation() {
+export function Navigation({
+  primaryAction,
+}: { primaryAction?: PrimaryAction } = {}) {
   const pathname = usePathname();
   const [dropdown, setDropdown] = useState<string | null>(null);
   const header = useRef<HTMLElement>(null);
@@ -191,22 +195,16 @@ export function Navigation() {
   }
 
   const logoVariant =
-    pathname === "/" &&
-    !scrolled &&
-    !menuOpen &&
-    !menuClosing &&
-    !dropdown
+    pathname === "/" && !scrolled && !menuOpen && !menuClosing && !dropdown
       ? "dark"
       : "light";
 
-  const isUcatLandingPage =
-    pathname === "/ucat" || pathname === "/ucat/";
-  const navCtaHref = isUcatLandingPage
-    ? PRODUCT_LINKS.ucatSignup
-    : PRODUCT_LINKS.trialBooking;
-  const navCtaLabel = isUcatLandingPage
-    ? "Start free"
-    : "Free trial";
+  const isUcatLandingPage = pathname === "/ucat" || pathname === "/ucat/";
+  const navCtaHref =
+    primaryAction?.href ??
+    (isUcatLandingPage ? PRODUCT_LINKS.ucatSignup : PRODUCT_LINKS.trialBooking);
+  const navCtaLabel =
+    primaryAction?.label ?? (isUcatLandingPage ? "Start free" : "Free trial");
 
   return (
     <>
