@@ -91,12 +91,13 @@ describe("tutor calendar feed", () => {
   });
 
   it("emits CANCELLED tombstones for recently inactive sessions", () => {
+    const updatedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const feed = buildTutorCalendarFeed(
       [
         {
           ...baseSession,
           status: "INACTIVE",
-          updatedAt: "2026-07-30T12:00:00.000Z",
+          updatedAt,
         },
       ],
       "https://tutor.altitutor.com",
@@ -105,7 +106,7 @@ describe("tutor calendar feed", () => {
     expect(feed).toContain("STATUS:CANCELLED");
     expect(feed).toContain("TRANSP:TRANSPARENT");
     expect(feed).toContain(
-      `SEQUENCE:${getCalendarEventSequence("2026-07-30T12:00:00.000Z")}`,
+      `SEQUENCE:${getCalendarEventSequence(updatedAt)}`,
     );
   });
 
