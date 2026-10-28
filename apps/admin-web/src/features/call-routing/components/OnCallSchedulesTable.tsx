@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Input,
   Button,
   Label,
   Switch,
   SearchableSelect,
+  TimePicker,
 } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import {
@@ -277,21 +277,21 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
 
             <div className="space-y-2">
               <Label htmlFor="edit-start-time">Start Time (Adelaide timezone)</Label>
-              <Input
+              <TimePicker
                 id="edit-start-time"
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={setStartTime}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit-end-time">End Time (Adelaide timezone)</Label>
-              <Input
+              <TimePicker
                 id="edit-end-time"
-                type="time"
+                aria-label="End time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
               />
             </div>
 
@@ -349,21 +349,21 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
 
             <div className="space-y-2">
               <Label htmlFor="add-start-time">Start Time (Adelaide timezone)</Label>
-              <Input
+              <TimePicker
                 id="add-start-time"
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={setStartTime}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="add-end-time">End Time (Adelaide timezone)</Label>
-              <Input
+              <TimePicker
                 id="add-end-time"
-                type="time"
+                aria-label="End time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
               />
             </div>
 

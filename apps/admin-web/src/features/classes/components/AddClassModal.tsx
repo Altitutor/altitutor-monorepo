@@ -9,6 +9,7 @@ import {
   Label,
   SearchableSelect,
   SmartDatePickerField,
+  TimePicker,
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -347,20 +348,20 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`start-${row.id}`}>Start</Label>
-                      <Input
+                      <TimePicker
                         id={`start-${row.id}`}
-                        type="time"
+                        aria-label={`Start time for day ${index + 1}`}
                         value={row.startTime}
-                        onChange={(event) => updateRow(row.id, { startTime: event.target.value })}
+                        onChange={(startTime) => updateRow(row.id, { startTime })}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`end-${row.id}`}>End</Label>
-                      <Input
+                      <TimePicker
                         id={`end-${row.id}`}
-                        type="time"
+                        aria-label={`End time for day ${index + 1}`}
                         value={row.endTime}
-                        onChange={(event) => updateRow(row.id, { endTime: event.target.value })}
+                        onChange={(endTime) => updateRow(row.id, { endTime })}
                       />
                     </div>
                     <div className="space-y-2">

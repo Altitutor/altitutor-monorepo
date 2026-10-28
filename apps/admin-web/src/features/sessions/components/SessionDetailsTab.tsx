@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccountClassBadge, Badge, Separator, Button, Input, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
+import { AccountClassBadge, Badge, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -377,7 +377,15 @@ export function SessionDetailsTab({
                 <Controller
                   control={form.control}
                   name="startTime"
-                  render={({ field }) => <Input id="session-start-time" type="time" {...field} disabled={isUpdating} />}
+                  render={({ field }) => (
+                    <TimePicker
+                      id="session-start-time"
+                      aria-label="Start time"
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={isUpdating}
+                    />
+                  )}
                 />
                 {form.formState.errors.startTime && (
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startTime.message}</p>
@@ -388,7 +396,15 @@ export function SessionDetailsTab({
                 <Controller
                   control={form.control}
                   name="endTime"
-                  render={({ field }) => <Input id="session-end-time" type="time" {...field} disabled={isUpdating} />}
+                  render={({ field }) => (
+                    <TimePicker
+                      id="session-end-time"
+                      aria-label="End time"
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={isUpdating}
+                    />
+                  )}
                 />
                 {form.formState.errors.endTime && (
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endTime.message}</p>

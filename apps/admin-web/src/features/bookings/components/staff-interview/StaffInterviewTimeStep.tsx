@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Input } from '@altitutor/ui';
+import { TimePicker } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
@@ -96,14 +96,11 @@ export function StaffInterviewTimeStep({
           />
         </PropertyFormRow>
         <PropertyFormRow label="Time" htmlFor="interview-time">
-          <Input
+          <TimePicker
             id="interview-time"
-            type="time"
+            aria-label="Interview time"
             value={startAtTime}
-            onChange={(e) => {
-              const time = e.target.value;
-              handleDateTimeChange(startAtDate, time);
-            }}
+            onChange={(time) => handleDateTimeChange(startAtDate, time)}
           />
         </PropertyFormRow>
       </PropertyForm>

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
+import { TimePicker } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
@@ -171,21 +171,19 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               />
             </PropertyFormRow>
             <PropertyFormRow label="Start time *" htmlFor={startTimeId}>
-              <Input
+              <TimePicker
                 id={startTimeId}
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
+                onChange={setStartTime}
               />
             </PropertyFormRow>
             <PropertyFormRow label="End time *" htmlFor={endTimeId} valueClassName="space-y-1">
-              <Input
+              <TimePicker
                 id={endTimeId}
-                type="time"
+                aria-label="End time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                required
+                onChange={setEndTime}
               />
               <p className="text-xs text-muted-foreground">
                 Admin staff work 3.5 hours (15 min early, 15 min late)

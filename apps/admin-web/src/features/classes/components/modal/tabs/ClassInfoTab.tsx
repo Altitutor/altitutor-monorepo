@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { Badge, Button, ClassStatusBadge, Input, Label, SearchableSelect, SmartDatePickerField } from '@altitutor/ui';
+import { Badge, Button, ClassStatusBadge, Input, Label, SearchableSelect, SmartDatePickerField, TimePicker } from '@altitutor/ui';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { formatCurrency } from '@/shared/utils/pricing';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
@@ -250,8 +250,8 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
             <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this class runs. Changes only reconcile future Sessions.</p></div>
             {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
               <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} fullWidth /></div>
-              <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
-              <div className="space-y-2"><Label>End</Label><Input type="time" value={row.endTime} disabled={busy} onChange={(event) => updateRow(row.id, { endTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Start</Label><TimePicker aria-label={`Start time for schedule row ${index + 1}`} value={row.startTime} disabled={busy} onChange={(startTime) => updateRow(row.id, { startTime })} /></div>
+              <div className="space-y-2"><Label>End</Label><TimePicker aria-label={`End time for schedule row ${index + 1}`} value={row.endTime} disabled={busy} onChange={(endTime) => updateRow(row.id, { endTime })} /></div>
               <div className="space-y-2"><Label>Room</Label><Input value={row.room} disabled={busy} onChange={(event) => updateRow(row.id, { room: event.target.value })} /></div>
               <div className="flex items-end"><Button type="button" size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Remove schedule row ${index + 1}`} disabled={busy || rows.length === 1} onClick={() => { setRows((current) => current.filter((item) => item.id !== row.id)); markChanged(); }}><Trash2 className="h-4 w-4" /></Button></div>
             </div>)}

@@ -26,7 +26,7 @@ export function TimePicker({ value, onChange, id, disabled, className, 'aria-lab
       getItemId={(item) => item}
       getItemLabel={timeLabel}
       onSearchChange={setQuery}
-      searchPlaceholder="Type a time, e.g. 9:05 am"
+      searchPlaceholder="Type a time, e.g. 4, 415, or 1615"
       emptyMessage="Enter a valid time, e.g. 14:30."
       disabled={disabled}
       fullWidth

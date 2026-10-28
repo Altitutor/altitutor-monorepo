@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
+import { TimePicker } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
 import { SmartDatePickerField } from "@altitutor/ui";
 import { Pencil, AlertTriangle } from "lucide-react";
@@ -212,12 +212,12 @@ export function AdminShiftInfoTab({
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
-                  <Input
+                  <TimePicker
                     id="startTime"
-                    type="time"
-                    {...field}
+                    aria-label="Start time"
+                    value={field.value}
+                    onChange={field.onChange}
                     disabled={isLoading}
-                    required
                   />
                 )}
               />
@@ -231,12 +231,12 @@ export function AdminShiftInfoTab({
                 control={form.control}
                 name="endTime"
                 render={({ field }) => (
-                  <Input
+                  <TimePicker
                     id="endTime"
-                    type="time"
-                    {...field}
+                    aria-label="End time"
+                    value={field.value}
+                    onChange={field.onChange}
                     disabled={isLoading}
-                    required
                   />
                 )}
               />

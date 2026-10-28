@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Button,
-  Input,
   SearchableSelect,
   Separator,
   Table,
@@ -13,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TimePicker,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -317,7 +317,7 @@ export function CheckInBookSessionModal({
                   <SmartDatePickerField value={date} onChange={(value) => setDate(value ?? '')} />
                 </PropertyFormRow>
                 <PropertyFormRow label="Start time" htmlFor="checkin-time">
-                  <Input id="checkin-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                  <TimePicker id="checkin-time" aria-label="Time" value={time} onChange={setTime} />
                 </PropertyFormRow>
                 <PropertyFormRow label="Duration">
                   <SearchableSelect<DurationItem>

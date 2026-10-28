@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Input,
   Button,
   Label,
   Switch,
+  TimePicker,
 } from '@altitutor/ui';
 import { openingHoursApi, type OpeningHoursRow } from '../api/opening-hours';
 import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
@@ -250,21 +250,21 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="start-time">Start Time</Label>
-              <Input
+              <TimePicker
                 id="start-time"
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={setStartTime}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="end-time">End Time</Label>
-              <Input
+              <TimePicker
                 id="end-time"
-                type="time"
+                aria-label="End time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
               />
             </div>
 
@@ -314,21 +314,21 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
 
             <div className="space-y-2">
               <Label htmlFor="add-start-time">Start Time</Label>
-              <Input
+              <TimePicker
                 id="add-start-time"
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={setStartTime}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="add-end-time">End Time</Label>
-              <Input
+              <TimePicker
                 id="add-end-time"
-                type="time"
+                aria-label="End time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
               />
             </div>
 
