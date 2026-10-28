@@ -1,4 +1,4 @@
-import { resolveSentryCollection } from "@altitutor/shared";
+import { sanitizeInterviewCallEvent, resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import { filterExpectedTutorWebError } from "@/lib/sentry/before-send";
 
@@ -24,7 +24,11 @@ Sentry.init({
   sendClientReports: collection.errors,
   sendDefaultPii: false,
   beforeSendTransaction: (event) => collection.errors ? event : null,
-  beforeSend: (event, hint) => collection.errors || event.type === "feedback" ? filterExpectedTutorWebError(event, hint) : null,
+  beforeSend: (event, hint) => {
+    if (!collection.errors && event.type !== "feedback") return null;
+    const filtered = filterExpectedTutorWebError(event, hint);
+    return filtered ? sanitizeInterviewCallEvent(filtered) : null;
+  },
   tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,

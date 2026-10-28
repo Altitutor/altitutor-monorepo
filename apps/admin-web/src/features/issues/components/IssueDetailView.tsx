@@ -166,6 +166,9 @@ export function IssueDetailView({
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
+                        copyTagDisplayText={
+                          form.watch("name") || issue?.name || "Untitled issue"
+                        }
                         onDelete={() => {
                           if (editor.editable) setIsDeleteDialogOpen(true);
                         }}
