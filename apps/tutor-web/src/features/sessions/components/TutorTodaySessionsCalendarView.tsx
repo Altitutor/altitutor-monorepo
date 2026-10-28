@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useTutorSessionDetailsBatch } from '../hooks/useSessionsQuery';
-import { useInterviewRounds } from '@/features/interviews/hooks/use-interviews';
+import { useInterviewCalendarRounds } from '@/features/interviews/hooks/use-interviews';
 import { toScheduledRound, type ScheduledInterviewRound } from '@/features/interviews/lib/round-calendar';
 import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from '@/features/interviews/components/InterviewRoundInfoDialog';
 import { clusterTimed } from '../utils/clusterTimed';
@@ -29,7 +29,7 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
   const selectedDate = parseISO(date);
   const today = new Date();
   const isViewingToday = isSameDay(selectedDate, today);
-  const roundsQuery = useInterviewRounds();
+  const roundsQuery = useInterviewCalendarRounds();
   const dayRounds = (roundsQuery.data ?? []).flatMap((round) => {
     const scheduled = toScheduledRound(round, '');
     return scheduled && isSameDay(new Date(scheduled.scheduledAt), selectedDate) ? [scheduled] : [];

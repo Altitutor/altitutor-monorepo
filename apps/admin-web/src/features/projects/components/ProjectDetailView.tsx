@@ -239,6 +239,9 @@ export function ProjectDetailView({
                   <ActionsMenu
                     type="project"
                     entityId={projectId}
+                    copyTagDisplayText={
+                      form.watch("name") || project?.name || "Untitled project"
+                    }
                     onDelete={() => {
                       if (editor.editable) setIsDeleteDialogOpen(true);
                     }}
