@@ -129,9 +129,10 @@ exercise does not substitute for deployment configuration or a real-device pilot
 
 Both web portals report unrecoverable Daily errors and three consecutive failed
 join/recovery attempts through a typed shared callback. Network interruption
-notifications that Daily recovers from, camera permission declines, access
-rejections, obsolete call callbacks, provider ejection at cutoff and planned lease expiry are not
-fatal-call reports. Existing recovery/polling remains authoritative; reporting
+notifications that Daily recovers from, camera permission declines, obsolete
+call callbacks, provider ejection at cutoff and planned lease expiry are not
+fatal-call reports. Unexpected HTTP errors, including 4xx responses, remain
+eligible after three consecutive failures. Existing recovery/polling remains authoritative; reporting
 never adds a database write or another polling loop. Categories identify the
 observed failure, not whether Altitutor, the provider or the network caused it.
 
@@ -151,3 +152,36 @@ receipt and grouping. Verify alert routing/delivery separately with the owner;
 do not treat event capture as an email/pager receipt or alter recipients during
 routine QA. Retain the original intermittent-disconnect issue until its own
 reproduction/evidence gate is met. These probes do not establish its cause.
+
+
+### Production receipt checklist (separate release and QA authorization required)
+
+Use a private synthetic QA round and two consenting staff-controlled accounts;
+never interrupt a teaching round. Run once in tutor-web and once in student-web,
+in separate browser tabs so each starts with an unused reporting budget.
+
+1. Confirm the authorized production release includes DEV-246 and normal Sentry
+   collection is enabled for that production host/project. Record the release
+   and portal; do not change collection flags, DSNs, alert rules or recipients.
+2. Start a questions phase lasting at least two minutes. Confirm the test pair
+   connects. In the tested portal's browser DevTools, enable request blocking for
+   the path pattern `*/api/interviews/rounds/*/media*` only. This blocks the local
+   policy request; it does not inject an SDK payload or expose a room token.
+3. Wait for three failed existing policy polls (normally about 30 seconds).
+   Disable blocking immediately, confirm the policy request succeeds again and
+   that the test call recovers. If the browser does not apply request blocking
+   to fetch, stop and record the probe as unavailable rather than claiming a pass.
+4. In that portal's production Sentry project, find `Interview call failed` at
+   the recorded time/release. Expect source `recovery`, category `unknown`, phase
+   `questions`, and state `joined` (or `joining` if the call lease elapsed).
+   Grouping is app/source/category. Record event ID/link, release, environment,
+   portal, timestamp and observed tags. Inspect the event payload: no user scope,
+   request URL, room/round/session IDs, device labels, provider text, breadcrumbs,
+   traces or replay context. Do not paste raw call requests into the workpad.
+5. Record alert delivery separately: the matching rule, destination type and
+   delivery timestamp/receipt, or the concrete missing rule/receipt. Existing
+   rules may not alert on this group/frequency; an event receipt alone is not an
+   alert pass. Ask the owner before changing alert routing or collection policy.
+6. End the synthetic round and confirm request blocking is disabled in both
+   portals. Keep the safe receipt summary on DEV-246; this does not reproduce or
+   close the separate intermittent-disconnect incident.

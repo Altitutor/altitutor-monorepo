@@ -593,7 +593,6 @@ export function InterviewMedia({
     const poll = async () => {
       let nextPoll = 3_000;
       let source: "join" | "recovery" = "recovery";
-      let expectedFailure = false;
       try {
         const query = sessionId
           ? `?sessionId=${encodeURIComponent(sessionId)}`
@@ -605,7 +604,6 @@ export function InterviewMedia({
         const body: unknown = await response.json();
         nextPoll = enabled ? 10_000 : 30_000;
         if (!response.ok) {
-          expectedFailure = response.status >= 400 && response.status < 500;
           await close();
           throw new Error(
             body && typeof body === "object" && "error" in body
@@ -708,7 +706,7 @@ export function InterviewMedia({
               "NotReadableError",
               "AbortError",
             ].includes(failure.name);
-          if (expectedFailure || expectedDevice) consecutiveFailures = 0;
+          if (expectedDevice) consecutiveFailures = 0;
           else if (enabled && ++consecutiveFailures === 3) {
             try {
               failureReporter.current?.({

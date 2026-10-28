@@ -1204,3 +1204,14 @@ it('does not report provider ejection during an intentional station cutoff', asy
   await act(async () => mockListeners.get('error')?.({ error: { type: 'ejected' } }));
   expect(report).not.toHaveBeenCalled();
 });
+
+
+it.each([400, 403, 429])("reports sustained unexpected media-policy HTTP %s failures", async (status) => {
+  jest.useFakeTimers();
+  const report = jest.fn();
+  global.fetch = jest.fn().mockResolvedValue({ok: false, status, json: async () => ({error: "private response"})});
+  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
+  await act(async () => { await jest.advanceTimersByTimeAsync(20_000); });
+  expect(report).toHaveBeenCalledWith({source: "recovery", category: "unknown", phase: "questions", state: "joining"});
+  expect(JSON.stringify(report.mock.calls)).not.toContain("private");
+});
