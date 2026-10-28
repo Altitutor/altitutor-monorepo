@@ -258,6 +258,7 @@ export function TopicDetailView({
         <ActionsMenu
           type="topic"
           entityId={id}
+          copyTagDisplayText={`${topic.code} ${topic.name}`.trim()}
           onEdit={handleEdit}
           onDelete={() => setShowDeleteDialog(true)}
         />
