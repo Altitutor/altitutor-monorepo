@@ -71,11 +71,18 @@ export function useInterviewRound(id: string, participate = false) {
 }
 
 export function useInterviewCalendarRounds() {
+  const { user, loading } = useAuthStore();
   const access = useInterviewAccess();
   const allowed = access.data?.hasAccess === true;
   const query = useInterviewRounds({ enabled: allowed, poll: false });
   return {
     ...query,
+    refetch: async () => {
+      if (loading || !user) return;
+      const refreshedAccess = await access.refetch({ cancelRefetch: false });
+      if (refreshedAccess.data?.hasAccess !== true || refreshedAccess.isError) return;
+      await query.refetch({ cancelRefetch: false });
+    },
     data: allowed ? query.data : undefined,
     isPending: allowed ? query.isPending : access.isPending,
     isError: access.isError || (allowed && query.isError),

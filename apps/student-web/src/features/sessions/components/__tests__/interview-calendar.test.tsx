@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { StudentTodaySessionsCalendarView } from "../StudentTodaySessionsCalendarView";
@@ -140,4 +140,36 @@ it("hides cached interview rounds after enrolment access is lost", () => {
     screen.queryByRole("button", { name: "Interview round Late interview" }),
   ).not.toBeInTheDocument();
   client.clear();
+});
+
+
+it.each([true, false])("retries failed calendar access before loading rounds (allowed=%s)", async (hasAccess) => {
+  useAuthStore.setState({ user: { id: "retry-actor", aud: "authenticated", app_metadata: {}, user_metadata: {}, created_at: "2026-10-28T00:00:00Z" }, loading: false });
+  const client = new QueryClient({defaultOptions: {queries: {staleTime: Infinity, retry: false}}});
+  let accessRequests = 0;
+  let roundRequests = 0;
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn(async (input) => {
+    if (String(input) === "/api/interviews/access") {
+      accessRequests++;
+      return {ok: accessRequests > 1, status: accessRequests > 1 ? 200 : 503, json: async () => ({hasAccess})} as Response;
+    }
+    if (String(input) === "/api/interviews/rounds") {
+      roundRequests++;
+      return {ok: true, json: async () => []} as unknown as Response;
+    }
+    throw new Error(`Unexpected request: ${String(input)}`);
+  });
+  const view = render(<QueryClientProvider client={client}><StudentTodaySessionsCalendarView date={format(new Date(), "yyyy-MM-dd")} sessions={[]} /></QueryClientProvider>);
+  try {
+    fireEvent.click(await screen.findByRole("button", {name: "Retry"}));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "Retry"})).not.toBeInTheDocument());
+    expect(accessRequests).toBe(2);
+    expect(roundRequests).toBe(hasAccess ? 1 : 0);
+  } finally {
+    view.unmount();
+    client.clear();
+    global.fetch = originalFetch;
+    useAuthStore.setState({user: null, loading: true});
+  }
 });

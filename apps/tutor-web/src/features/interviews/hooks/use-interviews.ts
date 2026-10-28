@@ -102,12 +102,23 @@ export function useInterviewRound(id: string, participate = false) {
 }
 
 export function useInterviewCalendarRounds() {
+  const { user, loading } = useAuthStore();
   const access = useInterviewAccess();
   const allowed = access.data === true;
   const staff = useCurrentStaff(allowed);
   const query = useInterviewRounds({ enabled: allowed, poll: false });
   return {
     ...query,
+    refetch: async () => {
+      if (loading || !user) return;
+      const refreshedAccess = await access.refetch({ cancelRefetch: false });
+      if (refreshedAccess.data !== true || refreshedAccess.isError) return;
+      const refreshedStaff = staff.isError || !staff.data
+        ? await staff.refetch({ cancelRefetch: false })
+        : staff;
+      if (refreshedStaff.isError || !refreshedStaff.data) return;
+      await query.refetch({ cancelRefetch: false });
+    },
     data:
       allowed && staff.data
         ? query.data?.filter((round) =>
