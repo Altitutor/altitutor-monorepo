@@ -112,6 +112,14 @@ localDatabaseTest("palette search against its owned local database", () => {
       `${marker} C Inperson`,
     ]);
     expect(result.hasMore).toBe(true);
+    const nextPage = await api.search({
+      type: "student",
+      search: marker,
+      limit: 2,
+      offset: 2,
+    });
+    expect(nextPage.results.map((student) => student.id)).toEqual([ids[3]]);
+    expect(nextPage.hasMore).toBe(false);
     const onlineOnly = await api.search({
       type: "student",
       search: `${marker} OnlineOnly`,
@@ -152,5 +160,28 @@ localDatabaseTest("palette search against its owned local database", () => {
       limit: 20,
     });
     expect(outside.results).toEqual([]);
+  });
+  it("searches file names and paginates the merged code/name matches without duplicates", async () => {
+    const first = await api.search({
+      type: "file",
+      search: "functions",
+      limit: 1,
+    });
+    expect(first.results).toHaveLength(1);
+    expect(first.hasMore).toBe(true);
+    const second = await api.search({
+      type: "file",
+      search: "functions",
+      limit: 1,
+      offset: 1,
+    });
+    expect(second.results).toHaveLength(1);
+    expect(second.results[0].id).not.toBe(first.results[0].id);
+    expect(second.hasMore).toBe(false);
+    expect(
+      [...first.results, ...second.results]
+        .map((file) => file.title.replace(/^\S+\s/, ""))
+        .sort(),
+    ).toEqual(["functions_answers.pdf", "functions_worksheet.pdf"]);
   });
 });

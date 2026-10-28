@@ -90,7 +90,8 @@ export function useRegisterRecordActions(
       ? accessory.active &&
         accessory.tab.kind === type &&
         accessory.tab.id === id
-      : pathname === `/${routeNames[type]}/${id}`);
+      : !!routeNames[type] &&
+        !!pathname?.endsWith(`/${routeNames[type]}/${id}`));
   const latest = useRef<Source>({
     target: { type: "student", id: "", title: "" },
     active: false,

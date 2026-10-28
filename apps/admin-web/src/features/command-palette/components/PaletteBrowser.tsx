@@ -115,15 +115,14 @@ export function PaletteBrowser({
   const requests = useMemo<PaletteSearch[]>(() => {
     if (!isOpen || (current && current.mode !== "entities")) return [];
     if (current?.mode === "entities")
-      return [
-        {
-          type: current.type,
-          search: debouncedQuery,
-          limit,
-          subjectId: current.subjectId,
-          topicId: current.topicId,
-        },
-      ];
+      return Array.from({ length: Math.ceil(limit / 30) }, (_, page) => ({
+        type: current.type,
+        search: debouncedQuery,
+        limit: 30,
+        offset: page * 30,
+        subjectId: current.subjectId,
+        topicId: current.topicId,
+      }));
     return debouncedQuery.length >= 2
       ? (Object.keys(paletteEntities) as PaletteEntityType[]).map((type) => ({
           type,
@@ -142,7 +141,7 @@ export function PaletteBrowser({
   const pendingQuery = query !== debouncedQuery;
   const isLoading = pendingQuery || queries.some((result) => result.isFetching);
   const hasError = queries.some((result) => result.isError);
-  const hasMore = queries.some((result) => result.data?.hasMore);
+  const hasMore = queries.at(-1)?.data?.hasMore ?? false;
   const items: Item[] = [];
   if (!current) {
     for (const type of categoryTypes) {

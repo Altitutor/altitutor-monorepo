@@ -4,6 +4,41 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PaletteBrowser } from "../PaletteBrowser";
 
+it("loads the next scoped page and removes Show more at the end", async () => {
+  const students = Array.from({ length: 31 }, (_, index) => ({
+    type: "student" as const,
+    id: String(index + 1),
+    title: `Student ${index + 1}`,
+  }));
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PaletteBrowser
+        isOpen
+        onClose={() => {}}
+        onEntitySelected={() => {}}
+        commands={[]}
+        pages={[]}
+        searchEntities={async ({ offset = 0, limit }) => ({
+          results: students.slice(offset, offset + limit),
+          hasMore: offset + limit < students.length,
+        })}
+      />
+    </QueryClientProvider>,
+  );
+  await user.click(screen.getByRole("option", { name: "Students" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Show more results" }),
+  );
+  expect(
+    await screen.findByRole("option", { name: "Student 31" }),
+  ).toBeVisible();
+  expect(screen.getAllByRole("option")).toHaveLength(31);
+  expect(
+    screen.queryByRole("button", { name: "Show more results" }),
+  ).not.toBeInTheDocument();
+});
+
 it("enters Students with Enter, searches only that submenu, and returns with Backspace", async () => {
   const user = userEvent.setup();
   render(

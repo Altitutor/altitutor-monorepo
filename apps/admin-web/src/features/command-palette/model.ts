@@ -43,6 +43,7 @@ export type PaletteSearch = {
   type: PaletteEntityType;
   search: string;
   limit: number;
+  offset?: number;
   subjectId?: string;
   topicId?: string;
 };

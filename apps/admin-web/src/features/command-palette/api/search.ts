@@ -1,5 +1,7 @@
 import {
   buildPersonFieldOrFilters,
+  buildCodeExactOrPrefixOrFilter,
+  escapeIlikePattern,
   buildSubjectNameOrFilter,
   buildCodeContainsPattern,
   parseSubjectQualifiedSearch,
@@ -8,7 +10,6 @@ import {
 } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import { topicsFilesApi } from "@/features/topics/api/topics-files";
 import type {
   PaletteEntity,
   PaletteSearchResult,
@@ -55,8 +56,10 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
       limit,
       subjectId,
       topicId,
+      offset: requestedOffset = 0,
     }): Promise<PaletteSearchResult> => {
-      const take = Math.max(1, Math.min(limit, 1000));
+      const take = Math.max(1, Math.min(Math.trunc(limit), 999));
+      const offset = Math.max(0, Math.trunc(requestedOffset));
       const finish = (results: PaletteEntity[]) => ({
         results: results.slice(0, take),
         hasMore: results.length > take,
@@ -83,7 +86,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
               .order("last_name")
               .order("first_name")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((student) => ({
@@ -106,7 +109,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("last_name")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((staff) => ({
@@ -126,7 +129,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("last_name")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((parent) => ({
@@ -148,7 +151,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("short_name")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((cls) => ({
@@ -171,7 +174,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("start_at", { ascending: false })
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((session) => ({
@@ -200,7 +203,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             ])
               .order("short_name")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((subject) => ({
@@ -220,7 +223,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("updated_at", { ascending: false })
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((task) => ({ type, id: task.id, title: task.title })),
@@ -235,7 +238,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("updated_at", { ascending: false })
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((issue) => ({ type, id: issue.id, title: issue.name })),
@@ -250,7 +253,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             )
               .order("updated_at", { ascending: false })
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((project) => ({
@@ -267,7 +270,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             ])
               .order("updated_at", { ascending: false })
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             data.map((document) => ({
@@ -318,7 +321,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
               query
                 .order("code")
                 .order("id")
-                .limit(take + 1),
+                .range(offset, offset + take),
             );
           }
           const byId = new Map(data.map((topic) => [topic.id, topic]));
@@ -368,7 +371,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
               );
             });
           return finish(
-            data.map((topic) => ({
+            (subjectId ? data.slice(offset) : data).map((topic) => ({
               type,
               id: topic.id,
               title: topicName(topic),
@@ -388,38 +391,42 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
           );
         }
         case "file": {
-          if (search.trim()) {
-            const { files } = await topicsFilesApi.searchForCommandPalette(
-              search,
-              take + 1,
+          let query = db
+            .from("topics_files")
+            .select(
+              "id,code,file:files!inner(filename),filename_match:files(),topic:topics!inner(id,name,subject:subjects!inner(id,short_name,name))",
+            )
+            .is("file.deleted_at", null);
+          const parsed = parseSubjectQualifiedSearch(search);
+          if (parsed.mode === "qualified") {
+            const subjects = await rows(
+              db
+                .from("subjects")
+                .select("id")
+                .or(buildSubjectNameOrFilter(parsed.subjectQuery)),
             );
-            return finish(
-              files.map((file) => ({
-                type,
-                id: file.id,
-                title: [file.code, file.file.filename]
-                  .filter(Boolean)
-                  .join(" "),
-                parents: [
-                  {
-                    type: "subject",
-                    id: file.subject.id,
-                    title: file.subject.short_name || file.subject.name,
-                  },
-                  { type: "topic", id: file.topic.id, title: file.topic.name },
-                ],
-              })),
-            );
+            if (!subjects.length) return finish([]);
+            query = query
+              .in(
+                "topic.subject_id",
+                subjects.map((subject) => subject.id),
+              )
+              .ilike("code", buildCodeContainsPattern(parsed.codeQuery));
+          } else if (search.trim()) {
+            query = query
+              .ilike(
+                "filename_match.filename",
+                `%${escapeIlikePattern(search.trim())}%`,
+              )
+              .or(
+                `${buildCodeExactOrPrefixOrFilter("code", search)},filename_match.not.is.null`,
+              );
           }
           const files = await rows(
-            db
-              .from("topics_files")
-              .select(
-                "id,code,file:files!inner(filename),topic:topics!inner(id,name,subject:subjects!inner(id,short_name,name))",
-              )
-              .is("file.deleted_at", null)
+            query
+              .order("code")
               .order("id")
-              .limit(take + 1),
+              .range(offset, offset + take),
           );
           return finish(
             files.map((file) => ({
