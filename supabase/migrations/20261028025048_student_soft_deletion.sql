@@ -1165,6 +1165,9 @@ NOTIFY pgrst,'reload schema';
 -- Resolved future assignments are history, but cannot be reactivated while retired.
 CREATE FUNCTION public.guard_resolved_student_booking() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
+ -- Session updates already hold this row lock. Take the same lock before reading
+ -- its eligibility so clearing an absence cannot race a move into the future.
+ PERFORM id FROM public.sessions WHERE id=NEW.session_id FOR UPDATE;
  IF NOT NEW.planned_absence AND EXISTS(SELECT 1 FROM public.sessions WHERE id=NEW.session_id AND status='ACTIVE' AND start_at>now()) THEN
   PERFORM id FROM public.students WHERE id=NEW.student_id FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.students WHERE id=NEW.student_id AND deleted_at IS NOT NULL) THEN
