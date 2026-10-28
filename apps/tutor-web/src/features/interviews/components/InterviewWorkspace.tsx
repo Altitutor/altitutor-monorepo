@@ -1,5 +1,6 @@
 "use client";
 
+import { reportInterviewCallFailure } from "@/lib/sentry/interview-call-reporting";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Badge,
@@ -791,6 +792,7 @@ function WaitingRoom({
     <div className="mx-auto w-full max-w-5xl space-y-5">
       {round.delivery === "online" ? (
         <InterviewMedia
+          onCallFailure={reportInterviewCallFailure}
           className="mx-auto max-w-4xl"
           role="tutor"
           roundId={round.id}
@@ -1197,6 +1199,7 @@ function InPersonRoundView({
               >
                 {online ? (
                   <InterviewMedia
+          onCallFailure={reportInterviewCallFailure}
                     className="self-start"
                     role="tutor"
                     roundId={round.id}
@@ -1399,6 +1402,7 @@ function InPersonRoundView({
                         />
                         <div className="border-t pt-4 md:border-t-0 md:pt-0">
                           <InterviewMedia
+          onCallFailure={reportInterviewCallFailure}
                             registerFinalize={registerFinalizeAudio}
                             plain
                             role="tutor"
