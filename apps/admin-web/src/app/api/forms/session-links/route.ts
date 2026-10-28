@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   const [{ data: participant }, { data: form }] = await Promise.all([
-    auth.admin.from('sessions_students').select('id').eq('session_id', body.sessionId).eq('student_id', body.studentId).maybeSingle(),
+    auth.admin.from('sessions_students').select('id,students!inner(deleted_at)').is('students.deleted_at', null).eq('session_id', body.sessionId).eq('student_id', body.studentId).maybeSingle(),
     auth.admin.from('forms').select('id, latest_published_version_id, access_type').eq('id', body.formId).eq('status', 'published').is('archived_at', null).is('workflow_key', null).maybeSingle(),
   ]);
   if (!participant) return NextResponse.json({ error: 'That student is not part of this session.' }, { status: 409 });

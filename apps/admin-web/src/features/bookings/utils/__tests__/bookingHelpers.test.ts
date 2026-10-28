@@ -54,6 +54,8 @@ describe('formatStudentDisplay', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -100,6 +102,8 @@ describe('formatStudentDisplay', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');

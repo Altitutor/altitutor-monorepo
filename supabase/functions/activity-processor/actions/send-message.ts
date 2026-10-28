@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveMessageRecipients } from '../recipients.ts';
+import { filterLiveStudentMessageTargets } from '../live-student-targets.ts';
 import { 
   replaceTemplateVariables, 
   extractTemplateVariables,
@@ -82,6 +83,10 @@ export async function executeSendMessage(
     }
   }
 
+  const contextStudentId = config.student_id ||
+    (typeof activityEvent.student_id === 'string' ? activityEvent.student_id :
+      ['student', 'students'].includes(String(activityEvent.entity_type)) && typeof activityEvent.entity_id === 'string' ? activityEvent.entity_id : undefined);
+  targets = await filterLiveStudentMessageTargets(supabase, targets, contextStudentId);
   if (targets.length === 0) {
     const { error } = await supabase.rpc('record_automation_message_skip', {
       p_execution_id: execution.id,

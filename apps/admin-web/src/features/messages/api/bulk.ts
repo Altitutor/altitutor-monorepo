@@ -79,7 +79,7 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
   const { data: nameSearchData, error: nameSearchError } = await supabase
     .from('students')
     .select('id, first_name, last_name, school')
-    .eq('status', 'ACTIVE')
+    .is('deleted_at', null).eq('status', 'ACTIVE')
     .or(`first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%,school.ilike.%${trimmed}%`);
   
   if (nameSearchError) throw nameSearchError;
@@ -109,7 +109,7 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
     .from('students')
     .select('*')
     .in('id', allMatchingStudentIds)
-    .eq('status', 'ACTIVE')
+    .is('deleted_at', null).eq('status', 'ACTIVE')
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
     .limit(limit);
@@ -178,7 +178,7 @@ export async function getStudentsByYearLevel(yearLevel: number): Promise<Tables<
     .from('students')
     .select('*')
     .eq('year_level', yearLevel)
-    .eq('status', 'ACTIVE');
+    .is('deleted_at', null).eq('status', 'ACTIVE');
   
   if (error) throw error;
   
@@ -202,7 +202,7 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')
     .select('id')
-    .eq('status', 'ACTIVE')
+    .is('deleted_at', null).eq('status', 'ACTIVE')
     .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso);
@@ -440,7 +440,7 @@ export async function getAllClasses(): Promise<Array<{
       *,
       subject:subjects(*)
     `)
-    .eq('status', 'ACTIVE')
+    .is('deleted_at', null).eq('status', 'ACTIVE')
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
   

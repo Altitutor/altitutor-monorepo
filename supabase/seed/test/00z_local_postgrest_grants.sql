@@ -50,3 +50,17 @@ GRANT SELECT ON public.vtutor_operational_sessions,
   public.vtutor_operational_session_detail, public.vtutor_operational_sessions_students,
   public.vstudent_operational_sessions, public.vstudent_operational_session_detail,
   public.vstudent_operational_session_base TO authenticated, service_role;
+
+-- Preserve DEV-243 Student retention and private recovery boundaries after the
+-- local blanket grant above. Production receives these from the new migration.
+REVOKE DELETE ON public.students FROM authenticated,service_role;
+REVOKE ALL ON public.student_retired_logins,public.student_login_recovery_limits
+  FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON public.student_deletion_history FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON public.student_deletion_history TO authenticated;
+REVOKE ALL ON FUNCTION public.retire_student_identity(uuid,uuid),
+  public.restore_deleted_student_identity(uuid,uuid),public.normalize_retired_auth_identity(),
+  public.require_live_student_for_activity(),public.guard_student_retirement_changes(),
+  public.guard_student_identity_admission(),public.guard_retired_contact_identity(),
+  public.guard_future_session_students(),public.suppress_retired_student_email()
+  FROM PUBLIC,anon,authenticated,service_role;

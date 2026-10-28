@@ -39,6 +39,7 @@ const students = [
 ];
 
 interface FixtureOptions {
+  retired?: boolean;
   count?: number;
   revoked?: boolean;
   completed?: boolean;
@@ -46,12 +47,13 @@ interface FixtureOptions {
 }
 
 function fixtureClient({
+  retired = false,
   count = 2,
   revoked = false,
   completed = false,
   absentSecondStudent = false,
 }: FixtureOptions = {}) {
-  const rows = students.slice(0, count);
+  const rows = students.slice(0, count).map(student => ({ ...student, deleted_at: retired ? '2026-01-01T00:00:00Z' : null }));
   return createClient<Database>(
     "https://booking-fixture.invalid",
     "test-only",
@@ -115,6 +117,11 @@ describe("public booking lookup with multiple students", () => {
   afterAll(() => {
     if (originalKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     else process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
+  });
+
+  it('rejects an old booking link for a deleted Student', async () => {
+    const response = await load({ retired: true });
+    expect(response.status).toBe(404);
   });
 
   async function load(options: FixtureOptions = {}, identifier = sessionId) {

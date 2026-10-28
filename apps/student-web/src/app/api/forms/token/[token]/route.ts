@@ -48,6 +48,11 @@ async function resolveToken(token: string) {
     .maybeSingle();
   if (error || !data) return null;
   if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null;
+  const context = getSessionContext(data.metadata);
+  if (context) {
+    const { data: student, error: studentError } = await admin.from('students').select('id,deleted_at').eq('id', context.studentId).maybeSingle();
+    if (studentError || !student || student.deleted_at) return null;
+  }
   return data;
 }
 

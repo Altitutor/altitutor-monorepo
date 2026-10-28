@@ -13,6 +13,8 @@ let searchParams = new URLSearchParams(
 
 const exchangeCodeForSession = jest.fn();
 const getSession = jest.fn();
+const getUser = jest.fn();
+const rpc = jest.fn();
 const updateUser = jest.fn();
 const verifyOtp = jest.fn();
 
@@ -26,9 +28,11 @@ jest.mock("@/features/auth/lib/navigate-after-auth", () => ({
 
 jest.mock("@/lib/supabase/client", () => ({
   getSupabaseBrowserClient: () => ({
+    rpc,
     auth: {
       exchangeCodeForSession,
       getSession,
+      getUser,
       updateUser,
       verifyOtp,
     },
@@ -76,6 +80,8 @@ describe("AuthCallbackClient", () => {
     ).flush = (value) => resolveExchange(value);
 
     getSession.mockResolvedValue({ data: { session: { user: { id: "u1" } } } });
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    rpc.mockResolvedValue({ data: 'student', error: null });
     updateUser.mockResolvedValue({ error: null });
   });
 

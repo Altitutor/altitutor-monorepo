@@ -1,5 +1,7 @@
 'use client';
 
+import { signInWithStudentLoginRecovery } from '@altitutor/shared';
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,7 +54,7 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: authError } = await signInWithStudentLoginRecovery(supabase, {
         email: data.email,
         password: data.password,
       });

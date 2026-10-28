@@ -106,10 +106,10 @@ export async function loadPublicBookingSession(
 
   const { data: studentRows, error: studentError } = await supabase
     .from('students')
-    .select('id, first_name, last_name, email')
+    .select('id, first_name, last_name, email, deleted_at')
     .in('id', enrollments.map((enrollment) => enrollment.student_id));
 
-  if (studentError || !studentRows) {
+  if (studentError || !studentRows || studentRows.some(student => student.deleted_at !== null)) {
     return null;
   }
 

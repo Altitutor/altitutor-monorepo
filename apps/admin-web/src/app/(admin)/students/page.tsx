@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { StudentsTable, AddStudentModal, ViewStudentModal } from '@/features/students';
 import { AdminPageActionButton } from '@/shared/components';
+import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
 export default function StudentsPage() {
@@ -40,11 +41,12 @@ export default function StudentsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">In-person Students</h1>
+        <div className="flex items-center gap-4"><Link className="text-sm underline" href="/students/deleted">Deleted Students</Link>
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
           label="Add Student"
           onClick={() => setIsAddModalOpen(true)}
-        />
+        /></div>
       </div>
       
       <Suspense fallback={null}>

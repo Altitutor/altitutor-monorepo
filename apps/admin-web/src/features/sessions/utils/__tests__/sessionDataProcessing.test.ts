@@ -124,6 +124,8 @@ describe('processSessionStudents', () => {
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   };
 
   it('should process student with planned attendance', () => {

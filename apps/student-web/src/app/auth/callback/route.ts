@@ -2,7 +2,7 @@ import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import type { Database } from '@altitutor/shared'
+import { restoreStudentAfterSignIn, type Database } from '@altitutor/shared'
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client'
 
 export async function GET(request: NextRequest) {
@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
           return NextResponse.redirect(new URL('/reset-password', requestUrl.origin))
         }
         
+        await restoreStudentAfterSignIn(supabase, data.user)
+
         // For other auth flows, redirect to the next URL or home
         const redirectUrl = next
         return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
