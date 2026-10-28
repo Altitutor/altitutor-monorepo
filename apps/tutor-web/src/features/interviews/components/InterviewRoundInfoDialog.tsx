@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@altitutor/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@altitutor/ui";
 import { tutorBtnOutline, tutorBtnPrimary } from "@/shared/lib/tutor-visual";
 import {
   roundRoomLabel,
@@ -11,28 +18,7 @@ import {
   type ScheduledInterviewRound,
 } from "../lib/round-calendar";
 
-export function InterviewRoundCalendarCard({
-  name,
-  start,
-  onClick,
-}: {
-  name: string;
-  start: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Interview round ${name}`}
-      className="h-full w-full overflow-hidden rounded-lg border border-violet-300 bg-violet-50 p-2 text-left shadow-sm dark:border-violet-700 dark:bg-violet-950/40"
-    >
-      <p className="truncate text-xs font-medium text-violet-700 dark:text-violet-200">Interview</p>
-      <p className="truncate text-sm font-medium">{name}</p>
-      <p className="truncate text-xs text-muted-foreground">{format(new Date(start), "h:mm a")}</p>
-    </button>
-  );
-}
+export { InterviewRoundCalendarCard } from "@altitutor/ui";
 
 export function InterviewRoundInfoDialog({
   round,
@@ -50,17 +36,25 @@ export function InterviewRoundInfoDialog({
   const router = useRouter();
   const titleName = interviewName || round?.interviewName;
   return (
-    <Dialog open={!!round} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog
+      open={!!round}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent>
         {round ? (
           <>
             <DialogHeader>
               <DialogTitle>{round.name}</DialogTitle>
-              <DialogDescription>{titleName || "Interview round"}</DialogDescription>
+              <DialogDescription>
+                {titleName || "Interview round"}
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
-                {roundStatusLabel(round)} · {round.delivery === "online" ? "Online" : "In person"} ·{" "}
+                {roundStatusLabel(round)} ·{" "}
+                {round.delivery === "online" ? "Online" : "In person"} ·{" "}
                 {round.mode === "exam" ? "Exam" : "Feedback"}
                 {round.recordingEnabled ? " · Recording on" : ""}
               </p>
@@ -70,7 +64,11 @@ export function InterviewRoundInfoDialog({
             </div>
             <div className="flex justify-end gap-2">
               {onEdit ? (
-                <Button variant="outline" className={tutorBtnOutline} onClick={onEdit}>
+                <Button
+                  variant="outline"
+                  className={tutorBtnOutline}
+                  onClick={onEdit}
+                >
                   Edit
                 </Button>
               ) : null}
@@ -88,7 +86,13 @@ export function InterviewRoundInfoDialog({
   );
 }
 
-function People({ title, people }: { title: string; people: { id: string; name: string }[] }) {
+function People({
+  title,
+  people,
+}: {
+  title: string;
+  people: { id: string; name: string }[];
+}) {
   return (
     <section className="space-y-1">
       <h3 className="font-medium">{title}</h3>
