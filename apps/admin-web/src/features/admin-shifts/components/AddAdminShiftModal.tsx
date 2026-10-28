@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
+import { DurationPicker, TimePicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
@@ -69,14 +69,13 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
     }
     
     if (!endTime.trim()) {
-      setError('End time is required');
+      setError('Duration is required');
       setLoading(false);
       return;
     }
 
-    // Validate end time is after start time
     if (endTime <= startTime) {
-      setError('End time must be after start time');
+      setError('Duration must finish after the start time');
       setLoading(false);
       return;
     }
@@ -171,21 +170,36 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               />
             </PropertyFormRow>
             <PropertyFormRow label="Start time *" htmlFor={startTimeId}>
-              <Input
+              <TimePicker
                 id={startTimeId}
-                type="time"
+                aria-label="Start time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
+                onChange={(nextStart) => {
+                  const next = shiftStartKeepingDuration(startTime, endTime, nextStart);
+                  if (!next) {
+                    setError('Duration must finish on the same day');
+                    return;
+                  }
+                  setError(null);
+                  setStartTime(next.startTime);
+                  setEndTime(next.endTime);
+                }}
               />
             </PropertyFormRow>
-            <PropertyFormRow label="End time *" htmlFor={endTimeId} valueClassName="space-y-1">
-              <Input
+            <PropertyFormRow label="Duration *" htmlFor={endTimeId} valueClassName="space-y-1">
+              <DurationPicker
                 id={endTimeId}
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                required
+                aria-label="Duration"
+                value={durationMinutesBetween(startTime, endTime)}
+                onChange={(minutes) => {
+                  const nextEnd = addMinutesToTime(startTime, minutes);
+                  if (!nextEnd) {
+                    setError('Choose a start time first, and keep the duration on the same day');
+                    return;
+                  }
+                  setError(null);
+                  setEndTime(nextEnd);
+                }}
               />
               <p className="text-xs text-muted-foreground">
                 Admin staff work 3.5 hours (15 min early, 15 min late)
