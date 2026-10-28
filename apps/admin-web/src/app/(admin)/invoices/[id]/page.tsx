@@ -30,7 +30,7 @@ import {
   PropertyForm,
   PropertyFormRow,
 } from "@/shared/components/PropertyForm";
-import { invalidateInvoiceDetail } from "@/shared/lib/query-invalidation";
+import { invalidateInvoiceSurfaces } from "@/shared/lib/query-invalidation";
 import {
   storedCreditNoteDetails,
   formatCreditNoteReason,
@@ -155,7 +155,7 @@ export default function InvoiceDetailPage({
         title: "Success",
         description: recipientText,
       });
-      await invalidateInvoiceDetail(queryClient, id);
+      await invalidateInvoiceSurfaces(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -203,7 +203,7 @@ export default function InvoiceDetailPage({
         description: "Payment attempt initiated successfully",
       });
 
-      await invalidateInvoiceDetail(queryClient, id);
+      await invalidateInvoiceSurfaces(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -252,11 +252,11 @@ export default function InvoiceDetailPage({
         }
       : undefined,
     onSendInvoice:
-      collectionMethod === "send_invoice" && invoice?.status !== "paid"
+      invoice?.status !== "paid"
         ? handleSendInvoiceEmail
         : undefined,
     onChargeCard:
-      collectionMethod === "charge_automatically" && invoice?.status !== "paid"
+      invoice?.status !== "paid"
         ? handleChargeCard
         : undefined,
     onAddCreditNote:
@@ -800,7 +800,7 @@ export default function InvoiceDetailPage({
           }}
           invoiceItems={invoiceItems}
           onSuccess={() => {
-            void invalidateInvoiceDetail(queryClient, id);
+            void invalidateInvoiceSurfaces(queryClient, id);
           }}
         />
       )}

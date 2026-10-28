@@ -36,20 +36,13 @@ export async function POST(
     // Get invoice from database with student_id
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('stripe_invoice_id, collection_method, student_id')
+      .select('stripe_invoice_id, student_id')
       .eq('id', invoiceId)
       .is('deleted_at', null)
-      .single<{ stripe_invoice_id: string | null; collection_method: string | null; student_id: string }>();
+      .single<{ stripe_invoice_id: string | null; student_id: string }>();
 
     if (invoiceError || !invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-    }
-
-    if (invoice.collection_method !== 'send_invoice') {
-      return NextResponse.json(
-        { error: 'Invoice is not a send_invoice type. Use charge card instead.' },
-        { status: 400 }
-      );
     }
 
     if (!invoice.stripe_invoice_id) {
@@ -75,7 +68,8 @@ export async function POST(
 
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
 
-    // Fetch invoice details from Stripe
+    // Send our notification with Stripe-hosted links for either collection method.
+    // This does not change automatic collection or retry settings.
     const stripeInvoice = await stripe.invoices.retrieve(invoice.stripe_invoice_id);
 
     // Get billing preferences

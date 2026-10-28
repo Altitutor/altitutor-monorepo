@@ -36,6 +36,7 @@ import { invalidateInvoiceSurfaces } from '@/shared/lib/query-invalidation';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useStudentInvoiceOwing } from '@/features/billing/hooks/useInvoicesQuery';
 
 interface StudentInvoicesTableProps {
   studentId: string;
@@ -49,6 +50,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('invoices');
+  const owing = useStudentInvoiceOwing(studentId);
 
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [creditNoteInvoiceId, setCreditNoteInvoiceId] = useState<string | null>(null);
@@ -216,8 +218,24 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">Invoices</h3>
+        <div className="text-sm" aria-live="polite">
+          <span className="text-muted-foreground">Total amount owing: </span>
+          {owing.isError ? (
+            <span role="alert">Unable to load total</span>
+          ) : owing.isPending ? (
+            <span>Loading…</span>
+          ) : owing.data.length === 0 ? (
+            <span>No open invoices</span>
+          ) : (
+            owing.data.map(({ currency, amountCents }) => (
+              <span className="ml-2 font-medium" key={currency}>
+                {new Intl.NumberFormat('en-AU', { style: 'currency', currency, currencyDisplay: 'code' }).format(amountCents / 100)}
+              </span>
+            ))
+          )}
+        </div>
       </div>
 
       <DataTableToolbar
@@ -380,8 +398,8 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           onDownloadPdf={invoice.invoice_pdf ? () => {
                             window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
                           } : undefined}
-                          onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
-                          onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
+                          onSendInvoice={invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
+                          onChargeCard={invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
                           onAddCreditNote={
                             canInvoiceAcceptCreditNote
                               ? () => {
