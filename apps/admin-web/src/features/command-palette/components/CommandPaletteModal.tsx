@@ -1,16 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, type TouchEvent } from 'react';
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import {
   lockOverlayPageScroll,
   overlayPinStyle,
   useMediaQuery,
   useVisualViewportRect,
-} from '@altitutor/ui';
-import { cn } from '@/shared/utils';
-import { AdminDialogShell } from '@/shared/components';
-import { CommandPalette } from './CommandPalette';
-import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
+} from "@altitutor/ui";
+import { cn } from "@/shared/utils";
+import { AdminDialogShell } from "@/shared/components";
+import { CommandPalette } from "./CommandPalette";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { NewDocumentDialog } from "@/shared/shortcuts/NewDocumentDialog";
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -21,8 +22,12 @@ interface CommandPaletteModalProps {
  * CommandPaletteModal - Wrapper component with backdrop
  * Provides the darkened background overlay for the Raycast-like search experience
  */
-export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+export function CommandPaletteModal({
+  isOpen,
+  onClose,
+}: CommandPaletteModalProps) {
+  const [newDocument, setNewDocument] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const dragStartYRef = useRef<number | null>(null);
   const dragOffsetRef = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -38,9 +43,9 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     }
 
     if (isDesktop) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
       return () => {
-        document.body.style.overflow = '';
+        document.body.style.overflow = "";
       };
     }
 
@@ -65,7 +70,11 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     if (dragStartYRef.current == null) return;
 
-    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
+    const nextOffset = Math.max(
+      0,
+      (event.touches[0]?.clientY ?? dragStartYRef.current) -
+        dragStartYRef.current,
+    );
     dragOffsetRef.current = nextOffset;
     setDragOffset(nextOffset);
     if (nextOffset > 0) event.preventDefault();
@@ -81,7 +90,10 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   };
 
   const handleEntitySelected = (type: string, id: string) => {
-    entityModals.openEntity(type as Parameters<typeof entityModals.openEntity>[0], id);
+    entityModals.openEntity(
+      type as Parameters<typeof entityModals.openEntity>[0],
+      id,
+    );
   };
 
   return (
@@ -96,13 +108,15 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       <div
         role="dialog"
         aria-hidden={!isOpen || isDesktop}
-        ref={node => { node?.toggleAttribute('inert', !isOpen || isDesktop); }}
+        ref={(node) => {
+          node?.toggleAttribute("inert", !isOpen || isDesktop);
+        }}
         aria-modal="true"
         aria-label="Command palette"
         className={cn(
-          'fixed inset-0 z-[101] flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out overscroll-none dark:bg-brand-dark-bg dark:ring-white/10 md:hidden',
-          dragStartYRef.current != null && 'transition-none',
-          isOpen ? 'translate-y-0' : 'pointer-events-none translate-y-full',
+          "fixed inset-0 z-[101] flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out overscroll-none dark:bg-brand-dark-bg dark:ring-white/10 md:hidden",
+          dragStartYRef.current != null && "transition-none",
+          isOpen ? "translate-y-0" : "pointer-events-none translate-y-full",
         )}
         style={overlayPinStyle({
           viewport: isOpen ? viewportRect : null,
@@ -113,7 +127,14 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+        {!isDesktop && (
+          <CommandPalette
+            isOpen={isOpen}
+            onClose={onClose}
+            onEntitySelected={handleEntitySelected}
+            onCreateDocument={() => setNewDocument(true)}
+          />
+        )}
       </div>
 
       {isDesktop ? (
@@ -127,11 +148,22 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
           bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
           dialogContentProps={{
             onOpenAutoFocus: (event) => event.preventDefault(),
+            // The palette handles Escape as back within a submenu, then close at root.
+            onEscapeKeyDown: (event) => event.preventDefault(),
           }}
         >
-          <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+          <CommandPalette
+            isOpen={isOpen}
+            onClose={onClose}
+            onEntitySelected={handleEntitySelected}
+            onCreateDocument={() => setNewDocument(true)}
+          />
         </AdminDialogShell>
       ) : null}
+      <NewDocumentDialog
+        open={newDocument}
+        onClose={() => setNewDocument(false)}
+      />
     </>
   );
 }
