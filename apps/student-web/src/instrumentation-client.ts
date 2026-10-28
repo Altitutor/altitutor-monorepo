@@ -1,4 +1,4 @@
-import { resolveSentryCollection } from "@altitutor/shared";
+import { sanitizeInterviewCallEvent, resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import {
   filterMobileAuthTelemetry,
@@ -35,7 +35,7 @@ Sentry.init({
     if (filtered.request?.url) {
       filtered.request.url = sanitizeStudentAnalyticsUrl(filtered.request.url);
     }
-    return filtered;
+    return sanitizeInterviewCallEvent(filtered);
   },
   beforeSendTransaction: (event) => collection.errors ? filterMobileAuthTelemetry(event) : null,
   beforeBreadcrumb: filterMobileAuthTelemetry,

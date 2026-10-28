@@ -315,3 +315,5 @@ export function interviewRoundDurationMinutes(
   const minutes = ((readingSeconds + questionSeconds) * rotations) / 60;
   return Math.max(30, Number.isFinite(minutes) ? minutes : 30);
 }
+
+export type { InterviewCallFailure } from "./call-failures";

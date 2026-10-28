@@ -124,3 +124,30 @@ seconds after the question phase began in the six-pair run. Recording startup is
 asynchronous, so the first instant of an answer is not guaranteed to be captured.
 Provider outage/backoff and retention logic have automated coverage; the local
 exercise does not substitute for deployment configuration or a real-device pilot.
+
+## Handled call-failure monitoring
+
+Both web portals report unrecoverable Daily errors and three consecutive failed
+join/recovery attempts through a typed shared callback. Network interruption
+notifications that Daily recovers from, camera permission declines, access
+rejections, obsolete call callbacks, provider ejection at cutoff and planned lease expiry are not
+fatal-call reports. Existing recovery/polling remains authoritative; reporting
+never adds a database write or another polling loop. Categories identify the
+observed failure, not whether Altitutor, the provider or the network caused it.
+
+The portal Sentry adapter groups by app/source/category and bounds each browser
+tab to one event per kind per minute and three events per five minutes. The
+browser `beforeSend` applies the existing production/host/test-opt-in policy,
+then replaces a marked call-failure event with an allowlisted payload. It keeps
+only bounded source/category/phase/state, app, release/environment, event identity
+and coarse browser name/version. Provider messages, URLs, encounter/room/user
+IDs, device labels, user scope, breadcrumbs, traces and media are excluded.
+Normal local and preview automatic collection stays disabled.
+
+Develop delivery is not proof that production events or alerts arrive. After a
+separately authorized production release, verify a controlled safe failure from
+each portal reaches its intended Sentry project and record the release, event
+receipt and grouping. Verify alert routing/delivery separately with the owner;
+do not treat event capture as an email/pager receipt or alter recipients during
+routine QA. Retain the original intermittent-disconnect issue until its own
+reproduction/evidence gate is met. These probes do not establish its cause.

@@ -1022,3 +1022,185 @@ describe("interview media lifecycle", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 });
+
+it("reports a handled fatal SDK failure through the safe portal boundary", async () => {
+  const report = jest.fn();
+  await render(
+    <InterviewMedia
+      roundId="private-round"
+      phase="feedback"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () =>
+    mockListeners.get("error")?.({
+      errorMsg: "secret token-bearing URL",
+      error: { type: "connection-error", details: { uri: "secret room URL" } },
+    }),
+  );
+  expect(report).toHaveBeenCalledWith({
+    source: "sdk",
+    category: "connection",
+    phase: "feedback",
+    state: "joined",
+  });
+  expect(JSON.stringify(report.mock.calls)).not.toContain("secret");
+});
+
+it("reports sustained join failure, but gives a transient rejection time to recover", async () => {
+  jest.useFakeTimers();
+  const report = jest.fn();
+  mockJoin.mockRejectedValue(new Error("private join response"));
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  expect(report).not.toHaveBeenCalled();
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(20_000);
+  });
+  expect(report).toHaveBeenCalledWith({
+    source: "join",
+    category: "unknown",
+    phase: "questions",
+    state: "joining",
+  });
+});
+
+it("does not report camera declines or transient SDK interruptions as fatal call failures", async () => {
+  const report = jest.fn();
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="reading"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () => {
+    mockListeners.get("network-connection")?.({
+      type: "signaling",
+      event: "interrupted",
+    });
+    mockListeners.get("network-connection")?.({
+      type: "signaling",
+      event: "connected",
+    });
+    mockListeners.get("camera-error")?.({ errorMsg: "private device label" });
+  });
+  expect(report).not.toHaveBeenCalled();
+});
+
+it("ignores an obsolete SDK fatal event after the active call has closed", async () => {
+  const report = jest.fn();
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  const fatal = mockListeners.get("error");
+  await act(async () => fatal?.({ error: { type: "connection-error" } }));
+  report.mockClear();
+  await act(async () => fatal?.({ error: { type: "connection-error" } }));
+  expect(report).not.toHaveBeenCalled();
+});
+
+it("does not report a planned provider expiry at the server lease deadline", async () => {
+  jest.useFakeTimers();
+  const report = jest.fn();
+  global.fetch = jest.fn().mockResolvedValue(
+    response({
+      ...ticket,
+      expiresAt: new Date(Date.now() + 500).toISOString(),
+    }),
+  );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () =>
+    mockListeners.get("error")?.({ error: { type: "exp-token" } }),
+  );
+  expect(report).not.toHaveBeenCalled();
+});
+
+it("keeps recovery working when a reporter throws", async () => {
+  const report = jest.fn(() => {
+    throw new Error("monitoring unavailable");
+  });
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () =>
+    mockListeners.get("error")?.({ error: { type: "connection-error" } }),
+  );
+  expect(container.textContent).toContain("The call was interrupted");
+  expect(mockDestroy).toHaveBeenCalled();
+});
+
+it("reports sustained media-policy recovery failures without adding a polling loop", async () => {
+  jest.useFakeTimers();
+  const report = jest.fn();
+  global.fetch = jest
+    .fn()
+    .mockResolvedValue(
+      response({
+        ...ticket,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await waitFor(() =>
+    expect(mockSubscribe).toHaveBeenCalledWith(ticket.canReceive),
+  );
+  global.fetch = jest
+    .fn()
+    .mockRejectedValue(new TypeError("private network URL"));
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(report).toHaveBeenCalledWith({
+    source: "recovery",
+    category: "unknown",
+    phase: "questions",
+    state: "joined",
+  });
+});
+
+it('does not report provider ejection during an intentional station cutoff', async () => {
+  const report = jest.fn();
+  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
+  await act(async () => mockListeners.get('error')?.({ error: { type: 'ejected' } }));
+  expect(report).not.toHaveBeenCalled();
+});

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { DailyCall, DailyParticipant } from "@daily-co/daily-js";
 import type {
+  InterviewCallFailure,
   InterviewDelivery,
   InterviewMediaTicket,
   InterviewPhase,
@@ -35,6 +36,7 @@ import {
 } from "./tooltip";
 
 export interface InterviewMediaProps {
+  onCallFailure?: (failure: InterviewCallFailure) => void;
   roundId: string;
   phase: InterviewPhase;
   delivery: InterviewDelivery;
@@ -381,7 +383,10 @@ export function InterviewMedia({
   plain = false,
   className,
   registerFinalize,
+  onCallFailure,
 }: InterviewMediaProps) {
+  const failureReporter = useRef(onCallFailure);
+  failureReporter.current = onCallFailure;
   const [devicesRequested, setDevicesRequested] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
@@ -412,6 +417,7 @@ export function InterviewMedia({
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     let activeTicket: InterviewMediaTicket | null = null;
     let clockOffset = 0;
+    let consecutiveFailures = 0;
     const abort = new AbortController();
     setRenderScope(scope);
     setParticipants([]);
@@ -523,7 +529,43 @@ export function InterviewMedia({
         }
       });
       instance.on("error", (event) => {
-        if (!disposed) {
+        if (!disposed && instance === call) {
+          const category = event.error?.type;
+          const plannedExpiry =
+            activeTicket?.expiresAt &&
+            Date.parse(activeTicket.expiresAt) <=
+              Date.now() + clockOffset + 1_000 &&
+            (category === "ejected" ||
+              category === "exp-token" ||
+              category === "exp-room");
+          // Server-controlled early cutoff can eject before the new phase reaches React.
+          // If an unexpected ejection prevents rejoining, sustained recovery reports it.
+          if (enabled && !plannedExpiry && category !== "ejected") {
+            try {
+              failureReporter.current?.({
+                source: "sdk",
+                category:
+                  category === "connection-error"
+                    ? "connection"
+                    : [
+                          "nbf-room",
+                          "nbf-token",
+                          "no-room",
+                          "meeting-full",
+                          "end-of-life",
+                          "not-allowed",
+                          "exp-token",
+                          "exp-room",
+                        ].includes(category ?? "")
+                      ? "configuration"
+                      : "unknown",
+                phase,
+                state: sessionId ? "joined" : "joining",
+              });
+            } catch {
+              /* Observability must never alter call recovery. */
+            }
+          }
           reportLocalCallFailure(
             event.error?.type,
             instance !== call ? "obsolete" : sessionId ? "joined" : "joining",
@@ -550,6 +592,8 @@ export function InterviewMedia({
     };
     const poll = async () => {
       let nextPoll = 3_000;
+      let source: "join" | "recovery" = "recovery";
+      let expectedFailure = false;
       try {
         const query = sessionId
           ? `?sessionId=${encodeURIComponent(sessionId)}`
@@ -561,6 +605,7 @@ export function InterviewMedia({
         const body: unknown = await response.json();
         nextPoll = enabled ? 10_000 : 30_000;
         if (!response.ok) {
+          expectedFailure = response.status >= 400 && response.status < 500;
           await close();
           throw new Error(
             body && typeof body === "object" && "error" in body
@@ -582,6 +627,7 @@ export function InterviewMedia({
           (policy.expiresAt &&
             Date.parse(policy.expiresAt) <= Date.now() + clockOffset)
         ) {
+          consecutiveFailures = 0;
           if (sessionId) await close();
           if (!enabled) {
             await close();
@@ -616,6 +662,7 @@ export function InterviewMedia({
           if (!policy.url || !policy.token)
             throw new Error("A fresh call connection is required. Retrying…");
           setStatus("Connecting to your station…");
+          source = "join";
           await instance.join({
             url: policy.url,
             token: policy.token,
@@ -649,8 +696,33 @@ export function InterviewMedia({
             devicePreferences.current.cameraOn,
         );
         updateParticipants();
+        consecutiveFailures = 0;
       } catch (failure) {
-        if (!disposed) setError(mediaError(failure));
+        if (!disposed) {
+          const expectedDevice =
+            failure instanceof Error &&
+            [
+              "NotAllowedError",
+              "SecurityError",
+              "NotFoundError",
+              "NotReadableError",
+              "AbortError",
+            ].includes(failure.name);
+          if (expectedFailure || expectedDevice) consecutiveFailures = 0;
+          else if (enabled && ++consecutiveFailures === 3) {
+            try {
+              failureReporter.current?.({
+                source,
+                category: "unknown",
+                phase,
+                state: sessionId ? "joined" : "joining",
+              });
+            } catch {
+              /* Observability must not change recovery. */
+            }
+          }
+          setError(mediaError(failure));
+        }
       } finally {
         if (!disposed)
           timer = setTimeout(() => {
