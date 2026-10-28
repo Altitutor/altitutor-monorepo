@@ -42,6 +42,13 @@ export async function executeSendMessage(
 
   const messageTemplate = config.message_content;
 
+  const { data: terminalSkip, error: skipReadError } = await supabase
+    .from('automation_message_action_skips')
+    .select('reason').eq('execution_id', execution.id).eq('action_id', action.id)
+    .maybeSingle();
+  if (skipReadError) throw skipReadError;
+  if (terminalSkip) return;
+
   let targets: Array<{ contactId: string; studentId?: string }> = [];
 
   if (config.recipients && config.recipients.type !== 'single') {
@@ -52,31 +59,17 @@ export async function executeSendMessage(
       activityEvent
     );
   } else {
-    // Single recipient (backward compatible)
+    // Resolve a permitted current contact; a query failure is not an empty set.
+    let selector: { column: string; value: string } | undefined;
+    if (config.contact_id) selector = { column: 'id', value: config.contact_id };
+    else if (config.student_id) selector = { column: 'student_id', value: config.student_id };
+    else if (config.parent_id) selector = { column: 'parent_id', value: config.parent_id };
+    else if (typeof activityEvent.student_id === 'string') selector = { column: 'student_id', value: activityEvent.student_id };
     let contactId: string | null = null;
-    
-    if (config.contact_id) {
-      contactId = config.contact_id;
-    } else if (config.student_id) {
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('student_id', config.student_id)
-        .maybeSingle();
-      contactId = contact?.id || null;
-    } else if (config.parent_id) {
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('parent_id', config.parent_id)
-        .maybeSingle();
-      contactId = contact?.id || null;
-    } else if (activityEvent.student_id) {
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('student_id', activityEvent.student_id)
-        .maybeSingle();
+    if (selector) {
+      const { data: contact, error } = await supabase.from('contacts').select('id')
+        .eq(selector.column, selector.value).eq('is_opted_out', false).maybeSingle();
+      if (error) throw error;
       contactId = contact?.id || null;
     }
 
@@ -90,12 +83,12 @@ export async function executeSendMessage(
   }
 
   if (targets.length === 0) {
-    console.warn('[activity-processor] No contacts found for message', {
-      ruleId: rule.id,
-      actionId: action.id,
-      recipientType: config.recipients?.type || 'single',
+    const { error } = await supabase.rpc('record_automation_message_skip', {
+      p_execution_id: execution.id,
+      p_action_id: action.id,
     });
-    return; // Skip if no contacts (don't fail)
+    if (error) throw error;
+    return;
   }
 
   // Get owned number (use provided or default)
@@ -308,9 +301,9 @@ export async function executeSendMessage(
             
             if (enrollments && enrollments.length > 0) {
               const classesList = enrollments
-                .map((e: { classes?: { day_of_week?: number; start_time?: string; end_time?: string; subjects?: { short_name?: string; long_name?: string } } }) => {
-                  const cls = e.classes;
-                  const subject = cls?.subjects;
+                .map((e) => {
+                  const cls = Array.isArray(e.classes) ? e.classes[0] : e.classes;
+                  const subject = Array.isArray(cls?.subjects) ? cls.subjects[0] : cls?.subjects;
                   if (!cls) return null;
                   
                   const dayName = formatDayOfWeek(cls.day_of_week);
