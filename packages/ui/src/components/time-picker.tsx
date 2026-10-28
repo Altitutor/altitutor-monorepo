@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { Clock } from 'lucide-react';
+import { cn } from '../lib/cn';
+import { fieldTriggerClassName } from '../lib/field-trigger';
 import { SearchableSelect } from './searchable-select';
-import { SearchableSelectFieldTrigger } from './searchable-select-field-trigger';
 import { timeLabel, timeOptions } from '../lib/time-picker';
 
 export interface TimePickerProps {
@@ -14,6 +15,34 @@ export interface TimePickerProps {
   className?: string;
   'aria-label'?: string;
 }
+
+const TimeFieldTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }
+>(function TimeFieldTrigger({ value, className, ...props }, ref) {
+  return (
+    <button
+      ref={ref}
+      {...props}
+      type="button"
+      className={cn(
+        fieldTriggerClassName,
+        'group justify-between',
+        !value && 'text-muted-foreground',
+        className,
+      )}
+    >
+      <span className="truncate">{value ? timeLabel(value) : 'Select time'}</span>
+      <Clock
+        className={cn(
+          'h-4 w-4 shrink-0',
+          value ? 'text-foreground' : 'text-muted-foreground opacity-40 group-hover:opacity-100',
+        )}
+        aria-hidden
+      />
+    </button>
+  );
+});
 
 /** Shared searchable time field; accepts exact minutes as well as quarter-hour presets. */
 export function TimePicker({ value, onChange, id, disabled, className, 'aria-label': ariaLabel = 'Time' }: TimePickerProps) {
@@ -30,10 +59,15 @@ export function TimePicker({ value, onChange, id, disabled, className, 'aria-lab
       emptyMessage="Enter a valid time, e.g. 14:30."
       disabled={disabled}
       fullWidth
-      trigger={<SearchableSelectFieldTrigger id={id} disabled={disabled} className={className} aria-label={ariaLabel}>
-        <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />
-        {value ? timeLabel(value) : 'Select time'}
-      </SearchableSelectFieldTrigger>}
+      trigger={
+        <TimeFieldTrigger
+          id={id}
+          disabled={disabled}
+          className={className}
+          aria-label={ariaLabel}
+          value={value}
+        />
+      }
     />
   );
 }

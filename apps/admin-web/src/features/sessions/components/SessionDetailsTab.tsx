@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccountClassBadge, Badge, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker } from '@altitutor/ui';
+import { AccountClassBadge, Badge, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker, DurationPicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -58,12 +58,12 @@ const sessionEditSchema = z
     type: z.enum([...SESSION_TYPES] as [string, ...string[]]),
     date: z.string().min(1, 'Date is required'),
     startTime: z.string().min(1, 'Start time is required'),
-    endTime: z.string().min(1, 'End time is required'),
+    endTime: z.string().min(1, 'Duration is required'),
     subjectId: z.string().optional().nullable(),
     classId: z.string().optional().nullable(),
   })
   .refine((data) => data.endTime > data.startTime, {
-    message: 'End time must be after start time',
+    message: 'Duration must finish after the start time',
     path: ['endTime'],
   })
   .refine((data) => data.type !== 'DRAFTING' || Boolean(data.subjectId), {
@@ -382,7 +382,16 @@ export function SessionDetailsTab({
                       id="session-start-time"
                       aria-label="Start time"
                       value={field.value}
-                      onChange={field.onChange}
+                      onChange={(nextStart) => {
+                        const next = shiftStartKeepingDuration(field.value, form.getValues('endTime'), nextStart);
+                        if (!next) {
+                          form.setError('endTime', { message: 'Duration must finish on the same day' });
+                          return;
+                        }
+                        form.clearErrors('endTime');
+                        field.onChange(next.startTime);
+                        form.setValue('endTime', next.endTime, { shouldValidate: true });
+                      }}
                       disabled={isUpdating}
                     />
                   )}
@@ -391,17 +400,25 @@ export function SessionDetailsTab({
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startTime.message}</p>
                 )}
               </div>
-              <Label htmlFor="session-end-time">End time</Label>
+              <Label htmlFor="session-duration">Duration</Label>
               <div>
                 <Controller
                   control={form.control}
                   name="endTime"
                   render={({ field }) => (
-                    <TimePicker
-                      id="session-end-time"
-                      aria-label="End time"
-                      value={field.value}
-                      onChange={field.onChange}
+                    <DurationPicker
+                      id="session-duration"
+                      aria-label="Duration"
+                      value={durationMinutesBetween(form.watch('startTime'), field.value)}
+                      onChange={(minutes) => {
+                        const endTime = addMinutesToTime(form.getValues('startTime'), minutes);
+                        if (!endTime) {
+                          form.setError('endTime', { message: 'Duration must finish on the same day' });
+                          return;
+                        }
+                        form.clearErrors('endTime');
+                        field.onChange(endTime);
+                      }}
                       disabled={isUpdating}
                     />
                   )}

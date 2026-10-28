@@ -3,10 +3,14 @@
 import { useState, useEffect } from 'react';
 import {
   Button,
+  DurationPicker,
   Label,
   Switch,
   SearchableSelect,
   TimePicker,
+  addMinutesToTime,
+  durationMinutesBetween,
+  shiftStartKeepingDuration,
 } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import {
@@ -281,17 +285,25 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
                 id="edit-start-time"
                 aria-label="Start time"
                 value={startTime}
-                onChange={setStartTime}
+                onChange={(nextStart) => {
+                  const next = shiftStartKeepingDuration(startTime, endTime, nextStart);
+                  if (!next) return;
+                  setStartTime(next.startTime);
+                  setEndTime(next.endTime);
+                }}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-end-time">End Time (Adelaide timezone)</Label>
-              <TimePicker
+              <Label htmlFor="edit-end-time">Duration</Label>
+              <DurationPicker
                 id="edit-end-time"
-                aria-label="End time"
-                value={endTime}
-                onChange={setEndTime}
+                aria-label="Duration"
+                value={durationMinutesBetween(startTime, endTime)}
+                onChange={(minutes) => {
+                  const nextEnd = addMinutesToTime(startTime, minutes);
+                  if (nextEnd) setEndTime(nextEnd);
+                }}
               />
             </div>
 
@@ -353,17 +365,25 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
                 id="add-start-time"
                 aria-label="Start time"
                 value={startTime}
-                onChange={setStartTime}
+                onChange={(nextStart) => {
+                  const next = shiftStartKeepingDuration(startTime, endTime, nextStart);
+                  if (!next) return;
+                  setStartTime(next.startTime);
+                  setEndTime(next.endTime);
+                }}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="add-end-time">End Time (Adelaide timezone)</Label>
-              <TimePicker
+              <Label htmlFor="add-end-time">Duration</Label>
+              <DurationPicker
                 id="add-end-time"
-                aria-label="End time"
-                value={endTime}
-                onChange={setEndTime}
+                aria-label="Duration"
+                value={durationMinutesBetween(startTime, endTime)}
+                onChange={(minutes) => {
+                  const nextEnd = addMinutesToTime(startTime, minutes);
+                  if (nextEnd) setEndTime(nextEnd);
+                }}
               />
             </div>
 

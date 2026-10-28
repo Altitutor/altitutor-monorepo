@@ -10,6 +10,10 @@ import {
   SearchableSelect,
   SmartDatePickerField,
   TimePicker,
+  DurationPicker,
+  addMinutesToTime,
+  durationMinutesBetween,
+  shiftStartKeepingDuration,
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -352,16 +356,22 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                         id={`start-${row.id}`}
                         aria-label={`Start time for day ${index + 1}`}
                         value={row.startTime}
-                        onChange={(startTime) => updateRow(row.id, { startTime })}
+                        onChange={(startTime) => {
+                          const next = shiftStartKeepingDuration(row.startTime, row.endTime, startTime);
+                          if (next) updateRow(row.id, next);
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`end-${row.id}`}>End</Label>
-                      <TimePicker
-                        id={`end-${row.id}`}
-                        aria-label={`End time for day ${index + 1}`}
-                        value={row.endTime}
-                        onChange={(endTime) => updateRow(row.id, { endTime })}
+                      <Label htmlFor={`duration-${row.id}`}>Duration</Label>
+                      <DurationPicker
+                        id={`duration-${row.id}`}
+                        aria-label={`Duration for day ${index + 1}`}
+                        value={durationMinutesBetween(row.startTime, row.endTime)}
+                        onChange={(minutes) => {
+                          const endTime = addMinutesToTime(row.startTime, minutes);
+                          if (endTime) updateRow(row.id, { endTime });
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
