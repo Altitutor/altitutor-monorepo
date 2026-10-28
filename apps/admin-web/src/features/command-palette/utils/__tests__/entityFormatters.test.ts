@@ -70,6 +70,8 @@ describe('getEntityDisplayText', () => {
           birthday: null,
           ucat_initial_familiarity: null,
           account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
         },
       };
 
@@ -122,6 +124,8 @@ describe('getEntityDisplayText', () => {
           birthday: null,
           ucat_initial_familiarity: null,
           account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
         },
       };
 

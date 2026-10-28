@@ -1,0 +1,11 @@
+BEGIN;
+SELECT plan(4);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+INSERT INTO public.students(id,first_name,last_name,status) VALUES ('fd243000-0000-4000-8000-000000000051','Retirement','Admission',NULL);
+SELECT public.retire_student('fd243000-0000-4000-8000-000000000051');
+SELECT throws_ok($$UPDATE public.students SET email='new@example.test' WHERE id='fd243000-0000-4000-8000-000000000051'$$,'P0001','Restore this Student before making changes','retired profile cannot be silently revived or edited');
+SELECT throws_ok($$INSERT INTO public.classes_students(id,student_id,class_id,enrolled_at) SELECT gen_random_uuid(), 'fd243000-0000-4000-8000-000000000051',id  ,now() FROM public.classes LIMIT 1$$,'P0001','Restore this Student before starting new activity','new enrolment rejects retired Student');
+SELECT throws_ok($$INSERT INTO public.ucat_checkout_holds(student_id,selection_key) VALUES ('fd243000-0000-4000-8000-000000000051','synthetic')$$,'P0001','Restore this Student before starting new activity','new checkout rejects retired Student');
+SELECT lives_ok($$INSERT INTO public.invoices(student_id,stripe_invoice_id,invoice_date,amount_due_cents,amount_paid_cents,status) VALUES('fd243000-0000-4000-8000-000000000051','in_retirement_late_receipt',now(),5000,5000,'paid')$$,'late financial receipts remain recordable');
+SELECT * FROM finish();
+ROLLBACK;

@@ -1,0 +1,16 @@
+BEGIN;
+SELECT plan(5);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+INSERT INTO public.students(id,first_name,last_name,phone,status) VALUES ('fd243000-0000-4000-8000-000000000061','Retirement','Contacts','+61400000261',NULL);
+INSERT INTO public.student_contact_history(student_id,contact_id) SELECT student_id,id FROM public.contacts WHERE student_id='fd243000-0000-4000-8000-000000000061';
+CREATE TEMP TABLE old_contact AS SELECT id FROM public.contacts WHERE student_id='fd243000-0000-4000-8000-000000000061';
+UPDATE public.students SET phone='+61400000262' WHERE id='fd243000-0000-4000-8000-000000000061';
+SELECT public.retire_student('fd243000-0000-4000-8000-000000000061');
+SELECT is((SELECT count(*) FROM public.contacts WHERE retired_at IS NOT NULL AND (student_id='fd243000-0000-4000-8000-000000000061' OR id IN(SELECT id FROM old_contact))),2::bigint,'retires current and exclusively owned historical Contact');
+INSERT INTO public.students(id,first_name,last_name,phone,status) VALUES ('fd243000-0000-4000-8000-000000000062','Fresh','Person','+61400000261',NULL);
+SELECT isnt((SELECT id FROM public.contacts WHERE student_id='fd243000-0000-4000-8000-000000000062'),(SELECT id FROM old_contact),'reused phone gets a fresh Contact identity');
+SELECT is((SELECT student_id FROM public.student_contact_history WHERE contact_id=(SELECT id FROM old_contact)),'fd243000-0000-4000-8000-000000000061'::uuid,'old conversation ownership remains with old Student');
+SELECT throws_ok($$UPDATE public.contacts SET email='reused@example.test' WHERE id=(SELECT id FROM old_contact)$$,'23514',NULL,'retired handle cannot be revived by direct update');
+SELECT lives_ok($$SELECT public.restore_student('fd243000-0000-4000-8000-000000000061')$$,'Admin can explicitly restore the same identity after its phone was reused');
+SELECT * FROM finish();
+ROLLBACK;

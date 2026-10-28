@@ -121,8 +121,15 @@ export function useResourceSignedFileUrl(topicId: string | null, fileCode: strin
     },
     enabled: Boolean(topicId && fileCode),
     staleTime: RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS,
-    refetchInterval: RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS,
+    refetchInterval: (query) => {
+      if (!query.state.data) return false;
+      const nextRefreshAt = query.state.status === 'error'
+        ? query.state.errorUpdatedAt + 60_000
+        : query.state.dataUpdatedAt + RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS;
+      return Math.max(1000, nextRefreshAt - Date.now());
+    },
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

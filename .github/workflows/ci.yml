@@ -261,6 +261,11 @@ jobs:
         with:
           version: 2.107.0
 
+      - uses: denoland/setup-deno@v2
+        if: needs.web-system-tests-needed.outputs.database == 'true'
+        with:
+          deno-version: v2.x
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -313,6 +318,14 @@ jobs:
       - name: Test database contracts
         if: needs.web-system-tests-needed.outputs.database == 'true'
         run: supabase test db
+
+      - name: Test Student registration with real Auth
+        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.student == 'true'
+        run: python3 supabase/scripts/test-student-registration.py
+
+      - name: Test inbound iMessage identity and replay contracts
+        if: needs.web-system-tests-needed.outputs.database == 'true'
+        run: python3 scripts/owned_database.py run -- python3 scripts/test-imessage-inbound.py
 
       - name: Run admin browser journeys
         if: needs.web-system-tests-needed.outputs.admin == 'true'

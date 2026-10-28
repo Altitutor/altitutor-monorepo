@@ -14,7 +14,7 @@ export async function getSampleStudents(): Promise<Tables<'students'>[]> {
   const { data, error } = await supabase
     .from('students')
     .select('*')
-    .eq('status', 'ACTIVE')
+    .is('deleted_at', null).eq('status', 'ACTIVE')
     .limit(5)
     .order('first_name', { ascending: true });
   

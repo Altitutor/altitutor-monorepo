@@ -2,7 +2,7 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Database } from "@altitutor/shared";
+import { isStudentRecoveryEmail, type Database } from "@altitutor/shared";
 import {
   getSupportedIanaTimeZones,
   isSupportedIanaTimeZone,
@@ -69,7 +69,7 @@ export async function GET() {
     timezoneOptions,
     firstName: student.first_name,
     lastName: student.last_name,
-    email: user.email ?? student.email ?? "",
+    email: isStudentRecoveryEmail(user.email) ? student.email ?? "" : user.email ?? student.email ?? "",
     ucatInitialFamiliarity: student.ucat_initial_familiarity,
   });
 }
@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  if (syncEmailFromAuth && !user.email?.trim()) {
+  if (syncEmailFromAuth && (!user.email?.trim() || isStudentRecoveryEmail(user.email))) {
     return NextResponse.json(
       { error: "Authenticated account has no email to sync" },
       { status: 400 },

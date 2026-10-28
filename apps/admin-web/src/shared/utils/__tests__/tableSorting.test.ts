@@ -53,6 +53,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
     {
       id: 'student-2',
@@ -94,6 +96,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
     {
       id: 'student-3',
@@ -135,6 +139,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
   ];
 

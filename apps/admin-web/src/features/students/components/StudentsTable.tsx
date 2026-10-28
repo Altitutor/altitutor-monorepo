@@ -390,7 +390,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       console.error('Failed to delete student:', error);
       toast({
         title: "Error",
-        description: "Failed to delete student. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete student. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -865,8 +865,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the student
-                  "{studentFullName}" and all associated data from the database.
+                  This will hide the Student
+                  "{studentFullName}" and block their access while retaining all history. Resolve active enrolments, future bookings, subscriptions and open checkouts first. Their existing login or an AdminStaff restore can make the record available again.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="py-4">

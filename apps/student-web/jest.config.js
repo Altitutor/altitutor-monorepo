@@ -20,6 +20,12 @@ const config = {
   transform: {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },
+  // Shared UI re-exports the ESM Markdown renderer; transform it when
+  // exercising real shared controls instead of mocking the UI package.
+  transformIgnorePatterns: [
+    'node_modules/.pnpm/(?!(marked)@)',
+    'node_modules/(?!.pnpm|marked)',
+  ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   passWithNoTests: true,
   collectCoverageFrom: [

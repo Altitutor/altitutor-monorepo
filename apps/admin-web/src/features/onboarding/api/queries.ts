@@ -102,17 +102,21 @@ async function fetchJourneysWithStudentStatus() {
       ),
     ),
   ];
+  const deletedIds = new Set<string>();
   const statuses = new Map<string, Tables<"students">["status"]>();
   // Bound each request below the API row limit and keep URLs small.
   for (let offset = 0; offset < studentIds.length; offset += 200) {
     const { data, error } = await getSupabaseClient()
       .from("students")
-      .select("id, status")
+      .select("id, status, deleted_at")
       .in("id", studentIds.slice(offset, offset + 200));
     if (error) throw error;
-    for (const student of data) statuses.set(student.id, student.status);
+    for (const student of data) {
+      statuses.set(student.id, student.status);
+      if (student.deleted_at) deletedIds.add(student.id);
+    }
   }
-  return journeys.map((journey) => ({
+  return journeys.filter(journey => !journey.student_id || !deletedIds.has(journey.student_id)).map((journey) => ({
     ...journey,
     student_status: journey.student_id
       ? (statuses.get(journey.student_id) ?? null)

@@ -1,0 +1,12 @@
+BEGIN;
+SELECT plan(3);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+INSERT INTO public.students(id,first_name,last_name,status) VALUES('fd243000-0000-4000-8000-000000000081','Retirement','Queue',NULL);
+INSERT INTO public.ucat_transactional_email_outbox(student_id,recipient_email,template_key,event_key) VALUES('fd243000-0000-4000-8000-000000000081','released@example.test','subscription_canceled','retirement-existing');
+SELECT public.retire_student('fd243000-0000-4000-8000-000000000081');
+SELECT is((SELECT status FROM public.ucat_transactional_email_outbox WHERE event_key='retirement-existing'),'suppressed','pending personal mail is suppressed before its handle is released');
+INSERT INTO public.ucat_transactional_email_outbox(student_id,recipient_email,template_key,event_key) VALUES('fd243000-0000-4000-8000-000000000081','released@example.test','subscription_canceled','retirement-late');
+SELECT is((SELECT status FROM public.ucat_transactional_email_outbox WHERE event_key='retirement-late'),'suppressed','late event cannot queue personal mail to a released handle');
+SELECT is((SELECT count(*) FROM public.ucat_transactional_email_outbox WHERE student_id='fd243000-0000-4000-8000-000000000081'),2::bigint,'delivery audit remains retained');
+SELECT * FROM finish();
+ROLLBACK;

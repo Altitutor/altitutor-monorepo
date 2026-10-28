@@ -23,7 +23,12 @@ const test = base.extend<{ subsidyStudentId: string }>({
     try {
       await use(id);
     } finally {
-      const { error: cleanupError } = await database.from('students').delete().eq('id', id);
+      // Student history is retained even in fixtures; the owned DB is disposable.
+      const { error: loginError } = await database.auth.signInWithPassword({
+        email: 'admin@altitutor.test', password: 'test-password',
+      });
+      if (loginError) throw new Error(loginError.message);
+      const { error: cleanupError } = await database.rpc('retire_student', { p_student_id: id });
       if (cleanupError) throw new Error(cleanupError.message);
     }
   },

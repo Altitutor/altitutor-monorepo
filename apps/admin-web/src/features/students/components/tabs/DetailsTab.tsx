@@ -227,7 +227,8 @@ export function DetailsTab({
             <div>
               <h3 className="text-lg font-semibold mb-4">Account</h3>
               {(() => {
-                const isRegistered = student.status === 'ACTIVE';
+                if (student.deleted_at) return <p className="text-sm text-muted-foreground">Student access is disabled. Restore this record before sending a new invitation.</p>;
+          const isRegistered = student.status === 'ACTIVE';
                 const hasAccount = !!student.user_id;
 
                 // Case 1: Registered but no account -> Send Invite
@@ -341,8 +342,7 @@ export function DetailsTab({
                       <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the student "{studentFullName}" and
-                          all associated data from the database.
+                          This will hide the Student "{studentFullName}" and block their access while retaining all history. Resolve active enrolments, future bookings, subscriptions and open checkouts first. Their existing login or an AdminStaff restore can make the record available again.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <div className="py-4">
@@ -437,7 +437,7 @@ export function DetailsTab({
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Student Information</h3>
-        <Button variant="outline" size="sm" onClick={onEdit}>
+        <Button variant="outline" size="sm" onClick={onEdit} disabled={!!student.deleted_at}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>
@@ -519,6 +519,7 @@ export function DetailsTab({
       <div>
         <h3 className="text-lg font-semibold mb-4">Account</h3>
         {(() => {
+          if (student.deleted_at) return <p className="text-sm text-muted-foreground">Student access is disabled. Restore this record before sending a new invitation.</p>;
           const isRegistered = student.status === 'ACTIVE';
           const hasAccount = !!student.user_id;
 
