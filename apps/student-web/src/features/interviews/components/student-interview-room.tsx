@@ -1,5 +1,6 @@
 "use client";
 
+import { reportInterviewCallFailure } from "@/lib/sentry/interview-call-reporting";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -203,6 +204,7 @@ function OnlineInterviewRoom({
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-auto">
           <InterviewMedia
+          onCallFailure={reportInterviewCallFailure}
             className="w-full shrink-0 rounded-none"
             roundId={round.id}
             phase={round.phase}
@@ -523,6 +525,7 @@ export function StudentInterviewRoom({ roundId }: { roundId: string }) {
                   </p>
                   <div className="mt-5">
                     <InterviewMedia
+          onCallFailure={reportInterviewCallFailure}
                       roundId={round.id}
                       phase={round.phase}
                       delivery={round.delivery}
