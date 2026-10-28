@@ -55,7 +55,8 @@ it('retains the stored Subject and legacy timetable when the loaded revision tim
   const user = openEditor();
   await waitFor(() => expect(screen.getByRole('button', { name: 'Add day / time' })).toBeEnabled());
   expect(await screen.findByText('Mathematics')).toBeInTheDocument();
-  expect(screen.getByDisplayValue('16:00:00')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Start time for schedule row 1' })).toHaveTextContent('4:00 pm');
+  expect(screen.getByRole('button', { name: 'Duration for schedule row 1' })).toHaveTextContent('90 minutes');
   await user.click(screen.getByRole('button', { name: 'Review changes' }));
   await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('preview_class_schedule', {
     p_proposal: expect.objectContaining({ subject_id: subject.id, session_type: 'CLASS' }),
