@@ -65,7 +65,7 @@ export default function SettingsProfilePage() {
   }
 
   return (
-    <StudentPageContainer className="space-y-6">
+    <StudentPageContainer className="space-y-6 pb-28">
       <header className="space-y-4">
         <SettingsPageHeader
           title="My profile"

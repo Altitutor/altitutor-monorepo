@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
 import type { DataTableState, FlashcardReviewCard } from '@altitutor/shared';
 import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
 import {
@@ -19,25 +19,18 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { StudentDialogShell } from '@/shared/components';
 import { studentCardCn, studentTableBodyRow, studentTableHeaderRow } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
+import type { FlashcardHistoryEntry, FlashcardManagementAction, FlashcardManagementResult } from '../types/management';
 
 export type FlashcardManageFilter = 'all' | FlashcardReviewCard['state'];
-
-type HistoryRow = {
-  id: string;
-  review_card_id: string;
-  action: string;
-  rating: string | null;
-  answered_at: string;
-  duration_ms: number | null;
-  pre_state: Record<string, unknown>;
-  post_state: Record<string, unknown>;
-  undone_at: string | null;
-};
 
 type FlashcardGroup = {
   id: string;
@@ -48,6 +41,15 @@ type FlashcardGroup = {
 };
 
 const defaultColumns = ['card', 'state', 'clozes', 'due'];
+
+function ManageButton({ help, ...props }: ComponentProps<typeof Button> & { help: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild><Button {...props} /></TooltipTrigger>
+      <TooltipContent className="max-w-xs">{help}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 function createTableState(filter: FlashcardManageFilter): DataTableState {
   return {
@@ -170,7 +172,7 @@ export function ManageFlashcardsDialog({
   initialFilter?: FlashcardManageFilter;
 }) {
   const [cards, setCards] = useState<FlashcardReviewCard[]>([]);
-  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [history, setHistory] = useState<FlashcardHistoryEntry[]>([]);
   const [tableState, setTableState] = useState<DataTableState>(() => createTableState(initialFilter));
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedReviewCardId, setSelectedReviewCardId] = useState<string | null>(null);
@@ -265,18 +267,24 @@ export function ManageFlashcardsDialog({
   const activeCard = selectedGroup?.cards.find((card) => card.id === selectedReviewCardId) ?? selectedGroup?.cards[0] ?? null;
   const activeHistory = activeCard ? history.filter((row) => row.review_card_id === activeCard.id) : [];
 
-  const command = async (card: FlashcardReviewCard, action: 'forget' | 'suspend' | 'resume' | 'bury' | 'unbury') => {
+  const saveCommand = async (card: FlashcardReviewCard, action: FlashcardManagementAction) => {
+    const response = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(card.id)}/manage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, requestId: crypto.randomUUID() }),
+    });
+    if (!response.ok) throw new Error('Command failed');
+    const { data } = await response.json() as { data: FlashcardManagementResult };
+    setCards((current) => current.map((item) => item.id === card.id ? { ...item, ...data.cardState } : item));
+    setHistory((current) => [data.historyEntry, ...current.filter((entry) => entry.id !== data.historyEntry.id)]);
+  };
+
+  const command = async (card: FlashcardReviewCard, action: FlashcardManagementAction) => {
     if (action === 'forget' && !window.confirm('Reset this card to New? Its review history will be retained.')) return;
     setPendingCardId(card.id);
     setError(null);
     try {
-      const response = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(card.id)}/manage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, requestId: crypto.randomUUID() }),
-      });
-      if (!response.ok) throw new Error('Command failed');
-      await load();
+      await saveCommand(card, action);
     } catch (commandError) {
       console.error('Failed to manage flashcard:', commandError);
       setError('That change could not be saved. Please try again.');
@@ -290,13 +298,8 @@ export function ManageFlashcardsDialog({
     setPendingCardId('all');
     setError(null);
     try {
-      const responses = await Promise.all(buriedCards.map((card) => fetch(`/api/flashcards/review-cards/${encodeURIComponent(card.id)}/manage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'unbury', requestId: crypto.randomUUID() }),
-      })));
-      if (responses.some((response) => !response.ok)) throw new Error('Unable to unbury every card');
-      await load();
+      const results = await Promise.allSettled(buriedCards.map((card) => saveCommand(card, 'unbury')));
+      if (results.some((result) => result.status === 'rejected')) throw new Error('Unable to unbury every card');
     } catch (commandError) {
       console.error('Failed to unbury flashcards:', commandError);
       setError('Some cards could not be unburied. Please try again.');
@@ -308,190 +311,195 @@ export function ManageFlashcardsDialog({
   const isColumnVisible = (column: string) => tableState.visibleColumns.includes(column);
 
   return (
-    <StudentDialogShell
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Manage flashcards"
-      description="Search your cards, inspect each cloze, and manage its study state."
-      contentClassName="h-[min(92vh,900px)]"
-      headerActions={cards.some((card) => card.buried_until) ? (
-        <Button variant="outline" size="sm" onClick={() => void unburyAll()} disabled={Boolean(pendingCardId)}>
-          Unbury all
-        </Button>
-      ) : null}
-    >
-      <div className="grid h-full min-h-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section className="flex min-h-0 flex-col border-b border-border/60 lg:border-b-0 lg:border-r" aria-label="Flashcard list">
-          <div className="shrink-0 space-y-3 border-b border-border/60 p-4">
-            <DataTableToolbar
-              state={tableState}
-              onSearchChange={(search) => setTableState((current) => ({ ...current, search, page: 1 }))}
-              onFiltersChange={(filters) => setTableState((current) => ({ ...current, filters, page: 1 }))}
-              onSortChange={(sortBy, sortDirection) => setTableState((current) => ({ ...current, sortBy, sortDirection }))}
-              onGroupByChange={() => undefined}
-              onVisibleColumnsChange={(visibleColumns) => setTableState((current) => ({ ...current, visibleColumns }))}
-              onQuickFilterApply={() => undefined}
-              onReset={() => setTableState(createTableState('all'))}
-              searchPlaceholder="Search flashcards…"
-              filterDefinitions={[
-                { key: 'state', label: 'Study state', options: ['New', 'Learning', 'Relearning', 'Review'].map((value) => ({ label: value, value })) },
-                { key: 'flag', label: 'Card status', options: [
-                  { label: 'Suspended', value: 'suspended' },
-                  { label: 'Buried', value: 'buried' },
-                  { label: 'Leech suggested', value: 'leech' },
-                ] },
-              ]}
-              sortOptions={[
-                { key: 'order', label: 'Card order' },
-                { key: 'due', label: 'Next due' },
-                { key: 'state', label: 'Study state' },
-              ]}
-              columnDefinitions={[
-                { key: 'card', label: 'Card', visibleByDefault: true },
-                { key: 'state', label: 'Study state', visibleByDefault: true },
-                { key: 'clozes', label: 'Clozes', visibleByDefault: true },
-                { key: 'due', label: 'Next due', visibleByDefault: true },
-              ]}
-              defaultVisibleColumns={defaultColumns}
-              compact
-            />
-            <p className="text-xs text-muted-foreground">{filteredGroups.length} of {groups.length} flashcards</p>
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-          </div>
+    <TooltipProvider delayDuration={200}>
+      <StudentDialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Manage flashcards"
+        description="Search your cards, inspect each cloze, and manage its study state."
+        contentClassName="sm:h-[min(92dvh,900px)] sm:max-h-[min(92dvh,900px)]"
+        headerActions={cards.some((card) => card.buried_until) ? (
+          <ManageButton help="Make every buried cloze available for study again. Suspended clozes stay suspended." variant="outline" size="sm" onClick={() => void unburyAll()} disabled={Boolean(pendingCardId)}>
+            Unbury all
+          </ManageButton>
+        ) : null}
+      >
+        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:grid-rows-[minmax(0,1fr)]">
+          <section className="flex min-h-0 min-w-0 flex-col border-b border-border/60 lg:border-b-0 lg:border-r" aria-label="Flashcard list">
+            <div className="shrink-0 space-y-3 border-b border-border/60 p-4">
+              <DataTableToolbar
+                state={tableState}
+                onSearchChange={(search) => setTableState((current) => ({ ...current, search, page: 1 }))}
+                onFiltersChange={(filters) => setTableState((current) => ({ ...current, filters, page: 1 }))}
+                onSortChange={(sortBy, sortDirection) => setTableState((current) => ({ ...current, sortBy, sortDirection }))}
+                onGroupByChange={() => undefined}
+                onVisibleColumnsChange={(visibleColumns) => setTableState((current) => ({ ...current, visibleColumns }))}
+                onQuickFilterApply={() => undefined}
+                onReset={() => setTableState(createTableState('all'))}
+                searchPlaceholder="Search flashcards…"
+                filterDefinitions={[
+                  { key: 'state', label: 'Study state', options: ['New', 'Learning', 'Relearning', 'Review'].map((value) => ({ label: value, value })) },
+                  { key: 'flag', label: 'Card status', options: [
+                    { label: 'Suspended', value: 'suspended' },
+                    { label: 'Buried', value: 'buried' },
+                    { label: 'Leech suggested', value: 'leech' },
+                  ] },
+                ]}
+                sortOptions={[
+                  { key: 'order', label: 'Card order' },
+                  { key: 'due', label: 'Next due' },
+                  { key: 'state', label: 'Study state' },
+                ]}
+                columnDefinitions={[
+                  { key: 'card', label: 'Card', visibleByDefault: true },
+                  { key: 'state', label: 'Study state', visibleByDefault: true },
+                  { key: 'clozes', label: 'Clozes', visibleByDefault: true },
+                  { key: 'due', label: 'Next due', visibleByDefault: true },
+                ]}
+                defaultVisibleColumns={defaultColumns}
+                compact
+              />
+              <p className="text-xs text-muted-foreground">{filteredGroups.length} of {groups.length} flashcards</p>
+              {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            </div>
 
-          <ScrollArea className="min-h-[260px] flex-1">
-            {isLoading ? (
-              <div className="flex h-48 items-center justify-center text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading flashcards…
-              </div>
-            ) : filteredGroups.length ? (
-              <Table className="min-w-[520px]">
-                <TableHeader>
-                  <TableRow className={studentTableHeaderRow}>
-                    {isColumnVisible('card') ? <TableHead>Card</TableHead> : null}
-                    {isColumnVisible('state') ? <TableHead>State</TableHead> : null}
-                    {isColumnVisible('clozes') ? <TableHead className="w-20">Clozes</TableHead> : null}
-                    {isColumnVisible('due') ? <TableHead>Next due</TableHead> : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredGroups.map((group) => (
-                    <TableRow
-                      key={group.id}
-                      role="row"
-                      tabIndex={0}
-                      aria-selected={selectedGroupId === group.id}
-                      data-state={selectedGroupId === group.id ? 'selected' : undefined}
-                      className={cn(studentTableBodyRow, 'cursor-pointer')}
-                      onClick={() => setSelectedGroupId(group.id)}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter' && event.key !== ' ') return;
-                        event.preventDefault();
-                        setSelectedGroupId(group.id);
-                      }}
-                    >
-                      {isColumnVisible('card') ? (
-                        <TableCell className="max-w-[16rem]">
-                          <p className="truncate font-medium">{group.preview || `Flashcard ${group.cards[0].flashcard_index + 1}`}</p>
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {[group.cards[0].subject_short_name, group.cards[0].topic_code].filter(Boolean).join(' · ') || 'Flashcard'}
-                          </p>
-                        </TableCell>
-                      ) : null}
-                      {isColumnVisible('state') ? (
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {group.states.map((state) => <Badge key={state} variant={stateBadgeVariant(state)}>{state}</Badge>)}
-                          </div>
-                        </TableCell>
-                      ) : null}
-                      {isColumnVisible('clozes') ? <TableCell>{group.cards.length}</TableCell> : null}
-                      {isColumnVisible('due') ? <TableCell className="text-xs text-muted-foreground">{formatDueDate(group.nextDueAt)}</TableCell> : null}
+            <ScrollArea className="h-0 min-h-0 flex-1">
+              {isLoading ? (
+                <div className="flex h-48 items-center justify-center text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading flashcards…
+                </div>
+              ) : filteredGroups.length ? (
+                <Table className="min-w-[520px]">
+                  <TableHeader>
+                    <TableRow className={studentTableHeaderRow}>
+                      {isColumnVisible('card') ? <TableHead>Card</TableHead> : null}
+                      {isColumnVisible('state') ? <TableHead>State</TableHead> : null}
+                      {isColumnVisible('clozes') ? <TableHead className="w-20">Clozes</TableHead> : null}
+                      {isColumnVisible('due') ? <TableHead>Next due</TableHead> : null}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-8 text-center text-sm text-muted-foreground">No flashcards match these filters.</div>
-            )}
-          </ScrollArea>
-        </section>
-
-        <section className="min-h-0 bg-muted/15" aria-label="Selected flashcard details">
-          <ScrollArea className="h-full">
-            {selectedGroup && activeCard ? (
-              <div className="space-y-5 p-4 sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {[activeCard.subject_short_name, activeCard.topic_code, activeCard.topic_name].filter(Boolean).join(' · ')}
-                    </p>
-                    <h3 className="mt-1 text-lg font-semibold">Flashcard {activeCard.flashcard_index + 1}</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {activeCard.suspended_at ? (
-                      <Button size="sm" onClick={() => void command(activeCard, 'resume')} disabled={pendingCardId === activeCard.id}>Resume</Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => void command(activeCard, 'suspend')} disabled={pendingCardId === activeCard.id}>Suspend</Button>
-                    )}
-                    {activeCard.buried_until ? (
-                      <Button size="sm" onClick={() => void command(activeCard, 'unbury')} disabled={pendingCardId === activeCard.id}>Unbury</Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => void command(activeCard, 'bury')} disabled={pendingCardId === activeCard.id}>Bury</Button>
-                    )}
-                    <Button size="sm" variant="destructive" onClick={() => void command(activeCard, 'forget')} disabled={pendingCardId === activeCard.id}>Forget</Button>
-                  </div>
-                </div>
-
-                <Tabs value={activeCard.id} onValueChange={setSelectedReviewCardId}>
-                  <TabsList className="w-full justify-start">
-                    {selectedGroup.cards.map((reviewCard) => (
-                      <TabsTrigger key={reviewCard.id} value={reviewCard.id}>
-                        Cloze {reviewCard.cloze_index}
-                      </TabsTrigger>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGroups.map((group) => (
+                      <TableRow
+                        key={group.id}
+                        role="row"
+                        tabIndex={0}
+                        aria-selected={selectedGroupId === group.id}
+                        data-state={selectedGroupId === group.id ? 'selected' : undefined}
+                        className={cn(studentTableBodyRow, 'cursor-pointer')}
+                        onClick={() => setSelectedGroupId(group.id)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
+                          setSelectedGroupId(group.id);
+                        }}
+                      >
+                        {isColumnVisible('card') ? (
+                          <TableCell className="max-w-[16rem]">
+                            <p className="truncate font-medium">{group.preview || `Flashcard ${group.cards[0].flashcard_index + 1}`}</p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {[group.cards[0].subject_short_name, group.cards[0].topic_code].filter(Boolean).join(' · ') || 'Flashcard'}
+                            </p>
+                          </TableCell>
+                        ) : null}
+                        {isColumnVisible('state') ? (
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {group.states.map((state) => <Badge key={state} variant={stateBadgeVariant(state)}>{state}</Badge>)}
+                            </div>
+                          </TableCell>
+                        ) : null}
+                        {isColumnVisible('clozes') ? <TableCell>{group.cards.length}</TableCell> : null}
+                        {isColumnVisible('due') ? <TableCell className="text-xs text-muted-foreground">{formatDueDate(group.nextDueAt)}</TableCell> : null}
+                      </TableRow>
                     ))}
-                  </TabsList>
-                  {selectedGroup.cards.map((reviewCard) => (
-                    <TabsContent key={reviewCard.id} value={reviewCard.id} className="mt-4 space-y-4">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <Badge variant={stateBadgeVariant(reviewCard.state)}>{reviewCard.state}</Badge>
-                        {reviewCard.suspended_at ? <Badge variant="outline">Suspended</Badge> : null}
-                        {reviewCard.buried_until ? <Badge variant="outline">Buried</Badge> : null}
-                        {reviewCard.leech_at ? <Badge variant="destructive">Leech suggested</Badge> : null}
-                        <span className="text-muted-foreground">{formatDueDate(reviewCard.due_at)}</span>
-                      </div>
-                      <FrontBackPreview card={reviewCard} />
-                    </TabsContent>
-                  ))}
-                </Tabs>
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground">No flashcards match these filters.</div>
+              )}
+            </ScrollArea>
+          </section>
 
-                <div className={studentCardCn('p-4')}>
-                  <h4 className="text-sm font-semibold">Review history</h4>
-                  {activeHistory.length ? (
-                    <div className="mt-3 space-y-2">
-                      {activeHistory.map((row) => (
-                        <div key={row.id} className="rounded-xl bg-muted/40 p-3 text-xs">
-                          <p className="font-medium">{new Date(row.answered_at).toLocaleString()} · {row.rating ?? row.action}{row.undone_at ? ' · undone' : ''}</p>
-                          <p className="mt-1 text-muted-foreground">
-                            {String(row.pre_state.state ?? '—')} → {String(row.post_state.state ?? '—')}
-                            {row.duration_ms != null ? ` · ${Math.round(row.duration_ms / 1000)}s` : ''}
-                          </p>
-                        </div>
-                      ))}
+          <section className="min-h-0 min-w-0 bg-muted/15" aria-label="Selected flashcard details">
+            <ScrollArea className="h-full">
+              {selectedGroup && activeCard ? (
+                <div className="space-y-5 p-4 sm:p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {[activeCard.subject_short_name, activeCard.topic_code, activeCard.topic_name].filter(Boolean).join(' · ')}
+                      </p>
+                      <h3 className="mt-1 text-lg font-semibold">Flashcard {activeCard.flashcard_index + 1}</h3>
                     </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">No review history for this cloze yet.</p>
-                  )}
+                    <div className="flex flex-wrap gap-2">
+                      {activeCard.suspended_at ? (
+                        <ManageButton help="Allow this cloze to appear in scheduled study again, keeping its progress." size="sm" onClick={() => void command(activeCard, 'resume')} disabled={Boolean(pendingCardId)}>Resume</ManageButton>
+                      ) : (
+                        <ManageButton help="Pause this cloze indefinitely until you resume it. Its progress and history are kept." size="sm" variant="outline" onClick={() => void command(activeCard, 'suspend')} disabled={Boolean(pendingCardId)}>Suspend</ManageButton>
+                      )}
+                      {activeCard.buried_until ? (
+                        <ManageButton help="Make this cloze available before the next study day. Its schedule is kept." size="sm" onClick={() => void command(activeCard, 'unbury')} disabled={Boolean(pendingCardId)}>Unbury</ManageButton>
+                      ) : (
+                        <ManageButton help="Hide this cloze until your next study day, which starts at 4 am in your saved timezone." size="sm" variant="outline" onClick={() => void command(activeCard, 'bury')} disabled={Boolean(pendingCardId)}>Bury</ManageButton>
+                      )}
+                      <ManageButton help="Reset this cloze to New and clear its scheduling progress. Review history is retained." size="sm" variant="destructive" onClick={() => void command(activeCard, 'forget')} disabled={Boolean(pendingCardId)}>Forget</ManageButton>
+                    </div>
+                  </div>
+
+                  <Tabs value={activeCard.id} onValueChange={setSelectedReviewCardId}>
+                    <TabsList className="w-full justify-start">
+                      {selectedGroup.cards.map((reviewCard) => (
+                        <Tooltip key={reviewCard.id}>
+                          <TooltipTrigger asChild>
+                            <TabsTrigger value={reviewCard.id}>Cloze {reviewCard.cloze_index}</TabsTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Inspect the question, answer and history for cloze {reviewCard.cloze_index}.</TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </TabsList>
+                    {selectedGroup.cards.map((reviewCard) => (
+                      <TabsContent key={reviewCard.id} value={reviewCard.id} className="mt-4 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <Badge variant={stateBadgeVariant(reviewCard.state)}>{reviewCard.state}</Badge>
+                          {reviewCard.suspended_at ? <Badge variant="outline">Suspended</Badge> : null}
+                          {reviewCard.buried_until ? <Badge variant="outline">Buried</Badge> : null}
+                          {reviewCard.leech_at ? <Badge variant="destructive">Leech suggested</Badge> : null}
+                          <span className="text-muted-foreground">{formatDueDate(reviewCard.due_at)}</span>
+                        </div>
+                        <FrontBackPreview card={reviewCard} />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+
+                  <div className={studentCardCn('p-4')}>
+                    <h4 className="text-sm font-semibold">Review history</h4>
+                    {activeHistory.length ? (
+                      <div className="mt-3 space-y-2">
+                        {activeHistory.map((row) => (
+                          <div key={row.id} className="rounded-xl bg-muted/40 p-3 text-xs">
+                            <p className="font-medium">{new Date(row.answered_at).toLocaleString()} · {row.rating ?? row.action}{row.undone_at ? ' · undone' : ''}</p>
+                            <p className="mt-1 text-muted-foreground">
+                              {String(row.pre_state.state ?? '—')} → {String(row.post_state.state ?? '—')}
+                              {row.duration_ms != null ? ` · ${Math.round(row.duration_ms / 1000)}s` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">No review history for this cloze yet.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[260px] items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                Select a flashcard to inspect its clozes.
-              </div>
-            )}
-          </ScrollArea>
-        </section>
-      </div>
-    </StudentDialogShell>
+              ) : (
+                <div className="flex h-full min-h-[260px] items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  Select a flashcard to inspect its clozes.
+                </div>
+              )}
+            </ScrollArea>
+          </section>
+        </div>
+      </StudentDialogShell>
+    </TooltipProvider>
   );
 }

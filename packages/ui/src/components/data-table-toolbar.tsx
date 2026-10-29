@@ -820,6 +820,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                 variant="outline"
                 size="icon"
                 aria-label="Search"
+                title="Search the list"
                 className={cn(
                   compact ? "size-9" : "size-10",
                   "shrink-0",
@@ -885,6 +886,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                 toolbarControlStyles,
               )}
               aria-label="Display options"
+              title="Change filters, sorting and visible columns"
             >
               <SlidersHorizontal className={iconClass()} />
               <span className={labelClass}>Display</span>

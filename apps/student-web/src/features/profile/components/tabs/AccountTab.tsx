@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@altitutor/ui';
 import {
   Form,
   FormControl,
@@ -14,11 +13,9 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { authApi } from '@/shared/api';
-import { studentBtnPrimary } from '@/shared/lib/student-visual';
-import { cn } from '@/shared/utils';
+import { SettingsSaveBar } from '@/features/settings/components/SettingsSaveBar';
 import type { Database } from '@altitutor/shared';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
@@ -44,7 +41,6 @@ interface AccountTabProps {
 export function AccountTab({ profile: _profile }: AccountTabProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<UpdatePasswordData>({
     resolver: zodResolver(updatePasswordSchema),
@@ -57,11 +53,9 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
   const onSubmit = async (data: UpdatePasswordData) => {
     try {
       setIsLoading(true);
-      setIsSuccess(false);
       
       await authApi.updatePassword({ password: data.password });
       
-      setIsSuccess(true);
       form.reset();
       
       toast({
@@ -90,7 +84,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
         </p>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form id="student-password-settings" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="password"
@@ -100,6 +94,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
                   <FormControl>
                     <Input
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Enter new password"
                       {...field}
                       disabled={isLoading}
@@ -119,6 +114,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
                   <FormControl>
                     <Input
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Confirm new password"
                       {...field}
                       disabled={isLoading}
@@ -129,27 +125,9 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
               )}
             />
             
-            <Button
-              type="submit"
-              disabled={isLoading || isSuccess}
-              className={cn(studentBtnPrimary, 'w-fit')}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating password...
-                </>
-              ) : isSuccess ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Password updated
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </Button>
           </form>
         </Form>
+        <SettingsSaveBar visible={form.formState.isDirty} saving={isLoading} onCancel={() => form.reset()} formId="student-password-settings" />
       </div>
     </div>
   );
