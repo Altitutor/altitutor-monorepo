@@ -242,7 +242,8 @@ jobs:
     name: Web Browser and Database
     needs: web-system-tests-needed
     if: needs.web-system-tests-needed.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    # ubuntu-latest is 26.04, which Playwright 1.56 cannot install browsers on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       NODE_OPTIONS: --max-old-space-size=4096
