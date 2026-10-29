@@ -17,6 +17,7 @@ import { Button } from "@altitutor/ui";
 type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
   source?: CalendarSource;
+  expandToSessions?: boolean;
   visibleProperties?: string[];
   onRangeChange?: (from:string,to:string) => void;
   onOpenSession?: (id: string) => void;
@@ -30,7 +31,7 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange }: Props) {
+export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
@@ -66,7 +67,12 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
   const showProperty = (key:string) => !visibleProperties || visibleProperties.includes(key);
 
   // Time grid similar to classes timetable
-  const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
+  const calendarSessions = data?.sessions ?? [];
+  const startMinutes = calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []);
+  const endMinutes = calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []);
+  const firstHour = expandToSessions ? Math.floor(Math.min(9 * 60, ...startMinutes) / 60) : 9;
+  const lastHour = expandToSessions ? Math.min(24, Math.ceil(Math.max(21 * 60, ...endMinutes) / 60)) : 21;
+  const slots = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const slotHeight = 75; // px per hour
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
@@ -88,14 +94,14 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
   // Use Adelaide timezone for consistent calculations
   const minutesFromStart = (isoString: string) => {
     const minutes = adelaideTimeToMinutes(isoString);
-    return minutes - (9 * 60);
+    return minutes - (firstHour * 60);
   };
 
   // Current time indicator
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   // For current time indicator, use local time (user's current time)
-  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
+  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (firstHour * 60);
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   // Calculate navigation step based on view mode
@@ -119,11 +125,11 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
 
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrevious}>
+          <Button variant="outline" aria-label={`Previous ${viewMode}`} onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" onClick={handleToday}>Today</Button>
-          <Button variant="outline" onClick={handleNext}>
+          <Button variant="outline" aria-label={`Next ${viewMode}`} onClick={handleNext}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
