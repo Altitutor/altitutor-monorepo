@@ -5,7 +5,7 @@ import PencilKit
 struct ClassroomLesson {
     let title: String; let time: String; let room: String; let tutor: String
 }
-struct ClassroomWorksheet {
+struct ClassroomWorksheet: Equatable {
     let id: UUID; let url: URL; let page: Int; let visibleRect: CGRect; let rotation: Int; let drawings: [Int: Data]
 }
 
@@ -21,7 +21,8 @@ struct ClassroomWorksheet {
     func allowWorksheet(_ id: UUID) { allowedWorksheet = id; worksheet = nil }
     func publishWorksheet(id: UUID, url: URL, page: Int, visibleRect: CGRect, rotation: Int, drawings: [Int: Data]) {
         guard allowedWorksheet == id else { return }
-        worksheet = ClassroomWorksheet(id: id, url: url, page: page, visibleRect: visibleRect, rotation: rotation, drawings: drawings)
+        let next = ClassroomWorksheet(id: id, url: url, page: page, visibleRect: visibleRect, rotation: rotation, drawings: drawings)
+        if next != worksheet { worksheet = next }
     }
     func clear() { allowedWorksheet = nil; worksheet = nil; lesson = nil }
 }
@@ -47,52 +48,45 @@ struct ClassroomView: View {
 
 struct AudiencePDF: UIViewRepresentable {
     let worksheet: ClassroomWorksheet
-    func makeCoordinator() -> Coordinator { Coordinator() }
-    func makeUIView(context: Context) -> PDFView {
-        let view = PDFView(); view.displayMode = .singlePage; view.isUserInteractionEnabled = false
-        view.backgroundColor = .black; view.autoScales = false; view.minScaleFactor = 0.01; view.maxScaleFactor = 100
-        view.pageOverlayViewProvider = context.coordinator
-        return view
+    func makeUIView(context: Context) -> ClassroomPDFCanvas { ClassroomPDFCanvas() }
+    func updateUIView(_ view: ClassroomPDFCanvas, context: Context) { view.show(worksheet) }
+}
+
+/// A read-only projection of the worksheet's exact page-space region. No PDF navigation or private pane exists here.
+@MainActor final class ClassroomPDFCanvas: UIView {
+    private var worksheet: ClassroomWorksheet?
+    private var pdf: PDFDocument?
+    func show(_ next: ClassroomWorksheet) {
+        if worksheet?.id != next.id { pdf = PDFDocument(url: next.url) }
+        guard worksheet != next else { return }
+        worksheet = next; isOpaque = true; backgroundColor = .black; isUserInteractionEnabled = false
+        contentMode = .redraw; setNeedsDisplay()
     }
-    func updateUIView(_ view: PDFView, context: Context) {
-        let c = context.coordinator
-        if c.id != worksheet.id {
-            c.id = worksheet.id; c.overlays.removeAll(); view.document = PDFDocument(url: worksheet.url)
-            c.baseRotations = (0..<(view.document?.pageCount ?? 0)).map { view.document?.page(at: $0)?.rotation ?? 0 }
-        }
-        c.drawings = worksheet.drawings
-        guard let pdf = view.document, let page = pdf.page(at: worksheet.page) else { return }
-        for index in 0..<pdf.pageCount {
-            let angle = (c.baseRotations[index] + worksheet.rotation) % 360
-            if pdf.page(at: index)?.rotation != angle { pdf.page(at: index)?.rotation = angle }
-        }
-        for (index, overlay) in c.overlays {
-            if let data = c.drawings[index], let drawing = try? PKDrawing(data: data) {
-                overlay.image = drawing.image(from: CGRect(origin: .zero, size: overlay.bounds.size), scale: 2)
-            } else { overlay.image = nil }
-        }
-        view.go(to: page)
-        if !worksheet.visibleRect.isEmpty, !worksheet.visibleRect.isNull, view.bounds.width > 0, view.bounds.height > 0 {
-            let rect = worksheet.visibleRect
-            let quarterTurn = abs(page.rotation) % 180 == 90
-            let size = quarterTurn ? CGSize(width: rect.height, height: rect.width) : rect.size
-            let scale = min(view.bounds.width / size.width, view.bounds.height / size.height)
-            if abs(view.scaleFactor - scale) > 0.001 { view.scaleFactor = scale }
-            view.go(to: rect, on: page)
-        }
-    }
-    @MainActor final class Coordinator: NSObject, @MainActor PDFPageOverlayViewProvider {
-        var id: UUID?
-        var baseRotations: [Int] = []
-        var drawings: [Int: Data] = [:]
-        var overlays: [Int: UIImageView] = [:]
-        func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
-            guard let pdf = view.document else { return nil }
-            let index = pdf.index(for: page), bounds = CGRect(origin: .zero, size: page.bounds(for: .cropBox).size)
-            let image = UIImageView(frame: bounds); image.isUserInteractionEnabled = false
-            if let data = drawings[index], let drawing = try? PKDrawing(data: data) { image.image = drawing.image(from: bounds, scale: 2) }
-            overlays[index] = image; return image
-        }
+    override func draw(_ rect: CGRect) {
+        guard let graphics = UIGraphicsGetCurrentContext() else { return }
+        UIColor.black.setFill(); graphics.fill(bounds)
+        guard let worksheet, let page = pdf?.page(at: worksheet.page), let reference = page.pageRef else { return }
+        let crop = reference.getBoxRect(.cropBox)
+        let quarterTurn = abs(Int(reference.rotationAngle) + worksheet.rotation) % 180 == 90
+        let size = quarterTurn ? CGSize(width: crop.height, height: crop.width) : crop.size
+        let pageTransform = reference.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size),
+                                                     rotate: Int32(worksheet.rotation), preserveAspectRatio: true)
+        let visible = worksheet.visibleRect.isEmpty || worksheet.visibleRect.isNull ? crop : worksheet.visibleRect
+        let displayRegion = visible.applying(pageTransform)
+        guard displayRegion.width > 0, displayRegion.height > 0 else { return }
+        let scale = min(bounds.width / displayRegion.width, bounds.height / displayRegion.height)
+        let target = CGRect(x: (bounds.width - displayRegion.width * scale) / 2,
+                            y: (bounds.height - displayRegion.height * scale) / 2,
+                            width: displayRegion.width * scale, height: displayRegion.height * scale)
+        graphics.saveGState()
+        graphics.translateBy(x: 0, y: bounds.height); graphics.scaleBy(x: 1, y: -1)
+        graphics.clip(to: target)
+        graphics.translateBy(x: target.minX, y: target.minY); graphics.scaleBy(x: scale, y: scale)
+        graphics.translateBy(x: -displayRegion.minX, y: -displayRegion.minY)
+        graphics.concatenate(pageTransform)
+        let ink = worksheet.drawings[worksheet.page].flatMap { try? PKDrawing(data: $0) }
+        TeachingPageRenderer.draw(page, ink: ink, in: graphics)
+        graphics.restoreGState()
     }
 }
 

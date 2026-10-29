@@ -25,6 +25,9 @@ for (filename, title, solution) in [("worksheet.pdf", "Differentiation practice"
     if let pdf = PDFDocument(url: output), let rotated = pdf.page(at: 1) {
         rotated.setBounds(CGRect(x: 30, y: 40, width: 552, height: 712), for: .cropBox)
         rotated.rotation = 90
+        let mark = PDFAnnotation(bounds: CGRect(x: 100, y: 350, width: 50, height: 50), forType: .square, withProperties: nil)
+        mark.color = .systemRed; mark.interiorColor = .systemRed
+        rotated.addAnnotation(mark)
         guard pdf.write(to: output) else { fatalError("Could not write rotated fixture") }
     }
 }

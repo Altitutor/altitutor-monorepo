@@ -32,7 +32,7 @@ struct TeachingNavigation: View {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button { withAnimation { library.toggle() } } label: { Label("Resources", systemImage: "sidebar.left") }.accessibilityIdentifier("teaching-library")
                         Button { classroom = true } label: { Label("Classroom display", systemImage: "airplay.video") }
-                        Button { model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }.accessibilityIdentifier("teaching-log")
+                        Button { model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }.keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
                     }
                 } else {
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }

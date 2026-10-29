@@ -100,7 +100,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 if parent.controls.zoom != zoom { parent.controls.zoom = zoom }
                 ticks += 1
                 if ticks % 4 == 0 { persist() }
-                if parent.isWorksheet, let page = view.currentPage {
+                if parent.isWorksheet, let page = view.document?.page(at: state.page) {
                     let rect = view.convert(view.bounds, to: page).intersection(page.bounds(for: .cropBox))
                     var drawings: [Int: Data] = [:]
                     for index in [state.page] {
@@ -202,13 +202,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 graphics.saveGState()
                 graphics.translateBy(x: 0, y: size.height); graphics.scaleBy(x: 1, y: -1)
                 graphics.concatenate(reference.getDrawingTransform(.cropBox, rect: bounds, rotate: 0, preserveAspectRatio: true))
-                graphics.drawPDFPage(reference)
-                if let ink = drawings[index] {
-                    // PencilKit uses the crop-local, top-left coordinate space of the page overlay.
-                    graphics.translateBy(x: crop.minX, y: crop.maxY); graphics.scaleBy(x: 1, y: -1)
-                    let inkBounds = CGRect(origin: .zero, size: crop.size)
-                    ink.image(from: inkBounds, scale: 2).draw(in: inkBounds)
-                }
+                TeachingPageRenderer.draw(page, ink: drawings[index], in: graphics)
                 graphics.restoreGState()
             }
         }
@@ -218,5 +212,34 @@ struct PDFDocumentSurface: UIViewRepresentable {
         let output = folder.appendingPathComponent("\(name.isEmpty ? "Worksheet" : name) — annotated.pdf")
         try data.write(to: output, options: [.atomic, .completeFileProtection])
         return output
+    }
+}
+
+/// Draw in canonical PDF page coordinates; the caller supplies crop/rotation/viewport transforms.
+@MainActor enum TeachingPageRenderer {
+    static func draw(_ page: PDFPage, ink: PKDrawing?, in graphics: CGContext) {
+        guard let reference = page.pageRef else { return }
+        graphics.saveGState()
+        graphics.setFillColor(UIColor.white.cgColor); graphics.fill(reference.getBoxRect(.cropBox))
+        graphics.drawPDFPage(reference)
+        // PDFAnnotation applies its page rotation internally. The caller already supplies that transform.
+        do {
+            let rotation = page.rotation
+            page.rotation = 0
+            defer { page.rotation = rotation }
+            let media = reference.getBoxRect(.mediaBox)
+            graphics.saveGState(); graphics.translateBy(x: media.minX, y: media.minY)
+            for annotation in page.annotations where annotation.shouldDisplay { annotation.draw(with: .mediaBox, in: graphics) }
+            graphics.restoreGState()
+        }
+        if let ink {
+            let crop = reference.getBoxRect(.cropBox)
+            graphics.saveGState()
+            graphics.translateBy(x: crop.minX, y: crop.maxY); graphics.scaleBy(x: 1, y: -1)
+            let bounds = CGRect(origin: .zero, size: crop.size)
+            ink.image(from: bounds, scale: 2).draw(in: bounds)
+            graphics.restoreGState()
+        }
+        graphics.restoreGState()
     }
 }

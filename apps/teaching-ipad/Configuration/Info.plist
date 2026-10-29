@@ -6,6 +6,6 @@
 <key>ITSAppUsesNonExemptEncryption</key><false/>
 <key>UILaunchScreen</key><dict/>
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationPortraitUpsideDown</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
-<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/><key>UISceneConfigurations</key><dict><key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key><array><dict><key>UISceneConfigurationName</key><string>Classroom</string><key>UISceneDelegateClassName</key><string>$(PRODUCT_MODULE_NAME).ClassroomSceneDelegate</string></dict></array></dict></dict>
+<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><true/><key>UISceneConfigurations</key><dict><key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key><array><dict><key>UISceneConfigurationName</key><string>Classroom</string><key>UISceneDelegateClassName</key><string>$(PRODUCT_MODULE_NAME).ClassroomSceneDelegate</string></dict></array></dict></dict>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>
