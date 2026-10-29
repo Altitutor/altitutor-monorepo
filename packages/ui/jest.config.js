@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 module.exports = {
+  maxWorkers: 2,
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   transform: {

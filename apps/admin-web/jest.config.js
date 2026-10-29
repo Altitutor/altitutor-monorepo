@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 const config = {
+  maxWorkers: 2,
   testEnvironment: 'jsdom',
   // Bound DOM test workers while multiple worktree gates share one host.
   maxWorkers: 1,

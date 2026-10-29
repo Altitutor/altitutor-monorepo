@@ -1,4 +1,5 @@
 module.exports = {
+  maxWorkers: 2,
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'js', 'json'],
