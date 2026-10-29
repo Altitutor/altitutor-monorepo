@@ -53,9 +53,9 @@ export function validateClassScheduleRows(rows: ClassScheduleRow[]): string | nu
 
   for (const row of rows) {
     if (row.dayOfWeek < 0 || row.dayOfWeek > 6 || !row.startTime || !row.endTime) {
-      return 'Every schedule row needs a weekday, start time, and end time.';
+      return 'Every schedule row needs a weekday, start time, and duration.';
     }
-    if (row.endTime <= row.startTime) return 'Every end time must be after its start time.';
+    if (row.endTime <= row.startTime) return 'Duration must finish after the start time.';
   }
 
   for (let index = 0; index < rows.length; index += 1) {

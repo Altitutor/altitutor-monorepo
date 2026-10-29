@@ -1,3 +1,5 @@
+import { parseTime } from './time-picker';
+
 /** Tailwind classes for native date/time inputs (Safari mobile overflow). */
 export const NATIVE_DATETIME_INPUT_CLASSNAME =
   'min-w-0 max-w-full overflow-hidden [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:flex [&::-webkit-datetime-edit]:min-w-0 [&::-webkit-datetime-edit-fields-wrapper]:min-w-0';
@@ -66,23 +68,7 @@ export function isValidTimeValue(value: string): boolean {
 export function normalizeTimeInput(raw: string): string | null {
   const cleaned = raw.trim();
   if (!cleaned) return null;
-
-  if (TIME_VALUE_RE.test(cleaned)) {
-    const [, hours, minutes] = cleaned.match(TIME_VALUE_RE) ?? [];
-    const normalized = `${hours!.padStart(2, '0')}:${minutes}`;
-    return isValidTimeValue(normalized) ? normalized : null;
-  }
-
-  const digits = cleaned.replace(/\D/g, '');
-  if (digits.length === 3 || digits.length === 4) {
-    const padded = digits.padStart(4, '0');
-    const hours = padded.slice(0, 2);
-    const minutes = padded.slice(2, 4);
-    const normalized = `${hours}:${minutes}`;
-    return isValidTimeValue(normalized) ? normalized : null;
-  }
-
-  return null;
+  return parseTime(cleaned);
 }
 
 /** Placeholder shown for text-mode date/time inputs on iOS. */

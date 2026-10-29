@@ -1,3 +1,4 @@
+const withMDX = require("@next/mdx")({ extension: /\.mdx$/ });
 const { withSentryConfig } = require("@sentry/nextjs");
 const staffImageOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL || require("./src/features/staff/preview.json").origin;
 const legacyRedirects = require("./src/lib/legacy-redirects.json");
@@ -17,6 +18,7 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: process.env.ALTITUTOR_CI_BUILD === "true" },
   typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
   reactStrictMode: true,
+  pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
   distDir: process.env.NEXT_DIST_DIR || ".next",
   trailingSlash: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
@@ -166,7 +168,7 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
+module.exports = withSentryConfig(withMDX(nextConfig), {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,

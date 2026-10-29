@@ -51,3 +51,5 @@ export * from "./utils/filter-operators";
 export * from "./ucat/learning-module-placement";
 export * from './interviews';
 export * from './interviews/media';
+
+export * from "./observability/interview-call-reporting";

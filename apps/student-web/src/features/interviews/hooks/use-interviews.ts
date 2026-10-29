@@ -22,13 +22,16 @@ export function useInterviewAccess() {
   });
 }
 
-export function useInterviewRounds() {
+export function useInterviewRounds(
+  options: { enabled?: boolean; poll?: boolean } = {},
+) {
   const { user, loading } = useAuthStore();
   return useQuery({
     queryKey: ["interviews", "rounds", user?.id],
-    enabled: !loading && Boolean(user),
+    enabled: !loading && Boolean(user) && options.enabled !== false,
     queryFn: getInterviewRounds,
-    refetchInterval: 15_000,
+    refetchInterval: options.poll === false ? false : 15_000,
+    staleTime: 30_000,
     refetchOnWindowFocus: "always",
   });
 }
@@ -65,4 +68,23 @@ export function useInterviewRound(id: string, participate = false) {
     },
   });
   return { ...query, ...sync };
+}
+
+export function useInterviewCalendarRounds() {
+  const { user, loading } = useAuthStore();
+  const access = useInterviewAccess();
+  const allowed = access.data?.hasAccess === true;
+  const query = useInterviewRounds({ enabled: allowed, poll: false });
+  return {
+    ...query,
+    refetch: async () => {
+      if (loading || !user) return;
+      const refreshedAccess = await access.refetch({ cancelRefetch: false });
+      if (refreshedAccess.data?.hasAccess !== true || refreshedAccess.isError) return;
+      await query.refetch({ cancelRefetch: false });
+    },
+    data: allowed ? query.data : undefined,
+    isPending: allowed ? query.isPending : access.isPending,
+    isError: access.isError || (allowed && query.isError),
+  };
 }

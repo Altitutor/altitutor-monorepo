@@ -1,5 +1,7 @@
 "use client";
 
+import { useCurrentStaff } from "@/features/staff/hooks/useStaffQuery";
+import { useInterviewAccess } from "./use-interview-access";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import { useToast } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -27,13 +29,16 @@ export function useInterviewCatalog() {
     staleTime: 10_000,
   });
 }
-export function useInterviewRounds() {
+export function useInterviewRounds(
+  options: { enabled?: boolean; poll?: boolean } = {},
+) {
   const { user, loading } = useAuthStore();
   return useQuery({
-    enabled: !loading && !!user,
+    enabled: !loading && !!user && options.enabled !== false,
     queryKey: [...interviewKeys.rounds, user?.id],
     queryFn: getInterviewRounds,
-    refetchInterval: 15_000,
+    refetchInterval: options.poll === false ? false : 15_000,
+    staleTime: 30_000,
   });
 }
 export function useInterviewCommand() {
@@ -94,4 +99,33 @@ export function useInterviewRound(id: string, participate = false) {
     },
   });
   return { ...query, ...sync };
+}
+
+export function useInterviewCalendarRounds() {
+  const { user, loading } = useAuthStore();
+  const access = useInterviewAccess();
+  const allowed = access.data === true;
+  const staff = useCurrentStaff(allowed);
+  const query = useInterviewRounds({ enabled: allowed, poll: false });
+  return {
+    ...query,
+    refetch: async () => {
+      if (loading || !user) return;
+      const refreshedAccess = await access.refetch({ cancelRefetch: false });
+      if (refreshedAccess.data !== true || refreshedAccess.isError) return;
+      const refreshedStaff = staff.isError || !staff.data
+        ? await staff.refetch({ cancelRefetch: false })
+        : staff;
+      if (refreshedStaff.isError || !refreshedStaff.data) return;
+      await query.refetch({ cancelRefetch: false });
+    },
+    data:
+      allowed && staff.data
+        ? query.data?.filter((round) =>
+            round.tutors.some((tutor) => tutor.id === staff.data?.id),
+          )
+        : undefined,
+    isPending: allowed ? query.isPending || staff.isPending : access.isPending,
+    isError: access.isError || (allowed && (query.isError || staff.isError)),
+  };
 }

@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Button,
-  Input,
-  SearchableSelect,
+  DurationPicker,
   Separator,
   Table,
   TableBody,
@@ -13,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TimePicker,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -41,15 +41,6 @@ import { staffApi } from '@/features/staff/api/staff';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
 import { AttendanceCell } from './AttendanceCell';
-
-const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
-
-type DurationItem = { minutes: number; label: string };
-
-const DURATION_ITEMS: DurationItem[] = DURATION_OPTIONS.map((minutes) => ({
-  minutes,
-  label: `${minutes} minutes`,
-}));
 
 type IdLabel = { id: string; label: string };
 type StaffPick = IdLabel & { role: 'host' | 'receiver' };
@@ -219,9 +210,6 @@ export function CheckInBookSessionModal({
     setStaffToConducting();
   }, [setStaffToConducting]);
 
-  const durationValue =
-    DURATION_ITEMS.find((d) => d.minutes === durationMinutes) ?? DURATION_ITEMS.find((d) => d.minutes === 60)!;
-
   const handleSubmit = async () => {
     if (!date || !time) {
       toast({ title: 'Missing fields', description: 'Choose date and start time.', variant: 'destructive' });
@@ -317,20 +305,15 @@ export function CheckInBookSessionModal({
                   <SmartDatePickerField value={date} onChange={(value) => setDate(value ?? '')} />
                 </PropertyFormRow>
                 <PropertyFormRow label="Start time" htmlFor="checkin-time">
-                  <Input id="checkin-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                  <TimePicker id="checkin-time" aria-label="Time" value={time} onChange={setTime} />
                 </PropertyFormRow>
-                <PropertyFormRow label="Duration">
-                  <SearchableSelect<DurationItem>
-                    items={DURATION_ITEMS}
-                    value={durationValue}
-                    onValueChange={(item) => item && setDurationMinutes(item.minutes)}
-                    getItemId={(d) => String(d.minutes)}
-                    getItemLabel={(d) => d.label}
-                    placeholder="Select duration"
-                    searchPlaceholder="Search duration…"
-                    emptyMessage="No duration matches"
+                <PropertyFormRow label="Duration" htmlFor="checkin-duration">
+                  <DurationPicker
+                    id="checkin-duration"
+                    aria-label="Duration"
+                    value={durationMinutes}
+                    onChange={setDurationMinutes}
                     disabled={submitting}
-                    ariaLabel="Duration"
                   />
                 </PropertyFormRow>
               </PropertyForm>
