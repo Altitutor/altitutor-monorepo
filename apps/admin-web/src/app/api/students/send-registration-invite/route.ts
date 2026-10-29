@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import type { Tables } from '@altitutor/shared';
-import { sendEmail } from '@/shared/lib/email';
+import { sendOperationalEmail } from '@/features/email/server/operational';
 import { buildRegistrationEmail } from '@altitutor/email';
 import { getStudentRegistrationInviteMessage } from '@/features/messages/api/systemTemplates';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
@@ -21,11 +21,12 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role')
+      .select('id,role')
       .eq('user_id', user.id)
-      .single<{ role: string }>();
+      .eq('status', 'ACTIVE')
+      .single<{ id: string; role: string }>();
 
-    if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
+    if (staffError || !staffData || staffData.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
             .filter((p): p is NonNullable<typeof p> => p !== null)
         : [];
 
-      type Recipient = { first_name: string; last_name: string; email: string | null; phone: string | null };
+      type Recipient = { id: string; first_name: string; last_name: string; email: string | null; phone: string | null };
       const recipients: Recipient[] = parents.length > 0 ? parents : (student.email || student.phone ? [student] : []);
       
       // For legacy behavior, send to all recipients
@@ -210,7 +211,10 @@ export async function POST(request: NextRequest) {
               studentName: `${student.first_name} ${student.last_name}`,
             });
 
-            await sendEmail({
+            await sendOperationalEmail({
+              actorStaffId: staffData.id,
+              idempotencyKey: request.headers.get("idempotency-key") ? `registration/${studentId}/${r.email}/${request.headers.get("idempotency-key")}` : undefined,
+              links: [{ type: "student", id: studentId }, ...(r.id !== studentId ? [{ type: "parent" as const, id: r.id }] : [])],
               to: r.email,
               email,
               attachments: attachments.length > 0 ? attachments : undefined,
@@ -441,7 +445,10 @@ export async function POST(request: NextRequest) {
           staffIntroduction: customMessage?.trim() || undefined,
         });
 
-        await sendEmail({
+        await sendOperationalEmail({
+          actorStaffId: staffData.id,
+          idempotencyKey: request.headers.get("idempotency-key") ? `registration/${studentId}/${recipient.email}/${request.headers.get("idempotency-key")}` : undefined,
+          links: [{ type: "student", id: studentId }, ...(recipient.id !== studentId ? [{ type: "parent" as const, id: recipient.id }] : [])],
           to: recipient.email!,
           email,
           attachments: attachments.length > 0 ? attachments : undefined,

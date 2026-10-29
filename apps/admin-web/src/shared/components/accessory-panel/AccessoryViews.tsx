@@ -41,6 +41,8 @@ const DocumentsView = dynamic(() =>
     (module) => module.DocumentsView,
   ),
 );
+const EmailThreadView = dynamic(() => import("@/features/email/components/EmailThreadView").then((module) => module.EmailThreadView));
+const MailPage = dynamic(() => import("@/features/email/components/MailPage").then((module) => module.MailPage));
 const MessagesView = dynamic(() =>
   import("@/features/messages/components/MessagesView").then(
     (module) => module.MessagesView,
@@ -107,6 +109,9 @@ export function AccessoryView() {
       break;
     case "documents":
       content = <DocumentsView />;
+      break;
+    case "email":
+      content = tab.id ? <EmailThreadView threadId={tab.id} /> : <MailPage />;
       break;
     case "messages":
       content = <MessagesView />;

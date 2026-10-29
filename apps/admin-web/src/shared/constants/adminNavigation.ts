@@ -12,6 +12,7 @@ import {
   UserRound,
   TrendingUp,
   MessageSquareText,
+  Mail,
   ListTodo,
   FolderKanban,
   type LucideIcon,
@@ -37,6 +38,7 @@ export const navItems: NavItem[] = [
     type: "heading",
     title: "COMMUNICATION",
   },
+  { title: "Mail", href: "/email", icon: Mail },
   {
     title: "Feedback",
     href: "/feedback",

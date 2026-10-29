@@ -15,6 +15,8 @@ import { ArrowUpDown, Check, ChevronDown, MessageSquare } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { useChildrenActivity } from "../hooks/useChildrenActivity";
 import { CommunicationSourceFilter } from "./CommunicationSourceFilter";
+import { useEntityEmails } from "@/features/email/api/client";
+import { EmailCorrespondenceCard } from "@/features/email/components/EmailCorrespondenceCard";
 import { Composer } from "@/features/messages/components/Composer";
 import {
   MessageThread,
@@ -44,6 +46,7 @@ import {
 } from "../hooks/useEntityCommunication";
 import {
   ACTIVITY_SOURCE_ID,
+  EMAIL_SOURCE_ID,
   hasActivitySource,
   messageConversationSources,
   communicationActivityAt,
@@ -126,7 +129,7 @@ function EntityCommunicationContent({
     [context.data?.conversations],
   );
   const messages = useEntityCommunicationMessages(conversations, enabled);
-  const defaultSources = initialContactId
+  const messageSources = initialContactId
     ? [
         ...(defaultShowActivity ? [ACTIVITY_SOURCE_ID] : []),
         ...messageConversationSources(initialContactId),
@@ -134,7 +137,9 @@ function EntityCommunicationContent({
     : defaultCommunicationSources({ entityType, contacts }).filter(
         (source) => defaultShowActivity || source !== ACTIVITY_SOURCE_ID,
       );
+  const defaultSources = [EMAIL_SOURCE_ID, ...messageSources];
   const sources = sourceOverride ?? defaultSources;
+  const emails = useEntityEmails(entityType, entityId, enabled && sources.includes(EMAIL_SOURCE_ID));
   const showActivity = hasActivitySource(sources);
   const showOwnActivity = sources.includes(ACTIVITY_SOURCE_ID);
   const childrenActivity = useChildrenActivity(
@@ -169,6 +174,7 @@ function EntityCommunicationContent({
   });
 
   const filterOptions = communicationFilterOptions({
+    includeEmail: true,
     children: context.data?.children,
     contacts: contacts.map((person) => ({
       ...person,
@@ -262,6 +268,7 @@ function EntityCommunicationContent({
 
   const seenEvents = new Set(ownEntries.map((entry) => entry.id));
   const entries: ThreadFeedEntry[] = [...ownEntries];
+  if (sources.includes(EMAIL_SOURCE_ID)) for (const email of emails.data?.pages.flatMap((page) => page.items) ?? []) entries.push({ id: `email:${email.id}`, at: email.sentAt ?? email.receivedAt ?? "", content: <EmailCorrespondenceCard message={email} /> });
   for (const { child, data } of childrenActivity.feeds) {
     for (const event of data.events) {
       const id = `event:${event.id}`;
@@ -297,6 +304,7 @@ function EntityCommunicationContent({
   const errorMessage =
     context.error?.message ||
     messages.error?.message ||
+    emails.error?.message ||
     (showOwnActivity ? activity.error?.message : "") ||
     childrenActivity.error?.message ||
     "";
@@ -465,11 +473,13 @@ function EntityCommunicationContent({
             messages: visible,
             entries,
             hasMore: Boolean(
+              emails.hasNextPage ||
               messages.hasNextPage ||
                 (showOwnActivity && activity.hasNextPage) ||
                 childrenActivity.hasMore,
             ),
             loadMore: () => {
+              if (emails.hasNextPage) void emails.fetchNextPage();
               if (messages.hasNextPage) void messages.fetchNextPage();
               if (showOwnActivity && activity.hasNextPage)
                 activity.fetchNextPage();

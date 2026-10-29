@@ -17,6 +17,7 @@ export const ACCESSORY_ROUTES: Record<
   projects: { kind: "projects", detail: "project", title: "Projects" },
   documents: { kind: "documents", detail: "document", title: "Documents" },
   notes: { kind: "documents", detail: "document", title: "Documents" },
+  email: { kind: "email", detail: "email", title: "Email" },
   messages: { kind: "messages", title: "Messages" },
 };
 export function accessoryDestination(href: string) {
@@ -24,7 +25,7 @@ export function accessoryDestination(href: string) {
   const [route, id] = url.pathname.split("/").filter(Boolean);
   const destination = ACCESSORY_ROUTES[route] ?? ACCESSORY_ROUTES[`${route}s`];
   if (!destination) return null;
-  if (!id && ["tasks", "issues", "projects"].includes(route)) return null;
+  if (!id && ["tasks", "issues", "projects", "email"].includes(route)) return null;
   return {
     kind: id && destination.detail ? destination.detail : destination.kind,
     id:

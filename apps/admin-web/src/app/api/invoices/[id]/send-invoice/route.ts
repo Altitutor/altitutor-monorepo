@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
 import { getErrorMessage } from '@/shared/utils';
-import { sendEmail } from '@/shared/lib/email';
+import { sendOperationalEmail } from '@/features/email/server/operational';
 import { buildInvoiceNotificationEmail } from '@altitutor/email';
 import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
 
@@ -54,14 +54,6 @@ export async function POST(
     if (!stripeSecretKey) {
       return NextResponse.json(
         { error: 'Stripe not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Check Resend API key
-    if (!process.env.RESEND_API_KEY) {
-      return NextResponse.json(
-        { error: 'Email service not configured' },
         { status: 500 }
       );
     }
@@ -174,7 +166,10 @@ export async function POST(
 
     for (const recipient of recipients) {
       try {
-        await sendEmail({
+        await sendOperationalEmail({
+          actorStaffId: staffData.id,
+          idempotencyKey: request.headers.get("idempotency-key") ? `invoice/${invoiceId}/${recipient}/${request.headers.get("idempotency-key")}` : undefined,
+          links: [{ type: "student", id: invoice.student_id }, { type: "invoice", id: invoiceId }],
           to: recipient,
           email,
         });
@@ -197,6 +192,7 @@ export async function POST(
       studentId: invoice.student_id,
       eventName: 'invoice.notification_sent',
       actorStaffId: staffData.id,
+      idempotencyKey: request.headers.get("idempotency-key") ? `invoice-email/${invoiceId}/${request.headers.get("idempotency-key")}` : undefined,
       payload: {
         recipient_count: sent.length,
       },

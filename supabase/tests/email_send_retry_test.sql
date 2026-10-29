@@ -1,0 +1,13 @@
+BEGIN;
+SELECT plan(4);
+INSERT INTO public.staff(id,first_name,last_name,role,status) VALUES('fa250300-0000-4000-8000-000000000001','Retry','Admin','ADMINSTAFF','ACTIVE');
+SET LOCAL ROLE service_role;
+SELECT public.email_apply_sync_page('drafts',NULL,'retry-page',true,'[{"id":"retry-draft","threadId":"retry-thread","draft":true,"changeKey":"one"}]','{}');
+SELECT is(public.email_begin_send('retry-draft','one','fa250300-0000-4000-8000-000000000001','fa250300-0000-4000-8000-000000000002')->>'proceed','true','the initial send claims the draft');
+UPDATE public.email_send_attempts SET state='failed' WHERE message_id='retry-draft';
+SELECT is(public.email_begin_send('retry-draft','one','fa250300-0000-4000-8000-000000000001','fa250300-0000-4000-8000-000000000002')->>'proceed','false','repeating the same rejected command does not send again');
+SELECT is(public.email_claim_draft('retry-draft','one','fa250300-0000-4000-8000-000000000001','fa250300-0000-4000-8000-000000000003')->>'state','ready','a definite rejection leaves the shared draft editable');
+UPDATE public.email_draft_edits SET writing_until=NULL WHERE message_id='retry-draft';
+SELECT is(public.email_begin_send('retry-draft','one','fa250300-0000-4000-8000-000000000001','fa250300-0000-4000-8000-000000000004')->>'proceed','true','an explicit new command may retry after a definite rejection');
+SELECT * FROM finish();
+ROLLBACK;

@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -42,7 +44,7 @@ export function SendRegistrationInviteDialog({
 
   const generateTokenMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/students/send-registration-invite', {
+      const response = await requestOperationalEmail('/api/students/send-registration-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId }),
@@ -153,7 +155,7 @@ export function SendRegistrationInviteDialog({
 
     try {
       setIsSendingEmail(true);
-      const response = await fetch('/api/students/send-registration-invite', {
+      const response = await requestOperationalEmail('/api/students/send-registration-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -190,7 +192,7 @@ export function SendRegistrationInviteDialog({
 
     try {
       setIsSendingSms(true);
-      const response = await fetch('/api/students/send-registration-invite', {
+      const response = await requestOperationalEmail('/api/students/send-registration-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
