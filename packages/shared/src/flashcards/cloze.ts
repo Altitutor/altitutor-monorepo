@@ -2,7 +2,7 @@ export type ClozePart =
   | { type: 'text'; text: string }
   | { type: 'cloze'; index: number; answer: string; hint: string | null; active: boolean };
 
-const CLOZE_PATTERN = /\{\{c(\d+)::(.*?)(?:::([^}]*))?\}\}/g;
+const CLOZE_PATTERN = /\{\{c(\d+)::([\s\S]*?)(?:::([^}]*))?\}\}/g;
 
 export function getClozeIndexes(clozeText: string): number[] {
   const indexes = new Set<number>();
