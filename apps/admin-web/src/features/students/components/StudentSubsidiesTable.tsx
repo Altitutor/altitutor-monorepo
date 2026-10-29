@@ -8,10 +8,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Button,
   Badge,
 } from '@altitutor/ui';
-import { Edit2, Trash2 } from 'lucide-react';
+import { SubsidyActionsMenu } from '@/features/subsidies/components/SubsidyActionsMenu';
 import { useToast } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -128,23 +127,11 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
                     {subsidy.effective_until ? formatDate(subsidy.effective_until) : 'Indefinitely'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingSubsidy(subsidy)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(subsidy.id)}
-                        disabled={deletingId === subsidy.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <SubsidyActionsMenu
+                      onEdit={() => setEditingSubsidy(subsidy)}
+                      onDelete={() => { void handleDelete(subsidy.id); }}
+                      disabled={deletingId === subsidy.id}
+                    />
                   </TableCell>
                 </TableRow>
               );
