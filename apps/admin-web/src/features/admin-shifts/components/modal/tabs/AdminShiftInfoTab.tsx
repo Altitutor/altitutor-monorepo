@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
+import { DurationPicker, TimePicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
 import { SmartDatePickerField } from "@altitutor/ui";
 import { Pencil, AlertTriangle } from "lucide-react";
@@ -35,7 +35,7 @@ const DAY_OPTIONS = [
 const adminShiftInfoSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
+  endTime: z.string().min(1, 'Duration is required'),
   status: z.enum(['ACTIVE', 'INACTIVE']),
   sessionStartDate: z.string().optional().nullable(),
   sessionEndDate: z.string().optional().nullable(),
@@ -55,7 +55,7 @@ const adminShiftInfoSchema = z.object({
   }
   return true;
 }, {
-  message: 'End time must be after start time',
+  message: 'Duration must finish after the start time',
   path: ['endTime'],
 });
 
@@ -212,12 +212,21 @@ export function AdminShiftInfoTab({
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
-                  <Input
+                  <TimePicker
                     id="startTime"
-                    type="time"
-                    {...field}
+                    aria-label="Start time"
+                    value={field.value}
+                    onChange={(nextStart) => {
+                      const next = shiftStartKeepingDuration(field.value, form.getValues('endTime'), nextStart);
+                      if (!next) {
+                        form.setError('endTime', { message: 'Duration must finish on the same day' });
+                        return;
+                      }
+                      form.clearErrors('endTime');
+                      field.onChange(next.startTime);
+                      form.setValue('endTime', next.endTime, { shouldValidate: true });
+                    }}
                     disabled={isLoading}
-                    required
                   />
                 )}
               />
@@ -226,17 +235,25 @@ export function AdminShiftInfoTab({
               )}
             </PropertyFormRow>
 
-            <PropertyFormRow label="End time *" htmlFor="endTime" valueClassName="space-y-1">
+            <PropertyFormRow label="Duration *" htmlFor="endTime" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="endTime"
                 render={({ field }) => (
-                  <Input
+                  <DurationPicker
                     id="endTime"
-                    type="time"
-                    {...field}
+                    aria-label="Duration"
+                    value={durationMinutesBetween(form.watch('startTime'), field.value)}
+                    onChange={(minutes) => {
+                      const endTime = addMinutesToTime(form.getValues('startTime'), minutes);
+                      if (!endTime) {
+                        form.setError('endTime', { message: 'Duration must finish on the same day' });
+                        return;
+                      }
+                      form.clearErrors('endTime');
+                      field.onChange(endTime);
+                    }}
                     disabled={isLoading}
-                    required
                   />
                 )}
               />

@@ -9,6 +9,11 @@ import {
   Label,
   SearchableSelect,
   SmartDatePickerField,
+  TimePicker,
+  DurationPicker,
+  addMinutesToTime,
+  durationMinutesBetween,
+  shiftStartKeepingDuration,
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -347,20 +352,26 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`start-${row.id}`}>Start</Label>
-                      <Input
+                      <TimePicker
                         id={`start-${row.id}`}
-                        type="time"
+                        aria-label={`Start time for day ${index + 1}`}
                         value={row.startTime}
-                        onChange={(event) => updateRow(row.id, { startTime: event.target.value })}
+                        onChange={(startTime) => {
+                          const next = shiftStartKeepingDuration(row.startTime, row.endTime, startTime);
+                          if (next) updateRow(row.id, next);
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`end-${row.id}`}>End</Label>
-                      <Input
-                        id={`end-${row.id}`}
-                        type="time"
-                        value={row.endTime}
-                        onChange={(event) => updateRow(row.id, { endTime: event.target.value })}
+                      <Label htmlFor={`duration-${row.id}`}>Duration</Label>
+                      <DurationPicker
+                        id={`duration-${row.id}`}
+                        aria-label={`Duration for day ${index + 1}`}
+                        value={durationMinutesBetween(row.startTime, row.endTime)}
+                        onChange={(minutes) => {
+                          const endTime = addMinutesToTime(row.startTime, minutes);
+                          if (endTime) updateRow(row.id, { endTime });
+                        }}
                       />
                     </div>
                     <div className="space-y-2">

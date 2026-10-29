@@ -2,6 +2,7 @@ import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
+import { DurationPicker, TimePicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
 import { Loader2, Pencil } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
@@ -16,7 +17,7 @@ const classInfoSchema = z.object({
   level: z.string().min(1, 'Level is required'),
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
+  endTime: z.string().min(1, 'Duration is required'),
   status: z.enum(['ACTIVE','INACTIVE']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
@@ -180,11 +181,23 @@ export function ClassInfoTab({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startTime">Start Time</Label>
-              <Input 
-                id="startTime" 
-                type="time"
-                {...form.register('startTime')} 
-                disabled={isLoading} 
+              <Controller
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <TimePicker
+                    id="startTime"
+                    aria-label="Start time"
+                    value={field.value}
+                    onChange={(nextStart) => {
+                      const next = shiftStartKeepingDuration(field.value, form.getValues('endTime'), nextStart);
+                      if (!next) return;
+                      field.onChange(next.startTime);
+                      form.setValue('endTime', next.endTime, { shouldValidate: true });
+                    }}
+                    disabled={isLoading}
+                  />
+                )}
               />
               {form.formState.errors.startTime && (
                 <p className="text-sm text-red-500">{form.formState.errors.startTime.message}</p>
@@ -192,12 +205,22 @@ export function ClassInfoTab({
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input 
-                id="endTime" 
-                type="time"
-                {...form.register('endTime')} 
-                disabled={isLoading} 
+              <Label htmlFor="endTime">Duration</Label>
+              <Controller
+                control={form.control}
+                name="endTime"
+                render={({ field }) => (
+                  <DurationPicker
+                    id="endTime"
+                    aria-label="Duration"
+                    value={durationMinutesBetween(form.watch('startTime'), field.value)}
+                    onChange={(minutes) => {
+                      const endTime = addMinutesToTime(form.getValues('startTime'), minutes);
+                      if (endTime) field.onChange(endTime);
+                    }}
+                    disabled={isLoading}
+                  />
+                )}
               />
               {form.formState.errors.endTime && (
                 <p className="text-sm text-red-500">{form.formState.errors.endTime.message}</p>
