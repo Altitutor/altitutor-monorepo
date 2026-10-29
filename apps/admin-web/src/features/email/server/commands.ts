@@ -1,10 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import type { Database, Json } from "@altitutor/shared";
+import type { Database } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { emailMessageSchema, type EmailCommand } from "../types";
+import { type EmailCommand } from "../types";
 import { connectMailbox } from "./connection";
-import { type GraphMailMessage, type createGraphMailbox } from "./graph";
+import { observeMailboxMessage } from "./observe";
+import { type createGraphMailbox } from "./graph";
 
 const claimSchema = z.object({
   state: z.string(),
@@ -20,36 +21,6 @@ export function mailboxCommands(
   staff: Staff,
   connector?: ReturnType<typeof createGraphMailbox>,
 ) {
-  async function cache(message: GraphMailMessage) {
-    const saved = await db.rpc("email_apply_sync_page", {
-      p_folder_id: message.folderId,
-      p_expected_cursor: "",
-      p_cursor: "",
-      p_complete: false,
-      p_removed_ids: [],
-      p_observation_only: true,
-      p_messages: JSON.parse(
-        JSON.stringify([
-          { ...message, ...(message.folderId ? {} : { folderId: undefined }) },
-        ]),
-      ) as Json,
-    });
-    if (saved.error) throw saved.error;
-    const current = await db
-      .from("email_messages")
-      .select("data,thread_id,folder_id,id,removed")
-      .eq("id", message.id)
-      .single();
-    if (current.error) throw current.error;
-    const data = current.data.data;
-    return emailMessageSchema.parse({
-      ...(data && typeof data === "object" && !Array.isArray(data) ? data : {}),
-      id: current.data.id,
-      threadId: current.data.thread_id,
-      folderId: current.data.folder_id,
-      removed: current.data.removed,
-    });
-  }
   return async (command: EmailCommand) => {
     if (command.action === "assign") {
       const result = await db.rpc("email_assign_thread", {
@@ -73,10 +44,13 @@ export function mailboxCommands(
       for (const id of command.ids) {
         if (command.action === "read") {
           await mailbox.setRead(id, command.read);
-          await cache(await mailbox.message(id));
+          await observeMailboxMessage(db, await mailbox.message(id));
         } else {
           // Microsoft resolves well-known archive/deleteditems names itself.
-          await cache(await mailbox.move(id, command.folderId));
+          await observeMailboxMessage(
+            db,
+            await mailbox.move(id, command.folderId),
+          );
         }
       }
       return { state: "saved" };
@@ -92,7 +66,7 @@ export function mailboxCommands(
                 ? undefined
                 : { messageId: command.messageId!, mode: command.mode },
             );
-      const cached = await cache(draft);
+      const cached = await observeMailboxMessage(db, draft);
       const signature = await db
         .from("email_signatures")
         .select("body_text")
@@ -116,10 +90,18 @@ export function mailboxCommands(
       });
       if (claimed.error) throw claimed.error;
       const claim = claimSchema.parse(claimed.data);
+      if (claim.state === "conflict")
+        return {
+          state: "conflict",
+          message: await observeMailboxMessage(
+            db,
+            await mailbox.message(command.id),
+          ),
+        };
       if (claim.state !== "ready") return claim;
       try {
         const result = await mailbox.saveDraft(command.id, command.content);
-        const message = await cache(result.message);
+        const message = await observeMailboxMessage(db, result.message);
         return { ...result, message };
       } finally {
         const released = await db
@@ -134,7 +116,7 @@ export function mailboxCommands(
     // read/check/send window is still subject to Microsoft's cross-client race.
     const current = await mailbox.message(command.id);
     if (!current.draft || current.changeKey !== command.changeKey) {
-      if (current.draft) await cache(current);
+      if (current.draft) await observeMailboxMessage(db, current);
       return { state: "conflict", message: current };
     }
     const claimed = await db.rpc("email_begin_send", {
@@ -145,7 +127,17 @@ export function mailboxCommands(
     });
     if (claimed.error) throw claimed.error;
     const claim = claimSchema.parse(claimed.data);
-    if (!claim.proceed) return claim;
+    if (!claim.proceed) {
+      if (claim.state === "conflict")
+        return {
+          state: "conflict",
+          message: await observeMailboxMessage(
+            db,
+            await mailbox.message(command.id),
+          ),
+        };
+      return claim;
+    }
     const result = await mailbox.sendDraft(command.id);
     const recorded = await db
       .from("email_send_attempts")

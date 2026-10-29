@@ -129,12 +129,17 @@ BEGIN
        jsonb_build_array(v_data->>'sender') || coalesce(v_data->'to','[]'::jsonb) || coalesce(v_data->'cc','[]'::jsonb) || coalesce(v_data->'bcc','[]'::jsonb))
      WHERE value IS NOT NULL AND lower(value) <> 'admin@altitutor.com'
    ), profiles AS (
-     SELECT 'student' AS kind,s.id,lower(s.email) AS email FROM public.students s JOIN addresses a ON a.email=lower(s.email)
+     SELECT 'student' AS kind,s.id,lower(s.email) AS email FROM public.students s JOIN addresses a ON a.email=lower(s.email) WHERE s.deleted_at IS NULL
      UNION ALL SELECT 'parent',p.id,lower(p.email) FROM public.parents p JOIN addresses a ON a.email=lower(p.email)
      UNION ALL SELECT 'staff',s.id,lower(s.email) FROM public.staff s JOIN addresses a ON a.email=lower(s.email)
+   ), valid_aliases AS (
+     SELECT l.* FROM public.email_participant_links l WHERE
+       (l.record_type='student' AND EXISTS(SELECT 1 FROM public.students s WHERE s.id=l.record_id AND s.deleted_at IS NULL))
+       OR (l.record_type='parent' AND EXISTS(SELECT 1 FROM public.parents p WHERE p.id=l.record_id))
+       OR (l.record_type='staff' AND EXISTS(SELECT 1 FROM public.staff s WHERE s.id=l.record_id))
    ), matches AS (
-     SELECT p.kind,p.id,p.email FROM profiles p WHERE NOT EXISTS(SELECT 1 FROM public.email_participant_links l WHERE l.email=p.email)
-     UNION ALL SELECT l.record_type,l.record_id,l.email FROM public.email_participant_links l JOIN addresses a ON a.email=l.email
+     SELECT p.kind,p.id,p.email FROM profiles p WHERE NOT EXISTS(SELECT 1 FROM valid_aliases l WHERE l.email=p.email)
+     UNION ALL SELECT l.record_type,l.record_id,l.email FROM valid_aliases l JOIN addresses a ON a.email=l.email
    ), unique_matches AS (SELECT *,count(*) OVER (PARTITION BY email) AS matches FROM matches)
    INSERT INTO public.email_record_links(thread_id,record_type,record_id,source)
    SELECT v_thread,kind,id,'direct' FROM unique_matches WHERE matches=1 ON CONFLICT DO NOTHING;
@@ -253,7 +258,7 @@ BEGIN
    RAISE EXCEPTION 'Active adminstaff required' USING ERRCODE='42501';
  END IF;
  SELECT CASE p_record_type
-   WHEN 'student' THEN EXISTS(SELECT 1 FROM public.students WHERE id=p_record_id)
+   WHEN 'student' THEN EXISTS(SELECT 1 FROM public.students WHERE id=p_record_id AND deleted_at IS NULL)
    WHEN 'parent' THEN EXISTS(SELECT 1 FROM public.parents WHERE id=p_record_id)
    WHEN 'staff' THEN EXISTS(SELECT 1 FROM public.staff WHERE id=p_record_id)
    WHEN 'session' THEN EXISTS(SELECT 1 FROM public.sessions WHERE id=p_record_id)
@@ -516,9 +521,12 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 DECLARE v_send public.email_operational_sends; v_proceed boolean := false; v_link jsonb; v_exists boolean;
 BEGIN
  IF nullif(btrim(p_key),'') IS NULL OR jsonb_typeof(p_links) IS DISTINCT FROM 'array' OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'Invalid operational email'; END IF;
+ -- A retry carrying a pre-merge Student ID keeps the same delivery identity.
+ SELECT coalesce(jsonb_agg(CASE WHEN l->>'type'='student' THEN jsonb_set(l,'{id}',to_jsonb(public.resolve_merged_student_id((l->>'id')::uuid)::text)) ELSE l END ORDER BY ordinal),'[]'::jsonb)
+ INTO p_links FROM jsonb_array_elements(p_links) WITH ORDINALITY AS links(l,ordinal);
  FOR v_link IN SELECT value FROM jsonb_array_elements(p_links) LOOP
    SELECT CASE v_link->>'type'
-     WHEN 'student' THEN EXISTS(SELECT 1 FROM public.students WHERE id=(v_link->>'id')::uuid)
+     WHEN 'student' THEN EXISTS(SELECT 1 FROM public.students WHERE id=(v_link->>'id')::uuid AND deleted_at IS NULL)
      WHEN 'parent' THEN EXISTS(SELECT 1 FROM public.parents WHERE id=(v_link->>'id')::uuid)
      WHEN 'staff' THEN EXISTS(SELECT 1 FROM public.staff WHERE id=(v_link->>'id')::uuid)
      WHEN 'session' THEN EXISTS(SELECT 1 FROM public.sessions WHERE id=(v_link->>'id')::uuid)
@@ -581,3 +589,35 @@ RETURNS void LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
 $$;
 REVOKE ALL ON FUNCTION public.email_claim_sync(uuid),public.email_release_sync(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.email_claim_sync(uuid),public.email_release_sync(uuid) TO service_role;
+
+-- Polymorphic correspondence participates in the existing confirmed identity
+-- lifecycle. Historical links survive deletion; only future address routing ends.
+CREATE FUNCTION public.email_retire_student_aliases()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
+   DELETE FROM public.email_participant_links WHERE record_type='student' AND record_id=NEW.id;
+ END IF;
+ RETURN NEW;
+END;
+$$;
+CREATE TRIGGER email_retire_student_aliases AFTER UPDATE OF deleted_at ON public.students
+ FOR EACH ROW EXECUTE FUNCTION public.email_retire_student_aliases();
+CREATE FUNCTION public.email_merge_student_context()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ INSERT INTO public.email_record_links(thread_id,record_type,record_id,source)
+ SELECT thread_id,'student',NEW.retained_student_id,source FROM public.email_record_links WHERE record_type='student' AND record_id=NEW.source_student_id
+ ON CONFLICT(thread_id,record_type,record_id) DO UPDATE SET source=CASE WHEN excluded.source='explicit' OR public.email_record_links.source='explicit' THEN 'explicit' ELSE 'direct' END;
+ DELETE FROM public.email_record_links WHERE record_type='student' AND record_id=NEW.source_student_id;
+ UPDATE public.email_participant_links SET record_id=NEW.retained_student_id WHERE record_type='student' AND record_id=NEW.source_student_id;
+ UPDATE public.email_operational_sends AS operation SET context_links=(
+   SELECT jsonb_agg(CASE WHEN l->>'type'='student' AND l->>'id'=NEW.source_student_id::text THEN jsonb_set(l,'{id}',to_jsonb(NEW.retained_student_id::text)) ELSE l END ORDER BY ordinal)
+   FROM jsonb_array_elements(operation.context_links) WITH ORDINALITY AS links(l,ordinal)
+ ) WHERE context_links @> jsonb_build_array(jsonb_build_object('type','student','id',NEW.source_student_id));
+ RETURN NEW;
+END;
+$$;
+CREATE TRIGGER email_merge_student_context AFTER INSERT ON public.student_merge_history
+ FOR EACH ROW EXECUTE FUNCTION public.email_merge_student_context();
+REVOKE ALL ON FUNCTION public.email_retire_student_aliases(),public.email_merge_student_context() FROM PUBLIC,anon,authenticated;

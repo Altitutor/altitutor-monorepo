@@ -123,3 +123,96 @@ it("autosaves to the shared draft and prevents another submission while the send
     expectedChangeKey: "version-one",
   });
 });
+it.each(["keep", "microsoft"] as const)(
+  "recovers a cached Outlook draft conflict using the %s choice",
+  async (choice) => {
+    jest.useFakeTimers();
+    localStorage.clear();
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: () => "fa250000-0000-4000-8000-000000000099",
+    });
+    const saved: Array<{ expectedChangeKey: string; bodyText: string }> = [];
+    const outlook = {
+      ...draft,
+      bodyText: "Work saved in Outlook",
+      changeKey: "outlook-version",
+    };
+    global.fetch = jest.fn(async (_input, init) => {
+      const command = JSON.parse(String(init?.body));
+      saved.push(command.content);
+      return {
+        ok: true,
+        json: async () =>
+          saved.length === 1
+            ? { state: "conflict", message: outlook }
+            : {
+                state: "saved",
+                message: {
+                  ...outlook,
+                  bodyText: command.content.bodyText,
+                  changeKey: "portal-version",
+                },
+              },
+      } as Response;
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false },
+              mutations: { retry: false },
+            },
+          })
+        }
+      >
+        <EmailComposer
+          draft={draft}
+          mailbox={mailbox}
+          inline
+          onClose={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Email body" }), {
+      target: { value: "My preserved portal work" },
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1100);
+    });
+    expect(screen.getByRole("textbox", { name: "Email body" })).toHaveValue(
+      "My preserved portal work",
+    );
+    expect(
+      screen.getByRole("button", { name: "Use Microsoft version" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Keep my text and save against this version",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name:
+          choice === "keep"
+            ? "Keep my text and save against this version"
+            : "Use Microsoft version",
+      }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1100);
+    });
+    if (choice === "keep")
+      expect(saved[1]).toMatchObject({
+        expectedChangeKey: "outlook-version",
+        bodyText: "My preserved portal work",
+      });
+    else {
+      expect(screen.getByRole("textbox", { name: "Email body" })).toHaveValue(
+        "Work saved in Outlook",
+      );
+      expect(saved).toHaveLength(1);
+    }
+  },
+);

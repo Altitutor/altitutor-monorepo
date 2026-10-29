@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Json } from "@altitutor/shared";
+import { observeMailboxMessage } from "@/features/email/server/observe";
 import { emailAccess } from "@/features/email/server/auth";
 import { connectMailbox } from "@/features/email/server/connection";
 export async function GET(request: NextRequest) {
@@ -102,17 +102,8 @@ export async function POST(request: NextRequest) {
       contentBytes: Buffer.from(await file.arrayBuffer()).toString("base64"),
     });
     const message = await mailbox.message(id);
-    const saved = await access.admin.rpc("email_apply_sync_page", {
-      p_folder_id: message.folderId,
-      p_expected_cursor: "",
-      p_cursor: "",
-      p_complete: false,
-      p_removed_ids: [],
-      p_observation_only: true,
-      p_messages: JSON.parse(JSON.stringify([message])) as Json,
-    });
-    if (saved.error) throw saved.error;
-    return NextResponse.json({ state: "saved", message });
+    const observed = await observeMailboxMessage(access.admin, message);
+    return NextResponse.json({ state: "saved", message: observed });
   } catch {
     return NextResponse.json(
       {

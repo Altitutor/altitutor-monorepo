@@ -75,10 +75,28 @@ export function useEmailThread(id: string, active = true) {
     staleTime: 10_000,
   });
 }
+/** Long conversations progress through bounded idempotent read/move requests. */
+export async function executeEmailCommand(
+  command: EmailCommand,
+): Promise<unknown> {
+  if (
+    (command.action === "read" || command.action === "move") &&
+    command.ids.length > 25
+  ) {
+    let result: unknown;
+    for (let offset = 0; offset < command.ids.length; offset += 25)
+      result = await mailRequest("/commands", {
+        ...command,
+        ids: command.ids.slice(offset, offset + 25),
+      });
+    return result;
+  }
+  return mailRequest("/commands", command);
+}
 export function useEmailCommand() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (command: EmailCommand) => mailRequest("/commands", command),
+    mutationFn: executeEmailCommand,
     onSettled: async () => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ["email"] }),

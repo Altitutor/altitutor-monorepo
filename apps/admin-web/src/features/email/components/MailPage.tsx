@@ -265,7 +265,6 @@ export function MailPage() {
                     const ids = z
                       .array(z.string())
                       .min(1)
-                      .max(100)
                       .parse(JSON.parse(event.dataTransfer.getData(dragType)));
                     command.mutate({ action: "move", ids, folderId: item.id });
                   } catch {

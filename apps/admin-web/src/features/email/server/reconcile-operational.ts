@@ -1,6 +1,7 @@
 import "server-only";
-import type { Database, Json } from "@altitutor/shared";
+import type { Database } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { observeMailboxMessage } from "./observe";
 import { GraphMailboxError, type createGraphMailbox } from "./graph";
 /** Observe unresolved provider work; recovery never repeats an uncertain send. */
 export async function reconcileOperationalMail(
@@ -42,16 +43,7 @@ export async function reconcileOperationalMail(
           .eq("state", operation.state);
         if (attached.error) throw attached.error;
       }
-      const observed = await db.rpc("email_apply_sync_page", {
-        p_folder_id: message.folderId,
-        p_expected_cursor: "",
-        p_cursor: "",
-        p_complete: false,
-        p_removed_ids: [],
-        p_observation_only: true,
-        p_messages: JSON.parse(JSON.stringify([message])) as Json,
-      });
-      if (observed.error) throw observed.error;
+      await observeMailboxMessage(db, message);
     } catch (error) {
       if (!(error instanceof GraphMailboxError && error.status === 404))
         throw error;

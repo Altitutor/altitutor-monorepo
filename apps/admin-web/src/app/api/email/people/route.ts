@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
               ? reviewed.data.record_id
               : "00000000-0000-0000-0000-000000000000",
           )
+          .is("deleted_at", null)
       : access.db
           .from("students")
           .select("id,first_name,last_name")

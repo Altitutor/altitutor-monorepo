@@ -92,11 +92,11 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
         seen.add(event.id);
         entries.push({
           id: `activity:${event.id}`,
-          at: communicationActivityAt(event, "effective"),
+          at: communicationActivityAt(event, "logged"),
           content: (
             <ActivityFeed
               chronological
-              timeBasis="effective"
+              timeBasis="logged"
               data={{ ...query.data!, events: [event] }}
             />
           ),
