@@ -1,6 +1,7 @@
 import { captureApiErrorResponse } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { requireUcatTutor } from "@/features/ucat/shared/server/guard";
+import { observeUcatRpc } from "@/features/ucat/shared/server/rpc-diagnostics";
 import {
   getSetSectionStatus,
   parseSetSections,
@@ -73,9 +74,13 @@ export async function GET() {
         .map((feedback) => feedback.questionId),
     ),
   ];
-  const contentIssuesResult = await access.userClient.rpc(
+  const contentIssuesResult = await observeUcatRpc(
+    "reconciliation_content_issues",
+    { feedbackQuestions: feedbackQuestionIds.length },
+    () => access.userClient.rpc(
     "tutor_ucat_reconciliation_content_issues",
     { p_feedback_question_ids: feedbackQuestionIds },
+    ),
   );
   if (contentIssuesResult.error) {
     return captureApiErrorResponse(

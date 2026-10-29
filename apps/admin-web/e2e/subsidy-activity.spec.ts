@@ -70,6 +70,7 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
   await openSubsidies();
   const row = page.getByRole('row').filter({ hasText: '$12.34 AUD' });
   await row.getByRole('button').first().click();
+  await page.getByRole('menuitem', { name: 'Edit subsidy' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Edit Subsidy' });
   await editDialog.getByLabel('Subsidy price per hour (in dollars)').fill('10.50');
   await editDialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
@@ -82,6 +83,7 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
 
   await openSubsidies();
   await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button').first().click();
+  await page.getByRole('menuitem', { name: 'Edit subsidy' }).click();
   await editDialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
   await expect(editDialog).toBeHidden();
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
@@ -90,8 +92,9 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
   await page.screenshot({ path: testInfo.outputPath('subsidy-activity.png'), fullPage: true });
 
   await openSubsidies();
+  await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button', { name: 'Subsidy actions' }).click();
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button').last().click();
+  await page.getByRole('menuitem', { name: 'Delete subsidy' }).click();
   await expect(page.getByRole('row').filter({ hasText: '$10.50 AUD' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await expect(page.locator('.text-sm.leading-6').filter({ hasText: /removed a subsidy for Alice Williams/ })).toContainText('10.50 AUD/hour');

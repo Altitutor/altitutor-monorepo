@@ -4,6 +4,7 @@ import { jsonUcatDeleteErrorResponse, jsonUcatVisibilityErrorResponse } from '@/
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { syncUcatCatalogAiReviewStatusesBestEffort } from '@/features/ucat/questions/server/ai-assessment/persist-catalog-status'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
+import { observeUcatRpc } from '@/features/ucat/shared/server/rpc-diagnostics'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -16,7 +17,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const rpcName = typeof body.expectedUpdatedAt === 'string'
       ? 'tutor_ucat_update_question_stem_bundle_revisioned'
       : 'tutor_ucat_upsert_question_stem_bundle'
-    const { data, error } = await client.rpc(rpcName, {
+    const questions: unknown[] = Array.isArray(body.questions) ? body.questions : []
+    const options = questions.reduce<number>((count, question) => {
+      if (!question || typeof question !== 'object' || !('answer_options' in question)) return count
+      return count + (Array.isArray(question.answer_options) ? question.answer_options.length : 0)
+    }, 0)
+    const { data, error } = await observeUcatRpc(
+      typeof body.expectedUpdatedAt === 'string' ? 'stem_update_revisioned' : 'stem_update',
+      { stems: 1, questions: questions.length, options },
+      () => client.rpc(rpcName, {
       p_stem_id: params.id,
       ...(typeof body.expectedUpdatedAt === 'string'
         ? { p_expected_updated_at: body.expectedUpdatedAt }
@@ -28,7 +37,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       p_questions: body.questions ?? [],
       p_source_channel: body.sourceChannel ?? null,
       p_tutor_source_note: body.tutorSourceNote ?? null,
-    })
+      }),
+    )
 
     if (error) {
       if (error.message.includes('question_stem_stale_revision')) {
