@@ -27,6 +27,7 @@ import {
   type MessageReactionType,
   normalizeInboundReactionType,
 } from "./reactions.ts";
+import { reportMissingParticipants } from "./participant-diagnostics.ts";
 
 interface OwnedNumber {
   id: string;
@@ -257,11 +258,20 @@ async function processMessage(
     message.date,
   );
   const statusUpdatedAt = message.readAt ?? message.deliveredAt ?? message.date;
-  const conversationId = await ensureMessageConversation(
-    supabase,
-    owned,
-    message,
-  );
+  let conversationId: string;
+  try {
+    conversationId = await ensureMessageConversation(supabase, owned, message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const reason = error.message === "Individual message missing sender/recipient"
+        ? "individual_participant_missing"
+        : error.message === "Group message missing ChatGuid/ChatId"
+        ? "group_chat_missing"
+        : null;
+      if (reason) reportMissingParticipants(event, message, reason);
+    }
+    throw error;
+  }
   const { error } = await supabase.rpc("reconcile_imessage_inbound", {
     p_message: {
       conversation_id: conversationId,

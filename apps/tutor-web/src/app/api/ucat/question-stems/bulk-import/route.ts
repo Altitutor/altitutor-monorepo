@@ -8,6 +8,7 @@ import { buildDraftUcatAssessmentSnapshot } from '@/features/ucat/questions/serv
 import { evaluateUcatReadiness } from '@/features/ucat/questions/lib/ai-assessment/readiness'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { normalizeBulkImportCreatePayload } from '@/features/ucat/questions/server/bulk-import-create-payload'
+import { observeUcatRpc } from '@/features/ucat/shared/server/rpc-diagnostics'
 
 const SerializedAnswerOptionSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -199,10 +200,14 @@ export async function POST(request: NextRequest) {
     })),
   })))
 
-  const { data, error } = await client.rpc('tutor_ucat_bulk_upsert_question_stem_bundles', {
+  const { data, error } = await observeUcatRpc('bulk_import_write', {
+    stems: normalizedStems.length,
+    questions: normalizedStems.reduce((count, stem) => count + stem.questions.length, 0),
+    options: normalizedStems.reduce((count, stem) => count + stem.questions.reduce((total, question) => total + question.answer_options.length, 0), 0),
+  }, () => client.rpc('tutor_ucat_bulk_upsert_question_stem_bundles', {
     p_section_id: sectionId,
     p_stems: normalizedStems,
-  })
+  }))
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })

@@ -1,5 +1,6 @@
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observeUcatRpc } from '@/features/ucat/shared/server/rpc-diagnostics'
 
 const DETAIL_ID_CHUNK_SIZE = 100
 
@@ -302,10 +303,12 @@ export async function analyzeBulkImportDuplicatesFromCatalog(
     sectionId: draft.sectionId,
     stemText: draft.stemText as Json,
   }))
-  const { data, error } = await client.rpc('tutor_ucat_match_import_stems', {
+  const { data, error } = await observeUcatRpc('bulk_import_match', {
+    stems: rpcDrafts.length,
+  }, () => client.rpc('tutor_ucat_match_import_stems', {
     p_drafts: rpcDrafts,
     p_similarity_threshold: similarityThreshold,
-  })
+  }))
   if (error) throw new Error(error.message)
 
   const matches = parseMatches(data)
