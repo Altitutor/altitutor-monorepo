@@ -28,6 +28,7 @@ const mockToast = jest.fn();
 const mockPerson = { id: "person", first_name: "Test", last_name: "Person" };
 let mockCurrentStaff: { id: string } | null = null;
 let mockType = "CLASS";
+let mockAdminShiftId: string | null = null;
 let mockHasTutorLog = false;
 let mockDetailsProps: ComponentProps<typeof SessionDetailsTab>;
 
@@ -137,7 +138,8 @@ jest.mock("@/features/sessions/hooks", () => ({
         type: mockType,
         start_at: "2026-10-06T08:00:00Z",
         end_at: "2026-10-06T09:00:00Z",
-        class_id: "class",
+        class_id: mockAdminShiftId ? null : "class",
+        admin_shift_id: mockAdminShiftId,
       },
       sessionsStudents: [
         {
@@ -266,6 +268,7 @@ jest.mock("@/features/sessions/components/AddStaffToSessionModal", () => ({
 }));
 
 beforeEach(() => {
+  mockAdminShiftId = null;
   jest.clearAllMocks();
   mockType = "CLASS";
   mockCurrentStaff = null;
@@ -615,5 +618,16 @@ it("renders previous/next navigation in the Day field and opens the selected sib
   fireEvent.click(previous);
   expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
   fireEvent.click(next);
+  expect(mockPush).toHaveBeenCalledWith("/sessions/next");
+});
+
+
+it("navigates to previous and next sessions in the linked admin shift", () => {
+  mockType = "ADMIN_SHIFT";
+  mockAdminShiftId = "shift";
+  render(<SessionDetailPage params={{ id: "session" }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Previous session in admin shift" }));
+  expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
+  fireEvent.click(screen.getByRole("button", { name: "Next session in admin shift" }));
   expect(mockPush).toHaveBeenCalledWith("/sessions/next");
 });

@@ -82,6 +82,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const currency = customer.currency || 'aud';
 
     return NextResponse.json({
+      linked: true,
+      stripe_customer_id: billing.stripe_customer_id,
       balance_cents: stripeBalance,
       currency: currency.toLowerCase(),
       updated_at: new Date().toISOString(),
