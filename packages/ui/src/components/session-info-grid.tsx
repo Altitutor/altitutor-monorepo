@@ -11,13 +11,14 @@ export interface SessionInfoGridProps {
   subjectNode?: React.ReactNode;
   /** Optional class row (e.g. link button or "—"). Omit to hide Class row. */
   classNode?: React.ReactNode;
+  classLabel?: string;
 }
 
 /**
  * Presentational grid for "Session Information" (Day, Time, Subject, optional Class).
  * Used in SessionDetailsTab and SessionModals across admin, student, and tutor apps.
  */
-export function SessionInfoGrid({ day, time, timeSubline, subjectNode, classNode }: SessionInfoGridProps) {
+export function SessionInfoGrid({ day, time, timeSubline, subjectNode, classNode, classLabel = 'Class:' }: SessionInfoGridProps) {
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <div className="text-sm font-medium text-muted-foreground">Day:</div>
@@ -38,7 +39,7 @@ export function SessionInfoGrid({ day, time, timeSubline, subjectNode, classNode
 
       {classNode !== undefined && (
         <>
-          <div className="text-sm font-medium text-muted-foreground">Class:</div>
+          <div className="text-sm font-medium text-muted-foreground">{classLabel}</div>
           <div className="text-sm">{classNode}</div>
         </>
       )}
