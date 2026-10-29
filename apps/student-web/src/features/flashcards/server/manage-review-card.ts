@@ -26,5 +26,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     p_action:body.action as Action,p_now:now.toISOString(),p_buried_until:body.action==='bury' ? bounds?.[0]?.ends_at ?? undefined : undefined,
   });
   if(error) return NextResponse.json({error:error.message},{status:error.code==='PT409'||error.code==='40001'?409:500});
-  return NextResponse.json({data});
+  const result = data as { reviewLogId: string };
+  const [stateResult, historyResult] = await Promise.all([
+    userClient.from('vstudent_flashcard_review_cards')
+      .select('id,due_at,stability,difficulty,scheduled_days,learning_steps,reps,lapses,state,last_reviewed_at,last_rating,revision,buried_until,buried_reason,suspended_at,leech_at')
+      .eq('id', params.id).single(),
+    admin.from('student_flashcard_review_logs')
+      .select('id,review_card_id,action,rating,answered_at,duration_ms,pre_state,post_state,undone_at')
+      .eq('student_id', studentId).eq('id', result.reviewLogId).single(),
+  ]);
+  if (stateResult.error || historyResult.error) {
+    // The command has committed. Older study clients only inspect response.ok;
+    // keep that outcome successful even if the optional manager refresh fails.
+    return NextResponse.json({ data: result });
+  }
+  return NextResponse.json({ data: { ...result, cardState: stateResult.data, historyEntry: historyResult.data } });
 }

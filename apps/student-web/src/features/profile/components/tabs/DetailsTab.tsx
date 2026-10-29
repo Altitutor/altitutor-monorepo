@@ -6,13 +6,14 @@ import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Pencil, Loader2 } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { useUpdateProfile } from '../../hooks';
 import type { Database } from '@altitutor/shared';
 import { z } from 'zod';
 import { isValidPhoneNumber } from 'react-phone-number-input';
-import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
+import { SettingsSaveBar } from '@/features/settings/components/SettingsSaveBar';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 
@@ -44,14 +45,17 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState<DetailsFormData>({
+  const savedFormData: DetailsFormData = {
     first_name: profile.first_name || '',
     last_name: profile.last_name || '',
     email: profile.email || '',
     phone: profile.phone || '',
     birthday: profile.birthday || '',
     school: profile.school || '',
-  });
+  };
+  const [formData, setFormData] = useState<DetailsFormData>(savedFormData);
+  const isDirty = (Object.keys(savedFormData) as (keyof DetailsFormData)[])
+    .some((key) => (formData[key] || '') !== (savedFormData[key] || ''));
 
   const handleInputChange = (field: keyof DetailsFormData, value: string | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -62,18 +66,12 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   };
 
   const handleStartEdit = () => {
+    setFormData(savedFormData);
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    setFormData({
-      first_name: profile.first_name || '',
-      last_name: profile.last_name || '',
-      email: profile.email || '',
-      phone: profile.phone || '',
-      birthday: profile.birthday || '',
-      school: profile.school || '',
-    });
+    setFormData(savedFormData);
     setIsEditing(false);
   };
 
@@ -144,90 +142,73 @@ export function DetailsTab({ profile }: DetailsTabProps) {
       <div className="space-y-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-2xl font-semibold">Personal Information</h3>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={studentBtnOutline}
-              onClick={handleCancelEdit}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className={studentBtnPrimary}
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Changes
-            </Button>
-          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input
-                id="firstName"
-                value={formData.first_name}
-                onChange={(e) => handleInputChange('first_name', e.target.value)}
-                required
-              />
+        <form id="student-details-settings" onSubmit={handleSubmit}>
+          <fieldset disabled={isSubmitting} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName">First Name *</Label>
+                <Input
+                  id="firstName"
+                  value={formData.first_name}
+                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name *</Label>
+                <Input
+                  id="lastName"
+                  value={formData.last_name}
+                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="lastName">Last Name *</Label>
-              <Input
-                id="lastName"
-                value={formData.last_name}
-                onChange={(e) => handleInputChange('last_name', e.target.value)}
-                required
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="email">Student Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">Student Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Student Phone</Label>
+                <PhoneInput
+                  value={formData.phone || ''}
+                  onChange={handlePhoneChange}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="phone">Student Phone</Label>
-              <PhoneInput
-                value={formData.phone || ''}
-                onChange={handlePhoneChange}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="birthday">Birthday</Label>
-              <Input
-                id="birthday"
-                type="date"
-                value={formData.birthday || ''}
-                max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => handleInputChange('birthday', e.target.value || null)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="birthday">Birthday</Label>
+                <Input
+                  id="birthday"
+                  type="date"
+                  value={formData.birthday || ''}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => handleInputChange('birthday', e.target.value || null)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="school">School</Label>
+                <Input
+                  id="school"
+                  value={formData.school || ''}
+                  onChange={(e) => handleInputChange('school', e.target.value)}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="school">School</Label>
-              <Input
-                id="school"
-                value={formData.school || ''}
-                onChange={(e) => handleInputChange('school', e.target.value)}
-              />
-            </div>
-          </div>
+          </fieldset>
         </form>
+        <SettingsSaveBar visible saving={isSubmitting} saveDisabled={!isDirty} onCancel={handleCancelEdit} formId="student-details-settings" />
       </div>
     );
   }
