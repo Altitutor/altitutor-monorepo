@@ -106,10 +106,17 @@ def local_environment(repository):
     return environment
 
 
+def app_origin(app, port):
+    # NextRequest canonicalizes numeric loopback hosts to localhost. Publish
+    # that same web host so auth redirects keep each app's host-only cookie.
+    host = 'localhost' if app in WEB_APPS else '127.0.0.1'
+    return 'http://' + host + ':' + str(port)
+
+
 def app_environment(environment, app_ports):
     for app in WEB_APPS:
         name = app.removesuffix('-web').upper()
-        origin = 'http://127.0.0.1:' + str(app_ports[app]) if app in app_ports else 'http://127.0.0.1:1'
+        origin = app_origin(app, app_ports.get(app, 1))
         environment['NEXT_PUBLIC_' + name + '_URL'] = origin
         environment['NEXT_PUBLIC_' + name + '_PORTAL_URL'] = origin
         environment['NEXT_PUBLIC_' + name + '_WEB_URL'] = origin
@@ -228,7 +235,7 @@ def run(repository, apps, skip_install):
         app_environment(environment, app_ports)
         config = runtime / 'supabase/config.toml'
         text = config.read_text()
-        origins = ['http://127.0.0.1:' + str(port) for app, port in app_ports.items() if app in WEB_APPS]
+        origins = [app_origin(app, port) for app, port in app_ports.items() if app in WEB_APPS]
         text = re.sub(r'^site_url\s*=.*$', 'site_url = ' + json.dumps(origins[0]), text, flags=re.M)
         redirects = [origin + suffix for origin in origins for suffix in ('/**', '/auth/callback')]
         text = re.sub(r'^additional_redirect_urls\s*=.*$', 'additional_redirect_urls = ' + json.dumps(redirects), text, flags=re.M)
@@ -238,7 +245,7 @@ def run(repository, apps, skip_install):
         private_json(manifest, proof)
         data = dict(repository=str(repository), runtime=str(runtime), project_id=proof['project_id'],
                     pid=os.getpid(), identity=process_identity(os.getpid()), phase='starting',
-                    apps={app: 'http://127.0.0.1:' + str(port) for app, port in app_ports.items()})
+                    apps={app: app_origin(app, port) for app, port in app_ports.items()})
         # load_session confines the runtime beneath its control directory.
         # The temporary parent holds only this session's logs and runtime.
         data['runtime_parent'] = str(temporary)
