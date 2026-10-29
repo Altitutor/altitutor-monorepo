@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import type { ClassSchedulePlan, ClassScheduleProposal, StoredClassSchedule } from '../types/schedule';
+import { retainSchedulesForEditing } from '../utils/classScheduleTimeline';
 
 type ScheduleRevisionWithSlots = Tables<'class_schedule_revisions'> & {
   class_schedule_slots: Tables<'class_schedule_slots'>[];
@@ -84,11 +85,13 @@ export const classesApi = {
       .select('id, class_id, schedule_type, session_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
       .eq('class_id', classId)
       .is('superseded_at', null)
-      .gte('effective_to', today)
       .order('effective_from', { ascending: true })
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return ((data ?? []) as ScheduleRevisionWithSlots[]).map(mapStoredClassSchedule);
+    return retainSchedulesForEditing(
+      ((data ?? []) as ScheduleRevisionWithSlots[]).map(mapStoredClassSchedule),
+      today
+    );
   },
 
   previewSchedule: async (proposal: ClassScheduleProposal): Promise<ClassSchedulePlan> => {
