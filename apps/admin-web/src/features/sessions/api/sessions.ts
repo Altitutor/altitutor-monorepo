@@ -813,6 +813,7 @@ export const sessionsApi = {
         .select(`
           *,
           subject:subjects(*),
+          admin_shift:admin_shifts(id, day_of_week, start_time, end_time),
           class:classes(
             *,
             subject:subjects(*)

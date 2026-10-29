@@ -115,14 +115,17 @@ function SessionDetailView({ id }: { id: string }) {
   });
 
   const classId = sessionData.data?.session?.class_id ?? null;
-  const classSessionsQuery = useSessionsWithDetails(
+  const adminShiftId = sessionData.data?.session?.admin_shift_id ?? null;
+  const siblingScope = classId ? "class" : "admin shift";
+  const siblingSessionsQuery = useSessionsWithDetails(
     {
       classId: classId ?? undefined,
+      adminShiftId: classId ? undefined : adminShiftId ?? undefined,
       includeInactive: false,
       orderBy: "start_at",
       ascending: true,
     },
-    { enabled: !!classId },
+    { enabled: !!(classId || adminShiftId) },
   );
   const removeStudentMutation = useRemoveStudentFromSession();
   const removeStaffMutation = useRemoveStaffFromSession();
@@ -321,11 +324,11 @@ function SessionDetailView({ id }: { id: string }) {
   );
 
   const sessionShortName = getShortSessionName(session);
-  const classSessions = classSessionsQuery.data?.sessions ?? [];
-  const selectedClassSession =
-    classSessions.find((row) => row.id === id) ?? null;
-  const { previous: previousClassSession, next: nextClassSession } =
-    getAdjacentSessionSiblings(classSessions, id);
+  const siblingSessions = siblingSessionsQuery.data?.sessions ?? [];
+  const selectedSiblingSession =
+    siblingSessions.find((row) => row.id === id) ?? null;
+  const { previous: previousSiblingSession, next: nextSiblingSession } =
+    getAdjacentSessionSiblings(siblingSessions, id);
   const allowAbsenceLogging = Boolean(
     session.class_id || session.admin_shift_id,
   );
@@ -453,29 +456,29 @@ function SessionDetailView({ id }: { id: string }) {
             key={`session-details-${id}-${isEditing}`}
             session={session}
             dayNavigation={
-              classId ? (
+              classId || adminShiftId ? (
                 <div className="flex flex-wrap items-center gap-1">
-                  {previousClassSession ? (
+                  {previousSiblingSession ? (
                     <Button
                       variant="outline"
                       size="icon"
                       className="h-10 w-14 flex-col gap-0.5 py-1"
-                      onClick={() => handleOpenSession(previousClassSession.id)}
-                      aria-label="Previous session in class"
-                      title={`Previous session: ${getSessionNavigationLabel(previousClassSession)}`}
+                      onClick={() => handleOpenSession(previousSiblingSession.id)}
+                      aria-label={`Previous session in ${siblingScope}`}
+                      title={`Previous session: ${getSessionNavigationLabel(previousSiblingSession)}`}
                     >
                       <ChevronLeft className="h-4 w-4" />
                       <span className="text-[10px] font-normal leading-none text-muted-foreground">
                         {formatSessionNavigationDate(
-                          previousClassSession.start_at,
+                          previousSiblingSession.start_at,
                         )}
                       </span>
                     </Button>
                   ) : null}
                   <div className="min-w-0">
                     <SearchableSelect<Tables<"sessions">>
-                      items={classSessions}
-                      value={selectedClassSession}
+                      items={siblingSessions}
+                      value={selectedSiblingSession}
                       onValueChange={(selectedSession) => {
                         if (selectedSession)
                           handleOpenSession(selectedSession.id);
@@ -492,18 +495,18 @@ function SessionDetailView({ id }: { id: string }) {
                           .join(" ")
                       }
                       searchPlaceholder="Search session dates or times…"
-                      emptyMessage="No class sessions found."
-                      loading={classSessionsQuery.isLoading}
+                      emptyMessage={`No ${siblingScope} sessions found.}`}
+                      loading={siblingSessionsQuery.isLoading}
                       disabled={
-                        classSessionsQuery.isLoading ||
-                        classSessions.length === 0
+                        siblingSessionsQuery.isLoading ||
+                        siblingSessions.length === 0
                       }
                       contentWidth="280px"
                       align="end"
                       trigger={
                         <SearchableSelectFieldTrigger
                           className="h-10 max-w-full px-2 text-sm"
-                          aria-label="Select class session"
+                          aria-label={`Select ${siblingScope} session`}
                         >
                           {session.start_at
                             ? formatSessionLongDate(session.start_at)
@@ -512,18 +515,18 @@ function SessionDetailView({ id }: { id: string }) {
                       }
                     />
                   </div>
-                  {nextClassSession ? (
+                  {nextSiblingSession ? (
                     <Button
                       variant="outline"
                       size="icon"
                       className="h-10 w-14 flex-col gap-0.5 py-1"
-                      onClick={() => handleOpenSession(nextClassSession.id)}
-                      aria-label="Next session in class"
-                      title={`Next session: ${getSessionNavigationLabel(nextClassSession)}`}
+                      onClick={() => handleOpenSession(nextSiblingSession.id)}
+                      aria-label={`Next session in ${siblingScope}`}
+                      title={`Next session: ${getSessionNavigationLabel(nextSiblingSession)}`}
                     >
                       <ChevronRight className="h-4 w-4" />
                       <span className="text-[10px] font-normal leading-none text-muted-foreground">
-                        {formatSessionNavigationDate(nextClassSession.start_at)}
+                        {formatSessionNavigationDate(nextSiblingSession.start_at)}
                       </span>
                     </Button>
                   ) : null}
@@ -542,6 +545,7 @@ function SessionDetailView({ id }: { id: string }) {
             onOpenStaff={handleOpenStaff}
             onOpenParent={entityModals.openParent}
             onOpenClass={handleOpenClass}
+            onOpenAdminShift={entityModals.openAdminShift}
             onMessageStudent={handleMessageStudent}
             onMessageStaff={handleMessageStaff}
             onOpenTopic={handleOpenTopic}
