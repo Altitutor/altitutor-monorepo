@@ -16,7 +16,7 @@ import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
-import { formatTime } from '@/shared/utils/datetime';
+import { getDayOfWeek, formatTime } from '@/shared/utils/datetime';
 import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
 import { SessionInfoGrid, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import {
@@ -118,6 +118,7 @@ type SessionDetailsTabProps = {
   onOpenStaff: (staffId: string) => void;
   onOpenParent: (parentId: string) => void;
   onOpenClass: (classId: string) => void;
+  onOpenAdminShift?: (adminShiftId: string) => void;
   onMessageStudent: (studentId: string) => void;
   onMessageStaff: (staffId: string) => void;
   onOpenTopic: (topicId: string) => void;
@@ -178,6 +179,7 @@ export function SessionDetailsTab({
   onOpenStaff,
   onOpenParent,
   onOpenClass,
+  onOpenAdminShift,
   onMessageStudent,
   onMessageStaff,
   onOpenTopic,
@@ -514,6 +516,7 @@ export function SessionDetailsTab({
                   : '—'
                 : undefined
             }
+            classLabel={session.admin_shift_id && !session.class_id ? 'Admin shift:' : undefined}
             classNode={
               session.type === 'CLASS' && classData && session.class_id ? (
                 <button
@@ -522,6 +525,16 @@ export function SessionDetailsTab({
                   className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
                 >
                   {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
+                </button>
+              ) : session.admin_shift_id && onOpenAdminShift ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenAdminShift(session.admin_shift_id!)}
+                  className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
+                >
+                  {session.admin_shift
+                    ? `${getDayOfWeek(session.admin_shift.day_of_week)} ${formatTime(session.admin_shift.start_time)} - ${formatTime(session.admin_shift.end_time)}`
+                    : 'View admin shift'}
                 </button>
               ) : undefined
             }
