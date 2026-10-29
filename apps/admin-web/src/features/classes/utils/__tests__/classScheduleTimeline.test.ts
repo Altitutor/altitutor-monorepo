@@ -1,5 +1,5 @@
 import type { StoredClassSchedule } from '../../types/schedule';
-import { partitionClassScheduleTimeline } from '../classScheduleTimeline';
+import { partitionClassScheduleTimeline, retainSchedulesForEditing } from '../classScheduleTimeline';
 
 function revision(
   id: string,
@@ -42,5 +42,15 @@ describe('Class schedule timeline', () => {
       current: timeline[1],
       upcoming: [],
     });
+  });
+
+  it('keeps the latest ended timetable when nothing is still in force', () => {
+    const timeline = [
+      revision('older', '2026-01-01', '2026-09-09'),
+      revision('latest', '2026-09-10', '2026-10-28'),
+    ];
+
+    expect(retainSchedulesForEditing(timeline, '2026-10-29')).toEqual([timeline[1]]);
+    expect(retainSchedulesForEditing(timeline, '2026-09-20')).toEqual([timeline[1]]);
   });
 });
