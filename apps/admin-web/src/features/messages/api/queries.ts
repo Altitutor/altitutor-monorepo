@@ -245,6 +245,30 @@ export function useUnreadConversationCount() {
   });
 }
 
+export type AdminStaffOption = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+export function useActiveAdminStaff() {
+  return useQuery({
+    queryKey: [...messagesKeys.all, 'active-admin-staff'] as const,
+    queryFn: async (): Promise<AdminStaffOption[]> => {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, first_name, last_name')
+        .eq('role', 'ADMINSTAFF')
+        .eq('status', 'ACTIVE')
+        .order('first_name');
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 1000 * 60,
+  });
+}
+
 export function useConversations() {
   return useQuery({
     queryKey: messagesKeys.conversations(),
@@ -739,6 +763,8 @@ export async function fetchConversationList(
           (message) => participantSenderBadgeName(message.from_number_e164, participants),
         ),
         unreadCount: unreadConversations.has(conv.id) ? 1 : 0,
+        unreadConversationIds: unreadConversations.has(conv.id) ? [conv.id] : [],
+        assignedStaffId: unreadConversations.has(conv.id) ? conv.assigned_staff_id : null,
       });
       continue;
     }
@@ -753,6 +779,8 @@ export async function fetchConversationList(
         latestMessageAt: null,
         latestMessage: null,
         unreadCount: 0,
+        unreadConversationIds: [],
+        assignedStaffId: null,
       });
     }
 
@@ -780,6 +808,10 @@ export async function fetchConversationList(
 
     if (unreadConversations.has(conv.id)) {
       aggregated.unreadCount++;
+      aggregated.unreadConversationIds.push(conv.id);
+      if (conv.assigned_staff_id && !aggregated.assignedStaffId) {
+        aggregated.assignedStaffId = conv.assigned_staff_id;
+      }
     }
   }
 

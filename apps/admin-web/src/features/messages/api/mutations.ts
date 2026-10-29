@@ -249,6 +249,25 @@ export function useMarkContactUnread() {
   });
 }
 
+export function useAssignConversations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { conversationIds: string[]; staffId: string }) => {
+      if (args.conversationIds.length === 0) return;
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { error } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: args.staffId })
+        .in('id', args.conversationIds);
+      if (error) throw error;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+    },
+  });
+}
+
 export function useMarkConversationRead() {
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
