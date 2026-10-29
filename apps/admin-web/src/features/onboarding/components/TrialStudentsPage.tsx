@@ -1,4 +1,5 @@
 "use client";
+
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
@@ -38,6 +39,7 @@ import {
 import { ConversionInsights } from "./ConversionInsights";
 import { NewJourney } from "./NewJourney";
 import { ActionBadges, JourneyDetail } from "./JourneyDetail";
+
 
 function Settings({ onClose }: { onClose: () => void }) {
   const { data } = useOnboardingSettings();

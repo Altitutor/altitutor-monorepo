@@ -16,9 +16,6 @@ const ProjectsCollection = dynamic(() =>
 );
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-const TodayView = dynamic(() =>
-  import("./TodayView").then((module) => module.TodayView),
-);
 const TaskDetailView = dynamic(() =>
   import("@/features/tasks/components/TaskDetailView").then(
     (module) => module.TaskDetailView,
@@ -61,9 +58,6 @@ export function AccessoryView() {
   const board = new URLSearchParams(tab.query).get("view") === "board";
   let content;
   switch (tab.kind) {
-    case "today":
-      content = <TodayView />;
-      break;
     case "tasks":
       content = isLoading ? (
         <p className="p-4">Loading tasks…</p>

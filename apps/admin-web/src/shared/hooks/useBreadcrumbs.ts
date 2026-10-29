@@ -144,6 +144,38 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     return ids;
   }, [segments]);
 
+  const topicId = [...entityIds].reverse().find(entity => entity.type === 'topic')?.id;
+  const topicBreadcrumbs = useQuery({
+    queryKey: ['topic-breadcrumbs', topicId],
+    enabled: !!topicId,
+    staleTime: 1000 * 60 * 5,
+    queryFn: async (): Promise<BreadcrumbItem[]> => {
+      const topic = await topicsApi.getTopic(topicId!);
+      if (!topic) return [];
+      const [subject, topics] = await Promise.all([
+        subjectsApi.getSubject(topic.subject_id),
+        topicsApi.getTopicsBySubject(topic.subject_id),
+      ]);
+      const byId = new Map([...topics, topic].map(item => [item.id, item]));
+      const ancestors = [];
+      const visited = new Set<string>();
+      let current: typeof topic | undefined = topic;
+      while (current && current.subject_id === topic.subject_id && !visited.has(current.id)) {
+        visited.add(current.id);
+        ancestors.unshift(current);
+        current = current.parent_id ? byId.get(current.parent_id) : undefined;
+      }
+      return [
+        {label: 'Subjects', href: '/subjects'},
+        {label: subject?.short_name ?? subject?.long_name ?? subject?.name ?? 'Subject', href: `/subjects/${topic.subject_id}`},
+        ...ancestors.map(item => ({
+          label: [item.code, item.name].filter(Boolean).join(' '),
+          href: `/subjects/${topic.subject_id}/topics/${item.id}`,
+        })),
+      ];
+    },
+  });
+
   // Fetch entity names
   const studentQueries = useQuery({
     queryKey: ['breadcrumb-student', entityIds.filter(e => e.type === 'student').map(e => e.id)],
@@ -272,31 +304,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       );
       return results;
     },
-    enabled: entityIds.some(e => e.type === 'subject'),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const topicQueries = useQuery({
-    queryKey: ['breadcrumb-topic', entityIds.filter(e => e.type === 'topic').map(e => e.id)],
-    queryFn: async () => {
-      const topicIds = entityIds.filter(e => e.type === 'topic').map(e => e.id);
-      const results: Record<string, string> = {};
-      await Promise.all(
-        topicIds.map(async (id) => {
-          try {
-            const topic = await topicsApi.getTopic(id);
-            if (topic) {
-              const code = topic.code || '';
-              results[id] = `${code} ${topic.name}`;
-            }
-          } catch {
-            // Ignore errors
-          }
-        })
-      );
-      return results;
-    },
-    enabled: entityIds.some(e => e.type === 'topic'),
+    enabled: !topicId && entityIds.some(e => e.type === 'subject'),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -378,6 +386,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
   const noteQuery = useNote(noteId || '', !!noteId);
 
   return useMemo(() => {
+    if (topicId) return topicBreadcrumbs.data?.length ? topicBreadcrumbs.data : [{label: 'Subjects', href: '/subjects'}, {label: 'Loading topic…'}];
     // If we're on the dashboard, just return Dashboard
     if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
       return [{ label: 'Dashboard', href: '/dashboard' }];
@@ -409,8 +418,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             name = sessionQueries.data?.[entityId.id];
           } else if (entityId.type === 'subject') {
             name = subjectQueries.data?.[entityId.id];
-          } else if (entityId.type === 'topic') {
-            name = topicQueries.data?.[entityId.id];
+
           } else if (entityId.type === 'note') {
             name = noteQuery.data?.title;
           } else if (entityId.type === 'task') {
@@ -453,6 +461,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     return items;
   }, [
     segments,
+    topicId,
+    topicBreadcrumbs.data,
     trail,
     entityIds,
     studentQueries.data,
@@ -460,7 +470,6 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     classQueries.data,
     sessionQueries.data,
     subjectQueries.data,
-    topicQueries.data,
     noteQuery.data,
     taskQueries.data,
     issueQueries.data,

@@ -1,3 +1,4 @@
+import { EmailInput } from '@/shared/components/EmailInput';
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -135,7 +136,7 @@ export function DetailsTab({
                 />
               </PropertyFormRow>
               <PropertyFormRow label="Student Email" htmlFor="student-email">
-                <Input
+                <EmailInput
                   id="student-email"
                   type="email"
                   value={formData.email || ''}

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { EmailInput } from "@/shared/components/EmailInput";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, SearchableSelect } from "@altitutor/ui";
 import type { Tables } from "@altitutor/shared";
@@ -128,7 +129,7 @@ export function NewJourney({
         {!studentId && (
           <label className="block text-sm">
             Enquiry email
-            <Input
+            <EmailInput
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

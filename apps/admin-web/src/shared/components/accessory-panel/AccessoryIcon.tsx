@@ -1,5 +1,4 @@
 import {
-  CalendarDays,
   CheckSquare,
   AlertTriangle,
   FolderKanban,
@@ -19,7 +18,6 @@ export function AccessoryIcon({
   className?: string;
 }) {
   const Icon = {
-    today: CalendarDays,
     tasks: CheckSquare,
     issues: AlertTriangle,
     projects: FolderKanban,
@@ -28,7 +26,6 @@ export function AccessoryIcon({
     email: Mail,
   }[
     accessoryFamily(kind) as
-      | "today"
       | "tasks"
       | "issues"
       | "projects"

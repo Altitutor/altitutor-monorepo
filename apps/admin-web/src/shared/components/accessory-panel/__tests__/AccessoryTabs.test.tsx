@@ -171,10 +171,11 @@ test("the active list tab owns its persistent View menu", async () => {
 
 it("offers every root view in an empty panel and opens the chosen view", () => {
   render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
-  for (const title of ["Messages", "Today", "Tasks", "Issues", "Projects", "Documents"]) {
+  for (const title of ["Messages", "Tasks", "Issues", "Projects", "Documents"]) {
     expect(screen.getByRole("button", { name: new RegExp(title) })).toBeInTheDocument();
   }
   expect(screen.getByLabelText("3 unread conversations")).toHaveTextContent("3");
-  fireEvent.click(screen.getByRole("button", { name: "Today" }));
-  expect(tabs()).toEqual([expect.objectContaining({ kind: "today", title: "Today" })]);
+  expect(screen.queryByRole("button", {name: "Today"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Documents" }));
+  expect(tabs()).toEqual([expect.objectContaining({ kind: "documents", title: "Documents" })]);
 });

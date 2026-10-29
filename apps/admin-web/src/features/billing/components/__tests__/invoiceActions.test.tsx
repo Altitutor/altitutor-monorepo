@@ -79,17 +79,22 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'synthetic-fixture';
   mockInvoice = { ...mockInvoice, status: 'open', amount_paid_cents: 0 };
   mockOwingError = false;
-  global.fetch = jest.fn().mockResolvedValue({
+  global.fetch = jest.fn().mockImplementation(async (url: string) => ({
     ok: true,
     clone: () => ({ json: async () => ({ success: true }) }),
-    json: async () => ({
+    json: async () => url.endsWith('/customer-balance') ? {
+      linked: false,
+      stripe_customer_id: null,
+      balance_cents: 0,
+      currency: 'aud',
+    } : ({
       sent: ['student@example.test'],
       credit_notes: [],
       attempt_count: 0,
       next_payment_attempt: null,
       auto_retry_active: false,
     }),
-  });
+  }));
 });
 afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());

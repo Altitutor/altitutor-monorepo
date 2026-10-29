@@ -12,7 +12,6 @@ import {
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 
 export type AccessoryKind =
-  | "today"
   | "tasks"
   | "task"
   | "issues"
@@ -78,7 +77,6 @@ const empty: Workspace = {
   width: 520,
 };
 const kinds: AccessoryKind[] = [
-  "today",
   "tasks",
   "task",
   "issues",

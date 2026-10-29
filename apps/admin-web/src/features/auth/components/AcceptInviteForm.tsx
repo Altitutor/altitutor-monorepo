@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -241,7 +243,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
               <FormItem>
                 <FormLabel>Email Address</FormLabel>
                 <FormControl>
-                  <Input
+                  <EmailInput
                     type="email"
                     placeholder="Enter your email"
                     disabled={loading}

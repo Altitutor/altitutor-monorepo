@@ -8,7 +8,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
-import Mention from '@tiptap/extension-mention';
+import { EntityMention } from '../extensions/entity-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import {
@@ -713,42 +713,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           ]
         : []),
       ...(mentionSuggestions ? [
-        Mention.configure({
-          HTMLAttributes: {
-            class: 'bg-primary/10 text-primary px-1 rounded-sm font-medium cursor-pointer transition-colors hover:bg-primary/20',
-            'data-mention': 'true',
-          },
-          suggestion: {
-            ...mentionSuggestions,
-          },
-        }).extend({
-          addAttributes() {
-            return {
-              ...this.parent?.(),
-              id: {
-                default: null,
-                parseHTML: element => element.getAttribute('data-id'),
-                renderHTML: attributes => ({
-                  'data-id': attributes.id,
-                }),
-              },
-              label: {
-                default: null,
-                parseHTML: element => element.getAttribute('data-label') || element.innerText,
-                renderHTML: attributes => ({
-                  'data-label': attributes.label,
-                }),
-              },
-              type: {
-                default: null,
-                parseHTML: element => element.getAttribute('data-type'),
-                renderHTML: attributes => ({
-                  'data-type': attributes.type,
-                }),
-              },
-            }
-          },
-        })
+        EntityMention.configure({suggestion: {...mentionSuggestions}})
+
       ] : []),
       ...(extraExtensions || []),
     ],
@@ -1435,6 +1401,16 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }
   }, [editor, editable]);
 
+  const activateMention = (target: EventTarget | null) => {
+    const mention = target instanceof Element ? target.closest('[data-mention]') : null;
+    const id = mention?.getAttribute('data-id');
+    const type = mention?.getAttribute('data-type');
+    if (!mention || !id || !type) return false;
+    const detail = {id, type, label: mention.getAttribute('data-label') ?? mention.textContent ?? ''};
+    if (!onMentionClickRef.current?.(detail)) mention.dispatchEvent(new CustomEvent<MentionClickDetail>('mentionClick', {detail, bubbles: true}));
+    return true;
+  };
+
   if (!editor) {
     return <div className="text-muted-foreground animate-pulse p-4">Loading editor...</div>;
   }
@@ -1449,6 +1425,18 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       )}
       style={autoHeight ? undefined : { minHeight }}
       onClick={handleContainerClick}
+      onPointerDownCapture={event => {
+        if (event.button === 0 && activateMention(event.target)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onKeyDownCapture={event => {
+        if ((event.key === 'Enter' || event.key === ' ') && activateMention(event.target)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
       onPasteCapture={(e) => {
         clipboardCaptureRef.current = {
           text: e.clipboardData?.getData?.('text/plain') ?? '',

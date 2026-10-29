@@ -135,7 +135,7 @@ it("shares subject filtering and property visibility between the calendar and ta
   expect(
     within(screen.getByRole("table")).queryByText("Mathematics"),
   ).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Calendar" }));
+  await userEvent.click(within(screen.getByLabelText("View layout")).getByRole("button", { name: "Calendar" }));
   await userEvent.click(
     screen.getByRole("button", { name: "Subject", pressed: true }),
   );
