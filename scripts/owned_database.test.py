@@ -17,6 +17,16 @@ FAKE = r"""import json,os,re,sys,time
 from pathlib import Path
 state=Path(os.environ['FIXTURE_STATE']);data=json.loads(state.read_text());args=sys.argv[1:];name=Path(sys.argv[0]).name
 with open(os.environ['FIXTURE_LOG'],'a') as output: output.write(json.dumps([name,args])+'\n')
+if name == 'pnpm' and os.environ.get('FIXTURE_CHECK_STAGE_ENV'):
+ if args[:3] == ['turbo', 'run', 'build']:
+  assert data.get('started'), 'app builds require the owned database to be running'
+  assert os.environ.get('ALTITUTOR_OWNED_DB_INNER') == '1', 'app builds require the owned lease'
+  assert os.environ.get('NEXT_PUBLIC_SUPABASE_URL') == 'http://127.0.0.1:' + data['api_port']
+ elif args == ['test'] or args[:3] == ['turbo', 'run', 'test']:
+  assert not os.environ.get('NEXT_PUBLIC_SUPABASE_URL'), 'unit previews must remain unconfigured'
+  assert not os.environ.get('ALTITUTOR_OWNED_DB_INNER'), 'unit tests must precede database startup'
+if name == 'node' and args[:1] == ['-e']:
+ print('57349')
 if name=='docker':
  if args[0]=='inspect':
   record=data['records'].get(args[1]);
@@ -267,6 +277,33 @@ class OwnedDatabaseTests(unittest.TestCase):
         self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('interview-concurrency',[])),actions.index(('pnpm',['--filter','ucat-web','test:e2e:critical'])))
         self.assertEqual(actions[-1],('supabase',['stop','--project-id',self.project,'--no-backup']))
+
+    def test_full_gate_configures_app_builds_without_configuring_unit_previews(self):
+        for name in ['node', 'deno']:
+            executable = self.bin / name
+            executable.write_text('#!' + sys.executable + '\n' + FAKE)
+            executable.chmod(0o700)
+        for name in ['owned_database.test.py', 'worktree_dev.test.py']:
+            (self.repo / 'scripts' / name).write_text('pass\n')
+        self.env.update(FIXTURE_CHECK_STAGE_ENV='1',
+                        ALTITUTOR_TEST_DB_MANIFEST=str(self.manifest))
+        for key in ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']:
+            self.env.pop(key, None)
+        result = subprocess.run(['bash', str(self.repo / 'scripts/checkall.sh')],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = [(name, args[2:] if name == 'supabase' else args)
+                   for name, args in self.calls()]
+        build = next(index for index, (name, args) in enumerate(actions)
+                     if name == 'pnpm' and args[:3] == ['turbo', 'run', 'build'])
+        start = next(index for index, (name, args) in enumerate(actions)
+                     if name == 'supabase' and args[:1] == ['start'])
+        unit = next(index for index, (name, args) in enumerate(actions)
+                    if name == 'pnpm' and (args == ['test'] or args[:3] == ['turbo', 'run', 'test']))
+        self.assertLess(unit, start)
+        self.assertLess(start, build)
+        self.assertLess(build, actions.index(('supabase', ['db', 'reset', '--local'])))
+        self.assertEqual(actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
 
     def test_type_commands_use_owned_stack_and_preserve_existing_output_on_failure(self):
         for action in ['types','committypes']:

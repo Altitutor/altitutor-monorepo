@@ -2,7 +2,6 @@ module.exports = {
   extends: [
     'next/core-web-vitals',
     'plugin:@typescript-eslint/recommended',
-    'plugin:storybook/recommended'
   ],
   rules: {
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
@@ -37,4 +36,4 @@ module.exports = {
     'public/',
     '*.config.js',
   ],
-} 
+};

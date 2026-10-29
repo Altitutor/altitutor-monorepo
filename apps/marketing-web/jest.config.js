@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 const config = {
+  maxWorkers: 2,
   testEnvironment: "node",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
