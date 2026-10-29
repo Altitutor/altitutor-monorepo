@@ -112,6 +112,9 @@ def main():
           ALTER TABLE public.classes_students ENABLE TRIGGER trigger_sync_student_on_enrollment;
           CREATE FUNCTION private.test_interview_concurrency_delay() RETURNS trigger LANGUAGE plpgsql AS $body$
           BEGIN
+            IF NEW.id='{online_id}' AND OLD.data->>'startedAt' IS NULL AND NEW.data->>'startedAt' IS NOT NULL THEN
+              PERFORM pg_advisory_xact_lock(hashtextextended('{online_id}',9));
+            END IF;
             IF NEW.id IN ('{online_id}','{physical_id}') THEN PERFORM pg_sleep(0.05); END IF;
             RETURN NEW;
           END;
@@ -166,20 +169,55 @@ def main():
                  "assignments": [{"stationId": station["id"], "tutorId": tutor} for station, tutor in zip(stations, tutors)]}
         command(tutors[0], {"type": "createRound", "roundId": online_id, "setup": setup})
         # Liveness must not wait behind an unrelated assessment transaction.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            locked = executor.submit(sql, f"BEGIN; SET LOCAL application_name='interview_heartbeat_lock_test'; SELECT 1 FROM public.interview_rounds WHERE id='{online_id}' FOR UPDATE; SELECT pg_sleep(4); ROLLBACK;")
+        lock_process = subprocess.Popen(
+            ["docker", "exec", "-i", database_id, "psql", "-U", "postgres", "-d", "postgres",
+             "-v", "ON_ERROR_STOP=1", "-Atq"],
+            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        )
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        try:
+            lock_process.stdin.write(f"BEGIN; SET LOCAL application_name='interview_heartbeat_lock_test'; SET LOCAL idle_in_transaction_session_timeout='15s'; SELECT pg_advisory_xact_lock(hashtextextended('{online_id}',9));\n")
+            lock_process.stdin.flush()
             deadline = time.monotonic() + 3
             while time.monotonic() < deadline:
-                if sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='interview_heartbeat_lock_test' AND wait_event='PgSleep';") == '1':
+                if sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='interview_heartbeat_lock_test' AND state='idle in transaction';") == '1':
                     break
                 time.sleep(0.02)
             else:
-                raise AssertionError("Owned lock fixture did not acquire the round")
-            command(tutors[0], {"type": "heartbeat", "roundId": online_id})
-            assert not locked.done(), "Heartbeat must finish while the assessment round is still locked"
-            locked.result(timeout=10)
+                raise AssertionError("Owned fixture did not acquire its assessment-release barrier")
+            assessment = executor.submit(control, "start")
+            blocked_assessment = "SELECT count(*) FROM pg_stat_activity a CROSS JOIN LATERAL unnest(pg_blocking_pids(a.pid)) blocker(pid) JOIN pg_stat_activity b ON b.pid=blocker.pid WHERE b.application_name='interview_heartbeat_lock_test' AND a.wait_event='advisory';"
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                if sql(blocked_assessment) == '1':
+                    break
+                time.sleep(0.02)
+            else:
+                raise AssertionError("Actual round-control request did not reach the locked assessment barrier")
+            heartbeat = executor.submit(command, tutors[0], {"type": "heartbeat", "roundId": online_id})
+            try:
+                heartbeat.result(timeout=2)
+            except concurrent.futures.TimeoutError as error:
+                blocking = sql("SELECT coalesce(jsonb_agg(jsonb_build_object('application',a.application_name,'wait',a.wait_event,'blocker',b.application_name)),'[]') FROM pg_stat_activity a CROSS JOIN LATERAL unnest(pg_blocking_pids(a.pid)) blocker(pid) JOIN pg_stat_activity b ON b.pid=blocker.pid WHERE a.application_name LIKE 'PostgREST%' AND (b.application_name='interview_heartbeat_lock_test' OR b.application_name LIKE 'PostgREST%');")
+                raise AssertionError("Heartbeat did not finish while assessment lock remained held; blocking graph: " + blocking) from error
+            assert sql(blocked_assessment) == '1', "Actual round-control transaction must still be waiting at its assessment barrier after heartbeat returns"
+            row_probe = subprocess.run(
+                ["docker", "exec", "-i", database_id, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-Atq"],
+                input=f"SELECT 1 FROM public.interview_rounds WHERE id='{online_id}' FOR NO KEY UPDATE NOWAIT;",
+                text=True, capture_output=True,
+            )
+            assert row_probe.returncode != 0 and 'could not obtain lock on row' in row_probe.stderr, "The real round-control request must still hold its database row lock"
+        finally:
+            try:
+                lock_process.communicate("ROLLBACK;\n", timeout=5)
+            except subprocess.TimeoutExpired:
+                lock_process.kill()
+                lock_process.communicate(timeout=5)
+                raise
+            finally:
+                executor.shutdown(wait=True)
+        assessment.result(timeout=5)
         print("PASS: heartbeat completes without waiting for the assessment round lock")
-        control("start")
         for tutor in tutors:
             control("ready", actor=tutor, ready=True)
         outcomes = parallel([payload(actor, {"type": "heartbeat", "roundId": online_id}) for actor in tutors + students])
