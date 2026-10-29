@@ -24,6 +24,7 @@ export function reportNativeContinuation(
       path === "/auth/staff-account" ? "staff-account" :
       response.status === 503 ? "unavailable" : "other";
     const host = request.headers.get("host");
+    // eslint-disable-next-line no-console -- Temporary bounded server probe (DEV-261).
     console.info("[DEBUG-ucat-native-continue-v1]", {
       outcome,
       destination,
