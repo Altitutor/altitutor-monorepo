@@ -30,6 +30,7 @@ interface AddStaffModalProps {
   onStaffAdded: (person?: { id: string }) => void;
   initialPhone?: string | null;
   initialEmail?: string | null;
+  initialStatus?: 'ACTIVE' | 'INACTIVE' | 'TRIAL';
 }
 
 // Schema for form validation
@@ -82,7 +83,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, initialEmail }: AddStaffModalProps) {
+export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, initialEmail, initialStatus = 'ACTIVE' }: AddStaffModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const createStaffMutation = useCreateStaff();
@@ -107,7 +108,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, ini
       phoneNumber: '',
       birthday: '',
       role: 'TUTOR',
-      status: 'ACTIVE',
+      status: initialStatus,
       officeKeyNumber: null,
       hasParkingRemote: 'NONE',
       availability_monday: false,
@@ -249,7 +250,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, ini
     if (!isOpen) return;
     setValue('phoneNumber', initialPhone || '');
     setValue('email', initialEmail || '');
-  }, [initialEmail, initialPhone, isOpen, setValue]);
+    setValue('status', initialStatus);
+  }, [initialEmail, initialPhone, initialStatus, isOpen, setValue]);
 
   return (
     <AdminDialogShell

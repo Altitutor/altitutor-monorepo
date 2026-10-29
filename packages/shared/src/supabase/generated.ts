@@ -43591,6 +43591,20 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      admin_meeting_warnings: {
+        Args: {
+          p_end_at: string
+          p_original_session_id?: string
+          p_staff_ids: string[]
+          p_start_at: string
+          p_subject_id?: string
+          p_type: Database["public"]["Enums"]["session_type"]
+        }
+        Returns: {
+          reason: string
+          staff_id: string
+        }[]
+      }
       admin_record_reporting_query: {
         Args: { p_fingerprint: string; p_rows: number; p_truncated: boolean }
         Returns: undefined
@@ -44170,6 +44184,20 @@ export type Database = {
       count_submitted_attempts_today: {
         Args: { p_student_id: string; p_timezone?: string }
         Returns: number
+      }
+      create_admin_meeting: {
+        Args: {
+          p_end_at: string
+          p_original_session_id?: string
+          p_parent_ids?: string[]
+          p_receiver_staff_ids?: string[]
+          p_staff_ids?: string[]
+          p_start_at: string
+          p_student_ids?: string[]
+          p_subject_id?: string
+          p_type: Database["public"]["Enums"]["session_type"]
+        }
+        Returns: string
       }
       create_admin_trial_booking: {
         Args: {

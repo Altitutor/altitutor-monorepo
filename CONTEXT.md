@@ -346,8 +346,10 @@
 
 ## Core tutoring sessions and billing
 
-- **Drafting session** — A subject-specific, one-to-one tutoring Session booked independently of a Class. Its Subject is selected at booking and stored directly on the Session.
+- **Drafting session** — A subject-specific tutoring Session booked independently of a Class. Self-service Drafting is one-to-one; Admin-booked meetings permit flexible participants. The Subject is stored directly on the Session.
   _Avoid_: Drafting Class, subject-independent Drafting session
+
+- **Admin-booked meeting** — A manually scheduled Drafting, Trial, Subsidy interview, Staff interview, Check-in, or Admin meeting. AdminStaff choose participants, time, duration and staff directly; availability warnings are advisory and participant mixes/counts are flexible. Recurring Class, Homework Help and Admin Shift workflows remain separate.
 
 - **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
   _Avoid_: Attendance record, Session completion flag

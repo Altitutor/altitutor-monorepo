@@ -3,7 +3,7 @@
 `admin@altitutor.com` is the sole provider mailbox. Exchange owns messages,
 immutable IDs, folders, shared read state, drafts and Sent Items. The portal owns
 thread assignment, reviewed participant identities, explicit record context,
-templates and staff signatures. See ADR 0062 and the DEV-250 research documents.
+templates and staff signatures. See ADR 0063 and the DEV-250 research documents.
 
 ## Configuration and cutover
 

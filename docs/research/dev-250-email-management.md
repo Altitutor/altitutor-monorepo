@@ -33,7 +33,7 @@ Matthew accepted the recommendations demonstrated by workflow prototype v1 (SHA-
 - **Sender/signature:** routine staff correspondence uses `Altitutor Admin <admin@altitutor.com>` with the real replying AdminStaff member's signature. Replies still return to the shared mailbox. Canonical automated-message authorship remains with its domain.
 - **Operational history:** enrolment confirmations, absence acknowledgements and invoice notifications appear in shared Sent and directly relevant Activity, including when generated automatically. Preserve canonical content/eligibility and reconcile mailbox/provider records to avoid duplicate history. Identity/security email and UCAT campaigns keep their existing domain workflows. This approves the product result, not an untested delivery/copy transport.
 
-The agreed terms are in CONTEXT.md and the ownership boundary is recorded in ADR 0062. The standalone workflow prototype is attached to DEV-250 Resources. Capture it on a throwaway branch through the required commit gate; it must not ship as production implementation.
+The agreed terms are in CONTEXT.md and the ownership boundary is recorded in ADR 0063. The standalone workflow prototype is attached to DEV-250 Resources. Capture it on a throwaway branch through the required commit gate; it must not ship as production implementation.
 
 ## What the repository already provides
 
