@@ -6,7 +6,7 @@ type Workload = {
 }
 
 export async function observeUcatRpc<Result extends { error: unknown }>(
-  operation: 'bulk_import_write' | 'bulk_import_match' | 'reconciliation_content_issues',
+  operation: 'stem_update' | 'stem_update_revisioned' | 'bulk_import_write' | 'bulk_import_match' | 'reconciliation_content_issues',
   workload: Workload,
   run: () => PromiseLike<Result>,
 ): Promise<Result> {
