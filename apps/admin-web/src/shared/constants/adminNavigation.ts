@@ -99,6 +99,11 @@ export const navItems: NavItem[] = [
     icon: CreditCard,
   },
   {
+    title: "Subsidies",
+    href: "/subsidies",
+    icon: CreditCard,
+  },
+  {
     title: "Reports",
     href: "/reports",
     icon: FileText,
