@@ -9,7 +9,7 @@ type Client = SupabaseClient<Database>;
 type FileRow = Database['public']['Views']['vtutor_topics_files']['Row'];
 
 function check(error: { message: string } | null) {
-  if (error) throw new TeachingError(503, 'Teaching data is temporarily unavailable.');
+  if (error) throw new TeachingError(503, 'Teaching data is temporarily unavailable.', error);
 }
 
 async function allRows<T>(query: (start: number, end: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {

@@ -92,6 +92,7 @@ import PDFKit
         } catch { report(error) }
     }
     func showLessonInformation() {
+        NotificationCenter.default.post(name: Notification.Name("TeachingPausePDF"), object: nil)
         guard let session, let profile else { ClassroomState.shared.clear(); return }
         ClassroomState.shared.showLesson(title: session.classroomTitle, time: "\(Self.time(session.startAt))–\(Self.time(session.endAt))", room: session.room ?? "", tutor: profile.name)
     }

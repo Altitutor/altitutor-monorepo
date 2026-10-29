@@ -52,6 +52,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private var lastSize = CGSize.zero
         private var backgroundObserver: NSObjectProtocol?
         private var flushObserver: NSObjectProtocol?
+        private var pauseObserver: NSObjectProtocol?
         init(_ parent: PDFDocumentSurface) { self.parent = parent }
         func attach(_ view: PDFView) {
             self.view = view; parent.controls.coordinator = self
@@ -68,6 +69,9 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 }
                 flushObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingFlushPDF"), object: nil, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.persist() }
+                }
+                pauseObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingPausePDF"), object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.persist(); self?.hideTools() }
                 }
                 backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.persist() }
@@ -126,8 +130,13 @@ struct PDFDocumentSurface: UIViewRepresentable {
             active = false; persist(); timer?.invalidate(); timer = nil
             if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
             if let flushObserver { NotificationCenter.default.removeObserver(flushObserver) }
+            if let pauseObserver { NotificationCenter.default.removeObserver(pauseObserver) }
+            hideTools()
             for canvas in canvases.values { toolPicker.removeObserver(canvas) }
             view?.pageOverlayViewProvider = nil
+        }
+        private func hideTools() {
+            for canvas in canvases.values { toolPicker.setVisible(false, forFirstResponder: canvas); canvas.resignFirstResponder() }
         }
         func move(_ delta: Int) {
             guard let view, let pdf = view.document, let page = pdf.page(at: min(max(parent.controls.page - 1 + delta, 0), pdf.pageCount - 1)) else { return }
@@ -183,13 +192,24 @@ struct PDFDocumentSurface: UIViewRepresentable {
         let data = UIGraphicsPDFRenderer(bounds: .zero).pdfData { context in
             for index in 0..<pdf.pageCount {
                 guard let page = pdf.page(at: index) else { continue }
-                let size = page.bounds(for: .cropBox).size
+                guard let reference = page.pageRef else { continue }
+                let crop = reference.getBoxRect(.cropBox)
+                let quarterTurn = abs(reference.rotationAngle) % 180 == 90
+                let size = quarterTurn ? CGSize(width: crop.height, height: crop.width) : crop.size
                 let bounds = CGRect(origin: .zero, size: size)
                 context.beginPage(withBounds: bounds, pageInfo: [:])
                 let graphics = context.cgContext
-                graphics.saveGState(); graphics.translateBy(x: 0, y: size.height); graphics.scaleBy(x: 1, y: -1)
-                page.draw(with: .cropBox, to: graphics); graphics.restoreGState()
-                if let ink = drawings[index] { ink.image(from: bounds, scale: 2).draw(in: bounds) }
+                graphics.saveGState()
+                graphics.translateBy(x: 0, y: size.height); graphics.scaleBy(x: 1, y: -1)
+                graphics.concatenate(reference.getDrawingTransform(.cropBox, rect: bounds, rotate: 0, preserveAspectRatio: true))
+                graphics.drawPDFPage(reference)
+                if let ink = drawings[index] {
+                    // PencilKit uses the crop-local, top-left coordinate space of the page overlay.
+                    graphics.translateBy(x: crop.minX, y: crop.maxY); graphics.scaleBy(x: 1, y: -1)
+                    let inkBounds = CGRect(origin: .zero, size: crop.size)
+                    ink.image(from: inkBounds, scale: 2).draw(in: inkBounds)
+                }
+                graphics.restoreGState()
             }
         }
         let folder = exportsDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import CoreText
+import PDFKit
 
 // Synthetic worksheets only; run on macOS when preparing the owned local preview.
 for (filename, title, solution) in [("worksheet.pdf", "Differentiation practice", false), ("solutions.pdf", "Worked solutions", true)] {
@@ -20,4 +21,10 @@ for (filename, title, solution) in [("worksheet.pdf", "Differentiation practice"
         context.endPDFPage()
     }
     context.closePDF()
+    // Page 2 exercises source rotation/crop geometry independently of the viewer's rotation preference.
+    if let pdf = PDFDocument(url: output), let rotated = pdf.page(at: 1) {
+        rotated.setBounds(CGRect(x: 30, y: 40, width: 552, height: 712), for: .cropBox)
+        rotated.rotation = 90
+        guard pdf.write(to: output) else { fatalError("Could not write rotated fixture") }
+    }
 }

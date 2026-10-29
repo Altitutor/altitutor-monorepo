@@ -41,7 +41,7 @@ struct ClassroomView: View {
             } else {
                 Text("Altitutor").font(.system(size: 60, weight: .semibold)).frame(maxWidth: .infinity, maxHeight: .infinity).background(TeachingColors.navy).foregroundStyle(.white)
             }
-        }.ignoresSafeArea()
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).ignoresSafeArea()
     }
 }
 
@@ -50,7 +50,8 @@ struct AudiencePDF: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView(); view.displayMode = .singlePage; view.isUserInteractionEnabled = false
-        view.backgroundColor = .black; view.pageOverlayViewProvider = context.coordinator
+        view.backgroundColor = .black; view.autoScales = false; view.minScaleFactor = 0.01; view.maxScaleFactor = 100
+        view.pageOverlayViewProvider = context.coordinator
         return view
     }
     func updateUIView(_ view: PDFView, context: Context) {
@@ -71,7 +72,14 @@ struct AudiencePDF: UIViewRepresentable {
             } else { overlay.image = nil }
         }
         view.go(to: page)
-        if !worksheet.visibleRect.isEmpty, !worksheet.visibleRect.isNull { view.go(to: worksheet.visibleRect, on: page) }
+        if !worksheet.visibleRect.isEmpty, !worksheet.visibleRect.isNull, view.bounds.width > 0, view.bounds.height > 0 {
+            let rect = worksheet.visibleRect
+            let quarterTurn = abs(page.rotation) % 180 == 90
+            let size = quarterTurn ? CGSize(width: rect.height, height: rect.width) : rect.size
+            let scale = min(view.bounds.width / size.width, view.bounds.height / size.height)
+            if abs(view.scaleFactor - scale) > 0.001 { view.scaleFactor = scale }
+            view.go(to: rect, on: page)
+        }
     }
     @MainActor final class Coordinator: NSObject, @MainActor PDFPageOverlayViewProvider {
         var id: UUID?
@@ -93,6 +101,7 @@ struct AudiencePDF: UIViewRepresentable {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
+        window.frame = windowScene.coordinateSpace.bounds
         window.rootViewController = UIHostingController(rootView: ClassroomView())
         window.isHidden = false; self.window = window
     }

@@ -1,6 +1,8 @@
 /** @jest-environment node */
 import { handleTeachingRequest } from '../http';
 
+let mockProfileErrors: Array<{code: string; message: string}> = [];
+
 it('requires native credentials instead of falling back to a browser cookie', async () => {
   const response = await handleTeachingRequest(new Request('https://tutor.test/api/teaching/profile', {
     headers: { Cookie: 'tutor-auth=someone-else' },
@@ -17,11 +19,12 @@ jest.mock('@supabase/supabase-js', () => ({
     }) },
     from: () => ({ select: () => ({ maybeSingle: async () => ({ data: {
       id: 'staff-tutor', user_id: 'auth-tutor', first_name: 'Alex', last_name: 'Tutor', role: 'TUTOR', status: 'ACTIVE',
-    }, error: null }) }) }),
+    }, error: mockProfileErrors.shift() ?? null }) }) }),
   }),
 }));
 
 beforeEach(() => {
+  mockProfileErrors = [];
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'fixture-public-key';
 });
@@ -39,4 +42,12 @@ it('returns the authenticated tutor profile without exposing staff contact data'
   }));
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ id: 'staff-tutor', userID: 'auth-tutor', name: 'Alex Tutor', canSubmitLogs: true });
+});
+
+it('recovers the documented JWT clock-skew profile failure without logging out the tutor', async () => {
+  mockProfileErrors.push({code: 'PGRST303', message: 'JWT issued at future'});
+  const response = await handleTeachingRequest(new Request('https://tutor.test/api/teaching/profile', {
+    headers: {Authorization: 'Bearer tutor-token'},
+  }));
+  expect(response.status).toBe(200);
 });

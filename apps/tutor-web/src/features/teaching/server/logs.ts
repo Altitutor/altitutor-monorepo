@@ -17,7 +17,7 @@ function exactRoster(actual: string[], expected: string[], label: string) {
 export async function submitTeachingLog(request: Request, client: SupabaseClient<Database>, input: TeachingLogInput) {
   const { data: session, error } = await client.from('vtutor_operational_session_detail')
     .select('session_id,staff,students,parents').eq('session_id', input.sessionId).maybeSingle();
-  if (error) throw new TeachingError(503, 'Could not verify the lesson roster.');
+  if (error) throw new TeachingError(503, 'Could not verify the lesson roster.', error);
   if (!session) throw new TeachingError(403, 'You do not have access to this lesson.');
   const staff = parseSessionStaffList(session.staff).filter(p => p.id);
   exactRoster(input.staffAttendance.map(p => p.staffId), staff.map(p => p.id), 'staff');
@@ -37,12 +37,12 @@ export async function submitTeachingLog(request: Request, client: SupabaseClient
   }
   if (topicIDs.length) {
     const topics = await client.from('vtutor_topics').select('id').in('id', topicIDs);
-    if (topics.error) throw new TeachingError(503, 'Could not verify lesson topics.');
+    if (topics.error) throw new TeachingError(503, 'Could not verify lesson topics.', topics.error);
     if (topics.data?.length !== topicIDs.length) throw new TeachingError(403, 'A topic is no longer accessible.');
   }
   if (fileIDs.length) {
     const files = await client.from('vtutor_topics_files').select('id,topic_id,is_solutions_of_id').in('id', fileIDs).is('deleted_at', null);
-    if (files.error) throw new TeachingError(503, 'Could not verify lesson files.');
+    if (files.error) throw new TeachingError(503, 'Could not verify lesson files.', files.error);
     if (files.data?.length !== fileIDs.length) throw new TeachingError(403, 'A resource is no longer accessible.');
     for (const file of input.topicFiles) {
       const row = files.data.find(f => f.id === file.topicsFilesId);
