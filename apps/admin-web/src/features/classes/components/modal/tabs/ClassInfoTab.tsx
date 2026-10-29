@@ -205,6 +205,9 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     scheduleTimeline,
     today
   );
+  const endedSchedule = !currentSchedule && upcomingSchedules.length === 0
+    ? scheduleTimeline?.find((revision) => revision.effectiveTo < today)
+    : undefined;
   const isPricingLoading = isBillingPricingLoading || isPricingOverridesLoading;
 
   if (isEditing) {
@@ -344,7 +347,18 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
               isPricingLoading={isPricingLoading}
             />
           ))}
-          {!currentSchedule && upcomingSchedules.length === 0 ? (
+          {endedSchedule ? (
+            <ScheduleConfigurationCard
+              title="Schedule"
+              revision={endedSchedule}
+              subjectId={classData.subject_id}
+              pricingDate={today}
+              pricing={billingPricing}
+              overrides={pricingOverrides}
+              isPricingLoading={isPricingLoading}
+            />
+          ) : null}
+          {!currentSchedule && upcomingSchedules.length === 0 && !endedSchedule ? (
             <p className="text-sm text-muted-foreground">No active or upcoming schedule is configured.</p>
           ) : null}
         </>
