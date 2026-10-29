@@ -24,6 +24,17 @@ if name=='docker':
   print(json.dumps([record]))
  elif args[0]=='ps':
   if data.get('started'):print('owned-db\nowned-api')
+ elif args[:2]==['network','ls']:
+  print('\n'.join(data.get('networks',{})))
+ elif args[:2]==['network','inspect']:
+  record=data.get('networks',{}).get(args[2])
+  if not record:sys.exit(1)
+  print(json.dumps([record]))
+ elif args[:2]==['network','rm']:
+  assert args[2]=='owned-network', 'foreign or replacement network removal'
+  del data['networks'][args[2]];state.write_text(json.dumps(data))
+ elif args[:2]==['volume','ls']:
+  print('\n'.join(data.get('volumes',[])))
  elif args[0]=='exec':
   assert args[2]=='owned-db', 'foreign container seed';sys.stdin.read()
 elif name=='pnpm' and 'next' in args:
@@ -51,6 +62,7 @@ elif name=='supabase':
  assert args[:2]==['--workdir',data['workdir']], 'foreign workdir'
  args=args[2:]
  if args[0]=='start':
+  data['networks']={'owned-network':{'Id':'owned-network','Name':'supabase_network_'+project,'Labels':{'com.supabase.cli.project':project},'Containers':{}}}
   data['started']=True;data['stopped']=False;state.write_text(json.dumps(data))
   if os.environ.get('FIXTURE_START_FAIL'):sys.exit(9)
  elif args[0]=='status':
@@ -64,7 +76,18 @@ elif name=='supabase':
   if os.environ.get('FIXTURE_GEN_FAIL'):sys.exit(9)
   print('// fixture generated types')
  elif args[0]=='stop':
-  data['started']=False;data['stopped']=True;state.write_text(json.dumps(data))
+  data['started']=False;data['stopped']=True
+  if os.environ.get('FIXTURE_STOP_NETWORK_CONTENTION'):
+   if os.environ.get('FIXTURE_STOP_LEFT_VOLUME'):data['volumes']=['supabase_db_'+project]
+   if os.environ.get('FIXTURE_STOP_LEFT_CONTAINER'):data['started']=True
+   if os.environ.get('FIXTURE_STOP_REPLACE_NETWORK'):
+    record=data['networks'].pop('owned-network');record['Id']='replacement-network';data['networks']['replacement-network']=record
+   if os.environ.get('FIXTURE_STOP_ATTACHED_NETWORK'):data['networks']['owned-network']['Containers']={'foreign':'endpoint'}
+   state.write_text(json.dumps(data))
+   print('failed to prune networks: Error response from daemon: a prune operation is already running',file=sys.stderr);sys.exit(1)
+  data['networks']={};state.write_text(json.dumps(data))
+  if os.environ.get('FIXTURE_STOP_OTHER_ERROR'):
+   print('failed to stop container: daemon unavailable',file=sys.stderr);sys.exit(1)
 """
 
 class OwnedDatabaseTests(unittest.TestCase):
@@ -149,6 +172,48 @@ class OwnedDatabaseTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertTrue(json.loads(self.state.read_text())['stopped'])
                 self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
+
+    def test_completed_owned_cleanup_recovers_only_network_prune_contention(self):
+        self.env['FIXTURE_STOP_NETWORK_CONTENTION'] = '1'
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(self.state.read_text())
+        self.assertFalse(data['started'])
+        self.assertEqual(data['networks'], {})
+        self.assertEqual(data['normal_database'], 'untouched')
+
+    def test_network_prune_recovery_rejects_incomplete_or_replaced_resources(self):
+        self.env['FIXTURE_STOP_NETWORK_CONTENTION'] = '1'
+        for fault in ['FIXTURE_STOP_LEFT_VOLUME', 'FIXTURE_STOP_LEFT_CONTAINER',
+                      'FIXTURE_STOP_REPLACE_NETWORK', 'FIXTURE_STOP_ATTACHED_NETWORK']:
+            with self.subTest(fault=fault):
+                self.env[fault] = '1'
+                result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(name == 'docker' and args[:2] == ['network', 'rm']
+                                     for name, args in self.calls()))
+                self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
+                del self.env[fault]
+                data = json.loads(self.state.read_text())
+                data['started'] = False
+                data['volumes'] = []
+                self.state.write_text(json.dumps(data))
+                self.log.unlink()
+
+    def test_unrelated_stop_error_remains_failure_even_after_resources_are_gone(self):
+        self.env['FIXTURE_STOP_OTHER_ERROR'] = '1'
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('daemon unavailable', result.stderr)
+        self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
+
+    def test_network_replaced_before_cleanup_is_not_adopted(self):
+        consumer = self.base / 'replace-network.py'
+        consumer.write_text('import json,os\nfrom pathlib import Path\np=Path(os.environ["FIXTURE_STATE"])\nd=json.loads(p.read_text())\nr=d["networks"].pop("owned-network")\nr["Id"]="replacement-network"\nd["networks"][r["Id"]]=r\np.write_text(json.dumps(d))\n')
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, str(consumer))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('network replaced', result.stderr.lower())
+        self.assertFalse(any(name == 'supabase' and 'stop' in args for name, args in self.calls()))
 
     def test_normal_development_manifest_is_rejected_before_any_command(self):
         data=json.loads(self.manifest.read_text());data['workdir']=str(self.repo);data['project_id']='altitutor-admin-app'
