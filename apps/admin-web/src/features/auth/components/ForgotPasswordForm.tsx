@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +17,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { authApi } from '@/features/auth/api';
@@ -100,7 +101,7 @@ export function ForgotPasswordForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input
+                  <EmailInput
                     type="email"
                     placeholder="Enter your email"
                     autoComplete="email"

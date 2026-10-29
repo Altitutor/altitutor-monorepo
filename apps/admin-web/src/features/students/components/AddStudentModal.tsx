@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@altitutor/ui";
@@ -366,7 +368,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone,
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="studentEmail">Student Email</Label>
-              <Input 
+              <EmailInput
                 id="studentEmail" 
                 type="email" 
                 {...register('studentEmail')} 

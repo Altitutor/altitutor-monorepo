@@ -1,6 +1,8 @@
 /** @type {import('jest').Config} */
 const config = {
   testEnvironment: 'jsdom',
+  // Turbo can run several portal suites together; bound this suite's workers.
+  maxWorkers: 2,
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

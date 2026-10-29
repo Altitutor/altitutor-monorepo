@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -250,7 +252,7 @@ export function AdminTrialContactForm({
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" {...field} />
+                    <EmailInput type="email" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

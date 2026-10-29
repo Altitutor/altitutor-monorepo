@@ -121,3 +121,6 @@ export * from './components/interview-media';
 
 export * from "./components/timed-calendar";
 export * from "./components/interview-round-calendar-card";
+
+export * from './components/entity-chip';
+export * from './extensions/entity-mention';

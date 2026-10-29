@@ -7,12 +7,13 @@ import {
   CreditCard,
   AlertTriangle,
   Beaker,
-  Newspaper,
   ClipboardList,
   Monitor,
   UserRound,
   TrendingUp,
   MessageSquareText,
+  ListTodo,
+  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,6 +43,10 @@ export const navItems: NavItem[] = [
     icon: MessageSquareText,
   },
   {
+    type: "heading",
+    title: "SCHEDULING",
+  },
+  {
     title: "Trial students",
     href: "/trial-students",
     icon: Users,
@@ -49,10 +54,6 @@ export const navItems: NavItem[] = [
       { title: "Work queue", href: "/trial-students" },
       { title: "Conversion insights", href: "/trial-students/insights" },
     ],
-  },
-  {
-    type: "heading",
-    title: "SCHEDULING",
   },
   {
     title: "In-person Students",
@@ -84,14 +85,18 @@ export const navItems: NavItem[] = [
     href: "/sessions",
     icon: ClipboardList,
   },
-  {
-    type: "heading",
-    title: "FINANCIAL",
-  },
+  { type: "heading", title: "OPERATIONS" },
+  { title: "Tasks", href: "/tasks", icon: ListTodo },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Issues", href: "/issues", icon: AlertTriangle },
   {
     title: "Reconciliation",
     href: "/reconciliation",
     icon: AlertTriangle,
+  },
+  {
+    type: "heading",
+    title: "FINANCIAL",
   },
   {
     title: "Invoices",
@@ -126,10 +131,5 @@ export const navItems: NavItem[] = [
     title: "Subjects",
     href: "/subjects",
     icon: Beaker,
-  },
-  {
-    title: "Topics",
-    href: "/topics",
-    icon: Newspaper,
   },
 ];

@@ -1,3 +1,4 @@
+import { EmailInput } from '@/shared/components/EmailInput';
 import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Badge } from "@altitutor/ui";
@@ -224,7 +225,7 @@ export function StaffDetailsTab({
                     control={form.control}
                     name="email"
                     render={({ field }) => (
-                      <Input 
+                      <EmailInput
                         id="staff-email"
                         type="email" 
                         {...field}

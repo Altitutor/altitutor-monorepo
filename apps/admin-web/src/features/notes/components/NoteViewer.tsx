@@ -2,7 +2,7 @@
 
 import { generateHTML } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import Mention from '@tiptap/extension-mention';
+import { EntityMention } from '@altitutor/ui';
 import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
@@ -34,33 +34,7 @@ const VIEW_EXTENSIONS = [
     orderedList: { keepMarks: true, keepAttributes: false },
   }),
   CollapsibleHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
-  Mention.configure({
-    HTMLAttributes: {
-      class: 'bg-primary/10 text-primary px-1 rounded-sm font-medium',
-      'data-mention': 'true',
-    },
-  }).extend({
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        id: {
-          default: null,
-          parseHTML: (el) => el.getAttribute('data-id'),
-          renderHTML: (attrs) => ({ 'data-id': attrs.id }),
-        },
-        label: {
-          default: null,
-          parseHTML: (el) => el.getAttribute('data-label') || el.innerText,
-          renderHTML: (attrs) => ({ 'data-label': attrs.label }),
-        },
-        type: {
-          default: null,
-          parseHTML: (el) => el.getAttribute('data-type'),
-          renderHTML: (attrs) => ({ 'data-type': attrs.type }),
-        },
-      };
-    },
-  }),
+  EntityMention,
   TableKit.configure({ table: { resizable: true } }),
   Image.configure({
     HTMLAttributes: {
@@ -141,6 +115,16 @@ function JsonNoteViewer({
         )}
         dangerouslySetInnerHTML={{ __html: html }}
         onPointerDownCapture={handleMentionPointerDown}
+        onKeyDownCapture={event => {
+          const mention = event.target instanceof Element ? event.target.closest('[data-mention]') : null;
+          if (!mention || (event.key !== 'Enter' && event.key !== ' ')) return;
+          const id = mention.getAttribute('data-id');
+          const type = mention.getAttribute('data-type');
+          if (!id || !type) return;
+          event.preventDefault();
+          const detail = {id, type, label: mention.getAttribute('data-label') ?? mention.textContent ?? ''};
+          if (!onMentionClick?.(detail)) mention.dispatchEvent(new CustomEvent<MentionClickDetail>('mentionClick', {detail, bubbles: true}));
+        }}
       />
     );
   } catch {
