@@ -495,7 +495,7 @@ function SessionDetailView({ id }: { id: string }) {
                           .join(" ")
                       }
                       searchPlaceholder="Search session dates or times…"
-                      emptyMessage={`No ${siblingScope} sessions found.}`}
+                      emptyMessage={`No ${siblingScope} sessions found.`}
                       loading={siblingSessionsQuery.isLoading}
                       disabled={
                         siblingSessionsQuery.isLoading ||
