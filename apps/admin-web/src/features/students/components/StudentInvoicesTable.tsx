@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useMemo, useState } from 'react';
 import {
   Table,
@@ -150,7 +152,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
     setActionInvoiceId(invoiceId);
     setIsLoadingAction(true);
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
+      const response = await requestOperationalEmail(`/api/invoices/${invoiceId}/send-invoice`, {
         method: 'POST',
       });
 

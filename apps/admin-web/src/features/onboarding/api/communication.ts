@@ -1,4 +1,6 @@
 "use client";
+import { mailRequest } from "@/features/email/api/client";
+import { mailboxSchema } from "@/features/email/types";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import {
@@ -142,11 +144,7 @@ export function useMailboxStatus() {
   return useQuery({
     queryKey: ["onboarding", "mailbox-status"],
     queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
-        .from("onboarding_mailbox_sync")
-        .select("folder,synced_at,last_error");
-      if (error) throw error;
-      return data;
+      return mailboxSchema.parse(await mailRequest("")).sync.map((state) => ({ folder: state.folder_id, synced_at: state.page_at, last_error: state.last_error }));
     },
   });
 }

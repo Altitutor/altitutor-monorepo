@@ -2935,6 +2935,472 @@ export type Database = {
           },
         ]
       }
+      email_draft_edits: {
+        Row: {
+          expires_at: string
+          message_id: string
+          staff_id: string
+          token: string
+          writing_until: string | null
+        }
+        Insert: {
+          expires_at: string
+          message_id: string
+          staff_id: string
+          token: string
+          writing_until?: string | null
+        }
+        Update: {
+          expires_at?: string
+          message_id?: string
+          staff_id?: string
+          token?: string
+          writing_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_draft_edits_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_folders: {
+        Row: {
+          id: string
+          name: string
+          parent_id: string | null
+          present: boolean
+          role: string | null
+        }
+        Insert: {
+          id: string
+          name: string
+          parent_id?: string | null
+          present?: boolean
+          role?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          parent_id?: string | null
+          present?: boolean
+          role?: string | null
+        }
+        Relationships: []
+      }
+      email_messages: {
+        Row: {
+          data: Json
+          folder_id: string | null
+          id: string
+          occurred_at: string | null
+          removed: boolean
+          seen_at: string
+          thread_id: string
+        }
+        Insert: {
+          data: Json
+          folder_id?: string | null
+          id: string
+          occurred_at?: string | null
+          removed?: boolean
+          seen_at?: string
+          thread_id: string
+        }
+        Update: {
+          data?: Json
+          folder_id?: string | null
+          id?: string
+          occurred_at?: string | null
+          removed?: boolean
+          seen_at?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_operational_sends: {
+        Row: {
+          actor_staff_id: string | null
+          change_key: string | null
+          context_links: Json
+          created_at: string
+          draft_id: string | null
+          id: string
+          idempotency_key: string
+          payload: Json
+          state: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          actor_staff_id?: string | null
+          change_key?: string | null
+          context_links: Json
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          idempotency_key: string
+          payload: Json
+          state: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          actor_staff_id?: string | null
+          change_key?: string | null
+          context_links?: Json
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          idempotency_key?: string
+          payload?: Json
+          state?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_participant_links: {
+        Row: {
+          email: string
+          record_id: string
+          record_type: string
+        }
+        Insert: {
+          email: string
+          record_id: string
+          record_type: string
+        }
+        Update: {
+          email?: string
+          record_id?: string
+          record_type?: string
+        }
+        Relationships: []
+      }
+      email_record_links: {
+        Row: {
+          record_id: string
+          record_type: string
+          source: string
+          thread_id: string
+        }
+        Insert: {
+          record_id: string
+          record_type: string
+          source: string
+          thread_id: string
+        }
+        Update: {
+          record_id?: string
+          record_type?: string
+          source?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_record_links_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_attempts: {
+        Row: {
+          command_id: string
+          message_id: string
+          staff_id: string
+          started_at: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          command_id: string
+          message_id: string
+          staff_id: string
+          started_at?: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          command_id?: string
+          message_id?: string
+          staff_id?: string
+          started_at?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_attempts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_signatures: {
+        Row: {
+          body_text: string
+          staff_id: string
+        }
+        Insert: {
+          body_text: string
+          staff_id: string
+        }
+        Update: {
+          body_text?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_sync_lease: {
+        Row: {
+          expires_at: string
+          singleton: boolean
+          token: string
+        }
+        Insert: {
+          expires_at: string
+          singleton?: boolean
+          token: string
+        }
+        Update: {
+          expires_at?: string
+          singleton?: boolean
+          token?: string
+        }
+        Relationships: []
+      }
+      email_sync_state: {
+        Row: {
+          bootstrap_started_at: string | null
+          completed_at: string | null
+          cursor_url: string | null
+          folder_id: string
+          last_error: string | null
+          page_at: string | null
+        }
+        Insert: {
+          bootstrap_started_at?: string | null
+          completed_at?: string | null
+          cursor_url?: string | null
+          folder_id: string
+          last_error?: string | null
+          page_at?: string | null
+        }
+        Update: {
+          bootstrap_started_at?: string | null
+          completed_at?: string | null
+          cursor_url?: string | null
+          folder_id?: string
+          last_error?: string | null
+          page_at?: string | null
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          body_text: string
+          created_at: string
+          id: string
+          name: string
+          subject: string
+        }
+        Insert: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          name: string
+          subject?: string
+        }
+        Update: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          name?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_threads: {
+        Row: {
+          assigned_at: string | null
+          assigned_staff_id: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_staff_id?: string | null
+          created_at?: string
+          id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_staff_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           bucket: string | null
@@ -43859,6 +44325,118 @@ export type Database = {
         }
         Returns: Json
       }
+      email_apply_sync_page: {
+        Args: {
+          p_complete: boolean
+          p_cursor: string
+          p_expected_cursor: string
+          p_folder_id: string
+          p_messages: Json
+          p_observation_only?: boolean
+          p_removed_ids: string[]
+        }
+        Returns: boolean
+      }
+      email_assign_thread: {
+        Args: { p_staff_id: string; p_thread_id: string }
+        Returns: Json
+      }
+      email_begin_send: {
+        Args: {
+          p_change_key: string
+          p_command_id: string
+          p_message_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      email_claim_draft: {
+        Args: {
+          p_change_key: string
+          p_message_id: string
+          p_staff_id: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      email_claim_sync: { Args: { p_token: string }; Returns: boolean }
+      email_correspondence_for_record: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_record_id: string
+          p_record_type: string
+        }
+        Returns: {
+          data: Json
+          folder_id: string | null
+          id: string
+          occurred_at: string | null
+          removed: boolean
+          seen_at: string
+          thread_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      email_create_enquiry: {
+        Args: { p_email_id: string; p_values: Json }
+        Returns: string
+      }
+      email_link_participant: {
+        Args: {
+          p_email: string
+          p_record_id: string
+          p_record_type: string
+          p_thread_id: string
+        }
+        Returns: Json
+      }
+      email_link_record: {
+        Args: {
+          p_record_id: string
+          p_record_type: string
+          p_thread_id: string
+        }
+        Returns: Json
+      }
+      email_list_threads: {
+        Args: {
+          p_assignee: string
+          p_direction?: string
+          p_folder_id: string
+          p_limit?: number
+          p_offset?: number
+          p_search: string
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      email_operational_prepare: {
+        Args: { p_actor: string; p_key: string; p_links: Json; p_payload: Json }
+        Returns: Json
+      }
+      email_operational_update: {
+        Args: {
+          p_change_key?: string
+          p_draft_id?: string
+          p_expected: string
+          p_id: string
+          p_state: string
+          p_token: string
+        }
+        Returns: boolean
+      }
+      email_release_sync: { Args: { p_token: string }; Returns: undefined }
+      email_reset_sync_cursor: {
+        Args: { p_expected_cursor: string; p_folder_id: string }
+        Returns: boolean
+      }
+      email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
       end_student_class_enrolment: {
         Args: {
           p_class_id: string

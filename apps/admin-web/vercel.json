@@ -7,8 +7,8 @@
   },
   "crons": [
     {
-      "path": "/api/onboarding/mailbox-sync",
-      "schedule": "*/5 * * * *"
+      "path": "/api/email/sync",
+      "schedule": "* * * * *"
     }
   ]
 }

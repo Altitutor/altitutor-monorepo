@@ -18,6 +18,7 @@ export const ACCESSORY_ROUTES: Record<
   projects: { kind: "projects", detail: "project", title: "Projects" },
   documents: { kind: "documents", detail: "document", title: "Documents" },
   notes: { kind: "documents", detail: "document", title: "Documents" },
+  email: { kind: "email", detail: "email", title: "Email" },
   messages: { kind: "messages", title: "Messages" },
 };
 export function accessoryDestination(href: string) {

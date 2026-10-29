@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useMemo, useState, createContext, useContext } from 'react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -214,7 +216,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const handleSendInvoiceEmail = async (invoiceId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
+      const response = await requestOperationalEmail(`/api/invoices/${invoiceId}/send-invoice`, {
         method: 'POST',
       });
 

@@ -1,3 +1,5 @@
+import { webcrypto } from 'node:crypto';
+import { TextEncoder } from 'node:util';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@altitutor/ui';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -7,6 +9,7 @@ import { StudentInvoicesTable } from '@/features/students/components/StudentInvo
 import { useStudentInvoiceOwing } from '@/features/billing/hooks/useInvoicesQuery';
 
 const originalFetch = global.fetch;
+const originalCrypto = global.crypto;
 let mockOwingError = false;
 let mockInvoice = {
   id: 'invoice',
@@ -70,12 +73,15 @@ jest.mock('@supabase/ssr', () => ({
 
 const clients: QueryClient[] = [];
 beforeEach(() => {
+  Object.defineProperty(global, 'crypto', { configurable: true, value: webcrypto });
+  Object.defineProperty(global, 'TextEncoder', { configurable: true, value: TextEncoder });
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'synthetic-fixture';
   mockInvoice = { ...mockInvoice, status: 'open', amount_paid_cents: 0 };
   mockOwingError = false;
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
+    clone: () => ({ json: async () => ({ success: true }) }),
     json: async () => ({
       sent: ['student@example.test'],
       credit_notes: [],
@@ -88,6 +94,8 @@ beforeEach(() => {
 afterEach(() => {
   clients.splice(0).forEach((client) => client.clear());
   global.fetch = originalFetch;
+  Object.defineProperty(global, 'crypto', { configurable: true, value: originalCrypto });
+  sessionStorage.clear();
 });
 
 function renderSurface(surface: 'detail' | 'student') {
@@ -146,7 +154,7 @@ describe.each(['detail', 'student'] as const)(
         await waitFor(() =>
           expect(global.fetch).toHaveBeenCalledWith(
             '/api/invoices/invoice/send-invoice',
-            { method: 'POST' },
+            expect.objectContaining({ method: 'POST', headers: expect.any(Headers) }),
           ),
         );
         await openActions(surface);

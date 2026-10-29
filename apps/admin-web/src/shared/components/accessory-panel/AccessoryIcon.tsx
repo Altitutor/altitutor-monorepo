@@ -5,6 +5,7 @@ import {
   FolderKanban,
   FileText,
   MessageCircle,
+  Mail,
 } from "lucide-react";
 import {
   accessoryFamily,
@@ -24,6 +25,7 @@ export function AccessoryIcon({
     projects: FolderKanban,
     documents: FileText,
     messages: MessageCircle,
+    email: Mail,
   }[
     accessoryFamily(kind) as
       | "today"
@@ -32,6 +34,7 @@ export function AccessoryIcon({
       | "projects"
       | "documents"
       | "messages"
+      | "email"
   ];
   return <Icon className={className} aria-hidden="true" />;
 }

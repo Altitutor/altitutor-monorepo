@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { WorkflowEmail } from '@/features/email/components/WorkflowEmail';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { Button, SearchableSelect } from '@altitutor/ui';
@@ -176,6 +177,11 @@ export function UnenrollStep3MessageScreen({
         </div>
       )}
 
+      {currentStaff && <WorkflowEmail student={student} parents={parents} subject="Unenrolment confirmation" buildBody={async (name) => {
+        const last = calculateLastSessionDate(classData, getMidnightAdelaide(new Date(unenrollmentDate)));
+        if (!last) throw new Error("The final session date is unavailable.");
+        return getUnenrollmentConfirmationMessageForClient({ name, className: classSubject ? (classData.long_name?.trim() ?? '') : 'class', finalSessionDate: formatSessionDateTime(last), senderName: getSenderNameFromStaff(currentStaff) });
+      }} />}
       {/* Message Section */}
       {selectedRecipient && recipientOptions.length > 0 ? (
         <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">

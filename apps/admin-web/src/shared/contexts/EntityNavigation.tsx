@@ -16,6 +16,7 @@ import { accessoryDestination } from "@/shared/hooks/usePaneNavigation";
 import { ownedPrimaryHref } from "@/shared/utils/primaryOwnership";
 import { useAccessoryTab } from "./AccessoryTabContext";
 export type EntityType =
+  | "email"
   | "student"
   | "parent"
   | "staff"
@@ -88,7 +89,7 @@ export function useEntityNavigation(): EntityNavigationType {
         );
         return;
       }
-      const route = type === "note" ? "documents" : `${type}s`;
+      const route = type === "email" ? "email" : type === "note" ? "documents" : `${type}s`;
       const destination = accessoryDestination(`/${route}/${id}`);
       if (destination) openTab?.(destination);
     },
@@ -186,7 +187,7 @@ export function EntityNavigationEvents({ children }: { children: ReactNode }) {
           ? type
           : getEntityTypeFromEventName(event.type);
       if (typeof entity === "string") {
-        const route = entity === "note" ? "documents" : `${entity}s`;
+        const route = entity === "email" ? "email" : entity === "note" ? "documents" : `${entity}s`;
         const destination = accessoryDestination(`/${route}/${id}`);
         const focused =
           (event.target instanceof Element

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 import { POST } from '../route';
 
 const mockRetrieveInvoice = jest.fn();
@@ -27,9 +28,7 @@ jest.mock('next/server', () => ({
     }),
   },
 }));
-jest.mock('@altitutor/email/node', () => ({
-  deliverEmail: (...args: unknown[]) => mockEmailDelivery(...args),
-}));
+jest.mock('server-only', () => ({}));
 jest.mock('@sentry/nextjs', () => ({ captureException: jest.fn() }));
 jest.mock('@/shared/lib/supabase/server/admin', () => ({
   supabaseAdmin: {
@@ -52,10 +51,27 @@ jest.mock('@/shared/lib/supabase/server-ssr', () => ({
   }),
 }));
 
+const originalFetch = global.fetch;
+const previousEnv = { ...process.env };
+afterEach(() => { global.fetch = originalFetch; process.env = { ...previousEnv }; });
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.STRIPE_SECRET_KEY = 'sk_test_fake';
-  process.env.RESEND_API_KEY = 'test_fake';
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'fixture-service-key';
+  process.env.EMAIL_M365_TENANT_ID = 'fixture-tenant';
+  process.env.EMAIL_M365_CLIENT_ID = 'fixture-client';
+  process.env.EMAIL_M365_CLIENT_SECRET = 'fixture-secret';
+  global.fetch = jest.fn(async (input, init) => {
+    const url = String(input);
+    if (url.startsWith('https://login.microsoftonline.com/')) return Response.json({ access_token: 'fixture-token' });
+    if (url.endsWith('/rpc/email_operational_prepare')) return Response.json({ id: 'fixture-operation', token: 'fixture-lease', state: 'creating', proceed: true, draftId: null, changeKey: null });
+    if (url.endsWith('/rpc/email_operational_update')) return Response.json(true);
+    if (url.endsWith('/messages') && init?.method === 'POST') { const body = JSON.parse(String(init.body)); mockEmailDelivery(body); return Response.json({ id: 'fixture-draft', changeKey: 'one' }); }
+    if (url.endsWith('/messages/fixture-draft')) return Response.json({ isDraft: true, changeKey: 'one' });
+    if (url.endsWith('/messages/fixture-draft/send')) return new Response(null, { status: 202 });
+    throw new Error(`Unexpected external email boundary: ${url}`);
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { user: { id: 'staff-user' } } },
   });
@@ -105,7 +121,7 @@ it.each(['charge_automatically', 'send_invoice'])(
         student_id: 'student-1',
       },
     });
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+    const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
@@ -116,9 +132,9 @@ it.each(['charge_automatically', 'send_invoice'])(
     expect(mockRetrieveInvoice).toHaveBeenCalledWith('in_test');
     expect(mockEmailDelivery).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: 'student@example.test',
-        email: expect.objectContaining({
-          html: expect.stringContaining(
+        toRecipients: [{ emailAddress: { address: 'student@example.test' } }],
+        body: expect.objectContaining({
+          content: expect.stringContaining(
             'https://invoice.stripe.com/test-fixture',
           ),
         }),
@@ -134,7 +150,7 @@ it('honors recipient preferences when notifying about an automatically charged i
       invoice_email_to_parents: true,
     },
   });
-  const response = await POST({} as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual(
     expect.objectContaining({ sent: ['parent@example.test'] }),
@@ -149,7 +165,7 @@ it('rejects sending when no recipients are configured', async () => {
       invoice_email_to_parents: false,
     },
   });
-  const response = await POST({} as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
   expect(response.status).toBe(400);
   expect(mockEmailDelivery).not.toHaveBeenCalled();
 });
@@ -158,7 +174,7 @@ it('rejects inactive admin staff without retrieving or sending the invoice', asy
   mockStaffSingle.mockResolvedValue({
     data: { id: 'staff-1', role: 'ADMINSTAFF', status: 'INACTIVE' },
   });
-  const response = await POST({} as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
   expect(response.status).toBe(403);
   expect(mockRetrieveInvoice).not.toHaveBeenCalled();
   expect(mockEmailDelivery).not.toHaveBeenCalled();

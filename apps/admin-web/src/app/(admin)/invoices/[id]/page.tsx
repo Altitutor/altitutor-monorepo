@@ -1,4 +1,5 @@
 "use client";
+import { requestOperationalEmail } from "@/features/email/api/operational";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
 import { useRouter } from "next/navigation";
@@ -135,7 +136,7 @@ export default function InvoiceDetailPage({
     if (!id) return;
     setIsLoadingAction(true);
     try {
-      const response = await fetch(`/api/invoices/${id}/send-invoice`, {
+      const response = await requestOperationalEmail(`/api/invoices/${id}/send-invoice`, {
         method: "POST",
       });
 

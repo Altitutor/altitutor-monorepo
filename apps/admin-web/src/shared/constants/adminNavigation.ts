@@ -13,6 +13,7 @@ import {
   UserRound,
   TrendingUp,
   MessageSquareText,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export const navItems: NavItem[] = [
     type: "heading",
     title: "COMMUNICATION",
   },
+  { title: "Mail", href: "/email", icon: Mail },
   {
     title: "Feedback",
     href: "/feedback",

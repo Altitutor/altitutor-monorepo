@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -13,7 +14,6 @@ import {
   DropdownMenuTrigger,
   Input,
   ScrollArea,
-  SearchableSelect,
   SegmentedControl,
 } from "@altitutor/ui";
 import { Filter, Mail, MoreHorizontal, Plus, Search, Settings2, X } from "lucide-react";
@@ -21,7 +21,6 @@ import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { AdminPageActionButton } from "@/shared/components";
 import { useAdminPageViewParam } from "@/shared/hooks/useAdminPageViewParam";
 import { clickableCardInteractiveCn, cn } from "@/shared/utils";
-import { useStudentSearchFilter } from "@/features/students/hooks/useStudentSearchFilter";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import {
   useOnboardingJourneys,
@@ -37,182 +36,9 @@ import {
   type Journey,
 } from "../lib/model";
 import { ConversionInsights } from "./ConversionInsights";
-import { MailboxReview } from "./MailboxReview";
-import type { Tables } from "@altitutor/shared";
+import { NewJourney } from "./NewJourney";
 import { ActionBadges, JourneyDetail } from "./JourneyDetail";
 
-function NewJourney({
-  onClose,
-  sourceEmail,
-}: {
-  onClose: () => void;
-  sourceEmail?: Tables<"onboarding_emails">;
-}) {
-  const [search, setSearch] = useState("");
-  const [studentId, setStudentId] = useState<string>();
-  const [label, setLabel] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState(sourceEmail?.sender ?? "");
-  const [historical, setHistorical] = useState(false);
-  const [returning, setReturning] = useState(false);
-  const [enquiry, setEnquiry] = useState(new Date().toISOString().slice(0, 10));
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const { data: searchData } = useStudentSearchFilter(search, [
-    "ACTIVE",
-    "TRIAL",
-    "DISCONTINUED",
-  ]);
-  const qc = useQueryClient();
-  async function create() {
-    setBusy(true);
-    setError("");
-    try {
-      if (!studentId && !phone && !email)
-        throw new Error("Link a student, phone number, or email address.");
-      const db = getSupabaseClient();
-      let contactId: string | null = null;
-      if (!studentId && phone) {
-        if (!/^\+[1-9]\d{7,14}$/.test(phone))
-          throw new Error(
-            "Enter the enquiry phone number in international format, e.g. +61412345678.",
-          );
-        const existing = await db
-          .from("contacts")
-          .select("id")
-          .eq("phone_e164", phone)
-          .maybeSingle();
-        if (existing.error) throw existing.error;
-        contactId = existing.data?.id ?? null;
-        if (!contactId) {
-          const created = await db
-            .from("contacts")
-            .insert({ phone_e164: phone, contact_type: "LEAD" })
-            .select("id")
-            .single();
-          if (created.error) throw created.error;
-          contactId = created.data.id;
-        }
-      }
-      const { data: created, error } = await db
-        .from("onboarding_journeys")
-        .insert({
-          student_id: studentId ?? null,
-          contact_id: contactId,
-          label,
-          enquiry_email: email || null,
-          enquiry_at: historical
-            ? null
-            : new Date(`${enquiry}T12:00:00`).toISOString(),
-          historical,
-          is_returning: returning,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      if (sourceEmail) {
-        const linked = await db
-          .from("onboarding_email_links")
-          .insert({ email_id: sourceEmail.id, journey_id: created.id });
-        if (linked.error) setError(linked.error.message);
-      }
-      await qc.invalidateQueries({ queryKey: onboardingKey });
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create journey.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <AdminDialogShell
-      open
-      onClose={onClose}
-      title="New enquiry"
-      footer={
-        <Button
-          disabled={busy || !label.trim() || (!historical && !enquiry)}
-          onClick={() => void create()}
-        >
-          Create journey
-        </Button>
-      }
-    >
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Use an existing student when possible. Returning students keep their
-          original identity and trial evidence.
-        </p>
-        <SearchableSelect
-          items={searchData?.students ?? []}
-          getItemId={(s) => s.id}
-          getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
-          onSearchChange={setSearch}
-          value={searchData?.students.find((s) => s.id === studentId) ?? null}
-          onValueChange={(s) => {
-            setStudentId(s?.id);
-            if (s) setLabel(`${s.first_name} ${s.last_name}`);
-          }}
-          placeholder="Find existing student"
-        />
-        <label className="block text-sm">
-          Student or family name
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} />
-        </label>
-        {!studentId && (
-          <label className="block text-sm">
-            Enquiry phone number
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+61412345678"
-            />
-          </label>
-        )}{" "}
-        {!studentId && (
-          <label className="block text-sm">
-            Enquiry email
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-        )}
-        <label className="block text-sm">
-          First identifiable enquiry
-          <Input
-            type="date"
-            value={enquiry}
-            disabled={historical}
-            onChange={(e) => setEnquiry(e.target.value)}
-          />
-        </label>
-        <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={historical}
-            onChange={(e) => setHistorical(e.target.checked)}
-          />
-          Historical · original enquiry date unknown
-        </label>
-        <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={returning}
-            onChange={(e) => setReturning(e.target.checked)}
-          />
-          Returning student · new journey
-        </label>
-        {error && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </div>
-    </AdminDialogShell>
-  );
-}
 function Settings({ onClose }: { onClose: () => void }) {
   const { data } = useOnboardingSettings();
   const qc = useQueryClient();
@@ -308,8 +134,7 @@ export function TrialStudentsPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string>();
   const [create, setCreate] = useState(false);
-  const [mailbox, setMailbox] = useState(false);
-  const [sourceEmail, setSourceEmail] = useState<Tables<"onboarding_emails">>();
+  const { router } = usePaneNavigation();
   const [configure, setConfigure] = useState(false);
   const deadlines = useMemo(
     () => ({
@@ -380,7 +205,6 @@ export function TrialStudentsPage() {
             icon={<Plus className="h-4 w-4" />}
             label="New enquiry"
             onClick={() => {
-              setSourceEmail(undefined);
               setCreate(true);
             }}
           />
@@ -399,9 +223,9 @@ export function TrialStudentsPage() {
                 <Settings2 className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setMailbox(true)}>
+              <DropdownMenuItem onClick={() => router.push("/email")}>
                 <Mail className="mr-2 h-4 w-4" />
-                Review mailbox
+                Open mail
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -644,21 +468,9 @@ export function TrialStudentsPage() {
       )}{" "}
       {create && (
         <NewJourney
-          sourceEmail={sourceEmail}
           onClose={() => setCreate(false)}
         />
       )}{" "}
-      {mailbox && (
-        <MailboxReview
-          journeys={journeys}
-          onClose={() => setMailbox(false)}
-          onEnquiry={(email) => {
-            setSourceEmail(email);
-            setMailbox(false);
-            setCreate(true);
-          }}
-        />
-      )}
       {configure && <Settings onClose={() => setConfigure(false)} />}
     </div>
   );

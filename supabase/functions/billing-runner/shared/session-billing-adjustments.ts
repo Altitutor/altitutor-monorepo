@@ -12,7 +12,8 @@ import {
 import { processStudentInvoicing } from './student-processing.ts';
 import { getAdelaideDateString } from './utils.ts';
 import { buildRestorationBillingContext, buildSessionCreditNoteCommand } from './session-billing-adjustment-policy.ts';
-import { buildCreditNoteNotificationEmail, deliverEdgeEmail } from '../../_shared/email.generated.ts';
+import { buildCreditNoteNotificationEmail } from '../../_shared/email.generated.ts';
+import { operationalMailboxConfigured, sendOperationalEdgeEmail } from '../../_shared/operational-mail.ts';
 
 interface StoredCreditNoteCommand {
   idempotencyKey: string;
@@ -306,7 +307,7 @@ async function issueCreditNote(
   );
   if (creditError) throw creditError;
 
-  if (notification.resendApiKey) {
+  if (notification.resendApiKey || operationalMailboxConfigured()) {
     const preferences = notification.billingByStudent[command.studentId];
     const recipients = [
       ...(preferences?.invoice_email_to_student ? [notification.studentEmailById[command.studentId]] : []),
@@ -322,9 +323,10 @@ async function issueCreditNote(
 
     for (const recipient of uniqueRecipients) {
       try {
-        await deliverEdgeEmail({
-          apiKey: notification.resendApiKey,
-          to: recipient,
+        await sendOperationalEdgeEmail({
+          links: [{ type: "student", id: command.studentId }, { type: "invoice", id: command.invoiceId }],
+          actorStaffId: adjustment.created_by ?? undefined,
+          to: [recipient],
           email,
           idempotencyKey: `core-credit-note/${creditNote.id}/${recipient}`,
         });

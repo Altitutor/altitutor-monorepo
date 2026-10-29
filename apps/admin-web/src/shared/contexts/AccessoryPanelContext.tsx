@@ -21,7 +21,8 @@ export type AccessoryKind =
   | "project"
   | "documents"
   | "document"
-  | "messages";
+  | "messages"
+  | "email";
 export type AccessoryOwner = { kind: AccessoryKind; id: string; title: string };
 export type AccessoryDestination = {
   owner?: AccessoryOwner;
@@ -87,6 +88,7 @@ const kinds: AccessoryKind[] = [
   "documents",
   "document",
   "messages",
+  "email",
 ];
 type AccessoryPanel = Workspace & {
   openTab: (

@@ -1,3 +1,4 @@
+import { operationalMailboxConfigured } from '../../_shared/operational-mail.ts';
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import { formatSessionDate, getClassLongName } from './utils.ts';
@@ -496,7 +497,7 @@ export async function processStudentInvoicing(
           resolveInvoiceEmailRecipients(invoiceEmailToStudent, invoiceEmailToParents, studentEmail, parentEmails).length === 0) {
           await warnInvoiceWithoutRecipients(supabase, dbInvoice.id);
         }
-        if (resendApiKey) {
+        if (resendApiKey || operationalMailboxConfigured()) {
           try {
             const emailResult = await sendInvoiceEmail(
               stripe,
@@ -506,7 +507,7 @@ export async function processStudentInvoicing(
               invoiceEmailToParents,
               studentEmail,
               parentEmails,
-              resendApiKey,
+              dbInvoice.id,
             );
 
             if (emailResult.sent.length > 0) {

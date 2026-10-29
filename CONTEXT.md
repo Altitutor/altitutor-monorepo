@@ -156,6 +156,19 @@
 
 ## Customer communication
 
+- **Shared admin mailbox** — Altitutor's company correspondence at `admin@altitutor.com`, available to all active AdminStaff. It has one shared set of messages, read states and folders regardless of which mail client a staff member uses.
+  _Avoid_: Separate admin-web inbox, per-staff copy of admin mail
+
+- **Email thread responsibility** — The responsibility of one assigned AdminStaff for an email thread's next staff reply, independent of read state. Incoming follow-ups preserve it until any staff member replies; a later incoming email is unassigned until explicitly assigned again.
+  _Avoid_: Personal unread status, permanent thread ownership
+
+- **Email context link** — The association of an email thread with the particular Student or Parent whose correspondence history it belongs to. A unique direct participant match establishes that person's link automatically; linking a child requires an explicit decision rather than inheriting every conversation from their Parent.
+  _Avoid_: Household email roll-up, all children's email history
+
+- **Staff email signature** — The actual replying AdminStaff member's sign-off on routine correspondence sent using the Shared admin mailbox's common Altitutor Admin identity. It identifies the author without creating a personal mailbox or changing the reply destination.
+
+- **Core operational email** — A tutoring-service message such as an enrolment confirmation, absence acknowledgement or invoice notification that belongs in shared correspondence history as well as the directly relevant business records. Shared identity emails and UCAT campaign emails retain their separate domain workflows.
+
 - **Account invite** — A single-use credential that lets a person without an Altitutor User create and link one. It is independent of an In-person registration link, even when account creation is offered within In-person registration.
   _Avoid_: Registration link, password reset, online signup
 

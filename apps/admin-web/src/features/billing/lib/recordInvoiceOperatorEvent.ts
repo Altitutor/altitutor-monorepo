@@ -10,6 +10,7 @@ type RecordInvoiceOperatorEventParams = {
   studentId?: string | null;
   eventName: InvoiceOperatorEventName;
   actorStaffId: string;
+  idempotencyKey?: string;
   payload?: Record<string, Json | undefined>;
 };
 
@@ -29,6 +30,7 @@ export async function recordInvoiceOperatorEvent({
   studentId,
   eventName,
   actorStaffId,
+  idempotencyKey,
   payload,
 }: RecordInvoiceOperatorEventParams): Promise<void> {
   if (!supabaseAdmin) {
@@ -46,6 +48,7 @@ export async function recordInvoiceOperatorEvent({
     p_payload: toJsonObject(payload),
     p_actor_staff_id: actorStaffId,
     p_source: 'application',
+    ...(idempotencyKey ? { p_idempotency_key: idempotencyKey } : {}),
   });
 
   if (error) {

@@ -1,3 +1,4 @@
+import { emailListSchema } from "@/features/email/types";
 import {
   buildPersonFieldOrFilters,
   buildCodeExactOrPrefixOrFilter,
@@ -65,6 +66,12 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
         hasMore: results.length > take,
       });
       switch (type) {
+        case "email": {
+          const result = await db.rpc("email_list_threads", { p_folder_id: "", p_search: search, p_assignee: "all", p_offset: offset, p_limit: take });
+          if (result.error) throw new Error(result.error.message);
+          const page = emailListSchema.parse(result.data);
+          return { results: page.threads.map((thread) => ({ type, id: thread.id, title: thread.subject || "Email conversation", subtitle: thread.senderName || thread.sender })), hasMore: page.hasMore };
+        }
         case "student": {
           // An empty left embed permits OR with the independent in-person relationship.
           // Filter eligibility on the server, before the result limit; never alter mention search.
