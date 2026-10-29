@@ -637,36 +637,81 @@ function record(value) {
 }
 async function deliverOperationalMailboxEmail(input) {
   const fetchImpl = input.fetchImpl ?? fetch;
-  if (!input.to.length || input.email.replyTo.toLowerCase() !== "admin@altitutor.com") throw new Error("Operational email requires the shared admin mailbox and recipients.");
-  if (input.attachments?.some((file) => file.contentBytes.length > 39e5)) throw new Error("This attachment requires a large-file upload session.");
+  if (!input.to.length || input.email.replyTo.toLowerCase() !== "admin@altitutor.com")
+    throw new Error(
+      "Operational email requires the shared admin mailbox and recipients."
+    );
+  if (input.attachments?.some((file) => file.contentBytes.length > 39e5))
+    throw new Error("This attachment requires a large-file upload session.");
   async function rpc(name, values) {
-    const response = await fetchImpl(`${input.serviceUrl.replace(/\/$/, "")}/rest/v1/rpc/${name}`, {
-      method: "POST",
-      headers: { apikey: input.serviceKey, Authorization: `Bearer ${input.serviceKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-      signal: AbortSignal.timeout(15e3)
-    });
-    if (!response.ok) throw new Error(`Mailbox delivery registry failed (${response.status}).`);
+    const response = await fetchImpl(
+      `${input.serviceUrl.replace(/\/$/, "")}/rest/v1/rpc/${name}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: input.serviceKey,
+          Authorization: `Bearer ${input.serviceKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(values),
+        signal: AbortSignal.timeout(15e3)
+      }
+    );
+    if (!response.ok)
+      throw new Error(`Mailbox delivery registry failed (${response.status}).`);
     return response.json();
   }
-  const value = await rpc("email_operational_prepare", { p_key: input.idempotencyKey, p_payload: { to: input.to, email: input.email, ...input.attachments ? { attachments: input.attachments } : {} }, p_links: input.links, p_actor: input.actorStaffId ?? null });
-  if (!record(value) || typeof value.id !== "string" || typeof value.proceed !== "boolean" || typeof value.state !== "string") throw new Error("Invalid mailbox delivery registry response.");
-  if (value.proceed && (typeof value.token !== "string" || !value.token || !["creating", "ready"].includes(value.state)) || !(value.draftId === null || typeof value.draftId === "string") || !(value.changeKey === null || typeof value.changeKey === "string")) throw new Error("Invalid mailbox delivery registry response.");
+  const value = await rpc("email_operational_prepare", {
+    p_key: input.idempotencyKey,
+    p_payload: {
+      to: input.to,
+      email: input.email,
+      ...input.attachments ? { attachments: input.attachments } : {}
+    },
+    p_links: input.links,
+    p_actor: input.actorStaffId ?? null
+  });
+  if (!record(value) || typeof value.id !== "string" || typeof value.proceed !== "boolean" || typeof value.state !== "string")
+    throw new Error("Invalid mailbox delivery registry response.");
+  if (value.proceed && (typeof value.token !== "string" || !value.token || !["creating", "ready"].includes(value.state)) || !(value.draftId === null || typeof value.draftId === "string") || !(value.changeKey === null || typeof value.changeKey === "string"))
+    throw new Error("Invalid mailbox delivery registry response.");
   const operation = value;
   if (!operation.proceed) {
-    if ((operation.state === "submitted" || operation.state === "sent") && operation.draftId) return { providerMessageId: operation.draftId, state: operation.state };
-    throw new Error(`Operational email ${operation.id} is unresolved. Check the shared mailbox before sending another copy.`);
+    if ((operation.state === "submitted" || operation.state === "sent") && operation.draftId)
+      return { providerMessageId: operation.draftId, state: operation.state };
+    throw new Error(
+      `Operational email ${operation.id} is unresolved. Check the shared mailbox before sending another copy.`
+    );
   }
   let token = "";
   const base = "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com";
   async function graph(path, method = "GET", body) {
-    const response = await fetchImpl(base + path, { method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Prefer: 'IdType="ImmutableId"' }, ...body === void 0 ? {} : { body: JSON.stringify(body) }, signal: AbortSignal.timeout(15e3) });
+    const response = await fetchImpl(base + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: 'IdType="ImmutableId"'
+      },
+      ...body === void 0 ? {} : { body: JSON.stringify(body) },
+      signal: AbortSignal.timeout(15e3)
+    });
     if (!response.ok) throw new MicrosoftOperationalError(response.status);
     return response;
   }
   async function update(expected, state, draftId2, changeKey2) {
-    const saved = await rpc("email_operational_update", { p_id: operation.id, p_token: operation.token, p_expected: expected, p_state: state, p_draft_id: draftId2 ?? null, p_change_key: changeKey2 ?? null });
-    if (saved !== true) throw new Error("Another request changed this operational email. Check the shared mailbox before retrying.");
+    const saved = await rpc("email_operational_update", {
+      p_id: operation.id,
+      p_token: operation.token,
+      p_expected: expected,
+      p_state: state,
+      p_draft_id: draftId2 ?? null,
+      p_change_key: changeKey2 ?? null
+    });
+    if (saved !== true)
+      throw new Error(
+        "Another request changed this operational email. Check the shared mailbox before retrying."
+      );
   }
   let stage = operation.state;
   let externalRequestStarted = false;
@@ -679,13 +724,28 @@ async function deliverOperationalMailboxEmail(input) {
       const response = await (await graph("/messages", "POST", {
         subject: input.email.subject,
         body: { contentType: "HTML", content: input.email.html },
-        from: { emailAddress: { name: "Altitutor Admin", address: "admin@altitutor.com" } },
+        from: {
+          emailAddress: {
+            name: "Altitutor Admin",
+            address: "admin@altitutor.com"
+          }
+        },
         replyTo: [{ emailAddress: { address: "admin@altitutor.com" } }],
-        toRecipients: input.to.map((address) => ({ emailAddress: { address } })),
-        singleValueExtendedProperties: [{ id: OPERATIONAL_MAIL_PROPERTY, value: operation.id }],
-        ...input.attachments?.length ? { attachments: input.attachments.map((file) => ({ "@odata.type": "#microsoft.graph.fileAttachment", ...file })) } : {}
+        toRecipients: input.to.map((address) => ({
+          emailAddress: { address }
+        })),
+        singleValueExtendedProperties: [
+          { id: OPERATIONAL_MAIL_PROPERTY, value: operation.id }
+        ],
+        ...input.attachments?.length ? {
+          attachments: input.attachments.map((file) => ({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            ...file
+          }))
+        } : {}
       })).json();
-      if (!record(response) || typeof response.id !== "string" || typeof response.changeKey !== "string") throw new Error("Microsoft omitted the operational draft identity.");
+      if (!record(response) || typeof response.id !== "string" || typeof response.changeKey !== "string")
+        throw new Error("Microsoft omitted the operational draft identity.");
       draftId = response.id;
       changeKey = response.changeKey;
       await update("creating", "ready", draftId, changeKey);
@@ -693,22 +753,37 @@ async function deliverOperationalMailboxEmail(input) {
       externalRequestStarted = false;
     }
     const current = await (await graph(`/messages/${encodeURIComponent(draftId)}`)).json();
-    if (!record(current) || current.isDraft !== true || current.changeKey !== changeKey) throw new Error("The operational draft changed in another client. Review the shared draft before sending.");
+    if (!record(current) || current.isDraft !== true || current.changeKey !== changeKey)
+      throw new Error(
+        "The operational draft changed in another client. Review the shared draft before sending."
+      );
     await update("ready", "sending");
     stage = "sending";
     externalRequestStarted = true;
-    const accepted = await graph(`/messages/${encodeURIComponent(draftId)}/send`, "POST");
-    if (accepted.status !== 202) throw new Error("Microsoft did not confirm operational email submission. Check the shared mailbox before retrying.");
+    const accepted = await graph(
+      `/messages/${encodeURIComponent(draftId)}/send`,
+      "POST"
+    );
+    if (accepted.status !== 202)
+      throw new Error(
+        "Microsoft did not confirm operational email submission. Check the shared mailbox before retrying."
+      );
     await update("sending", "submitted");
     return { providerMessageId: draftId, state: "submitted" };
   } catch (error) {
     const definiteRejection = error instanceof MicrosoftOperationalError && error.status >= 400 && error.status < 500 && error.status !== 408;
     const unresolved = externalRequestStarted && !definiteRejection && (stage === "creating" || stage === "sending");
     try {
-      await update(stage, unresolved ? stage === "creating" ? "uncertain_create" : "uncertain_send" : "failed");
+      await update(
+        stage,
+        unresolved ? stage === "creating" ? "uncertain_create" : "uncertain_send" : "failed"
+      );
     } catch {
     }
-    if (unresolved) throw new Error(`Operational email ${operation.id} has an unresolved outcome. Check the shared mailbox before sending another copy.`);
+    if (unresolved)
+      throw new Error(
+        `Operational email ${operation.id} has an unresolved outcome. Check the shared mailbox before sending another copy.`
+      );
     throw error;
   }
 }
