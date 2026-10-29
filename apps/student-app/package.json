@@ -63,7 +63,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "build": "expo export",
-    "test": "tsx --test --test-concurrency=2 'src/**/*.test.ts'",
+    "test": "tsx --test 'src/**/*.test.ts'",
     "test:e2e": "maestro test .maestro/auth-access.yaml"
   },
   "private": true,
