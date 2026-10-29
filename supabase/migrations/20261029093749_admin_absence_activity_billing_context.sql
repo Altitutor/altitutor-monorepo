@@ -164,6 +164,9 @@ AS $function$
     'amount_paid_cents', row_data->'amount_paid_cents',
     'amount_paid_from_balance_cents', row_data->'amount_paid_from_balance_cents',
     'amount_paid_by_customer_cents', row_data->'amount_paid_cents',
+    -- Retain the legacy path for saved automation conditions. This alias does
+    -- not establish the payment rail; amount_paid already excludes account credit.
+    'amount_paid_from_card_cents', row_data->'amount_paid_cents',
     'currency', row_data->'currency',
     'status', row_data->'status'
   ));

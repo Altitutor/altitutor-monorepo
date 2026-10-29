@@ -32,6 +32,7 @@ SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '2000'
       AND payload->>'amount_paid_by_customer_cents' = '15000'
+      AND payload->>'amount_paid_from_card_cents' = '15000'
       AND payload->>'amount_paid_cents' = '15000'
     FROM public.domain_events
     WHERE event_name = 'invoice.paid'
@@ -44,6 +45,7 @@ SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '2000'
       AND payload->>'amount_paid_by_customer_cents' = '15000'
+      AND payload->>'amount_paid_from_card_cents' = '15000'
     FROM public.domain_events
     WHERE event_name = 'invoice.issued'
       AND subject_id = 'fe200000-0000-4000-8000-000000000001'
@@ -88,6 +90,7 @@ SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '8000'
       AND payload->>'amount_paid_by_customer_cents' = '0'
+      AND payload->>'amount_paid_from_card_cents' = '0'
       AND payload->>'amount_paid_cents' = '0'
     FROM public.domain_events
     WHERE event_name = 'invoice.paid'
