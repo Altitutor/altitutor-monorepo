@@ -1,8 +1,10 @@
 import * as React from "react";
-import { screen, within, waitFor } from "@testing-library/react";
+import { screen, within, waitFor, renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/shared/test-utils";
+import { renderWithProviders, createQueryClientWrapper } from "@/shared/test-utils";
 import { SessionsTable } from "../SessionsTable";
+import { useSessionsTable } from "../../hooks/useSessionsTable";
+import type { DataTableState } from "@altitutor/shared";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
@@ -30,6 +32,7 @@ jest.mock("../../api/sessions", () => ({
   sessionsApi: {
     getAllSessionsWithDetails: async () => ({
       sessions: [
+        { id: "shift", type: "ADMIN_SHIFT", admin_shift_id: "shift-1", short_name: "Office shift", start_at: new Date(2026, 9, 22, 14).toISOString(), end_at: new Date(2026, 9, 22, 15).toISOString(), is_active: true },
         {
           id: "bio",
           type: "CLASS",
@@ -180,4 +183,22 @@ it("changes a subject filter operator and filters the same sessions in both layo
     within(screen.getByRole("table")).getByText("Mathematics"),
   ).toBeVisible();
   await userEvent.keyboard("{Escape}");
+});
+
+
+it("offers Admin Shift in the Session Type filter", async () => {
+  renderWithProviders(<SessionsTable skipUrlSync />);
+  await screen.findByText("Biology");
+  await userEvent.click(screen.getByRole("button", { name: "Display options" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Session Type" }));
+  expect(await screen.findByRole("option", { name: "Admin Shift" })).toBeVisible();
+});
+
+it("includes or excludes admin shifts before pagination", async () => {
+  const state: DataTableState = { search: '', filters: { type: ['ADMIN_SHIFT'] }, sortBy: 'start_at', sortDirection: 'asc', groupBy: null, page: 1, pageSize: 50, visibleColumns: [] };
+  const { result, rerender } = renderHook(({ tableState }) => useSessionsTable({ state: tableState }), { initialProps: { tableState: state }, wrapper: createQueryClientWrapper() });
+  await waitFor(() => expect(result.current.paginatedSessions.map(row => row.id)).toEqual(['shift']));
+  rerender({ tableState: { ...state, filters: { type: ['ADMIN_SHIFT'], type__operator: ['none'] } } });
+  await waitFor(() => expect(result.current.paginatedSessions.map(row => row.id)).toEqual(['bio', 'math']));
 });
