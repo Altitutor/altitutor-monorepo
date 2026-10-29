@@ -1,4 +1,6 @@
 'use client';
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { applySavedViewToTableState, tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,7 +21,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  DataTableToolbar,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -937,14 +938,20 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
         </div>
       </div>
 
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'flashcards'}
+        defaultSettings={tutorDefaultDisplaySettings(defaultTableState.visibleColumns, { sortBy: 'index', sortDirection: 'asc' })}
         state={state}
         onSearchChange={(search) => setState((value) => ({ ...value, search, page: 1 }))}
         onFiltersChange={(filters) => setState((value) => ({ ...value, filters, page: 1 }))}
         onSortChange={(sortBy, sortDirection) => setState((value) => ({ ...value, sortBy, sortDirection }))}
         onGroupByChange={(groupBy) => setState((value) => ({ ...value, groupBy }))}
         onVisibleColumnsChange={(visibleColumns) => setState((value) => ({ ...value, visibleColumns }))}
-        onQuickFilterApply={() => undefined}
+        onQuickFilterApply={(view) => setState((current) => applySavedViewToTableState(
+          current,
+          view,
+          tutorDefaultDisplaySettings(defaultTableState.visibleColumns, { sortBy: 'index', sortDirection: 'asc' }),
+        ))}
         onReset={() => {
           setState(defaultTableState);
           setSearchFrom(['text', 'extra']);

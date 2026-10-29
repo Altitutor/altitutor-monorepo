@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import type { DataTableFilterDefinition } from '@altitutor/shared';
+import {
+  applySavedViewToTableState,
+  tutorDefaultDisplaySettings,
+  type DataTableFilterDefinition,
+} from '@altitutor/shared';
+import { useTutorSavedViews } from '@/features/quick-filters/hooks/useTutorSavedViews';
 import {
   AccountClassBadge,
   Badge,
@@ -106,6 +111,10 @@ export function PastSessionsTable({ onOpenSession }: PastSessionsTableProps) {
   const [filterSearchValues, setFilterSearchValues] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const savedViews = useTutorSavedViews('past_sessions', {
+    name: 'All',
+    settings: tutorDefaultDisplaySettings([]),
+  });
 
   const parsedFilters = useMemo(() => parsePastSessionFiltersFromToolbar(filters), [filters]);
 
@@ -230,6 +239,26 @@ export function PastSessionsTable({ onOpenSession }: PastSessionsTableProps) {
         filterSearchValues={filterSearchValues}
         onFilterSearchChange={(filterKey, value) => {
           setFilterSearchValues((prev) => ({ ...prev, [filterKey]: value }));
+        }}
+        quickFilters={savedViews.data}
+        viewTarget={savedViews.target}
+        onQuickFilterApply={(view) => {
+          const next = applySavedViewToTableState(
+            {
+              search,
+              filters,
+              sortBy: null,
+              sortDirection: 'desc',
+              groupBy: null,
+              page,
+              pageSize,
+              visibleColumns: [],
+            },
+            view,
+            tutorDefaultDisplaySettings([]),
+          );
+          setFilters(next.filters);
+          setPage(1);
         }}
         {...tutorToolbarProps}
       />

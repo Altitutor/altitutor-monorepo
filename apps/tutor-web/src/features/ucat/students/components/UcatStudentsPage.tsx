@@ -1,9 +1,11 @@
 'use client';
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared';
-import { AccountClassBadge, DataTable, DataTableToolbar, TablePagination } from '@altitutor/ui';
+import { AccountClassBadge, DataTable, TablePagination } from '@altitutor/ui';
 import { Eye } from 'lucide-react';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components';
@@ -251,7 +253,9 @@ export function UcatStudentsPage() {
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Students' }]}
       />
 
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'ucat_students'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}

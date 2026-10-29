@@ -48,6 +48,9 @@ export interface ListToolbarProps {
   searchInputClassName?: string;
   controlClassName?: string;
   searchLeadingAccessory?: React.ReactNode;
+  quickFilters?: import('@altitutor/shared').QuickFilter[];
+  viewTarget?: string;
+  onQuickFilterApply?: (view: import('@altitutor/shared').QuickFilter) => void;
 }
 
 const emptyState: DataTableState = {
@@ -97,6 +100,9 @@ export function ListToolbar({
   searchInputClassName,
   controlClassName,
   searchLeadingAccessory,
+  quickFilters,
+  viewTarget,
+  onQuickFilterApply,
 }: ListToolbarProps) {
   const state: DataTableState = React.useMemo(
     () => ({
@@ -148,7 +154,9 @@ export function ListToolbar({
       onSortChange={sortOptions.length > 0 ? handleSortChange : () => {}}
       onGroupByChange={groupByOptions.length > 0 ? handleGroupByChange : () => {}}
       onVisibleColumnsChange={columnDefinitions.length > 0 ? handleVisibleColumnsChange : () => {}}
-      onQuickFilterApply={() => {}}
+      onQuickFilterApply={onQuickFilterApply ?? (() => {})}
+      quickFilters={quickFilters}
+      viewTarget={viewTarget}
       onReset={handleReset}
       filterDefinitions={filterDefinitions}
       sortOptions={sortOptions}

@@ -1,4 +1,6 @@
 "use client";
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import {
   useEffect,
@@ -19,7 +21,6 @@ import {
   Badge,
   Button,
   DataTable,
-  DataTableToolbar,
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -557,7 +558,9 @@ export function InterviewRoundsPage() {
           void roundsQuery.refetch();
         }}
       />
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'interview_rounds'}
+        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [], { layout: 'calendar' })}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}
@@ -570,7 +573,6 @@ export function InterviewRoundsPage() {
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search rounds"
-        viewTarget="interview_rounds"
         view={{
           value: view,
           options: [
@@ -579,6 +581,9 @@ export function InterviewRoundsPage() {
           ],
           onChange: (next) => {
             if (next === "table" || next === "calendar") setView(next);
+          },
+          onPresetApply: (settings) => {
+            if (settings.layout === "table" || settings.layout === "calendar") setView(settings.layout);
           },
         }}
         {...tutorToolbarProps}

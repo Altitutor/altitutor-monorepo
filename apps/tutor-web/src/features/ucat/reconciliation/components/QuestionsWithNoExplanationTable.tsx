@@ -1,7 +1,9 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useState } from 'react'
-import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
+import { TableRow, TableCell, Button } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
 import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -88,7 +90,9 @@ export function QuestionsWithNoExplanationTable({
   }, [data?.questionsWithNoExplanation, tableState.state, questionAccessors, searchScopes])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_no_explanation'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

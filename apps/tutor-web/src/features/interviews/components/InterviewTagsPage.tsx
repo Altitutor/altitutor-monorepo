@@ -1,7 +1,9 @@
 "use client";
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from "react";
-import { Button, DataTableToolbar, Input } from "@altitutor/ui";
+import { Button, Input } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import type { DataTableSortOption, InterviewTag } from "@altitutor/shared";
 import { Plus } from "lucide-react";
@@ -92,7 +94,9 @@ export function InterviewTagsPage() {
         error={catalogQuery.error}
         retry={() => void catalogQuery.refetch()}
       />
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'interview_tags'}
+        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [])}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}
@@ -107,7 +111,6 @@ export function InterviewTagsPage() {
         ]}
         sortOptions={sortOptions}
         searchPlaceholder="Search tags"
-        viewTarget="interview_tags"
         {...tutorToolbarProps}
       />
       {!catalog && catalogQuery.isPending ? (

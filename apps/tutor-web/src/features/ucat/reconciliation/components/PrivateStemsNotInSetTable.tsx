@@ -1,4 +1,6 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -6,7 +8,6 @@ import {
   TableCell,
   SearchableSelect,
   Button,
-  DataTableToolbar,
   useToast,
   AlertDialog,
   AlertDialogAction,
@@ -374,7 +375,9 @@ export function PrivateStemsNotInSetTable({
   }, [addSelectedStemsToSet, bulkSetId, selectedStemIds, staffSets, filteredStems, sectionsQuery.data])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_private_stems'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

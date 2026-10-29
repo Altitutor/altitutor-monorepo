@@ -1,7 +1,9 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useCallback, useState } from 'react'
-import { TableRow, TableCell, Button, DataTableToolbar, useToast } from '@altitutor/ui'
+import { TableRow, TableCell, Button, useToast } from '@altitutor/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { ReconciliationTable } from './ReconciliationTable'
 import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
@@ -243,7 +245,9 @@ export function UntaggedQuestionsTable({
   }, [data?.untaggedQuestions, queryClient, tagsQuery.data, toast])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_untagged'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

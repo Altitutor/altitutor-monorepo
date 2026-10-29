@@ -1,4 +1,6 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -7,7 +9,6 @@ import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSor
 import {
   Button,
   DataTable,
-  DataTableToolbar,
   Input,
   SearchableSelect,
   Switch,
@@ -397,7 +398,9 @@ export function UcatSectionsPage() {
         actions={<Button onClick={() => setCreateOpen(true)}>Add Section</Button>}
       />
 
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'ucat_sections'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}

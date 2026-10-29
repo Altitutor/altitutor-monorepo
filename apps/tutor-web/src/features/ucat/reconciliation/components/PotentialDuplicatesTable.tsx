@@ -1,9 +1,10 @@
 "use client";
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from "react";
 import {
   Button,
-  DataTableToolbar,
   Select,
   SelectContent,
   SelectItem,
@@ -120,7 +121,9 @@ export function PotentialDuplicatesTable({
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={
-          <DataTableToolbar
+          <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_duplicates'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
             {...tutorToolbarProps}
             state={tableState.state}
             onSearchChange={tableState.actions.onSearchChange}

@@ -36004,6 +36004,36 @@ export type Database = {
           },
         ]
       }
+      vtutor_quick_filters: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string | null
+          name: string | null
+          target_entity: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          target_entity?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          target_entity?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       vtutor_session_detail: {
         Row: {
           class_id: string | null
