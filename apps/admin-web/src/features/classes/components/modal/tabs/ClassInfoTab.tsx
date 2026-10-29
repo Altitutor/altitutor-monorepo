@@ -140,9 +140,9 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isEditing || storedSchedule === undefined) return;
+    if (!isEditing || isScheduleLoading || scheduleTimeline === undefined) return;
     setLevel(classData.cohort_label ?? classData.level ?? '');
-    setSessionType(storedSchedule?.sessionType ?? classData.session_type);
+    setSessionType(storedSchedule?.sessionType ?? (classData.session_type === 'HOMEWORK_HELP' ? 'HOMEWORK_HELP' : 'CLASS'));
     setSubjectId(classData.subject_id);
     setBillingType(storedSchedule?.billingType ?? classData.billing_type ?? 'CLASS');
     setRows(resolveClassScheduleRows(storedSchedule?.rows, {
@@ -160,7 +160,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     );
     setEndDate(classData.session_end_date);
     setProposal(null); setPlan(null); setError(null);
-  }, [classData, isEditing, storedSchedule]);
+  }, [classData, isEditing, isScheduleLoading, scheduleTimeline, storedSchedule]);
 
   const markChanged = () => { setProposal(null); setPlan(null); setError(null); };
   const updateRow = (id: string, patch: Partial<ClassScheduleRow>) => {
@@ -169,6 +169,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   };
 
   const preview = async () => {
+    if (sessionType === 'CLASS' && !subjectId) return setError('A subject is required for a Class.');
     const validationError = validateClassScheduleRows(rows);
     if (validationError) return setError(validationError);
     if (!endDate || endDate < classData.session_start_date) return setError('The Class end date must be on or after its start date.');
@@ -204,6 +205,9 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     scheduleTimeline,
     today
   );
+  const endedSchedule = !currentSchedule && upcomingSchedules.length === 0
+    ? scheduleTimeline?.find((revision) => revision.effectiveTo < today)
+    : undefined;
   const isPricingLoading = isBillingPricingLoading || isPricingOverridesLoading;
 
   if (isEditing) {
@@ -343,7 +347,18 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
               isPricingLoading={isPricingLoading}
             />
           ))}
-          {!currentSchedule && upcomingSchedules.length === 0 ? (
+          {endedSchedule ? (
+            <ScheduleConfigurationCard
+              title="Schedule"
+              revision={endedSchedule}
+              subjectId={classData.subject_id}
+              pricingDate={today}
+              pricing={billingPricing}
+              overrides={pricingOverrides}
+              isPricingLoading={isPricingLoading}
+            />
+          ) : null}
+          {!currentSchedule && upcomingSchedules.length === 0 && !endedSchedule ? (
             <p className="text-sm text-muted-foreground">No active or upcoming schedule is configured.</p>
           ) : null}
         </>
