@@ -214,6 +214,8 @@ export interface StudentInterviewRound {
   mode: InterviewMode;
   recordingEnabled: boolean;
   scheduledAt: string | null;
+  /** Calendar estimate only; feedback and pauses may extend the round. */
+  scheduledEndAt?: string | null;
   startedAt: string | null;
   phase: InterviewPhase;
   rotation: number;
@@ -315,3 +317,5 @@ export function interviewRoundDurationMinutes(
   const minutes = ((readingSeconds + questionSeconds) * rotations) / 60;
   return Math.max(30, Number.isFinite(minutes) ? minutes : 30);
 }
+
+export type { InterviewCallFailure } from "./call-failures";

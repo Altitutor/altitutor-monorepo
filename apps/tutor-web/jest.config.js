@@ -29,6 +29,7 @@ const config = {
   transform: {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },
+  transformIgnorePatterns: ['node_modules/.pnpm/(?!(marked)@)', 'node_modules/(?!.pnpm|marked)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   passWithNoTests: true,
   collectCoverageFrom: [

@@ -19,6 +19,14 @@ const baseSession: CalendarSession = {
 };
 
 describe("tutor calendar feed", () => {
+  beforeEach(() => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-08-03T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("uses the subject long name for class sessions", () => {
     expect(getCalendarEventTitle(baseSession)).toBe(
       "Altitutor class: SACE Stage 2 Mathematical Methods",

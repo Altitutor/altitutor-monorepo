@@ -10,11 +10,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, FileText, Home, CreditCard, AlertTriangle, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, Monitor, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -39,124 +38,12 @@ import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
 import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
 import { format } from 'date-fns';
-import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
 }
 
-type NavItem =
-  | {
-      type?: 'link';
-      title: string;
-      href: string;
-      icon: LucideIcon;
-      children?: { title: string; href: string }[];
-    }
-  | { type: 'heading'; title: string };
-
-const navItems: NavItem[] = [
-  {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: Home,
-  },
-  {
-    type: 'heading',
-    title: 'COMMUNICATION',
-  },
-  {
-    title: 'Feedback',
-    href: '/feedback',
-    icon: MessageSquareText,
-  },
-  {
-    title: 'Trial students',
-    href: '/trial-students',
-    icon: Users,
-    children: [
-      { title: 'Work queue', href: '/trial-students' },
-      { title: 'Conversion insights', href: '/trial-students/insights' },
-    ],
-  },
-  {
-    type: 'heading',
-    title: 'SCHEDULING',
-  },
-  {
-    title: 'In-person Students',
-    href: '/students',
-    icon: GraduationCap,
-  },
-  {
-    title: 'Online Students',
-    href: '/online-students',
-    icon: Monitor,
-  },
-  {
-    title: 'Parents',
-    href: '/parents',
-    icon: UserRound,
-  },
-  {
-    title: 'Staff',
-    href: '/staff',
-    icon: Users,
-  },
-  {
-    title: 'Classes',
-    href: '/classes',
-    icon: Calendar,
-  },
-  {
-    title: 'Sessions',
-    href: '/sessions',
-    icon: ClipboardList,
-  },
-  {
-    type: 'heading',
-    title: 'FINANCIAL',
-  },
-  {
-    title: 'Reconciliation',
-    href: '/reconciliation',
-    icon: AlertTriangle,
-  },
-  {
-    title: 'Invoices',
-    href: '/invoices',
-    icon: CreditCard,
-  },
-  {
-    title: 'Reports',
-    href: '/reports',
-    icon: FileText,
-  },
-  {
-    title: 'Tutor logs',
-    href: '/tutor-logs',
-    icon: ClipboardList,
-  },
-  {
-    title: 'Pay tiers',
-    href: '/pay-tiers',
-    icon: TrendingUp,
-  },
-  {
-    type: 'heading',
-    title: 'RESOURCES',
-  },
-  {
-    title: 'Subjects',
-    href: '/subjects',
-    icon: Beaker,
-  },
-  {
-    title: 'Topics',
-    href: '/topics',
-    icon: Newspaper,
-  },
-];
+import { navItems, type NavItem } from '@/shared/constants/adminNavigation';
 
 type NavLink = Extract<NavItem, { type?: 'link' }>;
 

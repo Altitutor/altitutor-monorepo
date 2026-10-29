@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
+import { layoutCalendarColumns } from '@/features/sessions/utils/calendarLayout';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes, combineLocalDateAndTime } from '@/shared/utils/datetime';
@@ -39,53 +40,6 @@ interface GeneratedSession {
   type: string;
   isPotential: boolean; // true for potential new class sessions
   isOldClass?: boolean; // true for old class sessions in change class mode
-}
-
-/**
- * Generate potential sessions for a class within a date range
- */
-function generateClassSessions(
-  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'>,
-  weekStart: Date,
-  weekEnd: Date,
-  enrollmentDate: Date
-): GeneratedSession[] {
-  const sessions: GeneratedSession[] = [];
-  const currentDate = new Date(weekStart);
-  
-  while (currentDate <= weekEnd) {
-    const dayOfWeek = currentDate.getDay();
-    const dateStr = format(currentDate, 'yyyy-MM-dd');
-    
-    // Check if this day matches the class day_of_week
-    if (dayOfWeek === classData.day_of_week) {
-      // Only include sessions on or after enrollment date
-      const dateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-      const enrollmentDateOnly = new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), enrollmentDate.getDate());
-      
-      if (dateOnly >= enrollmentDateOnly) {
-        const startAt = combineLocalDateAndTime(dateStr, classData.start_time);
-        const endAt = combineLocalDateAndTime(dateStr, classData.end_time);
-        if (!startAt || !endAt) {
-          currentDate.setDate(currentDate.getDate() + 1);
-          continue;
-        }
-        
-        sessions.push({
-          id: `potential-${dateStr}-${classData.start_time}`,
-          start_at: startAt,
-          end_at: endAt,
-          class_id: null,
-          type: 'CLASS',
-          isPotential: true,
-        });
-      }
-    }
-    
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  return sessions;
 }
 
 export function EnrollmentWeekCalendar({
@@ -134,29 +88,36 @@ export function EnrollmentWeekCalendar({
     classId: isClassContext ? (classData?.id || undefined) : undefined,
     includeInactive: false
   });
-  
-  // Generate potential new class sessions
+
+  const previewClassId = !isClassContext && !isUnenrollMode ? selectedClass?.id : undefined;
+  const { data: previewClassData } = useSessionsWithDetails({
+    rangeStart: rangeStartStr,
+    rangeEnd: rangeEndStr,
+    classId: previewClassId,
+    includeInactive: false,
+  }, { enabled: Boolean(previewClassId) });
+
+  // The class being joined is previewed from its materialised sessions, including
+  // ones moved off the repeating schedule. The date picker uses the same rows.
   const potentialSessions = useMemo(() => {
-    if (!selectedClass && !classData) {
-      return [];
-    }
-    
-    const classToUse = selectedClass || classData;
-    if (!classToUse || classToUse.day_of_week === undefined || !classToUse.start_time || !classToUse.end_time) {
-      return [];
-    }
-    
-    return generateClassSessions(
-      {
-        day_of_week: classToUse.day_of_week,
-        start_time: classToUse.start_time,
-        end_time: classToUse.end_time,
-      },
-      weekStart,
-      weekEnd,
-      enrollmentDateObj
-    );
-  }, [selectedClass, classData, weekStart, weekEnd, enrollmentDateObj]);
+    if (!previewClassId || !selectedClass) return [];
+
+    const timezone = selectedClass.schedule_timezone || 'Australia/Adelaide';
+    const enrollmentDay = enrollmentDate.slice(0, 10);
+
+    return ((previewClassData?.sessions as Tables<'sessions'>[]) || []).flatMap((session) => {
+      if (!session.id || !session.start_at || !session.end_at) return [];
+      if (sessionCalendarDate(session.start_at, timezone) < enrollmentDay) return [];
+      return [{
+        id: session.id,
+        start_at: session.start_at,
+        end_at: session.end_at,
+        class_id: session.class_id,
+        type: session.type ?? 'CLASS',
+        isPotential: true,
+      }];
+    });
+  }, [previewClassId, selectedClass, enrollmentDate, previewClassData?.sessions]);
 
   // Generate potential old class sessions (for change class mode)
   // Only show sessions BEFORE the changeover date
@@ -264,11 +225,13 @@ export function EnrollmentWeekCalendar({
     
     // Only add potential sessions in student context (not in unenroll mode)
     if (!isClassContext && !isUnenrollMode) {
+      const existingIds = new Set(filteredSessions.map((session) => session.id));
+      const previewSessions = potentialSessions.filter((session) => !existingIds.has(session.id));
       // In change class mode, also add old class potential sessions
       if (isChangeClassMode) {
-        return [...filteredSessions, ...potentialSessions, ...(inclusiveLastOldClassDate ? [] : potentialOldClassSessions)];
+        return [...filteredSessions, ...previewSessions, ...(inclusiveLastOldClassDate ? [] : potentialOldClassSessions)];
       }
-      return [...filteredSessions, ...potentialSessions];
+      return [...filteredSessions, ...previewSessions];
     }
     
     return filteredSessions;
@@ -425,54 +388,26 @@ export function EnrollmentWeekCalendar({
                             new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
                           );
                           
-                          // Build overlap groups for ALL sessions (including potential)
-                          const allGroups: SessionForDay[][] = [];
-                          const processed = new Set<string>();
-                          
-                          daySessions.forEach((s) => {
-                            if (processed.has(s.id)) return;
-                            const group: SessionForDay[] = [s];
-                            processed.add(s.id);
-                            
-                            let foundNewOverlap = true;
-                            while (foundNewOverlap) {
-                              foundNewOverlap = false;
-                              daySessions.forEach((o) => {
-                                if (processed.has(o.id)) return;
-                                if (!o.start_at || !o.end_at) return;
-                                const oStart = adelaideTimeToMinutes(o.start_at);
-                                const oEnd = adelaideTimeToMinutes(o.end_at);
-                                
-                                const overlapsWithGroup = group.some((groupSession) => {
-                                  if (!groupSession.start_at || !groupSession.end_at) return false;
-                                  const gStart = adelaideTimeToMinutes(groupSession.start_at);
-                                  const gEnd = adelaideTimeToMinutes(groupSession.end_at);
-                                  return gStart < oEnd && gEnd > oStart;
-                                });
-                                
-                                if (overlapsWithGroup) {
-                                  group.push(o);
-                                  processed.add(o.id);
-                                  foundNewOverlap = true;
-                                }
-                              });
-                            }
-                            
-                            allGroups.push(group);
-                          });
-                          
+                          const dayPlacements = new Map(
+                            layoutCalendarColumns(daySessions.map((session) => ({
+                              id: session.id,
+                              startMinutes: adelaideTimeToMinutes(session.start_at),
+                              endMinutes: adelaideTimeToMinutes(session.end_at),
+                            }))).map((placement) => [placement.id, placement]),
+                          );
+
                           const blocks: JSX.Element[] = [];
                           
-                          // Render all sessions (potential and regular) together
-                          allGroups.forEach((group) => {
-                            const total = group.length;
-                            const columnWidth = total > 1 ? 95 / total : 95;
-                            group.forEach((s, idx: number) => {
+                          daySessions.forEach((s) => {
+                              const placement = dayPlacements.get(s.id);
+                              const total = placement?.columnCount ?? 1;
+                              const column = placement?.column ?? 0;
+                              const columnWidth = total > 1 ? 95 / total : 95;
                               const sStartMinutes = adelaideTimeToMinutes(s.start_at!);
                               const sEndMinutes = adelaideTimeToMinutes(s.end_at!);
                               const top = Math.max(0, (minutesFromStart(s.start_at!) / 60) * slotHeight);
                               const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
-                              const left = (idx * columnWidth) + 2.5;
+                              const left = column * columnWidth + 2.5;
                               
                               const isPotential = 'isPotential' in s && s.isPotential;
                               
@@ -704,7 +639,6 @@ export function EnrollmentWeekCalendar({
                                   })()}
                                 </div>
                               );
-                            });
                           });
                           
                           return blocks;
