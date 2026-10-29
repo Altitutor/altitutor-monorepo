@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { Button } from "@altitutor/ui";
 import { useUnreadConversationCount } from "@/features/messages/api/queries";
 import {
@@ -11,7 +12,6 @@ import { MessageUnreadBadge } from "@/features/messages/components/MessageUnread
 
 export const accessoryRootViews: { kind: AccessoryKind; title: string }[] = [
   { kind: "messages", title: "Messages" },
-  { kind: "today", title: "Today" },
   { kind: "tasks", title: "Tasks" },
   { kind: "issues", title: "Issues" },
   { kind: "projects", title: "Projects" },
@@ -20,6 +20,7 @@ export const accessoryRootViews: { kind: AccessoryKind; title: string }[] = [
 
 export function AccessoryRootViews() {
   const panel = useAccessoryPanel();
+  const { router } = usePaneNavigation();
   const { data: unreadCount = 0 } = useUnreadConversationCount();
   return (
     <div className="grid w-full max-w-xs gap-2">
@@ -28,7 +29,7 @@ export function AccessoryRootViews() {
           key={view.kind}
           variant="outline"
           className="justify-start gap-2"
-          onClick={() => panel?.openTab(view)}
+          onClick={() => ["tasks", "issues", "projects"].includes(view.kind) ? router.push(`/${view.kind}`) : panel?.openTab(view)}
         >
           <AccessoryIcon kind={view.kind} className="h-4 w-4" />
           {view.title}

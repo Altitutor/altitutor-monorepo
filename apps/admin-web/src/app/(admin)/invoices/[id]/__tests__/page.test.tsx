@@ -11,6 +11,7 @@ let mockInvoice = {
   stripe_invoice_id: "stripe",
   amount_due_cents: 10000,
   amount_paid_cents: 10000,
+  amount_paid_from_balance_cents: 0,
   total_cents: 10000,
   currency: "AUD",
   invoice_date: "2026-10-06",
@@ -158,6 +159,7 @@ beforeEach(() => {
   mockInvoice.total_cents = 10000;
   mockInvoice.amount_due_cents = 10000;
   mockInvoice.amount_paid_cents = 10000;
+  mockInvoice.amount_paid_from_balance_cents = 0;
   mockStripe = {
     ...mockStripe,
     isLoading: false,
@@ -309,7 +311,7 @@ it("shows the original payment independently of net invoice value and an unpaid 
   ];
   render(<InvoiceDetailPage params={{ id: "invoice" }} />);
   expect(screen.getByText("Net invoice value")).toBeInTheDocument();
-  expect(screen.getByText(/Amount paid:/)).toHaveTextContent("$60.00");
+  expect(screen.getByText(/Amount paid by customer:/)).toHaveTextContent("$60.00");
   expect(
     screen.getByText("Reduced unpaid invoice amount (before payment) $40.00"),
   ).toBeInTheDocument();
@@ -359,4 +361,13 @@ it("shows a void note's explanation without presenting its settlements as curren
     screen.queryByText(/Reduced unpaid invoice amount/),
   ).not.toBeInTheDocument();
   expect(screen.getByText("Add Credit Note")).toBeEnabled();
+});
+
+it("shows customer payments and applied account credit separately", () => {
+  mockInvoice.amount_paid_cents = 13000;
+  mockInvoice.amount_paid_from_balance_cents = 2000;
+  mockInvoice.total_cents = 15000;
+  render(<InvoiceDetailPage params={{id: 'invoice'}} />);
+  expect(screen.getByText(/Amount paid by customer:/)).toHaveTextContent('$130.00');
+  expect(screen.getByText(/Account credit applied:/)).toHaveTextContent('$20.00');
 });

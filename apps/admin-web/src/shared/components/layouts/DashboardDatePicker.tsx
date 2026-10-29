@@ -24,18 +24,15 @@ import {
 } from "@altitutor/ui";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { cn } from "@/shared/utils";
-import { useAccessoryPanel } from "@/shared/contexts/AccessoryPanelContext";
+import { usePathname, useRouter } from "next/navigation";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function DashboardDatePicker() {
-  const panel = useAccessoryPanel();
+  const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const calendarTab =
-    panel?.tabs.find(
-      (tab) => tab.kind === "today" && tab.key === panel.activeKey,
-    ) ?? panel?.tabs.find((tab) => tab.kind === "today");
-  const selectedDate = new URLSearchParams(calendarTab?.query).get("date");
+  const selectedDate = pathname.startsWith("/dashboard/") ? pathname.split("/")[2] : null;
   const activeDate =
     selectedDate &&
     /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) &&
@@ -52,17 +49,7 @@ export function DashboardDatePicker() {
 
   const selectDay = (day: Date) => {
     const date = format(day, "yyyy-MM-dd");
-    const destination = {
-      kind: "today" as const,
-      title: date === todayStr ? "Today" : format(day, "d MMM"),
-      query: date === todayStr ? "" : new URLSearchParams({ date }).toString(),
-    };
-    if (calendarTab && panel) {
-      panel.navigateTab(calendarTab.key, destination);
-      panel.selectTab(calendarTab.key);
-    } else {
-      panel?.openTab(destination);
-    }
+    router.push(`/dashboard/${date}`);
     setIsOpen(false);
   };
 

@@ -1,4 +1,5 @@
 "use client";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { ChevronRight } from "lucide-react";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { accessoryFamily } from "@/shared/contexts/AccessoryPanelContext";
@@ -10,6 +11,7 @@ export function AccessoryBreadcrumb({
   onCurrentClick?: () => void;
 }) {
   const scope = useAccessoryTab();
+  const { router } = usePaneNavigation();
   if (!scope) return null;
   const owner =
     scope.tab.owner && ownerIds.includes(scope.tab.owner.id)
@@ -26,7 +28,7 @@ export function AccessoryBreadcrumb({
         type="button"
         className="shrink-0 text-muted-foreground hover:text-foreground"
         onClick={() =>
-          scope.navigate({
+          ["tasks", "issues", "projects"].includes(family) ? router.push(`/${family}`) : scope.navigate({
             kind: family,
             title,
             // Messages keeps the same kind for list + thread; clear the

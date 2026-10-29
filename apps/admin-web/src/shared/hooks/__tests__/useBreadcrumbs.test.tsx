@@ -57,6 +57,7 @@ jest.mock('@/features/subjects/api', () => ({
 jest.mock('@/features/topics/api', () => ({
   topicsApi: {
     getTopic: jest.fn(),
+    getTopicsBySubject: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -347,8 +348,9 @@ describe('useBreadcrumbs', () => {
       const topicBreadcrumb = result.current.find((item) =>
         item.label.includes('ALG')
       );
-      expect(subjectBreadcrumb).toBeDefined();
+      expect(subjectBreadcrumb).toMatchObject({href: `/subjects/${subjectId}`});
       expect(topicBreadcrumb).toBeDefined();
+      expect(result.current.map(item => item.label)).toEqual(["Subjects", "MATH", "ALG Algebra"]);
     });
   });
 

@@ -1,3 +1,4 @@
+import { EntityChip } from '@altitutor/ui';
 import type {
   ActivityEntityReference,
   ActivityEventDisplay,
@@ -89,15 +90,14 @@ export function FormattedActivityMessage({
     return (
       <>
         {activity.messageParts.map((part, index) => part.kind === 'entity' ? (
-          <button
+          <EntityChip
+            entityType={part.entity.entityType}
+            label={part.text}
             key={`${part.entity.entityType}-${part.entity.entityId}-${index}`}
             type="button"
-            className="font-medium underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onEntityClick?.(part.entity)}
             aria-label={`Open ${part.entity.entityType} ${part.text}`}
-          >
-            {part.text}
-          </button>
+          />
         ) : (
           <span key={`text-${index}`}>{part.text}</span>
         ))}

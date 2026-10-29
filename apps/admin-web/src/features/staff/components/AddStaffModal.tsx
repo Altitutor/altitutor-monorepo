@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -321,7 +323,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, ini
           
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input 
+            <EmailInput
               id="email" 
               type="email" 
               {...register('email')} 

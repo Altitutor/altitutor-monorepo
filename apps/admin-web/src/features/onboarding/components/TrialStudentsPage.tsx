@@ -1,4 +1,6 @@
 "use client";
+
+import { EmailInput } from '@/shared/components/EmailInput';
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -172,7 +174,7 @@ function NewJourney({
         {!studentId && (
           <label className="block text-sm">
             Enquiry email
-            <Input
+            <EmailInput
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

@@ -400,7 +400,7 @@ export default function InvoiceDetailPage({
                 </div>
               </PropertyFormRow>
             )}
-            <PropertyFormRow label="Amount paid">
+            <PropertyFormRow label="Amount paid by customer">
               <div className="text-sm">
                 {formatInvoiceAmount(
                   stripeDetails?.amount_paid_cents ?? invoice.amount_paid_cents,
@@ -410,6 +410,13 @@ export default function InvoiceDetailPage({
                   Payment recorded on this invoice, before refunds. Balance
                   credits are separate.
                 </p>
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Account credit applied">
+              <div className="text-sm">
+                {invoice.amount_paid_from_balance_cents == null
+                  ? 'Not available'
+                  : formatInvoiceAmount(invoice.amount_paid_from_balance_cents, invoice.currency || "AUD")}
               </div>
             </PropertyFormRow>
             <PropertyFormRow

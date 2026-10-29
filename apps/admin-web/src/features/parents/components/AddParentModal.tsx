@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
@@ -205,7 +207,7 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone, i
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input 
+              <EmailInput
                 id="email" 
                 type="email" 
                 {...register('email')} 
