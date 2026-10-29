@@ -71,14 +71,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   };
 
   const handleCancelEdit = () => {
-    setFormData({
-      first_name: profile.first_name || '',
-      last_name: profile.last_name || '',
-      email: profile.email || '',
-      phone: profile.phone || '',
-      birthday: profile.birthday || '',
-      school: profile.school || '',
-    });
+    setFormData(savedFormData);
     setIsEditing(false);
   };
 

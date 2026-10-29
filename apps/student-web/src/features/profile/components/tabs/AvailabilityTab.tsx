@@ -48,17 +48,7 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
   };
 
   const handleCancelEdit = () => {
-    setFormData({
-      availability_monday: profile.availability_monday || false,
-      availability_tuesday: profile.availability_tuesday || false,
-      availability_wednesday: profile.availability_wednesday || false,
-      availability_thursday: profile.availability_thursday || false,
-      availability_friday: profile.availability_friday || false,
-      availability_saturday_am: profile.availability_saturday_am || false,
-      availability_saturday_pm: profile.availability_saturday_pm || false,
-      availability_sunday_am: profile.availability_sunday_am || false,
-      availability_sunday_pm: profile.availability_sunday_pm || false,
-    });
+    setFormData(savedFormData);
     setIsEditing(false);
   };
 

@@ -559,6 +559,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                   state.sortBy ? (
                     <button
                       type="button"
+                      title={state.sortDirection === "asc" ? "Sort descending" : "Sort ascending"}
                       aria-label={
                         state.sortDirection === "asc"
                           ? "Sort descending"
@@ -628,6 +629,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                     variant="ghost"
                     size="sm"
                     className="h-8 text-xs"
+                    title="Remove all filters from this list"
                     onClick={handleClearAllFilters}
                   >
                     Clear all filters
@@ -704,6 +706,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               variant="ghost"
               size="sm"
               className="mt-2 text-xs"
+              title="Restore the default visible columns and layout"
               onClick={handleResetViewLayout}
             >
               Reset column layout to default
@@ -862,6 +865,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                   <button
                     type="button"
                     aria-label="Clear search"
+                    title="Clear the search text"
                     onClick={() => setSearchValue("")}
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                   >

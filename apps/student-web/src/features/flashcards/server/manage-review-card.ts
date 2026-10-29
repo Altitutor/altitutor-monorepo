@@ -36,7 +36,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq('student_id', studentId).eq('id', result.reviewLogId).single(),
   ]);
   if (stateResult.error || historyResult.error) {
-    return NextResponse.json({ error: 'Unable to load the saved change' }, { status: 500 });
+    // The command has committed. Older study clients only inspect response.ok;
+    // keep that outcome successful even if the optional manager refresh fails.
+    return NextResponse.json({ data: result });
   }
   return NextResponse.json({ data: { ...result, cardState: stateResult.data, historyEntry: historyResult.data } });
 }

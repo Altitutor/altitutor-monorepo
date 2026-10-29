@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import type { DataTableState, FlashcardReviewCard } from '@altitutor/shared';
 import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
 import {
@@ -179,6 +179,7 @@ export function ManageFlashcardsDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pendingRequestIds = useRef(new Map<string, string>());
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -192,6 +193,7 @@ export function ManageFlashcardsDialog({
       const [cardsResult, historyResult] = await Promise.all([cardsResponse.json(), historyResponse.json()]);
       setCards(cardsResult.data ?? []);
       setHistory(historyResult.data ?? []);
+      pendingRequestIds.current.clear();
     } catch (loadError) {
       console.error('Failed to load flashcard manager:', loadError);
       setError('Could not load your flashcards. Please try again.');
@@ -268,15 +270,23 @@ export function ManageFlashcardsDialog({
   const activeHistory = activeCard ? history.filter((row) => row.review_card_id === activeCard.id) : [];
 
   const saveCommand = async (card: FlashcardReviewCard, action: FlashcardManagementAction) => {
+    const commandKey = `${card.id}:${action}`;
+    const requestId = pendingRequestIds.current.get(commandKey) ?? crypto.randomUUID();
+    pendingRequestIds.current.set(commandKey, requestId);
     const response = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(card.id)}/manage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, requestId: crypto.randomUUID() }),
+      body: JSON.stringify({ action, requestId }),
     });
     if (!response.ok) throw new Error('Command failed');
-    const { data } = await response.json() as { data: FlashcardManagementResult };
-    setCards((current) => current.map((item) => item.id === card.id ? { ...item, ...data.cardState } : item));
-    setHistory((current) => [data.historyEntry, ...current.filter((entry) => entry.id !== data.historyEntry.id)]);
+    const { data } = await response.json() as { data: Partial<FlashcardManagementResult> };
+    if (!data.cardState || !data.historyEntry) throw new Error('saved_change_needs_refresh');
+    const { cardState, historyEntry } = data;
+    setCards((current) => current.map((item) => item.id === card.id ? { ...item, ...cardState } : item));
+    setHistory((current) => [historyEntry, ...current.filter((entry) => entry.id !== historyEntry.id)]);
+    for (const key of pendingRequestIds.current.keys()) {
+      if (key.startsWith(`${card.id}:`)) pendingRequestIds.current.delete(key);
+    }
   };
 
   const command = async (card: FlashcardReviewCard, action: FlashcardManagementAction) => {
@@ -287,7 +297,9 @@ export function ManageFlashcardsDialog({
       await saveCommand(card, action);
     } catch (commandError) {
       console.error('Failed to manage flashcard:', commandError);
-      setError('That change could not be saved. Please try again.');
+      setError(commandError instanceof Error && commandError.message === 'saved_change_needs_refresh'
+        ? 'Your change was saved, but could not be refreshed. Retry the same action to refresh it safely.'
+        : 'We could not confirm that change. Retry the same action safely.');
     } finally {
       setPendingCardId(null);
     }
@@ -302,7 +314,7 @@ export function ManageFlashcardsDialog({
       if (results.some((result) => result.status === 'rejected')) throw new Error('Unable to unbury every card');
     } catch (commandError) {
       console.error('Failed to unbury flashcards:', commandError);
-      setError('Some cards could not be unburied. Please try again.');
+      setError('Some cards could not be confirmed as unburied. Retry Unbury all to safely finish or refresh them.');
     } finally {
       setPendingCardId(null);
     }

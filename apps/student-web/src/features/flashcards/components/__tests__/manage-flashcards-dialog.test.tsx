@@ -79,10 +79,34 @@ it('keeps successful unbury results when another card fails and offers a targete
   });
   render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Unbury all' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Some cards could not be unburied');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Some cards could not be confirmed as unburied');
   expect(screen.getByRole('button', { name: 'Bury' })).toBeEnabled();
   failSecond = false;
   fireEvent.click(screen.getByRole('button', { name: 'Unbury all' }));
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Unbury all' })).not.toBeInTheDocument());
   expect(unburied).toEqual(['review-1', 'review-2']);
+});
+
+it('retries a committed change with the original command ID when its state could not be loaded', async () => {
+  const requestIds: string[] = [];
+  let uuid = 0;
+  Object.defineProperty(global.crypto, 'randomUUID', { configurable: true, value: () => `request-${++uuid}` });
+  fetchMock.mockImplementation(async (url, options) => {
+    if (options?.method === 'POST') {
+      requestIds.push(JSON.parse(options.body as string).requestId);
+      return requestIds.length === 1 ? json({ revision: 1, reviewLogId: 'log-1' }) : json({
+        cardState: { ...card, suspended_at: '2026-10-29T08:00:00Z', revision: 1 },
+        historyEntry: { id: 'log-1', review_card_id: card.id, action: 'suspend', rating: null,
+          answered_at: '2026-10-29T08:00:00Z', duration_ms: null,
+          pre_state: { state: 'New' }, post_state: { state: 'New' }, undone_at: null },
+      });
+    }
+    return String(url).includes('/history') ? json([]) : json([card]);
+  });
+  render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Suspend' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('saved');
+  fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+  await screen.findByRole('button', { name: 'Resume' });
+  expect(requestIds).toEqual(['request-1', 'request-1']);
 });
