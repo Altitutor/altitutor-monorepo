@@ -15,7 +15,6 @@ export { AdminPageActionButton } from './admin-page-action-button';
 export { AdminDialogShell } from './dialog-shell';
 export { AdminLoadingSkeleton } from './admin-loading-skeleton';
 export { AdminUrlSyncBoundary } from './AdminUrlSyncBoundary';
-export { AdminSettingsCard } from './admin-settings-card';
 export { SettingsDataTable } from './settings-data-table';
 export type { SettingsDataTableColumn } from './settings-data-table';
 export { SettingsPageHeader } from './settings-page-header';
