@@ -99,8 +99,8 @@ describe('ClassInfoTab ended schedule', () => {
     renderTab(true);
 
     expect(screen.getByText('Wednesday')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('16:15:00')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('19:15:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start time for schedule row 1' })).toHaveTextContent('4:15 pm');
+    expect(screen.getByRole('button', { name: 'Duration for schedule row 1' })).toHaveTextContent('180 minutes');
     expect(screen.getByText('Biology')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Review changes' }));
