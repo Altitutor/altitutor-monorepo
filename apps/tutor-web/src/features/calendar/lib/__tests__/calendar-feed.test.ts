@@ -113,9 +113,7 @@ describe("tutor calendar feed", () => {
 
     expect(feed).toContain("STATUS:CANCELLED");
     expect(feed).toContain("TRANSP:TRANSPARENT");
-    expect(feed).toContain(
-      `SEQUENCE:${getCalendarEventSequence(updatedAt)}`,
-    );
+    expect(feed).toContain(`SEQUENCE:${getCalendarEventSequence(updatedAt)}`);
   });
 
   it("drops long-cancelled sessions once clients have had time to sync", () => {

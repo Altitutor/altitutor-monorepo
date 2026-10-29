@@ -34,6 +34,8 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
+import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
 import { format } from 'date-fns';
 
@@ -325,12 +327,24 @@ function AdminNavMenu({
   );
 }
 
+function ShellNav({
+  collapsed = false,
+  onAccessoryNavigate,
+}: {
+  collapsed?: boolean;
+  onAccessoryNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  if (isSettingsRoute(pathname)) return <SettingsNavMenu collapsed={collapsed} />;
+  return <AdminNavMenu collapsed={collapsed} onAccessoryNavigate={onAccessoryNavigate} />;
+}
+
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
     <MobileSidebar isOpen={isOpen} onClose={onClose}>
       <ScrollArea className="min-h-0 flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          <AdminNavMenu onAccessoryNavigate={onClose} />
+          <ShellNav onAccessoryNavigate={onClose} />
         </nav>
       </ScrollArea>
       <div className="border-t p-2">
@@ -353,7 +367,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
     >
       <ScrollArea className="flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          <AdminNavMenu collapsed={collapsed} />
+          <ShellNav collapsed={collapsed} />
         </nav>
       </ScrollArea>
 
