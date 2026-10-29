@@ -83,6 +83,7 @@ type EnrollmentRow = {
 };
 
 type SessionStaffWithDetails = Tables<'sessions_staff'> & {
+  staff: Tables<'staff'> | null;
   swapped_sessions_staff_id?: string | null;
 };
 
