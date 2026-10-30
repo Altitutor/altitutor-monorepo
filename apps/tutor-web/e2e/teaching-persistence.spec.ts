@@ -110,7 +110,14 @@ test("shared rich-text formatting and a posted session note survive reload", asy
   await editor.fill(note);
   await editor.press("ControlOrMeta+A");
   await editor.press("ControlOrMeta+B");
+  const savedNote = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/sessions/${teachingSessionId}/notes`,
+  );
   await details.getByRole("button", { name: "Post note", exact: true }).click();
+  expect((await savedNote).ok()).toBe(true);
+  // Bold editor content is not proof of a save; the editor clears after success.
+  await expect(editor).toHaveText("");
   await expect(details.locator("strong").filter({ hasText: note })).toBeVisible();
 
   await page.goto(sessionUrl);
