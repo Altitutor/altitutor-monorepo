@@ -52,9 +52,9 @@ DNS-only CNAMEs were published using this tenant's `Get-DkimSigningConfig` value
 | `selector1._domainkey` | `selector1-altitutor-com._domainkey.el1.q-v1.dkim.mail.microsoft` |
 | `selector2._domainkey` | `selector2-altitutor-com._domainkey.el1.q-v1.dkim.mail.microsoft` |
 
-Public DNS resolution verified all four targets. Microsoft still reported
-`CnameMissing` when enabling DKIM, so signing activation remains pending; do not
-claim DKIM is enabled until a successful readback. Existing parent DMARC is
+Public DNS resolution verified all four targets. Microsoft DKIM enablement
+succeeded for both domains; readback reports `Enabled=True`, `Status=Valid`.
+Existing parent DMARC is
 `v=DMARC1;p=reject;pct=100;` and is preserved (including inherited subdomain policy).
 Private DKIM keys remain within Microsoft.
 
@@ -62,21 +62,24 @@ Private DKIM keys remain within Microsoft.
 
 Organization customization is enabled with Matthew's explicit approval
 (`IsDehydrated=False`). Both Exchange service-principal pointers and exact mailbox
-management scopes exist. Role assignment is still refused by Exchange with
-“must be assigned a delegating role assignment … without a scope restriction,”
-despite Organization Management's enabled `DelegatingOrgWide` role readback and
-fresh authentication. This may be provisioning propagation; it is not verified
-as such. No broad mail grants or additional admin roles were added as a workaround.
+management scopes exist. Both applications have the two requested application
+roles. `Test-ServicePrincipalAuthorization` verified each role is in scope only
+for its matching mailbox, and out of scope for the opposite mailbox and
+`matt@altitutor.com`. Exchange initially refused assignments after customization,
+then accepted the unchanged scoped commands after provisioning settled. No broad
+mail grants or additional administrator roles were added as a workaround.
 
 The development mailbox has Matthew's FullAccess and SendAs, plus both shared
-Sent Items copy flags. The enabled/enforced rule **Altitutor development mailbox
+Sent Items copy flags. Production's two delegated Sent Items copy flags are
+also enabled, while its existing mailbox type/license remain unchanged.
+The enabled/enforced rule **Altitutor development mailbox
 internal only** matches this sender in header or envelope and rejects recipients
 outside the organization. No production mail-flow rule was changed. Live mixed
 recipient/Bcc behavior still requires controlled delivery QA.
 
-Retry the existing scoped role assignments after Microsoft provisioning settles,
-then verify positive/negative resources. These commands require a normal signed-in
-Exchange administrator session, never an application's secret:
+The following idempotent commands document the completed scoped configuration
+and its positive/negative checks. They require a normal signed-in Exchange
+administrator session, never an application's secret:
 
 ```powershell
 $apps = @(
@@ -100,9 +103,10 @@ Set-DkimSigningConfig -Identity altitutor.com -Enabled $true
 Get-DkimSigningConfig | Select-Object Name,Enabled,Status
 ```
 
-The expected application test result is two in-scope roles only for the matching
-mailbox, and out-of-scope for both other resources. A permission error is a blocker,
-not grounds to grant unscoped Graph access. See DEV-250 for the latest readback.
+The verified application test result is two in-scope roles only for the matching
+mailbox, and out-of-scope for both other resources. Permission propagation can
+still affect real Graph calls; the test cmdlet bypasses that cache. Do not add
+unscoped Graph access to work around propagation. See DEV-250 for readback evidence.
 
 ## Human-only client secrets and deployment
 
@@ -130,9 +134,8 @@ node secrets/scripts/deploy-mailbox.mjs --environment development --dry-run
 node secrets/scripts/deploy-mailbox.mjs --environment production --dry-run
 ```
 
-Do not deploy while the scoped application grants above are still blocked. Once
-those grants are verified and this cutover is ready for reviewed CI/CD, run each
-actual secret deployment yourself:
+The scoped grants are verified. When the cutover is ready for reviewed CI/CD,
+run each actual secret deployment yourself:
 
 ```sh
 node secrets/scripts/deploy-mailbox.mjs --environment development
