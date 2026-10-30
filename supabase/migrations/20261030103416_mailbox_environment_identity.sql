@@ -5,10 +5,10 @@ CREATE TABLE public.email_mailbox_identity (
  bound_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 ALTER TABLE public.email_mailbox_identity ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.email_mailbox_identity FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON public.email_mailbox_identity FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT,INSERT ON public.email_mailbox_identity TO service_role;
 -- Earlier integrations could only operate admin@. Preserve and bind their state;
--- switching development to its new mailbox requires an explicitly reviewed reset.
+-- switching environments requires a separate matching database, never a silent reset.
 INSERT INTO public.email_mailbox_identity(singleton,address)
 SELECT true,'admin@altitutor.com' WHERE
  EXISTS(SELECT 1 FROM public.email_messages) OR EXISTS(SELECT 1 FROM public.email_threads)

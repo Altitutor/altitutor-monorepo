@@ -1,5 +1,7 @@
 BEGIN;
-SELECT plan(11);
+SELECT plan(13);
+SELECT ok(NOT has_table_privilege('service_role','public.email_mailbox_identity','UPDATE'),'service role cannot rewrite the mailbox binding');
+SELECT ok(NOT has_table_privilege('service_role','public.email_mailbox_identity','DELETE'),'service role cannot delete the mailbox binding');
 INSERT INTO public.staff(id,first_name,last_name,role,status,email) VALUES('fa250000-0000-4000-8000-000000000099','Development','Admin','ADMINSTAFF','ACTIVE','admin@development.altitutor.com');
 SAVEPOINT empty_mailbox;
 SET LOCAL ROLE service_role;

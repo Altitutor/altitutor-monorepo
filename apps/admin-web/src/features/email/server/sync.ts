@@ -135,7 +135,6 @@ async function synchronize(
         errors++;
         if (error instanceof GraphMailboxError && error.status === 410) {
           const reset = await db.rpc("email_reset_sync_cursor", {
-            p_mailbox_address: mailbox.policy.address,
             p_folder_id: folder.id,
             p_expected_cursor: folder.cursor ?? "",
           });
