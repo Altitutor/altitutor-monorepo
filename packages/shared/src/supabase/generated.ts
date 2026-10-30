@@ -3019,6 +3019,24 @@ export type Database = {
         }
         Relationships: []
       }
+      email_mailbox_identity: {
+        Row: {
+          address: string
+          bound_at: string
+          singleton: boolean
+        }
+        Insert: {
+          address: string
+          bound_at?: string
+          singleton?: boolean
+        }
+        Update: {
+          address?: string
+          bound_at?: string
+          singleton?: boolean
+        }
+        Relationships: []
+      }
       email_messages: {
         Row: {
           data: Json
@@ -44359,12 +44377,14 @@ export type Database = {
           p_cursor: string
           p_expected_cursor: string
           p_folder_id: string
+          p_mailbox_address?: string
           p_messages: Json
           p_observation_only?: boolean
           p_removed_ids: string[]
         }
         Returns: boolean
       }
+      email_assert_mailbox: { Args: { p_address: string }; Returns: string }
       email_assign_thread: {
         Args: { p_staff_id: string; p_thread_id: string }
         Returns: Json
@@ -44445,7 +44465,13 @@ export type Database = {
         Returns: Json
       }
       email_operational_prepare: {
-        Args: { p_actor: string; p_key: string; p_links: Json; p_payload: Json }
+        Args: {
+          p_actor: string
+          p_key: string
+          p_links: Json
+          p_mailbox_address?: string
+          p_payload: Json
+        }
         Returns: Json
       }
       email_operational_update: {

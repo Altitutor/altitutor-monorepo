@@ -1,25 +1,21 @@
 import "server-only";
 import { z } from "zod";
 import { createGraphMailbox } from "./graph";
+import { getMailboxPolicy } from "./config";
+import { ensureMailboxIdentity } from "./identity";
+import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
 export function mailboxConfigured() {
   return Boolean(
-    (process.env.EMAIL_M365_TENANT_ID ??
-      process.env.ONBOARDING_M365_TENANT_ID) &&
-      (process.env.EMAIL_M365_CLIENT_ID ??
-        process.env.ONBOARDING_M365_CLIENT_ID) &&
-      (process.env.EMAIL_M365_CLIENT_SECRET ??
-        process.env.ONBOARDING_M365_CLIENT_SECRET),
+    process.env.EMAIL_M365_TENANT_ID &&
+      process.env.EMAIL_M365_CLIENT_ID &&
+      process.env.EMAIL_M365_CLIENT_SECRET,
   );
 }
 export async function getMailboxAccessToken() {
-  const tenant =
-    process.env.EMAIL_M365_TENANT_ID ?? process.env.ONBOARDING_M365_TENANT_ID;
-  const client =
-    process.env.EMAIL_M365_CLIENT_ID ?? process.env.ONBOARDING_M365_CLIENT_ID;
-  const secret =
-    process.env.EMAIL_M365_CLIENT_SECRET ??
-    process.env.ONBOARDING_M365_CLIENT_SECRET;
+  const tenant = process.env.EMAIL_M365_TENANT_ID;
+  const client = process.env.EMAIL_M365_CLIENT_ID;
+  const secret = process.env.EMAIL_M365_CLIENT_SECRET;
   if (!tenant || !client || !secret)
     throw new Error("Microsoft 365 mailbox credentials are not configured.");
   const response = await fetch(
@@ -45,5 +41,11 @@ export async function getMailboxAccessToken() {
 }
 
 export async function connectMailbox() {
-  return createGraphMailbox({ accessToken: await getMailboxAccessToken() });
+  const db = getServerSupabaseAdmin();
+  if (!db) throw new Error("Mailbox database is not configured.");
+  const mailbox = await ensureMailboxIdentity(db, getMailboxPolicy());
+  return createGraphMailbox({
+    mailbox,
+    accessToken: await getMailboxAccessToken(),
+  });
 }

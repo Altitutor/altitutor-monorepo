@@ -20,6 +20,11 @@ describe("shared mailbox commands", () => {
       return new Response(null, { status: 204 });
     };
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -86,6 +91,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -131,6 +141,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -180,6 +195,11 @@ describe("shared mailbox commands", () => {
       throw new Error("Unexpected provider request");
     };
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -195,10 +215,17 @@ describe("shared mailbox commands", () => {
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
       .mockResolvedValue(new Response(null, { status: 202 }));
     const accepted = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl: acceptedFetch,
     });
-    expect(await accepted.sendDraft("draft-one")).toEqual({
+    expect(
+      await accepted.sendDraft("draft-one", { to: ["parent@example.test"] }),
+    ).toEqual({
       state: "submitted",
     });
 
@@ -206,10 +233,17 @@ describe("shared mailbox commands", () => {
       .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
       .mockRejectedValue(new Error("Connection lost after request body"));
     const lost = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl: lostFetch,
     });
-    expect(await lost.sendDraft("draft-two")).toEqual({ state: "uncertain" });
+    expect(
+      await lost.sendDraft("draft-two", { to: ["parent@example.test"] }),
+    ).toEqual({ state: "uncertain" });
     expect(lostFetch).toHaveBeenCalledTimes(1);
     expect(acceptedFetch).toHaveBeenCalledTimes(1);
   });
@@ -220,9 +254,14 @@ describe("shared mailbox commands", () => {
       .mockResolvedValue(new Response(null, { status: 403 }));
     expect(
       await createGraphMailbox({
+        mailbox: {
+          environment: "production",
+          address: "admin@altitutor.com",
+          allowedRecipients: [],
+        },
         accessToken: "fixture-token",
         fetchImpl,
-      }).sendDraft("rejected-draft"),
+      }).sendDraft("rejected-draft", { to: ["parent@example.test"] }),
     ).toEqual({ state: "failed" });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -253,6 +292,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -295,6 +339,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -338,6 +387,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -374,6 +428,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -401,6 +460,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -436,6 +500,11 @@ describe("shared mailbox commands", () => {
         }),
       );
     const mailbox = createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       accessToken: "fixture-token",
       fetchImpl,
     });
@@ -471,4 +540,27 @@ describe("shared mailbox commands", () => {
       toRecipients: [{ emailAddress: { address: "parent@example.test" } }],
     });
   });
+});
+it("uses the development mailbox and rejects production mailbox continuation links", async () => {
+  const requests: string[] = [];
+  const mailbox = createGraphMailbox({
+    mailbox: {
+      environment: "development",
+      address: "admin@development.altitutor.com",
+      allowedRecipients: ["matt@altitutor.com"],
+    },
+    accessToken: "fixture-token",
+    fetchImpl: async (input) => {
+      requests.push(String(input));
+      return Response.json({
+        value: [],
+        "@odata.deltaLink":
+          "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com/mailFolders/inbox/messages/delta?$deltatoken=foreign",
+      });
+    },
+  });
+  await expect(mailbox.changes("inbox")).rejects.toThrow(
+    "Unexpected Microsoft Graph continuation",
+  );
+  expect(requests[0]).toContain("users/admin%40development.altitutor.com/");
 });

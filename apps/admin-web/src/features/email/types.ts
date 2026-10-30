@@ -131,6 +131,8 @@ export const emailListSchema = z.object({
   hasMore: z.boolean(),
 });
 export const mailboxSchema = emailListSchema.extend({
+  mailboxAddress: z.string().email(),
+  mailboxEnvironment: z.enum(["development", "production"]),
   folders: z.array(emailFolderSchema),
   staff: z.array(
     z.object({

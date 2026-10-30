@@ -1,4 +1,6 @@
 import "server-only";
+import { ensureMailboxIdentity } from "./identity";
+import { getMailboxPolicy } from "./config";
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -11,6 +13,7 @@ export async function syncMailbox(
   db: SupabaseClient<Database>,
   connector?: ReturnType<typeof createGraphMailbox>,
 ) {
+  await ensureMailboxIdentity(db, connector?.policy ?? getMailboxPolicy());
   const token = randomUUID();
   const claimed = await db.rpc("email_claim_sync", { p_token: token });
   if (claimed.error) throw claimed.error;
@@ -59,17 +62,15 @@ async function synchronize(
     );
   }
   if (folders.length) {
-    const saved = await db
-      .from("email_folders")
-      .upsert(
-        folders.map((folder) => ({
-          id: folder.id,
-          name: folder.name,
-          parent_id: folder.parentId,
-          role: roles.find((known) => known?.id === folder.id)?.role ?? null,
-          present: true,
-        })),
-      );
+    const saved = await db.from("email_folders").upsert(
+      folders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        parent_id: folder.parentId,
+        role: roles.find((known) => known?.id === folder.id)?.role ?? null,
+        present: true,
+      })),
+    );
     if (saved.error) throw saved.error;
   }
   // Only a complete provider enumeration can remove a folder from navigation.
@@ -117,6 +118,7 @@ async function synchronize(
       try {
         const page = await mailbox.changes(folder.id, folder.cursor);
         const saved = await db.rpc("email_apply_sync_page", {
+          p_mailbox_address: mailbox.policy.address,
           p_folder_id: folder.id,
           p_expected_cursor: folder.cursor ?? "",
           p_cursor: page.cursor,
@@ -138,15 +140,13 @@ async function synchronize(
           });
           if (reset.error) throw reset.error;
         } else {
-          const marked = await db
-            .from("email_sync_state")
-            .upsert({
-              folder_id: folder.id,
-              last_error:
-                error instanceof GraphMailboxError
-                  ? error.message
-                  : "Mailbox sync failed; retry to resume this folder.",
-            });
+          const marked = await db.from("email_sync_state").upsert({
+            folder_id: folder.id,
+            last_error:
+              error instanceof GraphMailboxError
+                ? error.message
+                : "Mailbox sync failed; retry to resume this folder.",
+          });
           if (marked.error) throw marked.error;
         }
         // Other folders still progress; the error remains visible until this

@@ -180,7 +180,7 @@ export function MailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">Mail</h1>
           <span className="text-xs text-muted-foreground">
-            admin@altitutor.com
+            {mailbox.data?.mailboxAddress ?? "Mailbox"}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -390,3 +390,40 @@ Production maps to Vercel Production; development maps to Vercel Preview. Empty 
 are skipped. Redeploy admin-web afterward. The normal all-secrets deployment includes
 this key too. Password provisioning and verification are described in
 [Admin MCP setup](../docs/admin-mcp.md). Never commit the populated connection string.
+
+## Microsoft admin email
+
+Use the normal `./secrets/scripts/deploy-all.sh` workflow for future rotations.
+Its existing Vercel and Supabase scripts include the matching environment's
+Microsoft email settings. There is no separate mailbox deployment command.
+
+Put these only in the matching gitignored `.env.development` / `.env.production`:
+
+- `EMAIL_M365_TENANT_ID`: tenant ID from the tracked example.
+- `EMAIL_M365_CLIENT_ID`: the environment-specific Application (client) ID.
+- `EMAIL_M365_CLIENT_SECRET`: Microsoft's **Value**, never the Secret ID.
+- Development: `EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS`, an explicit comma-separated
+  list of individual `@altitutor.com` test recipients (initially `matt@altitutor.com`).
+
+The tracked examples contain public IDs and blank secret placeholders. Never put
+secret Values in the examples or `.env.shared`. Secret ID is not used at runtime.
+
+```sh
+./secrets/scripts/deploy-all.sh
+# The normal individual platform entry points also include Microsoft settings:
+./secrets/scripts/deploy-vercel.sh
+./secrets/scripts/deploy-supabase.sh
+```
+
+Vercel receives the settings only for admin-web Preview/Production; Supabase
+receives them only in the corresponding project. `EMAIL_ENVIRONMENT` is derived
+and checked, development recipients are validated, and credentials are read
+literally from the selected environment file. Shared credentials are never used
+as a fallback or distributed to GitHub/EAS/other web apps. Missing configuration
+is skipped only when all three dedicated credential fields are absent/blank;
+a partial configuration fails rather than silently using another environment.
+
+These scripts update runtime settings. Redeploy admin-web to load new Vercel
+values; reviewed database migrations and Edge code still ship through CI/CD.
+For the completed Microsoft provisioning and live QA steps, see
+[the setup guide](../docs/agents/admin-mailbox-setup.md).

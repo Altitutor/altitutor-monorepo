@@ -1,25 +1,44 @@
 # Shared admin mailbox
 
-`admin@altitutor.com` is the sole provider mailbox. Exchange owns messages,
-immutable IDs, folders, shared read state, drafts and Sent Items. The portal owns
-thread assignment, reviewed participant identities, explicit record context,
-templates and staff signatures. See ADR 0063 and the DEV-250 research documents.
+Production uses `admin@altitutor.com`; preview and local development use
+`admin@development.altitutor.com`. Exchange owns messages, immutable IDs, folders,
+shared read state, drafts and Sent Items. The portal owns thread assignment,
+reviewed participant identities, explicit record context, templates and staff
+signatures. See ADR 0063 and [Microsoft setup](../../../../../docs/agents/admin-mailbox-setup.md).
 
 ## Configuration and cutover
 
-The server needs `EMAIL_M365_TENANT_ID`, `EMAIL_M365_CLIENT_ID` and
-`EMAIL_M365_CLIENT_SECRET`. Existing `ONBOARDING_M365_*` names remain fallbacks.
-The selected operational Edge senders need the same configuration in their own
-environment, plus their normal Supabase service credentials. Keys never reach
-browser responses. `CRON_SECRET` protects the one unified `/api/email/sync`
-schedule; foreground staff refresh uses active ADMINSTAFF authentication.
+Configure dedicated `EMAIL_M365_TENANT_ID`, `EMAIL_M365_CLIENT_ID` and
+`EMAIL_M365_CLIENT_SECRET` values separately for each environment. Legacy
+`ONBOARDING_M365_*` credentials are deliberately not accepted. Vercel production
+selects the production mailbox; preview/development selects the development
+mailbox. Explicit `EMAIL_ENVIRONMENT` must agree with Vercel metadata. Local
+processes default to development, regardless of `NODE_ENV`. Edge Functions must
+set `EMAIL_ENVIRONMENT` explicitly because they have no Vercel deployment identity.
 
-The previous onboarding integration established read access only. Deployment
-requires administrator-consented Microsoft Graph application `Mail.ReadWrite`
-and `Mail.Send`, restricted to this mailbox through the tenant's supported
-application access controls. Verify grants and mailbox scope with the tenant
-administrator before cutover. No tenant grants, secrets, mailbox license,
-Online Archive or real delivery have been inspected by this implementation.
+Development sends require `EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS`, a comma-separated
+exact list of test addresses. Every To/Cc/Bcc must be allowed; blocked messages are
+rejected without silently changing recipients. Configure the list only with
+internal Altitutor staff addresses. Exchange also blocks external recipients for
+the development sender, including Outlook sends; the application list remains
+narrower than the tenant-wide internal-recipient boundary.
+
+Each database binds once to one mailbox through `email_assert_mailbox`. Existing
+provider state binds to the previous production mailbox; it cannot silently become
+a development cache. A mismatch stops access and preserves mail. Use a matching
+separate database rather than deleting or reinterpreting cached provider IDs.
+The new migration ships through CI/CD.
+
+Both applications use Exchange Application RBAC `Application Mail.ReadWrite` and
+`Application Mail.Send`, scoped to the one matching mailbox. Do not add tenant-wide
+Entra Graph mail grants: Entra grants are additive and would defeat this boundary.
+Staff use their existing portal ADMINSTAFF sessions; they do not individually
+connect Microsoft accounts. Outlook access is a separate Exchange mailbox delegation.
+
+Keys never reach browser responses. `CRON_SECRET` protects `/api/email/sync`;
+foreground refresh uses active ADMINSTAFF authentication. Vercel preview does not
+execute cron, so controlled preview QA uses the Mail refresh action. Real Graph
+credentials and delivery are a separate human verification step after deployment.
 
 The unified sync replaces `/api/onboarding/mailbox-sync` and its separate cron.
 The new migration backfills cached onboarding correspondence and explicit journey

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { assertMailboxRecipients } from "@altitutor/email";
 import type { Database } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type EmailCommand } from "../types";
@@ -40,17 +41,16 @@ export function mailboxCommands(
       return result.data;
     }
     const mailbox = connector ?? (await connectMailbox());
+    const observe = (message: Awaited<ReturnType<typeof mailbox.message>>) =>
+      observeMailboxMessage(db, message, mailbox.policy.address);
     if (command.action === "read" || command.action === "move") {
       for (const id of command.ids) {
         if (command.action === "read") {
           await mailbox.setRead(id, command.read);
-          await observeMailboxMessage(db, await mailbox.message(id));
+          await observe(await mailbox.message(id));
         } else {
           // Microsoft resolves well-known archive/deleteditems names itself.
-          await observeMailboxMessage(
-            db,
-            await mailbox.move(id, command.folderId),
-          );
+          await observe(await mailbox.move(id, command.folderId));
         }
       }
       return { state: "saved" };
@@ -66,7 +66,7 @@ export function mailboxCommands(
                 ? undefined
                 : { messageId: command.messageId!, mode: command.mode },
             );
-      const cached = await observeMailboxMessage(db, draft);
+      const cached = await observe(draft);
       const signature = await db
         .from("email_signatures")
         .select("body_text")
@@ -93,15 +93,12 @@ export function mailboxCommands(
       if (claim.state === "conflict")
         return {
           state: "conflict",
-          message: await observeMailboxMessage(
-            db,
-            await mailbox.message(command.id),
-          ),
+          message: await observe(await mailbox.message(command.id)),
         };
       if (claim.state !== "ready") return claim;
       try {
         const result = await mailbox.saveDraft(command.id, command.content);
-        const message = await observeMailboxMessage(db, result.message);
+        const message = await observe(result.message);
         return { ...result, message };
       } finally {
         const released = await db
@@ -116,9 +113,15 @@ export function mailboxCommands(
     // read/check/send window is still subject to Microsoft's cross-client race.
     const current = await mailbox.message(command.id);
     if (!current.draft || current.changeKey !== command.changeKey) {
-      if (current.draft) await observeMailboxMessage(db, current);
+      if (current.draft) await observe(current);
       return { state: "conflict", message: current };
     }
+    const recipients = {
+      to: current.to ?? [],
+      cc: current.cc ?? [],
+      bcc: current.bcc ?? [],
+    };
+    assertMailboxRecipients(mailbox.policy, recipients);
     const claimed = await db.rpc("email_begin_send", {
       p_message_id: command.id,
       p_change_key: command.changeKey,
@@ -131,14 +134,11 @@ export function mailboxCommands(
       if (claim.state === "conflict")
         return {
           state: "conflict",
-          message: await observeMailboxMessage(
-            db,
-            await mailbox.message(command.id),
-          ),
+          message: await observe(await mailbox.message(command.id)),
         };
       return claim;
     }
-    const result = await mailbox.sendDraft(command.id);
+    const result = await mailbox.sendDraft(command.id, recipients);
     const recorded = await db
       .from("email_send_attempts")
       .update({ state: result.state, updated_at: new Date().toISOString() })

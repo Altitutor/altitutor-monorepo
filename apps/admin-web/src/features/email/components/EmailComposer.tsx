@@ -278,7 +278,7 @@ export function EmailComposer({
           <Paperclip className="h-4 w-4" />
         </Button>
         <span className="max-w-48 truncate text-xs text-muted-foreground">
-          Altitutor Admin · admin@altitutor.com
+          Altitutor Admin · {mailbox.mailboxAddress}
         </span>
       </div>
       <Button

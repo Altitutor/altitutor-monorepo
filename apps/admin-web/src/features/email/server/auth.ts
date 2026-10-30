@@ -1,4 +1,5 @@
 import "server-only";
+import { ensureMailboxIdentity } from "./identity";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
@@ -21,5 +22,14 @@ export async function emailAccess() {
   const admin = getServerSupabaseAdmin();
   if (staff.error || !staff.data || !admin)
     return { error: "Server configuration unavailable", status: 503 } as const;
-  return { db, admin, staff: staff.data };
+  try {
+    const mailbox = await ensureMailboxIdentity(admin);
+    return { db, admin, staff: staff.data, mailbox };
+  } catch {
+    return {
+      error:
+        "Mailbox configuration does not match this database. Existing mail was preserved.",
+      status: 503,
+    } as const;
+  }
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { getMailboxPolicy } from "./config";
 import type { Database, Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emailMessageSchema } from "../types";
@@ -7,8 +8,10 @@ import type { GraphMailMessage } from "./graph";
 export async function observeMailboxMessage(
   db: SupabaseClient<Database>,
   message: GraphMailMessage,
+  address = getMailboxPolicy().address,
 ) {
   const saved = await db.rpc("email_apply_sync_page", {
+    p_mailbox_address: address,
     p_folder_id: message.folderId,
     p_expected_cursor: "",
     p_cursor: "",

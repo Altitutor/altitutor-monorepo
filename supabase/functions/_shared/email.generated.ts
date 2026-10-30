@@ -624,6 +624,49 @@ async function deliverEdgeEmail(input) {
   };
 }
 
+// src/mailbox-policy.ts
+var addresses = {
+  development: "admin@development.altitutor.com",
+  production: "admin@altitutor.com"
+};
+function resolveMailboxPolicy(env) {
+  const target = env.VERCEL_TARGET_ENV || env.VERCEL_ENV;
+  if (target && !["production", "preview", "development"].includes(target))
+    throw new Error("Unknown mailbox deployment environment.");
+  const detected = target === "production" ? "production" : "development";
+  const explicit = env.EMAIL_ENVIRONMENT;
+  if (explicit && explicit !== "development" && explicit !== "production")
+    throw new Error("Invalid mailbox environment.");
+  if (target && explicit && explicit !== detected)
+    throw new Error("Mailbox environment conflicts with this deployment.");
+  const environment = explicit || detected;
+  return {
+    environment,
+    address: addresses[environment],
+    allowedRecipients: (env.EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean)
+  };
+}
+function assertMailboxPolicy(policy) {
+  if (policy.address !== addresses[policy.environment])
+    throw new Error("Mailbox address does not match its environment.");
+}
+function assertMailboxRecipients(policy, recipients) {
+  assertMailboxPolicy(policy);
+  const all = [
+    ...recipients.to,
+    ...recipients.cc || [],
+    ...recipients.bcc || []
+  ];
+  if (!all.length || all.some((value) => !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(value.trim())))
+    throw new Error("Valid email recipients are required.");
+  if (policy.environment === "development" && (!policy.allowedRecipients.length || all.some(
+    (value) => !policy.allowedRecipients.includes(value.trim().toLowerCase())
+  )))
+    throw new Error(
+      "Development email is restricted to the configured test recipients."
+    );
+}
+
 // src/operational-mailbox.ts
 var OPERATIONAL_MAIL_PROPERTY = "String {b257c4a8-842d-48f5-a740-9bb850be94dc} Name AltitutorOperationalMail";
 var MicrosoftOperationalError = class extends Error {
@@ -637,10 +680,19 @@ function record(value) {
 }
 async function deliverOperationalMailboxEmail(input) {
   const fetchImpl = input.fetchImpl ?? fetch;
-  if (!input.to.length || input.email.replyTo.toLowerCase() !== "admin@altitutor.com")
-    throw new Error(
-      "Operational email requires the shared admin mailbox and recipients."
-    );
+  assertMailboxRecipients(input.mailbox, { to: input.to });
+  if (!["admin@altitutor.com", input.mailbox.address].includes(
+    input.email.replyTo.toLowerCase()
+  ))
+    throw new Error("Operational email requires the shared admin mailbox.");
+  const email = {
+    ...input.email,
+    from: input.email.from.replace(
+      "admin@altitutor.com",
+      input.mailbox.address
+    ),
+    replyTo: input.mailbox.address
+  };
   if (input.attachments?.some((file) => file.contentBytes.length > 39e5))
     throw new Error("This attachment requires a large-file upload session.");
   async function rpc(name, values) {
@@ -663,9 +715,10 @@ async function deliverOperationalMailboxEmail(input) {
   }
   const value = await rpc("email_operational_prepare", {
     p_key: input.idempotencyKey,
+    p_mailbox_address: input.mailbox.address,
     p_payload: {
       to: input.to,
-      email: input.email,
+      email,
       ...input.attachments ? { attachments: input.attachments } : {}
     },
     p_links: input.links,
@@ -684,7 +737,7 @@ async function deliverOperationalMailboxEmail(input) {
     );
   }
   let token = "";
-  const base = "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com";
+  const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input.mailbox.address)}`;
   async function graph(path, method = "GET", body) {
     const response = await fetchImpl(base + path, {
       method,
@@ -727,10 +780,10 @@ async function deliverOperationalMailboxEmail(input) {
         from: {
           emailAddress: {
             name: "Altitutor Admin",
-            address: "admin@altitutor.com"
+            address: input.mailbox.address
           }
         },
-        replyTo: [{ emailAddress: { address: "admin@altitutor.com" } }],
+        replyTo: [{ emailAddress: { address: input.mailbox.address } }],
         toRecipients: input.to.map((address) => ({
           emailAddress: { address }
         })),
@@ -791,6 +844,8 @@ export {
   COMPANY_CONTACT,
   EMAIL_SENDERS,
   OPERATIONAL_MAIL_PROPERTY,
+  assertMailboxPolicy,
+  assertMailboxRecipients,
   buildAuthEmails,
   buildBookingCancelledEmail,
   buildBookingChangedEmail,
@@ -807,5 +862,6 @@ export {
   formatEmailDateText,
   renderEmail,
   renderEmailButton,
-  renderEmailPanel
+  renderEmailPanel,
+  resolveMailboxPolicy
 };

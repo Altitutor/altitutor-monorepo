@@ -28,6 +28,9 @@ node --test \
 python3 scripts/owned_database.test.py
 python3 scripts/worktree_dev.test.py
 
+section "Mailbox secret-deployment contracts"
+node --test secrets/scripts/deploy-runtime.test.mjs
+
 section "Generated email artifacts"
 pnpm email:check
 
