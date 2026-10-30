@@ -293,7 +293,7 @@ export function AssignStaffWeekCalendar({
                                 new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
                             );
 
-                          const blocks: JSX.Element[] = [];
+                          const blocks: React.JSX.Element[] = [];
                           daySessions.forEach((s) => {
                             const isPotential = 'isPotential' in s && s.isPotential;
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at);

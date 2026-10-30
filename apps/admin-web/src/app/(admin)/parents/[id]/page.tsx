@@ -3,7 +3,7 @@ import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadc
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -38,7 +38,8 @@ import {
 } from '@/features/parents/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
 
-export default function ParentDetailPage({ params }: { params: { id: string } }) {
+export default function ParentDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();

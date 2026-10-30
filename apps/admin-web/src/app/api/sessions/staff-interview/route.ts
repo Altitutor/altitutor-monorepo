@@ -9,7 +9,7 @@ const STAFF_INTERVIEW_DEFAULT_DURATION_MINUTES = 45;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     if (!supabaseAdmin) {
       return NextResponse.json(

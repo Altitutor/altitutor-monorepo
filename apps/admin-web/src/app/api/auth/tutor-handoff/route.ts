@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
   }
   try {
-    const client = createClient();
+    const client = await createClient();
     const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });

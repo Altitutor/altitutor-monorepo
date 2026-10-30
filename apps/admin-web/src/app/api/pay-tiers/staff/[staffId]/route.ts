@@ -4,10 +4,8 @@ import { fetchStaffTierProgress } from '@/features/pay-tiers/server/payTierServi
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import type { TablesUpdate } from '@altitutor/shared';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { staffId: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ staffId: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   try {
@@ -23,10 +21,8 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { staffId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ staffId: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const body = (await request.json()) as {

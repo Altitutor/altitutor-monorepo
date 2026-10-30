@@ -1,6 +1,7 @@
+import { renderSuspending } from "@/shared/test-utils";
 import type { CreditNoteDetails } from "@/features/billing/utils/creditNoteDetails";
 import type { ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import InvoiceDetailPage from "../page";
 
 const mockToast = jest.fn();
@@ -177,15 +178,15 @@ beforeEach(() => {
   };
 });
 
-it("opens the credit-note review for an eligible invoice", () => {
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+it("opens the credit-note review for an eligible invoice", async () => {
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   fireEvent.click(screen.getByText("Add Credit Note"));
   expect(screen.getByText("Credit note review")).toBeInTheDocument();
 });
 
 it.each(["refunded", "fully credited", "legacy credit"] as const)(
   "blocks credit-note creation for an invoice that is %s",
-  (reason) => {
+  async (reason) => {
     mockInvoice.is_refunded = reason === "refunded";
     if (reason !== "refunded")
       mockCreditNotes = [
@@ -194,7 +195,7 @@ it.each(["refunded", "fully credited", "legacy credit"] as const)(
           credit_amount_cents: reason === "legacy credit" ? 0 : 10000,
         },
       ];
-    render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+    await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
     expect(screen.getByText("Add Credit Note")).toBeDisabled();
     mockActions.onAddCreditNote?.();
     expect(screen.queryByText("Credit note review")).not.toBeInTheDocument();
@@ -204,16 +205,16 @@ it.each(["refunded", "fully credited", "legacy credit"] as const)(
   },
 );
 
-it("ignores voided credits when determining whether another credit note can be added", () => {
+it("ignores voided credits when determining whether another credit note can be added", async () => {
   mockCreditNotes = [
     { ...creditNote, status: "void", credit_amount_cents: 10000 },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getByText("Add Credit Note")).toBeEnabled();
 });
 
-it("shows the payment error, collection method and automatic retry details", () => {
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+it("shows the payment error, collection method and automatic retry details", async () => {
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getByText("Charge Automatically")).toBeInTheDocument();
   expect(
     screen.getByText("card_declined: Payment declined"),
@@ -223,14 +224,14 @@ it("shows the payment error, collection method and automatic retry details", () 
   expect(screen.queryByText("No retry scheduled")).not.toBeInTheDocument();
 });
 
-it("distinguishes a failed retry lookup from no scheduled retry", () => {
+it("distinguishes a failed retry lookup from no scheduled retry", async () => {
   mockStripe = { ...mockStripe, isError: true };
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getAllByText("Unable to load")).toHaveLength(3);
   expect(screen.queryByText("No retry scheduled")).not.toBeInTheDocument();
 });
 
-it("shows all settlement destinations on a credit note", () => {
+it("shows all settlement destinations on a credit note", async () => {
   mockCreditNotes = [
     {
       ...creditNote,
@@ -249,7 +250,7 @@ it("shows all settlement destinations on a credit note", () => {
       pre_payment_amount_cents: 0,
     },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getByText("Refund (after payment) $20.00")).toBeInTheDocument();
   expect(
     screen.getByText("Credited to customer balance (after payment) $30.00"),
@@ -260,7 +261,7 @@ it("shows all settlement destinations on a credit note", () => {
   expect(screen.getByText("Add Credit Note")).toBeEnabled();
 });
 
-it("shows original charges and credit adjustments without treating them as missing line items", () => {
+it("shows original charges and credit adjustments without treating them as missing line items", async () => {
   mockInvoice.total_cents = 4500;
   mockInvoice.amount_due_cents = 0;
   mockInvoiceItems = [
@@ -269,7 +270,7 @@ it("shows original charges and credit adjustments without treating them as missi
   mockCreditNotes = [
     { ...creditNote, amount_cents: 4500, credit_amount_cents: 4500 },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.queryByText(/missing fee items/)).not.toBeInTheDocument();
   expect(screen.getByText("Original invoice total")).toBeInTheDocument();
   expect(screen.getByText("Credit notes applied")).toBeInTheDocument();
@@ -278,14 +279,14 @@ it("shows original charges and credit adjustments without treating them as missi
   ).toBeInTheDocument();
 });
 
-it("keeps a genuine original-charge mismatch visible even when a credit note exists", () => {
+it("keeps a genuine original-charge mismatch visible even when a credit note exists", async () => {
   mockInvoiceItems = [
     { id: "item", description: "Session", amount_cents: 4500 },
   ];
   mockCreditNotes = [
     { ...creditNote, amount_cents: 4500, credit_amount_cents: 4500 },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(
     screen.getByText(
       /Line items total.*differs from the original invoice total/,
@@ -293,7 +294,7 @@ it("keeps a genuine original-charge mismatch visible even when a credit note exi
   ).toBeInTheDocument();
 });
 
-it("shows the original payment independently of net invoice value and an unpaid reduction", () => {
+it("shows the original payment independently of net invoice value and an unpaid reduction", async () => {
   mockInvoiceItems = [
     { id: "item", description: "Session", amount_cents: 10000 },
   ];
@@ -309,7 +310,7 @@ it("shows the original payment independently of net invoice value and an unpaid 
       reason: "order_change",
     },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getByText("Net invoice value")).toBeInTheDocument();
   expect(screen.getByText(/Amount paid by customer:/)).toHaveTextContent("$60.00");
   expect(
@@ -325,7 +326,7 @@ it("shows the original payment independently of net invoice value and an unpaid 
   ).not.toBeInTheDocument();
 });
 
-it("does not infer an old credit note's outcome from a paid invoice", () => {
+it("does not infer an old credit note's outcome from a paid invoice", async () => {
   mockCreditNotes = [
     {
       ...creditNote,
@@ -334,7 +335,7 @@ it("does not infer an old credit note's outcome from a paid invoice", () => {
     },
   ];
   mockStripe.isError = true;
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(
     screen.getByText(/Credit note outcome unavailable/),
   ).toBeInTheDocument();
@@ -344,7 +345,7 @@ it("does not infer an old credit note's outcome from a paid invoice", () => {
   ).not.toBeInTheDocument();
 });
 
-it("shows a void note's explanation without presenting its settlements as current outcomes", () => {
+it("shows a void note's explanation without presenting its settlements as current outcomes", async () => {
   mockStripe.data.credit_notes = [
     {
       ...creditNote,
@@ -355,7 +356,7 @@ it("shows a void note's explanation without presenting its settlements as curren
       internal_note: null,
     },
   ];
-  render(<InvoiceDetailPage params={{ id: "invoice" }} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({ id: "invoice" })} />);
   expect(screen.getByText(/Voided credit note/)).toBeInTheDocument();
   expect(
     screen.queryByText(/Reduced unpaid invoice amount/),
@@ -363,11 +364,11 @@ it("shows a void note's explanation without presenting its settlements as curren
   expect(screen.getByText("Add Credit Note")).toBeEnabled();
 });
 
-it("shows customer payments and applied account credit separately", () => {
+it("shows customer payments and applied account credit separately", async () => {
   mockInvoice.amount_paid_cents = 13000;
   mockInvoice.amount_paid_from_balance_cents = 2000;
   mockInvoice.total_cents = 15000;
-  render(<InvoiceDetailPage params={{id: 'invoice'}} />);
+  await renderSuspending(<InvoiceDetailPage params={Promise.resolve({id: 'invoice'})} />);
   expect(screen.getByText(/Amount paid by customer:/)).toHaveTextContent('$130.00');
   expect(screen.getByText(/Account credit applied:/)).toHaveTextContent('$20.00');
 });

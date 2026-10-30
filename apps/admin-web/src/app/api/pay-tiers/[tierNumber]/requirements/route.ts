@@ -16,7 +16,8 @@ function isTenureKind(kind: string): kind is RequirementKind {
   return TENURE_KINDS.includes(kind as RequirementKind);
 }
 
-export async function GET(_request: NextRequest, { params }: { params: { tierNumber: string } }) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -34,7 +35,8 @@ export async function GET(_request: NextRequest, { params }: { params: { tierNum
   return NextResponse.json({ requirements: data ?? [] });
 }
 
-export async function POST(request: NextRequest, { params }: { params: { tierNumber: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -106,7 +108,8 @@ export async function POST(request: NextRequest, { params }: { params: { tierNum
   return NextResponse.json({ requirement: data });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { tierNumber: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -182,7 +185,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { tierNu
   return NextResponse.json({ requirement: data });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { tierNumber: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);

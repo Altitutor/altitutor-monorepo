@@ -77,7 +77,7 @@ export default defineConfig({
   webServer: {
     command: [
       "pnpm --workspace-root exec turbo run build --filter=tutor-web^...",
-      "pnpm exec next build",
+      "pnpm exec next build --webpack",
       "pnpm exec next start -p 3012 -H 127.0.0.1",
     ].join(" && "),
     url: baseURL,

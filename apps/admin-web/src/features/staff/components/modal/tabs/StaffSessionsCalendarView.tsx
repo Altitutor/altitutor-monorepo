@@ -168,7 +168,7 @@ export function StaffSessionsCalendarView({
                           adminShiftGroups.push([s]);
                         });
                         
-                        const blocks: JSX.Element[] = [];
+                        const blocks: React.JSX.Element[] = [];
                         
                         // Render ADMIN_SHIFT sessions FIRST (behind) with lower z-index
                         adminShiftGroups.forEach((group) => {

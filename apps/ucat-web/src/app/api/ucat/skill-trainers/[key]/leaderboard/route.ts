@@ -4,10 +4,8 @@ import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import { getLeaderboard } from "@/lib/ucat/skill-trainer/attempt-service";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { key: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 

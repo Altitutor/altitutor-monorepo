@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const subjectId = request.nextUrl.searchParams.get('subjectId');
   if (!subjectId) return NextResponse.json({ error: 'subjectId is required' }, { status: 400 });
 
-  const client = createClient();
+  const client = await createClient();
   const { data: claims } = await client.auth.getClaims();
   const { data: isTutor, error: tutorError } = await client.rpc('is_tutor');
   if (!claims?.claims?.sub || tutorError || !isTutor) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

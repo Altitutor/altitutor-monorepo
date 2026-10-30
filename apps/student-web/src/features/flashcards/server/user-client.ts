@@ -13,7 +13,7 @@ function uncachedFetch(fetcher?: typeof fetch): typeof fetch {
 export async function authenticatedFlashcardClient(request: Request): Promise<SupabaseClient<Database> | null> {
   const authorization = request.headers?.get('authorization') ?? null;
   if (authorization === null) {
-    const client = createServerClient({ fetch: uncachedFetch() }) as SupabaseClient<Database>;
+    const client = await createServerClient({ fetch: uncachedFetch() }) as SupabaseClient<Database>;
     const { data, error } = await client.auth.getClaims();
     return error || !data?.claims?.sub ? null : client;
   }

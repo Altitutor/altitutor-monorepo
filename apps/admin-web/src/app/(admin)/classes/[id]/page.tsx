@@ -2,7 +2,7 @@
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -38,7 +38,8 @@ import {
   invalidateClassSurfaces,
 } from '@/shared/lib/query-invalidation';
 
-export default function ClassDetailPage({ params }: { params: { id: string } }) {
+export default function ClassDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const { toast } = useToast();

@@ -1,13 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, use } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AcceptInviteForm } from '@/features/auth/components/AcceptInviteForm';
 
 interface InvitePageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 function InvitePageContent({ token }: { token: string }) {
@@ -21,7 +21,8 @@ function InvitePageContent({ token }: { token: string }) {
   );
 }
 
-export default function InvitePage({ params }: InvitePageProps) {
+export default function InvitePage(props: InvitePageProps) {
+  const params = use(props.params);
   return (
     <Suspense fallback={
       <div className="flex min-h-dvh items-center justify-center bg-gray-50 px-4 dark:bg-brand-dark-bg">

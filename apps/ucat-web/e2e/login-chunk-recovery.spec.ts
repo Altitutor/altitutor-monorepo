@@ -96,7 +96,7 @@ test("@critical login recovers once when its error-boundary chunk fails transien
   expect(documents).toBe(2);
 });
 
-test("@critical persistent chunk failure keeps an independent retry usable after hydration fallback", async ({
+test("@critical persistent chunk failure keeps an independent retry usable after framework fallback", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -121,15 +121,21 @@ test("@critical persistent chunk failure keeps an independent retry usable after
   await expect
     .poll(() => errors.some((error) => /ChunkLoadError/.test(error)))
     .toBe(true);
-  await expect
-    .poll(() => errors.some((error) => /Minified React error #423/.test(error)))
-    .toBe(true);
+  await expect(
+    page.getByRole("heading", { name: "Something went wrong", exact: true }),
+  ).toBeVisible();
   await expect(page.locator("form")).toHaveCount(0);
   const retry = page.getByRole("button", { name: "Reload sign-in" });
   await expect(retry).toBeVisible();
   await page.waitForTimeout(1000);
   expect(documents).toBe(2);
   await expect(retry).toBeFocused();
+  // React 19 catches this at the global boundary instead of emitting #423.
+  // Verify the native control also survives another document-level removal.
+  await page.locator("#ucat-login-chunk-recovery").evaluate((element) => element.remove());
+  await expect(retry).toBeVisible();
+  await expect(retry).toBeFocused();
+  expect(documents).toBe(2);
   const diagnostics = await page.evaluate(() => window.__ucatChunkDiagnostics);
   expect(diagnostics).toMatchObject({
     records: expect.arrayContaining([
@@ -139,7 +145,6 @@ test("@critical persistent chunk failure keeps an independent retry usable after
       }),
       expect.objectContaining({ kind: "auto-reload" }),
       expect.objectContaining({ kind: "fallback" }),
-      expect.objectContaining({ kind: "react-hydration", reactCode: "423" }),
     ]),
   });
   const serialized = JSON.stringify(diagnostics);

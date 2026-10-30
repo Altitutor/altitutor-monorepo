@@ -55,7 +55,7 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 it('offers only active non-tombstoned final sessions', async () => {
-  const response = await GET(new Request('http://localhost/form/token'), { params: { token: 'token' } });
+  const response = await GET(new Request('http://localhost/form/token'), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(200);
   expect((await response.json()).exitRequest.sessions.map((row: { id: string }) => row.id)).toEqual(['active']);
 });
@@ -63,7 +63,7 @@ it('offers only active non-tombstoned final sessions', async () => {
 it.each(['inactive', 'tombstone'])('rejects a stale %s final-session selection without completing the request', async sessionId => {
   const response = await POST(new Request('http://localhost/form/token', {
     method: 'POST', body: JSON.stringify({ answers: {}, exitSelections: [{ requestEnrolmentId: 'enrolment', sessionId }] }),
-  }), { params: { token: 'token' } });
+  }), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(400);
   expect(rpc).not.toHaveBeenCalled();
 });
@@ -71,7 +71,7 @@ it.each(['inactive', 'tombstone'])('rejects a stale %s final-session selection w
 it('completes a valid active final-session selection', async () => {
   const response = await POST(new Request('http://localhost/form/token', {
     method: 'POST', body: JSON.stringify({ answers: {}, exitSelections: [{ requestEnrolmentId: 'enrolment', sessionId: 'active' }] }),
-  }), { params: { token: 'token' } });
+  }), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(200);
   expect(rpc).toHaveBeenCalledWith('complete_student_exit_request', expect.objectContaining({
     p_exit_selections: [{ requestEnrolmentId: 'enrolment', finalSessionAt: sessions[0].start_at }],
@@ -81,7 +81,7 @@ it('completes a valid active final-session selection', async () => {
 it.each(['GET', 'POST'])('rejects a deleted Student targeted form at %s', async method => {
   retired = true; targeted = true;
   const handler = method === 'GET' ? GET : POST;
-  const response = await handler(new Request('http://localhost/form/token', { method, ...(method === 'POST' ? { body: JSON.stringify({ answers: {} }) } : {}) }), { params: { token: 'token' } });
+  const response = await handler(new Request('http://localhost/form/token', { method, ...(method === 'POST' ? { body: JSON.stringify({ answers: {} }) } : {}) }), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(404);
   expect(rpc).not.toHaveBeenCalled();
 });

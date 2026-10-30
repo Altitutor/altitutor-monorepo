@@ -211,7 +211,7 @@ export function MessagesDropdown() {
                     if (selection.kind === 'contact') {
                       handleConversationClick(selection.contactId);
                     } else {
-                      window.location.assign(`/messages?group=${selection.conversationId}`);
+                      window.location.assign(new URL(`/messages?group=${selection.conversationId}`, window.location.origin));
                     }
                   }}
                 />

@@ -11,7 +11,8 @@ import {
   persistTopicFlashcardOrder,
 } from '../../_lib';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const existingCard = await getAccessibleFlashcard(params.id);
   if (!existingCard) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -31,7 +32,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: staffId } = await userClient.rpc('current_tutor_id');
   const updates: TablesUpdate<'flashcards'> = {
     updated_at: new Date().toISOString(),
@@ -106,13 +107,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   return NextResponse.json({ data });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const existingCard = await getAccessibleFlashcard(params.id);
   if (!existingCard) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: staffId } = await userClient.rpc('current_tutor_id');
   const serviceClient = getServiceRoleClient();
   const { error } = await serviceClient

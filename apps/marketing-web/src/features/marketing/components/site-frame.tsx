@@ -2,13 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
-  Instagram,
-  Facebook,
-  Youtube,
-  Linkedin,
-  Twitter,
   Music2,
 } from "lucide-react";
+import { Instagram, Facebook, Youtube, Linkedin, Twitter } from "./social-icons";
 import { COURSE_LINKS, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { FindYourCourseDialog } from "./find-your-course-dialog";
 import { PageMotion } from "./page-motion";

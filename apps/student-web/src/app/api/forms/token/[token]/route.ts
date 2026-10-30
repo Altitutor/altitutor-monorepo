@@ -57,7 +57,7 @@ async function resolveToken(token: string) {
 }
 
 async function getStudentIdentity() {
-  const userClient = createUserClient();
+  const userClient = await createUserClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return { user: null, student: null };
   const admin = getServerSupabaseAdmin();
@@ -65,7 +65,8 @@ async function getStudentIdentity() {
   return { user, student };
 }
 
-export async function GET(_request: Request, { params }: { params: { token: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tokenRow = await resolveToken(params.token);
   if (!tokenRow) return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   let authenticatedStudentId: string | null = null;
@@ -130,7 +131,8 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   });
 }
 
-export async function POST(request: Request, { params }: { params: { token: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tokenRow = await resolveToken(params.token);
   if (!tokenRow) return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   if (!tokenRow.form_versions) {

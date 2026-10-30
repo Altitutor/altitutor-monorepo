@@ -68,7 +68,7 @@ export function CalendarDetailsTooltip({
   const instructionsId = useId();
   const triggerHovered = useRef(false);
   const contentHovered = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const triggerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const cancel = () => clearTimeout(timer.current);

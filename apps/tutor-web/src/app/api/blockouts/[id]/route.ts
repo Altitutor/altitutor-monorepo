@@ -11,15 +11,13 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
  * - User must be an active tutor (checked via is_tutor())
  * - Blockout must belong to the current tutor
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body = await request.json();
     const blockoutId = params.id;
     
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
@@ -147,14 +145,12 @@ export async function PATCH(
  * - User must be an active tutor (checked via is_tutor())
  * - Blockout must belong to the current tutor
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const blockoutId = params.id;
     
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

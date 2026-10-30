@@ -28,7 +28,7 @@ const requestSchema = z.discriminatedUnion("action", [
 ]);
 
 async function adminClient() {
-  const client = createClient();
+  const client = await createClient();
   const {
     data: { user },
     error,

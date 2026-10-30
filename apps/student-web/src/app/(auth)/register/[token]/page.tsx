@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RegistrationFlow } from "@/features/auth/components/RegistrationFlow";
 import { useToast } from "@altitutor/ui";
@@ -41,11 +41,12 @@ type RegistrationData = {
   }>;
 };
 
-export default function RegisterPage({
-  params,
-}: {
-  params: { token: string };
-}) {
+export default function RegisterPage(
+  props: {
+    params: Promise<{ token: string }>;
+  }
+) {
+  const params = use(props.params);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();

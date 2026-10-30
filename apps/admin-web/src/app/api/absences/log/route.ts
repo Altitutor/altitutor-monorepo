@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { operations, reasonCategory, reasonNote } = body;
 
-    const userClient = createUserClient();
+    const userClient = await createUserClient();
     const {
       data: { user },
       error: authError,

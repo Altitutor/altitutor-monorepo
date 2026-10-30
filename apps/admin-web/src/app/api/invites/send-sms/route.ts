@@ -8,7 +8,7 @@ import type { TablesInsert } from '@altitutor/shared';
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {

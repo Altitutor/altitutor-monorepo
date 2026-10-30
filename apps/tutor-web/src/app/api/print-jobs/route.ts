@@ -24,7 +24,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const userClient = createClient() as unknown as SupabaseClient<Database>;
+    const userClient = await createClient() as unknown as SupabaseClient<Database>;
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
     if (tutorCheckError) {
       captureApiError(tutorCheckError, '/api/print-jobs');

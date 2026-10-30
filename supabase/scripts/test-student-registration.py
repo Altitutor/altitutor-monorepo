@@ -14,9 +14,9 @@ import owned_database as owned  # noqa: E402
 
 def run_tests(environment):
     subprocess.run(
-        ["node", "apps/student-web/node_modules/jest/bin/jest.js", "--config",
-         "apps/student-web/jest.config.js", "--runInBand", "--runTestsByPath",
-         "apps/student-web/src/app/api/register/complete/route.integration.test.ts"],
+        ["pnpm", "--filter", "student-web", "exec", "jest", "--config",
+         "jest.config.js", "--runInBand", "--runTestsByPath",
+         "src/app/api/register/complete/route.integration.test.ts"],
         cwd=ROOT, env=dict(environment, ALTITUTOR_REGISTRATION_DB_TEST="1"), check=True,
     )
 

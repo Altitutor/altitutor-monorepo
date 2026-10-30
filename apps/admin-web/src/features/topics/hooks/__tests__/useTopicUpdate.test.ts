@@ -84,7 +84,7 @@ import { useTopicUpdate } from '../useTopicUpdate';
 
 describe('useTopicUpdate', () => {
   let queryClient: QueryClient;
-  let wrapper: ({ children }: { children: ReactNode }) => JSX.Element;
+  let wrapper: ({ children }: { children: ReactNode }) => React.JSX.Element;
 
   const createMockTopic = (overrides?: Partial<Tables<'topics'>>): Tables<'topics'> => ({
     id: 'topic-1',

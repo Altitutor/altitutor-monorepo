@@ -6,10 +6,8 @@ import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
 const RUN_SELECT = 'id,status,requested_stem_count,accepted_stem_count,discarded_stem_count,processed_stem_count,progress_step,progress_message,error_message,generated_stem_ids,created_at,completed_at,dismissed_at'
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { runId: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
@@ -31,10 +29,8 @@ export async function GET(
   return NextResponse.json({ run: data })
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { runId: string } },
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 

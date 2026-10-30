@@ -7,7 +7,7 @@ import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-clien
  * Create a Supabase client for use in Server Components and API Routes
  * Uses @supabase/ssr for better TypeScript support
  */
-export function createClient() {
+export async function createClient() {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
@@ -24,7 +24,7 @@ export function createClient() {
     ));
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

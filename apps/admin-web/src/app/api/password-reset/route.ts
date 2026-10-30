@@ -28,7 +28,7 @@ function buildRecoveryCallbackUrl(userType: ResetUserType, tokenHash: string) {
 }
 
 async function requireAdminUser() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,

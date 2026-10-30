@@ -21,9 +21,9 @@ export interface TimeRequirementParams {
   unit?: TimeUnit;
 }
 
-export interface TenureRequirementParams extends TimeRequirementParams {}
+export type TenureRequirementParams = TimeRequirementParams;
 
-export interface TimeSincePromotionRequirementParams extends TimeRequirementParams {}
+export type TimeSincePromotionRequirementParams = TimeRequirementParams;
 
 export interface SessionCountRequirementParams {
   min: number;

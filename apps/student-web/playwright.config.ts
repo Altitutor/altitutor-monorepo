@@ -95,7 +95,7 @@ export default defineConfig({
   webServer: {
     command: [
       "pnpm --workspace-root exec turbo run build --filter=student-web^...",
-      "pnpm exec next build",
+      "pnpm exec next build --webpack",
       "pnpm exec next start -p 3011 -H 127.0.0.1",
     ].join(" && "),
     // The student root redirects to login. Probe that route so Playwright waits
