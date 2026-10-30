@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import {
   existsSync,
   readFileSync,
@@ -7,8 +6,8 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { parseEnv } from "node:util";
 import { spawnSync } from "node:child_process";
 const team = "team_1E1lzurM2oIC9oDKmQDdk7Bz";
@@ -31,9 +30,9 @@ const credentialKeys = [
 ];
 
 /** Only values from the selected environment file are accepted; shared mail credentials are never merged. */
-export function createMailboxDeployment(environment, env) {
+export function createEmailRuntimeConfig(environment, env) {
   const target = targets[environment];
-  if (!target)
+  if (!Object.hasOwn(targets, environment))
     throw new Error("Choose exactly --environment development or production.");
   for (const key of ["SUPABASE_PROJECT_ID", "SUPABASE_PROJECT_REF"])
     if (env[key] && env[key] !== target.project)
@@ -44,9 +43,11 @@ export function createMailboxDeployment(environment, env) {
     throw new Error(
       "EMAIL_ENVIRONMENT conflicts with the selected environment.",
     );
-  for (const key of [...credentialKeys, "CRON_SECRET"])
+  for (const key of credentialKeys)
     if (!env[key]?.trim() || /[\x00-\x1f\x7f]/.test(env[key]))
       throw new Error(`Set ${key} in the selected environment file.`);
+  if (env.CRON_SECRET && /[\x00-\x1f\x7f]/.test(env.CRON_SECRET))
+    throw new Error("CRON_SECRET must not contain control characters.");
   const edge = Object.fromEntries(credentialKeys.map((key) => [key, env[key]]));
   edge.EMAIL_ENVIRONMENT = environment;
   if (environment === "development") {
@@ -66,52 +67,67 @@ export function createMailboxDeployment(environment, env) {
     ...target,
     environment,
     edge,
-    web: { ...edge, CRON_SECRET: env.CRON_SECRET },
+    web: {
+      ...edge,
+      ...(env.CRON_SECRET ? { CRON_SECRET: env.CRON_SECRET } : {}),
+    },
   };
 }
 
-export async function deployMailbox(
+export async function deployRuntimeSecrets(
   plan,
-  { vercelToken, fetchImpl = fetch, setSupabaseSecrets, log = console.log },
+  {
+    vercelToken,
+    fetchImpl = fetch,
+    setSupabaseSecrets,
+    platform = "both",
+    log = console.log,
+  },
 ) {
-  if (!vercelToken)
-    throw new Error("VERCEL_TOKEN is required in the shell or .env.shared.");
-  for (const [key, value] of Object.entries(plan.web)) {
-    let response;
-    try {
-      response = await fetchImpl(
-        `https://api.vercel.com/v10/projects/altitutor-admin-web/env?upsert=true&teamId=${team}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${vercelToken}`,
-            "Content-Type": "application/json",
+  if (!["vercel", "supabase", "both"].includes(platform))
+    throw new Error("Unknown runtime deployment platform.");
+  if (platform !== "supabase") {
+    if (!vercelToken)
+      throw new Error("VERCEL_TOKEN is required in the shell or .env.shared.");
+    for (const [key, value] of Object.entries(plan.web)) {
+      let response;
+      try {
+        response = await fetchImpl(
+          `https://api.vercel.com/v10/projects/altitutor-admin-web/env?upsert=true&teamId=${team}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${vercelToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              key,
+              value,
+              type: "encrypted",
+              target: [plan.vercelTarget],
+            }),
+            signal: AbortSignal.timeout(30_000),
           },
-          body: JSON.stringify({
-            key,
-            value,
-            type: "encrypted",
-            target: [plan.vercelTarget],
-          }),
-          signal: AbortSignal.timeout(30_000),
-        },
-      );
-    } catch {
-      throw new Error(
-        `Vercel update for ${key} did not complete. Rerun this idempotent deployment after checking connectivity.`,
-      );
+        );
+      } catch {
+        throw new Error(
+          `Vercel update for ${key} did not complete. Rerun this idempotent deployment after checking connectivity.`,
+        );
+      }
+      if (!response.ok)
+        throw new Error(
+          `Vercel update for ${key} failed (HTTP ${response.status}).`,
+        );
+      const result = await response.json().catch(() => null);
+      if (!result || result.error || result.failed?.length)
+        throw new Error(`Vercel did not confirm ${key}.`);
+      log(`Updated admin-web ${plan.vercelTarget}: ${key}`);
     }
-    if (!response.ok)
-      throw new Error(
-        `Vercel update for ${key} failed (HTTP ${response.status}).`,
-      );
-    const result = await response.json().catch(() => null);
-    if (!result || result.error || result.failed?.length)
-      throw new Error(`Vercel did not confirm ${key}.`);
-    log(`Updated admin-web ${plan.vercelTarget}: ${key}`);
   }
-  await setSupabaseSecrets(plan.project, plan.edge);
-  log(`Updated ${plan.environment} Supabase mailbox secrets.`);
+  if (platform !== "vercel") {
+    await setSupabaseSecrets(plan.project, plan.edge);
+    log(`Updated ${plan.environment} Supabase runtime secrets.`);
+  }
   log(
     "Redeploy admin-web to load its new values. This script does not deploy code, migrate databases or send email.",
   );
@@ -119,7 +135,7 @@ export async function deployMailbox(
 
 // Supabase's dotenv reader expands dollar expressions inside double quotes.
 // Escape them after JSON quoting so a secret is always transported literally.
-export function serializeMailboxSecrets(values) {
+export function serializeRuntimeSecrets(values) {
   return (
     Object.entries(values)
       .map(
@@ -130,12 +146,12 @@ export function serializeMailboxSecrets(values) {
   );
 }
 
-function edgeSecretSetter(accessToken) {
+export function edgeSecretSetter(accessToken) {
   return async (project, values) => {
     const directory = mkdtempSync(join(tmpdir(), "altitutor-mail-secrets-"));
     try {
       const file = join(directory, "mailbox.env");
-      writeFileSync(file, serializeMailboxSecrets(values), { mode: 0o600 });
+      writeFileSync(file, serializeRuntimeSecrets(values), { mode: 0o600 });
       const result = spawnSync(
         "supabase",
         ["secrets", "set", "--project-ref", project, "--env-file", file],
@@ -144,6 +160,7 @@ function edgeSecretSetter(accessToken) {
             ...process.env,
             ...(accessToken ? { SUPABASE_ACCESS_TOKEN: accessToken } : {}),
           },
+          timeout: 60_000,
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
         },
@@ -159,57 +176,58 @@ function edgeSecretSetter(accessToken) {
   };
 }
 
-function readEnvironmentFile(file) {
+export function readEnvironmentFile(file) {
   try {
     return parseEnv(readFileSync(file, "utf8"));
   } catch {
     throw new Error(`Could not read environment file: ${file}`);
   }
 }
-async function main() {
-  const args = process.argv.slice(2);
-  let environment;
-  let directory = fileURLToPath(new URL("../", import.meta.url));
-  let dryRun = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--environment") environment = args[++i];
-    else if (args[i] === "--secrets-dir") directory = resolve(args[++i] || "");
-    else if (args[i] === "--dry-run") dryRun = true;
-    else
-      throw new Error(
-        "Usage: node secrets/scripts/deploy-mailbox.mjs --environment development|production [--dry-run] [--secrets-dir path]",
-      );
-  }
-  if (!Object.hasOwn(targets, environment || ""))
-    throw new Error("Choose exactly --environment development or production.");
-  const env = readEnvironmentFile(join(directory, `.env.${environment}`));
-  const plan = createMailboxDeployment(environment, env);
-  console.log(
-    `${plan.environment}: ${plan.mailbox}; Vercel admin-web ${plan.vercelTarget}; Supabase ${plan.project}`,
-  );
-  if (dryRun) {
-    console.log(
-      `Validated keys only: ${Object.keys(plan.web).join(", ")}. No values printed or changes made.`,
-    );
-    return;
-  }
+
+/** Read deployment authentication privately; never use shared mailbox credentials. */
+export function deploymentAuthentication(directory) {
   const sharedFile = join(directory, ".env.shared");
   const shared = existsSync(sharedFile) ? readEnvironmentFile(sharedFile) : {};
-  await deployMailbox(plan, {
-    vercelToken: process.env.VERCEL_TOKEN || shared.VERCEL_TOKEN,
+  let vercelToken = process.env.VERCEL_TOKEN || shared.VERCEL_TOKEN;
+  if (!vercelToken) {
+    for (const file of [
+      join(homedir(), "Library/Application Support/com.vercel.cli/auth.json"),
+      join(homedir(), ".vercel/auth.json"),
+    ]) {
+      if (!existsSync(file)) continue;
+      try {
+        vercelToken = JSON.parse(readFileSync(file, "utf8")).token;
+      } catch {
+        /* Try the next supported login location. */
+      }
+      if (vercelToken) break;
+    }
+  }
+  return {
+    vercelToken,
     setSupabaseSecrets: edgeSecretSetter(
       process.env.SUPABASE_ACCESS_TOKEN || shared.SUPABASE_ACCESS_TOKEN,
     ),
-  });
+  };
 }
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-) {
-  main().catch((error) => {
-    console.error(
-      error instanceof Error ? error.message : "Mailbox configuration failed.",
+
+/** Internal adapter used by the existing Vercel and Supabase deployment scripts. */
+export async function deployEmailEnvironment({
+  directory,
+  environment,
+  platform,
+}) {
+  const file = join(directory, `.env.${environment}`);
+  const env = readEnvironmentFile(file);
+  if (!credentialKeys.some((key) => env[key]?.trim())) {
+    console.log(
+      `Skipping unconfigured ${environment} Microsoft email settings.`,
     );
-    process.exitCode = 1;
+    return;
+  }
+  const plan = createEmailRuntimeConfig(environment, env);
+  await deployRuntimeSecrets(plan, {
+    ...deploymentAuthentication(directory),
+    platform,
   });
 }

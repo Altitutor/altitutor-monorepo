@@ -181,6 +181,11 @@ fi
 
 echo ""
 
+# Email runtime values must come only from each matching environment file.
+for email_environment in development production; do
+    deploy_email_runtime supabase "$email_environment" || exit 1
+done
+
 # Print summary
 print_summary
 

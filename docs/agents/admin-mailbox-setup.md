@@ -127,33 +127,39 @@ Generate each secret yourself, while the agent is not observing the page:
    with them. `CRON_SECRET` must be populated in each selected environment file;
    preserve a suitable existing value or generate it privately.
 
-From this branch's checkout, validate without printing values or changing services:
+For initial setup, the one-time human-operated wizard asks for both Secret Values
+with hidden input, validates the fixed environment destinations and deploys directly
+to Vercel and Supabase. It keeps the app secrets in memory for that run; it does not
+write them into source `.env` files. Preserve the Values in your password manager.
+The wizard is an ephemeral handoff artifact, not a second permanent deploy command.
+
+For subsequent rotations after merging, populate the matching ignored files using
+the tracked examples and run the standard deployment workflow:
 
 ```sh
-node secrets/scripts/deploy-mailbox.mjs --environment development --dry-run
-node secrets/scripts/deploy-mailbox.mjs --environment production --dry-run
+./secrets/scripts/deploy-all.sh
 ```
 
-The scoped grants are verified. When the cutover is ready for reviewed CI/CD,
-run each actual secret deployment yourself:
+The existing `deploy-vercel.sh` and `deploy-supabase.sh` also include these values.
+Their internal runtime adapter preserves literal secret characters, checks the
+Supabase target, derives `EMAIL_ENVIRONMENT` and excludes mailbox credentials from
+generic shared/GitHub/EAS routing. An entirely unconfigured environment is skipped;
+partial configuration fails. No standalone mailbox deployment script is required.
 
-```sh
-node secrets/scripts/deploy-mailbox.mjs --environment development
-node secrets/scripts/deploy-mailbox.mjs --environment production
-```
+Deployment authentication comes from the normal `VERCEL_TOKEN` /
+`SUPABASE_ACCESS_TOKEN` shell or `.env.shared` values; existing CLI login is also
+supported. The wizard reuses a per-environment cron secret if present; it does not
+rotate an existing deployed cron setting when no local value is available. Normal
+full Vercel deployment preserves/generates the existing source `CRON_SECRET` and
+also supplies it to admin-web through the runtime adapter.
 
-If the populated files are in a different checkout, append
-`--secrets-dir /absolute/path/to/altitutor-monorepo/secrets` to each command.
-The script reads only the selected environment's mail configuration. Deployment
-authentication comes from shell `VERCEL_TOKEN` / `SUPABASE_ACCESS_TOKEN`, or the
-existing gitignored `.env.shared`; Supabase CLI login is also supported.
-
-This command updates only **altitutor-admin-web**'s matching Vercel target and the
-matching Supabase project's mailbox secrets. It never prints secret values and
-never deploys code, applies migrations or sends email. Redeploy admin-web after
-changing its variables; Edge Functions use the matching project secrets. Deploy
-code and the new migration through the normal reviewed CI/CD path. Avoid the old
-bulk `deploy-all` command for this setup: it does not enforce these mailbox targets.
+Updating secrets does not deploy code, apply migrations or send email. Redeploy
+admin-web after setting Vercel values. The current repository's automatic web
+release job is main-only and Vercel Git deployment is disabled for admin-web;
+a develop merge alone does not refresh its web preview. Develop Supabase schema
+and Edge Functions deploy through the existing GitHub workflow. Live preview QA
+therefore needs both that workflow and a separately verified admin-web preview
+redeployment before using `admin.development.altitutor.com`.
 
 ## Database cutover and controlled verification
 
