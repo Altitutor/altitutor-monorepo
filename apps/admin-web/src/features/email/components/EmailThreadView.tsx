@@ -131,7 +131,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       (message) =>
         !message.draft &&
         message.sender &&
-        message.sender.toLowerCase() !== "admin@altitutor.com",
+        message.sender.toLowerCase() !== mailbox.data?.mailboxAddress,
     );
   useEffect(() => {
     if (scope && !scope.active) return;
@@ -249,6 +249,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             <header className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <EmailParticipant
+                  mailboxAddress={mailbox.data.mailboxAddress}
                   threadId={threadId}
                   email={message.sender}
                   label={message.senderName || message.sender}
@@ -289,6 +290,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         <h1 className="text-lg font-semibold">{subject}</h1>
         {participant && (
           <EmailParticipant
+            mailboxAddress={mailbox.data.mailboxAddress}
             threadId={threadId}
             email={participant.sender}
             label={participant.senderName || participant.sender}
@@ -302,7 +304,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             pill
           />
           {latest &&
-            latest.sender !== "admin@altitutor.com" &&
+            latest.sender !== mailbox.data?.mailboxAddress &&
             !latest.draft && (
               <EmailEnquiryActions messageId={latest.id} threadId={threadId} />
             )}

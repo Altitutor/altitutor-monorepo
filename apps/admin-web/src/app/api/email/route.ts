@@ -63,6 +63,8 @@ export async function GET(request: NextRequest) {
       currentStaffId: access.staff.id,
       sync: states.data,
       configured: mailboxConfigured(),
+      mailboxAddress: access.mailbox.address,
+      mailboxEnvironment: access.mailbox.environment,
       templates: templates.data,
       signature:
         signature.data?.body_text ??

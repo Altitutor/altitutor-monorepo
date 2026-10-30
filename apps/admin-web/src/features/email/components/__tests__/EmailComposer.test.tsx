@@ -30,6 +30,8 @@ const mailbox: MailboxData = {
   staff: [],
   currentStaffId: "fixture-admin",
   configured: true,
+  mailboxAddress: "admin@altitutor.com",
+  mailboxEnvironment: "production",
   signature: "Admin Staff",
   templates: [],
   sync: [],

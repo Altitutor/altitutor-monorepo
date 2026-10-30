@@ -63,7 +63,15 @@ it("returns the current Microsoft draft for a conflict already detected by synch
       first_name: "Admin",
       last_name: "User",
     },
-    createGraphMailbox({ accessToken: "fixture-token", fetchImpl }),
+    createGraphMailbox({
+      mailbox: {
+        environment: "production",
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
+      accessToken: "fixture-token",
+      fetchImpl,
+    }),
   );
   await expect(
     command({
@@ -90,4 +98,56 @@ it("returns the current Microsoft draft for a conflict already detected by synch
         request.method !== "GET",
     ),
   ).toEqual([]);
+});
+
+it("rejects an Outlook-added development Bcc recipient before claiming or submitting a send", async () => {
+  const requests: string[] = [];
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+    if (url.startsWith("https://graph.microsoft.com/"))
+      return Response.json({
+        id: "dev-draft",
+        conversationId: "dev-thread",
+        parentFolderId: "drafts",
+        isDraft: true,
+        changeKey: "one",
+        subject: "Test",
+        body: { contentType: "Text", content: "Test" },
+        from: { emailAddress: { address: "admin@development.altitutor.com" } },
+        toRecipients: [{ emailAddress: { address: "matt@altitutor.com" } }],
+        bccRecipients: [{ emailAddress: { address: "outside@example.test" } }],
+      });
+    throw new Error("A blocked send must not reach the database");
+  };
+  const db = createClient<Database>(
+    "http://127.0.0.1:1",
+    "fixture-service-key",
+    {
+      global: { fetch: fetchImpl },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
+  const command = mailboxCommands(
+    db,
+    { id: "staff", first_name: "Admin", last_name: null },
+    createGraphMailbox({
+      mailbox: {
+        environment: "development",
+        address: "admin@development.altitutor.com",
+        allowedRecipients: ["matt@altitutor.com"],
+      },
+      accessToken: "fixture-token",
+      fetchImpl,
+    }),
+  );
+  await expect(
+    command({
+      action: "send",
+      id: "dev-draft",
+      changeKey: "one",
+      commandId: "fa250000-0000-4000-8000-000000000003",
+    }),
+  ).rejects.toThrow("configured test recipients");
+  expect(requests).toHaveLength(1);
 });

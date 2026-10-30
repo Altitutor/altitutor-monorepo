@@ -35,6 +35,11 @@ it("submits canonical operational email through a durable draft and shared Sent 
     });
   };
   const result = await deliverOperationalMailboxEmail({
+    mailbox: {
+      environment: "production" as const,
+      address: "admin@altitutor.com",
+      allowedRecipients: [],
+    },
     serviceUrl: "http://127.0.0.1:9999",
     serviceKey: "fixture-service-key",
     getAccessToken: async () => "fixture-graph-token",
@@ -113,6 +118,11 @@ it("preserves an ambiguous operational send and does not repeat it on a domain r
     });
   };
   const input = {
+    mailbox: {
+      environment: "production" as const,
+      address: "admin@altitutor.com",
+      allowedRecipients: [],
+    },
     serviceUrl: "http://127.0.0.1:9999",
     serviceKey: "fixture-service-key",
     getAccessToken: async () => "fixture-graph-token",
@@ -160,6 +170,11 @@ it("keeps a definite Microsoft rejection retryable without mislabelling it as an
   };
   await expect(
     deliverOperationalMailboxEmail({
+      mailbox: {
+        environment: "production" as const,
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       serviceUrl: "http://127.0.0.1:9999",
       serviceKey: "fixture-key",
       getAccessToken: async () => "fixture-token",
@@ -197,6 +212,11 @@ it("refuses to create provider mail when the registry omits its ownership token"
   };
   await expect(
     deliverOperationalMailboxEmail({
+      mailbox: {
+        environment: "production" as const,
+        address: "admin@altitutor.com",
+        allowedRecipients: [],
+      },
       serviceUrl: "http://127.0.0.1:9999",
       serviceKey: "fixture-key",
       getAccessToken: async () => "fixture-token",
@@ -208,4 +228,93 @@ it("refuses to create provider mail when the registry omits its ownership token"
     }),
   ).rejects.toThrow("registry response");
   expect(graphRequests).toBe(0);
+});
+
+it("uses the development mailbox for the provider and durable delivery payload", async () => {
+  const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+  const fetchImpl: typeof fetch = async (url, init) => {
+    requests.push({
+      url: String(url),
+      body: JSON.parse(String(init?.body ?? "{}")),
+    });
+    if (String(url).endsWith("email_operational_prepare"))
+      return Response.json({
+        id: "dev-operation",
+        token: "dev-lease",
+        proceed: true,
+        state: "creating",
+        draftId: null,
+        changeKey: null,
+      });
+    if (String(url).endsWith("email_operational_update"))
+      return Response.json(true);
+    if (String(url).endsWith("/send"))
+      return new Response(null, { status: 202 });
+    return Response.json({ id: "dev-draft", changeKey: "one", isDraft: true });
+  };
+  await deliverOperationalMailboxEmail({
+    mailbox: {
+      environment: "development",
+      address: "admin@development.altitutor.com",
+      allowedRecipients: ["matt@altitutor.com"],
+    },
+    serviceUrl: "http://127.0.0.1:9999",
+    serviceKey: "fixture-key",
+    getAccessToken: async () => "fixture-token",
+    to: ["matt@altitutor.com"],
+    email: renderEmail({
+      brand: "altitutor",
+      subject: "Development invoice",
+      previewText: "Test",
+      heading: "Test",
+      bodyHtml: "<p>Test</p>",
+      bodyText: "Test",
+    }),
+    idempotencyKey: "development-invoice",
+    links: [],
+    fetchImpl,
+  });
+  const draft = requests.find((r) => r.url.endsWith("/messages"))!;
+  expect(draft.url).toBe(
+    "https://graph.microsoft.com/v1.0/users/admin%40development.altitutor.com/messages",
+  );
+  expect(draft.body).toMatchObject({
+    from: { emailAddress: { address: "admin@development.altitutor.com" } },
+    replyTo: [{ emailAddress: { address: "admin@development.altitutor.com" } }],
+  });
+  expect(requests[0].body).toMatchObject({
+    p_mailbox_address: "admin@development.altitutor.com",
+    p_payload: { email: { replyTo: "admin@development.altitutor.com" } },
+  });
+});
+
+it("blocks non-test recipients before recording or contacting Microsoft in development", async () => {
+  const fetchImpl = jest
+    .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+    .mockRejectedValue(new Error("Unexpected external request"));
+  await expect(
+    deliverOperationalMailboxEmail({
+      mailbox: {
+        environment: "development",
+        address: "admin@development.altitutor.com",
+        allowedRecipients: ["matt@altitutor.com"],
+      },
+      serviceUrl: "http://127.0.0.1:9999",
+      serviceKey: "fixture-key",
+      getAccessToken: async () => "fixture-token",
+      to: ["customer@example.test"],
+      email: renderEmail({
+        brand: "altitutor",
+        subject: "Test",
+        previewText: "Test",
+        heading: "Test",
+        bodyHtml: "<p>Test</p>",
+        bodyText: "Test",
+      }),
+      idempotencyKey: "blocked-fixture",
+      links: [],
+      fetchImpl,
+    }),
+  ).rejects.toThrow("configured test recipients");
+  expect(fetchImpl).not.toHaveBeenCalled();
 });

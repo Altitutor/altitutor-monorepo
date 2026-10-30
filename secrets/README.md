@@ -390,3 +390,50 @@ Production maps to Vercel Production; development maps to Vercel Preview. Empty 
 are skipped. Redeploy admin-web afterward. The normal all-secrets deployment includes
 this key too. Password provisioning and verification are described in
 [Admin MCP setup](../docs/admin-mcp.md). Never commit the populated connection string.
+
+## Shared admin mailbox (DEV-250)
+
+Production uses `admin@altitutor.com`; Preview/development uses the separate
+`admin@development.altitutor.com` mailbox. Each has its own scoped Microsoft app.
+Use only the matching gitignored `.env.development` or `.env.production` file
+for `EMAIL_M365_TENANT_ID`, `EMAIL_M365_CLIENT_ID`, `EMAIL_M365_CLIENT_SECRET`
+and the existing `CRON_SECRET`. Development also requires
+`EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS`: comma-separated individual staff addresses,
+initially `matt@altitutor.com`. Empty lists block development sends. Keep Microsoft
+mail credentials out of `.env.shared`; onboarding credentials are no longer used.
+
+After manually generating/copying the client secret, validate without printing
+values, then deploy only these mailbox settings to admin-web and matching Edge
+Functions:
+
+```sh
+node secrets/scripts/deploy-mailbox.mjs --environment development --dry-run
+node secrets/scripts/deploy-mailbox.mjs --environment development
+# Separately, when production is ready:
+node secrets/scripts/deploy-mailbox.mjs --environment production --dry-run
+node secrets/scripts/deploy-mailbox.mjs --environment production
+```
+
+This dedicated script uses the existing `VERCEL_TOKEN` and
+`SUPABASE_ACCESS_TOKEN` deployment credentials from the shell or `.env.shared`
+(Supabase CLI login is also supported). It never merges shared mail credentials,
+prints secret values, deploys unrelated keys or changes both environments at once.
+An optional `--secrets-dir /absolute/path/to/secrets` selects the source folder
+when invoking the checked script from an isolated worktree. It fixes and verifies
+the target project references, derives `EMAIL_ENVIRONMENT`, sends the cron secret
+to admin-web only and sends Microsoft credentials to both server runtimes.
+The broader legacy deploy scripts do not deploy the mailbox keys; run this
+explicit mailbox command rather than `deploy-all.sh` for this setup.
+
+Redeploy the matching admin-web deployment after updating Vercel values. Database
+migrations and function code still ship through normal CI/CD. Vercel Preview does
+not run scheduled cron; foreground/manual sync remains available. Do not connect
+a new mailbox to an existing incompatible mail cache: the database binding blocks
+it and preserves existing history. A separate reviewed cleanup is needed if a
+development database already contains production mailbox data.
+
+The agent must not read populated environment files, generate/reveal client
+secrets, inspect clipboard contents or run this command against real credentials
+when Matthew has reserved those steps. The app overview/tenant/client IDs are
+nonsecret; secret **Values** are entered only by Matthew. A successful configuration
+upload is not live delivery verification.

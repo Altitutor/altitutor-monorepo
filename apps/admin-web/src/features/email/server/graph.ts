@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { OPERATIONAL_MAIL_PROPERTY } from "@altitutor/email";
+import {
+  OPERATIONAL_MAIL_PROPERTY,
+  assertMailboxPolicy,
+  assertMailboxRecipients,
+  type MailboxPolicy,
+} from "@altitutor/email";
 
 export class GraphMailboxError extends Error {
   constructor(public readonly status: number) {
@@ -7,7 +12,6 @@ export class GraphMailboxError extends Error {
     this.name = "GraphMailboxError";
   }
 }
-export const SHARED_MAILBOX_ADDRESS = "admin@altitutor.com";
 const graphMessage = z.object({
   id: z.string(),
   conversationId: z
@@ -135,13 +139,16 @@ export type GraphMailMessage = ReturnType<typeof normalize>;
 
 /** Microsoft transport only. Altitutor responsibility and business links live outside Graph. */
 export function createGraphMailbox({
+  mailbox,
   accessToken,
   fetchImpl = fetch,
 }: {
+  mailbox: MailboxPolicy;
   accessToken: string;
   fetchImpl?: typeof fetch;
 }) {
-  const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(SHARED_MAILBOX_ADDRESS)}`;
+  assertMailboxPolicy(mailbox);
+  const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox.address)}`;
   function continuation(value: string, path: string) {
     const url = new URL(value);
     const segments = (pathname: string) =>
@@ -197,6 +204,7 @@ export function createGraphMailbox({
     return response;
   }
   return {
+    policy: mailbox,
     async folder(id: string) {
       const data = z
         .object({
@@ -309,7 +317,7 @@ export function createGraphMailbox({
       );
     },
     async forwardDraft(id: string, to: string[]) {
-      if (!to.length) throw new Error("Forward recipient required.");
+      assertMailboxRecipients(mailbox, { to });
       const response = await request(
         `/messages/${encodeURIComponent(id)}/createForward`,
         "POST",
@@ -426,6 +434,8 @@ export function createGraphMailbox({
         bcc?: string[];
       },
     ) {
+      if (input.to.length || input.cc?.length || input.bcc?.length)
+        assertMailboxRecipients(mailbox, input);
       const path = `/messages/${encodeURIComponent(id)}`;
       const current = graphMessage.parse(await (await request(path)).json());
       if (!current.isDraft || current.changeKey !== input.expectedChangeKey) {
@@ -452,7 +462,9 @@ export function createGraphMailbox({
     },
     async sendDraft(
       id: string,
+      recipients: { to: string[]; cc?: string[]; bcc?: string[] },
     ): Promise<{ state: "submitted" | "uncertain" | "failed" }> {
+      assertMailboxRecipients(mailbox, recipients);
       try {
         const response = await request(
           `/messages/${encodeURIComponent(id)}/send`,

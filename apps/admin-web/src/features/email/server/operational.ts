@@ -1,4 +1,5 @@
 import "server-only";
+import { getMailboxPolicy } from "./config";
 import { randomUUID } from "node:crypto";
 import {
   deliverOperationalMailboxEmail,
@@ -22,6 +23,7 @@ export async function sendOperationalEmail(input: {
     throw new Error("Mailbox delivery registry is not configured.");
   return deliverOperationalMailboxEmail({
     ...input,
+    mailbox: getMailboxPolicy(),
     serviceUrl,
     serviceKey,
     getAccessToken: getMailboxAccessToken,

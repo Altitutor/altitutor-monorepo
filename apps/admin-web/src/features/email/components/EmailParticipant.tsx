@@ -39,10 +39,12 @@ export function EmailParticipant({
   email,
   label,
   threadId,
+  mailboxAddress,
 }: {
   email: string;
   label: string;
   threadId: string;
+  mailboxAddress: string;
 }) {
   const navigation = useEntityNavigation();
   const client = useQueryClient();
@@ -51,7 +53,7 @@ export function EmailParticipant({
   const [error, setError] = useState("");
   const person = useQuery({
     queryKey: ["email", "person", email],
-    enabled: Boolean(email) && email !== "admin@altitutor.com",
+    enabled: Boolean(email) && email !== mailboxAddress,
     queryFn: async () =>
       z
         .object({ person: personSchema.nullable(), ambiguous: z.boolean() })
@@ -81,7 +83,7 @@ export function EmailParticipant({
       );
     }
   }
-  if (!email || email === "admin@altitutor.com")
+  if (!email || email === mailboxAddress)
     return (
       <span className="text-sm font-medium">{label || "Altitutor Admin"}</span>
     );

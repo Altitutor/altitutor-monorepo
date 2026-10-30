@@ -22,7 +22,7 @@ it("prepares canonical domain text in one shared draft with explicit Student con
     folderId: "drafts",
     subject: "",
     bodyText: "",
-    sender: "admin@altitutor.com",
+    sender: "admin@development.altitutor.com",
     to: [],
     cc: [],
     bcc: [],
@@ -56,6 +56,8 @@ it("prepares canonical domain text in one shared draft with explicit Student con
         staff: [],
         currentStaffId: "fixture-admin",
         configured: true,
+        mailboxAddress: "admin@development.altitutor.com",
+        mailboxEnvironment: "development",
         signature: "Admin Staff",
         templates: [],
         sync: [],
@@ -95,6 +97,9 @@ it("prepares canonical domain text in one shared draft with explicit Student con
   expect(screen.getByRole("textbox", { name: "Email recipients" })).toHaveValue(
     "student@example.test",
   );
+  expect(
+    screen.getByText("Altitutor Admin · admin@development.altitutor.com"),
+  ).toBeInTheDocument();
   expect(commands.filter((command) => command.action === "draft")).toHaveLength(
     1,
   );

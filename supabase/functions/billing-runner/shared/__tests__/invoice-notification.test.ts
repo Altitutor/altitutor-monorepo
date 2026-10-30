@@ -93,11 +93,14 @@ for (const fixture of scenarios) {
     const mailboxEnv = {
       SUPABASE_URL: "http://127.0.0.1:54321",
       SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key",
+      EMAIL_ENVIRONMENT: "production",
       EMAIL_M365_TENANT_ID: "synthetic-tenant",
       EMAIL_M365_CLIENT_ID: "synthetic-client",
       EMAIL_M365_CLIENT_SECRET: "synthetic-secret",
     };
-    const previousEnv = new Map(Object.keys(mailboxEnv).map((key) => [key, Deno.env.get(key)]));
+    const previousEnv = new Map(
+      Object.keys(mailboxEnv).map((key) => [key, Deno.env.get(key)]),
+    );
     const originalLog = console.log;
     const originalWarn = console.warn;
     const originalError = console.error;
@@ -144,15 +147,19 @@ for (const fixture of scenarios) {
           return {
             select: () =>
               Promise.resolve({
-                data: fixture.parentError ? null : [{
-                  student_id: "student-synthetic",
-                  parent: { email: fixture.parent },
-                }],
+                data: fixture.parentError
+                  ? null
+                  : [
+                      {
+                        student_id: "student-synthetic",
+                        parent: { email: fixture.parent },
+                      },
+                    ],
                 error: fixture.parentError
                   ? {
-                    code: "SYNTHETIC",
-                    message: "Synthetic parent query failure",
-                  }
+                      code: "SYNTHETIC",
+                      message: "Synthetic parent query failure",
+                    }
                   : null,
               }),
           };
@@ -226,21 +233,47 @@ for (const fixture of scenarios) {
       invoiceItems: { create: () => Promise.resolve({ id: "ii_synthetic" }) },
     } as unknown as Stripe;
     try {
-      for (const [key, value] of Object.entries(mailboxEnv)) Deno.env.set(key, value);
-      globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+      for (const [key, value] of Object.entries(mailboxEnv))
+        Deno.env.set(key, value);
+      globalThis.fetch = ((
+        input: string | URL | Request,
+        init?: RequestInit,
+      ) => {
         const url = String(input);
-        const json = (value: unknown) => Promise.resolve(new Response(JSON.stringify(value), { status: 200 }));
-        if (url.startsWith("https://login.microsoftonline.com/")) return json({ access_token: "synthetic-token" });
-        if (url.endsWith("/rpc/email_operational_prepare")) return json({ id: crypto.randomUUID(), token: crypto.randomUUID(), proceed: true, state: "creating", draftId: null, changeKey: null });
+        const json = (value: unknown) =>
+          Promise.resolve(new Response(JSON.stringify(value), { status: 200 }));
+        if (url.startsWith("https://login.microsoftonline.com/"))
+          return json({ access_token: "synthetic-token" });
+        if (url.endsWith("/rpc/email_operational_prepare"))
+          return json({
+            id: crypto.randomUUID(),
+            token: crypto.randomUUID(),
+            proceed: true,
+            state: "creating",
+            draftId: null,
+            changeKey: null,
+          });
         if (url.endsWith("/rpc/email_operational_update")) return json(true);
-        if (url === "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com/messages" && init?.method === "POST") {
+        if (
+          url ===
+            "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com/messages" &&
+          init?.method === "POST"
+        ) {
           const body = JSON.parse(String(init.body));
-          for (const recipient of body.toRecipients) sent.push(recipient.emailAddress.address);
+          for (const recipient of body.toRecipients)
+            sent.push(recipient.emailAddress.address);
           return json({ id: "email-synthetic", changeKey: "version-1" });
         }
-        if (url.endsWith("/messages/email-synthetic") && init?.method === "GET") return json({ isDraft: true, changeKey: "version-1" });
-        if (url.endsWith("/messages/email-synthetic/send") && init?.method === "POST") return Promise.resolve(new Response(null, { status: 202 }));
-        throw new Error(`Unexpected email HTTP boundary: ${init?.method} ${url}`);
+        if (url.endsWith("/messages/email-synthetic") && init?.method === "GET")
+          return json({ isDraft: true, changeKey: "version-1" });
+        if (
+          url.endsWith("/messages/email-synthetic/send") &&
+          init?.method === "POST"
+        )
+          return Promise.resolve(new Response(null, { status: 202 }));
+        throw new Error(
+          `Unexpected email HTTP boundary: ${init?.method} ${url}`,
+        );
       }) as typeof fetch;
       console.log = () => {};
       console.warn = (...values: unknown[]) => warnings.push(values.join(" "));
@@ -253,18 +286,20 @@ for (const fixture of scenarios) {
         supabase,
         stripe,
         studentId: "student-synthetic",
-        studentSessions: [{
-          student_id: "student-synthetic",
-          sessions_students_id: "ss-synthetic",
-          subject: { long_name: "Synthetic subject" },
-          session: {
-            id: "session-synthetic",
-            start_at: "2026-10-23T05:00:00Z",
-            end_at: "2026-10-23T06:00:00Z",
-            subject_id: "subject-synthetic",
-            billing_type: "STANDARD",
+        studentSessions: [
+          {
+            student_id: "student-synthetic",
+            sessions_students_id: "ss-synthetic",
+            subject: { long_name: "Synthetic subject" },
+            session: {
+              id: "session-synthetic",
+              start_at: "2026-10-23T05:00:00Z",
+              end_at: "2026-10-23T06:00:00Z",
+              subject_id: "subject-synthetic",
+              billing_type: "STANDARD",
+            },
           },
-        }],
+        ],
         invoiceDate: "2026-10-23",
         targetDate: new Date("2026-10-23T05:00:00Z"),
         pricingByBillingType: {
@@ -288,9 +323,10 @@ for (const fixture of scenarios) {
         ...contacts,
         isStripeTestKey: true,
         isStripeLiveKey: false,
-        resendApiKey: fixture.name === "missing-key-and-contacts"
-          ? undefined
-          : "synthetic-key",
+        resendApiKey:
+          fixture.name === "missing-key-and-contacts"
+            ? undefined
+            : "synthetic-key",
       });
       assert(
         finalized && persisted && itemsPersisted,
@@ -304,18 +340,21 @@ for (const fixture of scenarios) {
         sent.length === fixture.expected,
         `Unexpected recipient delivery count for ${fixture.name}`,
       );
-      originalLog(JSON.stringify({
-        scenario: fixture.name,
-        finalized,
-        persisted,
-        itemsPersisted,
-        sent: sent.length,
-        emptyRecipientWarning: warnings.some((x) =>
-          x.includes("No recipients configured")
-        ),
-        returnedError: result.error,
-      }));
-      const needsWarning = fixture.expected === 0 &&
+      originalLog(
+        JSON.stringify({
+          scenario: fixture.name,
+          finalized,
+          persisted,
+          itemsPersisted,
+          sent: sent.length,
+          emptyRecipientWarning: warnings.some((x) =>
+            x.includes("No recipients configured"),
+          ),
+          returnedError: result.error,
+        }),
+      );
+      const needsWarning =
+        fixture.expected === 0 &&
         fixture.enabled.some(Boolean) &&
         fixture.name !== "warning-store-failed";
       assert(
@@ -344,7 +383,8 @@ for (const fixture of scenarios) {
     } finally {
       globalThis.fetch = originalFetch;
       for (const [key, value] of previousEnv) {
-        if (value === undefined) Deno.env.delete(key); else Deno.env.set(key, value);
+        if (value === undefined) Deno.env.delete(key);
+        else Deno.env.set(key, value);
       }
       console.log = originalLog;
       console.warn = originalWarn;

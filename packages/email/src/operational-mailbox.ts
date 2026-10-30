@@ -1,4 +1,5 @@
 import type { RenderedEmail } from "./render-email";
+import { assertMailboxRecipients, type MailboxPolicy } from "./mailbox-policy";
 export const OPERATIONAL_MAIL_PROPERTY =
   "String {b257c4a8-842d-48f5-a740-9bb850be94dc} Name AltitutorOperationalMail";
 export type OperationalMailLink = {
@@ -13,6 +14,7 @@ export type OperationalMailLink = {
   purpose?: "registration_link" | "ucat_link" | "followup";
 };
 export type OperationalMailInput = {
+  mailbox: MailboxPolicy;
   serviceUrl: string;
   serviceKey: string;
   getAccessToken: () => Promise<string>;
@@ -49,13 +51,21 @@ export async function deliverOperationalMailboxEmail(
   input: OperationalMailInput,
 ): Promise<{ providerMessageId: string; state: "submitted" | "sent" }> {
   const fetchImpl = input.fetchImpl ?? fetch;
+  assertMailboxRecipients(input.mailbox, { to: input.to });
   if (
-    !input.to.length ||
-    input.email.replyTo.toLowerCase() !== "admin@altitutor.com"
+    !["admin@altitutor.com", input.mailbox.address].includes(
+      input.email.replyTo.toLowerCase(),
+    )
   )
-    throw new Error(
-      "Operational email requires the shared admin mailbox and recipients.",
-    );
+    throw new Error("Operational email requires the shared admin mailbox.");
+  const email = {
+    ...input.email,
+    from: input.email.from.replace(
+      "admin@altitutor.com",
+      input.mailbox.address,
+    ),
+    replyTo: input.mailbox.address,
+  };
   if (input.attachments?.some((file) => file.contentBytes.length > 3_900_000))
     throw new Error("This attachment requires a large-file upload session.");
   async function rpc(
@@ -81,9 +91,10 @@ export async function deliverOperationalMailboxEmail(
   }
   const value = await rpc("email_operational_prepare", {
     p_key: input.idempotencyKey,
+    p_mailbox_address: input.mailbox.address,
     p_payload: {
       to: input.to,
-      email: input.email,
+      email,
       ...(input.attachments ? { attachments: input.attachments } : {}),
     },
     p_links: input.links,
@@ -117,7 +128,7 @@ export async function deliverOperationalMailboxEmail(
     );
   }
   let token = "";
-  const base = "https://graph.microsoft.com/v1.0/users/admin%40altitutor.com";
+  const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input.mailbox.address)}`;
   async function graph(path: string, method = "GET", body?: unknown) {
     const response = await fetchImpl(base + path, {
       method,
@@ -166,10 +177,10 @@ export async function deliverOperationalMailboxEmail(
           from: {
             emailAddress: {
               name: "Altitutor Admin",
-              address: "admin@altitutor.com",
+              address: input.mailbox.address,
             },
           },
-          replyTo: [{ emailAddress: { address: "admin@altitutor.com" } }],
+          replyTo: [{ emailAddress: { address: input.mailbox.address } }],
           toRecipients: input.to.map((address) => ({
             emailAddress: { address },
           })),
