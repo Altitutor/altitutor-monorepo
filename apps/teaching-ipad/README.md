@@ -6,6 +6,20 @@ Native SwiftUI / PDFKit / PencilKit app for iPadOS 26+. Open
 Production builds default to `https://tutor.altitutor.com`. `TEACHING_API_URL` is
 an Xcode build setting; Debug also accepts the process environment override.
 
+## Workspace
+
+Lesson board is the first top tab; added lesson resources open in neighboring
+tabs with the PDF using the full workspace width. Show/Hide solutions floats
+over the document. Drag the wider divider to resize the two panes; ink and
+viewports remain independent. Native PDF scrolling and pinch zoom replace the
+former page/fit/rotate toolbar. Share worksheets or solutions separately from
+a lesson card's context menu.
+
+The detached Resources control opens a right-side drawer. Tap outside it to
+dismiss it. Expand subject topic folders and tap a file to preview it inside
+the drawer; only **Add to lesson** adds it to tabs and log suggestions. Preview
+downloads are held in memory and never enter the local lesson store.
+
 ## Storage and classroom display
 
 Session tokens use device-only Keychain storage. Passwords are never stored by
@@ -61,6 +75,12 @@ Real-device pilot checks remain necessary: Apple Pencil pressure/palm rejection,
 AirPlay/cable behavior on the fleet's oldest Pro and current Airs, rotation and
 page alignment on representative production PDFs, loss/recovery of Wi-Fi,
 background/lock recovery, and share-sheet destinations.
+
+For a richer fictional library on an existing owned preview, run
+`pnpm dev:isolated exec -- node apps/teaching-ipad/Verification/expand-preview-library.mjs /path/to/owned-api-receipt.json`.
+It verifies the runtime/receipt and synthetic tutor/file ownership before adding
+nested folders, multiple worksheets and paired solutions. Node 22.13+ is needed
+for this checkout's pinned pnpm 11; Node 22.22 is installed on the development Mac.
 
 ## Installation
 

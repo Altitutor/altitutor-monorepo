@@ -1,6 +1,6 @@
 import SwiftUI
 import TeachingCore
-import QuickLook
+
 
 struct TeachingNavigation: View {
     @ObservedObject var model: TeachingModel
@@ -12,14 +12,7 @@ struct TeachingNavigation: View {
         NavigationStack {
             Group {
                 if model.session != nil {
-                    HStack(spacing: 0) {
-                        if library { ResourceLibrary(model: model).frame(width: 285).background(.regularMaterial) }
-                        LessonWorkspace(model: model)
-                    }
-                    .dropDestination(for: String.self) { ids, _ in
-                        guard let id = ids.first.flatMap(UUID.init(uuidString:)), let resource = model.catalog.first(where: { $0.id == id }) else { return false }
-                        Task { await model.add(resource) }; return true
-                    }
+                    LessonWorkspace(model: model)
                 } else {
                     SessionDayView(model: model)
                 }
@@ -30,12 +23,30 @@ struct TeachingNavigation: View {
                 if let session = model.session {
                     ToolbarItem(placement: .topBarLeading) { Button { library = false; model.leaveLesson() } label: { Label("Today", systemImage: "chevron.left") } }
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button { withAnimation { library.toggle() } } label: { Label("Resources", systemImage: "sidebar.left") }.accessibilityIdentifier("teaching-library")
                         Button { classroom = true } label: { Label("Classroom display", systemImage: "airplay.video") }
                         Button { model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }.keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
                     }
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { withAnimation(.easeInOut(duration: 0.22)) { library.toggle() } } label: { Label("Resources", systemImage: "sidebar.right") }.accessibilityIdentifier("teaching-library")
+                    }
                 } else {
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
+                }
+            }
+            .overlay {
+                if library, model.session != nil {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .trailing) {
+                            Color.black.opacity(0.12).contentShape(Rectangle())
+                                .onTapGesture { withAnimation(.easeInOut(duration: 0.22)) { library = false } }
+                                .accessibilityLabel("Dismiss resource library").accessibilityAddTraits(.isButton)
+                            ResourceLibrary(model: model) { withAnimation(.easeInOut(duration: 0.22)) { library = false } }
+                                .frame(width: min(460, geometry.size.width - 44)).frame(maxHeight: .infinity)
+                                .background(.regularMaterial).shadow(color: .black.opacity(0.16), radius: 24, x: -8)
+                                .transition(.move(edge: .trailing))
+                        }
+                    }
                 }
             }
             .overlay(alignment: .bottom) {
@@ -97,70 +108,30 @@ struct SessionDayView: View {
     }
 }
 
-struct ResourceLibrary: View {
-    @ObservedObject var model: TeachingModel
-    @State private var query = ""
-    @State private var allSubjects = false
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Resource library").font(.headline)
-            TextField("Search file names", text: $query).textFieldStyle(.roundedBorder).accessibilityIdentifier("resource-search")
-            if model.session?.subjectID != nil { Toggle("Search all subjects", isOn: $allSubjects).font(.subheadline) }
-            else { Text("All accessible subjects").font(.caption).foregroundStyle(.secondary) }
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(model.catalog) { resource in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label(resource.worksheet.title, systemImage: resource.worksheet.isPDF ? "doc.richtext" : "doc").font(.subheadline.bold())
-                            Text(resource.subjectName + " · " + resource.topicName).font(.caption).foregroundStyle(.secondary)
-                            Button(model.lesson?.resources.contains(where: { $0.resource.id == resource.id }) == true ? "Added to lesson" : "Add to lesson") { Task { await model.add(resource) } }.buttonStyle(.bordered).disabled(model.busy || model.offline)
-                        }.frame(maxWidth: .infinity, alignment: .leading).padding(15).background(.background, in: RoundedRectangle(cornerRadius: 14))
-                            .draggable(resource.id.uuidString)
-                    }
-                    if model.libraryBusy { ProgressView() }
-                    if model.catalog.isEmpty && !model.libraryBusy { Text("No matching resources.").foregroundStyle(.secondary).padding() }
-                    if model.nextOffset != nil { Button("More resources") { Task { await model.search(query, allSubjects: allSubjects, more: true) } }.disabled(model.libraryBusy) }
-                }
-            }
-        }.padding(16)
-        .task(id: query + String(allSubjects)) {
-            do { try await Task.sleep(for: .milliseconds(250)); await model.search(query, allSubjects: allSubjects) } catch {}
-        }
-    }
-}
-
 struct LessonWorkspace: View {
     @ObservedObject var model: TeachingModel
     var body: some View {
-        Group {
-            if model.viewer, let item = model.activeResource, let store = model.store, let session = model.session {
-                HStack(spacing: 0) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Button { model.showBoard() } label: { Label("Lesson board", systemImage: "square.grid.2x2") }.padding(.bottom, 8)
-                            ForEach(model.lesson?.resources ?? []) { resource in
-                                Button { model.open(resource) } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(resource.resource.worksheet.title).font(.subheadline.bold()).lineLimit(3)
-                                        Text(resource.resource.topicName).font(.caption).lineLimit(2)
-                                    }.frame(maxWidth: .infinity, alignment: .leading).padding(13)
-                                        .background(model.activeResourceID == resource.id ? TeachingColors.navy : Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 12))
-                                        .foregroundStyle(model.activeResourceID == resource.id ? Color.white : Color.primary)
-                                }.buttonStyle(.plain)
-                            }
-                        }.padding(12)
-                    }.frame(width: 190).background(.regularMaterial)
-                    VStack(spacing: 0) {
-                        HStack {
-                            Toggle("Finger ink", isOn: $model.fingerDrawing).toggleStyle(.button).font(.caption)
-                            Spacer()
-                            if item.solutions != nil { Button(model.solutions ? "Hide solutions" : "Show solutions") { withAnimation { model.solutions.toggle() } }.accessibilityIdentifier("teaching-solutions") }
-                        }.padding(10)
-                        PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    tab("Lesson board", systemImage: "square.grid.2x2", selected: !model.viewer) { model.showBoard() }
+                    ForEach(model.lesson?.resources ?? []) { item in
+                        tab(item.resource.worksheet.title, systemImage: "doc", selected: model.viewer && model.activeResourceID == item.id) { model.open(item) }
                     }
-                }
+                }.padding(.horizontal, 16).padding(.vertical, 8)
+            }.background(.regularMaterial)
+            if model.viewer, let item = model.activeResource, let store = model.store, let session = model.session {
+                PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
             } else { LessonBoard(model: model) }
         }.background(TeachingColors.background)
+    }
+    private func tab(_ title: String, systemImage: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage).font(.subheadline.weight(.semibold)).lineLimit(1)
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(selected ? TeachingColors.navy : .clear, in: RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(selected ? .white : TeachingColors.navy)
+        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -188,7 +159,7 @@ struct LessonBoard: View {
                     }
                 }
                 if model.lesson?.resources.isEmpty != false {
-                    ContentUnavailableView("Your lesson starts here", systemImage: "doc.badge.plus", description: Text("Open Resources to find a worksheet. Drag it into the workspace or tap Add to lesson."))
+                    ContentUnavailableView("Your lesson starts here", systemImage: "doc.badge.plus", description: Text("Open Resources to browse and preview files, then choose Add to lesson."))
                 }
             }.padding(28)
         }
@@ -201,20 +172,41 @@ struct PDFWorkspace: View {
     let sessionID: UUID
     let store: LessonStore
     @State private var ratio = 0.55
-    @State private var dragStart: Double?
     var body: some View {
         GeometryReader { geometry in
+            let split = model.solutions && resource.solutions != nil
+            let available = max(1, geometry.size.width - 24)
             HStack(spacing: 0) {
                 DocumentPane(model: model, document: resource.worksheet, sessionID: sessionID, store: store, worksheet: true)
-                    .id(resource.worksheet.id).frame(width: model.solutions && resource.solutions != nil ? max(180, (geometry.size.width - 12) * ratio) : geometry.size.width)
-                if model.solutions, let answer = resource.solutions {
-                    RoundedRectangle(cornerRadius: 3).fill(.secondary.opacity(0.3)).frame(width: 6, height: 60).frame(width: 12, height: geometry.size.height)
-                        .contentShape(Rectangle()).gesture(DragGesture().onChanged { value in if dragStart == nil { dragStart = ratio }; ratio = min(0.72, max(0.28, (dragStart ?? ratio) + value.translation.width / max(geometry.size.width, 1))) }.onEnded { _ in dragStart = nil })
-                        .accessibilityLabel("Solutions divider")
-                    DocumentPane(model: model, document: answer, sessionID: sessionID, store: store, worksheet: false).id(answer.id)
-                        .transition(.move(edge: .trailing))
+                    .id(resource.worksheet.id).frame(width: split ? available * ratio : geometry.size.width)
+                if split, let answer = resource.solutions {
+                    ZStack {
+                        Color(uiColor: .secondarySystemBackground)
+                        Capsule().fill(.secondary.opacity(0.4)).frame(width: 5, height: 56)
+                    }.frame(width: 24).contentShape(Rectangle())
+                        .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("lesson-documents"))
+                            .onChanged { value in ratio = min(0.75, max(0.25, (value.location.x - 12) / available)) })
+                        .accessibilityLabel("Solutions divider").accessibilityValue("\(Int(ratio * 100))% worksheet")
+                        .accessibilityAdjustableAction { direction in
+                            ratio = min(0.75, max(0.25, ratio + (direction == .increment ? 0.05 : -0.05)))
+                        }
+                    DocumentPane(model: model, document: answer, sessionID: sessionID, store: store, worksheet: false)
+                        .id(answer.id).frame(width: available * (1 - ratio))
                 }
-            }
+            }.coordinateSpace(name: "lesson-documents")
+                .overlay(alignment: .topTrailing) {
+                    if resource.solutions != nil {
+                        Button { model.solutions.toggle() } label: {
+                            Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
+                                .font(.subheadline.weight(.semibold)).padding(.horizontal, 16).padding(.vertical, 11)
+                                .background(.regularMaterial, in: Capsule()).shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+                        }.buttonStyle(.plain).padding(14).accessibilityIdentifier("teaching-solutions")
+                    }
+                }
+                .overlay(alignment: .bottomLeading) {
+                    Toggle(isOn: $model.fingerDrawing) { Label("Finger ink", systemImage: "hand.draw") }
+                        .toggleStyle(.button).font(.caption).padding(10).background(.regularMaterial, in: Capsule()).padding(14)
+                }
         }
     }
 }
@@ -225,31 +217,16 @@ struct DocumentPane: View {
     let sessionID: UUID
     let store: LessonStore
     let worksheet: Bool
-    @StateObject private var controls = PDFPaneControls()
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(worksheet ? "Worksheet" : "Private solutions").font(.caption.bold()).lineLimit(1)
-                Spacer(minLength: 0)
-                if document.source.isPDF {
-                    Button { controls.move(-1) } label: { Image(systemName: "chevron.left") }.accessibilityLabel("Previous page")
-                    Text("\(controls.page)/\(controls.count)").font(.caption.monospacedDigit())
-                    Button { controls.move(1) } label: { Image(systemName: "chevron.right") }.accessibilityLabel("Next page")
-                    Menu {
-                        Button("Fit page") { controls.fit() }
-                        Button("Rotate 90°") { controls.rotate() }
-                        Button(worksheet ? "Share worksheet" : "Share solutions") { model.share(document) }
-                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("PDF actions")
-                } else { Button { model.share(document) } label: { Image(systemName: "square.and.arrow.up") } }
-            }.buttonStyle(.borderless).padding(12).background(.regularMaterial)
+        Group {
             if let external = document.source.externalURL {
                 ContentUnavailableView { Label("External resource", systemImage: "link") } description: { Text(document.source.title) } actions: { Link("Open resource", destination: external).buttonStyle(.borderedProminent) }
             } else if document.source.isPDF {
                 PDFDocumentSurface(document: document, sessionID: sessionID, store: store, isWorksheet: worksheet,
-                    fingerDrawing: model.fingerDrawing, controls: controls, onError: model.report)
+                    fingerDrawing: model.fingerDrawing, onError: model.report)
             } else if let url = try? store.documentURL(sessionID: sessionID, document: document), let image = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: image).resizable().scaledToFit().padding()
-            } else { ContentUnavailableView("Resource downloaded", systemImage: "doc", description: Text("Use Share to open this file in a compatible app.")) }
+            } else { ContentUnavailableView("Resource downloaded", systemImage: "doc", description: Text("Share this file from its lesson card to open it in a compatible app.")) }
         }
     }
 }

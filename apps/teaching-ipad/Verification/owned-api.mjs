@@ -57,10 +57,11 @@ async function tutor(name) {
   return { id, email, password, token: signed.body.credentials.accessToken, refreshToken: signed.body.credentials.refreshToken };
 }
 const first = await tutor('Alex'), second = await tutor('Taylor');
-const subject = randomUUID(), topic = randomUUID(), student = randomUUID();
+const subject = randomUUID(), topic = randomUUID(), calculus = randomUUID(), student = randomUUID();
 data(await admin.from('subjects').insert({ id: subject, name: 'Mathematics preview', short_name: 'PREVIEW-' + subject.slice(0, 8), year_level: 12 }), 'subject');
 data(await admin.from('staff_subjects').insert({ staff_id: first.id, subject_id: subject }), 'tutor subject');
-data(await admin.from('topics').insert({ id: topic, subject_id: subject, name: 'Differentiation', index: 1, code: 'PREV' + topic.slice(0, 6) }), 'topic');
+data(await admin.from('topics').insert({ id: calculus, subject_id: subject, name: 'Calculus', index: 1, code: 'PREV' + calculus.slice(0, 6) }), 'parent topic');
+data(await admin.from('topics').insert({ id: topic, subject_id: subject, parent_id: calculus, name: 'Differentiation', index: 1, code: 'PREV' + topic.slice(0, 6) }), 'topic');
 data(await admin.from('students').insert({ id: student, first_name: 'Casey', last_name: 'Learner', status: 'ACTIVE', account_class: 'internal_test' }), 'student');
 const primary = randomUUID(), solution = randomUUID();
 const buckets = data(await admin.storage.listBuckets(), 'list local buckets');
@@ -92,6 +93,9 @@ const otherSessions = await call('sessions?day=' + day, second.token);
 assert.ok(!otherSessions.body.some(s => s.id === preview), 'other tutor cannot see first tutor lesson');
 const catalog = await call('resources?subjectID=' + subject.toUpperCase(), first.token);
 assert.equal(catalog.status, 200, catalog.body.error);
+assert.ok(catalog.body.topics?.some(t => t.id === calculus && t.parentID === null), 'library includes the parent folder even when it has no direct files');
+assert.ok(catalog.body.topics?.some(t => t.id === topic && t.parentID === calculus), 'library preserves topic nesting');
+assert.ok((await call('resources', second.token)).body.topics?.every(t => t.subjectID !== subject), 'topic hierarchy must respect caller subject access');
 assert.equal(catalog.body.resources.find(r => r.id === primary)?.solutions?.id, solution);
 const exact = await call('resources?resourceID=' + primary, first.token);
 assert.deepEqual(exact.body.resources.map(r => r.id), [primary], 'fresh copy reloads current resource metadata');
@@ -121,4 +125,17 @@ const refreshed = await call('auth', null, { action: 'refresh', refreshToken: fi
 assert.equal(refreshed.status, 200, 'native token refresh works');
 const receipt = { origin, project: proof.project_id, day, previewSession: preview, verificationSession: verification, first, second, resource: primary, solution };
 fs.writeFileSync('/private/tmp/dev219-native-fixture.json', JSON.stringify(receipt), { mode: 0o600 });
-console.log(JSON.stringify({ ownedProject: proof.project_id, nativeSignIn: true, tokenRefresh: true, assignedKinds: true, isolatedSessions: true, resourceACL: true, signedDownloads: true, serverSubmitter: true, rosterValidation: true, duplicateProtection: true, checkInRole: true, previewSession: preview }));
+// Exercise the real global-file pagination used by the topic drawer.
+const pagingTopic = randomUUID();
+data(await admin.from('topics').insert({ id: pagingTopic, subject_id: subject, name: 'Pagination coverage', index: 99 }), 'paging topic');
+const pagingFiles = Array.from({ length: 51 }, (_, i) => ({ id: randomUUID(), filename: 'Pagination preview ' + (i + 1) + '.pdf', mimetype: 'application/pdf', size_bytes: 0, storage_provider: 'external', external_url: 'https://example.test/preview/' + (i + 1), created_by: first.id }));
+data(await admin.from('files').insert(pagingFiles), 'paging files');
+data(await admin.from('topics_files').insert(pagingFiles.map((f, i) => ({ id: randomUUID(), topic_id: pagingTopic, file_id: f.id, type: 'PRACTICE_QUESTIONS', index: i + 1, is_solutions: false }))), 'paging resources');
+const firstPage = await call('resources?subjectID=' + subject, first.token);
+assert.equal(firstPage.body.resources.length, 50, 'catalog remains bounded per page');
+assert.equal(firstPage.body.nextOffset, 50, 'library must offer more files before claiming an empty topic');
+assert.ok(firstPage.body.topics.some(t => t.id === pagingTopic), 'hierarchy metadata is available before all files load');
+const lastPage = await call('resources?subjectID=' + subject + '&offset=50', first.token);
+assert.equal(lastPage.body.nextOffset, null, 'library knows when all files have loaded');
+assert.equal(new Set([...firstPage.body.resources, ...lastPage.body.resources].map(r => r.id)).size, 52, 'all files are reachable through catalog pages');
+console.log(JSON.stringify({ ownedProject: proof.project_id, topicHierarchy: true, catalogPagination: true, nativeSignIn: true, tokenRefresh: true, assignedKinds: true, isolatedSessions: true, resourceACL: true, signedDownloads: true, serverSubmitter: true, rosterValidation: true, duplicateProtection: true, checkInRole: true, previewSession: preview }));

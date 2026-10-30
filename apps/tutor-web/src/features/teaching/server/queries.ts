@@ -61,10 +61,16 @@ export async function teachingResources(client: Client, params: URLSearchParams)
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000) throw new TeachingError(400, 'Invalid resource page.');
   const [subjects, topics] = await Promise.all([
     allRows((start, end) => client.from('vtutor_subjects').select('id,name').order('id').range(start, end)),
-    allRows((start, end) => client.from('vtutor_topics').select('id,name,subject_id').order('id').range(start, end)),
+    allRows((start, end) => client.from('vtutor_topics').select('id,name,subject_id,parent_id,index').order('id').range(start, end)),
   ]);
   const scopedTopics = topics.filter(t => t.id && (!subjectID || t.subject_id === subjectID));
-  if (!scopedTopics.length) return { resources: [], nextOffset: null };
+  const libraryTopics = scopedTopics.flatMap(topic => {
+    const subject = subjects.find(s => s.id === topic.subject_id);
+    if (!topic.id || !subject?.id) return [];
+    return [{ id: topic.id, name: topic.name ?? 'Topic', parentID: topic.parent_id, index: topic.index ?? 0,
+      subjectID: subject.id, subjectName: subject.name ?? 'Subject' }];
+  });
+  if (!scopedTopics.length) return { resources: [], topics: [], nextOffset: null };
   let query = client.from('vtutor_topics_files').select('*').is('deleted_at', null).is('is_solutions_of_id', null);
   // The view already limits files to authorized topics; only add an IN filter for one subject.
   if (subjectID) query = query.in('topic_id', scopedTopics.flatMap(t => t.id ? [t.id] : []));
@@ -76,7 +82,7 @@ export async function teachingResources(client: Client, params: URLSearchParams)
   const solutions = ids.length ? await client.from('vtutor_topics_files').select('*').is('deleted_at', null)
     .in('is_solutions_of_id', ids).order('id') : { data: [], error: null };
   check(solutions.error);
-  return { resources: (files ?? []).flatMap(file => {
+  return { topics: libraryTopics, resources: (files ?? []).flatMap(file => {
     const topic = scopedTopics.find(t => t.id === file.topic_id);
     const subject = subjects.find(s => s.id === topic?.subject_id);
     if (!file.id || !topic?.id || !subject?.id) return [];

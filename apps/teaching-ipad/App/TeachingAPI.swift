@@ -28,7 +28,15 @@ struct TeachingSession: Codable, Identifiable {
 }
 struct Credentials: Codable { let accessToken: String; let refreshToken: String; let expiresAt: Double }
 struct AuthEnvelope: Codable { let profile: TutorProfile; let credentials: Credentials }
-struct ResourcePage: Decodable { let resources: [TeachingResource]; let nextOffset: Int? }
+struct LibraryTopic: Decodable, Identifiable {
+    let id: UUID
+    let name: String
+    let parentID: UUID?
+    let index: Double
+    let subjectID: UUID
+    let subjectName: String
+}
+struct ResourcePage: Decodable { let resources: [TeachingResource]; let topics: [LibraryTopic]; let nextOffset: Int? }
 struct DownloadLink: Decodable { let url: URL; let external: Bool }
 struct APIError: LocalizedError {
     let status: Int

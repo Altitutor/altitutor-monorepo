@@ -17,6 +17,7 @@ import PDFKit
     @Published var offline = false
     @Published var error: String?
     @Published var catalog: [TeachingResource] = []
+    @Published var libraryTopics: [LibraryTopic] = []
     @Published var nextOffset: Int?
     @Published var libraryBusy = false
     @Published var sharedURL: URL?
@@ -53,7 +54,7 @@ import PDFKit
         do {
             try api.signOut(); epoch += 1
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
-            activeResourceID = nil; store = nil; catalog = []; sharedURL = nil; viewer = false; solutions = false; offline = false
+            activeResourceID = nil; store = nil; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; offline = false
         } catch { self.error = error.localizedDescription }
     }
     func report(_ error: Error) {
@@ -116,7 +117,7 @@ import PDFKit
             let page: ResourcePage = try await api.request("resources", query: query)
             try Task.checkCancellation()
             guard version == epoch, selectedSessionID == sessionID else { return }
-            catalog = more ? catalog + page.resources : page.resources; nextOffset = page.nextOffset
+            catalog = more ? catalog + page.resources : page.resources; libraryTopics = page.topics; nextOffset = page.nextOffset
         } catch { if !Task.isCancelled { report(error) } }
     }
     func add(_ resource: TeachingResource, freshCopy: Bool = false) async {

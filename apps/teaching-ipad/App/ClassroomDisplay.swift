@@ -95,7 +95,7 @@ struct AudiencePDF: UIViewRepresentable {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
-        window.frame = windowScene.coordinateSpace.bounds
+        window.frame = windowScene.effectiveGeometry.coordinateSpace.bounds
         window.rootViewController = UIHostingController(rootView: ClassroomView())
         window.isHidden = false; self.window = window
     }

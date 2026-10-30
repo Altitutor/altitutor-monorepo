@@ -3,23 +3,12 @@ import PDFKit
 import PencilKit
 import TeachingCore
 
-@MainActor final class PDFPaneControls: ObservableObject {
-    @Published var page = 1
-    @Published var count = 0
-    @Published var zoom = 100
-    weak var coordinator: PDFDocumentSurface.Coordinator?
-    func move(_ delta: Int) { coordinator?.move(delta) }
-    func rotate() { coordinator?.rotate() }
-    func fit() { coordinator?.fit() }
-}
-
 struct PDFDocumentSurface: UIViewRepresentable {
     let document: CachedDocument
     let sessionID: UUID
     let store: LessonStore
     let isWorksheet: Bool
     let fingerDrawing: Bool
-    let controls: PDFPaneControls
     let onError: (Error) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeUIView(context: Context) -> PDFView {
@@ -50,12 +39,15 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private var restored = false
         private var active = true
         private var lastSize = CGSize.zero
+        private var resizeAnchor: DocumentViewport?
+        private var sizeChangedAt = Date.distantPast
+        private var lastVisible: DocumentViewport?
         private var backgroundObserver: NSObjectProtocol?
         private var flushObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
         init(_ parent: PDFDocumentSurface) { self.parent = parent }
         func attach(_ view: PDFView) {
-            self.view = view; parent.controls.coordinator = self
+            self.view = view
             do {
                 let url = try parent.store.documentURL(sessionID: parent.sessionID, document: parent.document)
                 guard let pdf = PDFDocument(url: url), !pdf.isLocked else { throw APIError(status: 0, message: "This PDF could not be opened or needs a password.") }
@@ -63,7 +55,6 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 lastSaved = try parent.store.viewport(sessionID: parent.sessionID, document: parent.document); rotation = lastSaved.rotation
                 for index in 0..<pdf.pageCount { pdf.page(at: index)?.rotation = originalRotations[index] + rotation }
                 view.pageOverlayViewProvider = self; view.document = pdf
-                parent.controls.count = pdf.pageCount
                 timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     MainActor.assumeIsolated { self?.tick() }
                 }
@@ -80,36 +71,52 @@ struct PDFDocumentSurface: UIViewRepresentable {
         }
         private func restore(_ viewport: DocumentViewport) {
             guard let view, let pdf = view.document, let page = pdf.page(at: min(max(viewport.page, 0), pdf.pageCount - 1)) else { return }
-            if viewport.scale > 0 { view.autoScales = false; view.scaleFactor = viewport.scale }
-            else { view.autoScales = true }
-            view.go(to: page)
+            view.autoScales = false
+            let scale = viewport.scale > 0 ? viewport.scale : view.scaleFactorForSizeToFit
+            view.scaleFactor = scale
             if viewport.scale > 0 { view.go(to: PDFDestination(page: page, at: CGPoint(x: viewport.x, y: viewport.y))) }
+            else { view.go(to: page) }
+            view.scaleFactor = scale
         }
         private func current() -> DocumentViewport? {
-            guard let view, let pdf = view.document, let destination = view.currentDestination, let page = destination.page else { return nil }
-            return DocumentViewport(page: pdf.index(for: page), x: destination.point.x, y: destination.point.y,
+            guard let view, let pdf = view.document else { return nil }
+            let origin = CGPoint(x: view.bounds.minX, y: view.bounds.minY)
+            guard let page = view.page(for: CGPoint(x: view.bounds.midX, y: view.bounds.minY + 1), nearest: true) else { return nil }
+            let point = view.convert(origin, to: page)
+            return DocumentViewport(page: pdf.index(for: page), x: point.x, y: point.y,
                                     scale: view.scaleFactor, rotation: rotation)
         }
         private func tick() {
             guard active, let view, view.bounds.width > 0, view.bounds.height > 0, view.document != nil else { return }
-            if !restored { restore(lastSaved); lastSize = view.bounds.size; restored = true; return }
-            if view.bounds.size != lastSize { restore(lastSaved); lastSize = view.bounds.size }
+            if !restored {
+                restore(lastSaved); lastSize = view.bounds.size; restored = true; lastVisible = current(); return
+            }
+            // PDFKit lays itself out while the divider moves. Repeated go(to:) during that
+            // layout fights the drag and saves intermediate positions. Restore once it settles.
+            if view.bounds.size != lastSize {
+                if resizeAnchor == nil { resizeAnchor = lastVisible ?? lastSaved }
+                lastSize = view.bounds.size; sizeChangedAt = Date(); return
+            }
+            if let anchor = resizeAnchor {
+                guard Date().timeIntervalSince(sizeChangedAt) >= 0.18 else { return }
+                restore(anchor); resizeAnchor = nil; lastVisible = current(); return
+            }
             if let state = current() {
-                if parent.controls.page != state.page + 1 { parent.controls.page = state.page + 1 }
-                let zoom = Int(state.scale * 100)
-                if parent.controls.zoom != zoom { parent.controls.zoom = zoom }
+                lastVisible = state
                 ticks += 1
                 if ticks % 4 == 0 { persist() }
-                if parent.isWorksheet, let page = view.document?.page(at: state.page) {
+                if parent.isWorksheet, let pdf = view.document,
+                   let page = view.page(for: CGPoint(x: view.bounds.midX, y: view.bounds.midY), nearest: true) {
+                    let pageIndex = pdf.index(for: page)
                     let rect = view.convert(view.bounds, to: page).intersection(page.bounds(for: .cropBox))
                     var drawings: [Int: Data] = [:]
-                    for index in [state.page] {
+                    for index in [pageIndex] {
                         drawings[index] = canvases[index]?.drawing.dataRepresentation() ?? (try? parent.store.drawing(sessionID: parent.sessionID, document: parent.document, page: index))
                     }
                     do {
                         ClassroomState.shared.publishWorksheet(id: parent.document.id,
                             url: try parent.store.documentURL(sessionID: parent.sessionID, document: parent.document),
-                            page: state.page, visibleRect: rect, rotation: rotation, drawings: drawings)
+                            page: pageIndex, visibleRect: rect, rotation: rotation, drawings: drawings)
                     } catch { parent.onError(error) }
                 }
             }
@@ -121,7 +128,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
                     if let canvas = canvases[index] { try parent.store.saveDrawing(canvas.drawing.dataRepresentation(), sessionID: parent.sessionID, document: parent.document, page: index) }
                 }
                 dirty.removeAll()
-                if let viewport = current(), viewport != lastSaved {
+                if let viewport = resizeAnchor ?? current(), viewport != lastSaved {
                     try parent.store.saveViewport(viewport, sessionID: parent.sessionID, document: parent.document); lastSaved = viewport
                 }
             } catch { parent.onError(error) }
@@ -138,17 +145,6 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private func hideTools() {
             for canvas in canvases.values { toolPicker.setVisible(false, forFirstResponder: canvas); canvas.resignFirstResponder() }
         }
-        func move(_ delta: Int) {
-            guard let view, let pdf = view.document, let page = pdf.page(at: min(max(parent.controls.page - 1 + delta, 0), pdf.pageCount - 1)) else { return }
-            view.go(to: page); persist()
-        }
-        func rotate() {
-            persist(); rotation = (rotation + 90) % 360
-            guard let view, let pdf = view.document else { return }
-            for index in 0..<pdf.pageCount { pdf.page(at: index)?.rotation = originalRotations[index] + rotation }
-            view.layoutDocumentView(); persist()
-        }
-        func fit() { view?.autoScales = true; persist() }
         func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
             guard let pdf = view.document else { return nil }
             let index = pdf.index(for: page)
