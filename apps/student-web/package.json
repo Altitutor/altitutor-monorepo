@@ -20,7 +20,7 @@
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "type-check": "npm run typecheck",
     "db:types": "pnpm --filter @altitutor/shared run build",
     "db:types:remote": "pnpm --filter @altitutor/shared run build"

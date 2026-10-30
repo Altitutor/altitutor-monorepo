@@ -25,7 +25,7 @@
     "seed:ucat-find-word-wikipedia": "tsx scripts/generate-ucat-find-word-wikipedia-seed.ts",
     "seed:ucat-skill-trainers": "tsx scripts/generate-ucat-skill-trainer-seed.ts",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "type-check": "npm run typecheck",
     "db:types": "pnpm --filter @altitutor/shared run build",
     "db:types:remote": "pnpm --filter @altitutor/shared run build"

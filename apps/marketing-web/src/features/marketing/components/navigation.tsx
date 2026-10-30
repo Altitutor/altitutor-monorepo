@@ -66,6 +66,7 @@ export function Navigation({
   primaryAction,
 }: { primaryAction?: PrimaryAction } = {}) {
   const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(false);
   const [dropdown, setDropdown] = useState<string | null>(null);
   const header = useRef<HTMLElement>(null);
   const [selectedGroup, setSelectedGroup] = useState(0);
@@ -73,6 +74,10 @@ export function Navigation({
   const panel = useRef<HTMLDivElement>(null);
   const previousPanelHeight = useRef<number | null>(null);
   const desktopOpen = dropdown !== null;
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useLayoutEffect(() => {
     const element = panel.current;
@@ -340,6 +345,7 @@ export function Navigation({
               aria-label={menuOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={menuOpen}
               aria-controls="mobile-navigation"
+              disabled={!hydrated}
               onClick={() => setMenuOpen(!menuOpen)}
               ref={trigger}
             >
