@@ -61,7 +61,7 @@ function IssueLiveTagsPanels({
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
-  descriptionRef: React.RefObject<RichTextEditorRef>;
+  descriptionRef: React.RefObject<RichTextEditorRef | null>;
 }) {
   const liveTags = useLiveIssueTags({
     form,

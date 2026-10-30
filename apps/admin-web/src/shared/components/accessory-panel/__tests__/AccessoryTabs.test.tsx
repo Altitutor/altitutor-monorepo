@@ -69,6 +69,8 @@ jest.mock("../AccessoryViews", () => ({
         >
           Mention
         </button>
+        {/* A test-only plain anchor exercises navigation interception. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/issues/linked">Linked issue</a>
       </>
     );

@@ -4,7 +4,7 @@ import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
 export async function emailAccess() {
-  const db = createClient();
+  const db = await createClient();
   const {
     data: { user },
   } = await db.auth.getUser();

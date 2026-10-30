@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 function initialize() {
-  jest.isolateModules(() => require("@/instrumentation-client"));
+  jest.isolateModules(() => jest.requireActual("@/instrumentation-client"));
   const options = jest.mocked(Sentry.init).mock.calls.at(-1)?.[0];
   return options!;
 }

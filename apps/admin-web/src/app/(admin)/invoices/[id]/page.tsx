@@ -21,7 +21,7 @@ import {
   formatInvoiceTagText,
   CreditNoteDialog,
 } from "@/features/billing";
-import { useState } from "react";
+import { useState, use } from "react";
 import { useToast } from "@altitutor/ui";
 import { getErrorMessage } from "@/shared/utils";
 import { format } from "date-fns";
@@ -39,11 +39,12 @@ import {
 } from "@/features/billing/utils/creditNoteDetails";
 import { InvoiceActivityTab } from "@/features/activity/components";
 
-export default function InvoiceDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function InvoiceDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const { toast } = useToast();

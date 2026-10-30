@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const userClient = createClient();
+  const userClient = await createClient();
 
   if (!body.topic_id) return NextResponse.json({ error: 'topic_id is required' }, { status: 400 });
   if (!(await assertTutorTopicAccess(body.topic_id))) {

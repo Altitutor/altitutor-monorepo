@@ -210,7 +210,7 @@ function AuthCallbackInner() {
             return;
           }
           if (process.env.NODE_ENV !== "production") {
-            // eslint-disable-next-line no-console
+
             console.error("[auth/callback] exchangeCodeForSession:", error);
           }
           const isPkceVerifierMissing = error.message

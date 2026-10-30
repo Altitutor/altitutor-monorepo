@@ -110,7 +110,7 @@ describe('POST /api/invoices/[id]/charge-card', () => {
       });
 
       const response = await POST({} as never, {
-        params: { id: 'invoice-id' },
+        params: Promise.resolve({ id: 'invoice-id' }),
       });
 
       expect(response.status).toBe(402);
@@ -141,7 +141,7 @@ describe('POST /api/invoices/[id]/charge-card', () => {
         data: { id: 'staff-1', role, status: 'ACTIVE' },
       });
       const response = await POST({} as never, {
-        params: { id: 'invoice-id' },
+        params: Promise.resolve({ id: 'invoice-id' }),
       });
       expect(response.status).toBe(403);
       expect(mockPayInvoice).not.toHaveBeenCalled();
@@ -165,7 +165,7 @@ describe('POST /api/invoices/[id]/charge-card', () => {
       });
 
       const response = await POST({} as never, {
-        params: { id: 'invoice-id' },
+        params: Promise.resolve({ id: 'invoice-id' }),
       });
 
       expect(response.status).toBe(200);
@@ -189,7 +189,7 @@ describe('POST /api/invoices/[id]/charge-card', () => {
     const error = new Error('Stripe unavailable');
     mockPayInvoice.mockRejectedValue(error);
 
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+    const response = await POST({} as never, { params: Promise.resolve({ id: 'invoice-id' }) });
 
     expect(response.status).toBe(500);
     expect(captureApiErrorMock).toHaveBeenCalledWith(error, {

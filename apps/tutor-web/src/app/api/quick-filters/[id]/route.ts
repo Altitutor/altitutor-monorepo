@@ -21,10 +21,8 @@ async function loadExisting(service: Service, id: string) {
     .maybeSingle()
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const id = params.id
     if (!isSavedViewId(id)) return NextResponse.json({ error: 'View not found' }, { status: 404 })
@@ -64,10 +62,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const id = params.id
     if (!isSavedViewId(id)) return NextResponse.json({ error: 'View not found' }, { status: 404 })

@@ -43,7 +43,7 @@ async function resolveToken(token: string) {
 }
 
 async function getStaffIdentity() {
-  const userClient = createUserClient();
+  const userClient = await createUserClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user || !supabaseAdmin) return { user: null, staff: null };
   const { data: staff } = await supabaseAdmin
@@ -54,7 +54,8 @@ async function getStaffIdentity() {
   return { user, staff };
 }
 
-export async function GET(_request: Request, { params }: { params: { token: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tokenRow = await resolveToken(params.token);
   if (!tokenRow) return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   if (tokenRow.access_type === 'authenticated') {
@@ -78,7 +79,8 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   });
 }
 
-export async function POST(request: Request, { params }: { params: { token: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tokenRow = await resolveToken(params.token);
   if (!tokenRow || !supabaseAdmin) return NextResponse.json({ error: 'Form link not found' }, { status: 404 });
   if (!tokenRow.form_versions) {

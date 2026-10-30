@@ -3,10 +3,11 @@ import { SetAttemptDetailPage } from "@/features/progress/components/set-attempt
 import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
 
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export default function Page({ params }: PageProps) {
+export default async function Page(props: PageProps) {
+  const params = await props.params;
   return (
     <Suspense fallback={<AttemptReviewPageFallback />}>
       <SetAttemptDetailPage attemptId={params.id} />

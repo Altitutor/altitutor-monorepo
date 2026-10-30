@@ -8,10 +8,8 @@ import { ServerTiming } from "@/lib/performance/server-timing";
 import { waitUntil } from "@vercel/functions";
 import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const actionReceivedAt = new Date();
   const timing = new ServerTiming();
   const auth = await requireStudentAdminClient();

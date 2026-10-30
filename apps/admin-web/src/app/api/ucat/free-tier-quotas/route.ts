@@ -39,7 +39,7 @@ function normalizeArea(value: unknown): UcatQuotaArea | null {
 }
 
 async function requireAdminStaff() {
-  const userClient = createClient();
+  const userClient = await createClient();
   const {
     data: { user },
     error: authError,

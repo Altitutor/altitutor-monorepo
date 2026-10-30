@@ -15,7 +15,7 @@ function asAnswers(value: unknown): FormAnswerPayload | null {
 }
 
 async function currentStudent() {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return { user: null, student: null };
   const admin = getServerSupabaseAdmin();

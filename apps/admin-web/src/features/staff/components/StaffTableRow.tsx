@@ -89,7 +89,7 @@ export const StaffTableRow = memo(function StaffTableRow({
         description: "Password reset link sent successfully.",
       });
     } catch (error) {
-      // eslint-disable-next-line no-console
+
       console.error('Failed to send password reset:', error);
       toast({
         title: "Error",

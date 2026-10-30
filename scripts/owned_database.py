@@ -318,7 +318,7 @@ def preview(repository, app, manifest_path):
         raise Blocked('Select an existing web app for the normal foreground preview')
     if not (repository / 'apps' / app).is_dir():
         raise Blocked('Selected preview app is absent')
-    command = ['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev',
+    command = ['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--webpack',
                '--hostname', '127.0.0.1', '--port', '57340']
     with exclusive(PREVIEW_LOCK, wait=False) as descriptor:
         with socket.socket() as probe:

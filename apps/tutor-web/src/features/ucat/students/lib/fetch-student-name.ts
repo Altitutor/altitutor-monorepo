@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 
 export const fetchUcatStudentIdentity = cache(async (studentId: string) => {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase
     .from('vtutor_ucat_student_progress_summary')
     .select('student_name, account_class')

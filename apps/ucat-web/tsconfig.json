@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -11,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -19,11 +23,21 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@altitutor/shared": ["../../packages/shared/src/index.ts"],
-      "@altitutor/shared/*": ["../../packages/shared/src/*"],
-      "@altitutor/ui": ["../../packages/ui/src/index.ts"],
-      "@altitutor/ui/*": ["../../packages/ui/src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@altitutor/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@altitutor/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@altitutor/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@altitutor/ui/*": [
+        "../../packages/ui/src/*"
+      ]
     }
   },
   "include": [
@@ -34,7 +48,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     ".next-e2e/types/**/*.ts",
-    ".next-isolated/types/**/*.ts"
+    ".next-isolated/types/**/*.ts",
+    ".next-isolated/dev/types/**/*.ts",
+    ".next-e2e/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

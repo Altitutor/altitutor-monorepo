@@ -147,7 +147,7 @@ it.each(["charge_automatically", "send_invoice"])(
       {
         headers: new Headers({ "idempotency-key": "fixture-intent" }),
       } as never,
-      { params: { id: "invoice-id" } },
+      { params: Promise.resolve({ id: "invoice-id" }) },
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
@@ -179,7 +179,7 @@ it("honors recipient preferences when notifying about an automatically charged i
   });
   const response = await POST(
     { headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never,
-    { params: { id: "invoice-id" } },
+    { params: Promise.resolve({ id: "invoice-id" }) },
   );
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual(
@@ -197,7 +197,7 @@ it("rejects sending when no recipients are configured", async () => {
   });
   const response = await POST(
     { headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never,
-    { params: { id: "invoice-id" } },
+    { params: Promise.resolve({ id: "invoice-id" }) },
   );
   expect(response.status).toBe(400);
   expect(mockEmailDelivery).not.toHaveBeenCalled();
@@ -209,7 +209,7 @@ it("rejects inactive admin staff without retrieving or sending the invoice", asy
   });
   const response = await POST(
     { headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never,
-    { params: { id: "invoice-id" } },
+    { params: Promise.resolve({ id: "invoice-id" }) },
   );
   expect(response.status).toBe(403);
   expect(mockRetrieveInvoice).not.toHaveBeenCalled();

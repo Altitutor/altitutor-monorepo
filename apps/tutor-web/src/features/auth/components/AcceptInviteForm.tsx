@@ -237,7 +237,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         return;
       }
       setSuccess(true);
-      window.setTimeout(() => { window.location.href = '/dashboard'; }, 900);
+      window.setTimeout(() => { window.location.href = new URL('/dashboard', window.location.origin).href; }, 900);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Could not finish onboarding.');
       setSubmitting(false);

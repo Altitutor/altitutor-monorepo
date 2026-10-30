@@ -314,7 +314,7 @@ export function CheckoutPage() {
     if (code) params.set("offer", code);
     else params.delete("offer");
     params.delete("gift");
-    window.location.assign(`/checkout?${params.toString()}`);
+    window.location.assign(new URL(`/checkout?${params.toString()}`, window.location.origin));
   };
   const changeInterval = async (nextInterval: "week" | "month") => {
     if (nextInterval === interval || changingInterval || checkoutSubmitting)
@@ -325,7 +325,7 @@ export function CheckoutPage() {
       await cancelCurrentCheckout();
       const params = new URLSearchParams(searchParams.toString());
       params.set("interval", nextInterval);
-      window.location.assign(`/checkout?${params.toString()}`);
+      window.location.assign(new URL(`/checkout?${params.toString()}`, window.location.origin));
     } catch (error) {
       setCheckoutError(
         error instanceof Error

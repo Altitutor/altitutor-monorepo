@@ -13,7 +13,6 @@ const nextConfig = {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
   },
-  eslint: { ignoreDuringBuilds: process.env.ALTITUTOR_CI_BUILD === "true" },
   typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
   reactStrictMode: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",

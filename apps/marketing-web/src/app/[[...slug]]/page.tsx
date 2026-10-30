@@ -21,7 +21,7 @@ import legacyRedirects from "@/lib/legacy-redirects.json";
 import { coursePaths } from "@/features/marketing/content";
 import { JsonLd } from "@/features/marketing/components/json-ld";
 
-type PageProps = { params: { slug?: string[] } };
+type PageProps = { params: Promise<{ slug?: string[] }> };
 
 export function generateStaticParams() {
   return getAllMarketingPages()
@@ -33,7 +33,8 @@ export function generateStaticParams() {
 
 export const dynamicParams = false;
 
-export function generateMetadata({ params }: PageProps): Metadata {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const metadata = createMetadata(getMarketingPage(pathFromSlug(params.slug)));
   return {
     ...metadata,
@@ -64,7 +65,8 @@ function PageContent({ path, title }: { path: string; title: string }) {
   }
 }
 
-export default function MarketingRoute({ params }: PageProps) {
+export default async function MarketingRoute(props: PageProps) {
+  const params = await props.params;
   const path = pathFromSlug(params.slug);
   const redirects: Record<string, string> = legacyRedirects.pageRedirects;
   if (redirects[path]) permanentRedirect(redirects[path]);

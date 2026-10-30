@@ -2,7 +2,7 @@ import { NextRequest,NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
-async function student(){const user=createClient();const {data:claims}=await user.auth.getClaims();if(!claims?.claims?.sub)return null;const {data}=await user.rpc('current_student_id');return data;}
+async function student(){const user=await createClient();const {data:claims}=await user.auth.getClaims();if(!claims?.claims?.sub)return null;const {data}=await user.rpc('current_student_id');return data;}
 function validTimezone(value:string){try{new Intl.DateTimeFormat('en-AU',{timeZone:value}).format();return true;}catch{return false;}}
 
 export async function GET(){const studentId=await student();if(!studentId)return NextResponse.json({error:'Unauthorized'},{status:401});const admin=getServerSupabaseAdmin();

@@ -133,7 +133,7 @@ export function OpeningHoursTable({ openingHours, onUpdate, onCreateTrigger }: O
     if (onCreateTrigger && onCreateTrigger > 0) {
       setIsAddDialogOpen(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [onCreateTrigger]);
 
   const columns: SettingsDataTableColumn<OpeningHoursDisplayRow>[] = [

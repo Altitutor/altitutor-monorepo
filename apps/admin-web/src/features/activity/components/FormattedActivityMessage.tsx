@@ -41,7 +41,7 @@ function renderFieldChange(field: ChangedField) {
   return <span className="text-muted-foreground">{field.fieldLabel}</span>;
 }
 
-function formatInlineMessage(messageWithoutName: string): JSX.Element {
+function formatInlineMessage(messageWithoutName: string): React.JSX.Element {
   const fromToPattern = /^(\w+)\s+(.+?)\s+from\s+(.+?)\s+to\s+(.+?)$/i;
   const fromToMatch = messageWithoutName.match(fromToPattern);
   if (fromToMatch) {

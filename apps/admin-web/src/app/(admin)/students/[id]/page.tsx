@@ -4,7 +4,7 @@ import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTa
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
@@ -64,7 +64,8 @@ import {
   invalidateStudentDetail,
 } from '@/shared/lib/query-invalidation';
 
-export default function StudentDetailPage({ params }: { params: { id: string } }) {
+export default function StudentDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();

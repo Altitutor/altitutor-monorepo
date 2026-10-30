@@ -43,7 +43,7 @@ module.exports = {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
   transform: {
-    "^.+\\.(t|j)sx?$": ["@swc/jest"],
+    "^.+\\.(t|j)sx?$": ["@swc/jest", { jsc: { transform: { react: { runtime: "automatic" } } } }],
   },
   transformIgnorePatterns: [
     "node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked)@)",

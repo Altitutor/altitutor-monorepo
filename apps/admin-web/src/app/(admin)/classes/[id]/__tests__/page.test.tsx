@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderSuspending } from "@/shared/test-utils";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ClassDetailPage from "../page";
 
 const mockDelete = jest.fn().mockResolvedValue(undefined);
@@ -97,8 +98,8 @@ beforeEach(() => {
   };
 });
 
-function openAndConfirmName() {
-  render(<ClassDetailPage params={{ id: "class" }} />);
+async function openAndConfirmName() {
+  await renderSuspending(<ClassDetailPage params={Promise.resolve({ id: "class" })} />);
   fireEvent.click(screen.getByText("Delete class"));
   fireEvent.change(screen.getByPlaceholderText("Test Class"), {
     target: { value: "Test Class" },
@@ -106,7 +107,7 @@ function openAndConfirmName() {
 }
 
 it("previews pristine future sessions and deletes an eligible class after confirmation", async () => {
-  openAndConfirmName();
+  await openAndConfirmName();
   expect(screen.getByText(/4 pristine future Sessions/)).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Delete" }),
@@ -115,14 +116,14 @@ it("previews pristine future sessions and deletes an eligible class after confir
   await waitFor(() => expect(mockDelete).toHaveBeenCalledWith("class"));
 });
 
-it("blocks deletion and explains deactivation when historical or protected sessions exist", () => {
+it("blocks deletion and explains deactivation when historical or protected sessions exist", async () => {
   mockImpact.data = {
     canDelete: false,
     futureSessionCount: 4,
     historicalSessionCount: 3,
     protectedFutureSessionCount: 2,
   };
-  openAndConfirmName();
+  await openAndConfirmName();
   expect(
     screen.getByText(/3 historical and 2 protected future Sessions/),
   ).toBeInTheDocument();
@@ -137,13 +138,13 @@ it("blocks deletion and explains deactivation when historical or protected sessi
 
 it.each(["loading", "error"] as const)(
   "blocks deletion while impact lookup is %s",
-  (state) => {
+  async (state) => {
     mockImpact = {
       data: undefined,
       isLoading: state === "loading",
       isError: state === "error",
     };
-    openAndConfirmName();
+    await openAndConfirmName();
     expect(
       screen.getByRole("button", { name: "Delete" }),
     ).toBeDisabled();

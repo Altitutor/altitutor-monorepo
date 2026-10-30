@@ -7,7 +7,7 @@ import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
   try {
-    const userClient = createUserClient();
+    const userClient = await createUserClient();
     const {
       data: { user },
       error: authError,

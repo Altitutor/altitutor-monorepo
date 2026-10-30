@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {createClient} from '@/shared/lib/supabase/server-ssr';
 import {supabaseAdmin} from '@/shared/lib/supabase/server/admin';
 
-async function authorized(){const client=createClient();const {data}=await client.rpc('is_adminstaff_active');return Boolean(data);}
+async function authorized(){const client=await createClient();const {data}=await client.rpc('is_adminstaff_active');return Boolean(data);}
 export async function GET(){if(!await authorized())return NextResponse.json({error:'Forbidden'},{status:403});if(!supabaseAdmin)return NextResponse.json({error:'Server not configured'},{status:500});
   const [presets,versions,assignments,subjects]=await Promise.all([
     supabaseAdmin.from('flashcard_study_presets').select('*').order('name'),

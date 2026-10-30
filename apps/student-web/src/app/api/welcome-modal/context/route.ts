@@ -46,7 +46,7 @@ function formatHomeworkHelpTime(homeworkClass: HomeworkHelpClassRow | null): str
  */
 export async function GET(_request: NextRequest) {
   try {
-    const userClient = createServerClient();
+    const userClient = await createServerClient();
 
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
     if (studentCheckError) {

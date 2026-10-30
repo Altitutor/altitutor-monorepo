@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import React, { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { Simulate } from 'react-dom/test-utils';
+import { fireEvent } from '@testing-library/dom';
 import { PhoneInput } from '../phone-input';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,10 +26,9 @@ function ControlledPhone() {
 it('preserves an in-progress calling-code edit until the number field loses focus', () => {
   act(() => root.render(<ControlledPhone />));
   const input = container.querySelector<HTMLInputElement>('input[type="tel"]')!;
-  act(() => { input.focus(); Simulate.focus(input); });
+  act(() => { input.focus(); });
   act(() => {
-    input.value = '+4 410 000 001';
-    Simulate.change(input);
+    fireEvent.change(input, { target: { value: '+4 410 000 001' } });
   });
   expect(input.value).toBe('+4 410 000 001');
 });
@@ -44,11 +43,11 @@ it('normalizes an Australian national mobile on blur while keeping form state cu
   }
   act(() => root.render(<Form />));
   const input = container.querySelector<HTMLInputElement>('input[type="tel"]')!;
-  act(() => { input.focus(); Simulate.focus(input); });
-  act(() => { input.value = '0412 345 678'; Simulate.change(input); });
+  act(() => { input.focus(); });
+  act(() => { fireEvent.change(input, { target: { value: '0412 345 678' } }); });
   expect(input.value).toBe('0412 345 678');
-  act(() => Simulate.submit(container.querySelector('form')!));
+  act(() => fireEvent.submit(container.querySelector('form')!));
   expect(submitted).toBe('+61412345678');
-  act(() => Simulate.blur(input));
+  act(() => input.blur());
   expect(input.value).toBe('+61 412 345 678');
 });

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Get authenticated user's supabase client
-    const userClient = createServerClient();
+    const userClient = await createServerClient();
 
     // Verify user is a student
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');

@@ -30,7 +30,7 @@ export function DemoCursor({
 }) {
   return (
     <div
-      ref={cursorRef as React.RefObject<HTMLDivElement>}
+      ref={cursorRef as React.RefObject<HTMLDivElement | null>}
       className="pointer-events-none absolute left-0 top-0 z-50 opacity-0"
       style={{ transform: "translate(-4px, -2px)" }}
     >

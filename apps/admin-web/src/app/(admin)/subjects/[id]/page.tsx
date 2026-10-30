@@ -3,7 +3,7 @@ import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadc
 
 import { useQueryClient } from '@tanstack/react-query';
 import { subjectsKeys } from '@/features/subjects/hooks/useSubjectsQuery';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Label, SearchableSelectFieldTrigger } from "@altitutor/ui";
 import { 
@@ -84,7 +84,8 @@ const formSchema = z.object({
   ]).transform((val) => val === '' ? null : val).nullable(),
 });
 
-export default function SubjectDetailPage({ params }: { params: { id: string } }) {
+export default function SubjectDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
