@@ -130,7 +130,9 @@ node secrets/scripts/deploy-mailbox.mjs --environment development --dry-run
 node secrets/scripts/deploy-mailbox.mjs --environment production --dry-run
 ```
 
-Then run each actual deployment yourself:
+Do not deploy while the scoped application grants above are still blocked. Once
+those grants are verified and this cutover is ready for reviewed CI/CD, run each
+actual secret deployment yourself:
 
 ```sh
 node secrets/scripts/deploy-mailbox.mjs --environment development
