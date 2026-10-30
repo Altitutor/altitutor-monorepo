@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createMailboxDeployment, deployMailbox } from "./deploy-mailbox.mjs";
+import {
+  createMailboxDeployment,
+  deployMailbox,
+  serializeMailboxSecrets,
+} from "./deploy-mailbox.mjs";
 const fixture = {
   EMAIL_M365_TENANT_ID: "fixture-tenant",
   EMAIL_M365_CLIENT_ID: "fixture-client",
@@ -88,5 +92,14 @@ test("missing dedicated credentials and an empty development recipient list fail
         EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS: "customer@example.test",
       }),
     /Altitutor/,
+  );
+});
+
+test("CLI env transport preserves literal dollar expressions and quotes", () => {
+  assert.equal(
+    serializeMailboxSecrets({
+      EMAIL_M365_CLIENT_SECRET: 'fixture$HOME${OTHER}"tail',
+    }),
+    'EMAIL_M365_CLIENT_SECRET="fixture\\$HOME\\${OTHER}\\"tail"\n',
   );
 });

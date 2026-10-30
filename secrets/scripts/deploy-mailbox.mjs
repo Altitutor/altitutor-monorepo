@@ -45,7 +45,7 @@ export function createMailboxDeployment(environment, env) {
       "EMAIL_ENVIRONMENT conflicts with the selected environment.",
     );
   for (const key of [...credentialKeys, "CRON_SECRET"])
-    if (!env[key]?.trim() || /[\r\n]/.test(env[key]))
+    if (!env[key]?.trim() || /[\x00-\x1f\x7f]/.test(env[key]))
       throw new Error(`Set ${key} in the selected environment file.`);
   const edge = Object.fromEntries(credentialKeys.map((key) => [key, env[key]]));
   edge.EMAIL_ENVIRONMENT = environment;
@@ -117,18 +117,25 @@ export async function deployMailbox(
   );
 }
 
+// Supabase's dotenv reader expands dollar expressions inside double quotes.
+// Escape them after JSON quoting so a secret is always transported literally.
+export function serializeMailboxSecrets(values) {
+  return (
+    Object.entries(values)
+      .map(
+        ([key, value]) =>
+          `${key}=${JSON.stringify(value).replaceAll("$", "\\$")}`,
+      )
+      .join("\n") + "\n"
+  );
+}
+
 function edgeSecretSetter(accessToken) {
   return async (project, values) => {
     const directory = mkdtempSync(join(tmpdir(), "altitutor-mail-secrets-"));
     try {
       const file = join(directory, "mailbox.env");
-      writeFileSync(
-        file,
-        Object.entries(values)
-          .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
-          .join("\n") + "\n",
-        { mode: 0o600 },
-      );
+      writeFileSync(file, serializeMailboxSecrets(values), { mode: 0o600 });
       const result = spawnSync(
         "supabase",
         ["secrets", "set", "--project-ref", project, "--env-file", file],
