@@ -15,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -47,7 +47,8 @@
     ".next/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
     ".next-isolated/types/**/*.ts",
-    ".next-auth-repro/types/**/*.ts"
+    ".next-auth-repro/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

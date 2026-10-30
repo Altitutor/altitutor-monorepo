@@ -2,6 +2,20 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# pnpm 11 reads dependency-layout settings here, rather than .npmrc.
+autoInstallPeers: true
+strictPeerDependencies: false
+hoist: true
+hoistPattern:
+  - '*eslint*'
+  - '*prettier*'
+  - '*typescript*'
+symlink: true
+sideEffectsCache: true
+sideEffectsCacheReadonly: false
+lockfile: true
+nodeLinker: hoisted
+
 # Native apps inject shared so its React peer resolves to their React 19.
 syncInjectedDepsAfterScripts:
   - build

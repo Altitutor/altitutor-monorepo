@@ -52,6 +52,20 @@ test("shared runtime changes select every web app", () => {
   });
 });
 
+test("shared lint policy changes select every web app", () => {
+  assert.deepEqual(decideWebSystemTests(["eslint.configs.mjs"]), {
+    run: true,
+    database: false,
+    apps: {
+      admin: true,
+      marketing: true,
+      student: true,
+      tutor: true,
+      ucat: true,
+    },
+  });
+});
+
 test("docs and native-only changes do not start web system tests", () => {
   assert.deepEqual(
     decideWebSystemTests([

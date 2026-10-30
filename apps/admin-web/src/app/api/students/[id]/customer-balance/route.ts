@@ -100,7 +100,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
  * POST /api/students/[id]/customer-balance
  * Update customer balance (add credit or adjust balance)
  */
-export async function POST(_request: NextRequest, { params: _params }: { params: { id: string } }) {
+export async function POST(_request: NextRequest) {
   return NextResponse.json(
     {
       error: 'Direct balance adjustments are disabled. Issue a credit note against an invoice instead.',
