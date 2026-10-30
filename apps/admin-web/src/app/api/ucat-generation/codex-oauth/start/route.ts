@@ -6,7 +6,7 @@ import { startCodexDeviceFlow } from '@/features/ucat-generation-settings/server
 export const dynamic = 'force-dynamic';
 
 async function requireAdminStaff() {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) {
     return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };

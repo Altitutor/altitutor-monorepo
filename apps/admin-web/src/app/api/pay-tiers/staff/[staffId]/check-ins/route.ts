@@ -3,10 +3,8 @@ import { NextResponse } from 'next/server';
 import { fetchStaffCheckIns } from '@/features/pay-tiers/server/payTierService';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { staffId: string } }
-) {
+export async function GET(_request: Request, props: { params: Promise<{ staffId: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   try {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopicsTable, AddTopicModal } from '@/features/topics';
 import { Button } from '@altitutor/ui';
@@ -8,12 +8,13 @@ import { AdminLoadingSkeleton, AdminPageActionButton } from '@/shared/components
 import { Plus, ArrowLeft } from 'lucide-react';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 
-export default function SubjectTopicsPage({ params }: { params: { id: string } }) {
+export default function SubjectTopicsPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const { data: subjects = [], isLoading } = useSubjects();
   const subject = subjects.find(s => s.id === id);
-  
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 

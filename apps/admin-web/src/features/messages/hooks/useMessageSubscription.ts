@@ -119,7 +119,7 @@ export function useMessageSubscription() {
             label: 'Reply',
             onClick: () => {
               if (isGroupChat || !contactId) {
-                window.location.assign(`/messages?group=${row.conversation_id}`);
+                window.location.assign(new URL(`/messages?group=${row.conversation_id}`, window.location.origin));
                 return;
               }
               useChatStore.getState().openWindow({

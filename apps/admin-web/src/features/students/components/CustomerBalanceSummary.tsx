@@ -40,7 +40,7 @@ export function CustomerBalanceSummary({ studentId }: { studentId: string }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const triggerHovered = useRef(false);
   const contentHovered = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cancel = () => clearTimeout(timer.current);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {

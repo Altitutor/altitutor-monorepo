@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, use } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { addDays, format, isValid, parse } from 'date-fns';
@@ -207,7 +207,8 @@ function AdminMeetingsCard({ onOpenSession }: { onOpenSession: (sessionId: strin
   );
 }
 
-export default function DashboardDatePage({ params }: { params: { date: string } }) {
+export default function DashboardDatePage(props: { params: Promise<{ date: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);

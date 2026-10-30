@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (staffError) {
-      // eslint-disable-next-line no-console
+
       console.error('[TUTOR INVITE VALIDATE] Error validating staff invite token:', staffError);
       captureApiError(staffError, "/api/invites/validate");
       return NextResponse.json(
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     captureApiError(error, "/api/invites/validate");
-    // eslint-disable-next-line no-console
+
     console.error('Unexpected error validating invite token:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

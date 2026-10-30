@@ -34,7 +34,7 @@ it('returns the committed receipt if the optional manager state/history reads fa
     method: 'POST',
     body: JSON.stringify({ action: 'forget', requestId: 'request-1' }),
   });
-  const response = await POST(request, { params: { id: 'review-1' } });
+  const response = await POST(request, { params: Promise.resolve({ id: 'review-1' }) });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ data: { revision: 1, reviewLogId: 'log-1', replayed: false } });
 });

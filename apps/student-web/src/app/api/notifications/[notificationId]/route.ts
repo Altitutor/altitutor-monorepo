@@ -14,12 +14,13 @@ import { createNotificationUserClient } from '@/features/notifications/server/us
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { notificationId: string } }
+  props: { params: Promise<{ notificationId: string }> }
 ) {
+  const params = await props.params;
   try {
     const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
-    const userClient = createNotificationUserClient(request);
+    const userClient = await createNotificationUserClient(request);
     
     // Verify user is a student
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');

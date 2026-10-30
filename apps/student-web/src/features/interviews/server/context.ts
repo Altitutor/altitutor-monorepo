@@ -44,7 +44,7 @@ export async function resolveInterviewActor(
           },
         ),
       )
-    : createCookieClient();
+    : await createCookieClient();
   const {
     data: { user },
     error,

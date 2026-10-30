@@ -21,7 +21,8 @@ type ChangeItem = {
   resulting_revision?: unknown
 }
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const client = access.userClient as unknown as SupabaseClient<Database>
@@ -57,7 +58,8 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const parsed = RestoreSchema.safeParse(await request.json().catch(() => null))

@@ -7,10 +7,8 @@ import {
   discardSkillTrainerAttempt,
 } from "@/lib/ucat/skill-trainer/attempt-service";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } },
-) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 
@@ -167,10 +165,8 @@ export async function GET(
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 

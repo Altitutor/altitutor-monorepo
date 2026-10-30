@@ -3,7 +3,7 @@ import { createClient } from "@/shared/lib/supabase/server-ssr";
 
 export async function POST() {
   try {
-    const client = createClient();
+    const client = await createClient();
     const {
       data: { user },
     } = await client.auth.getUser();

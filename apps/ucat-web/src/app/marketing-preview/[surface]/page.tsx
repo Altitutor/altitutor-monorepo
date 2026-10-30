@@ -28,11 +28,12 @@ export function generateStaticParams() {
   return SURFACES.map((surface) => ({ surface }));
 }
 
-export default function MarketingPreviewPage({
-  params,
-}: {
-  params: { surface: string };
-}) {
+export default async function MarketingPreviewPage(
+  props: {
+    params: Promise<{ surface: string }>;
+  }
+) {
+  const params = await props.params;
   requireDevelopmentPreview();
 
   if (!SURFACES.includes(params.surface as MarketingPreviewSurface)) {

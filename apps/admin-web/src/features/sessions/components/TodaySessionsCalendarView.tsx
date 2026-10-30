@@ -226,7 +226,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                       adminShiftGroups.push([s]);
                     });
                     
-                    const blocks: JSX.Element[] = [];
+                    const blocks: React.JSX.Element[] = [];
                     
                     // Render ADMIN_SHIFT sessions FIRST (behind) with lower z-index
                     const sessionsData = data as SessionsData | undefined;

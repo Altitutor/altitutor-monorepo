@@ -121,7 +121,7 @@ it.each(['charge_automatically', 'send_invoice'])(
         student_id: 'student-1',
       },
     });
-    const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
+    const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: Promise.resolve({ id: 'invoice-id' }) });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
@@ -150,7 +150,7 @@ it('honors recipient preferences when notifying about an automatically charged i
       invoice_email_to_parents: true,
     },
   });
-  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: Promise.resolve({ id: 'invoice-id' }) });
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual(
     expect.objectContaining({ sent: ['parent@example.test'] }),
@@ -165,7 +165,7 @@ it('rejects sending when no recipients are configured', async () => {
       invoice_email_to_parents: false,
     },
   });
-  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: Promise.resolve({ id: 'invoice-id' }) });
   expect(response.status).toBe(400);
   expect(mockEmailDelivery).not.toHaveBeenCalled();
 });
@@ -174,7 +174,7 @@ it('rejects inactive admin staff without retrieving or sending the invoice', asy
   mockStaffSingle.mockResolvedValue({
     data: { id: 'staff-1', role: 'ADMINSTAFF', status: 'INACTIVE' },
   });
-  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: { id: 'invoice-id' } });
+  const response = await POST({ headers: new Headers({ "idempotency-key": "fixture-intent" }) } as never, { params: Promise.resolve({ id: 'invoice-id' }) });
   expect(response.status).toBe(403);
   expect(mockRetrieveInvoice).not.toHaveBeenCalled();
   expect(mockEmailDelivery).not.toHaveBeenCalled();

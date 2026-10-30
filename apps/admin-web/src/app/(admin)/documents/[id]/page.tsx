@@ -1,3 +1,7 @@
-"use client";
+"use client";;
+import { use } from "react";
 import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
-export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/documents/${params.id}`} />; }
+export default function Page(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
+  return <AccessoryRoute href={`/documents/${params.id}`} />;
+}

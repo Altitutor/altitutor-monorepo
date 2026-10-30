@@ -6,7 +6,7 @@ import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
@@ -46,7 +46,8 @@ import { AdminLoadingSkeleton } from '@/shared/components';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
-export default function StaffDetailPage({ params }: { params: { id: string } }) {
+export default function StaffDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();

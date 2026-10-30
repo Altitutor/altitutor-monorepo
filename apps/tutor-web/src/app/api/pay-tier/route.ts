@@ -9,7 +9,7 @@ import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server
 
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,

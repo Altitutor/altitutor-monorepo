@@ -4,7 +4,7 @@ import type { Database } from "@altitutor/shared";
 import { expect, test as base, type Page } from "@playwright/test";
 
 const test = base.extend<{ teachingSessionId: string }>({
-  teachingSessionId: async ({ baseURL }, use) => {
+  teachingSessionId: async ({ baseURL }, provideSession) => {
     const url = process.env.TUTOR_E2E_SUPABASE_URL;
     const key = process.env.TUTOR_E2E_SERVICE_ROLE_KEY;
     const ownedLocal = Boolean(process.env.ALTITUTOR_WORKTREE_DEV_MANIFEST) ||
@@ -41,7 +41,7 @@ const test = base.extend<{ teachingSessionId: string }>({
         student_id: "10000000-0000-0000-0000-000000000001",
         created_by: "00000000-0000-0000-0000-000000000001",
       }).throwOnError();
-      await use(id);
+      await provideSession(id);
     } finally {
       // Retain log/note history; only this test's session leaves active scheduling.
       await database.from("sessions").update({ status: "INACTIVE" })

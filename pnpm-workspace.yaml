@@ -47,10 +47,6 @@ packageExtensions:
   "@hookform/resolvers@5.2.2":
     peerDependencies:
       zod: ">=3.25.0"
-  "@storybook/addon-docs@8.6.17":
-    peerDependencies:
-      react: "^18.3.1"
-      react-dom: "^18.3.1"
 
 peerDependencyRules:
   allowedVersions:
@@ -66,3 +62,4 @@ minimumReleaseAgeExclude:
   - '@expo/ui@57.0.19'
   - expo-notifications@57.0.20
   - expo-router@57.0.22
+  - lucide-react@1.65.0

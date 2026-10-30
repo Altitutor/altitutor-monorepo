@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       typeof body.tokenHash !== 'string' || !/^[a-zA-Z0-9_-]{16,512}$/.test(body.tokenHash)) {
       return NextResponse.json({ error: 'Invalid sign-in request' }, { status: 400, headers });
     }
-    const { error } = await createClient().auth.verifyOtp({ type: 'magiclink', token_hash: body.tokenHash });
+    const { error } = await (await createClient()).auth.verifyOtp({ type: 'magiclink', token_hash: body.tokenHash });
     if (error) return NextResponse.json({ error: 'Sign-in failed' }, { status: 401, headers });
     return NextResponse.json({ ok: true }, { headers });
   } catch {

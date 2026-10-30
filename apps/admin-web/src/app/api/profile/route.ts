@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Get current user
     const { data: { user }, error: userError } = await userClient.auth.getUser();

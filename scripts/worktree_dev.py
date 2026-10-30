@@ -266,7 +266,7 @@ def run(repository, apps, skip_install):
                 with ExitStack() as files:
                     for app, port in app_ports.items():
                         output = files.enter_context((temporary / (app + '.log')).open('w'))
-                        command = (['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--hostname', '127.0.0.1', '--port', str(port)]
+                        command = (['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', str(port)]
                                    if app in WEB_APPS else
                                    ['pnpm', '--dir', 'apps/' + app, 'exec', 'expo', 'start', '--go', '--localhost', '--port', str(port)])
                         app_env = dict(environment, PORT=str(port),

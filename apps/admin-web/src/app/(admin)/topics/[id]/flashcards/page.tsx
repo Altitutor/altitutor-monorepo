@@ -1,4 +1,5 @@
-'use client';
+'use client';;
+import { use } from "react";
 
 import { Button } from '@altitutor/ui';
 import { ArrowLeft } from 'lucide-react';
@@ -7,13 +8,14 @@ import { FlashcardManager } from '@/features/flashcards';
 import { useTopicById } from '@/features/topics/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
 
-export default function TopicFlashcardsPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { cardId?: string };
-}) {
+export default function TopicFlashcardsPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ cardId?: string }>;
+  }
+) {
+  const searchParams = use(props.searchParams);
+  const params = use(props.params);
   const router = useRouter();
   const { id } = params;
   const { data: topic, isLoading, error } = useTopicById(id);

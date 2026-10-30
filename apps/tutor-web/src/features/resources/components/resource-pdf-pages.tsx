@@ -37,7 +37,7 @@ function importPublicEsm(href: string): Promise<unknown> {
   // Next webpack wraps pdfjs-dist 5 ESM and throws
   // `Object.defineProperty called on non-object`. A Function-built import()
   // is invisible to the bundler and loads `/pdfjs` as a native module.
-  // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval -- hide from webpack
+
   const importer = new Function('href', 'return import(href)') as (
     url: string,
   ) => Promise<unknown>;

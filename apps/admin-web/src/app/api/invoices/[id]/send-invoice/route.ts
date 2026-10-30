@@ -7,15 +7,13 @@ import { sendOperationalEmail } from '@/features/email/server/operational';
 import { buildInvoiceNotificationEmail } from '@altitutor/email';
 import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const invoiceId = params.id;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {

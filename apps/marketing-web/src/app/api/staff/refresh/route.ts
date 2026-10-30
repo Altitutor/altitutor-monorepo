@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     );
     if (!response.ok || (await response.json()) !== true)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    revalidateTag(STAFF_PROFILES_TAG);
+    revalidateTag(STAFF_PROFILES_TAG, { expire: 0 });
     revalidatePath("/about/");
     return NextResponse.json({ refreshed: true });
   } catch {

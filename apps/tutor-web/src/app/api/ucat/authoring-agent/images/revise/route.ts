@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = requestSchema.parse(await request.json())
-    const client = createClient()
+    const client = await createClient()
     const fileResult = await client
       .from('files')
       .select('id,filename,mimetype,bucket,storage_path')

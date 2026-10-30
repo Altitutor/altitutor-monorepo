@@ -10,7 +10,7 @@ const ALLOWED_SESSION_TYPES = new Set([
 ]);
 
 async function authenticatedUser() {
-  const { data: { user }, error } = await createUserClient().auth.getUser();
+  const { data: { user }, error } = await (await createUserClient()).auth.getUser();
   return error ? null : user;
 }
 

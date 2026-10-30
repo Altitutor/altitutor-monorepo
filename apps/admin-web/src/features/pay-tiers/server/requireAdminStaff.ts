@@ -9,7 +9,7 @@ export async function requireAdminStaff(): Promise<
     }
   | { ok: false; response: Response }
 > {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,

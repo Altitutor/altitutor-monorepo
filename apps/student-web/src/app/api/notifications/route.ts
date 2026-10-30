@@ -35,7 +35,7 @@ function createServiceClient() {
 }
 
 async function resolveStudentContext(request: Request) {
-  const userClient = createNotificationUserClient(request);
+  const userClient = await createNotificationUserClient(request);
   const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
 
   if (studentCheckError) {
@@ -66,7 +66,7 @@ async function resolveStudentContext(request: Request) {
 }
 
 async function verifyNotificationIds(
-  userClient: ReturnType<typeof createNotificationUserClient>,
+  userClient: Awaited<ReturnType<typeof createNotificationUserClient>>,
   notificationIds: string[],
 ) {
   const { data: visibleNotifications, error: noteError } = await userClient

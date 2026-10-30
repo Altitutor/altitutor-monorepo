@@ -16,7 +16,7 @@ type RatingRow = {
 };
 
 export async function GET() {
-  const client = createClient();
+  const client = await createClient();
   const { data: isAdmin, error: accessError } = await client.rpc('is_adminstaff_active');
   if (accessError) return NextResponse.json({ error: 'Could not verify admin access' }, { status: 500 });
   if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

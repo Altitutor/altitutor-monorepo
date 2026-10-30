@@ -9,12 +9,13 @@ import { getErrorMessage } from '@/shared/utils';
  * GET /api/students/[id]/customer-balance
  * Get customer balance for a student
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const studentId = params.id;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { session },
       error: authError,

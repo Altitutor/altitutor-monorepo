@@ -20,7 +20,7 @@ function buildStoragePath(topicId: string, file: File): string {
 }
 
 export async function POST(request: Request) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor } = await userClient.rpc('is_tutor');
   if (!isTutor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor } = await userClient.rpc('is_tutor');
   if (!isTutor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const fileId = new URL(request.url).searchParams.get('fileId');

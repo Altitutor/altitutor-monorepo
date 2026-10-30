@@ -1,2 +1,5 @@
 import { EmailThreadView } from "@/features/email/components/EmailThreadView";
-export default function EmailConversationPage({ params }: { params: { id: string } }) { return <EmailThreadView threadId={params.id} />; }
+export default async function EmailConversationPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  return <EmailThreadView threadId={params.id} />;
+}

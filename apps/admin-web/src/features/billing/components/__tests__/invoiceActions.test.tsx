@@ -1,8 +1,9 @@
+import { renderSuspending } from "@/shared/test-utils";
 import { webcrypto } from 'node:crypto';
 import { TextEncoder } from 'node:util';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@altitutor/ui';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InvoiceDetailPage from '@/app/(admin)/invoices/[id]/page';
 import { StudentInvoicesTable } from '@/features/students/components/StudentInvoicesTable';
@@ -103,16 +104,16 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-function renderSurface(surface: 'detail' | 'student') {
+async function renderSurface(surface: 'detail' | 'student') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   clients.push(client);
-  return render(
+  return await renderSuspending(
     <QueryClientProvider client={client}>
       <ToastProvider>
         {surface === 'detail' ? (
-          <><InvoiceDetailPage params={{ id: 'invoice' }} /><OwingProbe /></>
+          <><InvoiceDetailPage params={Promise.resolve({ id: 'invoice' })} /><OwingProbe /></>
         ) : (
           <StudentInvoicesTable studentId="student" />
         )}
@@ -147,7 +148,7 @@ describe.each(['detail', 'student'] as const)(
       'offers and runs both actions on a %s invoice',
       async (collectionMethod) => {
         mockInvoice.collection_method = collectionMethod;
-        renderSurface(surface);
+        await renderSurface(surface);
         const user = await openActions(surface);
         expect(
           screen.getByRole('menuitem', { name: 'Charge Card' }),
@@ -174,7 +175,7 @@ describe.each(['detail', 'student'] as const)(
 
     it('hides both actions on a paid invoice', async () => {
       mockInvoice.status = 'paid';
-      renderSurface(surface);
+      await renderSurface(surface);
       await openActions(surface);
       expect(
         screen.queryByRole('menuitem', { name: 'Send Invoice' }),
@@ -185,7 +186,7 @@ describe.each(['detail', 'student'] as const)(
     });
 
     it('refreshes the independent total after a successful payment attempt', async () => {
-      renderSurface(surface);
+      await renderSurface(surface);
       if (surface === 'student') await screen.findByText(/AUD\s*50\.00/);
       else await waitFor(() => expect(screen.getByLabelText('Owing probe')).toHaveTextContent('5000'));
       const user = await openActions(surface);
@@ -202,7 +203,7 @@ describe.each(['detail', 'student'] as const)(
 );
 
 it('keeps the total independent of invoice search', async () => {
-  renderSurface('student');
+  await renderSurface('student');
   await screen.findByText(/AUD\s*50\.00/);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Search' }));
@@ -214,7 +215,7 @@ it('keeps the total independent of invoice search', async () => {
 
 it('shows an unavailable total rather than zero when its query fails', async () => {
   mockOwingError = true;
-  renderSurface('student');
+  await renderSurface('student');
   await screen.findByText('Unable to load total');
   expect(screen.queryByText('No open invoices')).not.toBeInTheDocument();
 });
