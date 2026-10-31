@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(2);
+SELECT plan(3);
 
 CREATE TEMP TABLE tombstone_proposal AS
 SELECT jsonb_build_object(
@@ -21,14 +21,16 @@ WHERE class_id = '90000000-0000-0000-0000-000000000005';
 SELECT is(
   public.purge_expired_class_session_tombstones(),
   1,
-  'expired pristine calendar tombstones are physically removed'
+  'expired pristine calendar tombstones are archived'
 );
 
 SELECT is(
-  (SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id = '90000000-0000-0000-0000-000000000005'),
+  (SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id = '90000000-0000-0000-0000-000000000005' AND deleted_at IS NULL),
   0,
-  'purge leaves no stale Session row after the cancellation window'
+  'maintenance leaves no live Session after the cancellation window'
 );
+
+SELECT is((SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id='90000000-0000-0000-0000-000000000005' AND deleted_at IS NOT NULL),1,'the expired Session remains retained for history and recovery');
 
 SELECT * FROM finish();
 

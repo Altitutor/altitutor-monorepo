@@ -12,7 +12,7 @@ const FILTERS = ['kind'];
 const LABELS: Record<string, string> = {
   student: 'Student', staff: 'Staff', parent: 'Parent', class: 'Class', subject: 'Subject', topic: 'Topic',
   task: 'Task', project: 'Project', issue: 'Issue', document: 'Document', folder: 'Document folder', admin_shift: 'Admin shift',
-  invoice: 'Invoice', file: 'File', form_response: 'Form response', flashcard: 'Flashcard', question_stem: 'Question stem',
+  session: 'Session', tutor_log: 'Tutor log', invoice: 'Invoice', file: 'File', form_response: 'Form response', flashcard: 'Flashcard', question_stem: 'Question stem',
   question_set: 'Question set', mock: 'Mock exam', learning_module: 'Learning module', ucat_question: 'UCAT question', skill_trainer_item: 'Skill trainer item',
 };
 

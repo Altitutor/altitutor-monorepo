@@ -9,12 +9,13 @@ LANGUAGE sql IMMUTABLE SET search_path='' AS $$
     WHEN 'staff' THEN 'staff' WHEN 'parent' THEN 'parents' WHEN 'class' THEN 'classes'
     WHEN 'subject' THEN 'subjects' WHEN 'topic' THEN 'topics' WHEN 'task' THEN 'tasks'
     WHEN 'project' THEN 'projects' WHEN 'issue' THEN 'issues' WHEN 'document' THEN 'notes_documents'
-    WHEN 'folder' THEN 'notes_folders' WHEN 'admin_shift' THEN 'admin_shifts' END;
+    WHEN 'folder' THEN 'notes_folders' WHEN 'admin_shift' THEN 'admin_shifts'
+    WHEN 'session' THEN 'sessions' WHEN 'tutor_log' THEN 'tutor_logs' END;
 $$;
 REVOKE ALL ON FUNCTION admin_retention.table_for(text) FROM PUBLIC,anon,authenticated,service_role;
 
 DO $$ DECLARE t text; BEGIN
-  FOREACH t IN ARRAY ARRAY['staff','parents','classes','subjects','topics','tasks','projects','issues','notes_documents','notes_folders','admin_shifts'] LOOP
+  FOREACH t IN ARRAY ARRAY['staff','parents','classes','subjects','topics','tasks','projects','issues','notes_documents','notes_folders','admin_shifts','sessions','tutor_logs'] LOOP
     EXECUTE format('ALTER TABLE public.%I ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by uuid',t);
     EXECUTE format('CREATE INDEX %I ON public.%I(deleted_at,id) WHERE deleted_at IS NOT NULL',t||'_retained_deletion',t);
   END LOOP;
@@ -22,7 +23,7 @@ END $$;
 
 CREATE TABLE admin_retention.history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), kind text NOT NULL, entity_id uuid NOT NULL,
-  deleted_at timestamptz NOT NULL DEFAULT clock_timestamp(), deleted_by uuid NOT NULL REFERENCES public.staff(id),
+  deleted_at timestamptz NOT NULL DEFAULT clock_timestamp(), deleted_by uuid REFERENCES public.staff(id),
   restored_at timestamptz, restored_by uuid REFERENCES public.staff(id), snapshot jsonb NOT NULL
 );
 CREATE INDEX history_entity ON admin_retention.history(kind,entity_id,deleted_at DESC);
@@ -47,20 +48,24 @@ BEGIN
   IF p_kind='staff' THEN
     IF (p_record->>'user_id')::uuid=(SELECT auth.uid()) THEN RAISE EXCEPTION 'You cannot delete your own Staff record'; END IF;
     IF EXISTS(SELECT 1 FROM public.classes_staff a JOIN public.classes c ON c.id=a.class_id WHERE a.staff_id=p_id AND (a.unassigned_at IS NULL OR a.unassigned_at>now()) AND c.deleted_at IS NULL AND c.status IN ('ACTIVE','FULL'))
-       OR EXISTS(SELECT 1 FROM public.sessions_staff a JOIN public.sessions s ON s.id=a.session_id WHERE a.staff_id=p_id AND s.start_at>now() AND s.status='ACTIVE')
+       OR EXISTS(SELECT 1 FROM public.sessions_staff a JOIN public.sessions s ON s.id=a.session_id WHERE a.staff_id=p_id AND s.end_at>now() AND s.status='ACTIVE')
        OR EXISTS(SELECT 1 FROM public.admin_shifts_staff a JOIN public.admin_shifts s ON s.id=a.admin_shift_id WHERE a.staff_id=p_id AND s.deleted_at IS NULL AND s.status='ACTIVE') THEN
       RAISE EXCEPTION 'Resolve Staff assignments and future bookings before deletion';
     END IF;
   ELSIF p_kind='parent' THEN
-    IF EXISTS(SELECT 1 FROM public.sessions_parents a JOIN public.sessions s ON s.id=a.session_id WHERE a.parent_id=p_id AND s.start_at>now() AND s.status='ACTIVE') THEN RAISE EXCEPTION 'Resolve future Parent bookings before deletion'; END IF;
+    IF EXISTS(SELECT 1 FROM public.sessions_parents a JOIN public.sessions s ON s.id=a.session_id WHERE a.parent_id=p_id AND s.end_at>now() AND s.status='ACTIVE') THEN RAISE EXCEPTION 'Resolve future Parent bookings before deletion'; END IF;
   ELSIF p_kind='class' THEN
     IF p_record->>'status'<>'INACTIVE'
        OR EXISTS(SELECT 1 FROM public.classes_students WHERE class_id=p_id AND (unenrolled_at IS NULL OR unenrolled_at>now()))
-       OR EXISTS(SELECT 1 FROM public.sessions WHERE class_id=p_id AND start_at>now() AND status='ACTIVE') THEN
+       OR EXISTS(SELECT 1 FROM public.sessions WHERE class_id=p_id AND end_at>now() AND status='ACTIVE') THEN
       RAISE EXCEPTION 'Make the Class inactive and resolve enrolments and future bookings before deletion';
     END IF;
   ELSIF p_kind='admin_shift' THEN
-    IF p_record->>'status'<>'INACTIVE' OR EXISTS(SELECT 1 FROM public.sessions WHERE admin_shift_id=p_id AND start_at>now() AND status='ACTIVE') THEN RAISE EXCEPTION 'Make the Admin shift inactive and resolve future bookings before deletion'; END IF;
+    IF p_record->>'status'<>'INACTIVE' OR EXISTS(SELECT 1 FROM public.sessions WHERE admin_shift_id=p_id AND end_at>now() AND status='ACTIVE') THEN RAISE EXCEPTION 'Make the Admin shift inactive and resolve future bookings before deletion'; END IF;
+  ELSIF p_kind='session' THEN
+    IF p_record->>'status'='ACTIVE' AND (p_record->>'end_at')::timestamptz>now() THEN RAISE EXCEPTION 'Resolve the active Session before deletion'; END IF;
+  ELSIF p_kind='tutor_log' THEN
+    IF EXISTS(SELECT 1 FROM public.sessions WHERE id=(p_record->>'session_id')::uuid AND status='ACTIVE' AND end_at>now()) THEN RAISE EXCEPTION 'Resolve the active Session before deleting its Tutor log'; END IF;
   ELSIF p_kind='subject' THEN
     IF EXISTS(SELECT 1 FROM public.classes WHERE subject_id=p_id AND deleted_at IS NULL AND status IN ('ACTIVE','FULL'))
        OR EXISTS(SELECT 1 FROM public.topics WHERE subject_id=p_id AND deleted_at IS NULL) THEN RAISE EXCEPTION 'Resolve active Classes and Topics before deleting this Subject'; END IF;
@@ -144,7 +149,7 @@ END $$;
 REVOKE ALL ON FUNCTION admin_retention.guard_update() FROM PUBLIC,anon,authenticated,service_role;
 
 DO $$ DECLARE pair record; BEGIN
-  FOR pair IN SELECT * FROM (VALUES ('staff','staff'),('parent','parents'),('class','classes'),('subject','subjects'),('topic','topics'),('task','tasks'),('project','projects'),('issue','issues'),('document','notes_documents'),('folder','notes_folders'),('admin_shift','admin_shifts')) AS x(kind,tab) LOOP
+  FOR pair IN SELECT * FROM (VALUES ('staff','staff'),('parent','parents'),('class','classes'),('subject','subjects'),('topic','topics'),('task','tasks'),('project','projects'),('issue','issues'),('document','notes_documents'),('folder','notes_folders'),('admin_shift','admin_shifts'),('session','sessions'),('tutor_log','tutor_logs')) AS x(kind,tab) LOOP
     EXECUTE format('CREATE TRIGGER z_retain_business_delete BEFORE DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION admin_retention.retain_delete(%L)',pair.tab,pair.kind);
     EXECUTE format('CREATE TRIGGER guard_business_retention BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION admin_retention.guard_update()',pair.tab);
     -- Existing policies still determine who may read/write live rows. Only the
@@ -154,6 +159,7 @@ DO $$ DECLARE pair record; BEGIN
 END $$;
 -- Soft deletion preserves protected/historical Sessions; deletion never cancels them.
 DROP TRIGGER trigger_delete_only_pristine_class ON public.classes;
+DROP TRIGGER trigger_delete_future_sessions_on_admin_shift_delete ON public.admin_shifts;
 DROP TRIGGER orphan_staff_contact_trigger ON public.staff;
 DROP TRIGGER orphan_parent_contact_trigger ON public.parents;
 -- Keep historical contact ownership when deletion clears routing fields.
@@ -239,7 +245,7 @@ DO $$ DECLARE link record; BEGIN
     JOIN pg_catalog.pg_class parent ON parent.oid=constraint_row.confrelid
     JOIN pg_catalog.pg_attribute attribute ON attribute.attrelid=child.oid AND attribute.attnum=constraint_row.conkey[1]
     WHERE constraint_row.contype='f' AND cardinality(constraint_row.conkey)=1 AND child.relnamespace='public'::regnamespace
-      AND parent.relnamespace='public'::regnamespace AND parent.relname=ANY(ARRAY['staff','parents','classes','subjects','topics','tasks','projects','issues','notes_documents','notes_folders','admin_shifts'])
+      AND parent.relnamespace='public'::regnamespace AND parent.relname=ANY(ARRAY['staff','parents','classes','subjects','topics','tasks','projects','issues','notes_documents','notes_folders','admin_shifts','sessions','tutor_logs'])
     GROUP BY child.relname
   LOOP
     EXECUTE format('CREATE TRIGGER guard_live_business_references BEFORE INSERT OR UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION admin_retention.guard_live_references(%s)',link.relname,link.args);
@@ -274,6 +280,8 @@ BEGIN
     ('task','tasks','title',true),('project','projects','name',true),('issue','issues','name',true),
     ('document','notes_documents','title',true),('folder','notes_folders','name',true),
     ('admin_shift','admin_shifts','''Admin shift · ''||day_of_week::text||'' · ''||start_time::text',true),
+    ('session','sessions','type::text||'' · ''||start_at::text',true),
+    ('tutor_log','tutor_logs','''Tutor log · ''||created_at::text',true),
     ('invoice','invoices','coalesce(stripe_invoice_number,stripe_invoice_id,''Invoice'')',false),
     ('file','files','coalesce(filename,''File'')',false),
     ('form_response','form_responses','coalesce((SELECT name FROM public.forms WHERE id=form_id),''Form response'')',false),
@@ -299,6 +307,8 @@ GRANT EXECUTE ON FUNCTION public.deleted_business_records() TO authenticated;
 -- Apply retirement only to each directory's own records, not historical authors.
 DO $$ DECLARE entry record; definition text; BEGIN
   FOR entry IN SELECT * FROM (VALUES
+    ('vtutor_sessions','sessions','session_id'),('vstudent_sessions','sessions','session_id'),('vtutor_session_detail','sessions','session_id'),('vstudent_session_detail','sessions','session_id'),('vstudent_operational_session_base','sessions','session_id'),('vstudent_operational_sessions','sessions','session_id'),('vstudent_operational_session_detail','sessions','session_id'),('vtutor_operational_sessions','sessions','session_id'),('vtutor_operational_session_detail','sessions','session_id'),('vtutor_sessions_students','sessions','session_id'),('vtutor_operational_sessions_students','sessions','session_id'),
+    ('vtutor_tutor_log','tutor_logs','tutor_log_id'),('vstudent_tutor_log','tutor_logs','tutor_log_id'),
     ('vtutor_classes','classes','id'),('vstudent_classes','classes','class_id'),
     ('vtutor_subjects','subjects','id'),('vstudent_online_subjects','subjects','id'),('vstudent_in_person_subjects','subjects','id'),
     ('vtutor_topics','topics','id'),('vstudent_topics','topics','id'),
@@ -310,7 +320,7 @@ DO $$ DECLARE entry record; definition text; BEGIN
     definition:=rtrim(pg_get_viewdef(format('public.%I',entry.view_name)::regclass,true),E'\n ;');
     EXECUTE format('CREATE OR REPLACE VIEW public.%I AS SELECT retained_view.* FROM (%s) retained_view WHERE NOT EXISTS(SELECT 1 FROM public.%I retired WHERE retired.id=retained_view.%I AND retired.deleted_at IS NOT NULL)',entry.view_name,definition,entry.tab,entry.key);
   END LOOP;
-  FOR entry IN SELECT * FROM (VALUES ('staff'),('parents'),('classes'),('subjects'),('topics'),('tasks'),('projects'),('issues'),('notes_documents'),('notes_folders'),('admin_shifts')) AS x(tab) LOOP
+  FOR entry IN SELECT * FROM (VALUES ('staff'),('parents'),('classes'),('subjects'),('topics'),('tasks'),('projects'),('issues'),('notes_documents'),('notes_folders'),('admin_shifts'),('sessions'),('tutor_logs')) AS x(tab) LOOP
     definition:=rtrim(pg_get_viewdef(format('admin_reporting.%I',entry.tab)::regclass,true),E'\n ;');
     EXECUTE format('CREATE OR REPLACE VIEW admin_reporting.%I WITH(security_barrier=true) AS SELECT retained_view.* FROM (%s) retained_view WHERE NOT EXISTS(SELECT 1 FROM public.%I retired WHERE retired.id=retained_view.id AND retired.deleted_at IS NOT NULL)',entry.tab,definition,entry.tab);
   END LOOP;
@@ -377,3 +387,52 @@ REVOKE ALL ON FUNCTION public.recalculate_topic_indices_for_siblings(uuid,uuid) 
 -- The legacy BEFORE trigger resolves its own Topic/Subject reads relative to
 -- public, including when invoked from the restricted restoration command.
 ALTER FUNCTION public.trigger_update_topic_code_on_change() SET search_path=public;
+
+-- Directory RPCs bypass base-table RLS. Filter each original root query before
+-- pagination/counting, keeping its authorization and historical joins intact.
+DO $retention_search$
+DECLARE entry record; proc record; definition text; revised text;
+BEGIN
+  FOR entry IN SELECT * FROM (VALUES
+    ('search_parents_admin','(FROM (?:public\.)?parents parent\s+WHERE)\s*','parent.deleted_at IS NULL AND '),
+    ('search_staff_admin','(FROM (?:public\.)?staff staff_member\s+WHERE)\s*','staff_member.deleted_at IS NULL AND '),
+    ('search_classes_admin_core','(FROM (?:public\.)?classes c\s+WHERE)\s*','c.deleted_at IS NULL AND '),
+    ('search_subjects_admin','(FROM (?:public\.)?subjects s\s+WHERE)\s*','s.deleted_at IS NULL AND '),
+    ('search_subjects_public','(FROM (?:public\.)?subjects s\s+WHERE)\s*','s.deleted_at IS NULL AND '),
+    ('search_topics_admin','(FROM (?:public\.)?topics t\s+JOIN (?:public\.)?subjects s ON s.id = t.subject_id\s+WHERE)\s*','t.deleted_at IS NULL AND '),
+    ('search_sessions_admin','(FROM public.sessions s\s+WHERE)\s*','s.deleted_at IS NULL AND '),
+    ('search_tutor_logs_admin','(FROM public.tutor_logs tl\s+JOIN public.sessions s ON s.id = tl.session_id\s+WHERE)\s*','tl.deleted_at IS NULL AND ')
+  ) AS x(name,pattern,predicate) LOOP
+    FOR proc IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname=entry.name LOOP
+      definition:=pg_get_functiondef(proc.oid);
+      revised:=regexp_replace(definition,entry.pattern,E'\\1 '||entry.predicate,'g');
+      IF revised=definition THEN RAISE EXCEPTION 'Retention predicate did not match %',entry.name; END IF;
+      EXECUTE revised;
+    END LOOP;
+  END LOOP;
+END $retention_search$;
+
+-- Existing calendar maintenance archives only expired, pristine generated
+-- cancellation tombstones. It never deletes an authored or active Session.
+CREATE FUNCTION admin_retention.archive_calendar_tombstones() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE actor uuid; item public.sessions; archived integer:=0; prior text:=current_setting('app.business_retention',true);
+BEGIN
+  IF NOT coalesce((SELECT auth.role())='service_role' OR (session_user IN ('postgres','supabase_admin') AND current_setting('role') IN ('none','postgres')),false) THEN
+    actor:=admin_retention.assert_actor();
+  END IF;
+  PERFORM set_config('app.business_retention','retire',true);
+  FOR item IN SELECT * FROM public.sessions s WHERE s.deleted_at IS NULL AND s.status='INACTIVE'
+    AND s.calendar_tombstone_until<=now() AND public.is_pristine_generated_class_session(s.id) FOR UPDATE LOOP
+    INSERT INTO admin_retention.history(kind,entity_id,deleted_by,snapshot) VALUES('session',item.id,actor,to_jsonb(item));
+    UPDATE public.sessions SET deleted_at=clock_timestamp(),deleted_by=actor WHERE id=item.id;
+    archived:=archived+1;
+  END LOOP;
+  PERFORM set_config('app.business_retention',coalesce(prior,''),true);
+  RETURN archived;
+END $$;
+REVOKE ALL ON FUNCTION admin_retention.archive_calendar_tombstones() FROM PUBLIC,anon,authenticated,service_role;
+GRANT USAGE ON SCHEMA admin_retention TO service_role;
+GRANT EXECUTE ON FUNCTION admin_retention.archive_calendar_tombstones() TO authenticated,service_role;
+CREATE OR REPLACE FUNCTION public.purge_expired_class_session_tombstones() RETURNS integer
+LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT admin_retention.archive_calendar_tombstones() $$;

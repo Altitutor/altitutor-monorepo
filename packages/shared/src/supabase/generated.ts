@@ -10448,6 +10448,8 @@ export type Database = {
           calendar_tombstone_until: string | null
           class_id: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           end_at: string | null
           id: string
           is_schedule_exception: boolean
@@ -10472,6 +10474,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id: string
           is_schedule_exception?: boolean
@@ -10496,6 +10500,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id?: string
           is_schedule_exception?: boolean
@@ -17058,6 +17064,8 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           logged_for_staff_id: string | null
           session_id: string
@@ -17068,6 +17076,8 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id: string
@@ -17078,6 +17088,8 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id?: string

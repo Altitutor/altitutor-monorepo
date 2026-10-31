@@ -426,7 +426,7 @@ export const tutorLogsApi = {
 
   /**
    * Delete a tutor log (admin only)
-   * This will cascade delete all related records
+   * Retains linked attendance/history; restoration is available in Deleted entities.
    */
   deleteTutorLog: async (id: string): Promise<void> => {
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)

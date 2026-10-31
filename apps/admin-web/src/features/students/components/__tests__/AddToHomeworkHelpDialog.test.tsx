@@ -46,6 +46,7 @@ function session(id: string, offset = 1, type: Tables<'sessions'>['type'] = 'HOM
   date.setDate(date.getDate() - ((date.getDay() + 6) % 7) + offset);
   date.setHours(14, 0, 0, 0);
   return {
+    deleted_at: null, deleted_by: null,
     id, type, start_at: date.toISOString(), end_at: new Date(date.getTime() + 3600000).toISOString(),
     admin_shift_id: null, billing_type: null, booking_public_token: null, calendar_tombstone_until: null,
     class_id: null, created_at: null, is_schedule_exception: false, long_name: null,
