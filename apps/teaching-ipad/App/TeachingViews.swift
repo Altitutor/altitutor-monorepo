@@ -136,10 +136,7 @@ struct LessonWorkspace: View {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
                         ForEach(model.lesson?.resources ?? []) { item in
-                            Group {
-                                if model.activeResourceID == item.id { tab(item).buttonStyle(.glassProminent) }
-                                else { tab(item).buttonStyle(.glass) }
-                            }.contextMenu { LessonResourceActions(model: model, item: item) }
+                            tab(item)
                         }
                     }.padding(.horizontal, 16).padding(.vertical, 8)
                 }
@@ -150,10 +147,16 @@ struct LessonWorkspace: View {
         }.background(TeachingColors.background)
     }
     private func tab(_ item: LessonResource) -> some View {
-        Button { model.open(item) } label: {
+        Menu {
+            LessonResourceActions(model: model, item: item)
+        } label: {
             Label(item.resource.worksheet.title, systemImage: "doc").font(.subheadline.weight(.semibold))
-                .lineLimit(1).padding(.horizontal, 8).padding(.vertical, 6)
-        }.accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
+                .lineLimit(1).padding(.horizontal, 16).padding(.vertical, 12)
+        } primaryAction: { model.open(item) }
+            .buttonStyle(.plain)
+            .foregroundStyle(model.activeResourceID == item.id ? .white : TeachingColors.navy)
+            .glassEffect(.regular.tint(model.activeResourceID == item.id ? TeachingColors.navy : .clear).interactive(), in: .capsule)
+            .accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
     }
 }
 
