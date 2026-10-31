@@ -86,7 +86,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ not
     
     // Verify the note exists and was created by this tutor
     const { data: existingNote, error: noteError } = await userClient
-      .from('notes')
+      .from('vtutor_notes')
       .select('id, created_by')
       .eq('id', params.noteId)
       .maybeSingle<{ id: string; created_by: string | null }>();
@@ -193,7 +193,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ no
     
     // Verify the note exists and was created by this tutor
     const { data: existingNote, error: noteError } = await userClient
-      .from('notes')
+      .from('vtutor_notes')
       .select('id, created_by')
       .eq('id', params.noteId)
       .maybeSingle<{ id: string; created_by: string | null }>();

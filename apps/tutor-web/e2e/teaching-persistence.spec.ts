@@ -124,3 +124,83 @@ test("shared rich-text formatting and a posted session note survive reload", asy
   await expect(details.locator("strong").filter({ hasText: note })).toBeVisible();
   await expect(details.getByText(note, { exact: true })).toHaveCount(1);
 });
+
+test("a Tutor can edit and delete their saved session note", async ({
+  page, teachingSessionId,
+}) => {
+  await signIn(page);
+  const sessionUrl = `/classes?session=${teachingSessionId}`;
+  await page.goto(sessionUrl);
+  const details = page.getByRole("dialog", { name: "Session Details" });
+  const editor = details.locator('[contenteditable="true"]');
+  await editor.fill("Original session note.");
+  const created = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/sessions/${teachingSessionId}/notes`,
+  );
+  await details.getByRole("button", { name: "Post note", exact: true }).click();
+  const response = await created;
+  expect(response.ok()).toBe(true);
+  const note = await response.json() as { id: string };
+  await expect(editor).toHaveText("");
+  await page.goto(sessionUrl);
+
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await details.locator('[contenteditable="true"]').first().fill("Updated session note.");
+  const edited = page.waitForResponse((result) =>
+    result.request().method() === "PATCH" &&
+    new URL(result.url()).pathname === `/api/notes/${note.id}`,
+  );
+  await details.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await edited).status()).toBe(200);
+  await expect(details.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+  await expect(details.getByText("Updated session note.", { exact: true })).toBeVisible();
+  await expect(details.getByText("Original session note.", { exact: true })).toHaveCount(0);
+
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  const deleted = page.waitForResponse((result) =>
+    result.request().method() === "DELETE" &&
+    new URL(result.url()).pathname === `/api/notes/${note.id}`,
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  expect((await deleted).status()).toBe(200);
+  await expect(details.getByText("Updated session note.", { exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+  await expect(details.getByText("Updated session note.", { exact: true })).toHaveCount(0);
+});
+
+test("a Tutor cannot change another author's visible session note", async ({
+  page, teachingSessionId,
+}) => {
+  // The teachingSessionId fixture above proves this is the owned local stack.
+  const database = createClient<Database>(
+    process.env.TUTOR_E2E_SUPABASE_URL!,
+    process.env.TUTOR_E2E_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data: note, error } = await database.from("notes").insert({
+    target_type: "sessions", target_id: teachingSessionId,
+    created_by: "00000000-0000-0000-0000-000000000001",
+    note: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Another author's session note." }] }] },
+  }).select("id").single();
+  if (error) throw error;
+  try {
+    await signIn(page);
+    await page.goto(`/classes?session=${teachingSessionId}`);
+    const details = page.getByRole("dialog", { name: "Session Details" });
+    await expect(details.getByText("Another author's session note.", { exact: true })).toBeVisible();
+    const url = `/api/notes/${note.id}`;
+    expect((await page.request.patch(url, { data: { note: "Unauthorized change" } })).status()).toBe(403);
+    expect((await page.request.delete(url)).status()).toBe(403);
+    const missing = `/api/notes/${randomUUID()}`;
+    expect((await page.request.patch(missing, { data: { note: "Missing note" } })).status()).toBe(404);
+    expect((await page.request.delete(missing)).status()).toBe(404);
+    await page.goto(`/classes?session=${teachingSessionId}`);
+    await expect(details.getByText("Another author's session note.", { exact: true })).toBeVisible();
+  } finally {
+    await database.from("notes").delete().eq("id", note.id).throwOnError();
+  }
+});
