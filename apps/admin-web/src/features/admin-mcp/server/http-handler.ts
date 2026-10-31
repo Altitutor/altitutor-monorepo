@@ -1,11 +1,18 @@
+import type { McpServerOptions } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { withMcpRequestBodyLimit } from "@altitutor/shared/mcp/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { verifyAdminMcpToken } from "./auth";
 import { registerAdminMcpTools } from "./register-tools";
 
 export function createAdminMcpHttpHandler(verify = verifyAdminMcpToken) {
+  const serverOptions: Pick<McpServerOptions, "maxToolInputElements"> = {
+    // Bound validation work before tool-specific schemas run.
+    maxToolInputElements: 100_000,
+  };
   const handler = createMcpHandler(
     registerAdminMcpTools,
     {
+      ...serverOptions,
       serverInfo: { name: "altitutor-admin", version: "1.0.0" },
       capabilities: { tools: {} },
       instructions:
@@ -18,7 +25,7 @@ export function createAdminMcpHttpHandler(verify = verifyAdminMcpToken) {
       verboseLogs: false,
     },
   );
-  return withMcpAuth(handler, verify, {
+  return withMcpAuth(withMcpRequestBodyLimit(handler), verify, {
     required: true,
     resourceMetadataPath: "/.well-known/oauth-protected-resource",
   });
