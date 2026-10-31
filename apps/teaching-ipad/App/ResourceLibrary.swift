@@ -2,33 +2,73 @@ import SwiftUI
 import PDFKit
 import TeachingCore
 
+struct ResourceDrawer: View {
+    @ObservedObject var model: TeachingModel
+    @Binding var isPresented: Bool
+    let preview: (TeachingResource) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dragOffset = 0.0
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .trailing) {
+                Color.black.opacity(isPresented ? 0.12 : 0).contentShape(Rectangle())
+                    .allowsHitTesting(isPresented).onTapGesture { dismiss() }
+                    ResourceLibrary(model: model, isPresented: isPresented, preview: preview)
+                        .frame(width: min(440, max(280, geometry.size.width - 40)))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26))
+                        .clipShape(RoundedRectangle(cornerRadius: 26))
+                        .shadow(color: .black.opacity(0.16), radius: 20, y: 6)
+                        .padding(12)
+                        .offset(x: reduceMotion ? dragOffset : (isPresented ? dragOffset : min(440, max(280, geometry.size.width - 40)) + 40))
+                        .opacity(reduceMotion && !isPresented ? 0 : 1)
+                        .accessibilityHidden(!isPresented)
+                        .simultaneousGesture(DragGesture(minimumDistance: 20)
+                            .onChanged { value in
+                                if abs(value.translation.width) > abs(value.translation.height) {
+                                    dragOffset = max(0, value.translation.width)
+                                }
+                            }.onEnded { value in
+                                if dragOffset > 60 || (dragOffset > 0 && value.predictedEndTranslation.width > 140) { dismiss() }
+                                else { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { dragOffset = 0 } }
+                            })
+            }.animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: isPresented)
+                .clipped().allowsHitTesting(isPresented)
+        }
+    }
+    private func dismiss() {
+        withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { isPresented = false; dragOffset = 0 }
+    }
+}
+
 struct ResourceLibrary: View {
     @ObservedObject var model: TeachingModel
-    let dismiss: () -> Void
+    let isPresented: Bool
+    let preview: (TeachingResource) -> Void
     @State private var query = ""
     @State private var allSubjects = false
-    @State private var preview: TeachingResource?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("Resource library").font(.title3.bold())
-                Spacer()
-                Button("Close", systemImage: "xmark", action: dismiss).labelStyle(.iconOnly)
             }.padding(20)
             Divider()
-            if let preview {
-                LibraryPreview(model: model, resource: preview) { self.preview = nil }.id(preview.id)
-            } else {
                 VStack(alignment: .leading, spacing: 14) {
                     TextField("Search file names", text: $query).textFieldStyle(.roundedBorder).accessibilityIdentifier("resource-search")
                     if model.session?.subjectID != nil { Toggle("Search all subjects", isOn: $allSubjects).font(.subheadline) }
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
+                            if !suggested.isEmpty {
+                                Text("Suggested").font(.headline)
+                                ForEach(suggested) { resource in
+                                    LibraryFile(model: model, resource: resource, preview: preview)
+                                }
+                                Divider().padding(.vertical, 8)
+                            }
                             ForEach(subjectIDs, id: \.self) { subject in
                                 Text(model.libraryTopics.first { $0.subjectID == subject }?.subjectName ?? "Subject").font(.headline).padding(.top, 6)
                                 ForEach(nodes(subject: subject, parent: nil, ancestors: [])) { node in
-                                    TopicFolder(node: node, model: model, preview: { preview = $0 }, loadMore: { Task { await model.search(query, allSubjects: allSubjects, more: true) } })
+                                    TopicFolder(node: node, model: model, preview: preview, loadMore: { Task { await model.search(query, allSubjects: allSubjects, more: true) } })
                                 }
                             }
                             if model.libraryBusy { ProgressView().frame(maxWidth: .infinity) }
@@ -39,13 +79,20 @@ struct ResourceLibrary: View {
                         }.padding(.bottom, 20)
                     }
                 }.padding(20)
-            }
         }
-        .task(id: query + String(allSubjects)) {
+        .task(id: String(isPresented) + suggestionKey) { if isPresented { await model.loadSuggestions() } }
+        .task(id: String(isPresented) + query + String(allSubjects)) {
+            guard isPresented else { return }
             do { try await Task.sleep(for: .milliseconds(250)); await model.search(query, allSubjects: allSubjects) } catch {}
         }
     }
 
+    private var suggested: [TeachingResource] {
+        model.suggestions.filter { candidate in model.lesson?.resources.contains { $0.resource.id == candidate.id } != true }
+    }
+    private var suggestionKey: String {
+        (model.lesson?.resources.map { $0.resource.id.uuidString }.joined(separator: ",") ?? "") + (model.activeResourceID?.uuidString ?? "")
+    }
     private var subjectIDs: [UUID] {
         let topics = model.libraryTopics.sorted { $0.subjectName.localizedStandardCompare($1.subjectName) == .orderedAscending }
         var seen = Set<UUID>()
@@ -88,13 +135,7 @@ private struct TopicFolder: View {
                     AnyView(TopicFolder(node: child, model: model, preview: preview, loadMore: loadMore))
                 }
                 ForEach(node.resources) { resource in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button { preview(resource) } label: {
-                            Label(resource.worksheet.title, systemImage: "doc.richtext").font(.subheadline.weight(.medium))
-                                .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityHint("Preview without adding to this lesson")
-                        AddToLessonButton(model: model, resource: resource)
-                    }.padding(12).background(.background, in: RoundedRectangle(cornerRadius: 12))
+                    LibraryFile(model: model, resource: resource, preview: preview)
                 }
                 if node.resources.isEmpty && node.children.isEmpty {
                     if model.nextOffset != nil {
@@ -105,6 +146,21 @@ private struct TopicFolder: View {
         } label: {
             Label(node.name, systemImage: expanded ? "folder.fill" : "folder").font(.subheadline.weight(.semibold)).padding(.vertical, 7)
         }.tint(TeachingColors.navy)
+    }
+}
+
+private struct LibraryFile: View {
+    @ObservedObject var model: TeachingModel
+    let resource: TeachingResource
+    let preview: (TeachingResource) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { preview(resource) } label: {
+                Label(resource.worksheet.title, systemImage: "doc.richtext").font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityHint("Preview without adding to this lesson")
+            AddToLessonButton(model: model, resource: resource)
+        }.padding(12).background(.background, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -119,19 +175,16 @@ private struct AddToLessonButton: View {
     }
 }
 
-private struct LibraryPreview: View {
+struct LibraryPreview: View {
     @ObservedObject var model: TeachingModel
     let resource: TeachingResource
-    let back: () -> Void
+    let close: () -> Void
     @State private var pdf: PDFDocument?
     @State private var image: UIImage?
     @State private var loading = true
     @State private var failure: String?
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Button("Topics", systemImage: "chevron.left", action: back)
-            Text(resource.worksheet.title).font(.headline)
-            Text(resource.topicName).font(.subheadline).foregroundStyle(.secondary)
+        NavigationStack {
             Group {
                 if let pdf { LibraryPDFPreview(document: pdf) }
                 else if let image { Image(uiImage: image).resizable().scaledToFit() }
@@ -140,9 +193,19 @@ private struct LibraryPreview: View {
                 } else if loading { ProgressView("Loading preview…").frame(maxWidth: .infinity, maxHeight: .infinity) }
                 else { ContentUnavailableView(failure ?? "Preview unavailable", systemImage: "doc") }
             }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-            AddToLessonButton(model: model, resource: resource)
-            Text("Previewing does not add this file to the lesson.").font(.caption).foregroundStyle(.secondary)
-        }.padding(20)
+            .navigationTitle(resource.worksheet.title).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close", action: close) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add to lesson") {
+                        Task {
+                            await model.add(resource)
+                            if model.lesson?.resources.contains(where: { $0.resource.id == resource.id }) == true { close() }
+                        }
+                    }.disabled(model.busy || model.offline || model.lesson?.resources.contains(where: { $0.resource.id == resource.id }) == true)
+                }
+            }
+        }
         .task {
             defer { loading = false }
             guard resource.worksheet.externalURL == nil else { return }

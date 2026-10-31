@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { authenticateTeaching, teachingClient, TeachingError } from './auth';
 import { authSchema, readTeachingBody, teachingLogSchema, teachingStudentSchema } from './validation';
+import { teachingSuggestions } from './suggestions';
 import { teachingStudents, addTeachingStudent } from './students';
 import { teachingDocumentURL, teachingLog, teachingResources, teachingSessions } from './queries';
 
@@ -47,6 +48,7 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
       if (/^\/documents\/[^/]+$/.test(path)) return teachingJSON(await teachingDocumentURL(client, path.split('/')[2]));
       if (/^\/logs\/[^/]+$/.test(path)) return teachingJSON(await teachingLog(client, path.split('/')[2]));
     }
+    if (request.method === 'POST' && path === '/suggestions') return teachingJSON(await teachingSuggestions(client, await readTeachingBody(request)));
     if (request.method === 'POST' && path === '/students') {
       if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may manage attendance.');
       const parsed = teachingStudentSchema.safeParse(await readTeachingBody(request));

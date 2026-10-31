@@ -42,6 +42,16 @@ public struct LessonRecord: Codable, Sendable {
     public let sessionID: UUID
     public var resources: [LessonResource] = []
     public var draft: LessonDraft = LessonDraft()
+    public var archivedResources: [LessonResource] = []
+    public init(sessionID: UUID) { self.sessionID = sessionID }
+    private enum CodingKeys: String, CodingKey { case sessionID, resources, draft, archivedResources }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try values.decode(UUID.self, forKey: .sessionID)
+        resources = try values.decode([LessonResource].self, forKey: .resources)
+        draft = try values.decode(LessonDraft.self, forKey: .draft)
+        archivedResources = try values.decodeIfPresent([LessonResource].self, forKey: .archivedResources) ?? []
+    }
 }
 
 public struct DocumentViewport: Codable, Equatable, Sendable {

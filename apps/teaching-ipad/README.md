@@ -8,17 +8,26 @@ an Xcode build setting; Debug also accepts the process environment override.
 
 ## Workspace
 
-Lesson board is the first top tab; added lesson resources open in neighboring
-tabs with the PDF using the full workspace width. Show/Hide solutions floats
-over the document. Drag the wider divider to resize the two panes; ink and
-viewports remain independent. Native PDF scrolling and pinch zoom replace the
-former page/fit/rotate toolbar. Share worksheets or solutions separately from
-a lesson card's context menu.
+The lesson board is the navigation root. Tap a thumbnail card to open the file
+workspace, switch files with Liquid Glass tabs, and use the top-left back button
+to return to the board. Cards have a uniform size and can be dragged into a new
+order. Long-press a card or tab for the same share, fresh-copy, move and remove
+actions. Removing a resource archives its pinned files and ink locally; re-adding
+restores that original copy and removes it from the log draft while absent.
 
-The detached Resources control opens a right-side drawer. Tap outside it to
-dismiss it. Expand subject topic folders and tap a file to preview it inside
-the drawer; only **Add to lesson** adds it to tabs and log suggestions. Preview
-downloads are held in memory and never enter the local lesson store.
+Show/Hide solutions floats over the document and slides the solutions pane in
+and out. Drag the divider to resize the two panes; ink and viewports remain
+independent. Native PDF scrolling and pinch zoom replace the former toolbar.
+
+The detached Resources control toggles a floating rounded drawer on the right.
+Swipe it right or tap outside to dismiss. Expand subject topic folders and tap a
+file for a separate preview sheet with Close and **Add to lesson** actions. Only
+adding inserts a file into the lesson and log suggestions; preview downloads
+stay in memory. Suggested files appear first: unused files from the active topic,
+with the next file in the same type/sequence prioritized. An empty lesson uses
+the latest earlier logged lesson assigned to this tutor with the same subject
+and student group (within the 100 most recent earlier sessions). Panel motion
+respects the system Reduce Motion preference.
 
 ## Storage and classroom display
 
@@ -40,8 +49,8 @@ separate actions.
 Connect an external display through AirPlay or a cable. The external scene
 receives only the active worksheet page, visible region, rotation and ink.
 Solutions never enter its model. The lesson board and log review show safe
-lesson information: subject/session kind, time, room and tutor. Use **Classroom
-display** for an on-device preview. Screen mirroring by unrelated tools is
+lesson information: subject/session kind, time, room and tutor. Resource previews
+also keep this lesson information on the external scene. Screen mirroring by unrelated tools is
 outside this external-scene presentation flow.
 
 Previously downloaded PDFs and local drafts work after a connection drops.

@@ -53,6 +53,8 @@ function document(row: FileRow) {
 }
 
 export async function teachingResources(client: Client, params: URLSearchParams) {
+  const resourceIDs = params.has('resourceIDs') ? (params.get('resourceIDs') ?? '').split(',').map(requireUUID) : [];
+  if (resourceIDs.length > 50) throw new TeachingError(400, 'Choose fewer resources.');
   const resourceID = params.get('resourceID');
   if (resourceID) requireUUID(resourceID);
   const subjectID = params.has('subjectID') ? requireUUID(params.get('subjectID') ?? '') : null;
@@ -75,6 +77,7 @@ export async function teachingResources(client: Client, params: URLSearchParams)
   // The view already limits files to authorized topics; only add an IN filter for one subject.
   if (subjectID) query = query.in('topic_id', scopedTopics.flatMap(t => t.id ? [t.id] : []));
   if (resourceID) query = query.eq('id', resourceID);
+  if (resourceIDs.length) query = query.in('id', resourceIDs);
   if (search) query = query.ilike('filename', `%${search.replace(/[\\%_]/g, '\\$&')}%`);
   const { data: files, error } = await query.order('id').range(offset, offset + 49);
   check(error);

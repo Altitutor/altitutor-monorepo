@@ -105,3 +105,39 @@ import Testing
     #expect(try store.drawing(sessionID: session, document: original.worksheet, page: 0) == Data([8]))
     #expect(try store.logSuggestions(sessionID: session, attendingStudents: []).topicFiles.count == 1)
 }
+
+@Test func removingLessonResourceClearsSuggestionsAndReaddingRestoresItsInk() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = try LessonStore(root: root, tutorID: UUID()), session = UUID()
+    let resource = TeachingResource(id: UUID(), topicID: UUID(), topicName: "Topic", subjectID: UUID(), subjectName: "Subject",
+        worksheet: TeachingDocument(id: UUID(), title: "Test 1.pdf", mimeType: "application/pdf", externalURL: nil), solutions: nil)
+    let added = try #require(store.add(resource, to: session, worksheet: Data([1]), solutions: nil).resources.first)
+    try store.saveDrawing(Data([9, 8]), sessionID: session, document: added.worksheet, page: 0)
+    let removed = try store.remove(added.id, from: session)
+    #expect(removed.resources.isEmpty)
+    #expect(try store.logSuggestions(sessionID: session, attendingStudents: []).topicFiles.isEmpty)
+    #expect(throws: (any Error).self) { try store.documentURL(sessionID: session, document: added.worksheet) }
+    let restored = try #require(store.add(resource, to: session, worksheet: Data([2]), solutions: nil).resources.first)
+    #expect(restored.worksheet.id == added.worksheet.id)
+    #expect(try store.drawing(sessionID: session, document: restored.worksheet, page: 0) == Data([9, 8]))
+}
+
+@Test func lessonOrderPersistsWithoutChangingDocumentOwnershipOrAcceptingForeignIDs() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let tutor = UUID(), store = try LessonStore(root: root, tutorID: tutor), session = UUID()
+    for title in ["Test 1.pdf", "Test 2.pdf", "Test 3.pdf"] {
+        let resource = TeachingResource(id: UUID(), topicID: UUID(), topicName: "Topic", subjectID: UUID(), subjectName: "Subject",
+            worksheet: TeachingDocument(id: UUID(), title: title, mimeType: "application/pdf", externalURL: nil), solutions: nil)
+        _ = try store.add(resource, to: session, worksheet: Data([1]), solutions: nil)
+    }
+    let original = try store.lesson(sessionID: session).resources
+    let order = [original[2].id, original[0].id, original[1].id]
+    _ = try store.reorder(order, in: session)
+    let reopened = try LessonStore(root: root, tutorID: tutor).lesson(sessionID: session)
+    #expect(reopened.resources.map(\.id) == order)
+    #expect(reopened.resources[0].worksheet.id == original[2].worksheet.id)
+    #expect(throws: (any Error).self) { try store.reorder([UUID(), original[0].id, original[1].id], in: session) }
+    #expect(try store.lesson(sessionID: session).resources.map(\.id) == order)
+}

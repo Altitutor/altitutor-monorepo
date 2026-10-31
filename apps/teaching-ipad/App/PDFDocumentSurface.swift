@@ -3,6 +3,10 @@ import PDFKit
 import PencilKit
 import TeachingCore
 
+@MainActor final class PDFSaveRequest {
+    var failed = false
+}
+
 struct PDFDocumentSurface: UIViewRepresentable {
     let document: CachedDocument
     let sessionID: UUID
@@ -44,6 +48,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private var lastVisible: DocumentViewport?
         private var backgroundObserver: NSObjectProtocol?
         private var flushObserver: NSObjectProtocol?
+        private var closeObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
         init(_ parent: PDFDocumentSurface) { self.parent = parent }
         func attach(_ view: PDFView) {
@@ -58,14 +63,24 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     MainActor.assumeIsolated { self?.tick() }
                 }
-                flushObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingFlushPDF"), object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.persist() }
+                flushObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingFlushPDF"), object: nil, queue: .main) { [weak self] event in
+                    let request = event.object as? PDFSaveRequest
+                    MainActor.assumeIsolated {
+                        if self?.persist() == false { request?.failed = true }
+                    }
                 }
                 pauseObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingPausePDF"), object: nil, queue: .main) { [weak self] _ in
                     MainActor.assumeIsolated { self?.persist(); self?.hideTools() }
                 }
+                closeObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingClosePDF"), object: nil, queue: .main) { [weak self] event in
+                    let ids = event.object as? [UUID] ?? []
+                    MainActor.assumeIsolated {
+                        guard let self, ids.contains(self.parent.document.id) else { return }
+                        self.stop(persistChanges: false)
+                    }
+                }
                 backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.persist() }
+                    MainActor.assumeIsolated { _ = self?.persist() }
                 }
             } catch { parent.onError(error) }
         }
@@ -121,8 +136,8 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 }
             }
         }
-        func persist() {
-            guard restored else { return }
+        @discardableResult func persist() -> Bool {
+            guard restored, active else { return true }
             do {
                 for index in dirty {
                     if let canvas = canvases[index] { try parent.store.saveDrawing(canvas.drawing.dataRepresentation(), sessionID: parent.sessionID, document: parent.document, page: index) }
@@ -131,12 +146,16 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 if let viewport = resizeAnchor ?? current(), viewport != lastSaved {
                     try parent.store.saveViewport(viewport, sessionID: parent.sessionID, document: parent.document); lastSaved = viewport
                 }
-            } catch { parent.onError(error) }
+                return true
+            } catch { parent.onError(error); return false }
         }
-        func stop() {
-            active = false; persist(); timer?.invalidate(); timer = nil
+        func stop(persistChanges: Bool = true) {
+            guard active else { return }
+            if persistChanges { persist() }
+            active = false; timer?.invalidate(); timer = nil
             if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
             if let flushObserver { NotificationCenter.default.removeObserver(flushObserver) }
+            if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
             if let pauseObserver { NotificationCenter.default.removeObserver(pauseObserver) }
             hideTools()
             for canvas in canvases.values { toolPicker.removeObserver(canvas) }

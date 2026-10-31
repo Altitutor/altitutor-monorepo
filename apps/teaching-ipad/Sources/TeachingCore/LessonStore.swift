@@ -19,6 +19,11 @@ public final class LessonStore {
     public func add(_ resource: TeachingResource, to sessionID: UUID, worksheet: Data, solutions: Data?, freshCopy: Bool = false) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
         if !freshCopy && record.resources.contains(where: { $0.resource.id == resource.id }) { return record }
+        if !freshCopy, let index = record.archivedResources.lastIndex(where: { $0.resource.id == resource.id }) {
+            record.resources.append(record.archivedResources.remove(at: index))
+            try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
+            return record
+        }
         let primary = CachedDocument(id: UUID(), source: resource.worksheet)
         let answer = resource.solutions.flatMap { source in solutions.map { _ in CachedDocument(id: UUID(), source: source) } }
         let target = folder(sessionID)
@@ -27,6 +32,28 @@ public final class LessonStore {
         if let answer, let solutions { try write(solutions, to: target.appendingPathComponent(answer.id.uuidString + ".pdf")) }
         record.resources.append(LessonResource(id: UUID(), resource: resource, worksheet: primary, solutions: answer))
         try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
+        return record
+    }
+
+    @discardableResult
+    public func remove(_ resourceID: UUID, from sessionID: UUID) throws -> LessonRecord {
+        var record = try lesson(sessionID: sessionID)
+        guard let index = record.resources.firstIndex(where: { $0.id == resourceID }) else { throw CocoaError(.fileReadNoPermission) }
+        record.archivedResources.append(record.resources.remove(at: index))
+        record.draft.excludedResources.remove(resourceID)
+        record.draft.studentAssignments.removeValue(forKey: resourceID)
+        try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
+        return record
+    }
+
+    @discardableResult
+    public func reorder(_ resourceIDs: [UUID], in sessionID: UUID) throws -> LessonRecord {
+        var record = try lesson(sessionID: sessionID)
+        guard resourceIDs.count == record.resources.count,
+              Set(resourceIDs) == Set(record.resources.map(\.id)) else { throw CocoaError(.fileWriteInvalidFileName) }
+        let byID = Dictionary(uniqueKeysWithValues: record.resources.map { ($0.id, $0) })
+        record.resources = resourceIDs.compactMap { byID[$0] }
+        try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
         return record
     }
 

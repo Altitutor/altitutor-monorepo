@@ -74,7 +74,7 @@ for (const [id, filename, isSolution] of [[primary, 'worksheet.pdf', false], [so
   data(await admin.from('topics_files').insert({ id, topic_id: topic, file_id: file, type: 'PRACTICE_QUESTIONS', index: 1, code: isSolution ? 'SOLUTION' : 'PRACTICE', is_solutions: isSolution, is_solutions_of_id: isSolution ? primary : null }), 'fixture resource');
 }
 async function session(type = 'DRAFTING', role = 'MAIN_TUTOR', actor = first.id) {
-  const id = randomUUID(), start = new Date(Date.now() - 3600000), end = new Date(Date.now() - 1800000);
+  const id = randomUUID(), start = new Date(Date.now() - 60000), end = new Date(Date.now() + 1740000);
   data(await admin.from('sessions').insert({ id, type, status: 'ACTIVE', subject_id: type === 'DRAFTING' ? subject : null, start_at: start.toISOString(), end_at: end.toISOString(), room: 'Preview room' }), 'fixture session');
   data(await admin.from('sessions_staff').insert({ session_id: id, staff_id: actor, type: role }), 'fixture assignment');
   if (type === 'DRAFTING') data(await admin.from('sessions_students').insert({ session_id: id, student_id: student }), 'fixture student assignment');
@@ -125,6 +125,20 @@ const refreshed = await call('auth', null, { action: 'refresh', refreshToken: fi
 assert.equal(refreshed.status, 200, 'native token refresh works');
 const receipt = { origin, project: proof.project_id, day, previewSession: preview, verificationSession: verification, first, second, resource: primary, solution };
 fs.writeFileSync('/private/tmp/dev219-native-fixture.json', JSON.stringify(receipt), { mode: 0o600 });
+const nextResource = randomUUID(), nextFile = randomUUID();
+data(await admin.from('files').insert({ id: nextFile, filename: 'Test 2.pdf', mimetype: 'application/pdf', size_bytes: 0, storage_provider: 'external', external_url: 'https://example.test/test-2', created_by: first.id }), 'next file');
+data(await admin.from('topics_files').insert({ id: nextResource, topic_id: topic, file_id: nextFile, type: 'PRACTICE_QUESTIONS', index: 2, is_solutions: false }), 'next resource');
+const suggestions = await call('suggestions', first.token, { sessionID: preview, resourceIDs: [primary], activeResourceID: primary });
+assert.equal(suggestions.status, 200, 'teaching suggestions endpoint');
+assert.equal(suggestions.body.resources[0]?.id, nextResource, 'suggest the next sequential file first');
+assert.ok(!suggestions.body.resources.some(r => r.id === primary), 'never suggest a file already in this lesson');
+assert.equal((await call('suggestions', second.token, { sessionID: preview, resourceIDs: [] })).status, 403, 'suggestions require lesson access');
+data(await admin.from('sessions').update({start_at:new Date(Date.now()-7200000).toISOString(),end_at:new Date(Date.now()-5400000).toISOString()}).eq('id',verification), 'previous lesson timing');
+const previousSuggestions = await call('suggestions', first.token, { sessionID: preview, resourceIDs: [] });
+assert.equal(previousSuggestions.status, 200);
+assert.equal(previousSuggestions.body.resources[0]?.id, nextResource, 'an empty lesson continues the previous matching lesson sequence');
+assert.equal(previousSuggestions.body.source, 'previous');
+
 // Exercise the real global-file pagination used by the topic drawer.
 const pagingTopic = randomUUID();
 data(await admin.from('topics').insert({ id: pagingTopic, subject_id: subject, name: 'Pagination coverage', index: 99 }), 'paging topic');
@@ -137,5 +151,5 @@ assert.equal(firstPage.body.nextOffset, 50, 'library must offer more files befor
 assert.ok(firstPage.body.topics.some(t => t.id === pagingTopic), 'hierarchy metadata is available before all files load');
 const lastPage = await call('resources?subjectID=' + subject + '&offset=50', first.token);
 assert.equal(lastPage.body.nextOffset, null, 'library knows when all files have loaded');
-assert.equal(new Set([...firstPage.body.resources, ...lastPage.body.resources].map(r => r.id)).size, 52, 'all files are reachable through catalog pages');
-console.log(JSON.stringify({ ownedProject: proof.project_id, topicHierarchy: true, catalogPagination: true, nativeSignIn: true, tokenRefresh: true, assignedKinds: true, isolatedSessions: true, resourceACL: true, signedDownloads: true, serverSubmitter: true, rosterValidation: true, duplicateProtection: true, checkInRole: true, previewSession: preview }));
+assert.equal(new Set([...firstPage.body.resources, ...lastPage.body.resources].map(r => r.id)).size, 53, 'all files are reachable through catalog pages');
+console.log(JSON.stringify({ ownedProject: proof.project_id, topicHierarchy: true, catalogPagination: true, lessonSuggestions: true, nativeSignIn: true, tokenRefresh: true, assignedKinds: true, isolatedSessions: true, resourceACL: true, signedDownloads: true, serverSubmitter: true, rosterValidation: true, duplicateProtection: true, checkInRole: true, previewSession: preview }));

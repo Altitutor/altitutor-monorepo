@@ -21,6 +21,7 @@ import PDFKit
     @Published var nextOffset: Int?
     @Published var libraryBusy = false
     @Published var sharedURL: URL?
+    @Published var suggestions: [TeachingResource] = []
     private(set) var store: LessonStore?
     private var epoch = 0
     var session: TeachingSession? { sessions.first { $0.id == selectedSessionID } }
@@ -54,7 +55,7 @@ import PDFKit
         do {
             try api.signOut(); epoch += 1
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
-            activeResourceID = nil; store = nil; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; offline = false
+            activeResourceID = nil; store = nil; suggestions = []; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; offline = false
         } catch { self.error = error.localizedDescription }
     }
     func report(_ error: Error) {
@@ -88,7 +89,7 @@ import PDFKit
         do {
             guard let store else { return }
             selectedSessionID = session.id; lesson = try store.lesson(sessionID: session.id)
-            activeResourceID = lesson?.resources.first?.id; viewer = activeResourceID != nil; solutions = false
+            activeResourceID = lesson?.resources.first?.id; viewer = false; solutions = false; suggestions = []
             showLessonInformation(); allowActiveWorksheet()
         } catch { report(error) }
     }
@@ -140,6 +141,48 @@ import PDFKit
             lesson = try store.add(resource, to: session.id, worksheet: primary, solutions: answers, freshCopy: freshCopy)
             if activeResourceID == nil || freshCopy { activeResourceID = lesson?.resources.last?.id; allowActiveWorksheet() }
         } catch { report(error) }
+    }
+    func remove(_ item: LessonResource) {
+        guard let store, let session else { return }
+        // Main-queue observers finish synchronously before changing document ownership.
+        let save = PDFSaveRequest()
+        NotificationCenter.default.post(name: Notification.Name("TeachingFlushPDF"), object: save)
+        guard !save.failed else { return }
+        do {
+            let updated = try store.remove(item.id, from: session.id)
+            NotificationCenter.default.post(name: Notification.Name("TeachingClosePDF"), object: [item.worksheet.id, item.solutions?.id].compactMap { $0 })
+            lesson = updated
+            if activeResourceID == item.id {
+                activeResourceID = lesson?.resources.first?.id
+                if viewer, let next = activeResource { open(next) } else { showBoard() }
+            }
+        } catch { report(error) }
+    }
+    func move(_ item: LessonResource, to targetID: UUID) {
+        guard let store, let session, var items = lesson?.resources,
+              let from = items.firstIndex(where: { $0.id == item.id }),
+              let to = items.firstIndex(where: { $0.id == targetID }), from != to else { return }
+        items.insert(items.remove(at: from), at: to)
+        do { lesson = try store.reorder(items.map(\.id), in: session.id) } catch { report(error) }
+    }
+    func move(_ item: LessonResource, by delta: Int) {
+        guard let items = lesson?.resources, let index = items.firstIndex(where: { $0.id == item.id }), items.indices.contains(index + delta) else { return }
+        move(item, to: items[index + delta].id)
+    }
+    func loadSuggestions() async {
+        guard let session else { return }
+        let version = epoch, sessionID = session.id
+        struct Input: Encodable { let sessionID: UUID; let resourceIDs: [UUID]; let activeResourceID: UUID? }
+        struct Result: Decodable { let resources: [TeachingResource] }
+        do {
+            let input = Input(sessionID: sessionID, resourceIDs: lesson?.resources.map { $0.resource.id } ?? [], activeResourceID: activeResource?.resource.id)
+            let result: Result = try await api.request("suggestions", body: JSONEncoder().encode(input))
+            try Task.checkCancellation()
+            guard epoch == version, selectedSessionID == sessionID,
+                  input.resourceIDs == (lesson?.resources.map { $0.resource.id } ?? []),
+                  input.activeResourceID == activeResource?.resource.id else { return }
+            suggestions = result.resources
+        } catch { if !Task.isCancelled { suggestions = [] } }
     }
     func addStudent(_ student: Participant) async {
         guard let session else { return }

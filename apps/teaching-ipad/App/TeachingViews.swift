@@ -2,51 +2,79 @@ import SwiftUI
 import TeachingCore
 
 
+enum TeachingMotion {
+    static func panel(reduceMotion: Bool) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 1)
+    }
+}
+
 struct TeachingNavigation: View {
     @ObservedObject var model: TeachingModel
     @State private var library = false
     @State private var log = false
-    @State private var classroom = false
+    @State private var preview: TeachingResource?
     @State private var signingOut = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         NavigationStack {
             Group {
                 if model.session != nil {
-                    LessonWorkspace(model: model)
-                } else {
-                    SessionDayView(model: model)
-                }
+                    surface { LessonBoard(model: model) }
+                } else { SessionDayView(model: model) }
             }
             .navigationTitle(model.session?.title ?? "Your teaching day")
             .navigationBarTitleDisplayMode(model.session == nil ? .large : .inline)
             .toolbar {
-                if let session = model.session {
-                    ToolbarItem(placement: .topBarLeading) { Button { library = false; model.leaveLesson() } label: { Label("Today", systemImage: "chevron.left") } }
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button { classroom = true } label: { Label("Classroom display", systemImage: "airplay.video") }
-                        Button { model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }.keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
+                if model.session != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { library = false; model.leaveLesson() } label: { Label("Today", systemImage: "chevron.left") }
                     }
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { withAnimation(.easeInOut(duration: 0.22)) { library.toggle() } } label: { Label("Resources", systemImage: "sidebar.right") }.accessibilityIdentifier("teaching-library")
-                    }
+                    lessonControls
                 } else {
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
                 }
             }
-            .overlay {
-                if library, model.session != nil {
-                    GeometryReader { geometry in
-                        ZStack(alignment: .trailing) {
-                            Color.black.opacity(0.12).contentShape(Rectangle())
-                                .onTapGesture { withAnimation(.easeInOut(duration: 0.22)) { library = false } }
-                                .accessibilityLabel("Dismiss resource library").accessibilityAddTraits(.isButton)
-                            ResourceLibrary(model: model) { withAnimation(.easeInOut(duration: 0.22)) { library = false } }
-                                .frame(width: min(460, geometry.size.width - 44)).frame(maxHeight: .infinity)
-                                .background(.regularMaterial).shadow(color: .black.opacity(0.16), radius: 24, x: -8)
-                                .transition(.move(edge: .trailing))
+            .navigationDestination(isPresented: Binding(get: { model.viewer }, set: { if !$0 { model.showBoard() } })) {
+                surface { LessonWorkspace(model: model) }
+                    .navigationTitle(model.session?.title ?? "Lesson")
+                    .navigationBarTitleDisplayMode(.inline).navigationBarBackButtonHidden()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button { library = false; model.showBoard() } label: { Label("Lesson board", systemImage: "chevron.left") }
                         }
+                        lessonControls
                     }
+            }
+        }
+        .sheet(isPresented: $log, onDismiss: { model.allowActiveWorksheet() }) {
+            if let session = model.session { TutorLogView(model: model, session: session) }
+        }
+        .sheet(item: $preview, onDismiss: { model.allowActiveWorksheet() }) { resource in
+            LibraryPreview(model: model, resource: resource) { preview = nil }
+        }
+        .sheet(isPresented: Binding(get: { model.sharedURL != nil }, set: { if !$0 { model.finishSharing() } })) {
+            if let url = model.sharedURL { NativeShareSheet(url: url) { model.finishSharing() } }
+        }
+        .confirmationDialog("Sign out of this teaching iPad?", isPresented: $signingOut) { Button("Sign out", role: .destructive) { model.signOut() } }
+        message: { Text("Your local lesson annotations stay on this iPad for your next sign-in.") }
+    }
+    @ToolbarContentBuilder private var lessonControls: some ToolbarContent {
+        if let session = model.session {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { library = false; model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }
+                    .keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { library.toggle() } } label: { Label("Resources", systemImage: "sidebar.right") }.accessibilityIdentifier("teaching-library")
+            }
+        }
+    }
+    private func surface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content().frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                ResourceDrawer(model: model, isPresented: $library) { resource in
+                    model.showLessonInformation(); preview = resource
                 }
             }
             .overlay(alignment: .bottom) {
@@ -55,14 +83,6 @@ struct TeachingNavigation: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if model.offline { Label("Cached lessons · reconnect to search, add resources or submit a log", systemImage: "wifi.slash").font(.footnote).padding(9).frame(maxWidth: .infinity).background(.yellow.opacity(0.15)) }
             }
-            .sheet(isPresented: $log, onDismiss: { model.allowActiveWorksheet() }) { if let session = model.session { TutorLogView(model: model, session: session) } }
-            .sheet(isPresented: $classroom) { NavigationStack { ClassroomView().navigationTitle("Classroom display preview").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { classroom = false } } } } }
-            .sheet(isPresented: Binding(get: { model.sharedURL != nil }, set: { if !$0 { model.finishSharing() } })) {
-                if let url = model.sharedURL { NativeShareSheet(url: url) { model.finishSharing() } }
-            }
-            .confirmationDialog("Sign out of this teaching iPad?", isPresented: $signingOut) { Button("Sign out", role: .destructive) { model.signOut() } }
-            message: { Text("Your local lesson annotations stay on this iPad for your next sign-in.") }
-        }
     }
 }
 
@@ -113,56 +133,27 @@ struct LessonWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    tab("Lesson board", systemImage: "square.grid.2x2", selected: !model.viewer) { model.showBoard() }
-                    ForEach(model.lesson?.resources ?? []) { item in
-                        tab(item.resource.worksheet.title, systemImage: "doc", selected: model.viewer && model.activeResourceID == item.id) { model.open(item) }
-                    }
-                }.padding(.horizontal, 16).padding(.vertical, 8)
-            }.background(.regularMaterial)
-            if model.viewer, let item = model.activeResource, let store = model.store, let session = model.session {
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(model.lesson?.resources ?? []) { item in
+                            Group {
+                                if model.activeResourceID == item.id { tab(item).buttonStyle(.glassProminent) }
+                                else { tab(item).buttonStyle(.glass) }
+                            }.contextMenu { LessonResourceActions(model: model, item: item) }
+                        }
+                    }.padding(.horizontal, 16).padding(.vertical, 8)
+                }
+            }
+            if let item = model.activeResource, let store = model.store, let session = model.session {
                 PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
-            } else { LessonBoard(model: model) }
+            }
         }.background(TeachingColors.background)
     }
-    private func tab(_ title: String, systemImage: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: systemImage).font(.subheadline.weight(.semibold)).lineLimit(1)
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(selected ? TeachingColors.navy : .clear, in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(selected ? .white : TeachingColors.navy)
-        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
-    }
-}
-
-struct LessonBoard: View {
-    @ObservedObject var model: TeachingModel
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("This lesson").font(.largeTitle.bold())
-                Text("Add resources from the library, then open one to teach. Your worksheets and private solutions keep their own ink and positions.").foregroundStyle(.secondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 18)], spacing: 18) {
-                    ForEach(model.lesson?.resources ?? []) { item in
-                        Button { model.open(item) } label: {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Image(systemName: item.resource.worksheet.isPDF ? "doc.richtext" : "doc").font(.system(size: 44)).foregroundStyle(TeachingColors.teal).frame(height: 100).frame(maxWidth: .infinity).background(TeachingColors.background, in: RoundedRectangle(cornerRadius: 12))
-                                Text(item.resource.worksheet.title).font(.headline).lineLimit(3)
-                                Text(item.resource.topicName).font(.subheadline).foregroundStyle(.secondary)
-                                Label("Open resource", systemImage: "arrow.up.right").font(.subheadline.bold()).foregroundStyle(TeachingColors.teal)
-                            }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(.background, in: RoundedRectangle(cornerRadius: 18))
-                        }.buttonStyle(.plain).contextMenu {
-                            Button("Download a fresh copy", systemImage: "arrow.down.doc") { Task { await model.add(item.resource, freshCopy: true) } }.disabled(model.offline)
-                            Button("Share worksheet", systemImage: "square.and.arrow.up") { model.share(item.worksheet) }
-                            if let solutions = item.solutions { Button("Share solutions", systemImage: "square.and.arrow.up") { model.share(solutions) } }
-                        }
-                    }
-                }
-                if model.lesson?.resources.isEmpty != false {
-                    ContentUnavailableView("Your lesson starts here", systemImage: "doc.badge.plus", description: Text("Open Resources to browse and preview files, then choose Add to lesson."))
-                }
-            }.padding(28)
-        }
+    private func tab(_ item: LessonResource) -> some View {
+        Button { model.open(item) } label: {
+            Label(item.resource.worksheet.title, systemImage: "doc").font(.subheadline.weight(.semibold))
+                .lineLimit(1).padding(.horizontal, 8).padding(.vertical, 6)
+        }.accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
     }
 }
 
@@ -172,28 +163,34 @@ struct PDFWorkspace: View {
     let sessionID: UUID
     let store: LessonStore
     @State private var ratio = 0.55
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { geometry in
             let split = model.solutions && resource.solutions != nil
             let available = max(1, geometry.size.width - 24)
-            HStack(spacing: 0) {
+            ZStack(alignment: .trailing) {
                 DocumentPane(model: model, document: resource.worksheet, sessionID: sessionID, store: store, worksheet: true)
                     .id(resource.worksheet.id).frame(width: split ? available * ratio : geometry.size.width)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if split, let answer = resource.solutions {
-                    ZStack {
-                        Color(uiColor: .secondarySystemBackground)
-                        Capsule().fill(.secondary.opacity(0.4)).frame(width: 5, height: 56)
-                    }.frame(width: 24).contentShape(Rectangle())
-                        .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("lesson-documents"))
-                            .onChanged { value in ratio = min(0.75, max(0.25, (value.location.x - 12) / available)) })
-                        .accessibilityLabel("Solutions divider").accessibilityValue("\(Int(ratio * 100))% worksheet")
-                        .accessibilityAdjustableAction { direction in
-                            ratio = min(0.75, max(0.25, ratio + (direction == .increment ? 0.05 : -0.05)))
-                        }
-                    DocumentPane(model: model, document: answer, sessionID: sessionID, store: store, worksheet: false)
-                        .id(answer.id).frame(width: available * (1 - ratio))
+                    HStack(spacing: 0) {
+                        ZStack {
+                            Color(uiColor: .secondarySystemBackground)
+                            Capsule().fill(.secondary.opacity(0.4)).frame(width: 5, height: 56)
+                        }.frame(width: 24).contentShape(Rectangle())
+                            .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("lesson-documents"))
+                                .onChanged { value in ratio = min(0.75, max(0.25, (value.location.x - 12) / available)) })
+                            .accessibilityLabel("Solutions divider").accessibilityValue("\(Int(ratio * 100))% worksheet")
+                            .accessibilityAdjustableAction { direction in
+                                ratio = min(0.75, max(0.25, ratio + (direction == .increment ? 0.05 : -0.05)))
+                            }
+                        DocumentPane(model: model, document: answer, sessionID: sessionID, store: store, worksheet: false)
+                            .id(answer.id).frame(width: available * (1 - ratio))
+                    }.frame(width: 24 + available * (1 - ratio))
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing))
                 }
-            }.coordinateSpace(name: "lesson-documents")
+            }.coordinateSpace(name: "lesson-documents").clipped()
+                .animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: model.solutions)
                 .overlay(alignment: .topTrailing) {
                     if resource.solutions != nil {
                         Button { model.solutions.toggle() } label: {
