@@ -448,3 +448,18 @@ SELECT log.id,log.session_id,log.deleted_at FROM public.tutor_logs log
 JOIN public.vtutor_sessions session ON session.session_id=log.session_id;
 REVOKE ALL ON public.vadmin_session_log_state,public.vtutor_session_log_state FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT ON public.vadmin_session_log_state,public.vtutor_session_log_state TO authenticated;
+
+-- Older Staff endpoints perform a separate Auth delete after deleting the role.
+-- Preserve retained identities before Auth cascades can retire unrelated roles.
+CREATE INDEX history_auth_identity ON admin_retention.history((snapshot->>'user_id')) WHERE kind IN ('staff','parent');
+CREATE FUNCTION admin_retention.guard_auth_identity_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF EXISTS(SELECT 1 FROM admin_retention.history WHERE kind IN ('staff','parent') AND snapshot->>'user_id'=OLD.id::text) THEN
+    RAISE EXCEPTION 'Retained business identities cannot be physically deleted' USING ERRCODE='23503';
+  END IF;
+  RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION admin_retention.guard_auth_identity_delete() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER guard_retained_business_identity BEFORE DELETE ON auth.users
+FOR EACH ROW EXECUTE FUNCTION admin_retention.guard_auth_identity_delete();

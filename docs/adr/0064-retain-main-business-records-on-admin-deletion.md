@@ -9,3 +9,5 @@ The Settings Deleted entities directory identifies retained records by type and 
 Deleted Topics leave the live sibling ordering; restoration appends them to the current siblings so it does not overwrite a position taken since deletion.
 
 Expired pristine generated calendar cancellation tombstones use the existing maintenance entry point, which now archives them instead of physically deleting them. System maintenance snapshots have no human deletion actor. Active or authored Sessions are outside this maintenance boundary.
+
+Retained Staff/Parent Auth identities reject physical Auth deletion, including the separate cleanup request made by older Staff endpoints. This protects shared roles and identity-linked history while application versions roll forward.

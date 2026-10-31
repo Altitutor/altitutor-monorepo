@@ -31,6 +31,9 @@ INSERT INTO public.admin_shifts(id,day_of_week,start_time,end_time,status,sessio
 INSERT INTO public.sessions(id,start_at,end_at,type,status) VALUES('fd276000-0000-4000-8000-000000000031',now()-interval '2 days',now()-interval '2 days'+interval '1 hour','HOMEWORK_HELP','ACTIVE');
 INSERT INTO public.sessions_staff(session_id,staff_id) VALUES('fd276000-0000-4000-8000-000000000031','00000000-0000-0000-0000-000000000001'),('fd276000-0000-4000-8000-000000000031','00000000-0000-0000-0000-000000000010');
 INSERT INTO public.tutor_logs(id,session_id,session_type,created_by,logged_for_staff_id) VALUES('fd276000-0000-4000-8000-000000000032','fd276000-0000-4000-8000-000000000031','HOMEWORK_HELP','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+INSERT INTO auth.users(id,email,instance_id,aud,role) VALUES('fd276000-0000-4000-8000-000000000035','dev276-shared@altitutor.test','00000000-0000-0000-0000-000000000000','authenticated','authenticated');
+INSERT INTO public.staff(id,first_name,last_name,role,status,user_id) VALUES('fd276000-0000-4000-8000-000000000036','Shared','Tutor','TUTOR','ACTIVE','fd276000-0000-4000-8000-000000000035');
+INSERT INTO public.parents(id,first_name,last_name,user_id) VALUES('fd276000-0000-4000-8000-000000000037','Shared','Parent','fd276000-0000-4000-8000-000000000035');
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SET LOCAL ROLE authenticated;
 SELECT lives_ok(format('SELECT public.retire_business_record(%L,%L)',kind,id),'AdminStaff deletes '||kind) FROM retention_fixtures;
@@ -83,6 +86,11 @@ INSERT INTO public.sessions(id,start_at,end_at,type,status) VALUES('fd276000-000
 INSERT INTO public.sessions_parents(session_id,parent_id) VALUES('fd276000-0000-4000-8000-000000000042','fd276000-0000-4000-8000-000000000012');
 SELECT throws_ok($$SELECT public.retire_business_record('parent','fd276000-0000-4000-8000-000000000012')$$,'P0001','Resolve future Parent bookings before deletion','an in-progress Parent booking remains unresolved');
 SELECT public.retire_business_record('tutor_log','fd276000-0000-4000-8000-000000000032');
+SELECT lives_ok($$DELETE FROM public.staff WHERE id='fd276000-0000-4000-8000-000000000036'$$,'legacy Staff table deletion retains one role on a shared login');
+RESET ROLE;
+SELECT throws_ok($$DELETE FROM auth.users WHERE id='fd276000-0000-4000-8000-000000000035'$$,'23503','Retained business identities cannot be physically deleted','legacy Staff Auth cleanup cannot erase the shared login');
+SELECT is((SELECT count(*) FROM auth.users WHERE id='fd276000-0000-4000-8000-000000000035'),1::bigint,'the retained Auth identity survives legacy cleanup');
+SELECT ok((SELECT deleted_at IS NULL AND user_id='fd276000-0000-4000-8000-000000000035'::uuid FROM public.parents WHERE id='fd276000-0000-4000-8000-000000000037'),'the unrelated Parent role survives legacy Auth cleanup');
 RESET ROLE;
 -- A shared login keeps its unrelated role, while the retired role stays detached.
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
