@@ -133,7 +133,7 @@ export const tutorLogsApi = {
 
       // Filter out sessions that already have logs
       const { data: existingLogs, error: logsError } = await supabase
-        .from('vtutor_tutor_log')
+        .from('vtutor_session_log_state')
         .select('session_id')
         .in('session_id', sessionIds);
 

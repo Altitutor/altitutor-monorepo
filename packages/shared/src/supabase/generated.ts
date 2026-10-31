@@ -17343,8 +17343,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
@@ -17426,8 +17440,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
@@ -17544,8 +17572,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
@@ -17670,8 +17712,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
@@ -17768,8 +17824,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
@@ -27200,6 +27270,109 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_subjects"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      vadmin_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
           },
         ]
       }
@@ -36723,6 +36896,99 @@ export type Database = {
             foreignKeyName: "sessions_files_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      vtutor_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
           },

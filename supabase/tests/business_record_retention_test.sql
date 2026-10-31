@@ -29,7 +29,7 @@ INSERT INTO public.notes_documents(id,title,created_by) VALUES('fd276000-0000-40
 INSERT INTO public.notes_folders(id,name,created_by) VALUES('fd276000-0000-4000-8000-000000000020','Retained folder','00000000-0000-0000-0000-000000000001');
 INSERT INTO public.admin_shifts(id,day_of_week,start_time,end_time,status,session_start_date,session_end_date) VALUES('fd276000-0000-4000-8000-000000000021',1,'10:00','11:00','INACTIVE',current_date-30,current_date-1);
 INSERT INTO public.sessions(id,start_at,end_at,type,status) VALUES('fd276000-0000-4000-8000-000000000031',now()-interval '2 days',now()-interval '2 days'+interval '1 hour','HOMEWORK_HELP','ACTIVE');
-INSERT INTO public.sessions_staff(session_id,staff_id) VALUES('fd276000-0000-4000-8000-000000000031','00000000-0000-0000-0000-000000000001');
+INSERT INTO public.sessions_staff(session_id,staff_id) VALUES('fd276000-0000-4000-8000-000000000031','00000000-0000-0000-0000-000000000001'),('fd276000-0000-4000-8000-000000000031','00000000-0000-0000-0000-000000000010');
 INSERT INTO public.tutor_logs(id,session_id,session_type,created_by,logged_for_staff_id) VALUES('fd276000-0000-4000-8000-000000000032','fd276000-0000-4000-8000-000000000031','HOMEWORK_HELP','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SET LOCAL ROLE authenticated;
@@ -53,6 +53,7 @@ RESET ROLE;
 SELECT is((SELECT count(*) FROM jsonb_array_elements(public.search_subjects_public(p_limit=>1000)->'subjects') item WHERE item->>'id'='fd276000-0000-4000-8000-000000000014'),0::bigint,'public trial-booking Subject search hides tombstones');
 RESET ROLE;
 SET LOCAL ROLE authenticated;
+SELECT ok((SELECT deleted_at IS NOT NULL FROM public.vadmin_session_log_state WHERE session_id='fd276000-0000-4000-8000-000000000031'),'Admin logging availability marks the retained log as restore-required');
 SELECT lives_ok(format('SELECT public.restore_business_record(%L,%L)',kind,id),'AdminStaff restores '||kind) FROM retention_fixtures;
 SELECT is((SELECT count(*) FROM public.deleted_business_records() d WHERE d.kind=f.kind AND d.id=f.id),0::bigint,'restored '||f.kind||' leaves deleted directory') FROM retention_fixtures f;
 SELECT ok((SELECT user_id IS NULL AND email IS NULL AND phone_number IS NULL AND status='INACTIVE' FROM public.staff WHERE id='fd276000-0000-4000-8000-000000000011'),'Staff restoration does not reclaim contacts, login or access');
@@ -81,10 +82,12 @@ SELECT throws_ok($$DELETE FROM public.sessions WHERE id='fd276000-0000-4000-8000
 INSERT INTO public.sessions(id,start_at,end_at,type,status) VALUES('fd276000-0000-4000-8000-000000000042',now()-interval '10 minutes',now()+interval '50 minutes','HOMEWORK_HELP','ACTIVE');
 INSERT INTO public.sessions_parents(session_id,parent_id) VALUES('fd276000-0000-4000-8000-000000000042','fd276000-0000-4000-8000-000000000012');
 SELECT throws_ok($$SELECT public.retire_business_record('parent','fd276000-0000-4000-8000-000000000012')$$,'P0001','Resolve future Parent bookings before deletion','an in-progress Parent booking remains unresolved');
+SELECT public.retire_business_record('tutor_log','fd276000-0000-4000-8000-000000000032');
 RESET ROLE;
 -- A shared login keeps its unrelated role, while the retired role stays detached.
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 SET LOCAL ROLE authenticated;
+SELECT ok((SELECT deleted_at IS NOT NULL FROM public.vtutor_session_log_state WHERE session_id='fd276000-0000-4000-8000-000000000031'),'assigned Tutor sees restore-required availability without deleted log content');
 SELECT is((SELECT count(*) FROM public.vtutor_profile),1::bigint,'deleting a Parent preserves the shared Tutor login');
 SELECT throws_ok($$SELECT public.retire_business_record('parent','fd276000-0000-4000-8000-000000000012')$$,'42501','Active AdminStaff access required','Tutor cannot retire a business record');
 SELECT throws_ok($$SELECT public.restore_business_record('parent','fd276000-0000-4000-8000-000000000012')$$,'42501','Active AdminStaff access required','Tutor cannot restore a business record');

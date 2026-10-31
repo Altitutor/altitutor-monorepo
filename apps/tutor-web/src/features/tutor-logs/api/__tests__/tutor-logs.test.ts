@@ -124,7 +124,7 @@ describe('tutorLogsApi.getUnloggedSessions', () => {
 
     const from = jest.fn((table: string) => {
       if (table === 'vtutor_operational_sessions') return sessionQuery;
-      if (table === 'vtutor_tutor_log') return logQuery;
+      if (table === 'vtutor_session_log_state') return logQuery;
       if (table === 'vtutor_session_detail') return detailQuery;
       throw new Error(`Unexpected table: ${table}`);
     });

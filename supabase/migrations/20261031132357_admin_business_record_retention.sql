@@ -198,6 +198,8 @@ BEGIN
     PERFORM set_config('app.business_retention','restore',true);
     IF p_kind='topic' THEN
       UPDATE public.topics SET deleted_at=NULL,deleted_by=NULL,index=(SELECT coalesce(max(sibling.index),0)+1 FROM public.topics sibling WHERE sibling.subject_id=(item->>'subject_id')::uuid AND sibling.parent_id IS NOT DISTINCT FROM (item->>'parent_id')::uuid AND sibling.deleted_at IS NULL) WHERE topics.id=p_id;
+    ELSIF p_kind='session' THEN
+      UPDATE public.sessions SET deleted_at=NULL,deleted_by=NULL,calendar_tombstone_until=NULL WHERE id=p_id;
     ELSE
       EXECUTE format('UPDATE public.%I SET deleted_at=NULL,deleted_by=NULL WHERE id=$1',tab) USING p_id;
     END IF;
@@ -436,3 +438,13 @@ GRANT USAGE ON SCHEMA admin_retention TO service_role;
 GRANT EXECUTE ON FUNCTION admin_retention.archive_calendar_tombstones() TO authenticated,service_role;
 CREATE OR REPLACE FUNCTION public.purge_expired_class_session_tombstones() RETURNS integer
 LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT admin_retention.archive_calendar_tombstones() $$;
+
+-- Keep the one-log-per-Session invariant. Availability exposes only the state,
+-- so a retired log leads to recovery rather than an impossible new submission.
+CREATE VIEW public.vadmin_session_log_state WITH(security_barrier=true) AS
+SELECT id,session_id,deleted_at FROM public.tutor_logs WHERE (SELECT public.is_adminstaff_active());
+CREATE VIEW public.vtutor_session_log_state WITH(security_barrier=true) AS
+SELECT log.id,log.session_id,log.deleted_at FROM public.tutor_logs log
+JOIN public.vtutor_sessions session ON session.session_id=log.session_id;
+REVOKE ALL ON public.vadmin_session_log_state,public.vtutor_session_log_state FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON public.vadmin_session_log_state,public.vtutor_session_log_state TO authenticated;
