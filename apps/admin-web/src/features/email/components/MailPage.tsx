@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Folder, Plus, RefreshCw, Search, Settings2 } from "lucide-react";
+import { Folder, Plus, RefreshCw, Settings2 } from "lucide-react";
 import { Button, DataTableToolbar } from "@altitutor/ui";
 import {
   encodeViewConfig,
@@ -11,7 +11,6 @@ import {
 } from "@altitutor/shared";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { useRegisterPageActions } from "@/features/command-palette/RecordActionsContext";
-import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
 import { useMailbox, useEmailCommand, useSyncMailbox } from "../api/client";
 import { useOpenEmailThread } from "../hooks/useOpenEmailThread";
 import {
@@ -19,8 +18,8 @@ import {
   type EmailMessage,
   type EmailSummary,
 } from "../types";
+import { EmailIconButton } from "./EmailIconButton";
 import { EmailAssignee } from "./EmailAssignee";
-import { OperationalEmailReview } from "./OperationalEmailReview";
 import { EmailSettingsDialog } from "./EmailSettingsDialog";
 import { EmailComposer } from "./EmailComposer";
 const defaults: DisplaySettings = {
@@ -39,7 +38,9 @@ export function MailPage() {
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [draft, setDraft] = useState<EmailMessage | null>(null);
-  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [draftReady, setDraftReady] = useState<
+    Promise<{ message?: EmailMessage }> | undefined
+  >();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signature, setSignature] = useState<string>();
   const [notice, setNotice] = useState("");
@@ -55,7 +56,6 @@ export function MailPage() {
   const sync = useSyncMailbox();
   const syncBusy = useRef(false);
   const openThread = useOpenEmailThread();
-  const palette = useCommandPalette();
   const savedViews = useQuickFilters("email");
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -126,22 +126,27 @@ export function MailPage() {
         .concat(savedViews.data ?? []),
     [savedViews.data],
   );
-  async function compose() {
-    try {
-      const result = draftResponseSchema.parse(
-        await command.mutateAsync({ action: "draft", mode: "new" }),
-      );
-      if (result.message) {
-        setDraft(result.message);
-        setSignature(result.signature);
-      }
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "Could not create a shared draft.",
-      );
-    }
+  function compose() {
+    if (!mailbox.data || draft) return;
+    // Render immediately; the provider draft is prepared behind the editor.
+    setDraft({
+      id: `local:${crypto.randomUUID()}`,
+      threadId: "",
+      subject: "",
+      bodyText: "",
+      sender: mailbox.data.mailboxAddress,
+      to: [],
+      cc: [],
+      bcc: [],
+      draft: true,
+      removed: false,
+    });
+    setSignature(mailbox.data.signature);
+    setDraftReady(
+      command
+        .mutateAsync({ action: "draft", mode: "new" })
+        .then((value) => draftResponseSchema.parse(value)),
+    );
   }
   useRegisterPageActions("/email", [
     {
@@ -184,26 +189,13 @@ export function MailPage() {
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOperationsOpen(true)}
-          >
-            Send outcomes
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Email templates and signature"
+          <EmailIconButton
+            label="Email templates and signature"
             onClick={() => setSettingsOpen(true)}
             disabled={!mailbox.data}
           >
             <Settings2 className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={palette.open}>
-            <Search className="mr-2 h-4 w-4" />
-            Commands
-          </Button>
+          </EmailIconButton>
           <Button
             variant="outline"
             size="sm"
@@ -495,9 +487,6 @@ export function MailPage() {
           </p>
         )}
       </footer>
-      {operationsOpen && (
-        <OperationalEmailReview onClose={() => setOperationsOpen(false)} />
-      )}
       {settingsOpen && mailbox.data && (
         <EmailSettingsDialog
           mailbox={mailbox.data}
@@ -510,6 +499,7 @@ export function MailPage() {
           draft={draft}
           mailbox={mailbox.data}
           signature={signature}
+          draftReady={draftReady}
           onClose={() => setDraft(null)}
         />
       )}

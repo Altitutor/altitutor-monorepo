@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@altitutor/ui";
+jest.mock("@/shared/contexts/EntityNavigation", () => ({
+  useEntityNavigation: () => ({ openEntity: jest.fn() }),
+}));
 import { WorkflowEmail } from "../WorkflowEmail";
 const originalFetch = global.fetch;
 afterEach(() => {
@@ -47,6 +51,8 @@ it("prepares canonical domain text in one shared draft with explicit Student con
               : {},
       } as Response;
     }
+    if (String(input).includes("/people"))
+      return { ok: true, json: async () => ({ person: null }) } as Response;
     return {
       ok: true,
       json: async () => ({
@@ -75,14 +81,16 @@ it("prepares canonical domain text in one shared draft with explicit Student con
         })
       }
     >
-      <WorkflowEmail
-        student={student}
-        parents={[]}
-        subject="Absence confirmation"
-        buildBody={async (name) =>
-          `Hi ${name}, the billing credit is being processed.`
-        }
-      />
+      <TooltipProvider>
+        <WorkflowEmail
+          student={student}
+          parents={[]}
+          subject="Absence confirmation"
+          buildBody={async (name) =>
+            `Hi ${name}, the billing credit is being processed.`
+          }
+        />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   await waitFor(() =>
@@ -90,13 +98,13 @@ it("prepares canonical domain text in one shared draft with explicit Student con
   );
   fireEvent.click(screen.getByRole("button", { name: "Prepare email" }));
   await waitFor(() =>
-    expect(screen.getByRole("textbox", { name: "Email body" })).toHaveValue(
-      "Hi Student, the billing credit is being processed.",
-    ),
+    expect(
+      screen.getByRole("textbox", { name: "Email body" }),
+    ).toHaveTextContent("Hi Student, the billing credit is being processed."),
   );
-  expect(screen.getByRole("textbox", { name: "Email recipients" })).toHaveValue(
-    "student@example.test",
-  );
+  expect(
+    screen.getByRole("button", { name: "Remove student@example.test" }),
+  ).toBeInTheDocument();
   expect(
     screen.getByText("Altitutor Admin · admin@development.altitutor.com"),
   ).toBeInTheDocument();

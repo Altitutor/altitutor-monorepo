@@ -11,6 +11,7 @@ export const emailMessageSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? ""),
+  bodyHtml: z.string().nullish(),
   sender: z
     .string()
     .nullish()
@@ -60,6 +61,7 @@ export type EmailFolder = z.infer<typeof emailFolderSchema>;
 export const draftContentSchema = z.object({
   expectedChangeKey: z.string().min(1),
   bodyText: z.string().max(1_000_000),
+  bodyHtml: z.string().max(1_000_000).optional(),
   subject: z.string().max(998),
   to: z.array(z.string().email()).max(100),
   cc: z.array(z.string().email()).max(100).default([]),
@@ -106,6 +108,25 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     id: z.string().min(1),
     content: draftContentSchema,
   }),
+  z.object({
+    action: z.literal("releaseDraft"),
+    id: z.string().min(1),
+    editToken: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal("discard"),
+    editToken: z.string().uuid(),
+    id: z.string().min(1),
+    changeKey: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal("schedule"),
+    id: z.string().min(1),
+    changeKey: z.string().min(1),
+    commandId: z.string().uuid(),
+    scheduledAt: z.string().datetime({ offset: true }),
+  }),
+  z.object({ action: z.literal("cancelSchedule"), id: z.string().uuid() }),
   z.object({
     action: z.literal("send"),
     id: z.string().min(1),

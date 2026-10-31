@@ -40,6 +40,29 @@ export function mailboxCommands(
       if (result.error) throw result.error;
       return result.data;
     }
+    if (command.action === "releaseDraft") {
+      const released = await db
+        .from("email_draft_edits")
+        .delete()
+        .eq("message_id", command.id)
+        .eq("staff_id", staff.id)
+        .eq("token", command.editToken)
+        .is("writing_until", null);
+      if (released.error) throw released.error;
+      return { state: "released" };
+    }
+    if (command.action === "cancelSchedule") {
+      const result = await db.rpc("email_cancel_schedule", {
+        p_command_id: command.id,
+      });
+      if (result.error) throw result.error;
+      const outcome = claimSchema.parse(result.data);
+      if (outcome.state !== "cancelled")
+        throw new Error(
+          "Delivery has already started; it cannot be cancelled.",
+        );
+      return outcome;
+    }
     const mailbox = connector ?? (await connectMailbox());
     const observe = (message: Awaited<ReturnType<typeof mailbox.message>>) =>
       observeMailboxMessage(db, message, mailbox.policy.address);
@@ -109,6 +132,34 @@ export function mailboxCommands(
         if (released.error) throw released.error;
       }
     }
+    if (command.action === "discard") {
+      const current = await mailbox.message(command.id);
+      if (!current.draft || current.changeKey !== command.changeKey)
+        throw new Error(
+          "This draft changed in Outlook. Review it before deleting.",
+        );
+      const claimed = await db.rpc("email_claim_draft", {
+        p_message_id: command.id,
+        p_change_key: command.changeKey,
+        p_staff_id: staff.id,
+        p_token: command.editToken,
+      });
+      if (claimed.error) throw claimed.error;
+      if (claimSchema.parse(claimed.data).state !== "ready")
+        throw new Error(
+          "This draft is scheduled, sending or being edited. Review its conversation first.",
+        );
+      try {
+        await observe(await mailbox.move(command.id, "deleteditems"));
+      } finally {
+        const released = await db
+          .from("email_draft_edits")
+          .update({ writing_until: null })
+          .eq("message_id", command.id);
+        if (released.error) throw released.error;
+      }
+      return { state: "discarded" };
+    }
     // Check Outlook once more before claiming the irreversible send. The
     // read/check/send window is still subject to Microsoft's cross-client race.
     const current = await mailbox.message(command.id);
@@ -122,6 +173,17 @@ export function mailboxCommands(
       bcc: current.bcc ?? [],
     };
     assertMailboxRecipients(mailbox.policy, recipients);
+    if (command.action === "schedule") {
+      const result = await db.rpc("email_schedule_send", {
+        p_message_id: command.id,
+        p_change_key: command.changeKey,
+        p_staff_id: staff.id,
+        p_command_id: command.commandId,
+        p_scheduled_at: command.scheduledAt,
+      });
+      if (result.error) throw result.error;
+      return result.data;
+    }
     const claimed = await db.rpc("email_begin_send", {
       p_message_id: command.id,
       p_change_key: command.changeKey,

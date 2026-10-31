@@ -63,6 +63,8 @@ export function useEmailThread(id: string, active = true) {
             .array(
               z.object({
                 message_id: z.string(),
+                command_id: z.string(),
+                scheduled_at: z.string().nullable(),
                 state: z.string(),
                 updated_at: z.string(),
               }),
@@ -97,11 +99,21 @@ export function useEmailCommand() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: executeEmailCommand,
-    onSettled: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["email"] }),
-        client.invalidateQueries({ queryKey: ["notifications"] }),
-      ]);
+    onSettled: (_data, _error, command) => {
+      // Draft saves belong to the mounted editor. Refetching every active
+      // mailbox/thread here makes each keystroke wait on unrelated reads.
+      // Polling still reconciles changes made through Outlook.
+      if (
+        command.action === "save" ||
+        command.action === "draft" ||
+        command.action === "releaseDraft"
+      )
+        return;
+      void client.invalidateQueries({ queryKey: ["email", "mailbox"] });
+      void client.invalidateQueries({ queryKey: ["email", "thread"] });
+      void client.invalidateQueries({ queryKey: ["email", "correspondence"] });
+      if (command.action === "assign")
+        void client.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }
@@ -109,7 +121,11 @@ export function useSyncMailbox() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: () => mailRequest("/sync", {}),
-    onSettled: () => client.invalidateQueries({ queryKey: ["email"] }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["email", "mailbox"] });
+      void client.invalidateQueries({ queryKey: ["email", "thread"] });
+      void client.invalidateQueries({ queryKey: ["email", "correspondence"] });
+    },
   });
 }
 export function useEntityEmails(

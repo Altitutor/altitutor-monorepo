@@ -6,8 +6,13 @@ import {
   Input,
   SearchableSelect,
   SegmentedControl,
-  Textarea,
 } from "@altitutor/ui";
+import {
+  EmailBodyEditor,
+  EmailFormatting,
+  signatureHtml,
+} from "./EmailBodyEditor";
+import type { Editor } from "@tiptap/core";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { MailboxData } from "../types";
@@ -25,6 +30,7 @@ export function EmailSettingsDialog({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [signature, setSignature] = useState(mailbox.signature);
+  const [editor, setEditor] = useState<Editor | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -52,7 +58,7 @@ export function EmailSettingsDialog({
         if (result.error) throw result.error;
         setSelected(result.data.id);
       }
-      await client.invalidateQueries({ queryKey: ["email"] });
+      await client.invalidateQueries({ queryKey: ["email", "mailbox"] });
       setNotice("Saved");
     } catch (error) {
       setNotice(
@@ -78,7 +84,7 @@ export function EmailSettingsDialog({
       setSubject("");
       setBody("");
       setConfirmDelete(false);
-      await client.invalidateQueries({ queryKey: ["email"] });
+      await client.invalidateQueries({ queryKey: ["email", "mailbox"] });
       setNotice("Template deleted");
     }
     setBusy(false);
@@ -111,11 +117,13 @@ export function EmailSettingsDialog({
           {tab === "signature" ? (
             <label className="block text-sm">
               Your staff signature
-              <Textarea
-                className="mt-2 min-h-40"
-                value={signature}
-                onChange={(event) => setSignature(event.target.value)}
+              <EmailBodyEditor
+                html={signatureHtml(signature)}
+                disabled={busy}
+                onChange={(value) => setSignature(value.bodyHtml)}
+                onEditorReady={setEditor}
               />
+              <EmailFormatting editor={editor} disabled={busy} />
               <span className="mt-2 block text-xs text-muted-foreground">
                 New emails and replies still use the shared admin@ mailbox.
               </span>
@@ -169,11 +177,13 @@ export function EmailSettingsDialog({
               </label>
               <label className="block text-sm">
                 Message
-                <Textarea
-                  className="min-h-40"
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
+                <EmailBodyEditor
+                  html={signatureHtml(body)}
+                  disabled={busy}
+                  onChange={(value) => setBody(value.bodyHtml)}
+                  onEditorReady={setEditor}
                 />
+                <EmailFormatting editor={editor} disabled={busy} />
               </label>
               {selected && (
                 <Button

@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_events_legacy: {
@@ -3195,24 +3220,30 @@ export type Database = {
       }
       email_send_attempts: {
         Row: {
+          change_key: string | null
           command_id: string
           message_id: string
+          scheduled_at: string | null
           staff_id: string
           started_at: string
           state: string
           updated_at: string
         }
         Insert: {
+          change_key?: string | null
           command_id: string
           message_id: string
+          scheduled_at?: string | null
           staff_id: string
           started_at?: string
           state: string
           updated_at?: string
         }
         Update: {
+          change_key?: string | null
           command_id?: string
           message_id?: string
+          scheduled_at?: string | null
           staff_id?: string
           started_at?: string
           state?: string
@@ -44398,6 +44429,7 @@ export type Database = {
         }
         Returns: Json
       }
+      email_cancel_schedule: { Args: { p_command_id: string }; Returns: Json }
       email_claim_draft: {
         Args: {
           p_change_key: string
@@ -44406,6 +44438,25 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      email_claim_scheduled_sends: {
+        Args: never
+        Returns: {
+          change_key: string | null
+          command_id: string
+          message_id: string
+          scheduled_at: string | null
+          staff_id: string
+          started_at: string
+          state: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_send_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       email_claim_sync: { Args: { p_token: string }; Returns: boolean }
       email_correspondence_for_record: {
@@ -44489,6 +44540,16 @@ export type Database = {
       email_reset_sync_cursor: {
         Args: { p_expected_cursor: string; p_folder_id: string }
         Returns: boolean
+      }
+      email_schedule_send: {
+        Args: {
+          p_change_key: string
+          p_command_id: string
+          p_message_id: string
+          p_scheduled_at: string
+          p_staff_id: string
+        }
+        Returns: Json
       }
       email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
       end_student_class_enrolment: {
@@ -47283,6 +47344,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       billing_type: ["CLASS", "EXAM_COURSE", "DRAFTING"],

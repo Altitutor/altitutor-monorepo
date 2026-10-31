@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const thread = emailThreadSchema.parse(result.data);
   const attempts = await access.db
     .from("email_send_attempts")
-    .select("message_id,state,updated_at")
+    .select("message_id,state,updated_at,scheduled_at,command_id")
     .in(
       "message_id",
       thread.messages.map((message) => message.id),

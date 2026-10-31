@@ -1,10 +1,28 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { Button, Input, SearchableSelect, Textarea } from "@altitutor/ui";
-import { FileText, Paperclip } from "lucide-react";
+import {
+  Button,
+  Input,
+  SearchableSelect,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@altitutor/ui";
+import { FileText, Paperclip, Clock, ArrowUp, X } from "lucide-react";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
+import type { Editor } from "@tiptap/core";
+import { toast } from "sonner";
+import {
+  EmailBodyEditor,
+  EmailFormatting,
+  textHtml,
+  signatureHtml,
+} from "./EmailBodyEditor";
+import { EmailIconButton } from "./EmailIconButton";
+import { EmailRecipients } from "./EmailRecipients";
 import { EmailSettingsDialog } from "./EmailSettingsDialog";
 import { useEmailCommand } from "../api/client";
 import {
@@ -20,6 +38,7 @@ const addresses = (value: string) =>
 type Content = {
   subject: string;
   bodyText: string;
+  bodyHtml?: string;
   to: string;
   cc: string;
   bcc: string;
@@ -31,6 +50,7 @@ export function EmailComposer({
   signature,
   initialContent,
   onClose,
+  draftReady,
 }: {
   draft: EmailMessage;
   mailbox: MailboxData;
@@ -38,8 +58,22 @@ export function EmailComposer({
   signature?: string;
   initialContent?: { subject: string; bodyText: string; to: string[] };
   onClose: () => void;
+  draftReady?: Promise<{ message?: EmailMessage }>;
 }) {
   const command = useEmailCommand();
+  const [richEditor, setRichEditor] = useState<Editor | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [pendingRecipients, setPendingRecipients] = useState({
+    to: false,
+    cc: false,
+    bcc: false,
+  });
+  const [showCc, setShowCc] = useState(Boolean(draft.cc.length));
+  const [showBcc, setShowBcc] = useState(Boolean(draft.bcc.length));
+  const provider = useRef(draft);
+  const [preparing, setPreparing] = useState(Boolean(draftReady));
+  const [creationError, setCreationError] = useState("");
   const scope = useAccessoryTab();
   const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
   const [saveRevision, setSaveRevision] = useState(0);
@@ -52,12 +86,22 @@ export function EmailComposer({
       (signature
         ? `\n\n${signature}${draft.bodyText ? `\n\n${draft.bodyText}` : ""}`
         : draft.bodyText),
+    bodyHtml: initialContent
+      ? textHtml(initialContent.bodyText)
+      : signature
+        ? `<p><br></p>${signatureHtml(signature)}${draft.bodyHtml ?? textHtml(draft.bodyText)}`
+        : (draft.bodyHtml ?? textHtml(draft.bodyText)),
     to: (initialContent?.to ?? draft.to).join(", "),
     cc: draft.cc.join(", "),
     bcc: draft.bcc.join(", "),
   }));
+  const initialEditorContent = useRef(content);
   const [dirty, setDirty] = useState(Boolean(signature || initialContent));
-  const [status, setStatus] = useState("Shared draft in Microsoft");
+  const [status, setStatus] = useState(
+    draftReady
+      ? "Preparing Microsoft draft… You can keep typing."
+      : "Shared draft in Microsoft",
+  );
   const [conflict, setConflict] = useState<EmailMessage | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [sending, setSending] = useState(false);
@@ -68,7 +112,73 @@ export function EmailComposer({
   current.current = content;
   const version = useRef(message.changeKey ?? "");
   const upload = useRef<HTMLInputElement>(null);
-  const recoveryKey = `email-draft-recovery:${mailbox.currentStaffId}:${draft.id}`;
+  const [recoveryKey, setRecoveryKey] = useState(
+    `email-draft-recovery:${mailbox.currentStaffId}:${draft.id}`,
+  );
+  useEffect(() => {
+    if (!draftReady) return;
+    let alive = true;
+    void draftReady
+      .then((result) => {
+        if (!alive) return;
+        if (!result.message)
+          throw new Error("Could not create Microsoft draft.");
+        provider.current = result.message;
+        const prepared = result.message;
+        // Graph owns Reply-To/Reply-All semantics. Adopt its envelope only in
+        // fields the user has not deliberately changed during preparation.
+        setContent((all) => ({
+          ...all,
+          subject:
+            all.subject === initialEditorContent.current.subject
+              ? prepared.subject
+              : all.subject,
+          to:
+            all.to === initialEditorContent.current.to
+              ? prepared.to.join(", ")
+              : all.to,
+          cc:
+            all.cc === initialEditorContent.current.cc
+              ? prepared.cc.join(", ")
+              : all.cc,
+          bcc:
+            all.bcc === initialEditorContent.current.bcc
+              ? prepared.bcc.join(", ")
+              : all.bcc,
+        }));
+        if (prepared.cc.length) setShowCc(true);
+        if (prepared.bcc.length) setShowBcc(true);
+        const providerRecoveryKey = `email-draft-recovery:${mailbox.currentStaffId}:${result.message.id}`;
+        try {
+          localStorage.setItem(
+            providerRecoveryKey,
+            JSON.stringify(current.current),
+          );
+          localStorage.removeItem(recoveryKey);
+        } catch {
+          /* Recovery is optional; text stays in the mounted editor. */
+        }
+        setRecoveryKey(providerRecoveryKey);
+        version.current = result.message.changeKey ?? "";
+        setMessage(result.message);
+        setPreparing(false);
+        setStatus("Shared draft in Microsoft");
+      })
+      .catch(() => {
+        if (alive) {
+          setPreparing(false);
+          setCreationError(
+            "Could not create the Microsoft draft. Your text is kept here; close only after copying it or retry by reopening Compose.",
+          );
+        }
+      });
+    return () => {
+      alive = false;
+    };
+    // A preparation belongs to this mounted draft; recovery-key promotion must
+    // not re-run its completion and clear the editor's recovery snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady]);
   useEffect(() => {
     editToken.current = crypto.randomUUID();
     try {
@@ -79,6 +189,7 @@ export function EmailComposer({
         .object({
           subject: z.string(),
           bodyText: z.string(),
+          bodyHtml: z.string().optional(),
           to: z.string(),
           cc: z.string(),
           bcc: z.string(),
@@ -88,7 +199,9 @@ export function EmailComposer({
     } catch {
       /* A blocked store does not prevent shared drafts. */
     }
-  }, [recoveryKey]);
+    // Read recovery once for the draft that was opened. Provider-ID promotion is our own write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (!dirty) return;
     try {
@@ -98,7 +211,8 @@ export function EmailComposer({
     }
   }, [content, dirty, recoveryKey]);
   async function save() {
-    if (busy.current || blocked || conflict) return false;
+    if (busy.current || blocked || conflict || preparing || creationError)
+      return false;
     const snapshot = current.current;
     if (
       ![
@@ -116,12 +230,13 @@ export function EmailComposer({
       const result = draftResponseSchema.parse(
         await command.mutateAsync({
           action: "save",
-          id: draft.id,
+          id: provider.current.id,
           editToken: (editToken.current ??= crypto.randomUUID()),
           content: {
             expectedChangeKey: version.current,
             subject: snapshot.subject,
             bodyText: snapshot.bodyText,
+            bodyHtml: snapshot.bodyHtml,
             to: addresses(snapshot.to),
             cc: addresses(snapshot.cc),
             bcc: addresses(snapshot.bcc),
@@ -155,7 +270,6 @@ export function EmailComposer({
           /* Optional recovery store. */
         }
       }
-      if (!unchanged) setSaveRevision((value) => value + 1);
       setStatus("Saved to Microsoft · shared draft");
       return unchanged;
     } catch (error) {
@@ -167,19 +281,37 @@ export function EmailComposer({
       return false;
     } finally {
       busy.current = false;
+      // An edit made while the provider was busy must get its own save,
+      // including when the earlier request failed (e.g. an incomplete address).
+      if (JSON.stringify(snapshot) !== JSON.stringify(current.current))
+        setSaveRevision((value) => value + 1);
     }
   }
   useEffect(() => {
-    if (!dirty || conflict || blocked) return;
+    if (!dirty || conflict || blocked || preparing || creationError) return;
     const timer = setTimeout(() => {
       void save();
     }, 1000);
     return () => clearTimeout(timer);
     // Each text revision schedules a save; the live ref serializes writes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, dirty, conflict, blocked, saveRevision]);
-  async function send() {
-    if (sending || blocked || !addresses(current.current.to).length) return;
+  }, [
+    content,
+    dirty,
+    conflict,
+    blocked,
+    saveRevision,
+    preparing,
+    creationError,
+  ]);
+  async function send(at?: string) {
+    if (
+      sending ||
+      blocked ||
+      Object.values(pendingRecipients).some(Boolean) ||
+      !addresses(current.current.to).length
+    )
+      return;
     setSending(true);
     try {
       if (dirty && !(await save())) return;
@@ -187,22 +319,31 @@ export function EmailComposer({
       setStatus("Submitting to Microsoft…");
       const result = draftResponseSchema.parse(
         await command.mutateAsync({
-          action: "send",
-          id: draft.id,
+          ...(at
+            ? { action: "schedule" as const, scheduledAt: at }
+            : { action: "send" as const }),
+          id: provider.current.id,
           changeKey: version.current,
           commandId: crypto.randomUUID(),
         }),
       );
-      if (result.state === "submitted") {
+      if (result.state === "submitted" || result.state === "scheduled") {
         try {
           localStorage.removeItem(recoveryKey);
         } catch {
           /* Optional recovery store. */
         }
         setDirty(false);
-        setStatus(
-          "Submitted to Microsoft. Sent Items will confirm the result.",
+        toast.success(
+          result.state === "scheduled" ? "Email scheduled" : "Email submitted",
+          {
+            description:
+              result.state === "scheduled"
+                ? new Date(at!).toLocaleString("en-AU")
+                : "Sent Items will confirm delivery in the conversation.",
+          },
         );
+        onClose();
       } else if (result.state === "failed") {
         setBlocked(false);
         setStatus(
@@ -231,68 +372,97 @@ export function EmailComposer({
     setContent((all) => ({ ...all, ...values }));
     setDirty(true);
   }
+  const unavailable =
+    blocked ||
+    sending ||
+    command.isPending ||
+    preparing ||
+    Boolean(creationError);
   const footer = (
     <div className="flex w-full flex-wrap items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <SearchableSelect
-          items={mailbox.templates}
-          value={null}
-          onValueChange={(template) => {
-            if (template)
-              patch({
-                bodyText:
-                  template.body_text + (signature ? `\n\n${signature}` : ""),
-                ...(template.subject ? { subject: template.subject } : {}),
-              });
+      <EmailFormatting editor={richEditor} disabled={blocked || sending} />
+      <div className="ml-auto flex items-center gap-1">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <SearchableSelect
+                  items={mailbox.templates}
+                  value={null}
+                  onValueChange={(template) => {
+                    if (template)
+                      patch({
+                        bodyText: template.body_text,
+                        bodyHtml: `${signatureHtml(template.body_text)}${signature ? `<p><br></p>${signatureHtml(signature)}` : ""}`,
+                        ...(template.subject
+                          ? { subject: template.subject }
+                          : {}),
+                      });
+                  }}
+                  getItemId={(template) => template.id}
+                  getItemLabel={(template) => template.name}
+                  searchPlaceholder="Search email templates…"
+                  footer={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSettingsOpen(true)}
+                    >
+                      Manage templates and signature
+                    </Button>
+                  }
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Insert email template"
+                      disabled={blocked}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Insert email template</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <EmailIconButton
+          label="Attach email file"
+          disabled={unavailable}
+          onClick={async () => {
+            if (dirty && !(await save())) return;
+            upload.current?.click();
           }}
-          getItemId={(template) => template.id}
-          getItemLabel={(template) => template.name}
-          searchPlaceholder="Search email templates…"
-          footer={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSettingsOpen(true)}
-            >
-              Manage templates and signature
-            </Button>
-          }
-          trigger={
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Insert email template"
-              disabled={blocked}
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-          }
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Attach email file"
-          disabled={blocked || dirty || command.isPending}
-          onClick={() => upload.current?.click()}
         >
           <Paperclip className="h-4 w-4" />
-        </Button>
-        <span className="max-w-48 truncate text-xs text-muted-foreground">
-          Altitutor Admin · {mailbox.mailboxAddress}
-        </span>
+        </EmailIconButton>
+        <EmailIconButton
+          label="Schedule send"
+          disabled={
+            unavailable ||
+            !content.bodyText.trim() ||
+            !addresses(content.to).length ||
+            Object.values(pendingRecipients).some(Boolean)
+          }
+          onClick={() => setScheduleOpen(true)}
+        >
+          <Clock className="h-4 w-4" />
+        </EmailIconButton>
+        <EmailIconButton
+          label="Send"
+          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+          disabled={
+            unavailable ||
+            !content.bodyText.trim() ||
+            !addresses(content.to).length ||
+            Object.values(pendingRecipients).some(Boolean)
+          }
+          onClick={() => void send()}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </EmailIconButton>
       </div>
-      <Button
-        disabled={
-          blocked ||
-          sending ||
-          command.isPending ||
-          !content.bodyText.trim() ||
-          !addresses(content.to).length
-        }
-        onClick={() => void send()}
-      >
-        Send
-      </Button>
     </div>
   );
   const editor = (
@@ -327,56 +497,129 @@ export function EmailComposer({
           </Button>
         </div>
       )}
-      <label className="block text-xs">
-        To
-        <Input
-          aria-label="Email recipients"
-          value={content.to}
-          disabled={blocked}
-          onChange={(event) => patch({ to: event.target.value })}
-        />
-      </label>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs">
-          Cc
-          <Input
-            value={content.cc}
+      <div className="space-y-2">
+        <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 text-sm">
+          <span className="text-muted-foreground">From</span>
+          <span className="w-fit rounded-md bg-muted px-2 py-1 text-xs">
+            Altitutor Admin · {mailbox.mailboxAddress}
+          </span>
+        </div>
+        <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-start gap-2 text-sm">
+          <span className="pt-2 text-muted-foreground">To</span>
+          <EmailRecipients
+            label="Email recipients"
+            value={addresses(content.to)}
+            onChange={(value) => patch({ to: value.join(", ") })}
+            onPendingChange={(pending) =>
+              setPendingRecipients((all) =>
+                all.to === pending ? all : { ...all, to: pending },
+              )
+            }
             disabled={blocked}
-            onChange={(event) => patch({ cc: event.target.value })}
+            onNavigate={(next) =>
+              setPendingClose(() => () => {
+                onClose();
+                next();
+              })
+            }
           />
-        </label>
-        <label className="text-xs">
-          Bcc
+          <div className="flex pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setShowCc((value) => !value || pendingRecipients.cc)
+              }
+            >
+              Cc
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setShowBcc((value) => !value || pendingRecipients.bcc)
+              }
+            >
+              Bcc
+            </Button>
+          </div>
+        </div>
+        {showCc && (
+          <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-2 text-sm">
+            <span className="pt-2 text-muted-foreground">Cc</span>
+            <EmailRecipients
+              label="Cc recipients"
+              value={addresses(content.cc)}
+              onChange={(value) => patch({ cc: value.join(", ") })}
+              onPendingChange={(pending) =>
+                setPendingRecipients((all) =>
+                  all.cc === pending ? all : { ...all, cc: pending },
+                )
+              }
+              disabled={blocked}
+              onNavigate={(next) =>
+                setPendingClose(() => () => {
+                  onClose();
+                  next();
+                })
+              }
+            />
+          </div>
+        )}
+        {showBcc && (
+          <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-2 text-sm">
+            <span className="pt-2 text-muted-foreground">Bcc</span>
+            <EmailRecipients
+              label="Bcc recipients"
+              value={addresses(content.bcc)}
+              onChange={(value) => patch({ bcc: value.join(", ") })}
+              onPendingChange={(pending) =>
+                setPendingRecipients((all) =>
+                  all.bcc === pending ? all : { ...all, bcc: pending },
+                )
+              }
+              disabled={blocked}
+              onNavigate={(next) =>
+                setPendingClose(() => () => {
+                  onClose();
+                  next();
+                })
+              }
+            />
+          </div>
+        )}
+        <label className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Subject</span>
           <Input
-            value={content.bcc}
+            aria-label="Email subject"
+            value={content.subject}
             disabled={blocked}
-            onChange={(event) => patch({ bcc: event.target.value })}
+            className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            onChange={(event) => patch({ subject: event.target.value })}
           />
         </label>
       </div>
-      <label className="block text-xs">
-        Subject
-        <Input
-          aria-label="Email subject"
-          value={content.subject}
-          disabled={blocked}
-          onChange={(event) => patch({ subject: event.target.value })}
-        />
-      </label>
-      <Textarea
-        aria-label="Email body"
-        placeholder="Write a reply…"
-        className="min-h-40 resize-y"
-        value={content.bodyText}
-        disabled={blocked}
-        onChange={(event) => patch({ bodyText: event.target.value })}
+      <div
+        className="pt-5"
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
             void send();
           }
         }}
-      />
+      >
+        <EmailBodyEditor
+          html={content.bodyHtml ?? textHtml(content.bodyText)}
+          disabled={blocked}
+          onChange={patch}
+          onEditorReady={setRichEditor}
+        />
+      </div>
+      {creationError && (
+        <p role="alert" className="text-xs text-destructive">
+          {creationError}
+        </p>
+      )}
       <input
         type="file"
         ref={upload}
@@ -394,7 +637,7 @@ export function EmailComposer({
           setStatus("Attaching file…");
           try {
             const body = new FormData();
-            body.set("id", draft.id);
+            body.set("id", provider.current.id);
             body.set("changeKey", version.current);
             body.set("editToken", (editToken.current ??= crypto.randomUUID()));
             body.set("file", file);
@@ -460,6 +703,7 @@ export function EmailComposer({
                 setContent({
                   subject: conflict.subject,
                   bodyText: conflict.bodyText,
+                  bodyHtml: conflict.bodyHtml ?? textHtml(conflict.bodyText),
                   to: conflict.to.join(", "),
                   cc: conflict.cc.join(", "),
                   bcc: conflict.bcc.join(", "),
@@ -479,40 +723,87 @@ export function EmailComposer({
   useEffect(() => {
     if (!inline || !scope) return;
     scope.registerClose((next) => {
-      if (dirty || sending) setPendingClose(() => next ?? scope.close);
-      else (next ?? scope.close)();
+      setPendingClose(() => next ?? scope.close);
     });
     return () => scope.registerClose(null);
   }, [scope, inline, dirty, sending]);
   function close() {
-    if (dirty || sending) setPendingClose(() => onClose);
-    else onClose();
+    setPendingClose(() => onClose);
   }
   const confirmation = (
     <AdminDialogShell
       open={Boolean(pendingClose)}
       onClose={() => setPendingClose(null)}
-      title="Close email editor?"
-      subtitle="The last saved draft stays in Microsoft. Unsaved text remains recoverable in this browser."
+      title="Keep this draft?"
+      subtitle="Save it to continue later in admin-web or Outlook, or move it to Deleted Items."
       footer={
         <>
           <Button variant="outline" onClick={() => setPendingClose(null)}>
             Keep editing
           </Button>
           <Button
-            onClick={() => {
-              const next = pendingClose;
-              setPendingClose(null);
-              next?.();
+            variant="destructive"
+            disabled={sending || preparing || command.isPending || blocked}
+            onClick={async () => {
+              if (creationError) {
+                const next = pendingClose;
+                setPendingClose(null);
+                next?.();
+                return;
+              }
+              try {
+                await command.mutateAsync({
+                  action: "discard",
+                  editToken: (editToken.current ??= crypto.randomUUID()),
+                  id: provider.current.id,
+                  changeKey: version.current,
+                });
+                localStorage.removeItem(recoveryKey);
+                const next = pendingClose;
+                setPendingClose(null);
+                next?.();
+              } catch {
+                setStatus("Could not delete draft; it remains here.");
+              }
             }}
           >
-            Close editor
+            {creationError ? "Close without saving" : "Delete draft"}
+          </Button>
+          <Button
+            disabled={
+              sending ||
+              preparing ||
+              command.isPending ||
+              Boolean(creationError) ||
+              Object.values(pendingRecipients).some(Boolean)
+            }
+            onClick={async () => {
+              if (!blocked && dirty && !(await save())) return;
+              try {
+                if (
+                  editToken.current &&
+                  !provider.current.id.startsWith("local:")
+                )
+                  await command.mutateAsync({
+                    action: "releaseDraft",
+                    id: provider.current.id,
+                    editToken: editToken.current,
+                  });
+                const next = pendingClose;
+                setPendingClose(null);
+                next?.();
+              } catch {
+                setStatus("Could not close the shared editor; please retry.");
+              }
+            }}
+          >
+            {blocked ? "Keep draft and close" : "Save draft"}
           </Button>
         </>
       }
     >
       <p className="text-sm text-muted-foreground">
-        You can recover unsaved text when reopening this draft in this browser.
+        Your draft is shared with the other administrators.
       </p>
     </AdminDialogShell>
   );
@@ -520,14 +811,14 @@ export function EmailComposer({
     <>
       {inline ? (
         <section
-          className="space-y-3 border-t p-3"
+          className="m-4 space-y-4 rounded-2xl bg-muted/35 p-5"
           aria-label="Shared email draft"
         >
           {editor}
           <div className="border-t pt-2">{footer}</div>
-          <Button variant="ghost" size="sm" onClick={close}>
-            Close editor
-          </Button>
+          <EmailIconButton label="Close editor" onClick={close}>
+            <X className="h-4 w-4" />
+          </EmailIconButton>
         </section>
       ) : (
         <AdminDialogShell
@@ -542,6 +833,37 @@ export function EmailComposer({
         </AdminDialogShell>
       )}
       {confirmation}
+      <AdminDialogShell
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        title="Schedule email"
+        subtitle="Your local time. The server sends the saved version, even after you close the browser. Editing it in Outlook will pause delivery for review."
+        footer={
+          <Button
+            disabled={
+              unavailable ||
+              !scheduledAt ||
+              new Date(scheduledAt).getTime() <= Date.now()
+            }
+            onClick={() => {
+              setScheduleOpen(false);
+              void send(new Date(scheduledAt).toISOString());
+            }}
+          >
+            Schedule send
+          </Button>
+        }
+      >
+        <label className="space-y-2 text-sm">
+          Send at
+          <Input
+            type="datetime-local"
+            aria-label="Scheduled send time"
+            value={scheduledAt}
+            onChange={(event) => setScheduledAt(event.target.value)}
+          />
+        </label>
+      </AdminDialogShell>
       {settingsOpen && (
         <EmailSettingsDialog
           mailbox={mailbox}

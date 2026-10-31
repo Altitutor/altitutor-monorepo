@@ -116,7 +116,22 @@ function normalize(message: z.infer<typeof graphMessage>, folderId: string) {
     read: message.isRead,
     draft: message.isDraft,
     subject: message.subject,
-    bodyText: message.body?.content,
+    bodyText:
+      message.body?.contentType?.toLowerCase() === "html"
+        ? message.body.content
+            .replace(/<br\s*\/?\s*>|<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&lt;/gi, "<")
+            .replace(/&gt;/gi, ">")
+            .replace(/&amp;/gi, "&")
+            .trim()
+        : message.body?.content,
+    bodyHtml: message.body
+      ? message.body.contentType?.toLowerCase() === "html"
+        ? message.body.content
+        : null
+      : undefined,
     sender: message.from?.emailAddress.address.toLowerCase(),
     senderName: message.from?.emailAddress.name,
     to: message.toRecipients?.map((item) =>
@@ -193,7 +208,7 @@ export function createGraphMailbox({
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
           Prefer:
-            'IdType="ImmutableId", outlook.body-content-type="text", odata.maxpagesize=100',
+            'IdType="ImmutableId", outlook.body-content-type="html", odata.maxpagesize=100',
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: AbortSignal.timeout(15_000),
@@ -428,6 +443,7 @@ export function createGraphMailbox({
       input: {
         expectedChangeKey: string;
         bodyText: string;
+        bodyHtml?: string;
         subject: string;
         to: string[];
         cc?: string[];
@@ -447,7 +463,10 @@ export function createGraphMailbox({
         addresses.map((address) => ({ emailAddress: { address } }));
       const response = await request(path, "PATCH", {
         subject: input.subject,
-        body: { contentType: "Text", content: input.bodyText },
+        body: {
+          contentType: input.bodyHtml ? "HTML" : "Text",
+          content: input.bodyHtml ?? input.bodyText,
+        },
         toRecipients: recipients(input.to),
         ...(input.cc ? { ccRecipients: recipients(input.cc) } : {}),
         ...(input.bcc ? { bccRecipients: recipients(input.bcc) } : {}),

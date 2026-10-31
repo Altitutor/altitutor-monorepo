@@ -4,6 +4,7 @@ import { getMailboxPolicy } from "./config";
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { dispatchScheduledMail } from "./scheduled";
 import { reconcileOperationalMail } from "./reconcile-operational";
 import { connectMailbox } from "./connection";
 import { GraphMailboxError, type createGraphMailbox } from "./graph";
@@ -13,6 +14,7 @@ export async function syncMailbox(
   db: SupabaseClient<Database>,
   connector?: ReturnType<typeof createGraphMailbox>,
 ) {
+  const started = Date.now();
   await ensureMailboxIdentity(db, connector?.policy ?? getMailboxPolicy());
   const token = randomUUID();
   const claimed = await db.rpc("email_claim_sync", { p_token: token });
@@ -20,7 +22,17 @@ export async function syncMailbox(
   if (!claimed.data)
     return { pages: 0, imported: 0, folders: 0, more: true, busy: true };
   try {
-    return await synchronize(db, connector);
+    const mailbox = connector ?? (await connectMailbox());
+    // One due send and the normal two-request delta workers can make progress
+    // together (at most three background Graph requests). A send backlog must
+    // not starve Outlook reconciliation or reserve jobs we cannot start.
+    const [scheduled, synced] = await Promise.allSettled([
+      dispatchScheduledMail(db, mailbox),
+      synchronize(db, mailbox, started),
+    ]);
+    if (scheduled.status === "rejected") throw scheduled.reason;
+    if (synced.status === "rejected") throw synced.reason;
+    return { ...synced.value, scheduled: scheduled.value };
   } finally {
     const released = await db.rpc("email_release_sync", { p_token: token });
     if (released.error) throw released.error;
@@ -29,10 +41,9 @@ export async function syncMailbox(
 
 async function synchronize(
   db: SupabaseClient<Database>,
-  connector?: ReturnType<typeof createGraphMailbox>,
+  mailbox: ReturnType<typeof createGraphMailbox>,
+  started: number,
 ) {
-  const started = Date.now();
-  const mailbox = connector ?? (await connectMailbox());
   await reconcileOperationalMail(db, mailbox);
   const folders = await mailbox.folders();
   // Outlook allows four concurrent requests per app/mailbox. Use two sync
