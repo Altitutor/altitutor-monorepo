@@ -6,6 +6,7 @@
     "pnpm-workspace.yaml",
     "package.json",
     "turbo.json",
+    "tsconfig.json",
     "eslint.configs.mjs"
   ],
   "globalPassThroughEnv": [

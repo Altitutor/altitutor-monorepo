@@ -323,7 +323,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                     return sum + (settlement > 0 ? settlement : note.amount_cents);
                   }, 0);
                 const invoiceTotalCents =
-                  (invoice.total_cents ?? invoice.amount_due_cents ?? null) ?? 0;
+                  invoice.total_cents ?? invoice.amount_due_cents ?? 0;
                 const isRefunded = invoice.is_refunded;
                 const isFullyCredited =
                   totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;

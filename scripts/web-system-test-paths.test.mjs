@@ -85,3 +85,17 @@ test("docs and native-only changes do not start web system tests", () => {
     },
   );
 });
+
+test("shared compiler configuration selects every web app", () => {
+  assert.deepEqual(decideWebSystemTests(["tsconfig.json"]), {
+    run: true,
+    database: false,
+    apps: {
+      admin: true,
+      marketing: true,
+      student: true,
+      tutor: true,
+      ucat: true,
+    },
+  });
+});
