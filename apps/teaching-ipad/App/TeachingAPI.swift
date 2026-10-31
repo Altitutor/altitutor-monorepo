@@ -36,7 +36,8 @@ struct LibraryTopic: Decodable, Identifiable {
     let subjectID: UUID
     let subjectName: String
 }
-struct ResourcePage: Decodable { let resources: [TeachingResource]; let topics: [LibraryTopic]; let nextOffset: Int? }
+struct LibrarySubject: Decodable, Identifiable { let id: UUID; let name: String }
+struct ResourcePage: Decodable { let subjects: [LibrarySubject]; let resources: [TeachingResource]; let topics: [LibraryTopic]; let nextOffset: Int? }
 struct DownloadLink: Decodable { let url: URL; let external: Bool }
 struct APIError: LocalizedError {
     let status: Int

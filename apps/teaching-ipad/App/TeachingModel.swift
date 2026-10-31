@@ -2,6 +2,8 @@ import SwiftUI
 import TeachingCore
 import PDFKit
 
+enum TeachingRoute: Hashable { case lesson(UUID), document }
+
 @MainActor final class TeachingModel: ObservableObject {
     let api = TeachingAPI()
     @Published var profile: TutorProfile?
@@ -10,6 +12,7 @@ import PDFKit
     @Published var selectedSessionID: UUID?
     @Published var lesson: LessonRecord?
     @Published var activeResourceID: UUID?
+    @Published var route: [TeachingRoute] = []
     @Published var viewer = false
     @Published var solutions = false
     @Published var fingerDrawing = false
@@ -17,6 +20,12 @@ import PDFKit
     @Published var offline = false
     @Published var error: String?
     @Published var catalog: [TeachingResource] = []
+    @Published var librarySubjects: [LibrarySubject] = []
+    @Published var librarySubjectID: UUID?
+    @Published var resourceCodes: [UUID: String] = [:]
+    @Published var printNotice: String?
+    private var printTasks: [UUID: Task<Void, Never>] = [:]
+    private var libraryRequest = UUID()
     @Published var libraryTopics: [LibraryTopic] = []
     @Published var nextOffset: Int?
     @Published var libraryBusy = false
@@ -54,6 +63,8 @@ import PDFKit
     func signOut() {
         do {
             try api.signOut(); epoch += 1
+            for task in printTasks.values { task.cancel() }; printTasks = [:]
+            route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
             activeResourceID = nil; store = nil; suggestions = []; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; offline = false
         } catch { self.error = error.localizedDescription }
@@ -90,7 +101,9 @@ import PDFKit
             guard let store else { return }
             selectedSessionID = session.id; lesson = try store.lesson(sessionID: session.id)
             activeResourceID = lesson?.resources.first?.id; viewer = false; solutions = false; suggestions = []
+            librarySubjectID = session.subjectID; route = [.lesson(session.id)]
             showLessonInformation(); allowActiveWorksheet()
+            Task { await refreshResourceCodes() }
         } catch { report(error) }
     }
     func showLessonInformation() {
@@ -98,26 +111,61 @@ import PDFKit
         guard let session, let profile else { ClassroomState.shared.clear(); return }
         ClassroomState.shared.showLesson(title: session.classroomTitle, time: "\(Self.time(session.startAt))–\(Self.time(session.endAt))", room: session.room ?? "", tutor: profile.name)
     }
-    func leaveLesson() { selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
+    func leaveLesson() { route = []; selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
     func allowActiveWorksheet() {
         if viewer, let item = activeResource, item.resource.worksheet.isPDF, item.resource.worksheet.externalURL == nil {
             ClassroomState.shared.allowWorksheet(item.worksheet.id)
         }
     }
-    func open(_ item: LessonResource) { activeResourceID = item.id; viewer = true; showLessonInformation(); allowActiveWorksheet() }
-    func showBoard() { viewer = false; showLessonInformation() }
-    func search(_ text: String, allSubjects: Bool, more: Bool = false) async {
+    func open(_ item: LessonResource) {
+        activeResourceID = item.id; viewer = true
+        if !route.contains(.document) { route.append(.document) }
+        showLessonInformation(); allowActiveWorksheet()
+    }
+    func showBoard() { route.removeAll { $0 == .document }; viewer = false; showLessonInformation() }
+    func navigationChanged() {
+        viewer = route.contains(.document); showLessonInformation(); allowActiveWorksheet()
+    }
+    func title(_ document: TeachingDocument) -> String {
+        [document.code ?? resourceCodes[document.id], document.title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    func refreshResourceCodes() async {
+        guard !offline else { return }
+        let ids = lesson?.resources.filter { $0.resource.worksheet.code == nil && resourceCodes[$0.resource.worksheet.id] == nil }.map { $0.resource.id } ?? []
+        let version = epoch, sessionID = selectedSessionID
+        for start in stride(from: 0, to: ids.count, by: 50) {
+            do {
+                let page: ResourcePage = try await api.request("resources", query: [.init(name: "resourceIDs", value: ids[start..<min(start + 50, ids.count)].map(\.uuidString).joined(separator: ","))])
+                guard epoch == version, selectedSessionID == sessionID else { return }
+                rememberCodes(page.resources)
+            } catch {
+                // Label backfill is optional; cached teaching remains available offline.
+                if let failure = error as? APIError, failure.status == 401, epoch == version { report(error) }
+                return
+            }
+        }
+    }
+    private func rememberCodes(_ resources: [TeachingResource]) {
+        for resource in resources {
+            resourceCodes[resource.worksheet.id] = resource.worksheet.code
+            if let answer = resource.solutions { resourceCodes[answer.id] = answer.code }
+        }
+    }
+    func search(_ text: String, more: Bool = false) async {
         guard let session else { return }
-        let version = epoch, sessionID = session.id
+        let version = epoch, sessionID = session.id, subjectID = librarySubjectID, requestID = UUID()
+        libraryRequest = requestID
         let offset = more ? nextOffset ?? 0 : 0
         if !more { catalog = [] }
-        libraryBusy = true; defer { if version == epoch { libraryBusy = false } }
+        libraryBusy = true; defer { if version == epoch, libraryRequest == requestID { libraryBusy = false } }
         do {
             var query = [URLQueryItem(name: "query", value: text), .init(name: "offset", value: String(offset))]
-            if !allSubjects, let subject = session.subjectID { query.append(.init(name: "subjectID", value: subject.uuidString)) }
+            if let subjectID { query.append(.init(name: "subjectID", value: subjectID.uuidString)) }
             let page: ResourcePage = try await api.request("resources", query: query)
             try Task.checkCancellation()
-            guard version == epoch, selectedSessionID == sessionID else { return }
+            guard version == epoch, selectedSessionID == sessionID, librarySubjectID == subjectID, libraryRequest == requestID else { return }
+            librarySubjects = page.subjects; rememberCodes(page.resources)
+            if librarySubjectID == nil, let first = page.subjects.first { librarySubjectID = first.id; return }
             catalog = more ? catalog + page.resources : page.resources; libraryTopics = page.topics; nextOffset = page.nextOffset
         } catch { if !Task.isCancelled { report(error) } }
     }
@@ -225,6 +273,32 @@ import PDFKit
             if result.success { await loadSessions(); return true }
             return false
         } catch { report(error); return false }
+    }
+    func watchPrint(_ job: OfficePrintJob) {
+        printNotice = "Queued for office printer: \(job.filename) · \(job.copies) \(job.copies == 1 ? "copy" : "copies")."
+        let version = epoch
+        printTasks[job.id] = Task { [weak self] in
+            guard let self else { return }
+            defer { printTasks[job.id] = nil }
+            for _ in 0..<60 {
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                    let current: OfficePrintJob = try await api.request("prints/" + job.id.uuidString)
+                    guard epoch == version else { return }
+                    switch current.status {
+                    case "queued", "claimed": continue
+                    case "succeeded": printNotice = "Sent to office printer: \(current.filename) · \(current.copies) \(current.copies == 1 ? "copy" : "copies")."
+                    case "ambiguous": printNotice = "Print may have started. Check the tray before retrying."
+                    default: printNotice = current.error ?? "Couldn’t send to the office printer."
+                    }
+                    return
+                } catch {
+                    guard !Task.isCancelled, epoch == version else { return }
+                    printNotice = "Print status unknown. Check the printer tray before retrying."; return
+                }
+            }
+            if epoch == version { printNotice = "Print status unknown. Check the printer tray before retrying." }
+        }
     }
     func finishSharing() {
         if let url = sharedURL, url.isFileURL, url.deletingLastPathComponent().deletingLastPathComponent() == AnnotatedPDF.exportsDirectory {

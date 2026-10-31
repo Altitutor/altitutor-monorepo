@@ -1,9 +1,12 @@
 import SwiftUI
 import PDFKit
 import TeachingCore
+import UniformTypeIdentifiers
 
 struct LessonBoard: View {
     @ObservedObject var model: TeachingModel
+    @State private var dragging: UUID?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 210, maximum: 260), spacing: 20)], spacing: 20) {
@@ -16,34 +19,52 @@ struct LessonBoard: View {
                         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 20))
                     }.buttonStyle(.plain)
                         .contextMenu { LessonResourceActions(model: model, item: item) }
-                        .draggable(item.id.uuidString)
-                        .dropDestination(for: String.self) { values, _ in
-                            guard let id = values.first.flatMap(UUID.init(uuidString:)),
-                                  let source = model.lesson?.resources.first(where: { $0.id == id }) else { return false }
-                            withAnimation { model.move(source, to: item.id) }; return true
+                        .onDrag {
+                            dragging = item.id
+                            let provider = NSItemProvider()
+                            provider.registerDataRepresentation(forTypeIdentifier: LessonReorder.type.identifier, visibility: .ownProcess) { completion in
+                                completion(Data(item.id.uuidString.utf8), nil); return nil
+                            }
+                            return provider
                         }
+                        .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: item.id, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+                        .accessibilityAction(named: "Move before previous file") { model.move(item, by: -1) }
+                        .accessibilityAction(named: "Move after next file") { model.move(item, by: 1) }
                 }
             }.padding(28)
             if model.lesson?.resources.isEmpty != false {
                 ContentUnavailableView("No lesson files", systemImage: "doc.badge.plus")
             }
         }.background(TeachingColors.background)
+            .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+            .onDisappear { dragging = nil }
     }
+}
+
+private struct LessonReorder: DropDelegate {
+    static let type = UTType(exportedAs: "com.altitutor.lesson-resource")
+    @ObservedObject var model: TeachingModel
+    let target: UUID?
+    let animation: Animation
+    @Binding var dragging: UUID?
+    func validateDrop(info: DropInfo) -> Bool { dragging != nil && info.hasItemsConforming(to: [Self.type]) }
+    func dropEntered(info: DropInfo) {
+        guard let target, let dragging, dragging != target, let item = model.lesson?.resources.first(where: { $0.id == dragging }) else { return }
+        withAnimation(animation) { model.move(item, to: target) }
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+    func performDrop(info: DropInfo) -> Bool { dragging = nil; return true }
 }
 
 struct LessonResourceActions: View {
     @ObservedObject var model: TeachingModel
     let item: LessonResource
-    private var index: Int { model.lesson?.resources.firstIndex(where: { $0.id == item.id }) ?? 0 }
     var body: some View {
         Button("Share worksheet", systemImage: "square.and.arrow.up") { model.share(item.worksheet) }
         if let solutions = item.solutions {
             Button("Share solutions", systemImage: "square.and.arrow.up") { model.share(solutions) }
         }
         Button("Download fresh copy", systemImage: "arrow.down.doc") { Task { await model.add(item.resource, freshCopy: true) } }.disabled(model.offline || model.busy)
-        Divider()
-        Button("Move earlier", systemImage: "arrow.left") { withAnimation { model.move(item, by: -1) } }.disabled(index == 0)
-        Button("Move later", systemImage: "arrow.right") { withAnimation { model.move(item, by: 1) } }.disabled(index + 1 >= (model.lesson?.resources.count ?? 0))
         Divider()
         Button("Remove from lesson", systemImage: "trash", role: .destructive) { model.remove(item) }
     }

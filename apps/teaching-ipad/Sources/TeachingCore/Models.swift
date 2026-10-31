@@ -3,11 +3,13 @@ import Foundation
 public struct TeachingDocument: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public let title: String
+    public let code: String?
     public let mimeType: String
     public let externalURL: URL?
-    public init(id: UUID, title: String, mimeType: String, externalURL: URL?) {
-        self.id = id; self.title = title; self.mimeType = mimeType; self.externalURL = externalURL
+    public init(id: UUID, title: String, mimeType: String, externalURL: URL?, code: String? = nil) {
+        self.id = id; self.title = title; self.code = code; self.mimeType = mimeType; self.externalURL = externalURL
     }
+    public var displayTitle: String { [code, title].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ") }
     public var isPDF: Bool { mimeType == "application/pdf" || title.lowercased().hasSuffix(".pdf") }
 }
 

@@ -8,22 +8,31 @@ an Xcode build setting; Debug also accepts the process environment override.
 
 ## Workspace
 
-The lesson board is the navigation root. Tap a thumbnail card to open the file
+The timetable pushes a lesson board with native back navigation. Tap a thumbnail
+card to open the file
 workspace, switch files with Liquid Glass tabs, and use the top-left back button
 to return to the board. Cards have a uniform size and can be dragged into a new
-order. Long-press a card or tab for the same share, fresh-copy, move and remove
-actions. Removing a resource archives its pinned files and ink locally; re-adding
-restores that original copy and removes it from the log draft while absent.
+order. Dragging uses a local move operation and updates neighboring positions
+as the dragged card enters them. Long-press a card or tab for the same share,
+fresh-copy and remove actions. VoiceOver also exposes ordering actions. Removing
+a resource archives its pinned files and ink locally and excludes it from the
+log draft; re-adding restores the original copy.
 
-Show/Hide solutions floats over the document and slides the solutions pane in
-and out. Drag the divider to resize the two panes; ink and viewports remain
+Show/Hide solutions stays fixed in the file-tab row while tabs scroll beneath
+it and slides the solutions pane in and out. Tabs and library files show file
+codes before filenames; selected glass tabs use semantic text contrast. Drag
+the divider to resize the two panes; ink and viewports remain
 independent. Native PDF scrolling and pinch zoom replace the former toolbar.
 
 The detached Resources control toggles a floating rounded drawer on the right.
 Swipe it right or tap outside to dismiss. Expand subject topic folders and tap a
 file for a separate preview sheet with Close and **Add to lesson** actions. Only
 adding inserts a file into the lesson and log suggestions; preview downloads
-stay in memory. Suggested files appear first: unused files from the active topic,
+stay in memory. A native search bar matches codes and filenames and presents
+flat relevance-ranked results. Exact codes rank first, then exact names,
+prefixes and substring/token matches; ranking precedes 50-result pagination.
+The header subject menu lists the caller’s accessible subjects. Suggested files
+appear first: unused files from the active topic,
 with the next file in the same type/sequence prioritized. An empty lesson uses
 the latest earlier logged lesson assigned to this tutor with the same subject
 and student group (within the 100 most recent earlier sessions). Panel motion
@@ -50,7 +59,8 @@ Connect an external display through AirPlay or a cable. The external scene
 receives only the active worksheet page, visible region, rotation and ink.
 Solutions never enter its model. The lesson board and log review show safe
 lesson information: subject/session kind, time, room and tutor. Resource previews
-also keep this lesson information on the external scene. Screen mirroring by unrelated tools is
+also keep this lesson information on the external scene. Screen mirroring by
+unrelated tools is
 outside this external-scene presentation flow.
 
 Previously downloaded PDFs and local drafts work after a connection drops.
@@ -58,6 +68,14 @@ Search, new downloads, adding Homework Help drop-ins and log submission require
 a connection. Submission validates the current assigned roster and accessible
 resources on the server and uses TutorWeb's existing submitter/permission rules.
 Saved logs are read-only; corrections remain an administrator workflow.
+
+The document toolbar groups Share and Review log, with Print to office beside
+them. Sharing exports the annotated worksheet; solution sharing remains a
+separate menu action. Print to office sends the original server resource through
+TutorWeb’s existing enqueue RPC, with 1–20 copies, black-and-white A4 duplex and
+a top-left staple. Connector health, office access/window, duplicate protection
+and caller-private status are enforced by the existing server contracts. The app
+polls status for up to two minutes and warns before retrying an ambiguous job.
 
 ## Verification
 
@@ -77,6 +95,10 @@ Saved logs are read-only; corrections remain an administrator workflow.
   signed downloads, Swift UUID casing, drop-ins and log validation. It installs
   the repository's existing tutor storage SELECT contract locally because CLI
   storage starts after migrations and lacks dashboard-managed storage policies.
+  `Verification/library-print-api.mjs` reuses a proven synthetic fixture to check
+  code search/relevance, caller subject access and print policy/queue/status.
+  Its fake connector exists only in the disposable stack; settings are restored
+  and its synthetic job cancelled. It never talks to the real office printer.
   It writes temporary preview credentials to a mode-0600 file, never stdout.
   Stop the owned runtime to dispose of all fixture data. It rejects remote targets.
 

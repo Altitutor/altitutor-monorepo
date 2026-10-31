@@ -46,12 +46,12 @@ const quadratics = await folder('Quadratics', algebra, 1);
 const completing = await folder('Completing the square', quadratics, 1);
 const functions = await folder('Functions and graphs', null, 3);
 await folder('Revision planning', null, 4);
-async function file(topic, title, solutionOf = null) {
+async function file(topic, title, solutionOf = null, resourceSubject = subject) {
   const existing = checked(await admin.from('topics_files').select('id,files!inner(filename)').eq('topic_id', topic).eq('files.filename', title).maybeSingle());
   if (existing) return existing.id;
   const previous = checked(await admin.from('topics_files').select('index').eq('topic_id', topic).eq('type', 'PRACTICE_QUESTIONS').eq('is_solutions', Boolean(solutionOf)).order('index', { ascending: false }).limit(1));
   const index = (previous[0]?.index ?? 0) + 1;
-  const id = randomUUID(), fileID = randomUUID(), key = subject + '/' + topic + '/' + fileID + '.pdf';
+  const id = randomUUID(), fileID = randomUUID(), key = resourceSubject + '/' + topic + '/' + fileID + '.pdf';
   const bytes = fs.readFileSync('/private/tmp/' + (solutionOf ? 'solutions.pdf' : 'worksheet.pdf'));
   checked(await admin.storage.from('resources').upload(key, bytes, { contentType: 'application/pdf' }));
   checked(await admin.from('files').insert({ id: fileID, filename: title, mimetype: 'application/pdf', size_bytes: bytes.length, bucket: 'resources', storage_path: key, storage_provider: 'supabase', created_by: actor.id }));
@@ -62,4 +62,16 @@ for (const [topic, title] of [[originalTopic.id, 'Differentiation extension.pdf'
   const id = await file(topic, title);
   await file(topic, title.replace('.pdf', ' — solutions.pdf'), id);
 }
-console.log(JSON.stringify({ project: proof.project_id, expandedFolders: 7, addedWorksheets: 6, pairedSolutions: true, syntheticOnly: true }));
+// A second accessible subject makes the native subject picker reviewable.
+const scienceRows = checked(await admin.from('staff_subjects').select('subject_id,subjects!inner(name)').eq('staff_id', actor.id).eq('subjects.name','Science preview'));
+let science = scienceRows[0]?.subject_id;
+if (!science) {
+  science = randomUUID();
+  checked(await admin.from('subjects').insert({id:science,name:'Science preview',short_name:'PREVSCI-'+actor.id.slice(0,8),year_level:12}));
+  checked(await admin.from('staff_subjects').insert({staff_id:actor.id,subject_id:science}));
+}
+let physics = checked(await admin.from('topics').select('id').eq('subject_id',science).eq('name','Motion').maybeSingle())?.id;
+if (!physics) { physics=randomUUID(); checked(await admin.from('topics').insert({id:physics,subject_id:science,name:'Motion',index:1})); }
+const motion = await file(physics,'Motion practice.pdf',null,science);
+await file(physics,'Motion practice — solutions.pdf',motion,science);
+console.log(JSON.stringify({ project: proof.project_id, expandedFolders: 8, addedWorksheets: 7, subjects:2, pairedSolutions: true, syntheticOnly: true }));

@@ -33,7 +33,7 @@ struct ResourceDrawer: View {
                             })
             }.animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: isPresented)
                 .clipped().allowsHitTesting(isPresented)
-        }
+        }.ignoresSafeArea(.container, edges: .bottom)
     }
     private func dismiss() {
         withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { isPresented = false; dragOffset = 0 }
@@ -45,50 +45,61 @@ struct ResourceLibrary: View {
     let isPresented: Bool
     let preview: (TeachingResource) -> Void
     @State private var query = ""
-    @State private var allSubjects = false
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(alignment: .top) {
                 Text("Resource library").font(.title3.bold())
+                Spacer()
+                Menu {
+                    Picker("Subject", selection: $model.librarySubjectID) {
+                        ForEach(model.librarySubjects) { subject in Text(subject.name).tag(Optional(subject.id)) }
+                    }
+                } label: {
+                    Label(model.librarySubjects.first { $0.id == model.librarySubjectID }?.name ?? "Subject", systemImage: "chevron.down")
+                        .font(.subheadline.weight(.semibold)).lineLimit(2)
+                }.accessibilityLabel("Choose library subject")
             }.padding(20)
             Divider()
-                VStack(alignment: .leading, spacing: 14) {
-                    TextField("Search file names", text: $query).textFieldStyle(.roundedBorder).accessibilityIdentifier("resource-search")
-                    if model.session?.subjectID != nil { Toggle("Search all subjects", isOn: $allSubjects).font(.subheadline) }
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
+                LibrarySearchBar(text: $query).frame(height: 48).glassEffect(.regular, in: .capsule)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            ForEach(model.catalog) { resource in LibraryFile(model: model, resource: resource, preview: preview) }
+                            if model.catalog.isEmpty && !model.libraryBusy { Text("No matching resources.").foregroundStyle(.secondary) }
+                        } else {
                             if !suggested.isEmpty {
                                 Text("Suggested").font(.headline)
-                                ForEach(suggested) { resource in
-                                    LibraryFile(model: model, resource: resource, preview: preview)
-                                }
+                                ForEach(suggested) { resource in LibraryFile(model: model, resource: resource, preview: preview) }
                                 Divider().padding(.vertical, 8)
                             }
                             ForEach(subjectIDs, id: \.self) { subject in
-                                Text(model.libraryTopics.first { $0.subjectID == subject }?.subjectName ?? "Subject").font(.headline).padding(.top, 6)
                                 ForEach(nodes(subject: subject, parent: nil, ancestors: [])) { node in
-                                    TopicFolder(node: node, model: model, preview: preview, loadMore: { Task { await model.search(query, allSubjects: allSubjects, more: true) } })
+                                    TopicFolder(node: node, model: model, preview: preview, loadMore: { Task { await model.search(query, more: true) } })
                                 }
                             }
+                        }
                             if model.libraryBusy { ProgressView().frame(maxWidth: .infinity) }
-                            if model.libraryTopics.isEmpty && !model.libraryBusy { Text("No accessible topics.").foregroundStyle(.secondary) }
+                            if query.isEmpty && model.libraryTopics.isEmpty && !model.libraryBusy { Text("No accessible topics.").foregroundStyle(.secondary) }
                             if model.nextOffset != nil {
-                                Button("Load more files") { Task { await model.search(query, allSubjects: allSubjects, more: true) } }.disabled(model.libraryBusy)
+                                Button("Load more files") { Task { await model.search(query, more: true) } }.disabled(model.libraryBusy)
                             }
                         }.padding(.bottom, 20)
                     }
                 }.padding(20)
         }
         .task(id: String(isPresented) + suggestionKey) { if isPresented { await model.loadSuggestions() } }
-        .task(id: String(isPresented) + query + String(allSubjects)) {
+        .onChange(of: query) { _, _ in model.catalog = []; model.nextOffset = nil }
+        .onChange(of: model.librarySubjectID) { _, _ in model.catalog = []; model.libraryTopics = []; model.nextOffset = nil }
+        .task(id: String(isPresented) + query + (model.librarySubjectID?.uuidString ?? "")) {
             guard isPresented else { return }
-            do { try await Task.sleep(for: .milliseconds(250)); await model.search(query, allSubjects: allSubjects) } catch {}
+            do { try await Task.sleep(for: .milliseconds(250)); await model.search(query) } catch {}
         }
     }
 
     private var suggested: [TeachingResource] {
-        model.suggestions.filter { candidate in model.lesson?.resources.contains { $0.resource.id == candidate.id } != true }
+        model.suggestions.filter { candidate in candidate.subjectID == model.librarySubjectID && model.lesson?.resources.contains { $0.resource.id == candidate.id } != true }
     }
     private var suggestionKey: String {
         (model.lesson?.resources.map { $0.resource.id.uuidString }.joined(separator: ",") ?? "") + (model.activeResourceID?.uuidString ?? "")
@@ -112,6 +123,29 @@ struct ResourceLibrary: View {
             if !query.isEmpty && files.isEmpty && children.isEmpty { return nil }
             return LibraryTopicNode(id: topic.id, name: topic.name, children: children, resources: files)
         }
+    }
+}
+
+private struct LibrarySearchBar: UIViewRepresentable {
+    @Binding var text: String
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeUIView(context: Context) -> UISearchBar {
+        let bar = UISearchBar()
+        bar.searchBarStyle = .minimal; bar.placeholder = "Search code or filename"
+        bar.autocapitalizationType = .none; bar.autocorrectionType = .no
+        bar.searchTextField.accessibilityIdentifier = "resource-search"
+        bar.delegate = context.coordinator
+        return bar
+    }
+    func updateUIView(_ bar: UISearchBar, context: Context) {
+        context.coordinator.parent = self
+        if bar.text != text { bar.text = text }
+    }
+    @MainActor final class Coordinator: NSObject, UISearchBarDelegate {
+        var parent: LibrarySearchBar
+        init(_ parent: LibrarySearchBar) { self.parent = parent }
+        func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) { parent.text = searchText }
+        func searchBarSearchButtonClicked(_ searchBar: UISearchBar) { searchBar.resignFirstResponder() }
     }
 }
 
@@ -156,10 +190,13 @@ private struct LibraryFile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button { preview(resource) } label: {
-                Label(resource.worksheet.title, systemImage: "doc.richtext").font(.subheadline.weight(.medium))
+                Label(resource.worksheet.displayTitle, systemImage: "doc.richtext").font(.subheadline.weight(.medium))
                     .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityHint("Preview without adding to this lesson")
-            AddToLessonButton(model: model, resource: resource)
+            HStack {
+                Button("Preview", systemImage: "eye") { preview(resource) }.buttonStyle(.bordered)
+                AddToLessonButton(model: model, resource: resource)
+            }
         }.padding(12).background(.background, in: RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -193,7 +230,7 @@ struct LibraryPreview: View {
                 } else if loading { ProgressView("Loading preview…").frame(maxWidth: .infinity, maxHeight: .infinity) }
                 else { ContentUnavailableView(failure ?? "Preview unavailable", systemImage: "doc") }
             }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-            .navigationTitle(resource.worksheet.title).navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(resource.worksheet.displayTitle).navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close", action: close) }
                 ToolbarItem(placement: .confirmationAction) {

@@ -49,7 +49,7 @@ export async function teachingSessions(client: Client, day: string) {
 function document(row: FileRow) {
   if (!row.id) throw new TeachingError(503, 'A resource is unavailable.');
   const external = row.external_url && /^https?:\/\//i.test(row.external_url) ? row.external_url : null;
-  return { id: row.id, title: row.filename || row.code || 'Resource', mimeType: row.mimetype || 'application/octet-stream', externalURL: external };
+  return { id: row.id, code: row.code, title: row.filename || row.code || 'Resource', mimeType: row.mimetype || 'application/octet-stream', externalURL: external };
 }
 
 export async function teachingResources(client: Client, params: URLSearchParams) {
@@ -65,6 +65,8 @@ export async function teachingResources(client: Client, params: URLSearchParams)
     allRows((start, end) => client.from('vtutor_subjects').select('id,name').order('id').range(start, end)),
     allRows((start, end) => client.from('vtutor_topics').select('id,name,subject_id,parent_id,index').order('id').range(start, end)),
   ]);
+  const librarySubjects = subjects.flatMap(subject => subject.id ? [{ id: subject.id, name: subject.name ?? 'Subject' }] : [])
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   const scopedTopics = topics.filter(t => t.id && (!subjectID || t.subject_id === subjectID));
   const libraryTopics = scopedTopics.flatMap(topic => {
     const subject = subjects.find(s => s.id === topic.subject_id);
@@ -72,27 +74,50 @@ export async function teachingResources(client: Client, params: URLSearchParams)
     return [{ id: topic.id, name: topic.name ?? 'Topic', parentID: topic.parent_id, index: topic.index ?? 0,
       subjectID: subject.id, subjectName: subject.name ?? 'Subject' }];
   });
-  if (!scopedTopics.length) return { resources: [], topics: [], nextOffset: null };
-  let query = client.from('vtutor_topics_files').select('*').is('deleted_at', null).is('is_solutions_of_id', null);
-  // The view already limits files to authorized topics; only add an IN filter for one subject.
-  if (subjectID) query = query.in('topic_id', scopedTopics.flatMap(t => t.id ? [t.id] : []));
-  if (resourceID) query = query.eq('id', resourceID);
-  if (resourceIDs.length) query = query.in('id', resourceIDs);
-  if (search) query = query.ilike('filename', `%${search.replace(/[\\%_]/g, '\\$&')}%`);
-  const { data: files, error } = await query.order('id').range(offset, offset + 49);
-  check(error);
+  if (!scopedTopics.length) return { resources: [], topics: [], subjects: librarySubjects, nextOffset: null };
+  const fileQuery = () => {
+    let query = client.from('vtutor_topics_files').select('*').is('deleted_at', null).is('is_solutions_of_id', null);
+    if (subjectID) query = query.in('topic_id', scopedTopics.flatMap(t => t.id ? [t.id] : []));
+    if (resourceID) query = query.eq('id', resourceID);
+    if (resourceIDs.length) query = query.in('id', resourceIDs);
+    for (const term of search.split(/\s+/).filter(Boolean)) {
+      const pattern = '"%' + term.replace(/[\\%_"]/g, '\\$&') + '%"';
+      query = query.or(`code.ilike.${pattern},filename.ilike.${pattern}`);
+    }
+    return query.order('id');
+  };
+  let files: FileRow[];
+  let nextOffset: number | null;
+  if (search) {
+    const matches = await allRows((start, end) => fileQuery().select('id,code,filename').range(start, end));
+    const needle = search.toLocaleLowerCase();
+    const rank = (file: Pick<FileRow, 'code' | 'filename'>) => {
+      const code = (file.code ?? '').toLocaleLowerCase(), name = (file.filename ?? '').toLocaleLowerCase();
+      return code === needle ? 0 : name === needle ? 1 : code.startsWith(needle) ? 2 : name.startsWith(needle) ? 3 : code.includes(needle) ? 4 : name.includes(needle) ? 5 : 6;
+    };
+    matches.sort((a, b) => rank(a) - rank(b) || (a.filename ?? '').localeCompare(b.filename ?? '', undefined, { numeric: true }) || (a.id ?? '').localeCompare(b.id ?? ''));
+    const pageIDs = matches.slice(offset, offset + 50).flatMap(file => file.id ? [file.id] : []);
+    const details = pageIDs.length ? await fileQuery().in('id', pageIDs) : { data: [], error: null };
+    check(details.error);
+    files = pageIDs.flatMap(id => details.data?.filter(file => file.id === id) ?? []);
+    nextOffset = matches.length > offset + 50 ? offset + 50 : null;
+  } else {
+    const result = await fileQuery().range(offset, offset + 49);
+    check(result.error); files = result.data ?? [];
+    nextOffset = files.length === 50 ? offset + 50 : null;
+  }
   const ids = (files ?? []).flatMap(f => f.id ? [f.id] : []);
   const solutions = ids.length ? await client.from('vtutor_topics_files').select('*').is('deleted_at', null)
     .in('is_solutions_of_id', ids).order('id') : { data: [], error: null };
   check(solutions.error);
-  return { topics: libraryTopics, resources: (files ?? []).flatMap(file => {
+  return { subjects: librarySubjects, topics: libraryTopics, resources: (files ?? []).flatMap(file => {
     const topic = scopedTopics.find(t => t.id === file.topic_id);
     const subject = subjects.find(s => s.id === topic?.subject_id);
     if (!file.id || !topic?.id || !subject?.id) return [];
     const answer = solutions.data?.find(s => s.is_solutions_of_id === file.id);
     return [{ id: file.id, topicID: topic.id, topicName: topic.name ?? 'Topic', subjectID: subject.id,
       subjectName: subject.name ?? 'Subject', worksheet: document(file), solutions: answer ? document(answer) : null }];
-  }), nextOffset: files?.length === 50 ? offset + 50 : null };
+  }), nextOffset };
 }
 
 export async function teachingDocumentURL(client: Client, id: string) {

@@ -12,38 +12,39 @@ struct TeachingNavigation: View {
     @ObservedObject var model: TeachingModel
     @State private var library = false
     @State private var log = false
+    @State private var printing = false
     @State private var preview: TeachingResource?
     @State private var signingOut = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        NavigationStack {
-            Group {
-                if model.session != nil {
-                    surface { LessonBoard(model: model) }
-                } else { SessionDayView(model: model) }
-            }
-            .navigationTitle(model.session?.title ?? "Your teaching day")
-            .navigationBarTitleDisplayMode(model.session == nil ? .large : .inline)
-            .toolbar {
-                if model.session != nil {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button { library = false; model.leaveLesson() } label: { Label("Today", systemImage: "chevron.left") }
-                    }
-                    lessonControls
-                } else {
+        NavigationStack(path: $model.route) {
+            SessionDayView(model: model)
+                .navigationTitle("Your teaching day").navigationBarTitleDisplayMode(.large)
+                .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
                 }
-            }
-            .navigationDestination(isPresented: Binding(get: { model.viewer }, set: { if !$0 { model.showBoard() } })) {
-                surface { LessonWorkspace(model: model) }
-                    .navigationTitle(model.session?.title ?? "Lesson")
-                    .navigationBarTitleDisplayMode(.inline).navigationBarBackButtonHidden()
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button { library = false; model.showBoard() } label: { Label("Lesson board", systemImage: "chevron.left") }
+                .navigationDestination(for: TeachingRoute.self) { route in
+                    Group {
+                        switch route {
+                        case .lesson: surface { LessonBoard(model: model) }
+                        case .document: surface { LessonWorkspace(model: model) }
                         }
-                        lessonControls
-                    }
+                    }.navigationTitle(model.session?.title ?? "Lesson").navigationBarTitleDisplayMode(.inline)
+                        .toolbar { lessonControls }
+                        .onDisappear { if case .lesson = route, model.route.isEmpty { model.leaveLesson() } }
+                }
+        }
+        .onChange(of: model.route) { _, _ in library = false; model.navigationChanged() }
+        .sheet(isPresented: $printing, onDismiss: { model.allowActiveWorksheet() }) {
+            if let item = model.activeResource { OfficePrintView(model: model, document: item.resource.worksheet) }
+        }
+        .overlay(alignment: .bottom) {
+            if let notice = model.printNotice {
+                HStack(spacing: 12) {
+                    Label(notice, systemImage: "printer").font(.subheadline)
+                    Spacer()
+                    Button("Dismiss", systemImage: "xmark") { model.printNotice = nil }.labelStyle(.iconOnly)
+                }.padding(16).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)).padding(16)
             }
         }
         .sheet(isPresented: $log, onDismiss: { model.allowActiveWorksheet() }) {
@@ -60,7 +61,14 @@ struct TeachingNavigation: View {
     }
     @ToolbarContentBuilder private var lessonControls: some ToolbarContent {
         if let session = model.session {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if model.viewer, let item = model.activeResource {
+                    Button { library = false; model.showLessonInformation(); printing = true } label: { Label("Print to office", systemImage: "printer") }
+                        .disabled(model.offline || item.resource.worksheet.externalURL != nil || !item.resource.worksheet.isPDF)
+                }
+                if model.viewer, let item = model.activeResource {
+                    Button { library = false; model.share(item.worksheet) } label: { Label("Share worksheet", systemImage: "square.and.arrow.up") }
+                }
                 Button { library = false; model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }
                     .keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
             }
@@ -135,11 +143,15 @@ struct LessonWorkspace: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        ForEach(model.lesson?.resources ?? []) { item in
-                            tab(item)
-                        }
-                    }.padding(.horizontal, 16).padding(.vertical, 8)
+                        ForEach(model.lesson?.resources ?? []) { item in tab(item) }
+                    }.padding(.leading, 16).padding(.trailing, 190).padding(.vertical, 8)
                 }
+            }.overlay(alignment: .trailing) {
+                Button { model.solutions.toggle() } label: {
+                    Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
+                        .font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
+                }.buttonStyle(.glass).padding(.trailing, 16)
+                    .disabled(model.activeResource?.solutions == nil).accessibilityIdentifier("teaching-solutions")
             }
             if let item = model.activeResource, let store = model.store, let session = model.session {
                 PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
@@ -150,12 +162,13 @@ struct LessonWorkspace: View {
         Menu {
             LessonResourceActions(model: model, item: item)
         } label: {
-            Label(item.resource.worksheet.title, systemImage: "doc").font(.subheadline.weight(.semibold))
+            Label(model.title(item.resource.worksheet), systemImage: "doc").font(.subheadline.weight(.semibold))
                 .lineLimit(1).padding(.horizontal, 16).padding(.vertical, 12)
         } primaryAction: { model.open(item) }
             .buttonStyle(.plain)
-            .foregroundStyle(model.activeResourceID == item.id ? .white : TeachingColors.navy)
-            .glassEffect(.regular.tint(model.activeResourceID == item.id ? TeachingColors.navy : .clear).interactive(), in: .capsule)
+            .foregroundStyle(.primary)
+            .glassEffect(.regular.tint(model.activeResourceID == item.id ? TeachingColors.teal.opacity(0.2) : .clear).interactive(), in: .capsule)
+            .overlay { Capsule().strokeBorder(.primary.opacity(model.activeResourceID == item.id ? 0.45 : 0), lineWidth: 1) }
             .accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
     }
 }
@@ -194,15 +207,6 @@ struct PDFWorkspace: View {
                 }
             }.coordinateSpace(name: "lesson-documents").clipped()
                 .animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: model.solutions)
-                .overlay(alignment: .topTrailing) {
-                    if resource.solutions != nil {
-                        Button { model.solutions.toggle() } label: {
-                            Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
-                                .font(.subheadline.weight(.semibold)).padding(.horizontal, 16).padding(.vertical, 11)
-                                .background(.regularMaterial, in: Capsule()).shadow(color: .black.opacity(0.12), radius: 8, y: 2)
-                        }.buttonStyle(.plain).padding(14).accessibilityIdentifier("teaching-solutions")
-                    }
-                }
                 .overlay(alignment: .bottomLeading) {
                     Toggle(isOn: $model.fingerDrawing) { Label("Finger ink", systemImage: "hand.draw") }
                         .toggleStyle(.button).font(.caption).padding(10).background(.regularMaterial, in: Capsule()).padding(14)
