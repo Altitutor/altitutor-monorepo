@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./mcp/server": {
+      "types": "./dist/mcp/server/index.d.ts",
+      "default": "./dist/mcp/server/index.js"
+    },
     "./auth/server": {
       "types": "./dist/auth/server/index.d.ts",
       "default": "./dist/auth/server/index.js"
