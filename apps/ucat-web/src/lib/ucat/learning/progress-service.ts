@@ -195,33 +195,10 @@ export async function markAllLessonBlocksComplete(
   }
 
   for (const blockId of blockIds) {
-    const { data: existing } = await supabase
-      .from("ucat_student_learning_module_block_progress")
-      .select("id")
-      .eq("student_id", studentId)
-      .eq("learning_module_block_id", blockId)
-      .maybeSingle();
-
-    if (existing) {
-      const { error } = await supabase
-        .from("ucat_student_learning_module_block_progress")
-        .update({
-          completed_at: now,
-          manually_completed: true,
-        })
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabase
-        .from("ucat_student_learning_module_block_progress")
-        .insert({
-          student_id: studentId,
-          learning_module_block_id: blockId,
-          completed_at: now,
-          manually_completed: true,
-        });
-      if (error) throw new Error(error.message);
-    }
+    await upsertBlockProgress(supabase, studentId, blockId, {
+      completed: true,
+      manuallyCompleted: true,
+    });
   }
 
   return recalculateLessonProgress(supabase, studentId, lessonId);
