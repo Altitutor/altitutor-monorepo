@@ -16,13 +16,9 @@ import type { Editor } from "@tiptap/core";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import type { MailboxData } from "../types";
-export function EmailSettingsDialog({
-  mailbox,
-  onClose,
-}: {
-  mailbox: MailboxData;
-  onClose: () => void;
-}) {
+import { useMailbox } from "../api/client";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
+function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
   const client = useQueryClient();
   const [tab, setTab] = useState("templates");
   const [selected, setSelected] = useState<string | null>(null);
@@ -91,19 +87,7 @@ export function EmailSettingsDialog({
   }
   return (
     <>
-      <AdminDialogShell
-        open
-        onClose={onClose}
-        title="Email templates and signature"
-        footer={
-          <Button
-            disabled={busy || (tab === "templates" && !name.trim())}
-            onClick={() => void save()}
-          >
-            Save
-          </Button>
-        }
-      >
+      <section className="rounded-2xl bg-muted/35 p-5">
         <div className="space-y-4">
           <SegmentedControl
             value={tab}
@@ -123,7 +107,9 @@ export function EmailSettingsDialog({
                 onChange={(value) => setSignature(value.bodyHtml)}
                 onEditorReady={setEditor}
               />
-              <EmailFormatting editor={editor} disabled={busy} />
+              <div className="overflow-x-auto border-t pt-3">
+                <EmailFormatting editor={editor} disabled={busy} />
+              </div>
               <span className="mt-2 block text-xs text-muted-foreground">
                 New emails and replies still use the shared admin@ mailbox.
               </span>
@@ -161,16 +147,18 @@ export function EmailSettingsDialog({
                   New
                 </Button>
               </div>
-              <label className="block text-sm">
+              <label className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 text-sm">
                 Template name
                 <Input
+                  className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                 />
               </label>
-              <label className="block text-sm">
+              <label className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 text-sm">
                 Subject (optional)
                 <Input
+                  className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                   value={subject}
                   onChange={(event) => setSubject(event.target.value)}
                 />
@@ -183,7 +171,9 @@ export function EmailSettingsDialog({
                   onChange={(value) => setBody(value.bodyHtml)}
                   onEditorReady={setEditor}
                 />
-                <EmailFormatting editor={editor} disabled={busy} />
+                <div className="overflow-x-auto border-t pt-3">
+                  <EmailFormatting editor={editor} disabled={busy} />
+                </div>
               </label>
               {selected && (
                 <Button
@@ -203,7 +193,17 @@ export function EmailSettingsDialog({
             </p>
           )}
         </div>
-      </AdminDialogShell>
+        <div className="mt-4 flex justify-end border-t pt-3">
+          <Button
+            variant="outline"
+            className="rounded-full"
+            disabled={busy || (tab === "templates" && !name.trim())}
+            onClick={() => void save()}
+          >
+            Save
+          </Button>
+        </div>
+      </section>
       <AdminDialogShell
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -229,5 +229,24 @@ export function EmailSettingsDialog({
         </p>
       </AdminDialogShell>
     </>
+  );
+}
+
+export function EmailSettingsPage() {
+  const mailbox = useMailbox();
+  return (
+    <div className="mx-auto w-full max-w-4xl p-6">
+      <SettingsPageHeader title="Email" />
+      {mailbox.data ? (
+        <EmailSettingsContent mailbox={mailbox.data} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Loading email settings…</p>
+      )}
+      {mailbox.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {mailbox.error.message}
+        </p>
+      )}
+    </div>
   );
 }

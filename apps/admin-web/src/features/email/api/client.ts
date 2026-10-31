@@ -3,6 +3,8 @@ import {
   useQuery,
   useInfiniteQuery,
   useQueryClient,
+  type QueryClient,
+  type QueryKey,
 } from "@tanstack/react-query";
 import { z } from "zod";
 import {
@@ -10,7 +12,89 @@ import {
   emailThreadSchema,
   emailMessageSchema,
   type EmailCommand,
+  type MailboxData,
 } from "../types";
+type OptimisticCommand = Extract<
+  EmailCommand,
+  { action: "move" | "read" | "assign" }
+>;
+const revisions = new WeakMap<QueryClient, Map<string, symbol>>();
+function optimisticMailbox(client: QueryClient, command: OptimisticCommand) {
+  const token = Symbol();
+  const owned = revisions.get(client) ?? new Map<string, symbol>();
+  revisions.set(client, owned);
+  const keys = command.action === "assign" ? [command.threadId] : command.ids;
+  keys.forEach((id) => owned.set(id, token));
+  const snapshots: Array<[QueryKey, MailboxData]> = [];
+  for (const [key, data] of client.getQueriesData<MailboxData>({
+    queryKey: ["email", "mailbox"],
+  })) {
+    if (!data) continue;
+    snapshots.push([key, data]);
+    const params = key[2] as { folder?: string } | undefined;
+    const destination =
+      command.action === "move"
+        ? (data.folders.find(
+            (folder) =>
+              folder.id === command.folderId ||
+              folder.role === command.folderId,
+          )?.id ?? command.folderId)
+        : undefined;
+    client.setQueryData<MailboxData>(key, {
+      ...data,
+      threads: data.threads.flatMap((row) => {
+        if (command.action === "assign")
+          return [
+            {
+              ...row,
+              ...(row.id === command.threadId
+                ? { assignedStaffId: command.staffId }
+                : {}),
+            },
+          ];
+        if (!row.messageIds.some((id) => command.ids.includes(id)))
+          return [row];
+        if (command.action === "read") return [{ ...row, read: command.read }];
+        if (!params?.folder || params.folder === destination) return [row];
+        const remaining = row.messageIds.filter(
+          (id) => !command.ids.includes(id),
+        );
+        return remaining.length ? [{ ...row, messageIds: remaining }] : [];
+      }),
+    });
+  }
+  return {
+    rollback: () => {
+      if (!keys.every((id) => owned.get(id) === token)) return;
+      for (const [key, before] of snapshots)
+        client.setQueryData<MailboxData>(key, (current) => {
+          if (!current) return before;
+          const rows = [...current.threads];
+          before.threads.forEach((row, index) => {
+            const affected =
+              command.action === "assign"
+                ? row.id === command.threadId
+                : row.messageIds.some((id) => command.ids.includes(id));
+            if (!affected) return;
+            const at = rows.findIndex((item) => item.id === row.id);
+            if (at < 0) rows.splice(Math.min(index, rows.length), 0, row);
+            else
+              rows[at] =
+                command.action === "read"
+                  ? { ...rows[at]!, read: row.read }
+                  : command.action === "assign"
+                    ? { ...rows[at]!, assignedStaffId: row.assignedStaffId }
+                    : { ...rows[at]!, messageIds: row.messageIds };
+          });
+          return { ...current, threads: rows };
+        });
+    },
+    finish: () =>
+      keys.forEach((id) => {
+        if (owned.get(id) === token) owned.delete(id);
+      }),
+  };
+}
 export async function mailRequest(
   path: string,
   body?: unknown,
@@ -51,6 +135,9 @@ export function useMailbox(
     queryFn: async () => mailboxSchema.parse(await mailRequest(`?${query}`)),
     staleTime: 10_000,
     refetchInterval: 15_000,
+    // A new folder needs fresh rows, while its mailbox chrome remains stable.
+    placeholderData: (previous) =>
+      previous ? { ...previous, threads: [], hasMore: false } : undefined,
   });
 }
 export function useEmailThread(id: string, active = true) {
@@ -98,8 +185,16 @@ export async function executeEmailCommand(
 export function useEmailCommand() {
   const client = useQueryClient();
   return useMutation({
+    mutationKey: ["email", "command"],
     mutationFn: executeEmailCommand,
-    onSettled: (_data, _error, command) => {
+    onMutate: async (command) => {
+      if (!["read", "move", "assign"].includes(command.action)) return;
+      await client.cancelQueries({ queryKey: ["email", "mailbox"] });
+      return optimisticMailbox(client, command as OptimisticCommand);
+    },
+    onError: (_error, _command, optimistic) => optimistic?.rollback(),
+    onSettled: (_data, _error, command, optimistic) => {
+      optimistic?.finish();
       // Draft saves belong to the mounted editor. Refetching every active
       // mailbox/thread here makes each keystroke wait on unrelated reads.
       // Polling still reconciles changes made through Outlook.

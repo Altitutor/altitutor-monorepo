@@ -96,7 +96,7 @@ export function EmailFormatting({
   ];
   return (
     <>
-      <div className="flex flex-wrap items-center">
+      <div className="flex w-max flex-nowrap items-center">
         {commands.map((command) => (
           <EmailIconButton
             key={command.label}

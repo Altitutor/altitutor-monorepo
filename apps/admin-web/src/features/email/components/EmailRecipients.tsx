@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { EntityChip, Input } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
 import { X } from "lucide-react";
-import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { EmailParticipant } from "./EmailParticipant";
 import { mailRequest } from "../api/client";
 const personSchema = z.object({
   id: z.string(),
@@ -12,13 +12,14 @@ const personSchema = z.object({
   label: z.string(),
   email: z.string(),
 });
-type Person = z.infer<typeof personSchema>;
 export function EmailRecipients({
   label,
   value,
   onChange,
   disabled,
-  onNavigate,
+  threadId = "",
+  mailboxAddress = "",
+  beforeLink,
   onPendingChange,
 }: {
   label: string;
@@ -26,13 +27,14 @@ export function EmailRecipients({
   onChange: (value: string[]) => void;
   disabled: boolean;
   onNavigate?: (next: () => void) => void;
+  threadId?: string;
+  mailboxAddress?: string;
+  beforeLink?: () => Promise<string | undefined>;
   onPendingChange?: (pending: boolean) => void;
 }) {
-  const navigation = useEntityNavigation();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
-  const [people, setPeople] = useState<Record<string, Person>>({});
   const [error, setError] = useState("");
   useEffect(() => {
     onPendingChange?.(Boolean(input.trim()));
@@ -52,34 +54,10 @@ export function EmailRecipients({
         ),
     staleTime: 60_000,
   });
-  const resolved = useQuery({
-    queryKey: ["email", "recipient-labels", value],
-    enabled: value.length > 0,
-    queryFn: async () =>
-      Promise.all(
-        value.map(async (email) => {
-          const result = z
-            .object({ person: personSchema.omit({ email: true }).nullable() })
-            .parse(
-              await mailRequest(`/people?email=${encodeURIComponent(email)}`),
-            );
-          return result.person ? { ...result.person, email } : null;
-        }),
-      ),
-    staleTime: 60_000,
-  });
-  const known = {
-    ...Object.fromEntries(
-      (resolved.data ?? []).flatMap((person) =>
-        person ? [[person.email, person]] : [],
-      ),
-    ),
-    ...people,
-  };
   const suggestions = (options.data?.people ?? []).filter(
     (person) => !value.includes(person.email),
   );
-  function commit(text: string, person?: Person) {
+  function commit(text: string) {
     const entries = text
       .split(/[,;\n]/)
       .map((address) => address.trim().toLowerCase())
@@ -92,7 +70,6 @@ export function EmailRecipients({
       return;
     }
     onChange([...new Set([...value, ...entries])]);
-    if (person) setPeople((all) => ({ ...all, [person.email]: person }));
     setInput("");
     setError("");
   }
@@ -105,18 +82,12 @@ export function EmailRecipients({
             className="inline-flex max-w-full items-center gap-0.5 rounded-md bg-muted"
             title={email}
           >
-            <EntityChip
-              entityType={known[email]?.type ?? "email"}
-              label={known[email]?.label ?? email}
-              onClick={() => {
-                const person = known[email];
-                if (person) {
-                  const next = () =>
-                    navigation.openEntity(person.type, person.id);
-                  if (onNavigate) onNavigate(next);
-                  else next();
-                }
-              }}
+            <EmailParticipant
+              email={email}
+              label={email}
+              threadId={threadId}
+              mailboxAddress={mailboxAddress}
+              beforeLink={beforeLink}
             />
             <button
               type="button"
@@ -163,7 +134,7 @@ export function EmailRecipients({
                 (z.string().email().safeParse(input.trim()).success
                   ? undefined
                   : currentSuggestions[0]);
-              commit(match?.email ?? input, match);
+              commit(match?.email ?? input);
             }
             if (event.key === "Backspace" && !input && value.length)
               onChange(value.slice(0, -1));
@@ -185,7 +156,7 @@ export function EmailRecipients({
               key={`${person.type}:${person.id}`}
               className="flex w-full flex-col rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => commit(person.email, person)}
+              onClick={() => commit(person.email)}
             >
               <span>
                 {person.label}{" "}

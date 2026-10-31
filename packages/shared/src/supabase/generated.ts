@@ -44536,6 +44536,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      email_people_for_address: {
+        Args: { p_email: string }
+        Returns: {
+          label: string
+          record_id: string
+          record_type: string
+        }[]
+      }
       email_release_sync: { Args: { p_token: string }; Returns: undefined }
       email_reset_sync_cursor: {
         Args: { p_expected_cursor: string; p_folder_id: string }

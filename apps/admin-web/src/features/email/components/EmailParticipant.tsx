@@ -3,8 +3,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { Button, SearchableSelect } from "@altitutor/ui";
-import { ChevronDown } from "lucide-react";
+import { EntityChip, SearchableSelect } from "@altitutor/ui";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 const AddStudentModal = dynamic(() =>
@@ -40,12 +39,15 @@ export function EmailParticipant({
   label,
   threadId,
   mailboxAddress,
+  beforeLink,
 }: {
   email: string;
   label: string;
   threadId: string;
   mailboxAddress: string;
+  beforeLink?: () => Promise<string | undefined>;
 }) {
+  email = email.trim().toLowerCase();
   const navigation = useEntityNavigation();
   const client = useQueryClient();
   const [action, setAction] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export function EmailParticipant({
   const person = useQuery({
     queryKey: ["email", "person", email],
     enabled: Boolean(email) && email !== mailboxAddress,
+    staleTime: 60_000,
     queryFn: async () =>
       z
         .object({ person: personSchema.nullable(), ambiguous: z.boolean() })
@@ -73,8 +76,18 @@ export function EmailParticipant({
   });
   async function link(type: "student" | "parent" | "staff", id: string) {
     try {
-      await mailRequest("/people", { email, threadId, type, id });
-      await client.invalidateQueries({ queryKey: ["email"] });
+      const savedThreadId = beforeLink ? await beforeLink() : threadId;
+      if (!savedThreadId)
+        throw new Error("Save the draft before linking this address.");
+      await mailRequest("/people", {
+        email,
+        threadId: savedThreadId,
+        type,
+        id,
+      });
+      await client.invalidateQueries({ queryKey: ["email", "person", email] });
+      void client.invalidateQueries({ queryKey: ["email", "thread"] });
+      void client.invalidateQueries({ queryKey: ["email", "correspondence"] });
       setAction(null);
       setError("");
     } catch (failure) {
@@ -85,17 +98,31 @@ export function EmailParticipant({
   }
   if (!email || email === mailboxAddress)
     return (
-      <span className="text-sm font-medium">{label || "Altitutor Admin"}</span>
+      <EntityChip
+        entityType="email"
+        label={label || "Altitutor Admin"}
+        disabled
+      />
+    );
+  if (person.isLoading)
+    return (
+      <EntityChip
+        entityType="email"
+        label={email}
+        disabled
+        aria-label={`Resolving ${email}`}
+        className="animate-pulse"
+      />
     );
   if (person.data?.person) {
     const target = person.data.person;
     return (
-      <button
-        className="text-left text-sm font-medium hover:underline"
+      <EntityChip
+        entityType={target.type}
+        label={target.label}
+        title={email}
         onClick={() => navigation.openEntity(target.type, target.id)}
-      >
-        {target.label}
-      </button>
+      />
     );
   }
   return (
@@ -108,14 +135,11 @@ export function EmailParticipant({
         getItemLabel={(item) => item}
         searchPlaceholder="Search contact actions…"
         trigger={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto max-w-full px-0 text-left text-sm font-medium"
-          >
-            <span className="truncate">{label || email}</span>
-            <ChevronDown className="ml-1 h-3 w-3 shrink-0" />
-          </Button>
+          <EntityChip
+            entityType="email"
+            label={email}
+            aria-label={`Link ${email}`}
+          />
         }
       />
       {person.data?.ambiguous && (

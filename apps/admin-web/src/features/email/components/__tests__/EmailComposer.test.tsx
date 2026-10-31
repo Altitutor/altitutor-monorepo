@@ -43,6 +43,12 @@ jest.mock("@/shared/contexts/EntityNavigation", () => ({
 }));
 // jsdom has no layout; ProseMirror scrolls a DOM Range after a focused edit.
 beforeAll(() => {
+  global.ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    unobserve: jest.fn(),
+    disconnect: jest.fn(),
+  }));
+  Element.prototype.scrollIntoView = jest.fn();
   Object.defineProperty(Range.prototype, "getClientRects", {
     configurable: true,
     value: () => [],
@@ -462,7 +468,13 @@ it.each(["Save draft", "Delete draft"])(
     fireEvent.click(screen.getByRole("button", { name: "Close editor" }));
     expect(closed).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "Keep editing" }),
+      screen.queryByRole("dialog", { name: "Keep this draft?" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save draft" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete draft" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: choice }));
     await waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
@@ -471,6 +483,64 @@ it.each(["Save draft", "Delete draft"])(
     );
   },
 );
+
+it("selects or clears a send time without submitting, then uses regular Send to schedule", async () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date(2026, 9, 31, 12));
+  localStorage.clear();
+  const closed = jest.fn();
+  const commands: Array<{ action: string; scheduledAt?: string }> = [];
+  global.fetch = jest.fn(async (_input, init) => {
+    if (!init?.body)
+      return {
+        ok: true,
+        json: async () => ({ person: null, ambiguous: false }),
+      } as Response;
+    commands.push(JSON.parse(String(init.body)));
+    return { ok: true, json: async () => ({ state: "scheduled" }) } as Response;
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <EmailComposer draft={draft} mailbox={mailbox} onClose={closed} />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Schedule send" }));
+  fireEvent.click(screen.getByRole("button", { name: /Select date/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Type a date" }), {
+    target: { value: "2 November 2026" },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Type a date" }), {
+    key: "Enter",
+  });
+  expect(commands).toEqual([]);
+  expect(
+    screen.getByRole("button", { name: /Scheduled time:/ }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+  expect(
+    screen.getByRole("button", { name: "Send", hidden: true }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Select date/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Type a date" }), {
+    target: { value: "2 November 2026" },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Type a date" }), {
+    key: "Enter",
+  });
+  fireEvent.keyDown(document, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Schedule email" }));
+  await waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+  expect(commands).toHaveLength(1);
+  expect(commands[0]?.action).toBe("schedule");
+  const scheduled = new Date(commands[0]!.scheduledAt!);
+  expect([
+    scheduled.getFullYear(),
+    scheduled.getMonth(),
+    scheduled.getDate(),
+    scheduled.getHours(),
+    scheduled.getMinutes(),
+  ]).toEqual([2026, 10, 2, 9, 0]);
+});
 
 it.each([false, true])(
   "uses provider Reply-To recipients while preserving deliberate recipient edits: %s",

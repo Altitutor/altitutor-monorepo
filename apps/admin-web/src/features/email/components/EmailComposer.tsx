@@ -9,10 +9,24 @@ import {
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  DateTimePickerPopover,
+  Badge,
 } from "@altitutor/ui";
-import { FileText, Paperclip, Clock, ArrowUp, X } from "lucide-react";
+import {
+  FileText,
+  Paperclip,
+  Clock,
+  ArrowUp,
+  X,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
-import { AdminDialogShell } from "@/shared/components/dialog-shell";
+import Link from "next/link";
+import { EmailActionGroup } from "./EmailActions";
 import type { Editor } from "@tiptap/core";
 import { toast } from "sonner";
 import {
@@ -23,7 +37,6 @@ import {
 } from "./EmailBodyEditor";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailRecipients } from "./EmailRecipients";
-import { EmailSettingsDialog } from "./EmailSettingsDialog";
 import { useEmailCommand } from "../api/client";
 import {
   draftResponseSchema,
@@ -46,11 +59,11 @@ type Content = {
 export function EmailComposer({
   draft,
   mailbox,
-  inline = false,
   signature,
   initialContent,
   onClose,
   draftReady,
+  onSubjectChange,
 }: {
   draft: EmailMessage;
   mailbox: MailboxData;
@@ -58,12 +71,12 @@ export function EmailComposer({
   signature?: string;
   initialContent?: { subject: string; bodyText: string; to: string[] };
   onClose: () => void;
+  onSubjectChange?: (subject: string) => void;
   draftReady?: Promise<{ message?: EmailMessage }>;
 }) {
   const command = useEmailCommand();
   const [richEditor, setRichEditor] = useState<Editor | null>(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [pendingRecipients, setPendingRecipients] = useState({
     to: false,
     cc: false,
@@ -77,7 +90,6 @@ export function EmailComposer({
   const scope = useAccessoryTab();
   const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
   const [saveRevision, setSaveRevision] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [message, setMessage] = useState(draft);
   const [content, setContent] = useState<Content>(() => ({
     subject: initialContent?.subject ?? draft.subject,
@@ -112,6 +124,7 @@ export function EmailComposer({
   current.current = content;
   const version = useRef(message.changeKey ?? "");
   const upload = useRef<HTMLInputElement>(null);
+  const recoveryRead = useRef(false);
   const [recoveryKey, setRecoveryKey] = useState(
     `email-draft-recovery:${mailbox.currentStaffId}:${draft.id}`,
   );
@@ -180,6 +193,8 @@ export function EmailComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftReady]);
   useEffect(() => {
+    if (recoveryRead.current) return;
+    recoveryRead.current = true;
     editToken.current = crypto.randomUUID();
     try {
       const value: unknown = JSON.parse(
@@ -304,12 +319,15 @@ export function EmailComposer({
     preparing,
     creationError,
   ]);
-  async function send(at?: string) {
+  async function send(at = scheduledAt ?? undefined) {
     if (
       sending ||
       blocked ||
       Object.values(pendingRecipients).some(Boolean) ||
-      !addresses(current.current.to).length
+      !addresses(current.current.to).length ||
+      (at !== undefined &&
+        (!Number.isFinite(new Date(at).getTime()) ||
+          new Date(at).getTime() <= Date.now()))
     )
       return;
     setSending(true);
@@ -369,6 +387,7 @@ export function EmailComposer({
     }
   }
   function patch(values: Partial<Content>) {
+    if (values.subject !== undefined) onSubjectChange?.(values.subject);
     setContent((all) => ({ ...all, ...values }));
     setDirty(true);
   }
@@ -379,84 +398,106 @@ export function EmailComposer({
     preparing ||
     Boolean(creationError);
   const footer = (
-    <div className="flex w-full flex-wrap items-center justify-between gap-2">
-      <EmailFormatting editor={richEditor} disabled={blocked || sending} />
-      <div className="ml-auto flex items-center gap-1">
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <SearchableSelect
-                  items={mailbox.templates}
-                  value={null}
-                  onValueChange={(template) => {
-                    if (template)
-                      patch({
-                        bodyText: template.body_text,
-                        bodyHtml: `${signatureHtml(template.body_text)}${signature ? `<p><br></p>${signatureHtml(signature)}` : ""}`,
-                        ...(template.subject
-                          ? { subject: template.subject }
-                          : {}),
-                      });
-                  }}
-                  getItemId={(template) => template.id}
-                  getItemLabel={(template) => template.name}
-                  searchPlaceholder="Search email templates…"
-                  footer={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSettingsOpen(true)}
-                    >
-                      Manage templates and signature
-                    </Button>
-                  }
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Insert email template"
-                      disabled={blocked}
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                  }
-                />
+    <div className="flex w-full min-w-0 items-center justify-between gap-2">
+      <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
+        <EmailFormatting editor={richEditor} disabled={blocked || sending} />
+      </div>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <EmailActionGroup label="Draft actions">
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <SearchableSelect
+                    items={mailbox.templates}
+                    value={null}
+                    onValueChange={(template) => {
+                      if (template)
+                        patch({
+                          bodyText: template.body_text,
+                          bodyHtml: `${signatureHtml(template.body_text)}${signature ? `<p><br></p>${signatureHtml(signature)}` : ""}`,
+                          ...(template.subject
+                            ? { subject: template.subject }
+                            : {}),
+                        });
+                    }}
+                    getItemId={(template) => template.id}
+                    getItemLabel={(template) => template.name}
+                    searchPlaceholder="Search email templates…"
+                    footer={
+                      <Link
+                        href="/settings/email"
+                        className="block rounded-md px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        Manage templates and signature
+                      </Link>
+                    }
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        aria-label="Insert email template"
+                        disabled={blocked}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Insert email template</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <EmailIconButton
+            label="Attach email file"
+            disabled={unavailable}
+            onClick={async () => {
+              if (dirty && !(await save())) return;
+              upload.current?.click();
+            }}
+          >
+            <Paperclip className="h-4 w-4" />
+          </EmailIconButton>
+        </EmailActionGroup>
+        <DateTimePickerPopover
+          value={scheduledAt}
+          onChange={setScheduledAt}
+          label="Schedule email"
+          minDate={new Date().toLocaleDateString("en-CA")}
+        >
+          <EmailIconButton
+            className={`h-9 shrink-0 rounded-full ${scheduledAt ? "w-auto px-2.5" : "w-9"}`}
+            label={
+              scheduledAt
+                ? `Scheduled time: ${new Date(scheduledAt).toLocaleString("en-AU")}`
+                : "Schedule send"
+            }
+            disabled={blocked || sending}
+          >
+            <Clock className="h-4 w-4" />
+            {scheduledAt && (
+              <span className="ml-1.5 text-xs">
+                {new Date(scheduledAt).toLocaleString("en-AU", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
               </span>
-            </TooltipTrigger>
-            <TooltipContent>Insert email template</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            )}
+          </EmailIconButton>
+        </DateTimePickerPopover>
         <EmailIconButton
-          label="Attach email file"
-          disabled={unavailable}
-          onClick={async () => {
-            if (dirty && !(await save())) return;
-            upload.current?.click();
-          }}
-        >
-          <Paperclip className="h-4 w-4" />
-        </EmailIconButton>
-        <EmailIconButton
-          label="Schedule send"
+          label={scheduledAt ? "Schedule email" : "Send"}
+          className="h-9 w-9 rounded-full"
           disabled={
             unavailable ||
             !content.bodyText.trim() ||
             !addresses(content.to).length ||
-            Object.values(pendingRecipients).some(Boolean)
-          }
-          onClick={() => setScheduleOpen(true)}
-        >
-          <Clock className="h-4 w-4" />
-        </EmailIconButton>
-        <EmailIconButton
-          label="Send"
-          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-          disabled={
-            unavailable ||
-            !content.bodyText.trim() ||
-            !addresses(content.to).length ||
-            Object.values(pendingRecipients).some(Boolean)
+            Object.values(pendingRecipients).some(Boolean) ||
+            (scheduledAt !== null &&
+              new Date(scheduledAt).getTime() <= Date.now())
           }
           onClick={() => void send()}
         >
@@ -516,12 +557,12 @@ export function EmailComposer({
               )
             }
             disabled={blocked}
-            onNavigate={(next) =>
-              setPendingClose(() => () => {
-                onClose();
-                next();
-              })
-            }
+            threadId={provider.current.threadId}
+            mailboxAddress={mailbox.mailboxAddress}
+            beforeLink={async () => {
+              if (preparing || (dirty && !(await save()))) return undefined;
+              return provider.current.threadId;
+            }}
           />
           <div className="flex pt-1">
             <Button
@@ -557,12 +598,12 @@ export function EmailComposer({
                 )
               }
               disabled={blocked}
-              onNavigate={(next) =>
-                setPendingClose(() => () => {
-                  onClose();
-                  next();
-                })
-              }
+              threadId={provider.current.threadId}
+              mailboxAddress={mailbox.mailboxAddress}
+              beforeLink={async () => {
+                if (preparing || (dirty && !(await save()))) return undefined;
+                return provider.current.threadId;
+              }}
             />
           </div>
         )}
@@ -579,12 +620,12 @@ export function EmailComposer({
                 )
               }
               disabled={blocked}
-              onNavigate={(next) =>
-                setPendingClose(() => () => {
-                  onClose();
-                  next();
-                })
-              }
+              threadId={provider.current.threadId}
+              mailboxAddress={mailbox.mailboxAddress}
+              beforeLink={async () => {
+                if (preparing || (dirty && !(await save()))) return undefined;
+                return provider.current.threadId;
+              }}
             />
           </div>
         )}
@@ -721,155 +762,118 @@ export function EmailComposer({
     </div>
   );
   useEffect(() => {
-    if (!inline || !scope) return;
+    if (!scope) return;
     scope.registerClose((next) => {
       setPendingClose(() => next ?? scope.close);
     });
     return () => scope.registerClose(null);
-  }, [scope, inline, dirty, sending]);
+  }, [scope, dirty, sending]);
   function close() {
     setPendingClose(() => onClose);
   }
-  const confirmation = (
-    <AdminDialogShell
-      open={Boolean(pendingClose)}
-      onClose={() => setPendingClose(null)}
-      title="Keep this draft?"
-      subtitle="Save it to continue later in admin-web or Outlook, or move it to Deleted Items."
-      footer={
-        <>
-          <Button variant="outline" onClick={() => setPendingClose(null)}>
-            Keep editing
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={sending || preparing || command.isPending || blocked}
-            onClick={async () => {
-              if (creationError) {
-                const next = pendingClose;
-                setPendingClose(null);
-                next?.();
-                return;
-              }
-              try {
-                await command.mutateAsync({
-                  action: "discard",
-                  editToken: (editToken.current ??= crypto.randomUUID()),
-                  id: provider.current.id,
-                  changeKey: version.current,
-                });
-                localStorage.removeItem(recoveryKey);
-                const next = pendingClose;
-                setPendingClose(null);
-                next?.();
-              } catch {
-                setStatus("Could not delete draft; it remains here.");
-              }
-            }}
-          >
-            {creationError ? "Close without saving" : "Delete draft"}
-          </Button>
-          <Button
-            disabled={
-              sending ||
-              preparing ||
-              command.isPending ||
-              Boolean(creationError) ||
-              Object.values(pendingRecipients).some(Boolean)
-            }
-            onClick={async () => {
-              if (!blocked && dirty && !(await save())) return;
-              try {
-                if (
-                  editToken.current &&
-                  !provider.current.id.startsWith("local:")
-                )
-                  await command.mutateAsync({
-                    action: "releaseDraft",
-                    id: provider.current.id,
-                    editToken: editToken.current,
-                  });
-                const next = pendingClose;
-                setPendingClose(null);
-                next?.();
-              } catch {
-                setStatus("Could not close the shared editor; please retry.");
-              }
-            }}
-          >
-            {blocked ? "Keep draft and close" : "Save draft"}
-          </Button>
-        </>
+  async function discardAndClose() {
+    if (creationError) {
+      const next = pendingClose;
+      setPendingClose(null);
+      next?.();
+      return;
+    }
+    try {
+      await command.mutateAsync({
+        action: "discard",
+        editToken: (editToken.current ??= crypto.randomUUID()),
+        id: provider.current.id,
+        changeKey: version.current,
+      });
+      try {
+        localStorage.removeItem(recoveryKey);
+      } catch {
+        /* Optional recovery store. */
       }
-    >
-      <p className="text-sm text-muted-foreground">
-        Your draft is shared with the other administrators.
-      </p>
-    </AdminDialogShell>
-  );
+      const next = pendingClose;
+      setPendingClose(null);
+      next?.();
+    } catch {
+      setStatus("Could not delete draft; it remains here.");
+    }
+  }
+  async function saveAndClose() {
+    if (!blocked && dirty && !(await save())) return;
+    try {
+      if (editToken.current && !provider.current.id.startsWith("local:"))
+        await command.mutateAsync({
+          action: "releaseDraft",
+          id: provider.current.id,
+          editToken: editToken.current,
+        });
+      const next = pendingClose;
+      setPendingClose(null);
+      next?.();
+    } catch {
+      setStatus("Could not close the shared editor; please retry.");
+    }
+  }
   return (
-    <>
-      {inline ? (
-        <section
-          className="m-4 space-y-4 rounded-2xl bg-muted/35 p-5"
-          aria-label="Shared email draft"
+    <section
+      className="m-4 space-y-4 rounded-2xl bg-muted/60 p-4 ring-1 ring-inset ring-border/40"
+      aria-label="Shared email draft"
+      data-email-shortcut-scope="typing"
+    >
+      <header className="flex items-center justify-between gap-2">
+        <Popover
+          open={Boolean(pendingClose)}
+          onOpenChange={(open) => {
+            if (open) close();
+            else setPendingClose(null);
+          }}
         >
-          {editor}
-          <div className="border-t pt-2">{footer}</div>
-          <EmailIconButton label="Close editor" onClick={close}>
-            <X className="h-4 w-4" />
-          </EmailIconButton>
-        </section>
-      ) : (
-        <AdminDialogShell
-          open
-          onClose={close}
-          title="Compose email"
-          subtitle="Shared Microsoft draft"
-          fillHeight
-          footer={footer}
-        >
-          {editor}
-        </AdminDialogShell>
-      )}
-      {confirmation}
-      <AdminDialogShell
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        title="Schedule email"
-        subtitle="Your local time. The server sends the saved version, even after you close the browser. Editing it in Outlook will pause delivery for review."
-        footer={
-          <Button
-            disabled={
-              unavailable ||
-              !scheduledAt ||
-              new Date(scheduledAt).getTime() <= Date.now()
-            }
-            onClick={() => {
-              setScheduleOpen(false);
-              void send(new Date(scheduledAt).toISOString());
-            }}
+          <PopoverTrigger asChild>
+            <EmailIconButton label="Close editor" onClick={close}>
+              <X className="h-4 w-4" />
+            </EmailIconButton>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-52 space-y-1 p-1"
+            aria-label="Draft options"
           >
-            Schedule send
-          </Button>
-        }
-      >
-        <label className="space-y-2 text-sm">
-          Send at
-          <Input
-            type="datetime-local"
-            aria-label="Scheduled send time"
-            value={scheduledAt}
-            onChange={(event) => setScheduledAt(event.target.value)}
-          />
-        </label>
-      </AdminDialogShell>
-      {settingsOpen && (
-        <EmailSettingsDialog
-          mailbox={mailbox}
-          onClose={() => setSettingsOpen(false)}
-        />
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              disabled={
+                sending ||
+                preparing ||
+                command.isPending ||
+                Boolean(creationError) ||
+                Object.values(pendingRecipients).some(Boolean)
+              }
+              onClick={() => void saveAndClose()}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {blocked ? "Keep draft and close" : "Save draft"}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-destructive hover:text-destructive"
+              disabled={sending || preparing || command.isPending || blocked}
+              onClick={() => void discardAndClose()}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {creationError ? "Close without saving" : "Delete draft"}
+            </Button>
+          </PopoverContent>
+        </Popover>
+        <Badge variant="secondary" className="rounded-full">
+          Draft
+        </Badge>
+      </header>
+      {editor}
+      {scheduledAt && new Date(scheduledAt).getTime() <= Date.now() && (
+        <p role="alert" className="text-xs text-destructive">
+          Choose a future send time or clear the schedule.
+        </p>
       )}
-    </>
+      <div className="min-w-0 border-t pt-3">{footer}</div>
+    </section>
   );
 }

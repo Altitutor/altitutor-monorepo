@@ -4,10 +4,15 @@ import { TooltipProvider } from "@altitutor/ui";
 jest.mock("@/shared/contexts/EntityNavigation", () => ({
   useEntityNavigation: () => ({ openEntity: jest.fn() }),
 }));
+const openThread = jest.fn();
+jest.mock("../../hooks/useOpenEmailThread", () => ({
+  useOpenEmailThread: () => openThread,
+}));
 import { WorkflowEmail } from "../WorkflowEmail";
 const originalFetch = global.fetch;
 afterEach(() => {
   global.fetch = originalFetch;
+  openThread.mockClear();
 });
 it("prepares canonical domain text in one shared draft with explicit Student context", async () => {
   Object.defineProperty(crypto, "randomUUID", {
@@ -98,16 +103,22 @@ it("prepares canonical domain text in one shared draft with explicit Student con
   );
   fireEvent.click(screen.getByRole("button", { name: "Prepare email" }));
   await waitFor(() =>
-    expect(
-      screen.getByRole("textbox", { name: "Email body" }),
-    ).toHaveTextContent("Hi Student, the billing credit is being processed."),
+    expect(openThread).toHaveBeenCalledWith(
+      "workflow-thread",
+      "Absence confirmation",
+      "draft",
+    ),
   );
+  expect(commands.find((command) => command.action === "save")).toMatchObject({
+    content: {
+      subject: "Absence confirmation",
+      bodyText: "Hi Student, the billing credit is being processed.",
+      to: ["student@example.test"],
+    },
+  });
   expect(
-    screen.getByRole("button", { name: "Remove student@example.test" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("Altitutor Admin · admin@development.altitutor.com"),
-  ).toBeInTheDocument();
+    screen.queryByRole("dialog", { name: "Compose email" }),
+  ).not.toBeInTheDocument();
   expect(commands.filter((command) => command.action === "draft")).toHaveLength(
     1,
   );

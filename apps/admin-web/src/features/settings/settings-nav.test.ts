@@ -39,6 +39,7 @@ describe('settings navigation', () => {
         title: 'Messaging',
         items: [
           { title: 'Messaging', href: '/settings/messaging' },
+          { title: 'Email', href: '/settings/email' },
           { title: 'Message Templates', href: '/settings/templates' },
           { title: 'Call Routing', href: '/settings/call-routing' },
           { title: 'Phone Numbers', href: '/settings/phone-numbers' },

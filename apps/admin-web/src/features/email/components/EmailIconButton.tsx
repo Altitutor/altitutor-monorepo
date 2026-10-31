@@ -9,6 +9,7 @@ import {
 } from "@altitutor/ui";
 export function EmailIconButton({
   label,
+  className = "",
   ...props
 }: ComponentProps<typeof Button> & { label: string }) {
   return (
@@ -18,8 +19,9 @@ export function EmailIconButton({
           <span className="inline-flex">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="icon"
+              className={`h-8 w-8 shrink-0 rounded-full ${className}`}
               aria-label={label}
               {...props}
             />

@@ -1,8 +1,13 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
-import { Folder, Plus, RefreshCw, Settings2 } from "lucide-react";
-import { Button, DataTableToolbar } from "@altitutor/ui";
+import { Plus, RefreshCw, Settings2 } from "lucide-react";
+import Link from "next/link";
+import {
+  Button,
+  DataTableToolbar,
+  Skeleton,
+  TablePagination,
+} from "@altitutor/ui";
 import {
   encodeViewConfig,
   readViewSettings,
@@ -11,25 +16,22 @@ import {
 } from "@altitutor/shared";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { useRegisterPageActions } from "@/features/command-palette/RecordActionsContext";
-import { useMailbox, useEmailCommand, useSyncMailbox } from "../api/client";
-import { useOpenEmailThread } from "../hooks/useOpenEmailThread";
+import { useMailbox, useSyncMailbox } from "../api/client";
 import {
-  draftResponseSchema,
-  type EmailMessage,
-  type EmailSummary,
-} from "../types";
+  useComposeEmail,
+  useOpenEmailThread,
+} from "../hooks/useOpenEmailThread";
+import type { EmailSummary } from "../types";
 import { EmailIconButton } from "./EmailIconButton";
-import { EmailAssignee } from "./EmailAssignee";
-import { EmailSettingsDialog } from "./EmailSettingsDialog";
-import { EmailComposer } from "./EmailComposer";
+import { EmailActions } from "./EmailActions";
+import { MailFolders, emailDragType } from "./MailFolders";
 const defaults: DisplaySettings = {
   filters: {},
   sortBy: "received",
   sortDirection: "desc",
   groupBy: null,
-  visibleColumns: ["assignee", "time", "preview"],
+  visibleColumns: ["time", "preview"],
 };
-const dragType = "application/x-altitutor-email-message-ids";
 export function MailPage() {
   const [folder, setFolder] = useState<string>();
   const [search, setSearch] = useState("");
@@ -37,13 +39,7 @@ export function MailPage() {
   const [settings, setSettings] = useState(defaults);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string>();
-  const [draft, setDraft] = useState<EmailMessage | null>(null);
-  const [draftReady, setDraftReady] = useState<
-    Promise<{ message?: EmailMessage }> | undefined
-  >();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [signature, setSignature] = useState<string>();
-  const [notice, setNotice] = useState("");
+  const [hovered, setHovered] = useState<string>();
   const mailbox = useMailbox({
     folder,
     search: term,
@@ -52,10 +48,10 @@ export function MailPage() {
     sort: settings.sortBy ?? "received",
     direction: settings.sortDirection,
   });
-  const command = useEmailCommand();
   const sync = useSyncMailbox();
   const syncBusy = useRef(false);
   const openThread = useOpenEmailThread();
+  const compose = useComposeEmail();
   const savedViews = useQuickFilters("email");
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -80,7 +76,7 @@ export function MailPage() {
       try {
         await syncNow();
       } catch {
-        /* Display the mutation's error and retain cached reads. */
+        /* Cached mailbox remains readable. */
       } finally {
         syncBusy.current = false;
       }
@@ -126,37 +122,13 @@ export function MailPage() {
         .concat(savedViews.data ?? []),
     [savedViews.data],
   );
-  function compose() {
-    if (!mailbox.data || draft) return;
-    // Render immediately; the provider draft is prepared behind the editor.
-    setDraft({
-      id: `local:${crypto.randomUUID()}`,
-      threadId: "",
-      subject: "",
-      bodyText: "",
-      sender: mailbox.data.mailboxAddress,
-      to: [],
-      cc: [],
-      bcc: [],
-      draft: true,
-      removed: false,
-    });
-    setSignature(mailbox.data.signature);
-    setDraftReady(
-      command
-        .mutateAsync({ action: "draft", mode: "new" })
-        .then((value) => draftResponseSchema.parse(value)),
-    );
-  }
   useRegisterPageActions("/email", [
     {
       id: "compose-email",
       title: "Compose email",
       icon: Plus,
-      action: () => {
-        void compose();
-      },
-      disabled: command.isPending,
+      action: compose,
+      disabled: !mailbox.data,
     },
     {
       id: "refresh-email",
@@ -177,101 +149,42 @@ export function MailPage() {
     .sort()
     .at(-1);
   const title =
-    mailbox.data?.folders.find((item) => item.id === folder)?.name ??
-    "All mail";
+    folder === "@scheduled"
+      ? "Scheduled"
+      : (mailbox.data?.folders.find((item) => item.id === folder)?.name ??
+        "All mail");
+  const loading = mailbox.isLoading || mailbox.isPlaceholderData;
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-3 border-b px-6 py-4">
+        <div className="flex min-w-0 items-center gap-3">
           <h1 className="text-lg font-semibold">Mail</h1>
-          <span className="text-xs text-muted-foreground">
+          <span className="truncate text-xs text-muted-foreground">
             {mailbox.data?.mailboxAddress ?? "Mailbox"}
           </span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <EmailIconButton
-            label="Email templates and signature"
-            onClick={() => setSettingsOpen(true)}
-            disabled={!mailbox.data}
-          >
-            <Settings2 className="h-4 w-4" />
-          </EmailIconButton>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => sync.mutate()}
-            disabled={sync.isPending || !configured}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => void compose()}
-            disabled={command.isPending || !configured}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Compose
-          </Button>
-        </div>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <aside
-          className="shrink-0 border-b p-3 lg:w-44 lg:border-b-0 lg:border-r"
-          aria-label="Microsoft email folders"
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={compose}
+          disabled={!mailbox.data}
         >
-          <div className="flex gap-1 overflow-auto lg:flex-col">
-            <button
-              className={`shrink-0 rounded-md px-3 py-2 text-left text-xs ${folder === "" ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"}`}
-              onClick={() => {
-                setFolder("");
-                setOffset(0);
-              }}
-            >
-              All mail
-            </button>
-            {mailbox.data?.folders.map((item) => (
-              <button
-                key={item.id}
-                className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-xs ${folder === item.id ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"}`}
-                style={{
-                  paddingLeft: mailbox.data?.folders.some(
-                    (parent) => parent.id === item.parent_id,
-                  )
-                    ? "1.5rem"
-                    : undefined,
-                }}
-                onClick={() => {
-                  setFolder(item.id);
-                  setOffset(0);
-                }}
-                onDragOver={(event) => {
-                  if (event.dataTransfer.types.includes(dragType))
-                    event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  try {
-                    const ids = z
-                      .array(z.string())
-                      .min(1)
-                      .parse(JSON.parse(event.dataTransfer.getData(dragType)));
-                    command.mutate({ action: "move", ids, folderId: item.id });
-                  } catch {
-                    setNotice("Could not read the dragged email selection.");
-                  }
-                }}
-              >
-                <Folder className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
+          <Plus className="mr-2 h-4 w-4" />
+          Compose
+        </Button>
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
+        <MailFolders
+          folders={mailbox.data?.folders ?? []}
+          loading={!mailbox.data}
+          selected={folder}
+          onSelect={(id) => {
+            setFolder(id);
+            setOffset(0);
+          }}
+        />
         <section
-          className="min-w-0 flex-1 overflow-auto p-3 sm:p-5"
+          className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5"
           aria-label="Email list"
           tabIndex={0}
           onKeyDown={(event) => {
@@ -359,150 +272,164 @@ export function MailPage() {
               { key: "sender", label: "Sender" },
             ]}
             columnDefinitions={[
-              { key: "assignee", label: "Assignee", visibleByDefault: true },
               { key: "time", label: "Received", visibleByDefault: true },
               { key: "preview", label: "Preview", visibleByDefault: true },
             ]}
             defaultVisibleColumns={defaults.visibleColumns}
             searchPlaceholder="Search mail…"
           />
-          <h2 className="px-3 py-4 text-sm font-semibold">{title}</h2>
-          {mailbox.isLoading && (
-            <p className="p-6 text-sm text-muted-foreground">
-              Loading mailbox…
-            </p>
-          )}
+
+          <h2 className="shrink-0 px-3 py-4 text-sm font-semibold">{title}</h2>
           {mailbox.error && (
             <p role="alert" className="p-3 text-sm text-destructive">
               {mailbox.error.message}
             </p>
           )}
-          <div className="space-y-1">
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData(
-                    dragType,
-                    JSON.stringify(row.messageIds),
-                  );
-                }}
-                className={`flex min-w-0 items-center gap-2 rounded-md px-3 py-3 ${selected === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
-              >
-                <button
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  onClick={() => open(row)}
-                  aria-label={`Open ${row.subject || "email conversation"}`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
-                  />
-                  <span
-                    className={`w-28 shrink-0 truncate text-xs ${row.read ? "" : "font-semibold"}`}
-                  >
-                    {row.senderName || row.sender || "Draft"}
-                  </span>
-                  <span className="flex min-w-0 flex-1 gap-2 text-xs">
-                    <span
-                      className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
-                    >
-                      {row.draft ? "Draft · " : ""}
-                      {row.subject || "(no subject)"}
-                    </span>
-                    {settings.visibleColumns.includes("preview") && (
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {row.preview}
-                      </span>
-                    )}
-                  </span>
-                </button>
-                {settings.visibleColumns.includes("assignee") &&
-                  mailbox.data && (
-                    <div className="w-28 shrink-0">
-                      <EmailAssignee
-                        threadId={row.id}
-                        value={row.assignedStaffId}
-                        staff={mailbox.data.staff}
-                      />
-                    </div>
-                  )}
-                {settings.visibleColumns.includes("time") && (
-                  <span className="hidden w-16 shrink-0 text-right text-[11px] text-muted-foreground md:block">
-                    {row.at
-                      ? new Date(row.at).toLocaleDateString("en-AU", {
-                          day: "numeric",
-                          month: "short",
-                        })
-                      : "Draft"}
-                  </span>
-                )}
+          <div
+            className="min-h-0 flex-1 space-y-1 overflow-auto"
+            aria-busy={loading}
+          >
+            {loading ? (
+              <div aria-label="Loading emails" className="space-y-3 p-3">
+                {Array.from({ length: 7 }, (_, i) => (
+                  <Skeleton key={i} className="h-11 w-full rounded-md" />
+                ))}
               </div>
-            ))}
+            ) : (
+              rows.map((row) => (
+                <div
+                  key={row.id}
+                  draggable
+                  data-email-shortcut-target
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData(
+                      emailDragType,
+                      JSON.stringify(row.messageIds),
+                    );
+                  }}
+                  onMouseEnter={() => setHovered(row.id)}
+                  onMouseLeave={() => setHovered(undefined)}
+                  onFocus={() => setHovered(row.id)}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget))
+                      setHovered(undefined);
+                  }}
+                  className={`group flex min-w-0 items-center gap-2 rounded-md px-3 py-3 ${selected === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
+                >
+                  <button
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() => open(row)}
+                    aria-label={`Open ${row.subject || "email conversation"}`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
+                    />
+                    <span
+                      className={`w-28 shrink-0 truncate text-xs ${row.read ? "" : "font-semibold"}`}
+                    >
+                      {row.senderName || row.sender || "Draft"}
+                    </span>
+                    <span className="flex min-w-0 flex-1 gap-2 text-xs">
+                      <span
+                        className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
+                      >
+                        {row.draft ? "Draft · " : ""}
+                        {row.subject || "(no subject)"}
+                      </span>
+                      {settings.visibleColumns.includes("preview") && (
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                          {row.preview}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <div className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                    {mailbox.data && (
+                      <EmailActions
+                        ids={row.messageIds}
+                        threadId={row.id}
+                        read={row.read}
+                        assignedStaffId={row.assignedStaffId}
+                        mailbox={mailbox.data}
+                        hovered={hovered === row.id}
+                        compact
+                        onReply={() => openThread(row.id, row.subject, "reply")}
+                        onForward={() =>
+                          openThread(row.id, row.subject, "forward")
+                        }
+                      />
+                    )}
+                  </div>
+                  {settings.visibleColumns.includes("time") && (
+                    <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground md:block">
+                      {row.at
+                        ? new Date(row.at).toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                          })
+                        : "Draft"}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+            {!loading && !mailbox.error && !rows.length && (
+              <p className="p-12 text-center text-xs text-muted-foreground">
+                No email in this view.
+              </p>
+            )}
           </div>
-          {!mailbox.isLoading && !mailbox.error && !rows.length && (
-            <p className="p-12 text-center text-xs text-muted-foreground">
-              No email in this view.
-            </p>
-          )}
-          <div className="mt-4 flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!offset || mailbox.isFetching}
-              onClick={() => setOffset(Math.max(0, offset - 50))}
-            >
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!mailbox.data?.hasMore || mailbox.isFetching}
-              onClick={() => setOffset(offset + 50)}
-            >
-              Next
-            </Button>
-          </div>
+          <TablePagination
+            page={Math.floor(offset / 50) + 1}
+            pageSize={50}
+            hasNextPage={mailbox.data?.hasMore}
+            isFetching={loading}
+            onPageChange={(page) => setOffset((page - 1) * 50)}
+            showPageSizeSelector={false}
+            className="mt-4 shrink-0"
+          />
         </section>
       </div>
-      <footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-        <p role="status">
-          {sync.isPending
-            ? "Syncing with Microsoft…"
-            : configured === false
-              ? "Mailbox connection is not configured"
-              : lastPage
-                ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
-                : "Not synced yet"}
-        </p>
-        {(notice || command.error || sync.error) && (
-          <p role="alert" className="mt-1 text-destructive">
-            {notice || command.error?.message || sync.error?.message}
+      <footer className="flex shrink-0 items-center justify-between gap-3 border-t px-4 py-2 text-xs text-muted-foreground">
+        <div>
+          <p role="status">
+            {sync.isPending
+              ? "Syncing with Microsoft…"
+              : configured === false
+                ? "Mailbox connection is not configured"
+                : lastPage
+                  ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
+                  : "Not synced yet"}
           </p>
-        )}
-        {mailbox.data?.sync.some((state) => state.last_error) && (
-          <p className="mt-1 text-destructive">
-            Some folders need another sync. Cached mail remains readable.
-          </p>
-        )}
+          {sync.error && (
+            <p role="alert" className="text-destructive">
+              {sync.error.message}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/settings/email"
+            aria-label="Email settings"
+            title="Email settings"
+            className="rounded-md p-2 hover:bg-muted"
+          >
+            <Settings2 className="h-4 w-4" />
+          </Link>
+          <EmailIconButton
+            label="Refresh mailbox"
+            variant="ghost"
+            className="border-0 bg-transparent shadow-none"
+            disabled={sync.isPending || !configured}
+            onClick={() => sync.mutate()}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
+            />
+          </EmailIconButton>
+        </div>
       </footer>
-      {settingsOpen && mailbox.data && (
-        <EmailSettingsDialog
-          mailbox={mailbox.data}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
-      {draft && mailbox.data && (
-        <EmailComposer
-          key={draft.id}
-          draft={draft}
-          mailbox={mailbox.data}
-          signature={signature}
-          draftReady={draftReady}
-          onClose={() => setDraft(null)}
-        />
-      )}
     </div>
   );
 }
