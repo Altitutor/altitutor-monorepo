@@ -23,14 +23,15 @@ async function requestAt(
   path: string,
   method: 'initialize' | 'tools/list' | 'tools/call',
   params: Record<string, unknown> = {},
+  handler = createUcatMcpHttpHandler(),
+  token = 'test-token',
 ) {
-  const handler = createUcatMcpHttpHandler()
   return handler(
     new Request(`https://tutor.altitutor.test${path}`, {
       method: 'POST',
       headers: {
         accept: 'application/json, text/event-stream',
-        authorization: 'Bearer test-token',
+        authorization: `Bearer ${token}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
@@ -177,15 +178,77 @@ describe('UCAT MCP HTTP endpoints', () => {
     })
   })
 
-  it('rechecks authority for each request without retaining a previous caller', async () => {
-    await requestAt('/api/mcp', 'tools/list')
-    jest.mocked(verifyUcatMcpToken).mockResolvedValueOnce(undefined)
-    const denied = await requestAt('/api/mcp', 'tools/list')
+  it('rechecks authority on one handler and passes only the current caller to tools', async () => {
+    const handler = createUcatMcpHttpHandler()
+    const toolCall = { name: 'get_ucat_mcp_capabilities', arguments: {} }
+    const verify = jest.mocked(verifyUcatMcpToken)
+    verify.mockImplementationOnce(async (_request, token) =>
+      token
+        ? {
+            token,
+            clientId: 'caller-a',
+            scopes: ['ucat:read', 'ucat:write'],
+          }
+        : undefined,
+    )
+    verify.mockResolvedValueOnce(undefined)
+    verify.mockImplementationOnce(async (_request, token) =>
+      token
+        ? {
+            token,
+            clientId: 'caller-c',
+            scopes: ['ucat:read', 'ucat:write'],
+          }
+        : undefined,
+    )
+    jest.mocked(createUcatMcpSupabaseClient).mockClear()
+
+    const first = await requestAt(
+      '/api/mcp',
+      'tools/call',
+      toolCall,
+      handler,
+      'token-a',
+    )
+    expect(first.status).toBe(200)
+    expect(await mcpResponsePayload(first)).toMatchObject({
+      result: {
+        structuredContent: {
+          features: { databaseBlueprints: true },
+        },
+      },
+    })
+    const denied = await requestAt(
+      '/api/mcp',
+      'tools/call',
+      toolCall,
+      handler,
+      'invalid-token',
+    )
     expect(denied.status).toBe(401)
     expect(denied.headers.get('www-authenticate')).toContain(
       '/.well-known/oauth-protected-resource',
     )
-    expect((await requestAt('/api/mcp', 'tools/list')).status).toBe(200)
+    const last = await requestAt(
+      '/api/mcp',
+      'tools/call',
+      toolCall,
+      handler,
+      'token-c',
+    )
+    expect(last.status).toBe(200)
+    expect(await mcpResponsePayload(last)).toMatchObject({
+      result: {
+        structuredContent: {
+          features: { databaseBlueprints: true },
+        },
+      },
+    })
+    expect(
+      jest
+        .mocked(createUcatMcpSupabaseClient)
+        .mock.calls.map(([token]) => token),
+    ).toEqual(['token-a', 'token-c'])
   })
 
   it('rejects excessive argument elements before invoking an authoring tool', async () => {
