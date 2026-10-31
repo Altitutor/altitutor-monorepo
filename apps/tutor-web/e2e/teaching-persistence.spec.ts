@@ -204,3 +204,54 @@ test("a Tutor cannot change another author's visible session note", async ({
     await database.from("notes").delete().eq("id", note.id).throwOnError();
   }
 });
+
+test("pasted tables, mathematics, links and images survive a note edit and reload", async ({
+  page, teachingSessionId, baseURL,
+}) => {
+  await signIn(page);
+  const sessionUrl = `/classes?session=${teachingSessionId}`;
+  await page.goto(sessionUrl);
+  const details = page.getByRole("dialog", { name: "Session Details" });
+  const editor = details.locator('[contenteditable="true"]');
+  const imageSource = new URL("/favicon.ico", baseURL).href;
+  const html = [
+    '<p><strong>Rich-text migration fixture</strong> <a href="https://example.test/reference">Reference</a></p>',
+    '<table><tbody><tr><th><p>Topic</p></th><th><p>Result</p></th></tr><tr><td><p>Algebra</p></td><td><p>Correct</p></td></tr></tbody></table>',
+    '<p>Formula: <span data-type="inline-math" data-latex="x^2"></span></p>',
+    '<div data-type="block-math" data-latex="\\frac{1}{2}"></div>',
+    `<img src="${imageSource}" alt="Study diagram" width="40" height="40">`,
+  ].join("");
+  await editor.click();
+  await editor.evaluate((element, value) => {
+    const clipboard = new DataTransfer();
+    clipboard.setData("text/html", value);
+    clipboard.setData("text/plain", "Rich-text migration fixture");
+    element.dispatchEvent(new ClipboardEvent("paste", {
+      clipboardData: clipboard, bubbles: true, cancelable: true,
+    }));
+  }, html);
+  await expect(editor.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await editor.press("ControlOrMeta+End");
+  await editor.press("Enter");
+  await editor.pressSequentially("Reviewed after pasting.");
+
+  const savedNote = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/sessions/${teachingSessionId}/notes`,
+  );
+  await details.getByRole("button", { name: "Post note", exact: true }).click();
+  expect((await savedNote).ok()).toBe(true);
+  await expect(editor).toHaveText("");
+  await page.goto(sessionUrl);
+
+  await expect(details.locator("strong").filter({ hasText: "Rich-text migration fixture" })).toBeVisible();
+  await expect(details.getByRole("link", { name: "Reference", exact: true }))
+    .toHaveAttribute("href", "https://example.test/reference");
+  await expect(details.locator("th").filter({ hasText: "Topic" })).toBeVisible();
+  await expect(details.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await expect(details.locator("td").filter({ hasText: "Correct" })).toBeVisible();
+  await expect(details.locator(".katex")).toHaveCount(2);
+  await expect(details.locator('[data-latex="x^2"]')).toBeVisible();
+  await expect(details.getByRole("img", { name: "Study diagram" })).toHaveAttribute("src", imageSource);
+  await expect(details.getByText("Reviewed after pasting.", { exact: true })).toBeVisible();
+});
