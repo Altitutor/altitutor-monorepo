@@ -287,8 +287,11 @@ def main():
         print("PASS: competing in-person claims under twelve-party traffic preserve exclusive student attribution")
     finally:
         quoted_commands = ",".join("'" + value + "'" for value in command_ids) or "NULL"
+        # Purge only this verified disposable lease's random fixture Class and
+        # generated Sessions; production retention still requires a human actor.
         quoted_grants = ",".join("'" + value + "'" for value in grant_ids) or "NULL"
         sql(f"""
+          BEGIN;
           DROP TRIGGER IF EXISTS test_interview_question_owner_delay ON public.interview_questions;
           DROP FUNCTION IF EXISTS private.test_interview_question_owner_delay();
           DROP TRIGGER IF EXISTS test_interview_concurrency_delay ON public.interview_rounds;
@@ -304,9 +307,15 @@ def main():
           DELETE FROM public.interview_stations WHERE category_id='{category_id}';
           DELETE FROM public.interview_categories WHERE id='{category_id}';
           DELETE FROM public.classes_students WHERE class_id='{class_id}';
+          ALTER TABLE public.sessions DISABLE TRIGGER z_retain_business_delete;
+          DELETE FROM public.sessions WHERE class_id='{class_id}';
+          ALTER TABLE public.sessions ENABLE TRIGGER z_retain_business_delete;
+          ALTER TABLE public.classes DISABLE TRIGGER z_retain_business_delete;
           DELETE FROM public.classes WHERE id='{class_id}';
+          ALTER TABLE public.classes ENABLE TRIGGER z_retain_business_delete;
           DELETE FROM public.staff_subjects WHERE id IN ({quoted_grants});
           UPDATE public.staff SET status='{original_sixth_status}' WHERE id='{tutors[5]}';
+          COMMIT;
         """)
 
 
