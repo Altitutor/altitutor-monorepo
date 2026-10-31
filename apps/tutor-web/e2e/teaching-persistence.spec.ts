@@ -244,6 +244,25 @@ test("pasted tables, mathematics, links and images survive a note edit and reloa
   await expect(editor).toHaveText("");
   await page.goto(sessionUrl);
 
+  // Reopen the persisted JSON in the editable component, then save it again.
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const savedEditor = details.locator('[contenteditable="true"]').first();
+  await expect(savedEditor.locator(".katex")).toHaveCount(2);
+  await expect(savedEditor.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await savedEditor.getByText("Reviewed after pasting.", { exact: true }).click();
+  await savedEditor.press("ControlOrMeta+End");
+  await savedEditor.press("Enter");
+  await savedEditor.pressSequentially("Reviewed after reopening.");
+  const editedNote = page.waitForResponse((response) =>
+    response.request().method() === "PATCH" &&
+    new URL(response.url()).pathname.startsWith("/api/notes/"),
+  );
+  await details.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await editedNote).ok()).toBe(true);
+  await expect(details.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+
   await expect(details.locator("strong").filter({ hasText: "Rich-text migration fixture" })).toBeVisible();
   await expect(details.getByRole("link", { name: "Reference", exact: true }))
     .toHaveAttribute("href", "https://example.test/reference");
@@ -254,4 +273,5 @@ test("pasted tables, mathematics, links and images survive a note edit and reloa
   await expect(details.locator('[data-latex="x^2"]')).toBeVisible();
   await expect(details.getByRole("img", { name: "Study diagram" })).toHaveAttribute("src", imageSource);
   await expect(details.getByText("Reviewed after pasting.", { exact: true })).toBeVisible();
+  await expect(details.getByText("Reviewed after reopening.", { exact: true })).toBeVisible();
 });
