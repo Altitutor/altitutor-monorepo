@@ -40,16 +40,6 @@ export default function TopicFlashcardsPage(
 
   return (
     <div className="space-y-5 p-6">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => router.push(`/topics/${id}`)} aria-label="Back to topic">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="min-w-0">
-          <h1 className="truncate text-3xl font-bold tracking-tight">Flashcards</h1>
-          <p className="truncate text-sm text-muted-foreground">{topic.name}</p>
-        </div>
-      </div>
-
       <FlashcardManager
         topicId={id}
         title="Flashcards"

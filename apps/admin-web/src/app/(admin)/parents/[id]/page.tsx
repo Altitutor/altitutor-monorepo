@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
@@ -206,7 +208,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
               <Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 disabled={mutations.isUpdatingDetails}
                 onClick={() => {
                   const form = document.getElementById('parent-edit-form') as HTMLFormElement;
@@ -256,8 +258,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the parent
-              {parent ? ` ${parent.first_name} ${parent.last_name}` : ''} and all associated data from the database.
+              <RetainedDeletionMessage kind="Parent" name={parent ? `${parent.first_name} ${parent.last_name}` : undefined} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

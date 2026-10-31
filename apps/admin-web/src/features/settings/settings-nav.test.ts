@@ -72,6 +72,7 @@ describe('settings navigation', () => {
       {
         title: 'System',
         items: [
+          { title: 'Deleted entities', href: '/settings/deleted-records' },
           { title: 'Policies', href: '/settings/policies' },
           { title: 'Views', href: '/settings/quick-filters' },
           { title: 'Rich Text Templates', href: '/settings/rich-text-templates' },

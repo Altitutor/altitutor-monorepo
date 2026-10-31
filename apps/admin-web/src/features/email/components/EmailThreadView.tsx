@@ -1,4 +1,6 @@
 "use client";
+import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -287,7 +289,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       aria-label="Email conversation"
     >
       <header className="shrink-0 space-y-3 border-b p-4">
-        <h1 className="text-lg font-semibold">{subject}</h1>
+        <AccessoryBreadcrumb />
         {participant && (
           <EmailParticipant
             mailboxAddress={mailbox.data.mailboxAddress}
@@ -317,7 +319,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           </label>
         </div>
         <EmailContextLinks thread={thread.data} />
-        <div className="flex flex-wrap items-center gap-1">
+        <AdminActionGroup label="Email actions">
           <Button
             size="icon"
             variant="ghost"
@@ -376,7 +378,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             placeholder="Move to folder"
             disabled={!nonDraftIds.length || command.isPending}
           />
-        </div>
+        </AdminActionGroup>
       </header>
       <div className="min-h-0 flex-1 overflow-auto">
         {entries.map((entry) => (

@@ -25,7 +25,7 @@ export function accessoryDestination(href: string) {
   const [route, id] = url.pathname.split("/").filter(Boolean);
   const destination = ACCESSORY_ROUTES[route] ?? ACCESSORY_ROUTES[`${route}s`];
   if (!destination) return null;
-  if (!id && ["tasks", "issues", "projects", "email"].includes(route)) return null;
+  if (!id && ["tasks", "issues", "projects", "email", "documents", "notes", "messages"].includes(route) && !(route === "messages" && (url.searchParams.has("contact") || url.searchParams.has("group") || url.searchParams.has("conversation")))) return null;
   return {
     kind: id && destination.detail ? destination.detail : destination.kind,
     id:

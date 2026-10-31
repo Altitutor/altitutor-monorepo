@@ -106,9 +106,9 @@ async function openAndConfirmName() {
   });
 }
 
-it("previews pristine future sessions and deletes an eligible class after confirmation", async () => {
+it("retains history when deleting a resolved inactive Class after confirmation", async () => {
   await openAndConfirmName();
-  expect(screen.getByText(/4 pristine future Sessions/)).toBeInTheDocument();
+  expect(screen.getByText(/retains its history/)).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Delete" }),
   ).toBeEnabled();
@@ -116,7 +116,7 @@ it("previews pristine future sessions and deletes an eligible class after confir
   await waitFor(() => expect(mockDelete).toHaveBeenCalledWith("class"));
 });
 
-it("blocks deletion and explains deactivation when historical or protected sessions exist", async () => {
+it("blocks deletion while active services remain", async () => {
   mockImpact.data = {
     canDelete: false,
     futureSessionCount: 4,
@@ -125,10 +125,7 @@ it("blocks deletion and explains deactivation when historical or protected sessi
   };
   await openAndConfirmName();
   expect(
-    screen.getByText(/3 historical and 2 protected future Sessions/),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(/make it inactive through Edit Class instead/),
+    screen.getByText(/Make the Class inactive and resolve enrolments and future bookings/),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Delete" }),

@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageActions } from "@/shared/components/AdminPageActions";
 
 import { Suspense, useState } from "react";
 import {
@@ -72,15 +73,14 @@ export default function ClassesPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
+      <AdminPageActions>
         <div className="flex items-center gap-4">
           <ClassesAddMenu
             onAddClass={() => setIsAddModalOpen(true)}
             onAddAdminShift={() => setIsAddAdminShiftOpen(true)}
           />
         </div>
-      </div>
+      </AdminPageActions>
 
       <Suspense>
         <ClassesTable

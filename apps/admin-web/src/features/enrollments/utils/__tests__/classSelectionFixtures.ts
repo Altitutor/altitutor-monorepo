@@ -2,6 +2,7 @@ import type { ClassWithExpandedSubject } from '@altitutor/shared';
 
 export function classFixture(overrides: Partial<ClassWithExpandedSubject> = {}): ClassWithExpandedSubject {
   return {
+    deleted_at: null, deleted_by: null,
     id: 'active-class', subject_id: 'maths', status: 'ACTIVE',
     day_of_week: 1, start_time: '16:00:00', end_time: '17:00:00',
     billing_type: 'CLASS', billing_type_effective_from: '2026-01-01',

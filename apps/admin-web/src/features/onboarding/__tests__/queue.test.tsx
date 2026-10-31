@@ -161,12 +161,13 @@ it("hides discontinued students from the worklist and search results", async () 
   expect(
     screen.queryByRole("cell", { name: "Discontinued student" }),
   ).not.toBeInTheDocument();
-  fireEvent.change(screen.getByRole("textbox", { name: "Search journeys" }), {
+  fireEvent.click(screen.getByRole("button", { name: /^Search$/ }));
+  fireEvent.change(await screen.findByPlaceholderText("Search student or subject"), {
     target: { value: "Discontinued" },
   });
-  expect(
+  await waitFor(() => expect(
     screen.queryByRole("cell", { name: "Current student" }),
-  ).not.toBeInTheDocument();
+  ).not.toBeInTheDocument());
   expect(
     screen.queryByRole("cell", { name: "Discontinued student" }),
   ).not.toBeInTheDocument();
@@ -185,11 +186,10 @@ it("excludes discontinued students from filter counts", async () => {
     </QueryClientProvider>,
   );
   await screen.findByRole("button", { name: /Current student/ });
-  fireEvent.keyDown(screen.getByRole("button", { name: "Filter" }), {
-    key: "Enter",
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Display options" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Change value for Queue" }));
   expect(
-    await screen.findByRole("menuitemradio", { name: "All open 2" }),
+    await screen.findByRole("option", { name: "All open 2" }),
   ).toBeVisible();
 });
 
@@ -230,11 +230,10 @@ it("also hides discontinued students from the completed / closed queue view", as
     </QueryClientProvider>,
   );
   await screen.findByRole("button", { name: /Family enquiry/ });
-  fireEvent.keyDown(screen.getByRole("button", { name: "Filter" }), {
-    key: "Enter",
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Display options" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Change value for Queue" }));
   fireEvent.click(
-    await screen.findByRole("menuitemradio", { name: "Completed / closed 1" }),
+    await screen.findByRole("option", { name: "Completed / closed 1" }),
   );
   expect(
     await screen.findByRole("button", { name: /Current student/ }),

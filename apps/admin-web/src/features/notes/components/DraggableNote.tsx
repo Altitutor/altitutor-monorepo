@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
@@ -160,7 +162,7 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the note "{note.title}". This action cannot be undone.
+              <RetainedDeletionMessage kind="Document" name={note.title} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

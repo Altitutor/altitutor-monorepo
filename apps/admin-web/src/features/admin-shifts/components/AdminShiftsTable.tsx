@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import React, { useState, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -403,8 +405,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the admin shift
-              and all associated data from the database.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

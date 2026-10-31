@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
@@ -603,8 +605,7 @@ export function TopicDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              topic and all its children.
+              <RetainedDeletionMessage kind="Topic" name={topic?.name} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

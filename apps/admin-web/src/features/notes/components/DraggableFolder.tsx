@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
@@ -38,10 +40,10 @@ interface DraggableFolderProps {
 /**
  * Draggable folder component
  */
-export function DraggableFolder({ 
-  folder, 
-  onClick, 
-  indent = 0, 
+export function DraggableFolder({
+  folder,
+  onClick,
+  indent = 0,
   isExpanded = false,
   level = 0,
 }: DraggableFolderProps) {
@@ -167,7 +169,7 @@ export function DraggableFolder({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the folder "{folder.name}". This action cannot be undone.
+              <RetainedDeletionMessage kind="Folder" name={folder.name} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

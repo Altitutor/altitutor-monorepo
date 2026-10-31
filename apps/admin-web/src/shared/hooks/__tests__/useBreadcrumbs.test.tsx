@@ -215,6 +215,7 @@ describe('useBreadcrumbs', () => {
     mockUsePathname.mockReturnValue(`/staff/${staffId}`);
 
     mockStaffApi.getStaff.mockResolvedValue({
+    deleted_at: null, deleted_by: null,
       id: staffId,
       first_name: 'Jane',
       last_name: 'Smith',
@@ -311,6 +312,7 @@ describe('useBreadcrumbs', () => {
     mockUsePathname.mockReturnValue(`/subjects/${subjectId}/topics/${topicId}`);
 
     mockSubjectsApi.getSubject.mockResolvedValue({
+    deleted_at: null, deleted_by: null,
       show_on_marketing_profiles: true,
       id: subjectId,
       name: 'Mathematics',
@@ -326,6 +328,7 @@ describe('useBreadcrumbs', () => {
     });
 
     mockTopicsApi.getTopic.mockResolvedValue({
+    deleted_at: null, deleted_by: null,
       id: topicId,
       name: 'Algebra',
       code: 'ALG',
@@ -381,6 +384,7 @@ describe('useBreadcrumbs', () => {
 
     mockClassesApi.getClassWithDetails.mockResolvedValue({
       class: {
+        deleted_at: null, deleted_by: null,
         id: classId,
         subject_id: 'subject-1',
         day_of_week: 1,
@@ -411,6 +415,7 @@ describe('useBreadcrumbs', () => {
         long_name: null,
       },
       subject: {
+        deleted_at: null, deleted_by: null,
         show_on_marketing_profiles: true,
         id: 'subject-1',
         name: 'Mathematics',

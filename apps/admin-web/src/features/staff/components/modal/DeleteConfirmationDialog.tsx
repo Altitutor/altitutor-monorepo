@@ -1,3 +1,4 @@
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 import type { Tables } from "@altitutor/shared";
 import {
   AlertDialog,
@@ -36,13 +37,12 @@ export function DeleteConfirmationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete the staff member
-            "{staffMember.first_name || ''} {staffMember.last_name || ''}" and their user account.
-          </AlertDialogDescription>
+              <RetainedDeletionMessage name={`${staffMember.first_name} ${staffMember.last_name}`} />
+            </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction 
+          <AlertDialogAction
             onClick={onDelete}
             disabled={isDeleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -60,4 +60,4 @@ export function DeleteConfirmationDialog({
       </AlertDialogContent>
     </AlertDialog>
   );
-} 
+}
