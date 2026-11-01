@@ -361,7 +361,6 @@
       "apps/tutor-web": {
         "packageJson": {
           "dependencies": [
-            "npm:@ai-sdk/react@^4.0.10",
             "npm:@dnd-kit/core@^6.3.1",
             "npm:@dnd-kit/sortable@10",
             "npm:@dnd-kit/utilities@^3.2.2",
@@ -424,7 +423,6 @@
             "npm:@typescript-eslint/parser@^6.21.0",
             "npm:@vercel/queue@0.4",
             "npm:@vitejs/plugin-react@^4.2.1",
-            "npm:ai@^7.0.9",
             "npm:autoprefixer@^10.4.17",
             "npm:class-variance-authority@0.7",
             "npm:clsx@^2.1.1",
