@@ -346,6 +346,17 @@
 
 ## Core tutoring sessions and billing
 
+- **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
+
+- **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
+  _Avoid_: Taught Topic, submitted Tutor log entry
+
+- **Teaching annotation** — A Tutor's markings on a Lesson resource's worksheet or solutions for one Session, retained on the teaching iPad and accessible to that Tutor after sign-in. Another Tutor or Session has its own markings.
+  _Avoid_: Shared resource edit, Student annotation
+
+- **Classroom display** — The audience-facing presentation of the active worksheet and its live Teaching annotations, following the Tutor's worksheet position and zoom. It presents lesson information outside the resource viewer while keeping the Tutor's solutions private.
+  _Avoid_: iPad screen mirror, solutions display
+
 - **Drafting session** — A subject-specific tutoring Session booked independently of a Class. Self-service Drafting is one-to-one; Admin-booked meetings permit flexible participants. The Subject is stored directly on the Session.
   _Avoid_: Drafting Class, subject-independent Drafting session
 
