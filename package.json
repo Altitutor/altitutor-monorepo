@@ -12,12 +12,12 @@
     "dev-web": "turbo run dev --filter='./apps/*-web'",
     "dev:isolated": "python3 scripts/worktree_dev.py",
     "build": "turbo run build",
-    "lint": "turbo run lint --max-warnings=0",
-    "lint:fix": "turbo run lint:fix --max-warnings=0",
+    "lint": "bash scripts/run-lint.sh lint",
+    "lint:fix": "bash scripts/run-lint.sh lint:fix",
     "test": "turbo run test --concurrency=2",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
-    "check": "turbo run lint && turbo run typecheck && pnpm test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
     "checkall": "bash scripts/checkall.sh",
     "db:types": "python3 scripts/owned_database.py types",
     "db:seed:ucat": "bash supabase/scripts/apply-ucat-test-seed.sh",
@@ -42,5 +42,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Altitutor/altitutor-monorepo.git"
+  },
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0",
+    "pnpm": "11.28.9"
   }
 }

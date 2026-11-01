@@ -2,6 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "concurrency": "14",
   "globalDependencies": [
+    ".nvmrc",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "package.json",
@@ -15,6 +16,37 @@
   ],
   "tasks": {
     "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ui#dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-marking#dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/shared#dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-percentiles#dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-blueprint#dev": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-response-contract#dev": {
+      "dependsOn": ["build"],
       "cache": false,
       "persistent": true
     },

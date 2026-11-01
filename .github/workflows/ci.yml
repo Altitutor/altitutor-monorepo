@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Check production release gate
@@ -75,15 +75,15 @@ jobs:
 
       - name: List affected packages
         if: env.TURBO_FILTER != ''
-        run: pnpm turbo run lint --filter="${{ env.TURBO_FILTER }}" --dry-run
+        run: pnpm lint --filter="${{ env.TURBO_FILTER }}" --dry-run
 
       - name: Run linter
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run lint --filter="${{ env.TURBO_FILTER }}"
+            pnpm lint --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run lint
+            pnpm lint
           fi
 
       - name: Check formatting
@@ -111,7 +111,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -130,9 +130,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
+            pnpm typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run typecheck --concurrency=1
+            pnpm typecheck --concurrency=1
           fi
 
   test:
@@ -151,7 +151,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -183,7 +183,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: denoland/setup-deno@v2
@@ -221,7 +221,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
 
       - name: Decide which browser and database tests are needed
         id: detect
@@ -254,7 +254,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: "pnpm"
 
       - uses: supabase/setup-cli@v2
@@ -412,7 +412,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -431,7 +431,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run build --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
+            pnpm build --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run build --concurrency=1
+            pnpm build --concurrency=1
           fi

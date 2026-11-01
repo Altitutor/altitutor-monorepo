@@ -3,6 +3,7 @@ packages:
   - 'packages/*'
 
 # pnpm 11 reads dependency-layout settings here, rather than .npmrc.
+engineStrict: true
 autoInstallPeers: true
 strictPeerDependencies: false
 hoist: true
