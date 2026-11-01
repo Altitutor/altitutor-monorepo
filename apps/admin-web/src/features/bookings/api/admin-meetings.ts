@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from "zod";
 
 export const MANUAL_MEETING_TYPES = [
@@ -13,8 +14,8 @@ const ids = z.array(z.string().guid('Invalid uuid')).default([]);
 export const manualMeetingSchema = z
   .object({
     type: z.enum(MANUAL_MEETING_TYPES),
-    startAt: z.string().datetime({ offset: true }),
-    endAt: z.string().datetime({ offset: true }),
+    startAt: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime"),
+    endAt: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime"),
     studentIds: ids,
     parentIds: ids,
     staffIds: ids,

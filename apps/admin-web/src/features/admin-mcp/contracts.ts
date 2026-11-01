@@ -1,8 +1,9 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import type { Json } from "@altitutor/shared";
 import { z } from "zod";
 
 const id = z.string().guid('Invalid uuid');
-const date = z.string().datetime({ offset: true }).nullable();
+const date = z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").nullable();
 const richText: z.ZodType<Json> = z.lazy(() =>
   z.union([
     z.string(),

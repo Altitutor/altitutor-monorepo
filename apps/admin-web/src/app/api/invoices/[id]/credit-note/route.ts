@@ -1,3 +1,4 @@
+import { ISO_DATETIME_UTC_PATTERN } from "@altitutor/shared";
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -20,7 +21,7 @@ const creditNoteBodySchema = z
     reason: z.enum(['duplicate', 'product_unsatisfactory', 'order_change', 'fraudulent', 'other']),
     lines: z.array(creditNoteLineSchema).min(1, 'At least one line must be credited'),
     memo: z.string().max(500).optional(),
-    effective_at: z.string().datetime().optional(),
+    effective_at: z.stringFormat("date-time", ISO_DATETIME_UTC_PATTERN, "Invalid datetime").optional(),
     refund_amount_cents: z.number().int().nonnegative().optional(),
     credit_amount_cents: z.number().int().nonnegative().optional(),
     out_of_band_amount_cents: z.number().int().nonnegative().optional(),

@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from 'zod'
 import { isValidAuditCatalogFilter } from '@/features/ucat/questions/lib/audit-catalog'
 import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
@@ -46,8 +47,8 @@ export const CatalogFilterClauseSchema = z.object({
   sourceChannels: z.array(z.enum(['individual', 'bulk_import', 'ai_generation'])).max(3).optional(),
   aiReviewStatuses: z.array(z.enum(UCAT_DURABLE_AI_REVIEW_STATUSES)).max(20).optional(),
   createdBy: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
-  createdFrom: z.string().datetime({ offset: true }).optional(),
-  createdTo: z.string().datetime({ offset: true }).optional(),
+  createdFrom: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
+  createdTo: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
   questionCountMin: z.number().int().min(0).optional(),
   questionCountMax: z.number().int().min(0).optional(),
 }).describe(

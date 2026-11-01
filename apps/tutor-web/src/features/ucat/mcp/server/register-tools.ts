@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import type { McpServer } from '@modelcontextprotocol/server'
 import type {
   CallToolResult,
@@ -316,8 +317,8 @@ export function registerUcatMcpTools(
         sourceChannels: z.array(z.enum(['individual', 'bulk_import', 'ai_generation'])).max(3).optional(),
         aiReviewStatuses: z.array(z.enum(UCAT_DURABLE_AI_REVIEW_STATUSES)).max(20).optional(),
         createdBy: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
-        createdFrom: z.string().datetime({ offset: true }).optional(),
-        createdTo: z.string().datetime({ offset: true }).optional(),
+        createdFrom: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
+        createdTo: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
         questionCountMin: z.number().int().min(0).optional(),
         questionCountMax: z.number().int().min(0).optional(),
         searchScopes: QuestionCatalogSearchScopesSchema,
@@ -863,7 +864,7 @@ export function registerUcatMcpTools(
         'List durable audit runs newest first, including target status counts. Any UCAT tutor can read every run. Filter by lifecycle status and use both cursor fields from nextCursor to fetch the next page.',
       inputSchema: z.object({
         status: z.enum(['selecting', 'active', 'completed', 'cancelled']).optional(),
-        cursorCreatedAt: z.string().datetime({ offset: true }).optional().describe(
+        cursorCreatedAt: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional().describe(
           'createdAt from the previous page’s nextCursor. Supply together with cursorId.',
         ),
         cursorId: z.string().guid('Invalid uuid').optional().describe(
