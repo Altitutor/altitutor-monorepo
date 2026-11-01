@@ -1,6 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  EmailAttachments,
+  emailAttachmentKey,
+  type EmailAttachment,
+} from "./EmailAttachments";
+import {
+  uploadEmailAttachment,
+  EmailAttachmentUploadError,
+} from "../api/attachments";
 import {
   Button,
   Input,
@@ -87,6 +97,7 @@ export function EmailComposer({
   draftReady?: Promise<{ message?: EmailMessage }>;
 }) {
   const command = useEmailCommand();
+  const queryClient = useQueryClient();
   const [richEditor, setRichEditor] = useState<Editor | null>(null);
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [pendingRecipients, setPendingRecipients] = useState({
@@ -136,8 +147,18 @@ export function EmailComposer({
   const idleWaiters = useRef<Array<() => void>>([]);
   const attachmentQueue = useRef(Promise.resolve());
   const [queuedFiles, setQueuedFiles] = useState(0);
+  const nextFile = useRef(0);
+  const [uploadFiles, setUploadFiles] = useState<
+    Array<{
+      id: number;
+      name: string;
+      percent: number;
+      state: "queued" | "uploading" | "error";
+      error?: string;
+    }>
+  >([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
-  const [attachedNames, setAttachedNames] = useState<string[]>([]);
+
   const current = useRef(content);
   current.current = content;
   const version = useRef(message.changeKey ?? "");
@@ -338,7 +359,8 @@ export function EmailComposer({
     preparing,
     creationError,
   ]);
-  function undoAttachment(attachmentId: string, name: string) {
+  function undoAttachment(attachmentId: string, _name: string) {
+    if (blocked || sending || preparing) return;
     setQueuedFiles((count) => count + 1);
     attachmentQueue.current = attachmentQueue.current.then(async () => {
       if (busy.current)
@@ -360,10 +382,10 @@ export function EmailComposer({
           );
         version.current = result.message.changeKey ?? "";
         setMessage(result.message);
-        setAttachedNames((names) => {
-          const index = names.indexOf(name);
-          return names.filter((_, at) => at !== index);
-        });
+        queryClient.setQueryData<EmailAttachment[]>(
+          emailAttachmentKey(provider.current.id),
+          (files) => files?.filter((file) => file.id !== attachmentId),
+        );
         setStatus("Attachment removed");
         toast.success("Attachment removed");
       } catch (error) {
@@ -382,13 +404,21 @@ export function EmailComposer({
   }
   function attachFiles(files: File[]) {
     if (!files.length) return;
+    const pending = files.map((file) => ({ file, id: ++nextFile.current }));
+    setUploadFiles((all) => [
+      ...all,
+      ...pending.map(({ file, id }) => ({
+        id,
+        name: file.name,
+        percent: 0,
+        state: "queued" as const,
+      })),
+    ]);
     setQueuedFiles((count) => count + files.length);
-    for (const file of files) {
+    for (const { file, id: uploadId } of pending) {
       attachmentQueue.current = attachmentQueue.current.then(async () => {
         let ownsBusy = false;
         try {
-          if (file.size >= 3_000_000)
-            throw new Error("Choose a file smaller than 3 MB for this upload.");
           if (blocked || conflict || creationError)
             throw new Error("Resolve this draft before attaching files.");
           if (draftReady) await draftReady;
@@ -399,30 +429,51 @@ export function EmailComposer({
           busy.current = true;
           ownsBusy = true;
           setStatus(`Attaching ${file.name}…`);
-          const body = new FormData();
-          body.set("id", provider.current.id);
-          body.set("changeKey", version.current);
-          body.set("editToken", (editToken.current ??= crypto.randomUUID()));
-          body.set("file", file);
-          const response = await fetch("/api/email/attachments", {
-            method: "POST",
-            body,
-          });
-          const value: unknown = await response.json();
-          if (!response.ok)
-            throw new Error(z.object({ error: z.string() }).parse(value).error);
+          setUploadFiles((all) =>
+            all.map((item) =>
+              item.id === uploadId ? { ...item, state: "uploading" } : item,
+            ),
+          );
+          const value = await uploadEmailAttachment(
+            {
+              id: provider.current.id,
+              changeKey: version.current,
+              editToken: (editToken.current ??= crypto.randomUUID()),
+              file,
+            },
+            (percent) =>
+              setUploadFiles((all) =>
+                all.map((item) =>
+                  item.id === uploadId ? { ...item, percent } : item,
+                ),
+              ),
+          );
           const result = draftResponseSchema.parse(value);
           if (!result.message)
             throw new Error(
               "Attachment outcome could not be confirmed. Check the draft before retrying.",
             );
-          setMessage(result.message);
+          setMessage({ ...result.message, hasAttachments: true });
           version.current = result.message.changeKey ?? "";
-          setAttachedNames((names) => [...names, file.name]);
           setStatus(`Attached ${file.name}`);
           const attachment = z
             .object({ attachment: z.object({ id: z.string() }).optional() })
             .parse(value).attachment;
+          if (attachment)
+            queryClient.setQueryData<EmailAttachment[]>(
+              emailAttachmentKey(provider.current.id),
+              (files) => [
+                ...(files ?? []).filter((item) => item.id !== attachment.id),
+                {
+                  id: attachment.id,
+                  name: file.name,
+                  contentType: file.type || "application/octet-stream",
+                  size: file.size,
+                  type: "#microsoft.graph.fileAttachment",
+                },
+              ],
+            );
+          setUploadFiles((all) => all.filter((item) => item.id !== uploadId));
           toast.success(`Attached ${file.name}`, {
             ...(attachment
               ? {
@@ -434,9 +485,28 @@ export function EmailComposer({
               : {}),
           });
         } catch (error) {
-          setStatus(
-            error instanceof Error ? error.message : "Attachment failed.",
+          const detail =
+            error instanceof Error ? error.message : "Attachment failed.";
+          if (error instanceof EmailAttachmentUploadError && error.draft) {
+            setMessage(error.draft);
+            if (error.draft.changeKey !== version.current)
+              setConflict(error.draft);
+          } else
+            setMessage((currentMessage) => ({
+              ...currentMessage,
+              hasAttachments: true,
+            }));
+          void queryClient.invalidateQueries({
+            queryKey: emailAttachmentKey(provider.current.id),
+          });
+          setUploadFiles((all) =>
+            all.map((item) =>
+              item.id === uploadId
+                ? { ...item, state: "error", error: detail }
+                : item,
+            ),
           );
+          setStatus(detail);
         } finally {
           if (ownsBusy) {
             busy.current = false;
@@ -452,6 +522,11 @@ export function EmailComposer({
     if (
       sending ||
       queuedFiles > 0 ||
+      preparing ||
+      command.isPending ||
+      Boolean(creationError) ||
+      Boolean(conflict) ||
+      !current.current.bodyText.trim() ||
       blocked ||
       Object.values(pendingRecipients).some(Boolean) ||
       !addresses(current.current.to).length ||
@@ -522,7 +597,8 @@ export function EmailComposer({
     sending ||
     command.isPending ||
     preparing ||
-    Boolean(creationError);
+    Boolean(creationError) ||
+    Boolean(conflict);
   const footer = (
     <div className="flex w-full min-w-0 items-center justify-between gap-2">
       <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
@@ -542,7 +618,9 @@ export function EmailComposer({
                         patch({
                           bodyText: template.body_text,
                           bodyHtml: `${signatureHtml(template.body_text)}${signature ? `<p><br></p>${signatureHtml(signature)}` : ""}`,
-                          ...(template.subject
+                          ...(template.subject &&
+                          (provider.current.draftMode === "new" ||
+                            !current.current.subject.trim())
                             ? { subject: template.subject }
                             : {}),
                         });
@@ -616,6 +694,7 @@ export function EmailComposer({
         </DateTimePickerPopover>
         <EmailIconButton
           label={scheduledAt ? "Schedule email" : "Send"}
+          shortcut={["Meta", "Enter"]}
           variant="default"
           className="h-9 w-9 rounded-full"
           disabled={
@@ -767,15 +846,7 @@ export function EmailComposer({
           />
         </label>
       </div>
-      <div
-        className="border-t pt-3"
-        onKeyDown={(event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            void send();
-          }
-        }}
-      >
+      <div className="border-t pt-3">
         <EmailBodyEditor
           html={content.bodyHtml ?? textHtml(content.bodyText)}
           disabled={blocked}
@@ -968,6 +1039,21 @@ export function EmailComposer({
         setDraggingFiles(false);
         attachFiles(Array.from(event.dataTransfer.files));
       }}
+      onKeyDownCapture={(event) => {
+        if (
+          event.currentTarget.contains(event.target as Node) &&
+          !event.repeat &&
+          (event.metaKey || event.ctrlKey) &&
+          event.key === "Enter" &&
+          !event.altKey &&
+          !event.shiftKey &&
+          !event.nativeEvent.isComposing
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          void send();
+        }
+      }}
       aria-label="Shared email draft"
       data-email-shortcut-scope="typing"
     >
@@ -1060,19 +1146,61 @@ export function EmailComposer({
         </p>
       )}
       {editor}
-      {attachedNames.length > 0 && (
-        <ul aria-label="Attached files" className="flex flex-wrap gap-2">
-          {attachedNames.map((name, index) => (
+      {uploadFiles.length > 0 && (
+        <ul aria-label="File uploads" className="space-y-2">
+          {uploadFiles.map((file) => (
             <li
-              key={`${name}:${index}`}
-              className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+              key={file.id}
+              className="rounded-lg border bg-background/30 px-3 py-2 text-xs"
             >
-              <Paperclip className="h-3 w-3" />
-              {name}
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">{file.name}</span>
+                {file.state === "error" ? (
+                  <EmailIconButton
+                    label={`Dismiss failed upload ${file.name}`}
+                    destructive
+                    variant="ghost"
+                    className="h-6 w-6 border-0"
+                    onClick={() =>
+                      setUploadFiles((all) =>
+                        all.filter((item) => item.id !== file.id),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </EmailIconButton>
+                ) : (
+                  <span className="shrink-0 text-muted-foreground">
+                    {file.state === "queued"
+                      ? "Waiting…"
+                      : file.percent >= 100
+                        ? "Finishing attachment…"
+                        : `${file.percent}%`}
+                  </span>
+                )}
+              </div>
+              {file.state === "error" ? (
+                <p role="alert" className="mt-1 text-destructive">
+                  {file.error}
+                </p>
+              ) : (
+                <progress
+                  aria-label={`Uploading ${file.name}`}
+                  value={file.percent}
+                  max={100}
+                  className="mt-2 h-1 w-full accent-primary"
+                />
+              )}
             </li>
           ))}
         </ul>
       )}
+      <EmailAttachments
+        id={message.id}
+        enabled={Boolean(message.hasAttachments)}
+        disabled={unavailable}
+        onRemove={(file) => undoAttachment(file.id, file.name)}
+      />
       {scheduledAt && new Date(scheduledAt).getTime() <= Date.now() && (
         <p role="alert" className="text-xs text-destructive">
           Choose a future send time or clear the schedule.

@@ -39,6 +39,10 @@ jest.mock("@/shared/components/accessory-panel/AccessoryViews", () => ({
   },
 }));
 beforeAll(() => {
+  Object.defineProperty(crypto, "randomUUID", {
+    configurable: true,
+    value: () => "fa250000-0000-4000-8000-000000000099",
+  });
   global.ResizeObserver = jest.fn().mockImplementation(() => ({
     observe: jest.fn(),
     unobserve: jest.fn(),
@@ -206,7 +210,11 @@ const originalMessage = {
   folderId: "inbox",
   read: true,
 };
-function existingThread(messages: object[], workspace?: React.ReactNode) {
+function existingThread(
+  messages: object[],
+  workspace?: React.ReactNode,
+  sends: object[] = [],
+) {
   global.fetch = jest.fn(
     async (input) =>
       ({
@@ -221,7 +229,7 @@ function existingThread(messages: object[], workspace?: React.ReactNode) {
                   assignedAt: null,
                   links: [],
                   messages,
-                  sends: [],
+                  sends,
                 }
               : {
                   threads: [],
@@ -464,4 +472,28 @@ it("keeps the same draft editor mounted when Messages are hidden and shown", asy
   );
   expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
   expect(subject).toHaveValue("Work retained across visibility");
+});
+
+it("shows a full scheduled-email preview and send time instead of an editable draft", async () => {
+  existingThread([originalMessage, existingDraft], undefined, [
+    {
+      message_id: existingDraft.id,
+      state: "scheduled",
+      scheduled_at: "2026-12-01T02:30:00Z",
+      command_id: "fa250000-0000-4000-8000-000000000099",
+      updated_at: "2026-11-01T00:00:00Z",
+    },
+  ]);
+  expect(
+    await screen.findByRole("region", { name: "Scheduled email" }),
+  ).toHaveTextContent("Work already written");
+  expect(
+    screen.getByRole("region", { name: "Scheduled email" }),
+  ).toHaveTextContent("1 Dec 2026");
+  expect(
+    screen.queryByRole("textbox", { name: "Email body" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Cancel schedule" }),
+  ).toBeInTheDocument();
 });

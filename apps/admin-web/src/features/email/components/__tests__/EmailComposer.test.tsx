@@ -43,6 +43,10 @@ jest.mock("@/shared/contexts/EntityNavigation", () => ({
 }));
 // jsdom has no layout; ProseMirror scrolls a DOM Range after a focused edit.
 beforeAll(() => {
+  Object.defineProperty(crypto, "randomUUID", {
+    configurable: true,
+    value: () => "fa250000-0000-4000-8000-000000000099",
+  });
   global.ResizeObserver = jest.fn().mockImplementation(() => ({
     observe: jest.fn(),
     unobserve: jest.fn(),
@@ -64,6 +68,59 @@ beforeAll(() => {
       height: 0,
     }),
   });
+});
+// Drive the real browser-upload transport through the same fake HTTP boundary.
+const xhrRequests = new WeakMap<
+  XMLHttpRequest,
+  { method: string; url: string }
+>();
+let openUpload: jest.SpyInstance;
+let sendUpload: jest.SpyInstance;
+beforeAll(() => {
+  openUpload = jest
+    .spyOn(XMLHttpRequest.prototype, "open")
+    .mockImplementation(function (
+      this: XMLHttpRequest,
+      method: string,
+      url: string | URL,
+    ) {
+      xhrRequests.set(this, { method, url: String(url) });
+    });
+  sendUpload = jest
+    .spyOn(XMLHttpRequest.prototype, "send")
+    .mockImplementation(function (
+      this: XMLHttpRequest,
+      body?: Document | XMLHttpRequestBodyInit | null,
+    ) {
+      const request = xhrRequests.get(this)!;
+      this.upload.dispatchEvent(
+        new ProgressEvent("progress", {
+          lengthComputable: true,
+          loaded: 50,
+          total: 100,
+        }),
+      );
+      void global.fetch!(request.url, {
+        method: request.method,
+        body: body as BodyInit,
+      })
+        .then(async (response) => {
+          Object.defineProperty(this, "status", {
+            configurable: true,
+            value: response.status || (response.ok ? 200 : 400),
+          });
+          Object.defineProperty(this, "responseText", {
+            configurable: true,
+            value: JSON.stringify(await response.json()),
+          });
+          this.onload?.call(this, new ProgressEvent("load"));
+        })
+        .catch(() => this.onerror?.call(this, new ProgressEvent("error")));
+    });
+});
+afterAll(() => {
+  openUpload.mockRestore();
+  sendUpload.mockRestore();
 });
 const originalFetch = global.fetch;
 async function editBody(text: string) {
@@ -806,7 +863,7 @@ it("serializes files dropped onto the editor and can undo one upload using the l
         ok: true,
         json: async () => ({
           state: "saved",
-          message: { ...draft, changeKey: "removed-one" },
+          message: { ...draft, hasAttachments: true, changeKey: "removed-one" },
         }),
       } as Response;
     }
@@ -862,4 +919,224 @@ it("serializes files dropped onto the editor and can undo one upload using the l
   );
   expect(screen.getByText("two.txt")).toBeInTheDocument();
   feedback.mockRestore();
+});
+
+it("preserves a reply-all subject when inserting a template so Exchange can keep the conversation", async () => {
+  localStorage.clear();
+  global.fetch = jest.fn(
+    async () =>
+      ({ ok: true, json: async () => ({ person: null }) }) as Response,
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <EmailComposer
+        draft={{
+          ...draft,
+          subject: "RE: Class change",
+          draftMode: "replyAll",
+          replyToMessageId: "original",
+        }}
+        mailbox={{
+          ...mailbox,
+          templates: [
+            {
+              id: "template-one",
+              name: "Lesson follow-up",
+              subject: "Lesson follow-up",
+              body_text: "Thank you for your email.",
+            },
+          ],
+        }}
+        onClose={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Insert email template" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("option", { name: "Lesson follow-up" }),
+  );
+  expect(screen.getByRole("textbox", { name: "Email subject" })).toHaveValue(
+    "RE: Class change",
+  );
+  expect(screen.getByRole("textbox", { name: "Email body" })).toHaveTextContent(
+    "Thank you for your email.",
+  );
+});
+
+it("sends once with Command+Enter from the subject field using the normal undo window", async () => {
+  localStorage.clear();
+  const commands: Array<{ action: string; undoDelaySeconds?: number }> = [];
+  global.fetch = jest.fn(async (_input, init) => {
+    if (!init?.body)
+      return { ok: true, json: async () => ({ person: null }) } as Response;
+    commands.push(JSON.parse(String(init.body)));
+    return {
+      ok: true,
+      json: async () => ({
+        state: "queued",
+        scheduledAt: new Date(Date.now() + 10_000).toISOString(),
+        commandId: "fa250000-0000-4000-8000-000000000099",
+      }),
+    } as Response;
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <EmailComposer draft={draft} mailbox={mailbox} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Email subject" }), {
+    key: "Enter",
+    metaKey: true,
+  });
+  await waitFor(() =>
+    expect(
+      commands.filter((command) => command.action === "send"),
+    ).toHaveLength(1),
+  );
+  expect(commands[0]).toMatchObject({ action: "send", undoDelaySeconds: 10 });
+});
+
+it("reloads draft attachments and lets staff preview and remove an existing file", async () => {
+  localStorage.clear();
+  const commands: Array<{ action: string; attachmentId?: string }> = [];
+  global.fetch = jest.fn(async (input, init) => {
+    if (init?.body) {
+      commands.push(JSON.parse(String(init.body)));
+      return {
+        ok: true,
+        json: async () => ({
+          state: "saved",
+          message: { ...draft, hasAttachments: false, changeKey: "removed" },
+        }),
+      } as Response;
+    }
+    return {
+      ok: true,
+      json: async () =>
+        String(input).includes("/attachments")
+          ? [
+              {
+                id: "attachment-one",
+                name: "timetable.pdf",
+                contentType: "application/pdf",
+                size: 1200,
+                type: "#microsoft.graph.fileAttachment",
+              },
+            ]
+          : { person: null },
+    } as Response;
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <EmailComposer
+        draft={{ ...draft, hasAttachments: true }}
+        mailbox={mailbox}
+        onClose={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  expect(
+    await screen.findByRole("button", { name: "Preview timetable.pdf" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Remove timetable.pdf" }));
+  await waitFor(() =>
+    expect(commands).toContainEqual(
+      expect.objectContaining({
+        action: "removeAttachment",
+        attachmentId: "attachment-one",
+      }),
+    ),
+  );
+});
+
+it("shows chunk upload progress and blocks send until Microsoft confirms the complete file", async () => {
+  localStorage.clear();
+  const chunks: Array<{ offset: string; size: number }> = [];
+  let finishChunk: (response: Response) => void = () => {};
+  const commands: string[] = [];
+  global.fetch = jest.fn(async (input, init) => {
+    if (
+      String(input).endsWith("/attachments/upload") &&
+      init?.method === "POST"
+    )
+      return {
+        ok: true,
+        json: async () => ({
+          ticket: "opaque-fixture-ticket",
+          chunkSize: 1_966_080,
+        }),
+      } as Response;
+    if (init?.body instanceof FormData) {
+      chunks.push({
+        offset: String(init.body.get("offset")),
+        size: (init.body.get("file") as File).size,
+      });
+      if (chunks.length === 1)
+        return new Promise<Response>((resolve) => {
+          finishChunk = resolve;
+        });
+      return {
+        ok: true,
+        json: async () => ({
+          state: "saved",
+          message: { ...draft, hasAttachments: true, changeKey: "uploaded" },
+          attachment: { id: "large-file" },
+        }),
+      } as Response;
+    }
+    if (init?.body) commands.push(String(init.body));
+    return { ok: true, json: async () => ({ person: null }) } as Response;
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <EmailComposer draft={draft} mailbox={mailbox} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  fireEvent.drop(screen.getByRole("region", { name: "Shared email draft" }), {
+    dataTransfer: {
+      types: ["Files"],
+      files: [new File([new Uint8Array(3_000_000)], "large.bin")],
+    },
+  });
+  await waitFor(() => expect(chunks).toHaveLength(1));
+  expect(
+    screen.getByRole("progressbar", { name: "Uploading large.bin" }),
+  ).toHaveAttribute("value", "32");
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Email subject" }), {
+    key: "Enter",
+    metaKey: true,
+  });
+  expect(commands).toHaveLength(0);
+  await act(async () =>
+    finishChunk({
+      ok: true,
+      json: async () => ({ state: "uploading", nextOffset: 1_966_080 }),
+    } as Response),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Preview large.bin" }),
+    ).toBeInTheDocument(),
+  );
+  expect(chunks).toEqual([
+    { offset: "0", size: 1_966_080 },
+    { offset: "1966080", size: 1_033_920 },
+  ]);
+  expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  expect(commands).toHaveLength(0);
 });

@@ -367,7 +367,11 @@ export function MailPage() {
                         <span
                           className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
                         >
-                          {row.draft ? "Draft · " : ""}
+                          {folder === "scheduled"
+                            ? "Scheduled · "
+                            : row.draft
+                              ? "Draft · "
+                              : ""}
                           {row.subject || "(no subject)"}
                         </span>
                       )}
@@ -378,7 +382,7 @@ export function MailPage() {
                       )}
                     </span>
                   </button>
-                  <div className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                  <div className="absolute right-3 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                     {mailbox.data && (
                       <EmailActions
                         ids={row.messageIds}

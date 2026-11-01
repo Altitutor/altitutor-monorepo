@@ -52,7 +52,6 @@ export function EmailActions({
   onForward,
   onReplyAll,
   level = "thread",
-  compact = false,
   hideAssignee = false,
 }: {
   ids: string[];
@@ -191,13 +190,13 @@ export function EmailActions({
           <EmailIconButton
             label={selected ? `Assign · ${name(selected)}` : "Assign"}
             shortcut="A"
-            className={selected && !compact ? "w-auto max-w-40 px-2" : ""}
+            className={selected ? "w-auto max-w-40 px-2" : ""}
             disabled={command.isPending}
           >
             <UserRound
               className={`h-4 w-4 ${selected ? "text-primary" : ""}`}
             />
-            {selected && !compact && (
+            {selected && (
               <span className="truncate text-xs">{name(selected)}</span>
             )}
           </EmailIconButton>

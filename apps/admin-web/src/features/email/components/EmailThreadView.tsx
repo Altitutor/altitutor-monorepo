@@ -6,8 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { z } from "zod";
+import { useQueries } from "@tanstack/react-query";
 import { Archive, Mail, Reply, Forward, ListFilter } from "lucide-react";
 import {
   Button,
@@ -21,12 +20,7 @@ import { useRegisterRecordActions } from "@/features/command-palette/RecordActio
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
 import { activityApi } from "@/features/activity/api";
 import { communicationActivityAt } from "@/features/activity/lib/entityCommunication";
-import {
-  useEmailCommand,
-  useEmailThread,
-  useMailbox,
-  mailRequest,
-} from "../api/client";
+import { useEmailCommand, useEmailThread, useMailbox } from "../api/client";
 import {
   draftResponseSchema,
   type EmailMessage,
@@ -42,6 +36,8 @@ import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { isEditableDraft } from "./drafts";
 import { EmailParticipant } from "./EmailParticipant";
+import { EmailAttachments } from "./EmailAttachments";
+import { EmailPendingMessage } from "./EmailPendingMessage";
 const time = (value?: string | null) =>
   value
     ? new Date(value).toLocaleString("en-AU", {
@@ -49,39 +45,6 @@ const time = (value?: string | null) =>
         timeStyle: "short",
       })
     : "Draft";
-function Attachments({ id }: { id: string }) {
-  const files = useQuery({
-    queryKey: ["email", "attachments", id],
-    queryFn: async () =>
-      z
-        .array(z.object({ id: z.string(), name: z.string(), type: z.string() }))
-        .parse(await mailRequest(`/attachments?id=${encodeURIComponent(id)}`)),
-  });
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {files.data?.map((file) =>
-        file.type === "#microsoft.graph.referenceAttachment" ? (
-          <span key={file.id} className="text-xs text-muted-foreground">
-            {file.name} · cloud attachment
-          </span>
-        ) : (
-          <a
-            key={file.id}
-            className="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-            href={`/api/email/attachments?id=${encodeURIComponent(id)}&attachment=${encodeURIComponent(file.id)}`}
-          >
-            {file.name}
-          </a>
-        ),
-      )}
-      {files.error && (
-        <p role="alert" className="text-xs text-destructive">
-          {files.error.message}
-        </p>
-      )}
-    </div>
-  );
-}
 function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
   const links =
     thread?.links.filter((link) =>
@@ -203,16 +166,18 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   const liveDrafts = messages.filter(
     (message) =>
       isEditableDraft(message, mailbox.data?.folders ?? []) &&
-      !dismissedDrafts.includes(message.id),
+      (!dismissedDrafts.includes(message.id) ||
+        Boolean(pendingSend(message.id))),
   );
-  const pendingSend = (id: string) =>
-    thread.data?.sends.find(
+  function pendingSend(id: string) {
+    return thread.data?.sends.find(
       (send) =>
         send.message_id === id &&
         ["scheduled", "paused", "sending", "submitted", "uncertain"].includes(
           send.state,
         ),
     );
+  }
   useEffect(() => {
     if (scope?.active === false || !focusDraftId) return;
     if (!showMessages) {
@@ -339,6 +304,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       bodyText: quote,
       bodyHtml: undefined,
       draft: true,
+      draftMode: mode,
+      replyToMessageId: original.id,
       to: recipients,
       cc: [],
       bcc: [],
@@ -535,7 +502,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                   </p>
                 )}
                 {message.hasAttachments && !message.removed && (
-                  <Attachments id={message.id} />
+                  <EmailAttachments id={message.id} />
                 )}
               </article>
             ),
@@ -549,6 +516,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       setDismissedDrafts((all) => [...all, preparedDraftId ?? draft!.id]);
     setDraft(null);
     setDraftReady(undefined);
+    setPreparedDraftId(undefined);
     setDraftSubject("");
     if (creating) scope?.close();
     else void thread.refetch();
@@ -633,36 +601,58 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           {liveDrafts
             .filter(
               (message) =>
-                message.id !== draft?.id && message.id !== preparedDraftId,
+                message.id !== draft?.id &&
+                (!draft || message.id !== preparedDraftId),
             )
-            .map((message) => (
-              <div
-                key={message.id}
-                ref={(element) => {
-                  if (element) draftCards.current.set(message.id, element);
-                  else draftCards.current.delete(message.id);
-                }}
-              >
-                <EmailComposer
-                  registerForClose={registerDraftClose}
-                  draft={message}
-                  mailbox={mailbox.data!}
-                  inline
-                  disabledReason={
-                    pendingSend(message.id)
-                      ? "Delivery is reserved. Cancel the schedule before editing."
-                      : undefined
-                  }
-                  onClose={() => {
-                    setDismissedDrafts((all) => [...all, message.id]);
-                    void thread.refetch();
+            .map((message) => {
+              const pending = pendingSend(message.id);
+              return (
+                <div
+                  key={message.id}
+                  ref={(element) => {
+                    if (element) draftCards.current.set(message.id, element);
+                    else draftCards.current.delete(message.id);
                   }}
-                />
-              </div>
-            ))}
+                >
+                  {pending ? (
+                    <EmailPendingMessage
+                      message={message}
+                      state={pending.state}
+                      scheduledAt={pending.scheduled_at}
+                      mailboxAddress={mailbox.data!.mailboxAddress}
+                      busy={command.isPending}
+                      onCancel={() =>
+                        command.mutate({
+                          action: "cancelSchedule",
+                          id: pending.command_id,
+                        })
+                      }
+                    />
+                  ) : (
+                    <EmailComposer
+                      registerForClose={registerDraftClose}
+                      draft={message}
+                      mailbox={mailbox.data!}
+                      inline
+                      onClose={() => {
+                        setDismissedDrafts((all) => [...all, message.id]);
+                        void thread.refetch();
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
         </div>
         {sends
-          .filter((send) => send.state !== "sent")
+          .filter(
+            (send) =>
+              send.state !== "sent" &&
+              !liveDrafts.some(
+                (message) =>
+                  message.id === send.message_id && pendingSend(message.id),
+              ),
+          )
           .map((send) => (
             <div
               key={send.command_id}

@@ -229,6 +229,19 @@ export function createGraphMailbox({
     if (!response.ok) throw new GraphMailboxError(response.status);
     return response;
   }
+  function uploadUrl(value: string) {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !["outlook.office.com", "outlook.office365.com"].includes(url.hostname) ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.hash
+    )
+      throw new Error("Unexpected Microsoft attachment upload URL.");
+    return value;
+  }
   return {
     policy: mailbox,
     async folder(id: string) {
@@ -363,7 +376,7 @@ export function createGraphMailbox({
       file: { name: string; contentType: string; contentBytes: string },
     ) {
       // Larger files use Graph upload sessions; this JSON endpoint is <3 MB.
-      if (file.contentBytes.length > 3_900_000)
+      if (Buffer.byteLength(file.contentBytes, "base64") >= 3_000_000)
         throw new Error(
           "This attachment requires a large-file upload session.",
         );
@@ -376,6 +389,94 @@ export function createGraphMailbox({
         },
       );
       return z.object({ id: z.string() }).parse(await response.json());
+    },
+    async createAttachmentUpload(
+      id: string,
+      file: { name: string; size: number; contentType: string },
+    ) {
+      const response = await request(
+        `/messages/${encodeURIComponent(id)}/attachments/createUploadSession`,
+        "POST",
+        {
+          AttachmentItem: { attachmentType: "file", ...file },
+        },
+      );
+      const session = z
+        .object({
+          uploadUrl: z.string().url(),
+          expirationDateTime: z.string().datetime({ offset: true }),
+        })
+        .parse(await response.json());
+      uploadUrl(session.uploadUrl);
+      return session;
+    },
+    async uploadAttachmentChunk(
+      url: string,
+      bytes: ArrayBuffer,
+      offset: number,
+      total: number,
+    ) {
+      if (
+        !bytes.byteLength ||
+        bytes.byteLength > 1_966_080 ||
+        offset < 0 ||
+        offset + bytes.byteLength > total
+      )
+        throw new Error("Invalid attachment byte range.");
+      const response = await fetchImpl(uploadUrl(url), {
+        method: "PUT",
+        redirect: "error",
+        cache: "no-store",
+        body: bytes,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(bytes.byteLength),
+          "Content-Range": `bytes ${offset}-${offset + bytes.byteLength - 1}/${total}`,
+        },
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!response.ok) throw new GraphMailboxError(response.status);
+      if (response.status === 201) {
+        const location = response.headers.get("Location");
+        if (!location)
+          throw new Error("Attachment completion was not confirmed.");
+        const path = new URL(location).pathname;
+        const attachment =
+          /\/Attachments\('([^']+)'\)/i.exec(path)?.[1] ??
+          /\/attachments\/([^/]+)$/i.exec(path)?.[1];
+        if (!attachment)
+          throw new Error("Attachment completion was not confirmed.");
+        return {
+          complete: true as const,
+          attachmentId: decodeURIComponent(attachment),
+        };
+      }
+      const status = z
+        .union([
+          z
+            .object({ nextExpectedRanges: z.array(z.string()).min(1) })
+            .transform((value) => value.nextExpectedRanges),
+          z
+            .object({ NextExpectedRanges: z.array(z.string()).min(1) })
+            .transform((value) => value.NextExpectedRanges),
+        ])
+        .parse(await response.json());
+      const next = Number(status[0].split("-")[0]);
+      if (next !== offset + bytes.byteLength)
+        throw new Error(
+          "Microsoft requested a different attachment range. Review the draft before retrying.",
+        );
+      return { complete: false as const, nextOffset: next };
+    },
+    async cancelAttachmentUpload(url: string) {
+      const response = await fetchImpl(uploadUrl(url), {
+        method: "DELETE",
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok && response.status !== 404 && response.status !== 410)
+        throw new GraphMailboxError(response.status);
     },
     async removeAttachment(id: string, attachmentId: string) {
       await request(
@@ -428,9 +529,12 @@ export function createGraphMailbox({
       }
       return result;
     },
-    async attachment(id: string, attachmentId: string) {
+    async attachment(id: string, attachmentId: string, signal?: AbortSignal) {
       return request(
         `/messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}/$value`,
+        "GET",
+        undefined,
+        signal,
       );
     },
     async createDraft(reply?: {
