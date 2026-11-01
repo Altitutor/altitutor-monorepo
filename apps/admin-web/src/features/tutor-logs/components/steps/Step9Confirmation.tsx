@@ -3,6 +3,7 @@
 import {
   Badge,
   Separator,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -24,9 +25,10 @@ import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm'
 type Step9ConfirmationProps = {
   title?: string;
   formData: Partial<TutorLogFormData>;
+  onUpdate: (patch: Partial<TutorLogFormData>) => void;
 };
 
-export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
+export function Step9Confirmation({ title, formData, onUpdate }: Step9ConfirmationProps) {
   const { data, isLoading } = useStep9ConfirmationData(
     formData.sessionId,
     formData,
@@ -86,6 +88,15 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
     return { parent, actualStatus };
   }).filter((row): row is NonNullable<typeof row> => row !== null);
 
+  const textRecipients = [
+    ...studentRows.filter(row => row.actualStatus === 'attended').map(({ student }) => ({
+      person: student, role: 'Student', field: 'automatedTextSuppressedStudentIds' as const,
+    })),
+    ...parentRows.filter(row => row.actualStatus === 'attended').map(({ parent }) => ({
+      person: parent, role: 'Parent', field: 'automatedTextSuppressedParentIds' as const,
+    })),
+  ];
+
   if (isLoading && !data) {
     return (
       <div className="py-12 text-center text-sm text-muted-foreground">
@@ -128,6 +139,43 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
           </PropertyFormRow>
         </PropertyForm>
       </div>
+
+      {textRecipients.length > 0 && (
+        <>
+          <Separator />
+          <section aria-labelledby="automated-texts-heading" className="space-y-3">
+            <div>
+              <h3 id="automated-texts-heading" className="text-lg font-semibold">Automated texts</h3>
+              <p id="automated-texts-description" className="text-sm text-muted-foreground">
+                Choose who receives automated texts from this log. Texts are sent only when an automation applies.
+              </p>
+            </div>
+            <div className="divide-y rounded-lg border">
+              {textRecipients.map(({ person, role, field }) => {
+                const suppressedIds = formData[field] ?? [];
+                return (
+                  <label key={`${role}-${person.id}`} className="flex cursor-pointer items-center justify-between gap-4 p-4">
+                    <span className="min-w-0">
+                      <span className="block break-words text-sm font-medium">{person.first_name} {person.last_name}</span>
+                      <span className="block text-xs text-muted-foreground">{role}</span>
+                    </span>
+                    <Switch
+                      aria-label={`Send automated texts to ${person.first_name} ${person.last_name}`}
+                      aria-describedby="automated-texts-description"
+                      checked={!suppressedIds.includes(person.id)}
+                      onCheckedChange={(checked) => onUpdate({
+                        [field]: checked
+                          ? suppressedIds.filter(id => id !== person.id)
+                          : [...new Set([...suppressedIds, person.id])],
+                      })}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       <Separator />
 

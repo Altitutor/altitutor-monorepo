@@ -64,3 +64,27 @@ it('reports cancellation if the session changes after the API precheck', async (
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: 'Cannot log an inactive or cancelled session.' });
 });
+
+it('carries per-person choices into the atomic log submission with legacy defaults enabled', async () => {
+  const response = await POST({ json: async () => ({
+    loggedForStaffId: 'assigned-tutor',
+    data: {
+      sessionId: 'session',
+      automatedTextSuppressedStudentIds: ['student-off'],
+      automatedTextSuppressedParentIds: ['parent-off'],
+      studentAttendance: [{ studentId: 'student-off', attended: true }, { studentId: 'student-on', attended: true }],
+      parentAttendance: [{ parentId: 'parent-off', attended: true }, { parentId: 'parent-on', attended: true }],
+    },
+  }) } as Request);
+  expect(response.status).toBe(200);
+  expect(mockRpc).toHaveBeenCalledWith('create_tutor_log', expect.objectContaining({
+    p_student_attendance: [
+      { studentId: 'student-off', attended: true, sendAutomatedText: false },
+      { studentId: 'student-on', attended: true, sendAutomatedText: true },
+    ],
+    p_parent_attendance: [
+      { parentId: 'parent-off', attended: true, sendAutomatedText: false },
+      { parentId: 'parent-on', attended: true, sendAutomatedText: true },
+    ],
+  }));
+});
