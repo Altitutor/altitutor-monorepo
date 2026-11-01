@@ -6,12 +6,28 @@ Native SwiftUI / PDFKit / PencilKit app for iPadOS 26+. Open
 Production builds default to `https://tutor.altitutor.com`. `TEACHING_API_URL` is
 an Xcode build setting; Debug also accepts the process environment override.
 
+## Office sign-in
+
+The first login on each office iPad uses an active staff account's email and
+password once to set up its staff picker. Thereafter choose a name and enter that
+person's password. **Update staff list** opens the setup login again if a new
+staff member is missing. Every successful login refreshes the active staff list;
+deactivated accounts are rejected by server authentication even if an old picker
+entry remains. The directory contains only names, IDs and login emails for active,
+linked Tutor/AdminStaff accounts; deleted/unlinked staff are excluded.
+
+The directory endpoint requires an authenticated active staff bearer session.
+The app keeps the directory in backend-scoped, device-only, unlocked Keychain
+storage across logout. It retains no setup account session after logout, stores
+no passwords, and grants no access to lessons through the directory itself.
+
 ## Workspace
 
 The timetable pushes a lesson board with native back navigation. Tap a thumbnail
 card to open the file
 workspace, switch files with Liquid Glass tabs, and use the top-left back button
 to return to the board. Cards have a uniform size and can be dragged into a new
+order. Document tabs support the same live reordering and share that saved
 order. Dragging uses a local move operation and updates neighboring positions
 as the dragged card enters them. Long-press a card or tab for the same share,
 fresh-copy and remove actions. VoiceOver also exposes ordering actions. Removing
@@ -147,3 +163,47 @@ App Store Connect credential. A release owner must configure the new app record,
 signing and distribution; this workflow neither uploads nor publishes an app.
 Deploy the matching TutorWeb API before a production pilot. The simulator build
 and CI do not establish device signing or authorize an App Store release.
+
+### Office iPad QA installation
+
+1. Wait for the matching develop TutorWeb API deployment. For QA, set the app's
+   `TEACHING_API_URL` build setting to `https://tutor.development.altitutor.com`;
+   use synthetic/test accounts against that development backend. The default
+   `https://tutor.altitutor.com` is production and requires the matching production
+   API release first. A develop merge alone does not deploy either environment.
+2. Open `apps/teaching-ipad/AltitutorTeaching.xcodeproj` in Xcode. Choose the
+   AltitutorTeaching target, select your existing Apple Developer team in
+   **Signing & Capabilities**, and leave automatic signing enabled. Register
+   `com.altitutor.teaching` and create its iOS app record in App Store Connect
+   if these do not already exist. Use the same bundle ID for TestFlight and the
+   eventual unlisted release. Increment the build number for every upload.
+3. Choose **Any iOS Device (arm64)** as the destination, then **Product → Archive**.
+   In Organizer choose **Distribute App → App Store Connect → Upload**. Avoid
+   an internal-only build if the same archive will be used for external testing
+   or App Review. Complete the upload/compliance prompts.
+4. In App Store Connect → Altitutor Teaching → **TestFlight**, select the processed
+   build. Add an internal tester group if the iPads' Apple Accounts already have
+   App Store Connect access. Otherwise create an external group, supply test
+   instructions/review access, and submit it for TestFlight Beta App Review.
+5. Install Apple's TestFlight app on each office iPad (iPadOS 26+), open its tester
+   invitation/link on that iPad, and tap **Install**. The tester's Apple Account is
+   separate from the tutor account used inside Altitutor Teaching. Enable
+   automatic TestFlight updates. Do not uninstall the app to update it: ink is
+   local-only. Verify Pencil, display casting, offline recovery and exports on
+   both the oldest Pro and a current Air before classroom use.
+6. Complete the one-time staff setup inside the app on each iPad. After logout,
+   staff use the name picker and their own password. QA and production use
+   separate backend namespaces; QA annotations will not appear in production.
+7. After QA, archive with the production API URL and submit the final app to App
+   Review with a note requesting unlisted distribution, then submit Apple's
+   unlisted-distribution request. Wait for approval before distributing the App
+   Store link. Install from that link on each office iPad and enable App Store
+   updates. This removes TestFlight's 90-day build expiry and needs no third-party
+   MDM subscription. Keep the Apple Developer membership current and ship updates
+   through the same app record. Anyone with the link can download it; staff
+   credentials still control access.
+
+Apple references: [Xcode distribution](https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases),
+[TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/),
+[external testers](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/),
+[unlisted distribution](https://developer.apple.com/support/unlisted-app-distribution/).

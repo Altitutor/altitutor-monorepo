@@ -34,19 +34,75 @@ struct SignInView: View {
     @ObservedObject var model: TeachingModel
     @State private var email = ""
     @State private var password = ""
+    @State private var staffID: UUID?
+    @State private var setup = false
+    @FocusState private var passwordFocused: Bool
+    private var needsSetup: Bool { setup || model.staffDirectory.isEmpty }
+    private var selectedEmail: String {
+        needsSetup ? email : model.staffDirectory.first { $0.id == staffID }?.email ?? ""
+    }
+    private var canSignIn: Bool { !model.busy && !selectedEmail.isEmpty && !password.isEmpty }
+
     var body: some View {
         VStack(spacing: 24) {
-            Text("Altitutor").font(.system(size: 42, weight: .bold)).foregroundStyle(TeachingColors.navy)
-            Text("Your teaching day, ready.").font(.title2).foregroundStyle(.secondary)
+            Text("Altitutor Teaching").font(.system(size: 34, weight: .bold))
+                .foregroundStyle(TeachingColors.navy).multilineTextAlignment(.center)
             VStack(spacing: 16) {
-                TextField("Tutor email", text: $email).textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("teaching-email")
-                SecureField("Password", text: $password).textContentType(.password).accessibilityIdentifier("teaching-password")
-            }.textFieldStyle(.roundedBorder)
-            Button { Task { await model.signIn(email: email, password: password); password = "" } } label: {
-                HStack { if model.busy { ProgressView().tint(.white) }; Text("Sign in").frame(maxWidth: .infinity) }
-            }.buttonStyle(.borderedProminent).controlSize(.large).disabled(model.busy || email.isEmpty || password.isEmpty).accessibilityIdentifier("teaching-sign-in")
-            Text("Use your existing Altitutor tutor account.").font(.footnote).foregroundStyle(.secondary)
-        }.padding(42).frame(maxWidth: 440).frame(maxWidth: .infinity, maxHeight: .infinity).background(TeachingColors.background)
+                Group {
+                    if needsSetup {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person").foregroundStyle(.secondary).accessibilityHidden(true)
+                            TextField("Staff email", text: $email).textContentType(.username).keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .submitLabel(.next).onSubmit { passwordFocused = true }
+                                .accessibilityIdentifier("teaching-email")
+                        }
+                    } else {
+                        Menu {
+                            ForEach(model.staffDirectory) { staff in
+                                Button(staff.name) { staffID = staff.id; password = ""; passwordFocused = true }
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "person").foregroundStyle(.secondary)
+                                Text(model.staffDirectory.first { $0.id == staffID }?.name ?? "Select your name")
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            }.contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("teaching-staff")
+                    }
+                }.padding(16).glassEffect(.regular, in: .rect(cornerRadius: 16))
+                HStack(spacing: 12) {
+                    Image(systemName: "lock").foregroundStyle(.secondary).accessibilityHidden(true)
+                    SecureField("Password", text: $password).textContentType(.password)
+                        .focused($passwordFocused).submitLabel(.go).onSubmit { signIn() }
+                        .accessibilityIdentifier("teaching-password")
+                }.padding(16).glassEffect(.regular, in: .rect(cornerRadius: 16))
+            }.textFieldStyle(.plain)
+            Button(action: signIn) {
+                HStack {
+                    if model.busy { ProgressView().tint(.white) }
+                    Text(needsSetup ? "Sign in and set up iPad" : "Sign in").frame(maxWidth: .infinity)
+                }
+            }.buttonStyle(.glassProminent).controlSize(.large).disabled(!canSignIn)
+                .accessibilityIdentifier("teaching-sign-in")
+            if !model.staffDirectory.isEmpty {
+                Button(needsSetup ? "Back to staff list" : "Update staff list") {
+                    setup.toggle(); password = ""; email = ""; passwordFocused = false
+                }.font(.subheadline).disabled(model.busy)
+            }
+        }.padding(36).frame(maxWidth: 470).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(TeachingColors.background)
+            .onDisappear { password = "" }
+    }
+    private func signIn() {
+        guard canSignIn else { return }
+        let loginEmail = selectedEmail, loginPassword = password
+        passwordFocused = false
+        Task {
+            await model.signIn(email: loginEmail, password: loginPassword)
+            password = ""
+        }
     }
 }
 

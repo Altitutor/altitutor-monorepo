@@ -9,6 +9,7 @@ struct TutorProfile: Codable, Identifiable, Equatable {
     let name: String
     let canSubmitLogs: Bool
 }
+struct StaffLogin: Codable, Identifiable { let id: UUID; let name: String; let email: String }
 struct Participant: Codable, Identifiable { let id: UUID; let name: String }
 struct StaffParticipant: Codable, Identifiable { let id: UUID; let name: String; let type: String }
 struct TeachingSession: Codable, Identifiable {
@@ -56,17 +57,17 @@ struct TeachingKeychain {
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.altitutor.teaching.session", kSecAttrAccount as String: account]
     }
-    func load() throws -> AuthEnvelope? {
+    func load<T: Decodable>(_ type: T.Type) throws -> T? {
         var request = query
         request[kSecReturnData as String] = true
         var result: CFTypeRef?
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = result as? Data else { throw APIError(status: 0, message: "Unlock this iPad to restore your session.") }
-        return try JSONDecoder().decode(AuthEnvelope.self, from: data)
+        return try JSONDecoder().decode(type, from: data)
     }
-    func save(_ session: AuthEnvelope) throws {
-        let data = try JSONEncoder().encode(session)
+    func save<T: Encodable>(_ value: T) throws {
+        let data = try JSONEncoder().encode(value)
         let updated = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if updated == errSecItemNotFound {
             var request = query
@@ -85,6 +86,7 @@ struct TeachingKeychain {
     let baseURL: URL
     let namespace: String
     private let keychain: TeachingKeychain
+    private let staffKeychain: TeachingKeychain
     private(set) var session: AuthEnvelope?
     private var refreshTask: Task<AuthEnvelope, Error>?
     private var generation = 0
@@ -112,8 +114,16 @@ struct TeachingKeychain {
         baseURL = url
         namespace = SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
         keychain = TeachingKeychain(account: namespace)
+        staffKeychain = TeachingKeychain(account: namespace + ":staff-directory")
     }
-    func restore() throws -> TutorProfile? { session = try keychain.load(); return session?.profile }
+    func restore() throws -> TutorProfile? { session = try keychain.load(AuthEnvelope.self); return session?.profile }
+    func cachedStaffDirectory() throws -> [StaffLogin] { try staffKeychain.load([StaffLogin].self) ?? [] }
+    func refreshStaffDirectory() async throws -> [StaffLogin] {
+        let staff: [StaffLogin] = try await request("staff-directory")
+        guard !staff.isEmpty else { throw APIError(status: 503, message: "No active staff are available. Please contact an administrator.") }
+        try staffKeychain.save(staff)
+        return staff
+    }
     func signIn(email: String, password: String) async throws -> TutorProfile {
         let epoch = generation
         let result: AuthEnvelope = try await exchange(["action": "signIn", "email": email, "password": password])

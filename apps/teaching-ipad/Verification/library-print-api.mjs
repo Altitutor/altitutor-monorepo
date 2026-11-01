@@ -16,7 +16,7 @@ assert.equal(process.env.SUPABASE_URL, owned.SUPABASE_URL);
 assert.equal(process.env.SUPABASE_SERVICE_ROLE_KEY, owned.SUPABASE_SERVICE_ROLE_KEY);
 assert.equal(new URL(owned.SUPABASE_URL).hostname, '127.0.0.1');
 const origin = owned.NEXT_PUBLIC_TUTOR_WEB_URL;
-assert.equal(new URL(origin).hostname, '127.0.0.1');
+assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
 const admin = createClient(owned.SUPABASE_URL, owned.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 function data(result, label) {
   if (result.error) throw new Error(label + ': ' + result.error.message);
@@ -75,7 +75,8 @@ try {
   assert.ok(!privateMenu.body.subjects.some(subject => menuIDs.includes(subject.id)), 'nested subject metadata stays caller scoped');
 } finally {
   data(await admin.from('staff_subjects').delete().eq('staff_id',receipt.first.id).in('subject_id',menuIDs),'remove subject ordering access');
-  data(await admin.from('subjects').delete().in('id',menuIDs),'remove subject ordering fixtures');
+  // Subjects follow develop's business-record retention policy. Once unlinked,
+  // leave these synthetic records for disposal with the owned stack.
 }
 // An exact code outranks a filename containing that same code.
 const aliasFile = randomUUID(), aliasResource = randomUUID();

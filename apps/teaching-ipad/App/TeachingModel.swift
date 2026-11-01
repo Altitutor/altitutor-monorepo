@@ -6,6 +6,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
 
 @MainActor final class TeachingModel: ObservableObject {
     let api = TeachingAPI()
+    @Published var staffDirectory: [StaffLogin] = []
     @Published var profile: TutorProfile?
     @Published var sessions: [TeachingSession] = []
     @Published var selectedDate = Date()
@@ -46,13 +47,24 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     func start() async {
         try? FileManager.default.removeItem(at: AnnotatedPDF.exportsDirectory)
         do {
-            if let restored = try api.restore() { try install(restored); await loadSessions() }
+            staffDirectory = try api.cachedStaffDirectory()
+            if let restored = try api.restore() {
+                try install(restored); await loadSessions()
+                if profile != nil, restored.canSubmitLogs, !offline { staffDirectory = try await api.refreshStaffDirectory() }
+            }
         } catch { self.error = error.localizedDescription }
     }
     func signIn(email: String, password: String) async {
         busy = true; defer { busy = false }
-        do { let profile = try await api.signIn(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password); try install(profile); await loadSessions() }
-        catch { report(error) }
+        do {
+            let tutor = try await api.signIn(email: email.trimmingCharacters(in: .whitespacesAndNewlines), password: password)
+            guard tutor.canSubmitLogs else { throw APIError(status: 403, message: "An active staff account is required to set up or sign in on this office iPad.") }
+            staffDirectory = try await api.refreshStaffDirectory()
+            try install(tutor); await loadSessions()
+        } catch {
+            if profile == nil { try? api.signOut() }
+            report(error)
+        }
     }
     private func install(_ tutor: TutorProfile) throws {
         let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)

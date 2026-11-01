@@ -16,7 +16,7 @@ assert.equal(process.env.SUPABASE_URL, owned.SUPABASE_URL);
 assert.equal(process.env.SUPABASE_SERVICE_ROLE_KEY, owned.SUPABASE_SERVICE_ROLE_KEY);
 assert.equal(new URL(owned.SUPABASE_URL).hostname, '127.0.0.1');
 const origin = owned.NEXT_PUBLIC_TUTOR_WEB_URL;
-assert.equal(new URL(origin).hostname, '127.0.0.1');
+assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
 const admin = createClient(owned.SUPABASE_URL, owned.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 // Local CLI stacks initialize storage after migrations; their dashboard-managed policies are absent.
 // Install only the repository's existing tutor resource SELECT contract in this proven disposable stack.
@@ -57,6 +57,18 @@ async function tutor(name) {
   return { id, email, password, token: signed.body.credentials.accessToken, refreshToken: signed.body.credentials.refreshToken };
 }
 const first = await tutor('Alex'), second = await tutor('Taylor');
+// Authentication remains mandatory even though the picker is available after local logout.
+assert.equal((await call('staff-directory', null)).status, 401, 'roster is never public');
+const directory = await call('staff-directory', first.token);
+assert.equal(directory.status, 200, 'active tutor can provision the office picker');
+assert.deepEqual(directory.body.find(staff => staff.id === first.id), { id: first.id, name: 'Alex Preview', email: first.email });
+assert.ok(directory.body.every(staff => Object.keys(staff).sort().join(',') === 'email,id,name'), 'no extra staff fields');
+data(await admin.from('staff').update({ status: 'TRIAL' }).eq('id', second.id), 'trial fixture staff');
+assert.ok(!(await call('staff-directory', first.token)).body.some(staff => staff.id === second.id), 'trial staff excluded');
+assert.equal((await call('staff-directory', second.token)).status, 403, 'trial tutor cannot provision picker');
+data(await admin.from('staff').update({ status: 'INACTIVE' }).eq('id', second.id), 'inactive fixture staff');
+assert.ok(!(await call('staff-directory', first.token)).body.some(staff => staff.id === second.id), 'inactive staff excluded');
+data(await admin.from('staff').update({ status: 'ACTIVE' }).eq('id', second.id), 'restore fixture staff');
 const subject = randomUUID(), topic = randomUUID(), calculus = randomUUID(), student = randomUUID();
 data(await admin.from('subjects').insert({ id: subject, name: 'Mathematics preview', short_name: 'PREVIEW-' + subject.slice(0, 8), year_level: 12 }), 'subject');
 data(await admin.from('staff_subjects').insert({ staff_id: first.id, subject_id: subject }), 'tutor subject');
