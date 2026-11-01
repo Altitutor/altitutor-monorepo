@@ -1,4 +1,4 @@
-import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js'
+import type { AuthInfo } from '@modelcontextprotocol/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client'

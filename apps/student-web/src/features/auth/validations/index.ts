@@ -44,8 +44,8 @@ export const registrationSchema = z
       phone: z.string().min(1, 'Phone number is required'),
       school: z.string().optional(),
       curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
-      year_level: z.coerce.number().int().min(0).max(13).optional(),
-      subject_ids: z.array(z.string().uuid()).min(1, 'Please select at least one subject'),
+      year_level: z.coerce.number<number>().int().min(0).max(13).optional(),
+      subject_ids: z.array(z.string().guid('Invalid uuid')).min(1, 'Please select at least one subject'),
     }),
     parents: z
       .array(

@@ -11,7 +11,7 @@ import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questi
 
 const BodySchema = z.object({
   contentType: z.enum(['stem', 'set', 'mock', 'lesson']),
-  contentIds: z.array(z.string().uuid()).min(1).max(500),
+  contentIds: z.array(z.string().guid('Invalid uuid')).min(1).max(500),
   status: z.enum(['draft', 'in_review', 'published']),
   previousStatus: z.enum(['draft', 'in_review', 'published']).optional(),
 })

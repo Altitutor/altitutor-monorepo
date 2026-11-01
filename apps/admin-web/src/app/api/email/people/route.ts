@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       threadId: z.string().min(1),
       email: z.string().email(),
       type: z.enum(["student", "parent", "staff"]),
-      id: z.string().uuid(),
+      id: z.string().guid('Invalid uuid'),
     })
     .safeParse(await request.json().catch(() => null));
   if (!input.success)

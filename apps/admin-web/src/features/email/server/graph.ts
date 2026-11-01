@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from "zod";
 import {
   OPERATIONAL_MAIL_PROPERTY,
@@ -410,7 +411,7 @@ export function createGraphMailbox({
       const session = z
         .object({
           uploadUrl: z.string().url(),
-          expirationDateTime: z.string().datetime({ offset: true }),
+          expirationDateTime: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime"),
         })
         .parse(await response.json());
       uploadUrl(session.uploadUrl);

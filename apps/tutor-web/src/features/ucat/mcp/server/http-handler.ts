@@ -1,4 +1,4 @@
-import type { McpServerOptions } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { McpServerOptions } from '@modelcontextprotocol/server'
 import { withMcpRequestBodyLimit } from '@altitutor/shared/mcp/server'
 import { createMcpHandler, withMcpAuth } from 'mcp-handler'
 import { verifyUcatMcpToken } from '@/features/ucat/mcp/server/auth'
@@ -26,11 +26,7 @@ export function createUcatMcpHttpHandler() {
       capabilities: {
         tools: {},
       },
-    },
-    {
-      streamableHttpEndpoint: '/api/mcp',
-      disableSse: true,
-      maxDuration: 300,
+      maxSubscriptions: 0,
       verboseLogs: process.env.NODE_ENV === 'development',
     },
   )

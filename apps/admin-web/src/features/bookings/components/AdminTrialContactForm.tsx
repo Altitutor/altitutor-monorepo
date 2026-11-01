@@ -33,10 +33,10 @@ const adminTrialContactSchema = z.object({
   student_phone: z.string(),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
   year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']).optional(),
-  subject_ids: z.array(z.string().uuid()).optional(),
+  subject_ids: z.array(z.string().guid('Invalid uuid')).optional(),
   skip_parent_details: z.boolean().default(false),
   parents: z.array(z.object({
-    existing_id: z.string().uuid().optional(),
+    existing_id: z.string().guid('Invalid uuid').optional(),
     first_name: z.string().max(100).optional().or(z.literal('')),
     last_name: z.string().max(100).optional().or(z.literal('')),
     email: z.string().email('Invalid email address').optional().or(z.literal('')),
