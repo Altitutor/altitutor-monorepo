@@ -6,7 +6,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 
 const bodySchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.string().guid('Invalid uuid'),
   copies: z.number().int().min(1).max(20).default(1),
 });
 

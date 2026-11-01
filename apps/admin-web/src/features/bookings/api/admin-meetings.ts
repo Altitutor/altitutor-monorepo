@@ -9,7 +9,7 @@ export const MANUAL_MEETING_TYPES = [
   "ADMIN_MEETING",
 ] as const;
 export type ManualMeetingType = (typeof MANUAL_MEETING_TYPES)[number];
-const ids = z.array(z.string().uuid()).default([]);
+const ids = z.array(z.string().guid('Invalid uuid')).default([]);
 export const manualMeetingSchema = z
   .object({
     type: z.enum(MANUAL_MEETING_TYPES),
@@ -19,8 +19,8 @@ export const manualMeetingSchema = z
     parentIds: ids,
     staffIds: ids,
     receiverStaffIds: ids,
-    subjectId: z.string().uuid().nullable().optional(),
-    originalSessionId: z.string().uuid().nullable().optional(),
+    subjectId: z.string().guid('Invalid uuid').nullable().optional(),
+    originalSessionId: z.string().guid('Invalid uuid').nullable().optional(),
   })
   .refine((value) => new Date(value.endAt) > new Date(value.startAt), {
     message: "Choose a positive duration",

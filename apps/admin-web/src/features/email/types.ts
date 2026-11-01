@@ -79,7 +79,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("assign"),
     threadId: z.string().min(1),
-    staffId: z.string().uuid().nullable(),
+    staffId: z.string().guid('Invalid uuid').nullable(),
   }),
   z.object({
     action: z.literal("link"),
@@ -92,7 +92,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
       "invoice",
       "onboarding_journey",
     ]),
-    recordId: z.string().uuid(),
+    recordId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     action: z.literal("draft"),
@@ -102,7 +102,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("save"),
-    editToken: z.string().uuid(),
+    editToken: z.string().guid('Invalid uuid'),
     id: z.string().min(1),
     content: draftContentSchema,
   }),
@@ -110,7 +110,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     action: z.literal("send"),
     id: z.string().min(1),
     changeKey: z.string().min(1),
-    commandId: z.string().uuid(),
+    commandId: z.string().guid('Invalid uuid'),
   }),
 ]);
 export type EmailCommand = z.infer<typeof emailCommandSchema>;

@@ -81,7 +81,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
     // Validate form
     const validation = detailsFormSchema.safeParse(formData);
     if (!validation.success) {
-      const firstError = validation.error.errors[0];
+      const firstError = validation.error.issues[0];
       toast({
         title: 'Validation Error',
         description: firstError.message,

@@ -79,7 +79,7 @@ const formSchema = z.object({
   availability_sunday_pm: z.boolean(),
   // Optional parents: link existing and/or add new
   parents: z.array(z.object({
-    existing_id: z.string().uuid().optional(),
+    existing_id: z.string().guid('Invalid uuid').optional(),
     first_name: z.string().optional().or(z.literal('')),
     last_name: z.string().optional().or(z.literal('')),
     email: z.string().email('Invalid email address').optional().or(z.literal('')),

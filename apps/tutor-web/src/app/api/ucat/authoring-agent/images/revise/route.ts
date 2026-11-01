@@ -9,10 +9,10 @@ import {
 } from '@/app/api/ucat/authoring-agent/images/lib'
 
 const requestSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.string().guid('Invalid uuid'),
   instructions: z.string().trim().min(1).max(4000),
   alt: z.string().max(1000).nullable().optional(),
-  context: z.unknown(),
+  context: z.unknown().optional(),
 })
 
 function isRecord(value: unknown): value is Record<string, unknown> {

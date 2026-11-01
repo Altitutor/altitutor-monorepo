@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const input = z
     .object({
       type: z.enum(["student", "parent", "staff", "session", "invoice"]),
-      id: z.string().uuid(),
+      id: z.string().guid('Invalid uuid'),
       offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
     })
     .safeParse(Object.fromEntries(request.nextUrl.searchParams));

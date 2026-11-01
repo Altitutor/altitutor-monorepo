@@ -5,7 +5,7 @@ import { TeachingError } from './auth';
 import { requireUUID } from './validation';
 
 type Client = SupabaseClient<Database>;
-const schema = z.object({ resourceID: z.string().uuid().transform(id => id.toLowerCase()), copies: z.number().int().min(1).max(20) }).strict();
+const schema = z.object({ resourceID: z.string().guid('Invalid uuid').transform(id => id.toLowerCase()), copies: z.number().int().min(1).max(20) }).strict();
 
 export async function teachingPrintOptions(client: Client) {
   const [online, window, settings, permission] = await Promise.all([

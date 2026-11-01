@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { McpServer } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { createAdminMcpClient } from "./auth";
 import { catalogVersion, dataset, describeCatalog } from "./catalog";
@@ -50,7 +50,7 @@ const readAnnotations = {
   idempotentHint: true,
   openWorldHint: false,
 };
-const uuid = z.string().uuid();
+const uuid = z.string().guid('Invalid uuid');
 const filter = z
   .object({
     field: z.string(),
@@ -65,7 +65,7 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Discover reporting datasets across acquisition, conversion, retention, offering, finance, communication, product and business context. Analytical methods belong to your task, not named reports.",
-      inputSchema: { search: z.string().max(200).optional() },
+      inputSchema: z.object({ search: z.string().max(200).optional() }),
       annotations: readAnnotations,
     },
     ({ search }) => result(() => describeCatalog(search)),
@@ -75,7 +75,7 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Read field types, null semantics, relationships and limitations before composing SQL. Use admin_reporting.<name>.",
-      inputSchema: { dataset: z.string() },
+      inputSchema: z.object({ dataset: z.string() }),
       annotations: readAnnotations,
     },
     (input) =>
@@ -86,16 +86,16 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Run one read-only PostgreSQL SELECT or WITH query over approved admin_reporting datasets. Supports new joins/cohorts/aggregations/window functions. No arbitrary functions, schema changes or writes. Check truncated before reporting totals; aggregate in SQL. Cross-system data requires separate connectors.",
-      inputSchema: {
+      inputSchema: z.object({
         sql: z.string().min(1).max(32000),
         rowLimit: z.number().int().min(1).max(1000).default(200),
-      },
+      }),
       annotations: readAnnotations,
     },
     ({ sql, rowLimit }, extra) =>
       result(async () => {
-        const output = await runReportingQuery(sql, rowLimit, extra.signal);
-        const { error } = await client(extra.authInfo?.token).rpc(
+        const output = await runReportingQuery(sql, rowLimit, extra.mcpReq.signal);
+        const { error } = await client(extra.http?.authInfo?.token).rpc(
           "admin_record_reporting_query",
           {
             p_fingerprint: createHash("sha256").update(sql).digest("hex"),
@@ -112,13 +112,13 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Search any catalog dataset by text and typed field filters. Paginated candidates include IDs; disambiguate before changing anything.",
-      inputSchema: {
+      inputSchema: z.object({
         dataset: z.string(),
         query: z.string().max(200).optional(),
         filters: z.array(filter).max(20).optional(),
         offset: z.number().int().min(0).max(100000).default(0),
         limit: z.number().int().min(1).max(100).default(30),
-      },
+      }),
       annotations: readAnnotations,
     },
     (input) => result(() => searchEntities(input)),
@@ -128,25 +128,25 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Read an entity with its revision, structural relationships, reverse relationship filters and rich-text references. full=true includes content. Read current revision before editing. For alternate/composite keys use search filters.",
-      inputSchema: {
+      inputSchema: z.object({
         dataset: z.string(),
         id: uuid,
         full: z.boolean().default(false),
-      },
+      }),
       annotations: readAnnotations,
     },
     (input, extra) =>
-      result(() => getEntity(client(extra.authInfo?.token), input)),
+      result(() => getEntity(client(extra.http?.authInfo?.token), input)),
   );
   server.registerTool(
     "find_admin_references",
     {
       description:
         "Find incoming rich-text mentions of an entity across work items and staff content. Mentions differ from structural relationships. Follow nextOffset until null.",
-      inputSchema: {
+      inputSchema: z.object({
         targetId: uuid,
         offset: z.number().int().min(0).max(100000).default(0),
-      },
+      }),
       annotations: readAnnotations,
     },
     ({ targetId, offset }) => result(() => findReferences(targetId, offset)),
@@ -156,21 +156,21 @@ export function registerAdminMcpTools(server: McpServer) {
     {
       description:
         "Retrieve authorised existing file metadata and a short-lived download URL. kind=file uses files.id; kind=topic_resource uses topics_files.id (rich-text file mentions). No uploading, deleting or automatic binary text extraction.",
-      inputSchema: {
+      inputSchema: z.object({
         id: uuid,
         kind: z.enum(["file", "topic_resource"]).default("file"),
-      },
+      }),
       annotations: readAnnotations,
     },
     ({ id, kind }, extra) =>
-      result(() => readExistingFile(client(extra.authInfo?.token), id, kind)),
+      result(() => readExistingFile(client(extra.http?.authInfo?.token), id, kind)),
   );
   server.registerTool(
     "get_admin_change_history",
     {
       description:
         "Read attributable before/after history for an operational entity. Page in batches of 50. This differs from lifecycle events.",
-      inputSchema: {
+      inputSchema: z.object({
         kind: z.enum([
           "issue",
           "task",
@@ -183,12 +183,12 @@ export function registerAdminMcpTools(server: McpServer) {
         ]),
         id: uuid,
         offset: z.number().int().min(0).default(0),
-      },
+      }),
       annotations: readAnnotations,
     },
     (input, extra) =>
       result(async () => {
-        const { data, error } = await client(extra.authInfo?.token).rpc(
+        const { data, error } = await client(extra.http?.authInfo?.token).rpc(
           "admin_work_item_history",
           { p_kind: input.kind, p_id: input.id, p_offset: input.offset },
         );
@@ -207,10 +207,10 @@ export function registerAdminMcpTools(server: McpServer) {
       `create_admin_${kind}`,
       {
         description: `Create an operational ${kind}. Reuse idempotencyKey on retries. Content accepts plain text or native Tiptap JSON; business reports belong in your conversation, not staff documents.`,
-        inputSchema: {
+        inputSchema: z.object({
           properties: operationSchemas[kind],
           idempotencyKey: z.string().min(1).max(200),
-        },
+        }),
         annotations: {
           readOnlyHint: false,
           destructiveHint: true,
@@ -220,19 +220,19 @@ export function registerAdminMcpTools(server: McpServer) {
       },
       (input, extra) =>
         result(() =>
-          changeWorkItem(client(extra.authInfo?.token), { kind, ...input }),
+          changeWorkItem(client(extra.http?.authInfo?.token), { kind, ...input }),
         ),
     );
     server.registerTool(
       `change_admin_${kind}`,
       {
         description: `Change supported ${kind} properties atomically using the revision from get_admin_entity. Omission preserves fields; null explicitly clears nullable fields. Re-read on conflict. Document visibility changes take effect for tutors. Mark work complete only when its underlying work is done.`,
-        inputSchema: {
+        inputSchema: z.object({
           id: uuid,
           revision: z.string().regex(/^\d+$/),
           changes: changeSchema(kind),
           idempotencyKey: z.string().min(1).max(200),
-        },
+        }),
         annotations: {
           readOnlyHint: false,
           destructiveHint: true,
@@ -242,7 +242,7 @@ export function registerAdminMcpTools(server: McpServer) {
       },
       (input, extra) =>
         result(() =>
-          changeWorkItem(client(extra.authInfo?.token), {
+          changeWorkItem(client(extra.http?.authInfo?.token), {
             kind,
             id: input.id,
             revision: input.revision,

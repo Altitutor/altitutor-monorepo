@@ -95,7 +95,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     const body = await request.json();
     const parseResult = creditNoteBodySchema.safeParse(body);
     if (!parseResult.success) {
-      const message = parseResult.error.errors.map((e) => e.message).join('; ') || 'Validation failed';
+      const message = parseResult.error.issues.map((e) => e.message).join('; ') || 'Validation failed';
       return NextResponse.json({ error: message }, { status: 400 });
     }
 

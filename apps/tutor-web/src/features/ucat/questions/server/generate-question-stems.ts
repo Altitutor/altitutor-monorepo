@@ -68,17 +68,17 @@ type SupabaseAny = SupabaseClient<Database> & {
 }
 
 export const GenerateBodySchema = z.object({
-  sectionId: z.string().uuid(),
-  categoryId: z.string().uuid().nullable().optional(),
-  modelProfileId: z.string().uuid().nullable().optional(),
+  sectionId: z.string().guid('Invalid uuid'),
+  categoryId: z.string().guid('Invalid uuid').nullable().optional(),
+  modelProfileId: z.string().guid('Invalid uuid').nullable().optional(),
   sourceMode: z.enum(['none', 'random', 'selected']).default('none'),
   includeAiSourceStems: z.boolean().default(false),
   imageGenerationMode: z.enum(['auto', 'deterministic', 'ai']).default('auto'),
-  sourceStemIds: z.array(z.string().uuid()).optional(),
+  sourceStemIds: z.array(z.string().guid('Invalid uuid')).optional(),
   stemCount: z.number().int().min(1).max(50),
   difficultyTarget: DifficultyTargetSchema.default('mixed'),
   timeBurdenTarget: TimeBurdenTargetSchema.default('mixed'),
-  targetTagIds: z.array(z.string().uuid()).default([]),
+  targetTagIds: z.array(z.string().guid('Invalid uuid')).default([]),
   runInstructions: z.string().trim().max(2000).nullable().optional(),
 })
 

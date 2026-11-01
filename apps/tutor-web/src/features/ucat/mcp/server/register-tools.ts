@@ -1,8 +1,8 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { McpServer } from '@modelcontextprotocol/server'
 import type {
   CallToolResult,
   ImageContent,
-} from '@modelcontextprotocol/sdk/types.js'
+} from '@modelcontextprotocol/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
 import { z } from 'zod'
@@ -105,7 +105,7 @@ const ImageNodeOutputSchema = z.object({
   attrs: z.object({
     src: z.string(),
     alt: z.string(),
-    fileId: z.string().uuid(),
+    fileId: z.string().guid('Invalid uuid'),
   }).passthrough(),
 })
 const RenderedImageNodeOutputSchema = z.object({
@@ -116,7 +116,7 @@ const RenderedImageNodeOutputSchema = z.object({
   }).passthrough(),
 })
 const StoredImageOutputSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.string().guid('Invalid uuid'),
   signedUrl: z.string(),
   alt: z.string(),
   imageNode: ImageNodeOutputSchema,
@@ -280,7 +280,7 @@ export function registerUcatMcpTools(
       title: 'Search UCAT authoring content',
       description:
         'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks across every lifecycle. Deleted results are read-only. Stem search supports optional multi-status filters and composable filter trees via filter (all/any/clause). Omit status and statuses to include every lifecycle.',
-      inputSchema: {
+      inputSchema: z.object({
         contentType: AggregateTypeSchema,
         query: z.string().trim().max(500).optional(),
         status: UcatStatusSchema.optional().describe(
@@ -290,8 +290,8 @@ export function registerUcatMcpTools(
           'Optional lifecycle filter. Omit status and statuses to include draft, in_review, and published stems.',
         ),
         accessScope: UcatAccessScopeSchema.optional(),
-        sectionId: z.string().uuid().optional(),
-        categoryId: z.string().uuid().optional().describe(
+        sectionId: z.string().guid('Invalid uuid').optional(),
+        categoryId: z.string().guid('Invalid uuid').optional().describe(
           'Stem-only single-category alias. Prefer categoryIds when filtering multiple categories.',
         ),
         includeDeleted: z.boolean().default(false),
@@ -304,18 +304,18 @@ export function registerUcatMcpTools(
           'Stem-only composable predicate tree. Use all for AND, any for OR, and clause for atomic field predicates. Flat fields are AND-ed with filter when both are supplied.',
         ),
         auditFilters: AuditCatalogFiltersSchema,
-        stemIds: z.array(z.string().uuid()).max(200).optional(),
-        sectionIds: z.array(z.string().uuid()).max(200).optional(),
-        categoryIds: z.array(z.string().uuid()).max(200).optional(),
+        stemIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
+        sectionIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
+        categoryIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
         includeNoCategory: z.boolean().optional(),
-        tagIds: z.array(z.string().uuid()).max(200).optional(),
+        tagIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
         accessScopes: z.array(UcatAccessScopeSchema).max(2).optional(),
         practicePool: z.boolean().optional(),
-        setIds: z.array(z.string().uuid()).max(200).optional(),
+        setIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
         includeWithoutSet: z.boolean().optional(),
         sourceChannels: z.array(z.enum(['individual', 'bulk_import', 'ai_generation'])).max(3).optional(),
         aiReviewStatuses: z.array(z.enum(UCAT_DURABLE_AI_REVIEW_STATUSES)).max(20).optional(),
-        createdBy: z.array(z.string().uuid()).max(200).optional(),
+        createdBy: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
         createdFrom: z.string().datetime({ offset: true }).optional(),
         createdTo: z.string().datetime({ offset: true }).optional(),
         questionCountMin: z.number().int().min(0).optional(),
@@ -323,12 +323,12 @@ export function registerUcatMcpTools(
         searchScopes: QuestionCatalogSearchScopesSchema,
         sortBy: QuestionCatalogSortBySchema,
         sortDirection: z.enum(['asc', 'desc']).optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => searchUcatMcpContent(client, input),
     ),
   )
@@ -339,16 +339,16 @@ export function registerUcatMcpTools(
       title: 'Read complete UCAT authoring content',
       description:
         'Read one or an ordered batch of complete learning modules, question-stem bundles, sets, or mocks of the same type, including nested items, referenced file metadata, lifecycle state, and opaque revisions. Pass one UUID for the original single-object response, or an array for per-item batch results. Choose batch size based on aggregate size and calling-harness capacity.',
-      inputSchema: {
+      inputSchema: z.object({
         contentType: AggregateTypeSchema,
         id: UcatContentIdOrIdsSchema,
         projection: UcatReadProjectionSchema.default('full'),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ contentType, id, projection }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => Array.isArray(id)
         ? getUcatMcpAggregates(
           client,
@@ -365,12 +365,12 @@ export function registerUcatMcpTools(
       title: 'Read UCAT authoring reference data',
       description:
         'Read UCAT sections, stem categories, question tags, enabled question-generation model profiles, and enabled skill trainers. Skill trainers include their section, pedagogical description, and approved active item count; attach one only when its practice behavior supports the lesson and it has usable items. Use returned IDs instead of inventing references.',
-      inputSchema: {},
+      inputSchema: z.object({}),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (_input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       getUcatMcpReferenceData,
     ),
   )
@@ -381,12 +381,12 @@ export function registerUcatMcpTools(
       title: 'Read UCAT MCP contract capabilities',
       description:
         'Read the deployed authoring contract version and feature support. Use this to detect a stale deployment before planning set or mock mutations.',
-      inputSchema: {},
+      inputSchema: z.object({}),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (_input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       async () => ({
         contractVersion: UCAT_MCP_CONTRACT_VERSION,
         mutationSchemaVersions: {
@@ -413,12 +413,12 @@ export function registerUcatMcpTools(
       title: 'List UCAT blueprint versions',
       description:
         'List immutable database blueprint versions, including official section totals and Altitutor composition policy. Section entries include the authoring section UUID required by set and mock tools.',
-      inputSchema: ListUcatBlueprintsInputSchema.shape,
+      inputSchema: z.object(ListUcatBlueprintsInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => listUcatMcpBlueprints(client, input),
     ),
   )
@@ -429,12 +429,12 @@ export function registerUcatMcpTools(
       title: 'Read a UCAT blueprint version',
       description:
         'Read one immutable database blueprint by UUID, with official timing/count facts, composition rules, and section UUIDs.',
-      inputSchema: GetUcatBlueprintInputSchema.shape,
+      inputSchema: z.object(GetUcatBlueprintInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ blueprintId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getUcatMcpBlueprint(client, blueprintId),
     ),
   )
@@ -445,12 +445,12 @@ export function registerUcatMcpTools(
       title: 'Dry-run a UCAT set composition',
       description:
         'Validate proposed ordered stem membership, section, timing intent, and blueprint policy without writing. Partial sets are exempt from full-section totals but still validate references, duplicates, and section purity.',
-      inputSchema: ValidateQuestionSetCompositionInputSchema.shape,
+      inputSchema: z.object(ValidateQuestionSetCompositionInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => validateUcatMcpQuestionSetComposition(client, input),
     ),
   )
@@ -461,12 +461,12 @@ export function registerUcatMcpTools(
       title: 'Dry-run a UCAT mock composition',
       description:
         'Validate proposed section-addressed set membership against a database blueprint without creating or changing a mock.',
-      inputSchema: ValidateMockCompositionInputSchema.shape,
+      inputSchema: z.object(ValidateMockCompositionInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => validateUcatMcpMockComposition(client, input),
     ),
   )
@@ -477,26 +477,26 @@ export function registerUcatMcpTools(
       title: 'Create a draft learning module',
       description:
         'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. Text strings are normalized as Markdown-compatible rich text, including inline LaTeX in \\(...\\) and display LaTeX in \\[...\\]. The explicit content: { body: { format: "markdown", value: "## Heading\\n\\n- Item" } } form remains supported; native TipTap/ProseMirror documents remain available for exact control and embedded images.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
         kind: z.enum(['folder', 'lesson']),
         title: z.string().trim().min(1).max(500),
         description: z.string().max(10_000).nullable().optional(),
-        sectionId: z.string().uuid().nullable().optional(),
-        parentId: z.string().uuid().nullable().optional(),
+        sectionId: z.string().guid('Invalid uuid').nullable().optional(),
+        parentId: z.string().guid('Invalid uuid').nullable().optional(),
         index: z.number().int().min(0).optional(),
         accessScope: UcatAccessScopeSchema.default('public'),
         iconKey: z.string().trim().min(1).max(100).optional(),
         estimatedMinutes: z.number().int().min(1).max(600).nullable().optional(),
         studyPlanPriority: z.enum(['essential', 'recommended', 'optional', 'excluded']).optional(),
-        studyPlanCategoryIds: z.array(z.string().uuid()).optional(),
-        studyPlanTagIds: z.array(z.string().uuid()).optional(),
+        studyPlanCategoryIds: z.array(z.string().guid('Invalid uuid')).optional(),
+        studyPlanTagIds: z.array(z.string().guid('Invalid uuid')).optional(),
         blocks: z.array(LearningModuleBlockSchema).default([]),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, (client) => {
       const { idempotencyKey, ...request } = input
       return executeUcatMcpIdempotent(
         client,
@@ -514,17 +514,17 @@ export function registerUcatMcpTools(
       title: 'Change a UCAT learning module',
       description:
         'Apply explicit typed metadata or block operations to editable content. For a published lesson or live folder, stage a durable pending content change instead of changing live content; pass the returned changeId to apply_ucat_content_changes when application is authorised. Omission never deletes.',
-      inputSchema: {
-        id: z.string().uuid(),
+      inputSchema: z.object({
+        id: z.string().guid('Invalid uuid'),
         revision: z.string().min(1),
         operations: z.array(LearningModuleOperationSchema).min(1).max(100),
         ...ContentChangeMetadataSchema,
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => changeUcatMcpLearningModule(client, id, revision, operations, metadata),
     ),
   )
@@ -535,19 +535,19 @@ export function registerUcatMcpTools(
       title: 'Create a draft question-stem bundle',
       description:
         'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Author questions with responseType, answerScheme, and option answerKeyValue. Drafts may be incomplete but references and supplied structure must be valid.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
-        sectionId: z.string().uuid(),
-        categoryId: z.string().uuid().nullable().optional(),
+        sectionId: z.string().guid('Invalid uuid'),
+        categoryId: z.string().guid('Invalid uuid').nullable().optional(),
         stemText: RichTextSchema,
         accessScope: UcatAccessScopeSchema.default('public'),
         tutorSourceNote: z.string().max(4000).nullable().optional(),
         questions: z.array(QuestionInputSchema).default([]),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, (client) => {
       const { idempotencyKey, ...request } = input
       return executeUcatMcpIdempotent(
         client,
@@ -565,17 +565,17 @@ export function registerUcatMcpTools(
       title: 'Change a question-stem bundle',
       description:
         'Apply explicit add/update/move/remove operations to an editable stem. For a published stem, stage a durable pending content change instead of changing live content; pass the returned changeId to apply_ucat_content_changes when application is authorised. Omission never deletes.',
-      inputSchema: {
-        id: z.string().uuid(),
+      inputSchema: z.object({
+        id: z.string().guid('Invalid uuid'),
         revision: z.string().min(1),
         operations: z.array(QuestionStemOperationSchema).min(1).max(100),
         ...ContentChangeMetadataSchema,
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => changeUcatMcpQuestionStem(client, id, revision, operations, metadata),
     ),
   )
@@ -586,11 +586,11 @@ export function registerUcatMcpTools(
       title: 'Create a draft UCAT question set',
       description:
         'Create a deterministically named draft set for one UCAT section. Timing is stored as pace, fixed duration, or untimed intent against an explicit database blueprint. An empty set is allowed while drafting.',
-      inputSchema: CreateQuestionSetInputSchema.shape,
+      inputSchema: z.object(CreateQuestionSetInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, (client) => {
       const { idempotencyKey, ...request } = input
       return executeUcatMcpIdempotent(
         client,
@@ -608,12 +608,12 @@ export function registerUcatMcpTools(
       title: 'Change a UCAT question set',
       description:
         'Apply explicit metadata and typed stem-membership operations to an editable set. Use replace_stems only for an intentional complete replacement. For a published set, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
-      inputSchema: ChangeQuestionSetInputSchema.shape,
+      inputSchema: z.object(ChangeQuestionSetInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => changeUcatMcpQuestionSet(client, id, revision, operations, metadata),
     ),
   )
@@ -624,11 +624,11 @@ export function registerUcatMcpTools(
       title: 'Create a draft UCAT mock exam',
       description:
         'Create a deterministically named blank draft mock against an explicit database blueprint. No sets are created or linked; add existing sets or create sets separately, then assign them by section.',
-      inputSchema: CreateMockInputSchema.shape,
+      inputSchema: z.object(CreateMockInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, (client) => {
       const { idempotencyKey, ...request } = input
       return executeUcatMcpIdempotent(
         client,
@@ -646,12 +646,12 @@ export function registerUcatMcpTools(
       title: 'Change a UCAT mock exam',
       description:
         'Apply explicit metadata and section-addressed set-membership operations to an editable mock. Prefer set_section_set or replace_section_sets; the selected set must belong to that section. For a published mock, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
-      inputSchema: ChangeMockInputSchema.shape,
+      inputSchema: z.object(ChangeMockInputSchema.shape),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => changeUcatMcpMock(client, id, revision, operations, metadata),
     ),
   )
@@ -662,20 +662,20 @@ export function registerUcatMcpTools(
       title: 'Review UCAT content proposals and applied changes',
       description:
         'Read durable base/proposed snapshots, operations, provenance, status, and recovery links. Filter by change, target, audit run, or status.',
-      inputSchema: {
-        changeId: z.string().uuid().optional(),
+      inputSchema: z.object({
+        changeId: z.string().guid('Invalid uuid').optional(),
         contentType: AggregateTypeSchema.optional(),
-        targetId: z.string().uuid().optional(),
-        auditRunId: z.string().uuid().optional(),
+        targetId: z.string().guid('Invalid uuid').optional(),
+        auditRunId: z.string().guid('Invalid uuid').optional(),
         status: z.enum(['pending', 'applied', 'rejected', 'stale']).optional(),
         offset: z.number().int().min(0).default(0),
         limit: z.number().int().min(1).max(200).default(50),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getUcatMcpContentChanges(client, input),
     ),
   )
@@ -686,14 +686,14 @@ export function registerUcatMcpTools(
       title: 'Apply a reviewed batch of UCAT content changes',
       description:
         'Apply up to 50 pending changes in one approved tool call. Each change is still an independent atomic transaction with its own exact-revision and validation checks; failures do not roll back successful siblings.',
-      inputSchema: {
-        changeIds: z.array(z.string().uuid()).min(1).max(50),
-      },
+      inputSchema: z.object({
+        changeIds: z.array(z.string().guid('Invalid uuid')).min(1).max(50),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async ({ changeIds }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => applyUcatMcpPendingChanges(client, changeIds),
     ),
   )
@@ -703,15 +703,15 @@ export function registerUcatMcpTools(
     {
       title: 'Reject one pending UCAT content change',
       description: 'Reject a pending proposal without changing its target content.',
-      inputSchema: {
-        changeId: z.string().uuid(),
+      inputSchema: z.object({
+        changeId: z.string().guid('Invalid uuid'),
         reason: z.string().trim().max(4000).nullable().optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ changeId, reason }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => rejectUcatMcpContentChange(client, changeId, reason),
     ),
   )
@@ -722,16 +722,16 @@ export function registerUcatMcpTools(
       title: 'Restore an applied UCAT content change',
       description:
         'If no later edit exists, atomically restore the recorded base snapshot. If the target changed later, create a pending recovery proposal instead of overwriting newer work.',
-      inputSchema: {
-        changeId: z.string().uuid(),
+      inputSchema: z.object({
+        changeId: z.string().guid('Invalid uuid'),
         summary: z.string().trim().min(1).max(1000),
         rationale: z.string().trim().max(10_000).nullable().optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async ({ changeId, summary, rationale }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => restoreUcatMcpPublishedChange(client, changeId, summary, rationale),
     ),
   )
@@ -742,16 +742,16 @@ export function registerUcatMcpTools(
       title: 'Submit a UCAT draft for review',
       description:
         'Move exactly one draft lesson, question stem, set, or mock to in_review after lifecycle-appropriate readiness validation. Submitting a mock also submits its remaining draft component sets first; if any of those submissions fail, the mock stays in draft. This tool cannot publish.',
-      inputSchema: {
+      inputSchema: z.object({
         contentType: AggregateTypeSchema,
-        id: z.string().uuid(),
+        id: z.string().guid('Invalid uuid'),
         revision: z.string().min(1),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => submitUcatMcpForReview(client, contentType, id, revision),
     ),
   )
@@ -762,16 +762,16 @@ export function registerUcatMcpTools(
       title: 'Soft-delete editable UCAT content',
       description:
         'Soft-delete one draft or in-review lesson, question stem, set, or mock using its current revision. Published content and live learning folders are always rejected. Active dependencies must be removed first.',
-      inputSchema: {
+      inputSchema: z.object({
         contentType: AggregateTypeSchema,
-        id: z.string().uuid(),
+        id: z.string().guid('Invalid uuid'),
         revision: z.string().min(1),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => deleteUcatMcpContent(client, contentType, id, revision),
     ),
   )
@@ -782,16 +782,16 @@ export function registerUcatMcpTools(
       title: 'Restore deleted UCAT content as a draft',
       description:
         'Restore one deleted lesson, question stem, set, or mock using the revision returned by deleted-content search. Restored content returns to draft. Published content and live learning folders are always rejected.',
-      inputSchema: {
+      inputSchema: z.object({
         contentType: AggregateTypeSchema,
-        id: z.string().uuid(),
+        id: z.string().guid('Invalid uuid'),
         revision: z.string().min(1),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => restoreUcatMcpContent(client, contentType, id, revision),
     ),
   )
@@ -802,7 +802,7 @@ export function registerUcatMcpTools(
       title: 'Create a durable UCAT audit run',
       description:
         'Create a resumable audit manifest. Audit reasoning remains in the calling agent. apply_valid_changes is the default and authorises published writes only for this run’s frozen targets while active; choose proposal_only when staff review is required.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
         title: z.string().trim().min(1).max(500),
         brief: z.string().max(20_000).nullable().optional(),
@@ -810,12 +810,12 @@ export function registerUcatMcpTools(
         selector: AuditSelectorSchema.default({ kind: 'manual' }),
         workflowId: z.string().trim().max(300).nullable().optional(),
         workflowVersion: z.string().trim().max(300).nullable().optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => createUcatMcpAuditRun(client, input),
     ),
   )
@@ -826,15 +826,15 @@ export function registerUcatMcpTools(
       title: 'Add explicit targets to a selecting UCAT audit run',
       description:
         'Idempotently add up to 200 target aggregates. Use repeated calls for a large arbitrary selection, then start the run to freeze its manifest.',
-      inputSchema: {
-        runId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
         targets: z.array(AuditTargetSchema).min(1).max(200),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
     async ({ runId, targets }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => addUcatMcpAuditTargets(client, runId, targets),
     ),
   )
@@ -845,12 +845,12 @@ export function registerUcatMcpTools(
       title: 'Start and freeze a UCAT audit run manifest',
       description:
         'Move a selecting run to active. New content or targets are not added after this point.',
-      inputSchema: { runId: z.string().uuid() },
+      inputSchema: z.object({ runId: z.string().guid('Invalid uuid') }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ runId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => startUcatMcpAuditRun(client, runId),
     ),
   )
@@ -861,21 +861,21 @@ export function registerUcatMcpTools(
       title: 'List UCAT audit runs',
       description:
         'List durable audit runs newest first, including target status counts. Any UCAT tutor can read every run. Filter by lifecycle status and use both cursor fields from nextCursor to fetch the next page.',
-      inputSchema: {
+      inputSchema: z.object({
         status: z.enum(['selecting', 'active', 'completed', 'cancelled']).optional(),
         cursorCreatedAt: z.string().datetime({ offset: true }).optional().describe(
           'createdAt from the previous page’s nextCursor. Supply together with cursorId.',
         ),
-        cursorId: z.string().uuid().optional().describe(
+        cursorId: z.string().guid('Invalid uuid').optional().describe(
           'id from the previous page’s nextCursor. Supply together with cursorCreatedAt.',
         ),
         limit: z.number().int().min(1).max(100).default(50),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => listUcatMcpAuditRuns(client, input),
     ),
   )
@@ -886,16 +886,16 @@ export function registerUcatMcpTools(
       title: 'Read a UCAT audit run and target progress',
       description:
         'Read run provenance, write mode, status counts, and a page of materialised targets for review or resumption.',
-      inputSchema: {
-        runId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
         targetOffset: z.number().int().min(0).default(0),
         targetLimit: z.number().int().min(1).max(500).default(100),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ runId, targetOffset, targetLimit }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getUcatMcpAuditRun(client, runId, targetOffset, targetLimit),
     ),
   )
@@ -906,16 +906,16 @@ export function registerUcatMcpTools(
       title: 'Claim the next UCAT audit targets',
       description:
         'Atomically claim pending targets for this agent. Set includeContent to claim and read complete aggregates with current revisions in the same MCP call. Choose the limit based on aggregate size and calling-harness capacity; omit content when a lightweight claim is preferable. A content read failure is returned as contentError and leaves that target in progress for explicit retry, failure, or requeue.',
-      inputSchema: {
-        runId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
         limit: z.number().int().min(1).max(25).default(5),
         includeContent: z.boolean().default(false),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ runId, limit, includeContent }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => claimUcatMcpAuditTargets(client, runId, limit, includeContent),
     ),
   )
@@ -926,22 +926,22 @@ export function registerUcatMcpTools(
       title: 'Record one UCAT audit target outcome',
       description:
         'Complete, fail, skip, or requeue a claimed target. Store a concise structured outcome, not hidden reasoning. Pass result for completed (updated/unchanged) or skipped (suggest_delete/suggest_split) targets; it is inferred from outcome.outcome when omitted.',
-      inputSchema: {
-        runId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
         contentType: AggregateTypeSchema,
-        contentId: z.string().uuid(),
+        contentId: z.string().guid('Invalid uuid'),
         status: z.enum(['completed', 'failed', 'skipped', 'pending']),
         result: z.enum(['updated', 'unchanged', 'suggest_delete', 'suggest_split']).nullable().optional()
           .describe('Canonical terminal result for completed or skipped targets. Inferred from outcome.outcome when omitted.'),
         claimedRevision: z.string().nullable().optional(),
-        outcome: z.record(z.unknown()).nullable().optional(),
+        outcome: z.record(z.string(), z.unknown()).nullable().optional(),
         errorMessage: z.string().max(10_000).nullable().optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => finishUcatMcpAuditTarget(client, input),
     ),
   )
@@ -952,12 +952,12 @@ export function registerUcatMcpTools(
       title: 'Complete a UCAT audit run',
       description:
         'Complete an active run only after every target is completed, failed, or skipped.',
-      inputSchema: { runId: z.string().uuid() },
+      inputSchema: z.object({ runId: z.string().guid('Invalid uuid') }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ runId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => completeUcatMcpAuditRun(client, runId),
     ),
   )
@@ -968,12 +968,12 @@ export function registerUcatMcpTools(
       title: 'Cancel a UCAT audit run',
       description:
         'Cancel a selecting or active run. Cancellation immediately removes any run-scoped unattended published-write authority.',
-      inputSchema: { runId: z.string().uuid() },
+      inputSchema: z.object({ runId: z.string().guid('Invalid uuid') }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ runId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => cancelUcatMcpAuditRun(client, runId),
     ),
   )
@@ -984,16 +984,16 @@ export function registerUcatMcpTools(
       title: 'Start the durable UCAT AI question generator',
       description:
         'Queue the existing durable question generator with its configured prompts, gates, budget, visual generation, run tracking, and automatic review behavior. Reuse idempotencyKey unchanged after a timeout.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
         ...GenerateBodySchema.shape,
-      },
+      }),
       outputSchema: z.object({
-        runId: z.string().uuid(),
+        runId: z.string().guid('Invalid uuid'),
       }).passthrough(),
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, async (client) => {
       const { idempotencyKey, ...request } = input
       return executeUcatMcpIdempotent(
         client,
@@ -1020,14 +1020,14 @@ export function registerUcatMcpTools(
       title: 'Read UCAT AI question-generation runs',
       description:
         'Read the acting tutor’s recent durable generation runs, or one specific run and its generated stem IDs.',
-      inputSchema: {
-        runId: z.string().uuid().optional(),
-      },
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid').optional(),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ runId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getUcatMcpGenerationRuns(client, runId),
     ),
   )
@@ -1038,14 +1038,14 @@ export function registerUcatMcpTools(
       title: 'Read a question stem AI assessment',
       description:
         'Read assessment cycles, runs, format checks, findings, and tutor decisions for one question stem.',
-      inputSchema: {
-        stemId: z.string().uuid(),
-      },
+      inputSchema: z.object({
+        stemId: z.string().guid('Invalid uuid'),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ stemId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getUcatMcpAiAssessment(client, stemId),
     ),
   )
@@ -1056,13 +1056,13 @@ export function registerUcatMcpTools(
       title: 'Request a question stem AI assessment',
       description:
         'Request or reuse the supplementary AI assessment for a draft, in-review, or published question stem. Assessment never publishes or changes lifecycle state.',
-      inputSchema: {
-        stemId: z.string().uuid(),
-      },
+      inputSchema: z.object({
+        stemId: z.string().guid('Invalid uuid'),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
-    async ({ stemId }, extra) => executeTool(extra.authInfo?.token, async (client) => {
+    async ({ stemId }, extra) => executeTool(extra.http?.authInfo?.token, async (client) => {
       const result = await requestUcatQuestionAssessment({
         stemId,
         triggerKind: 'manual_request',
@@ -1084,18 +1084,18 @@ export function registerUcatMcpTools(
       title: 'Acknowledge, dismiss, or reject a question AI-review finding',
       description:
         'Record a current automated-review decision without changing question content. Dismissal requires a reason. Apply a generated suggestion through change_question_ai_assessment_suggestion.',
-      inputSchema: {
-        runId: z.string().uuid(),
-        stemId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
+        stemId: z.string().guid('Invalid uuid'),
         findingKey: z.string().trim().min(1).max(300),
         decision: z.enum(['dismissed', 'acknowledged', 'suggestion_rejected']),
         reason: z.string().trim().max(4000).nullable().optional(),
-      },
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => recordUcatMcpAssessmentDecision(client, input),
     ),
   )
@@ -1106,19 +1106,19 @@ export function registerUcatMcpTools(
       title: 'Change a question using an AI-review suggestion',
       description:
         'Apply the exact current suggestion to editable content, or stage a pending content change for a published stem. Pass a staged changeId to apply_ucat_content_changes; only application records suggestion_accepted. Visual patches use deterministic server rendering.',
-      inputSchema: {
-        runId: z.string().uuid(),
-        stemId: z.string().uuid(),
+      inputSchema: z.object({
+        runId: z.string().guid('Invalid uuid'),
+        stemId: z.string().guid('Invalid uuid'),
         findingKey: z.string().trim().min(1).max(300),
         summary: z.string().trim().min(1).max(1000),
         rationale: z.string().trim().max(10_000).nullable().optional(),
-        auditRunId: z.string().uuid().nullable().optional(),
-      },
+        auditRunId: z.string().guid('Invalid uuid').nullable().optional(),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async (input, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => changeUcatMcpAssessmentSuggestion(client, input),
     ),
   )
@@ -1129,15 +1129,15 @@ export function registerUcatMcpTools(
       title: 'Generate and store a UCAT authoring image',
       description:
         'Generate an image through Altitutor’s configured server image pathway and return native MCP image content plus a preview URL, durable file ID, alt text, and ready-to-insert ProseMirror imageNode. It is not attached automatically. Reuse idempotencyKey unchanged after a timeout.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
         prompt: z.string().trim().min(1).max(8000),
         alt: z.string().trim().max(1000).nullable().optional(),
-      },
+      }),
       outputSchema: StoredImageOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, async (client) => {
       const { idempotencyKey, ...request } = input
       const generated = await executeUcatMcpIdempotent(
         client,
@@ -1168,17 +1168,17 @@ export function registerUcatMcpTools(
       title: 'Revise and store a UCAT authoring image',
       description:
         'Revise an accessible stored image through Altitutor’s configured image pathway. Returns native MCP image content, a new preview/file, and a ready-to-insert imageNode; the source is retained and nothing is attached automatically. Reuse idempotencyKey unchanged after a timeout.',
-      inputSchema: {
+      inputSchema: z.object({
         idempotencyKey: IdempotencyKeySchema,
-        fileId: z.string().uuid(),
+        fileId: z.string().guid('Invalid uuid'),
         instructions: z.string().trim().min(1).max(4000),
         alt: z.string().trim().max(1000).nullable().optional(),
         context: z.unknown().optional(),
-      },
+      }),
       outputSchema: StoredImageOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
+    async (input, extra) => executeTool(extra.http?.authInfo?.token, async (client) => {
       const { idempotencyKey, ...request } = input
       const revised = await executeUcatMcpIdempotent(
         client,
@@ -1209,15 +1209,15 @@ export function registerUcatMcpTools(
       title: 'Render a deterministic UCAT visual',
       description:
         'Validate and render an inline Vega-Lite, Venn, or set-diagram visual into native raster MCP image content and a ProseMirror image node without external data references.',
-      inputSchema: {
+      inputSchema: z.object({
         visual: GeneratedVisualBlockSchema,
-      },
+      }),
       outputSchema: z.object({
         imageNode: RenderedImageNodeOutputSchema,
       }),
       annotations: readOnlyAnnotations,
     },
-    async ({ visual }, extra) => executeTool(extra.authInfo?.token, async () => {
+    async ({ visual }, extra) => executeTool(extra.http?.authInfo?.token, async () => {
       const parsed = GeneratedContentBlockSchema.safeParse(visual)
       if (!parsed.success || parsed.data.type !== 'visual') {
         throw new Error('A valid deterministic visual block is required')
@@ -1236,14 +1236,14 @@ export function registerUcatMcpTools(
       title: 'Read an accessible UCAT authoring file',
       description:
         'Read metadata and a fresh one-hour signed URL for a referenced authoring file accessible to the acting tutor. Stored images also return bounded native MCP image content for immediate model inspection.',
-      inputSchema: {
-        fileId: z.string().uuid(),
-      },
+      inputSchema: z.object({
+        fileId: z.string().guid('Invalid uuid'),
+      }),
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ fileId }, extra) => executeTool(
-      extra.authInfo?.token,
+      extra.http?.authInfo?.token,
       (client) => getFile(client, fileId),
       fileResult,
       createClient,

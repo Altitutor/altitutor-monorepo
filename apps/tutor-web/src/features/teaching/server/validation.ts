@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TeachingError } from './auth';
 
-const id = z.string().uuid().transform(value => value.toLowerCase());
+const id = z.string().guid('Invalid uuid').transform(value => value.toLowerCase());
 const students = z.array(id).max(500);
 export const teachingLogSchema = z.object({
   sessionId: id,
