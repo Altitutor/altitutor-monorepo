@@ -357,7 +357,7 @@ export function MailPage() {
                     />
                     {settings.visibleColumns.includes("sender") && (
                       <span
-                        className={`w-28 shrink-0 truncate text-xs ${row.read ? "" : "font-semibold"}`}
+                        className={`w-28 min-w-0 shrink truncate text-xs ${row.read ? "" : "font-semibold"}`}
                       >
                         {row.senderName || row.sender || "Draft"}
                       </span>
@@ -382,7 +382,7 @@ export function MailPage() {
                       )}
                     </span>
                   </button>
-                  <div className="absolute right-3 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                  <div className="hidden shrink-0 group-hover:block group-focus-within:block group-has-[[data-state=open]]:block [@media(hover:none)]:block">
                     {mailbox.data && (
                       <EmailActions
                         ids={row.messageIds}
@@ -405,7 +405,7 @@ export function MailPage() {
                   {settings.visibleColumns.includes("assignee") &&
                     row.assignedStaffId && (
                       <span
-                        className="max-w-28 shrink-0 truncate rounded-full border bg-muted/25 px-2 py-1 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
+                        className="max-w-28 shrink-0 truncate rounded-full border bg-muted/25 px-2 py-1 text-xs text-muted-foreground group-hover:hidden group-focus-within:hidden group-has-[[data-state=open]]:hidden [@media(hover:none)]:hidden"
                         title={mailbox.data?.staff
                           .filter((person) => person.id === row.assignedStaffId)
                           .map((person) =>
@@ -427,7 +427,7 @@ export function MailPage() {
                       </span>
                     )}
                   {settings.visibleColumns.includes("time") && (
-                    <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0 md:block">
+                    <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground group-hover:hidden group-focus-within:hidden group-has-[[data-state=open]]:hidden [@media(hover:none)]:hidden md:block">
                       {row.at
                         ? new Date(row.at).toLocaleDateString("en-AU", {
                             day: "numeric",

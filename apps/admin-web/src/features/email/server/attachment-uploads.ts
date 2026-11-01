@@ -51,12 +51,14 @@ export function draftUploadLock(
 ): DraftUploadLock {
   return {
     async start(id, version, editor, upload, expires) {
-      const claim = await db.rpc("email_claim_draft", {
-        p_message_id: id,
-        p_change_key: version,
-        p_staff_id: staffId,
-        p_token: editor,
-      });
+      const claim = await db
+        .rpc("email_claim_draft", {
+          p_message_id: id,
+          p_change_key: version,
+          p_staff_id: staffId,
+          p_token: editor,
+        })
+        .abortSignal(AbortSignal.timeout(5_000));
       if (claim.error)
         throw new AttachmentUploadError("Could not lock this draft.", 503);
       if (
@@ -74,6 +76,7 @@ export function draftUploadLock(
         .eq("token", editor)
         .gt("writing_until", new Date().toISOString())
         .select("message_id")
+        .abortSignal(AbortSignal.timeout(5_000))
         .maybeSingle();
       if (moved.error)
         throw new AttachmentUploadError("Could not lock this draft.", 503);
@@ -93,6 +96,7 @@ export function draftUploadLock(
         .gt("expires_at", new Date().toISOString())
         .gt("writing_until", new Date().toISOString())
         .select("message_id")
+        .abortSignal(AbortSignal.timeout(5_000))
         .maybeSingle();
       if (moved.error)
         throw new AttachmentUploadError(

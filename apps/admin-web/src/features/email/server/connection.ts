@@ -72,12 +72,11 @@ export async function getMailboxAccessToken() {
   }
 }
 
-export async function connectMailbox() {
+export async function connectMailbox(requestSignal?: AbortSignal) {
   const db = getServerSupabaseAdmin();
   if (!db) throw new Error("Mailbox database is not configured.");
   const mailbox = await ensureMailboxIdentity(db, getMailboxPolicy());
-  return createGraphMailbox({
-    mailbox,
-    accessToken: await getMailboxAccessToken(),
-  });
+  const accessToken = await getMailboxAccessToken();
+  requestSignal?.throwIfAborted();
+  return createGraphMailbox({ mailbox, accessToken, requestSignal });
 }

@@ -163,10 +163,12 @@ export function createGraphMailbox({
   mailbox,
   accessToken,
   fetchImpl = fetch,
+  requestSignal,
 }: {
   mailbox: MailboxPolicy;
   accessToken: string;
   fetchImpl?: typeof fetch;
+  requestSignal?: AbortSignal;
 }) {
   assertMailboxPolicy(mailbox);
   const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox.address)}`;
@@ -205,6 +207,10 @@ export function createGraphMailbox({
     }
     return value;
   }
+  function boundedSignal(signal: AbortSignal) {
+    requestSignal?.throwIfAborted();
+    return requestSignal ? AbortSignal.any([requestSignal, signal]) : signal;
+  }
   async function request(
     path: string,
     method = "GET",
@@ -222,7 +228,7 @@ export function createGraphMailbox({
             'IdType="ImmutableId", outlook.body-content-type="html", odata.maxpagesize=100',
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: signal ?? AbortSignal.timeout(15_000),
+        signal: boundedSignal(signal ?? AbortSignal.timeout(15_000)),
         cache: "no-store",
       },
     );
@@ -433,7 +439,7 @@ export function createGraphMailbox({
           "Content-Length": String(bytes.byteLength),
           "Content-Range": `bytes ${offset}-${offset + bytes.byteLength - 1}/${total}`,
         },
-        signal: AbortSignal.timeout(45_000),
+        signal: boundedSignal(AbortSignal.timeout(45_000)),
       });
       if (!response.ok) throw new GraphMailboxError(response.status);
       if (response.status === 201) {
@@ -473,7 +479,7 @@ export function createGraphMailbox({
         method: "DELETE",
         redirect: "error",
         cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
+        signal: boundedSignal(AbortSignal.timeout(15_000)),
       });
       if (!response.ok && response.status !== 404 && response.status !== 410)
         throw new GraphMailboxError(response.status);

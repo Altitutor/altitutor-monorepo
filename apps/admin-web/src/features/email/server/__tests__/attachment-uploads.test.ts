@@ -120,7 +120,11 @@ it("binds an encrypted upload ticket to staff and the draft lock, rejecting tamp
   expect(requests.filter((url) => url.includes("authtoken"))).toHaveLength(0);
 });
 
-function uploadFixture() {
+function uploadFixture(requestSignal?: AbortSignal, stallFinal = false) {
+  let finalStarted: () => void = () => {};
+  const finalUploadStarted = new Promise<void>((resolve) => {
+    finalStarted = resolve;
+  });
   let token = "editor";
   let writing = false;
   let changed = false;
@@ -143,83 +147,99 @@ function uploadFixture() {
       return true;
     },
   };
-  const mailbox = createGraphMailbox({
-    mailbox: {
-      environment: "development",
-      address: "admin@development.altitutor.com",
-      allowedRecipients: [],
-    },
-    accessToken: "fixture-token",
-    fetchImpl: async (input, init) => {
-      methods.push(init?.method ?? "GET");
-      const url = String(input);
-      if (url.includes("createUploadSession"))
-        return Response.json(
-          {
-            uploadUrl: "https://outlook.office.com/upload?authtoken=fixture",
-            expirationDateTime: new Date(Date.now() + 600_000).toISOString(),
-          },
-          { status: 201 },
-        );
-      if (init?.method === "PUT") {
-        const range = new Headers(init.headers).get("Content-Range")!;
-        ranges.push(range);
-        if (range === "bytes 0-1966079/3000000")
-          return Response.json({ nextExpectedRanges: ["1966080"] });
-        completed = true;
-        return new Response(null, {
-          status: 201,
-          headers: {
-            Location: "https://outlook.office.com/Attachments('file')",
-          },
-        });
-      }
-      if (init?.method === "DELETE")
-        return new Response(null, { status: cancelFails ? 503 : 204 });
-      if (url.includes("/attachments"))
+  const createMailbox = (signal?: AbortSignal) =>
+    createGraphMailbox({
+      requestSignal: signal,
+      mailbox: {
+        environment: "development",
+        address: "admin@development.altitutor.com",
+        allowedRecipients: [],
+      },
+      accessToken: "fixture-token",
+      fetchImpl: async (input, init) => {
+        methods.push(init?.method ?? "GET");
+        const url = String(input);
+        if (url.includes("createUploadSession"))
+          return Response.json(
+            {
+              uploadUrl: "https://outlook.office.com/upload?authtoken=fixture",
+              expirationDateTime: new Date(Date.now() + 600_000).toISOString(),
+            },
+            { status: 201 },
+          );
+        if (init?.method === "PUT") {
+          const range = new Headers(init.headers).get("Content-Range")!;
+          ranges.push(range);
+          if (range === "bytes 0-1966079/3000000")
+            return Response.json({ nextExpectedRanges: ["1966080"] });
+          if (stallFinal) {
+            finalStarted();
+            return new Promise<Response>((_resolve, reject) => {
+              init.signal?.addEventListener(
+                "abort",
+                () => reject(init.signal?.reason),
+                { once: true },
+              );
+            });
+          }
+          completed = true;
+          return new Response(null, {
+            status: 201,
+            headers: {
+              Location: "https://outlook.office.com/Attachments('file')",
+            },
+          });
+        }
+        if (init?.method === "DELETE")
+          return new Response(null, { status: cancelFails ? 503 : 204 });
+        if (url.includes("/attachments"))
+          return Response.json({
+            value: oldSize
+              ? [
+                  {
+                    id: "old",
+                    name: "old.bin",
+                    size: oldSize,
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                  },
+                ]
+              : [],
+          });
         return Response.json({
-          value: oldSize
-            ? [
-                {
-                  id: "old",
-                  name: "old.bin",
-                  size: oldSize,
-                  "@odata.type": "#microsoft.graph.fileAttachment",
-                },
-              ]
-            : [],
+          id: "draft",
+          conversationId: "thread",
+          isDraft: true,
+          changeKey: changed ? "outlook" : completed ? "two" : "one",
+          hasAttachments: completed,
+          toRecipients: [],
+          ccRecipients: [],
+          bccRecipients: [],
         });
-      return Response.json({
-        id: "draft",
-        conversationId: "thread",
-        isDraft: true,
-        changeKey: changed ? "outlook" : completed ? "two" : "one",
-        hasAttachments: completed,
-        toRecipients: [],
-        ccRecipients: [],
-        bccRecipients: [],
-      });
-    },
-  });
-  const uploads = attachmentUploads({
-    mailbox,
-    lock,
-    staffId: "staff",
-    secret: "fixture-secret",
-    observe: async (message) => ({
-      ...message,
-      threadId: "thread",
-      subject: "",
-      bodyText: "",
-      sender: "",
-      to: [],
-      cc: [],
-      bcc: [],
-      removed: false,
-    }),
-  });
+      },
+    });
+  const makeUploads = (signal?: AbortSignal) =>
+    attachmentUploads({
+      mailbox: createMailbox(signal),
+      lock,
+      staffId: "staff",
+      secret: "fixture-secret",
+      observe: async (message) => ({
+        ...message,
+        threadId: "thread",
+        subject: "",
+        bodyText: "",
+        sender: "",
+        to: [],
+        cc: [],
+        bcc: [],
+        removed: false,
+      }),
+    });
+  const uploads = makeUploads(requestSignal);
   return {
     uploads,
+    finalUploadStarted,
+    newRequest: () => makeUploads(),
     start: () =>
       uploads.start({
         id: "draft",
@@ -296,4 +316,27 @@ it("keeps the send-excluding lease when provider cancellation is unconfirmed", a
   await expect(fixture.uploads.cancel(ticket)).rejects.toThrow();
   expect(fixture.isWriting()).toBe(true);
   await expect(fixture.start()).rejects.toThrow(/being edited/);
+});
+
+it("returns the request lock to its upload ticket when the shared provider deadline aborts a slow final PUT", async () => {
+  const controller = new AbortController();
+  const fixture = uploadFixture(controller.signal, true);
+  const { ticket } = await fixture.start();
+  await fixture.uploads.chunk(ticket, 0, new ArrayBuffer(1_966_080));
+  const final = fixture.uploads.chunk(
+    ticket,
+    1_966_080,
+    new ArrayBuffer(1_033_920),
+  );
+  const outcome = expect(final).rejects.toThrow("Provider deadline");
+  await fixture.finalUploadStarted;
+  controller.abort(new Error("Provider deadline"));
+  await outcome;
+  expect(fixture.isWriting()).toBe(true);
+  // A new HTTP request can acquire the ticket token and reconcile cancellation;
+  // the random in-flight request token was released in finally.
+  await expect(fixture.newRequest().cancel(ticket)).resolves.toMatchObject({
+    state: "cancelled",
+  });
+  expect(fixture.isWriting()).toBe(false);
 });

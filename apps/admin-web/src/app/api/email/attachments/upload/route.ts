@@ -12,9 +12,12 @@ import {
   EMAIL_ATTACHMENT_CHUNK_BYTES,
   uploadFileSchema,
 } from "@/features/email/attachment-policy";
-export const maxDuration = 60;
+// Provider IO shares 45 seconds, observation has 10, and lock cleanup has 5.
+// The 90-second platform budget leaves headroom for auth, parsing and cleanup.
+export const maxDuration = 90;
 
 async function handle(request: NextRequest) {
+  const providerDeadline = AbortSignal.timeout(45_000);
   const access = await emailAccess();
   if ("error" in access)
     return NextResponse.json(
@@ -22,14 +25,19 @@ async function handle(request: NextRequest) {
       { status: access.status },
     );
   try {
-    const mailbox = await connectMailbox();
+    const mailbox = await connectMailbox(providerDeadline);
     const uploads = attachmentUploads({
       mailbox,
       lock: draftUploadLock(access.admin, access.staff.id),
       staffId: access.staff.id,
       secret: process.env.EMAIL_M365_CLIENT_SECRET ?? "",
       observe: (message) =>
-        observeMailboxMessage(access.admin, message, access.mailbox.address),
+        observeMailboxMessage(
+          access.admin,
+          message,
+          access.mailbox.address,
+          AbortSignal.timeout(10_000),
+        ),
     });
     let result: unknown;
     if (request.method === "POST") {
