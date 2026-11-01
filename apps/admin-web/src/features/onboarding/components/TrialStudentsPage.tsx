@@ -9,6 +9,9 @@ import { AdminPageActionButton } from "@/shared/components";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { DataTableToolbar } from "@altitutor/ui";
 import { useAdminPageViewParam } from "@/shared/hooks/useAdminPageViewParam";
+import { useDataTable } from "@/shared/hooks/useDataTable";
+import { useRouter } from "next/navigation";
+import { useStudentViews, STUDENT_FILTER_KEYS, STUDENT_VIEW_DEFAULTS } from "@/features/students/hooks/useStudentViews";
 import { clickableCardInteractiveCn, cn } from "@/shared/utils";
 import {
   useOnboardingJourneys,
@@ -26,7 +29,6 @@ import { NewJourney } from "./NewJourney";
 import { ActionBadges, JourneyDetail } from "./JourneyDetail";
 
 
-const QUEUE_VIEWS = ["board", "worklist"] as const;
 const QUEUE_FILTERS = [
   ["open", "All open"],
   ["ours", "Our action"],
@@ -36,11 +38,18 @@ const QUEUE_FILTERS = [
 ] as const;
 
 export function TrialStudentsPage() {
-  const [view, setView] = useAdminPageViewParam(QUEUE_VIEWS, "board");
+  const router = useRouter();
+  const quickFilters = useStudentViews();
+  const { state, setSearch, setFilters, applyQuickFilter, resetFilters } = useDataTable({
+    defaultFilters: STUDENT_VIEW_DEFAULTS.trial.filters,
+    defaultSort: { field: '__none__', direction: 'asc' },
+    defaultGroupBy: 'stage', filterKeys: STUDENT_FILTER_KEYS,
+  });
+  const [view, setView] = useAdminPageViewParam(['board', 'worklist'] as const, 'board');
+  const search = state.search;
+  const filter = (state.filters.queue?.at(-1) ?? 'open') as (typeof QUEUE_FILTERS)[number][0];
   const { data: journeys = [], isLoading, error } = useOnboardingJourneys();
   const { data: settings } = useOnboardingSettings();
-  const [filter, setFilter] = useState<(typeof QUEUE_FILTERS)[number][0]>("open");
-  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string>();
   const [create, setCreate] = useState(false);
   const deadlines = useMemo(
@@ -93,14 +102,14 @@ export function TrialStudentsPage() {
       {(
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <DataTableToolbar
-            state={{ search, filters: { queue: [filter] }, sortBy: null, sortDirection: 'asc', groupBy: null, page: 1, pageSize: 50, visibleColumns: [] }}
+            state={{ ...state, sortBy: null, groupBy: 'stage' }}
             onSearchChange={setSearch}
-            onFiltersChange={next => { const value = next.queue?.at(-1); setFilter(QUEUE_FILTERS.find(([key]) => key === value)?.[0] ?? 'open'); }}
-            onSortChange={() => {}} onGroupByChange={() => {}} onVisibleColumnsChange={() => {}} onQuickFilterApply={() => {}}
-            onReset={() => { setSearch(''); setFilter('open'); setView('board'); }}
+            onFiltersChange={setFilters}
+            onSortChange={() => {}} onGroupByChange={() => {}} onVisibleColumnsChange={() => {}} onQuickFilterApply={applyQuickFilter} quickFilters={quickFilters} viewTarget="students"
+            onReset={resetFilters}
             filterDefinitions={[{ key: 'queue', label: 'Queue', options: QUEUE_FILTERS.map(([value, label]) => ({ value, label: `${label} ${searched.filter(journey => matches(journey, value)).length}` })) }]}
             view={{ value: view, options: [{ value: 'board', label: 'Board' }, { value: 'worklist', label: 'Worklist' }], onChange: next => { if (next === 'board' || next === 'worklist') setView(next); } }}
-            searchPlaceholder="Search student or subject" hideViews
+            searchPlaceholder="Search student or subject" className="px-6 pt-6 pb-2"
           />
           {view === "board" ? (
             <div className="relative min-h-0 flex-1">
@@ -112,7 +121,7 @@ export function TrialStudentsPage() {
                 </div>
               )}
               <div className="h-full w-full overflow-x-auto overflow-y-hidden">
-                <div className="flex h-full min-w-max gap-4 px-6 pt-2">
+                <div className="flex h-full min-w-max gap-4 pt-2">
                   {stages.map((stage, index) => {
                     const columnJourneys = rows.filter(
                       (journey) => lifecycle(journey) === index,
@@ -141,7 +150,7 @@ export function TrialStudentsPage() {
                                 <div key={journey.id} className="pb-2">
                                   <button
                                     type="button"
-                                    onClick={() => setSelected(journey.id)}
+                                    onClick={() => journey.student_id ? router.push(`/students/${journey.student_id}`) : setSelected(journey.id)}
                                     className={cn(
                                       "group flex w-full cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 text-left transition-all",
                                       clickableCardInteractiveCn,
@@ -204,7 +213,7 @@ export function TrialStudentsPage() {
                         <tr
                           key={journey.id}
                           className="cursor-pointer border-b hover:bg-muted/50"
-                          onClick={() => setSelected(journey.id)}
+                          onClick={() => journey.student_id ? router.push(`/students/${journey.student_id}`) : setSelected(journey.id)}
                         >
                           <td className="p-3 font-medium">{journey.label}</td>
                           <td className="p-3">{stages[lifecycle(journey)]}</td>

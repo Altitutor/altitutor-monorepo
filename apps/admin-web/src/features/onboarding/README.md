@@ -1,6 +1,6 @@
 # Trial students
 
-Production entry: `/trial-students` under Communication.
+Entry: Students → Trial (`/students?relationship=trial`). The former `/trial-students` route redirects here. The Trial view retains the full onboarding queue, including family enquiries and registered Students with outstanding actions. Linked Student cards open their Student page with a collapsible onboarding sidebar; unlinked family enquiries retain the enquiry dialog.
 
 The queue reads onboarding journey decisions plus evidence from booking, actual attendance, forms, registration, payment methods, class enrolments, invoices and successful message delivery. It never completes a task because a note was entered. Existing operational dialogs perform the underlying actions.
 

@@ -13,7 +13,7 @@ export default function ProjectsPage() {
   return (
     <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: next => { if (next === "list" || next === "board") setView(next); } }}>
       <AdminPageActions><Button onClick={openCreateProjectDialog}><Plus />Add project</Button></AdminPageActions>
-      <div className="p-6 space-y-4"><ProjectsCollection mode={view} /></div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><ProjectsCollection mode={view} /></div>
     </ToolbarViewProvider>
   );
 }

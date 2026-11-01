@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Badge, Input, SearchableSelect, SmartDatePickerField } from "@altitutor/ui";
@@ -14,6 +14,7 @@ import { CheckInBookSessionModal } from "@/features/sessions/components/CheckInB
 import { EnrollStudentModal } from "@/features/enrollments/components/EnrollStudentModal";
 import { FillFormDialog } from "@/features/forms/components/FillFormDialog";
 import { classesApi } from "@/features/classes/api/classes";
+import { invalidateStudentClassSurfaces, invalidateStudentSessionSurfaces } from "@/shared/lib/query-invalidation";
 import { studentsApi } from "@/features/students/api/students";
 import { JourneyCommunication } from "./JourneyCommunication";
 import {
@@ -122,12 +123,15 @@ export function JourneyDetail({
   journey,
   onClose,
   deadlines,
+  inline = false,
 }: {
   journey: Journey;
   onClose: () => void;
   deadlines: Record<string, number>;
+  inline?: boolean;
 }) {
   const qc = useQueryClient();
+  const [communicationPurpose, setCommunicationPurpose] = useState<"registration_link" | "followup" | null>(null);
   const [modal, setModal] = useState<
     "book" | "enrol" | "form" | "checkin" | null
   >(null);
@@ -138,6 +142,9 @@ export function JourneyDetail({
   const commRef = useRef<{
     prepare: (purpose: "registration_link" | "ucat_link" | "followup") => void;
   }>(null);
+  useEffect(() => {
+    if (communicationPurpose) commRef.current?.prepare(communicationPurpose);
+  }, [communicationPurpose]);
   const { data: staff } = useCurrentStaff();
   const { data: student } = useQuery({
     queryKey: [...onboardingKey, journey.student_id, "student"],
@@ -174,12 +181,17 @@ export function JourneyDetail({
   );
   function refresh() {
     void qc.invalidateQueries({ queryKey: onboardingKey });
+    if (journey.student_id) {
+      void invalidateStudentClassSurfaces(qc, journey.student_id);
+      void invalidateStudentSessionSurfaces(qc, journey.student_id);
+    }
   }
   function act(action: Action) {
-    if (action.key === "registration_link")
-      commRef.current?.prepare("registration_link");
-    else if (action.key === "registration")
-      commRef.current?.prepare("followup");
+    if (action.key === "registration_link" || action.key === "registration") {
+      const purpose = action.key === "registration_link" ? "registration_link" : "followup";
+      if (inline) setCommunicationPurpose(purpose);
+      else commRef.current?.prepare(purpose);
+    }
     else
       setModal(
         (
@@ -239,37 +251,8 @@ export function JourneyDetail({
     ["Paid invoice + corresponding attendance", e.converted_at],
     ["First check-in completed", e.checkin_at],
   ];
-  return (
-    <>
-      <AdminDialogShell
-        open
-        onClose={onClose}
-        title={
-          journey.student_id ? (
-            <Link href={`/students/${journey.student_id}`} className="underline-offset-4 hover:underline">
-              {journey.label}
-            </Link>
-          ) : journey.label
-        }
-        subtitle={
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{stages[lifecycle(journey)]}</Badge>
-            <ActionBadges actions={actions} />
-          </span>
-        }
-        fillHeight
-        defaultExpanded
-        bodyClassName="!p-0 !overflow-hidden"
-      >
-        <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_350px] overflow-y-auto md:overflow-hidden">
-            <main className="flex min-h-[500px] min-w-0 flex-col overflow-hidden md:h-full md:min-h-0">
-            <JourneyCommunication
-              ref={commRef}
-              journey={journey}
-              onRefresh={refresh}
-            />
-          </main>
-          <aside className="space-y-5 p-5 md:overflow-y-auto md:h-full min-h-0 md:border-l bg-background">
+  const sidebar = (
+          <aside className="space-y-5 p-5 min-h-0 bg-background">
             {error && (
               <p role="alert" className="text-destructive text-sm">
                 {error}
@@ -430,8 +413,43 @@ export function JourneyDetail({
               </details>
             )}
           </aside>
+  );
+  return (
+    <>
+      {inline ? sidebar : <AdminDialogShell
+        open
+        onClose={onClose}
+        title={
+          journey.student_id ? (
+            <Link href={`/students/${journey.student_id}`} className="underline-offset-4 hover:underline">
+              {journey.label}
+            </Link>
+          ) : journey.label
+        }
+        subtitle={
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{stages[lifecycle(journey)]}</Badge>
+            <ActionBadges actions={actions} />
+          </span>
+        }
+        fillHeight
+        defaultExpanded
+        bodyClassName="!p-0 !overflow-hidden"
+      >
+        <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_350px] overflow-y-auto md:overflow-hidden">
+            <main className="flex min-h-[500px] min-w-0 flex-col overflow-hidden md:h-full md:min-h-0">
+            <JourneyCommunication
+              ref={commRef}
+              journey={journey}
+              onRefresh={refresh}
+            />
+          </main>
+          <div className="min-h-0 md:h-full md:overflow-y-auto md:border-l">{sidebar}</div>
         </div>
-      </AdminDialogShell>
+      </AdminDialogShell>}
+      {inline && communicationPurpose && <AdminDialogShell open onClose={() => setCommunicationPurpose(null)} title={journey.label} fillHeight defaultExpanded bodyClassName="!p-0 !overflow-hidden">
+        <JourneyCommunication ref={commRef} journey={journey} onRefresh={refresh} />
+      </AdminDialogShell>}
       {modal === "book" && (
         <BookSessionModal
           isOpen
