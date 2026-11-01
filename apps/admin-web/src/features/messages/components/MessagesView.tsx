@@ -181,27 +181,51 @@ export function MessagesView() {
     (c): c is Extract<ConversationListItem, { kind: "contact" }> =>
       isContactConversation(c) && c.contactId === activeContactId,
   );
-  const activeGroup = conversationsByContact?.find(
+  const listedGroup = conversationsByContact?.find(
     (c): c is Extract<ConversationListItem, { kind: "group" }> =>
       isGroupConversation(c) && c.conversationId === activeGroupId,
   );
+  // A referenced group can be closed, older than the inbox window or hidden by
+  // its sender filter. Its identity must not depend on membership in that list.
+  const { data: groupDetails } = useQuery({
+    queryKey: ["messages", "group-details", activeGroupId],
+    enabled: !!activeGroupId && !listedGroup,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await getSupabaseClient()
+        .from("conversations")
+        .select("id,group_chat_id,group_chat_name,owned_number_id")
+        .eq("id", activeGroupId!)
+        .eq("is_group_chat", true)
+        .abortSignal(signal)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.group_chat_id ? {
+        conversationId: data.id,
+        groupChatId: data.group_chat_id,
+        groupName: data.group_chat_name,
+        ownedNumberId: data.owned_number_id,
+      } : null;
+    },
+  });
+  const activeGroup = listedGroup ?? groupDetails;
   const conversationTitle = activeGroup
     ? activeGroup.groupName || "Group chat"
     : activeContact
       ? formatContactName({ contacts: activeContact })
       : "Messages";
   const isActiveUnread = !!activeAggregated && activeAggregated.unreadCount > 0;
-  const isActiveGroupUnread = !!activeGroup && activeGroup.unreadCount > 0;
+  const isActiveGroupUnread = !!listedGroup && listedGroup.unreadCount > 0;
 
   const handleToggleReadHeader = () => {
-    if (activeGroup) {
-      if (isActiveGroupUnread && activeGroup.latestMessage?.id) {
+    if (activeGroupId) {
+      if (!listedGroup) return;
+      if (isActiveGroupUnread && listedGroup.latestMessage?.id) {
         markConversationRead.mutate({
-          conversationId: activeGroup.conversationId,
-          lastMessageId: activeGroup.latestMessage.id,
+          conversationId: listedGroup.conversationId,
+          lastMessageId: listedGroup.latestMessage.id,
         });
       } else {
-        markUnread.mutate(activeGroup.conversationId);
+        markUnread.mutate(listedGroup.conversationId);
       }
       return;
     }
@@ -299,13 +323,13 @@ export function MessagesView() {
         }
         backButtonClassName="md:hidden"
         isUnread={
-          activeSelection
+          activeSelection && (!activeGroupId || listedGroup)
             ? activeGroup
               ? isActiveGroupUnread
               : isActiveUnread
             : undefined
         }
-        onToggleRead={activeSelection ? handleToggleReadHeader : undefined}
+        onToggleRead={activeSelection && (!activeGroupId || listedGroup) ? handleToggleReadHeader : undefined}
         contact={activeContact}
         showUnknownNumberActions={linking.showUnknownNumberActions}
         isLinkingPhone={linking.isLinkingPhone}

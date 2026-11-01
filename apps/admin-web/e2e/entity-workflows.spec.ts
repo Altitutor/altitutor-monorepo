@@ -850,3 +850,86 @@ test("Issues retain editable priority through create, autosave and hover preview
   expect((await response.json()).record.priority).toBe(3);
   await expect(dialog).toBeHidden();
 });
+
+test("message chips reveal closed groups independently of the filtered inbox", async ({
+  page,
+  baseURL,
+}) => {
+  await signIn(page);
+  const db = localDatabase(baseURL);
+  const conversationId = randomUUID(),
+    senderId = randomUUID(),
+    messageId = randomUUID(),
+    taskId = randomUUID();
+  const results = [
+    await db
+      .from("owned_numbers")
+      .insert({
+        id: senderId,
+        phone_e164: `+614${String(Date.now()).slice(-8)}`,
+        label: "Closed group sender",
+        provider: "IMESSAGE",
+        sender_type: "PHONE",
+      }),
+    await db
+      .from("conversations")
+      .insert({
+        id: conversationId,
+        owned_number_id: senderId,
+        status: "CLOSED",
+        is_group_chat: true,
+        group_chat_id: `chat-${randomUUID()}`,
+        group_chat_name: "Archived reference group",
+      }),
+    await db
+      .from("messages")
+      .insert({
+        id: messageId,
+        conversation_id: conversationId,
+        body: "The referenced closed-group message.",
+        direction: "INBOUND",
+        status: "RECEIVED",
+        from_number_e164: "+61427700001",
+        to_number_e164: "+61427700002",
+      }),
+    await db
+      .from("tasks")
+      .insert({
+        id: taskId,
+        title: "Closed-group reference task",
+        description: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "mention",
+                  attrs: {
+                    type: "message",
+                    id: messageId,
+                    label: "Archived group message",
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      }),
+  ];
+  for (const result of results) if (result.error) throw result.error;
+  await page.goto(`/tasks/${taskId}`);
+  await page
+    .locator(`[data-mention][data-type="message"][data-id="${messageId}"]`)
+    .click();
+  const panel = page.getByRole("complementary", {
+    name: "Accessory panel",
+    exact: true,
+  });
+  const message = panel.locator(`[data-message-id="${messageId}"]`);
+  await expect(message).toContainText("The referenced closed-group message.");
+  await expect(message).toBeInViewport();
+  await expect(
+    panel.getByRole("navigation", { name: "Breadcrumb" }),
+  ).toContainText("Archived reference group");
+});
