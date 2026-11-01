@@ -1,51 +1,43 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import type { Tables } from "@altitutor/shared";
-import { useToast } from "@altitutor/ui";
-import {
-  SessionsTable,
-  UndoLogAbsenceConfirmDialog,
-  RemoveFromSessionConfirmDialog,
-} from "@/features/sessions/components";
-import { useCurrentStaff } from "@/shared/hooks";
-import { useUndoAbsences } from "@/features/sessions/hooks/useAbsences";
-import { useRemoveStudentFromSession } from "@/features/sessions/hooks/useSessionsQuery";
-import { useQueryClient } from "@tanstack/react-query";
-import { sessionsKeys } from "@/features/sessions/hooks/useSessionsQuery";
-import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { useState, useCallback } from 'react';
+import type { Tables } from '@altitutor/shared';
+import { useToast } from '@altitutor/ui';
+import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useUndoAbsences } from '@/features/sessions/hooks/useAbsences';
+import { useRemoveStudentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 type StudentUndoTarget = {
-  entityType: "student";
+  entityType: 'student';
   studentId: string;
   studentName: string;
   sessionsStudentsId: string;
-  action: "credit" | "reschedule";
+  action: 'credit' | 'reschedule';
   rescheduledSessionTitle?: string;
   sessionShortName: string;
 };
 
 type RemoveFromSessionTarget = {
   sessionId: string;
-  entityType: "student";
+  entityType: 'student';
   entityId: string;
   entityName: string;
   sessionTitle: string;
 };
 
 interface StudentSessionsTabProps {
-  student: Tables<"students">;
+  student: Tables<'students'>;
   onOpenSession?: (sessionId: string) => void;
 }
 
-export function StudentSessionsTab({
-  student,
-  onOpenSession,
-}: StudentSessionsTabProps) {
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTabProps) {
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [undoTarget, setUndoTarget] = useState<StudentUndoTarget | null>(null);
-  const [removeFromSessionTarget, setRemoveFromSessionTarget] =
-    useState<RemoveFromSessionTarget | null>(null);
+  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const undoAbsenceMutation = useUndoAbsences();
@@ -53,63 +45,46 @@ export function StudentSessionsTab({
   const queryClient = useQueryClient();
   const entityModals = useEntityNavigation();
 
-  const handleOpenSession = useCallback(
-    (sessionId: string) => {
-      if (onOpenSession) {
-        onOpenSession(sessionId);
-      } else {
-        entityModals.openSession(sessionId);
-      }
-    },
-    [entityModals, onOpenSession],
-  );
+  const handleOpenSession = useCallback((sessionId: string) => {
+    if (onOpenSession) {
+      onOpenSession(sessionId);
+    } else {
+      entityModals.openSession(sessionId);
+    }
+  }, [entityModals, onOpenSession]);
 
-  const handleOpenStaff = useCallback(
-    (staffId: string) => {
-      entityModals.openStaff(staffId);
-    },
-    [entityModals],
-  );
+  const handleOpenStaff = useCallback((staffId: string) => {
+    entityModals.openStaff(staffId);
+  }, [entityModals]);
 
-  const handleUndoLogAbsenceStudent = useCallback(
-    (payload: {
-      studentId: string;
-      studentName: string;
-      sessionsStudentsId: string;
-      action: "credit" | "reschedule";
-      rescheduledSessionTitle?: string;
-      sessionShortName: string;
-    }) => {
-      setUndoTarget({
-        entityType: "student",
-        studentId: payload.studentId,
-        studentName: payload.studentName,
-        sessionsStudentsId: payload.sessionsStudentsId,
-        action: payload.action,
-        rescheduledSessionTitle: payload.rescheduledSessionTitle,
-        sessionShortName: payload.sessionShortName,
-      });
-    },
-    [],
-  );
+  const handleUndoLogAbsenceStudent = useCallback((payload: {
+    studentId: string;
+    studentName: string;
+    sessionsStudentsId: string;
+    action: 'credit' | 'reschedule';
+    rescheduledSessionTitle?: string;
+    sessionShortName: string;
+  }) => {
+    setUndoTarget({
+      entityType: 'student',
+      studentId: payload.studentId,
+      studentName: payload.studentName,
+      sessionsStudentsId: payload.sessionsStudentsId,
+      action: payload.action,
+      rescheduledSessionTitle: payload.rescheduledSessionTitle,
+      sessionShortName: payload.sessionShortName,
+    });
+  }, []);
 
-  const handleRemoveStudentFromSession = useCallback(
-    (
-      sessionId: string,
-      studentId: string,
-      studentName: string,
-      sessionShortName?: string,
-    ) => {
-      setRemoveFromSessionTarget({
-        sessionId,
-        entityType: "student",
-        entityId: studentId,
-        entityName: studentName,
-        sessionTitle: sessionShortName ?? "session",
-      });
-    },
-    [],
-  );
+  const handleRemoveStudentFromSession = useCallback((sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => {
+    setRemoveFromSessionTarget({
+      sessionId,
+      entityType: 'student',
+      entityId: studentId,
+      entityName: studentName,
+      sessionTitle: sessionShortName ?? 'session',
+    });
+  }, []);
 
   return (
     <div className="h-full min-h-0 flex flex-col space-y-4">
@@ -119,28 +94,27 @@ export function StudentSessionsTab({
           toolbarView={{
             value: viewMode,
             options: [
-              { value: "table", label: "Table" },
-              { value: "calendar", label: "Calendar" },
-            ],
+            { value: 'table', label: 'Table' },
+            { value: 'calendar', label: 'Calendar' },
+          ],
             onChange: (next) => {
-              if (next === "table" || next === "calendar") setViewMode(next);
-            },
+              if (next === "table" || next === 'calendar') setViewMode(next)},
             onPresetApply: (settings) => {
-              if (settings.layout === "table" || settings.layout === "calendar")
+              if (settings.layout === 'table' || settings.layout === "calendar")
                 setViewMode(settings.layout);
             },
           }}
           studentId={student.id}
-          onOpenSession={handleOpenSession}
-          onOpenStaff={handleOpenStaff}
-          hideStudentFilter={true}
-          skipUrlSync={true}
-          fillHeight={true}
-          attendanceView="student"
-          onUndoLogAbsenceStudent={handleUndoLogAbsenceStudent}
-          onRemoveStudentFromSession={handleRemoveStudentFromSession}
-        />
-      </div>
+            onOpenSession={handleOpenSession}
+            onOpenStaff={handleOpenStaff}
+            hideStudentFilter={true}
+            skipUrlSync={true}
+            fillHeight={true}
+            attendanceView="student"
+            onUndoLogAbsenceStudent={handleUndoLogAbsenceStudent}
+            onRemoveStudentFromSession={handleRemoveStudentFromSession}
+          />
+        </div>
 
       {undoTarget && currentStaff && (
         <UndoLogAbsenceConfirmDialog

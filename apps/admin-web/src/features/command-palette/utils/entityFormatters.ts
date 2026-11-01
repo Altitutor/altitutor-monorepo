@@ -5,9 +5,9 @@
  * This logic is used in multiple places and should be centralized.
  */
 
-import type { Enums, Tables } from "@altitutor/shared";
-import { getFileTypeLabel, getSubjectColorStyle } from "@/shared/utils";
-import type { CommandPaletteEntityResult } from "../types";
+import type { Enums, Tables } from '@altitutor/shared';
+import { getFileTypeLabel, getSubjectColorStyle } from '@/shared/utils';
+import type { CommandPaletteEntityResult } from '../types';
 
 /** Style for subject pill badge (avoids pulling React into this module). */
 export interface SubjectPillStyle {
@@ -27,16 +27,14 @@ export interface EntityDisplayText {
 /**
  * Extract display text (title and subtitle) from an entity result
  */
-export function getEntityDisplayText(
-  result: CommandPaletteEntityResult,
-): EntityDisplayText {
+export function getEntityDisplayText(result: CommandPaletteEntityResult): EntityDisplayText {
   if (result.type === "email" || result.type === "message")
     return { title: result.data.title, subtitle: result.data.subtitle };
-  if (result.type === "student") {
-    const studentData = result.data as Tables<"students">;
+  if (result.type === 'student') {
+    const studentData = result.data as Tables<'students'>;
     const title = [studentData.first_name, studentData.last_name]
       .filter(Boolean)
-      .join(" ")
+      .join(' ')
       .trim();
 
     // Fallback for students without names (e.g., some trial students)

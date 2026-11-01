@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   type ToolbarView,
   Table,
@@ -13,43 +13,36 @@ import {
   SkeletonTable,
   DataTableToolbar,
   TablePagination,
-} from "@altitutor/ui";
-import { ArrowUpDown, Search } from "lucide-react";
-import {
-  encodeViewConfig,
-  type QuickFilter,
-  type DisplaySettings,
-  type DataTableFilterDefinition,
-  DataTableSortOption,
-  DataTableColumnDefinition,
-} from "@altitutor/shared";
-import { cn, formatSessionType } from "@/shared/utils/index";
-import { ViewClassModal } from "@/features/classes";
-import { useCurrentStaff } from "@/shared/hooks";
-import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
-import { useRouter } from "next/navigation";
-import { useAdminUrlSync } from "@/shared/hooks/useAdminUrlSync";
-import { SessionsCalendarView } from "./SessionsCalendarView";
-import { format, startOfWeek, endOfWeek } from "date-fns";
-import { useSessionsTable } from "../hooks/useSessionsTable";
-import { useSessionsTableModals } from "../hooks/useSessionsTableModals";
-import { useDataTable } from "@/shared/hooks/useDataTable";
-import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
-import { LogAbsenceDialog, LogStaffAbsenceDialog } from "./absences";
-import { SessionsTableRow } from "./SessionsTableRow";
-import { useUninvoicedSessions } from "@/features/reconciliation/api/queries";
-import { useStudentSessionBillingDetails } from "../hooks/useStudentSessionBillingDetails";
+} from '@altitutor/ui';
+import { ArrowUpDown, Search } from 'lucide-react';
+import { encodeViewConfig, type QuickFilter, type DisplaySettings, type DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import { cn, formatSessionType } from '@/shared/utils/index';
+import { ViewClassModal } from '@/features/classes';
+import { useCurrentStaff } from '@/shared/hooks';
+import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
+import { useRouter } from 'next/navigation';
+import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
+import { SessionsCalendarView } from './SessionsCalendarView';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { useSessionsTable } from '../hooks/useSessionsTable';
+import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
+import { SessionsTableRow } from './SessionsTableRow';
+import { useUninvoicedSessions } from '@/features/reconciliation/api/queries';
+import { useStudentSessionBillingDetails } from '../hooks/useStudentSessionBillingDetails';
 
 const SESSION_TYPES = [
-  "CLASS",
-  "DRAFTING",
-  "EXAM_COURSE",
-  "SUBSIDY_INTERVIEW",
-  "TRIAL_SESSION",
-  "STAFF_INTERVIEW",
-  "CHECK_IN",
-  "ADMIN_MEETING",
-  "ADMIN_SHIFT",
+  'CLASS',
+  'DRAFTING',
+  'EXAM_COURSE',
+  'SUBSIDY_INTERVIEW',
+  'TRIAL_SESSION',
+  'STAFF_INTERVIEW',
+  'CHECK_IN',
+  'ADMIN_MEETING',
+  'ADMIN_SHIFT',
 ] as const;
 
 type SessionsTableProps = {
@@ -64,7 +57,7 @@ type SessionsTableProps = {
   adminShiftId?: string;
   limit?: number;
   rangeStart?: string; // YYYY-MM-DD
-  rangeEnd?: string; // YYYY-MM-DD
+  rangeEnd?: string;   // YYYY-MM-DD
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
@@ -81,12 +74,12 @@ type SessionsTableProps = {
   hideToolbar?: boolean;
   hidePagination?: boolean;
   fillHeight?: boolean;
-  attendanceView?: "student" | "staff"; // Specialized attendance table mode for student/staff tabs
+  attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
     studentName: string;
     sessionsStudentsId: string;
-    action: "credit" | "reschedule";
+    action: 'credit' | 'reschedule';
     rescheduledSessionTitle?: string;
     sessionShortName: string;
   }) => void;
@@ -94,26 +87,13 @@ type SessionsTableProps = {
     staffId: string;
     staffName: string;
     sessionsStaffId: string;
-    action: "log" | "swap";
+    action: 'log' | 'swap';
     swappedStaffName?: string;
     sessionShortName: string;
   }) => void;
-  onRemoveStudentFromSession?: (
-    sessionId: string,
-    studentId: string,
-    studentName: string,
-    sessionShortName?: string,
-  ) => void;
-  onRemoveStaffFromSession?: (
-    sessionId: string,
-    staffId: string,
-    staffName: string,
-    sessionShortName?: string,
-  ) => void;
-  onRemoveParentFromSession?: (
-    sessionId: string,
-    sessionShortName?: string,
-  ) => void;
+  onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
+  onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
+  onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
 };
 
 export function SessionsTable({
@@ -152,88 +132,41 @@ export function SessionsTable({
   onRemoveStaffFromSession,
   onRemoveParentFromSession,
 }: SessionsTableProps) {
-  const [calendarRange, setCalendarRange] = useState(() => {
-    const anchor =
-      initialCalendarDate && /^\d{4}-\d{2}-\d{2}$/.test(initialCalendarDate)
-        ? new Date(initialCalendarDate + "T12:00:00")
-        : new Date();
-    return {
-      from: format(
-        initialCalendarMode === "day"
-          ? anchor
-          : startOfWeek(anchor, { weekStartsOn: 1 }),
-        "yyyy-MM-dd",
-      ),
-      to: format(
-        initialCalendarMode === "day"
-          ? anchor
-          : endOfWeek(anchor, { weekStartsOn: 1 }),
-        "yyyy-MM-dd",
-      ),
-    };
+  const [calendarRange,setCalendarRange] = useState(() => {
+    const anchor = initialCalendarDate && /^\d{4}-\d{2}-\d{2}$/.test(initialCalendarDate) ? new Date(initialCalendarDate+'T12:00:00') : new Date();
+    return {from:format(initialCalendarMode === 'day' ? anchor : startOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd'),to:format(initialCalendarMode === 'day' ? anchor : endOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd')};
   });
-  const changeCalendarRange = useCallback(
-    (from: string, to: string) =>
-      setCalendarRange((previous) =>
-        previous.from === from && previous.to === to ? previous : { from, to },
-      ),
-    [],
-  );
-  const isStudentAttendanceView = attendanceView === "student";
-  const isStaffAttendanceView = attendanceView === "staff";
+  const changeCalendarRange = useCallback((from:string,to:string) => setCalendarRange((previous) => previous.from === from && previous.to === to ? previous : {from,to}),[]);
+  const isStudentAttendanceView = attendanceView === 'student';
+  const isStaffAttendanceView = attendanceView === 'staff';
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: savedViews = [] } = useQuickFilters("sessions");
-  const [studentFilterSearch, setStudentFilterSearch] = useState("");
-  const [staffFilterSearch, setStaffFilterSearch] = useState("");
-  const [subjectFilterSearch, setSubjectFilterSearch] = useState("");
+  const { data: savedViews = [] } = useQuickFilters('sessions');
+  const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [staffFilterSearch, setStaffFilterSearch] = useState('');
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
 
   const defaultFilters = useMemo(() => ({}), []);
-  const defaultSort = useMemo(
-    () => ({ field: "start_at", direction: "asc" as const }),
-    [],
-  );
+  const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => {
     if (isStudentAttendanceView) {
-      return [
-        "date",
-        "time",
-        "class",
-        "planned_attendance",
-        "actual_attendance",
-        "absence_treatment",
-        "invoice",
-      ];
+      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'absence_treatment', 'invoice'];
     }
     if (isStaffAttendanceView) {
-      return [
-        "date",
-        "time",
-        "class",
-        "planned_attendance",
-        "actual_attendance",
-        "tutor_log",
-      ];
+      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'tutor_log'];
     }
-    return ["date", "time", "class", "staff", "students", "tutor_log"];
+    return ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
 
   const quickFilters = useMemo(() => {
     if (!toolbarView) return savedViews;
     const settings: DisplaySettings = {
-      layout: "calendar",
-      filters: {},
-      sortBy: defaultSort.field,
-      sortDirection: defaultSort.direction,
-      groupBy: null,
+      layout: 'calendar', filters: {}, sortBy: defaultSort.field,
+      sortDirection: defaultSort.direction, groupBy: null,
       visibleColumns: defaultVisibleColumns,
     };
-    const builtIn = (
-      id: string,
-      name: string,
-      config: DisplaySettings,
-    ): QuickFilter => ({
+    const builtIn = (id: string, name: string, config: DisplaySettings): QuickFilter => ({
       id: `builtin:sessions:${id}`,
       name,
       target_entity: "sessions",

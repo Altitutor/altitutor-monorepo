@@ -1,51 +1,43 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import type { Tables } from "@altitutor/shared";
-import { useToast } from "@altitutor/ui";
-import {
-  SessionsTable,
-  UndoLogAbsenceConfirmDialog,
-  RemoveFromSessionConfirmDialog,
-} from "@/features/sessions/components";
-import { useCurrentStaff } from "@/shared/hooks";
-import { useUndoStaffAbsences } from "@/features/sessions/hooks/useStaffAbsences";
-import { useRemoveStaffFromSession } from "@/features/sessions/hooks/useSessionsQuery";
-import { useQueryClient } from "@tanstack/react-query";
-import { sessionsKeys } from "@/features/sessions/hooks/useSessionsQuery";
-import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { useState, useCallback } from 'react';
+import type { Tables } from '@altitutor/shared';
+import { useToast } from '@altitutor/ui';
+import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useUndoStaffAbsences } from '@/features/sessions/hooks/useStaffAbsences';
+import { useRemoveStaffFromSession } from '@/features/sessions/hooks/useSessionsQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 type StaffUndoTarget = {
-  entityType: "staff";
+  entityType: 'staff';
   staffId: string;
   staffName: string;
   sessionsStaffId: string;
-  action: "log" | "swap";
+  action: 'log' | 'swap';
   swappedStaffName?: string;
   sessionShortName: string;
 };
 
 type RemoveFromSessionTarget = {
   sessionId: string;
-  entityType: "staff";
+  entityType: 'staff';
   entityId: string;
   entityName: string;
   sessionTitle: string;
 };
 
 interface StaffSessionsTabProps {
-  staff: Tables<"staff">;
+  staff: Tables<'staff'>;
   onOpenSession?: (sessionId: string) => void;
 }
 
-export function StaffSessionsTab({
-  staff,
-  onOpenSession,
-}: StaffSessionsTabProps) {
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps) {
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [undoTarget, setUndoTarget] = useState<StaffUndoTarget | null>(null);
-  const [removeFromSessionTarget, setRemoveFromSessionTarget] =
-    useState<RemoveFromSessionTarget | null>(null);
+  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
@@ -53,63 +45,46 @@ export function StaffSessionsTab({
   const queryClient = useQueryClient();
   const entityModals = useEntityNavigation();
 
-  const handleOpenSession = useCallback(
-    (sessionId: string) => {
-      if (onOpenSession) {
-        onOpenSession(sessionId);
-      } else {
-        entityModals.openSession(sessionId);
-      }
-    },
-    [entityModals, onOpenSession],
-  );
+  const handleOpenSession = useCallback((sessionId: string) => {
+    if (onOpenSession) {
+      onOpenSession(sessionId);
+    } else {
+      entityModals.openSession(sessionId);
+    }
+  }, [entityModals, onOpenSession]);
 
-  const handleOpenStudent = useCallback(
-    (studentId: string) => {
-      entityModals.openStudent(studentId);
-    },
-    [entityModals],
-  );
+  const handleOpenStudent = useCallback((studentId: string) => {
+    entityModals.openStudent(studentId);
+  }, [entityModals]);
 
-  const handleUndoLogAbsenceStaff = useCallback(
-    (payload: {
-      staffId: string;
-      staffName: string;
-      sessionsStaffId: string;
-      action: "log" | "swap";
-      swappedStaffName?: string;
-      sessionShortName: string;
-    }) => {
-      setUndoTarget({
-        entityType: "staff",
-        staffId: payload.staffId,
-        staffName: payload.staffName,
-        sessionsStaffId: payload.sessionsStaffId,
-        action: payload.action,
-        swappedStaffName: payload.swappedStaffName,
-        sessionShortName: payload.sessionShortName,
-      });
-    },
-    [],
-  );
+  const handleUndoLogAbsenceStaff = useCallback((payload: {
+    staffId: string;
+    staffName: string;
+    sessionsStaffId: string;
+    action: 'log' | 'swap';
+    swappedStaffName?: string;
+    sessionShortName: string;
+  }) => {
+    setUndoTarget({
+      entityType: 'staff',
+      staffId: payload.staffId,
+      staffName: payload.staffName,
+      sessionsStaffId: payload.sessionsStaffId,
+      action: payload.action,
+      swappedStaffName: payload.swappedStaffName,
+      sessionShortName: payload.sessionShortName,
+    });
+  }, []);
 
-  const handleRemoveStaffFromSession = useCallback(
-    (
-      sessionId: string,
-      staffId: string,
-      staffName: string,
-      sessionShortName?: string,
-    ) => {
-      setRemoveFromSessionTarget({
-        sessionId,
-        entityType: "staff",
-        entityId: staffId,
-        entityName: staffName,
-        sessionTitle: sessionShortName ?? "session",
-      });
-    },
-    [],
-  );
+  const handleRemoveStaffFromSession = useCallback((sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => {
+    setRemoveFromSessionTarget({
+      sessionId,
+      entityType: 'staff',
+      entityId: staffId,
+      entityName: staffName,
+      sessionTitle: sessionShortName ?? 'session',
+    });
+  }, []);
 
   return (
     <div className="h-full min-h-0 flex flex-col space-y-4">
@@ -119,27 +94,26 @@ export function StaffSessionsTab({
           toolbarView={{
             value: viewMode,
             options: [
-              { value: "table", label: "Table" },
-              { value: "calendar", label: "Calendar" },
-            ],
+            { value: 'table', label: 'Table' },
+            { value: 'calendar', label: 'Calendar' },
+          ],
             onChange: (next) => {
-              if (next === "table" || next === "calendar") setViewMode(next);
-            },
+              if (next === "table" || next === 'calendar') setViewMode(next)},
             onPresetApply: (settings) => {
-              if (settings.layout === "table" || settings.layout === "calendar")
+              if (settings.layout === 'table' || settings.layout === "calendar")
                 setViewMode(settings.layout);
             },
           }}
           staffId={staff.id}
-          onOpenSession={handleOpenSession}
-          onOpenStudent={handleOpenStudent}
-          skipUrlSync={true}
-          fillHeight={true}
-          attendanceView="staff"
-          onUndoLogAbsenceStaff={handleUndoLogAbsenceStaff}
-          onRemoveStaffFromSession={handleRemoveStaffFromSession}
-        />
-      </div>
+            onOpenSession={handleOpenSession}
+            onOpenStudent={handleOpenStudent}
+            skipUrlSync={true}
+            fillHeight={true}
+            attendanceView="staff"
+            onUndoLogAbsenceStaff={handleUndoLogAbsenceStaff}
+            onRemoveStaffFromSession={handleRemoveStaffFromSession}
+          />
+        </div>
 
       {undoTarget && currentStaff && (
         <UndoLogAbsenceConfirmDialog

@@ -4,84 +4,56 @@ import React, {
   useImperativeHandle,
   useState,
   useMemo,
-} from "react";
-import {
-  Badge,
-  Skeleton,
-  commandPaletteItemActiveStyles,
-  commandPaletteItemInactiveStyles,
-} from "@altitutor/ui";
-import { cn } from "@/shared/utils";
-import { entityTypes } from "@/features/command-palette/config/commandPalette.config";
-import { getEntityDisplayText } from "@/features/command-palette/utils/entityFormatters";
-import { calculateMatchScore } from "@/features/command-palette/utils/matchScoring";
-import { excludeDoneEntities } from "@/features/command-palette/utils/excludeDoneEntities";
-import { useEntitySearch } from "@/shared/hooks/useEntitySearch";
-import type { CommandPaletteEntityResult } from "@/features/command-palette/types";
+} from 'react';
+import { Badge, Skeleton, commandPaletteItemActiveStyles, commandPaletteItemInactiveStyles } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
+import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
+import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
+import { calculateMatchScore } from '@/features/command-palette/utils/matchScoring';
+import { excludeDoneEntities } from '@/features/command-palette/utils/excludeDoneEntities';
+import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
+import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
 // Map singular entity types to plural keys in entityTypes config
 const ENTITY_TYPE_MAPPING: Record<string, string> = {
   email: "emails",
   message: "messages",
-  student: "students",
-  staff: "staff",
-  parent: "parents",
-  class: "classes",
-  subject: "subjects",
-  task: "tasks",
-  issue: "issues",
-  project: "projects",
-  topic: "topics",
-  file: "files",
-  note: "notes",
+  student: 'students',
+  staff: 'staff',
+  parent: 'parents',
+  class: 'classes',
+  subject: 'subjects',
+  task: 'tasks',
+  issue: 'issues',
+  project: 'projects',
+  topic: 'topics',
+  file: 'files',
+  note: 'notes',
 };
 
 // Map plural entity types to singular for pill ordering
 const PLURAL_TO_SINGULAR: Record<string, string> = {
   emails: "email",
   messages: "message",
-  students: "student",
-  staff: "staff",
-  parents: "parent",
-  classes: "class",
-  subjects: "subject",
-  tasks: "task",
-  issues: "issue",
-  projects: "project",
-  topics: "topic",
-  files: "file",
-  notes: "note",
+  students: 'student',
+  staff: 'staff',
+  parents: 'parent',
+  classes: 'class',
+  subjects: 'subject',
+  tasks: 'task',
+  issues: 'issue',
+  projects: 'project',
+  topics: 'topic',
+  files: 'file',
+  notes: 'note',
 };
 
 const ENTITY_PILL_ORDER = [
   "email",
   "message",
-  "student",
-  "staff",
-  "parent",
-  "class",
-  "subject",
-  "task",
-  "issue",
-  "project",
-  "topic",
-  "file",
-  "note",
-] as const;
+  'student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file', 'note'] as const;
 
-const DEFAULT_TYPES = [
-  "students",
-  "staff",
-  "parents",
-  "classes",
-  "subjects",
-  "tasks",
-  "issues",
-  "projects",
-  "topics",
-  "files",
-  "notes",
-] as const;
+const DEFAULT_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes'] as const;
 
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
@@ -96,184 +68,157 @@ export interface MentionListRef {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
 }
 
-export const MentionList = forwardRef<MentionListRef, MentionListProps>(
-  (props, ref) => {
-    const [selectedIndex, setSelectedIndex] = useState(0);
-    const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(
-      null,
-    );
+export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(null);
 
-    const effectiveTypes = (props.types ?? DEFAULT_TYPES) as string[];
-    const { results, isLoading } = useEntitySearch({
-      search: props.query ?? "",
-      enabled: true,
-      debounceMs: 200,
-      types: effectiveTypes,
+  const effectiveTypes = (props.types ?? DEFAULT_TYPES) as string[];
+  const { results, isLoading } = useEntitySearch({
+    search: props.query ?? '',
+    enabled: true,
+    debounceMs: 200,
+    types: effectiveTypes,
+  });
+
+  const excludeSet = useMemo(
+    () => new Set(props.excludeEntityIds ?? []),
+    [props.excludeEntityIds]
+  );
+
+  const items = useMemo(
+    () =>
+      excludeDoneEntities(results).filter((item) => !excludeSet.has(item.id)),
+    [results, excludeSet]
+  );
+
+  const { groupedItems, flatItems, typesWithResults } = useMemo(() => {
+    const groups: Record<string, { type: string; label: string; items: CommandPaletteEntityResult[]; maxScore: number }> = {};
+
+    items.forEach((item) => {
+      const type = item.type;
+      const configKey = ENTITY_TYPE_MAPPING[type] || type;
+      const config = entityTypes[configKey];
+      const label = config?.label || type;
+
+      const score = calculateMatchScore({ type: 'entity', result: item }, props.query || '');
+
+      if (!groups[type]) {
+        groups[type] = { type, label, items: [], maxScore: 0 };
+      }
+
+      groups[type].items.push(item);
+      groups[type].maxScore = Math.max(groups[type].maxScore, score);
     });
 
-    const excludeSet = useMemo(
-      () => new Set(props.excludeEntityIds ?? []),
-      [props.excludeEntityIds],
-    );
+    let sortedGroups = Object.values(groups).sort((a, b) => {
+      if (b.maxScore !== a.maxScore) return b.maxScore - a.maxScore;
+      return a.label.localeCompare(b.label);
+    });
 
-    const items = useMemo(
-      () =>
-        excludeDoneEntities(results).filter((item) => !excludeSet.has(item.id)),
-      [results, excludeSet],
-    );
+    if (selectedTypeFilter) {
+      sortedGroups = sortedGroups.filter(
+          (g) => g.type === selectedTypeFilter);
+    }
 
-    const { groupedItems, flatItems, typesWithResults } = useMemo(() => {
-      const groups: Record<
-        string,
-        {
-          type: string;
-          label: string;
-          items: CommandPaletteEntityResult[];
-          maxScore: number;
-        }
-      > = {};
+    const flatItems = sortedGroups.flatMap((group) => group.items);
+    const typesWithResults = Object.keys(groups);
 
-      items.forEach((item) => {
-        const type = item.type;
-        const configKey = ENTITY_TYPE_MAPPING[type] || type;
-        const config = entityTypes[configKey];
-        const label = config?.label || type;
+    return { groupedItems: sortedGroups, flatItems, typesWithResults };
+  }, [items, props.query, selectedTypeFilter]);
 
-        const score = calculateMatchScore(
-          { type: "entity", result: item },
-          props.query || "",
-        );
+  const selectItem = (index: number) => {
+    const item = flatItems[index];
+    if (!item) return;
+    const { title } = getEntityDisplayText(item);
+    props.command({ ...item, label: title } as CommandPaletteEntityResult & { label: string });
+  };
 
-        if (!groups[type]) {
-          groups[type] = { type, label, items: [], maxScore: 0 };
-        }
+  const safeLength = Math.max(flatItems.length, 1);
+  const upHandler = () => {
+    setSelectedIndex((selectedIndex + safeLength - 1) % safeLength);
+  };
 
-        groups[type].items.push(item);
-        groups[type].maxScore = Math.max(groups[type].maxScore, score);
-      });
+  const downHandler = () => {
+    setSelectedIndex((selectedIndex + 1) % safeLength);
+  };
 
-      let sortedGroups = Object.values(groups).sort((a, b) => {
-        if (b.maxScore !== a.maxScore) return b.maxScore - a.maxScore;
-        return a.label.localeCompare(b.label);
-      });
+  const enterHandler = () => {
+    selectItem(selectedIndex);
+  };
 
-      if (selectedTypeFilter) {
-        sortedGroups = sortedGroups.filter(
-          (g) => g.type === selectedTypeFilter,
-        );
+  useEffect(() => setSelectedIndex(0), [items, selectedTypeFilter]);
+
+  useEffect(() => {
+    if (selectedTypeFilter && !items.some((i) => i.type === selectedTypeFilter)) {
+      setSelectedTypeFilter(null);
+    }
+  }, [items, selectedTypeFilter]);
+
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }) => {
+      if (event.key === 'ArrowUp') {
+        upHandler();
+        return true;
       }
 
-      const flatItems = sortedGroups.flatMap((group) => group.items);
-      const typesWithResults = Object.keys(groups);
-
-      return { groupedItems: sortedGroups, flatItems, typesWithResults };
-    }, [items, props.query, selectedTypeFilter]);
-
-    const selectItem = (index: number) => {
-      const item = flatItems[index];
-      if (!item) return;
-      const { title } = getEntityDisplayText(item);
-      props.command({ ...item, label: title } as CommandPaletteEntityResult & {
-        label: string;
-      });
-    };
-
-    const safeLength = Math.max(flatItems.length, 1);
-    const upHandler = () => {
-      setSelectedIndex((selectedIndex + safeLength - 1) % safeLength);
-    };
-
-    const downHandler = () => {
-      setSelectedIndex((selectedIndex + 1) % safeLength);
-    };
-
-    const enterHandler = () => {
-      selectItem(selectedIndex);
-    };
-
-    useEffect(() => setSelectedIndex(0), [items, selectedTypeFilter]);
-
-    useEffect(() => {
-      if (
-        selectedTypeFilter &&
-        !items.some((i) => i.type === selectedTypeFilter)
-      ) {
-        setSelectedTypeFilter(null);
+      if (event.key === 'ArrowDown') {
+        downHandler();
+        return true;
       }
-    }, [items, selectedTypeFilter]);
 
-    useImperativeHandle(ref, () => ({
-      onKeyDown: ({ event }) => {
-        if (event.key === "ArrowUp") {
-          upHandler();
-          return true;
-        }
+      if (event.key === 'Enter') {
+        enterHandler();
+        return true;
+      }
 
-        if (event.key === "ArrowDown") {
-          downHandler();
-          return true;
-        }
+      return false;
+    },
+  }));
 
-        if (event.key === "Enter") {
-          enterHandler();
-          return true;
-        }
+  const pillTypes = typesWithResults.length > 0
+    ? ENTITY_PILL_ORDER.filter((t) => typesWithResults.includes(t))
+    : effectiveTypes.map((t) => PLURAL_TO_SINGULAR[t] ?? t).filter(Boolean);
 
-        return false;
-      },
-    }));
+  const showSkeleton = isLoading;
+  const emptyMessage = props.query.trim().length < 2 ? 'Start typing to search...' : 'No results found';
 
-    const pillTypes =
-      typesWithResults.length > 0
-        ? ENTITY_PILL_ORDER.filter((t) => typesWithResults.includes(t))
-        : effectiveTypes.map((t) => PLURAL_TO_SINGULAR[t] ?? t).filter(Boolean);
-
-    const showSkeleton = isLoading;
-    const emptyMessage =
-      props.query.trim().length < 2
-        ? "Start typing to search..."
-        : "No results found";
-
-    if (groupedItems.length === 0 && !showSkeleton) {
-      const filterLabel = selectedTypeFilter
-        ? (entityTypes[ENTITY_TYPE_MAPPING[selectedTypeFilter]]?.label ??
-          selectedTypeFilter)
+  if (groupedItems.length === 0 && !showSkeleton) {
+    const filterLabel = selectedTypeFilter
+      ? (entityTypes[ENTITY_TYPE_MAPPING[selectedTypeFilter]]?.label ?? selectedTypeFilter)
         : null;
-      return (
-        <div className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto">
-          <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
-            {pillTypes.map((type) => {
-              const configKey = ENTITY_TYPE_MAPPING[type] || type;
-              const config = entityTypes[configKey];
-              const Icon = config?.icon;
-              const label = config?.label || type;
-              const isActive = selectedTypeFilter === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedTypeFilter((prev) =>
+    return (
+      <div className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto">
+        <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
+          {pillTypes.map((type) => {
+            const configKey = ENTITY_TYPE_MAPPING[type] || type;
+            const config = entityTypes[configKey];
+            const Icon = config?.icon;
+            const label = config?.label || type;
+            const isActive = selectedTypeFilter === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedTypeFilter((prev) =>
                       prev === type ? null : type,
                     );
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {Icon && <Icon className="h-3 w-3" />}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="p-2 text-sm text-muted-foreground">
-            {filterLabel ? `No ${filterLabel} found` : emptyMessage}
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="p-2 text-sm text-muted-foreground">
+          {filterLabel ? `No ${filterLabel} found` : emptyMessage}
           </div>
         </div>
       );

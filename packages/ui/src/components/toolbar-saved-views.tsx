@@ -115,7 +115,9 @@ export function ToolbarSavedViews({
   const [overrides, setOverrides] = React.useState<Record<string, SavedView>>(
     {},
   );
-  const [removedIds, setRemovedIds] = React.useState<Record<string, true>>({});
+  const [removedIds, setRemovedIds] = React.useState<Record<string, true>>(
+    {},
+  );
   const combined = [
     ...views.map((view) => overrides[view.id] ?? view),
     ...Object.values(overrides).filter(
@@ -302,34 +304,34 @@ export function ToolbarSavedViews({
           </>
         }
       >
-        <div
-          role="region"
-          aria-label="View settings"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"
-        >
-          <label className="block space-y-1 text-sm">
-            View name
-            <Input
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Name this view"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={shared}
-              onCheckedChange={(checked) => setShared(checked === true)}
-            />
-            {service?.shareLabel ?? "Share with all admins"}
-          </label>
-          {renderEditor(draft, setDraft)}
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-        </div>
+          <div
+            role="region"
+            aria-label="View settings"
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"
+          >
+            <label className="block space-y-1 text-sm">
+              View name
+              <Input
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Name this view"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={shared}
+                onCheckedChange={(checked) => setShared(checked === true)}
+              />
+              {service?.shareLabel ?? "Share with all admins"}
+            </label>
+            {renderEditor(draft, setDraft)}
+            {error ? (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </div>
       </ViewDialog>
     </>
   );

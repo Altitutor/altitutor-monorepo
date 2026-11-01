@@ -1,6 +1,6 @@
 "use client";
 
-import { requestOperationalEmail } from "@/features/email/api/operational";
+import { requestOperationalEmail } from '@/features/email/api/operational';
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import {
   Button,
@@ -18,15 +18,9 @@ import {
   type ThreadFeedEntry,
 } from "@/features/messages/components/MessageThread";
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
-import {
-  ComposeModeControl,
-  type ComposeMode,
-} from "@/features/activity/components/ComposeModeControl";
+import { ComposeModeControl, type ComposeMode } from "@/features/activity/components/ComposeModeControl";
 import { useStudentActivity } from "@/features/activity/hooks/useActivityEvents";
-import {
-  useEntityActivityNoteComposer,
-  activityKeys,
-} from "@/features/activity/hooks";
+import { useEntityActivityNoteComposer, activityKeys } from "@/features/activity/hooks";
 import {
   communicationFilterOptions,
   contactSourceId,
@@ -108,15 +102,12 @@ export const JourneyCommunication = forwardRef<
     ],
     [contacts, conversations],
   );
-  const selectedRecipient = recipients.find(
-    (recipient) => recipient.id === selected,
-  );
+  const selectedRecipient = recipients.find((recipient) => recipient.id === selected);
   const group = conversations.find((c) => c.id === selected && c.is_group_chat);
   const filterOptions = communicationFilterOptions({
     contacts: contacts.map((person) => ({
       id: person.id,
-      kind:
-        person.kind === "parent" ? ("parent" as const) : ("student" as const),
+      kind: person.kind === "parent" ? ("parent" as const) : ("student" as const),
       label: person.label,
       isCurrent: true,
       detail: person.phone_e164 || person.kind,
@@ -133,16 +124,11 @@ export const JourneyCommunication = forwardRef<
   function sourceFor(id: string) {
     const conversation = conversations.find((item) => item.id === id);
     if (!conversation) return "unknown";
-    if (conversation.is_group_chat)
-      return groupConversationSourceId(conversation.id);
-    return conversation.contact_id
-      ? contactSourceId(conversation.contact_id)
-      : "unknown";
+    if (conversation.is_group_chat) return groupConversationSourceId(conversation.id);
+    return conversation.contact_id ? contactSourceId(conversation.contact_id) : "unknown";
   }
   function recipientSource(id: string) {
-    return conversations.some(
-      (conversation) => conversation.id === id && conversation.is_group_chat,
-    )
+    return conversations.some((conversation) => conversation.id === id && conversation.is_group_chat)
       ? groupConversationSourceId(id)
       : contactSourceId(id);
   }

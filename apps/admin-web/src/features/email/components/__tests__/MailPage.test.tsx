@@ -69,12 +69,12 @@ it("keeps folder navigation visible while another folder is loading", async () =
   render(
     <QuickActionsProvider>
       <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MailPage />
-      </QueryClientProvider>
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
@@ -100,17 +100,17 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
   render(
     <QuickActionsProvider>
       <QueryClientProvider
-        client={
-          new QueryClient({
-            defaultOptions: {
-              queries: { retry: false },
-              mutations: { retry: false },
-            },
-          })
-        }
-      >
-        <MailPage />
-      </QueryClientProvider>
+      client={
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false },
+          },
+        })
+      }
+    >
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   const row = await screen.findByRole("button", { name: "Open Lesson update" });
@@ -146,12 +146,12 @@ it("opens a conversation when the non-button space inside its highlighted row is
   render(
     <QuickActionsProvider>
       <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MailPage />
-      </QueryClientProvider>
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   const rowButton = await screen.findByRole("button", {
@@ -183,8 +183,8 @@ it("offers an Undo toast for a successful folder move and executes its server re
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <MailPage />
-      </QueryClientProvider>
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   const row = await screen.findByRole("button", { name: "Open Lesson update" });
@@ -229,12 +229,12 @@ it("lets received and preview be independently hidden, including hiding both", a
   render(
     <QuickActionsProvider>
       <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MailPage />
-      </QueryClientProvider>
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
@@ -278,8 +278,8 @@ it("selects Inbox once its first sync discovers folders", async () => {
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={client}>
-        <MailPage />
-      </QueryClientProvider>
+      <MailPage />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
@@ -307,16 +307,16 @@ it("places filled Compose in the shared primary header and opens the existing co
     render(
       <QuickActionsProvider>
         <QueryClientProvider
-          client={
-            new QueryClient({ defaultOptions: { queries: { retry: false } } })
-          }
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <AdminPageActionsTarget.Provider
+          value={{ primary: header, secondary: null }}
         >
-          <AdminPageActionsTarget.Provider
-            value={{ primary: header, secondary: null }}
-          >
-            <MailPage />
-          </AdminPageActionsTarget.Provider>
-        </QueryClientProvider>
+          <MailPage />
+        </AdminPageActionsTarget.Provider>
+      </QueryClientProvider>
       </QuickActionsProvider>,
     );
     const compose = await screen.findByRole("button", {

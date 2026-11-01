@@ -7,11 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  DialogScopeProvider,
-  DialogScopePane,
-  useMediaQuery,
-} from "@altitutor/ui";
+import { DialogScopeProvider, DialogScopePane, useMediaQuery } from "@altitutor/ui";
 import { usePathname, useSearchParams } from "next/navigation";
 import styles from "./accessory-panel.module.css";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";

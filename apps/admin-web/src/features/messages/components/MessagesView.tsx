@@ -1,69 +1,61 @@
-"use client";
-import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
-import { useRouter as useNextRouter } from "next/navigation";
+'use client';
+import { useAccessoryTitle } from '@/shared/hooks/useAccessoryTitle';
+import { useRouter as useNextRouter } from 'next/navigation';
 
-import { ConversationList } from "@/features/messages/components/ConversationList";
-import { MessageThread } from "@/features/messages/components/MessageThread";
-import { ConversationHeader } from "@/features/messages/components/ConversationHeader";
-import { Composer } from "@/features/messages/components/Composer";
-import { useState, useEffect, type ReactNode } from "react";
-import { NoteAlertPills } from "@/shared/components/NoteAlertPills";
-import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
-import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
-import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
-import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { useConversationList } from "@/features/messages/api/queries";
+import { ConversationList } from '@/features/messages/components/ConversationList';
+import { MessageThread } from '@/features/messages/components/MessageThread';
+import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
+import { Composer } from '@/features/messages/components/Composer';
+import { useState, useEffect, type ReactNode } from 'react';
+import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
+import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
+import { useAccessoryTab } from '@/shared/contexts/AccessoryTabContext';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { useConversationList } from '@/features/messages/api/queries';
 import {
   useMarkConversationRead,
   useMarkRead,
   useMarkUnread,
   useMarkContactUnread,
-} from "@/features/messages/api/mutations";
-import { formatContactName } from "@/features/messages/utils/formatContactName";
-import { useUnknownNumberLinking } from "@/features/messages/hooks/useUnknownNumberLinking";
-import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
-import { EntityCommunicationPanel } from "@/features/activity/components/EntityCommunicationPanel";
-import { linkedConversationEntity } from "@/features/activity/lib/entityCommunication";
+} from '@/features/messages/api/mutations';
+import { formatContactName } from '@/features/messages/utils/formatContactName';
+import { useUnknownNumberLinking } from '@/features/messages/hooks/useUnknownNumberLinking';
+import { AccessoryBreadcrumb } from '@/shared/components/accessory-panel/AccessoryBreadcrumb';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
+import {
+  linkedConversationEntity,
+} from '@/features/activity/lib/entityCommunication';
 import {
   isContactConversation,
   isGroupConversation,
   type ConversationListItem,
   type ConversationSelection,
-} from "@/features/messages/types";
-import { GroupConversationActions } from "@/features/messages/imessage/GroupConversationActions";
+} from '@/features/messages/types';
+import { GroupConversationActions } from '@/features/messages/imessage/GroupConversationActions';
 import {
   getMessagingDraftKey,
   useMessagingListFilters,
   usePersistedConversationDraft,
-} from "@/features/messages/state/messagingUiStore";
+} from '@/features/messages/state/messagingUiStore';
 
 export function MessagesView() {
   const { searchParams, router } = usePaneNavigation();
   const tabScope = useAccessoryTab();
   const targetMessageId = searchParams.get("message");
-  const conversationParam = searchParams.get("conversation"); // For backward compatibility
-  const contactParam = searchParams.get("contact");
-  const groupParam = searchParams.get("group");
-  const [activeContactId, setActiveContactId] = useState<string | null>(
-    contactParam,
-  );
-  const [composeIntent, setComposeIntent] = useState<{
-    contactId: string;
-    destinationAddress?: string;
-    senderId?: string;
-  } | null>(null);
+  const conversationParam = searchParams.get('conversation'); // For backward compatibility
+  const contactParam = searchParams.get('contact');
+  const groupParam = searchParams.get('group');
+  const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
+  const [composeIntent, setComposeIntent] = useState<{ contactId: string; destinationAddress?: string; senderId?: string } | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(groupParam);
-  const [mobileView, setMobileView] = useState<"list" | "thread">(
-    contactParam || groupParam || conversationParam ? "thread" : "list",
-  );
-  const isDesktopSplitPane = usePanelMediaQuery("(min-width: 768px)");
+  const [mobileView, setMobileView] = useState<'list' | 'thread'>(contactParam || groupParam || conversationParam ? 'thread' : 'list');
+  const isDesktopSplitPane = usePanelMediaQuery('(min-width: 768px)');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const {
-    ownedNumberFilter: selectedOwnedNumberId,
-    setOwnedNumberFilter: setSelectedOwnedNumberId,
-  } = useMessagingListFilters(tabScope ? `tab:${tabScope.tab.key}` : "page");
+  const [searchTerm, setSearchTerm] = useState('');
+  const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
+    useMessagingListFilters(tabScope ? `tab:${tabScope.tab.key}` : "page");
   const nextRouter = useNextRouter();
   const {
     draft: currentDraft,
@@ -358,7 +350,7 @@ export function MessagesView() {
           <div
             className={`
           flex-shrink-0
-          ${mobileView === "thread" ? "hidden md:block" : "w-full md:w-[320px]"}
+          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[320px]'}
           md:w-[320px]
         `}
           >
@@ -377,7 +369,7 @@ export function MessagesView() {
         <div
           className={`
           flex-1 flex-col min-w-0
-          ${mobileView === "list" ? "hidden md:flex" : "flex"}
+          ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}
         `}
         >
           {!tabScope || !linkedEntity || !activeContactId

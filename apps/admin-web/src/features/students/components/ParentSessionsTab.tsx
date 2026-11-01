@@ -1,14 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import type { Tables } from "@altitutor/shared";
-import { useToast } from "@altitutor/ui";
-import {
-  SessionsTable,
-  RemoveFromSessionConfirmDialog,
-} from "@/features/sessions/components";
-import { useRemoveParentFromSession } from "@/features/sessions/hooks/useSessionsQuery";
-import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { useState, useCallback } from 'react';
+import type { Tables } from '@altitutor/shared';
+import { useToast } from '@altitutor/ui';
+import { SessionsTable, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
+import { useRemoveParentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 type RemoveFromSessionTarget = {
   sessionId: string;
@@ -17,22 +14,17 @@ type RemoveFromSessionTarget = {
 };
 
 interface ParentSessionsTabProps {
-  parent: Tables<"parents">;
+  parent: Tables<'parents'>;
   onOpenSession?: (sessionId: string) => void;
 }
 
-export function ParentSessionsTab({
-  parent,
-  onOpenSession,
-}: ParentSessionsTabProps) {
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
-  const [removeFromSessionTarget, setRemoveFromSessionTarget] =
-    useState<RemoveFromSessionTarget | null>(null);
+export function ParentSessionsTab({ parent, onOpenSession }: ParentSessionsTabProps) {
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();
   const removeParentMutation = useRemoveParentFromSession();
   const entityModals = useEntityNavigation();
-  const parentName =
-    `${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() || "Parent";
+  const parentName = `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || "Parent";
 
   const handleOpenSession = useCallback(
     (sessionId: string) => {

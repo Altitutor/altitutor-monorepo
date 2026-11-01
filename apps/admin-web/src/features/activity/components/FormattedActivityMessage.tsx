@@ -1,10 +1,10 @@
-import { EntityChip } from "@altitutor/ui";
+import { EntityChip } from '@altitutor/ui';
 import type {
   ActivityEntityReference,
   ActivityEventDisplay,
   ChangedField,
-} from "../types";
-import { renderTextWithTagsAsPlainText } from "@/shared/utils/tagDisplay";
+} from '../types';
+import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
 interface FormattedActivityMessageProps {
   activity: ActivityEventDisplay;
@@ -12,8 +12,7 @@ interface FormattedActivityMessageProps {
 }
 
 function cleanValue(value: string | undefined): string {
-  return renderTextWithTagsAsPlainText(
-    value?.replace(/^["']|["']$/g, "") || "",
+  return renderTextWithTagsAsPlainText(value?.replace(/^["']|["']$/g, "") || "",
   );
 }
 
@@ -24,8 +23,8 @@ function renderFieldChange(field: ChangedField) {
   if (cleanOldValue && cleanNewValue) {
     return (
       <>
-        <span className="text-muted-foreground">{field.fieldLabel}</span> from{" "}
-        <span className="text-primary">{cleanOldValue}</span> to{" "}
+        <span className="text-muted-foreground">{field.fieldLabel}</span> from{' '}
+        <span className="text-primary">{cleanOldValue}</span> to{' '}
         <span className="text-primary">{cleanNewValue}</span>
       </>
     );
@@ -34,7 +33,7 @@ function renderFieldChange(field: ChangedField) {
   if (cleanNewValue) {
     return (
       <>
-        <span className="text-muted-foreground">{field.fieldLabel}</span> to{" "}
+        <span className="text-muted-foreground">{field.fieldLabel}</span> to{' '}
         <span className="text-primary">{cleanNewValue}</span>
       </>
     );
@@ -50,11 +49,10 @@ function formatInlineMessage(messageWithoutName: string): React.JSX.Element {
     const [, actionVerb, field, oldVal, newVal] = fromToMatch;
     return (
       <>
-        {actionVerb}{" "}
-        <span className="text-muted-foreground">
-          {field.replace(/^["']|["']$/g, "")}
+        {actionVerb}{' '}
+        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, "")}
         </span>{" "}
-        from <span className="text-primary">{cleanValue(oldVal)}</span> to{" "}
+        from <span className="text-primary">{cleanValue(oldVal)}</span> to{' '}
         <span className="text-primary">{cleanValue(newVal)}</span>
       </>
     );
@@ -66,9 +64,8 @@ function formatInlineMessage(messageWithoutName: string): React.JSX.Element {
     const [, actionVerb, field, value] = toMatch;
     return (
       <>
-        {actionVerb}{" "}
-        <span className="text-muted-foreground">
-          {field.replace(/^["']|["']$/g, "")}
+        {actionVerb}{' '}
+        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, "")}
         </span>{" "}
         to <span className="text-primary">{cleanValue(value)}</span>
       </>
@@ -95,13 +92,12 @@ export function FormattedActivityMessage({
   if (activity.messageParts?.length && !activity.changedFields?.length) {
     return (
       <>
-        {activity.messageParts.map((part, index) =>
-          part.kind === "entity" ? (
-            <EntityChip
-              entityType={part.entity.entityType}
+        {activity.messageParts.map((part, index) => part.kind === 'entity' ? (
+          <EntityChip
+            entityType={part.entity.entityType}
               entityId={part.entity.entityId}
               label={part.text}
-              key={`${part.entity.entityType}-${part.entity.entityId}-${index}`}
+            key={`${part.entity.entityType}-${part.entity.entityId}-${index}`}
               type="button"
               onClick={() => onEntityClick?.(part.entity)}
               aria-label={`Open ${part.entity.entityType} ${part.text}`}

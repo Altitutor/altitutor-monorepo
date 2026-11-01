@@ -44,11 +44,10 @@ export function RecordActionsProvider({ children }: { children: ReactNode }) {
       [...sources.current.values()].flatMap((get) => {
         const source = get();
         return source.active
-          ? source.actions
-              .filter((action) => !action.primaryOnly || source.primary)
+          ? source.actions.filter((action) => !action.primaryOnly || source.primary)
               .map((action) => ({
-                ...action,
-                id: `${source.target ? `${source.target.type}-${source.target.id}` : source.key}-${action.id}`,
+              ...action,
+              id: `${source.target ? `${source.target.type}-${source.target.id}` : source.key}-${action.id}`,
                 target: source.target,
                 parents: action.group ? [action.group] : [],
               }))

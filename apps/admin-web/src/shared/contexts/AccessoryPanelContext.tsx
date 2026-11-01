@@ -27,12 +27,7 @@ export type AccessoryDestination = {
   query?: string;
 };
 export type AccessoryFamily =
-  | "tasks"
-  | "issues"
-  | "projects"
-  | "documents"
-  | "messages"
-  | "email";
+  | "tasks" | "issues" | "projects" | "documents" | "messages" | "email";
 export const accessoryFamily = (kind: AccessoryKind) =>
   (
     ({
@@ -55,22 +50,15 @@ function messagesConversationId(query: string, fallback?: string) {
 
 function recordDestination<T extends AccessoryDestination>(value: T): T | null {
   if (!kinds.includes(value.kind)) return null;
-  const id =
-    value.kind === "messages"
-      ? messagesConversationId(value.query ?? "", value.id)
-      : value.id;
+  const id = value.kind === "messages"
+    ? messagesConversationId(value.query ?? "", value.id)
+    : value.id;
   if (!id?.trim()) return null;
   const query = new URLSearchParams(value.query ?? "");
   if (value.kind === "messages" && !messagesConversationId(query.toString())) {
     query.set("contact", id);
   }
-  return {
-    ...value,
-    id,
-    ...(value.query !== undefined || value.kind === "messages"
-      ? { query: query.toString() }
-      : {}),
-  };
+  return { ...value, id, ...(value.query !== undefined || value.kind === "messages" ? { query: query.toString() } : {}) };
 }
 export type AccessoryTab = {
   owner?: AccessoryOwner;

@@ -46,8 +46,8 @@ it("shares the current nested-topic menu actions with named palette targets", as
       <ToastProvider>
         <QuickActionsProvider>
           <CommandPaletteProvider>
-            <Screen />
-          </CommandPaletteProvider>
+          <Screen />
+        </CommandPaletteProvider>
         </QuickActionsProvider>
       </ToastProvider>
     </QueryClientProvider>,

@@ -1,64 +1,52 @@
-"use client";
+'use client';
 
-import { AdminToolbarViewsProvider } from "@/features/quick-filters/components/ToolbarViewsService";
-import { AdminShortcuts } from "@/shared/shortcuts/AdminShortcuts";
-import { ProfileMenu } from "@/shared/components/layouts/ProfileMenu";
-import { MobileSidebar } from "@/shared/components/layouts/MobileSidebar";
-import { AccessoryPanelLayout } from "@/shared/components/accessory-panel/AccessoryPanelLayout";
+import { AdminToolbarViewsProvider } from '@/features/quick-filters/components/ToolbarViewsService';
+import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
+import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
+import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
+import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
 
-import React, { useState, useEffect, useMemo } from "react";
-import { AdminPageActionsTarget } from "@/shared/components/AdminPageActions";
-import Link from "next/link";
-import {
-  usePaneNavigation,
-  accessoryDestination,
-} from "@/shared/hooks/usePaneNavigation";
-import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@altitutor/ui";
-import {
-  cn,
-  navLinkActiveStyles,
-  navLinkInactiveStyles,
-} from "@/shared/utils/index";
-import { ScrollArea } from "@altitutor/ui";
-import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@altitutor/ui";
-import { CheckInBookSessionModal } from "@/features/sessions/components/CheckInBookSessionModal";
-import { payTiersKeys } from "@/features/pay-tiers/api/queryKeys";
-import { CommandPaletteModal } from "@/features/command-palette/components/CommandPaletteModal";
-import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
-import { LogSessionModal } from "@/features/tutor-logs";
-import { LogAbsenceDialog, LogStaffAbsenceDialog } from "@/features/sessions";
-import { AnnouncementsModal } from "@/features/messages/components/announcements/AnnouncementsModal";
-import { BookSessionModal } from "@/features/bookings/components";
-import { StaffInterviewBookSessionModal } from "@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal";
-import { CreateTaskDialog } from "@/features/tasks/components/CreateTaskDialog";
-import { CreateIssueDialog } from "@/features/issues/components/CreateIssueDialog";
-import { CreateProjectDialog } from "@/features/projects/components/CreateProjectDialog";
-import { useCurrentStaff } from "@/shared/hooks";
-import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
-import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from "@/shared/components";
-import { useBreadcrumbs } from "@/shared/hooks/useBreadcrumbs";
-import { useAdminShell } from "@/shared/contexts/AdminShellContext";
-import { SettingsNavMenu } from "@/features/settings/SettingsNavMenu";
-import { isSettingsRoute } from "@/features/settings/settings-nav";
-import { invalidateCheckInSurfaces } from "@/shared/lib/query-invalidation";
-import { format } from "date-fns";
+import React, { useState, useEffect, useMemo } from 'react';
+import { AdminPageActionsTarget } from '@/shared/components/AdminPageActions';
+import Link from 'next/link';
+import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
+import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
+import { ScrollArea } from '@altitutor/ui';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@altitutor/ui';
+import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
+import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
+import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
+import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
+import { BookSessionModal } from '@/features/bookings/components';
+import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
+import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from '@/shared/components';
+import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
+import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
+import { isSettingsRoute } from '@/features/settings/settings-nav';
+import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
+import { format } from 'date-fns';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
 }
 
-import { navItems, type NavItem } from "@/shared/constants/adminNavigation";
+import { navItems, type NavItem } from '@/shared/constants/adminNavigation';
 
-type NavLink = Extract<NavItem, { type?: "link" }>;
+type NavLink = Extract<NavItem, { type?: 'link' }>;
 
 type NavSection = {
   title: string | null;
@@ -69,7 +57,7 @@ function groupNavItems(items: NavItem[]): NavSection[] {
   const sections: NavSection[] = [];
   let current: NavSection = { title: null, items: [] };
   for (const item of items) {
-    if (item.type === "heading") {
+    if (item.type === 'heading') {
       sections.push(current);
       current = { title: item.title, items: [] };
     } else {
@@ -77,9 +65,7 @@ function groupNavItems(items: NavItem[]): NavSection[] {
     }
   }
   sections.push(current);
-  return sections.filter(
-    (section) => section.title !== null || section.items.length > 0,
-  );
+  return sections.filter((section) => section.title !== null || section.items.length > 0);
 }
 
 function SidebarExpandablePanel({
@@ -92,8 +78,8 @@ function SidebarExpandablePanel({
   return (
     <div
       className={cn(
-        "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-        expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
       )}
     >
       <div className="min-h-0 overflow-hidden">
@@ -112,23 +98,19 @@ function NavSectionHeading({ title }: { title: string }) {
       aria-expanded={expanded}
       onClick={() => toggleGroup(title)}
       className={cn(
-        "mt-2 flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground",
+        'mt-2 flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
         navLinkInactiveStyles,
       )}
     >
       <span>{title}</span>
       <ChevronDown
-        className={cn(
-          "h-3 w-3 transition-transform duration-200",
-          !expanded && "-rotate-90",
-        )}
+        className={cn('h-3 w-3 transition-transform duration-200', !expanded && '-rotate-90')}
       />
     </button>
   );
 }
 
-const getTodayDashboardHref = () =>
-  `/dashboard/${format(new Date(), "yyyy-MM-dd")}`;
+const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
 
 const getNavItemHref = (item: Extract<NavItem, { type?: "link" }>) => {
   if (item.title === "Dashboard") {

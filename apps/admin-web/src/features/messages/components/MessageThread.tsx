@@ -1,51 +1,25 @@
-"use client";
+'use client';
 
-import {
-  type ReactNode,
-  useEffect,
-  useRef,
-  useMemo,
-  useState,
-  useLayoutEffect,
-  useId,
-} from "react";
-import {
-  type ThreadMessage,
-  useMessages,
-  useMessagesForContact,
-  useContactHeader,
-  useAvailableSenders,
-} from "../api/queries";
-import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  formatMessageDate,
-  formatMessageStatus,
-  formatDaySeparator,
-  isDifferentDay,
-} from "../utils/formatDate";
-import { StaffAvatar, SystemAvatar } from "./StaffAvatar";
-import { X, File, Download, Music, Play, Pause } from "lucide-react";
-import { Input, Button, Badge, type JSONContent } from "@altitutor/ui";
-import { messagesKeys } from "../api/queryKeys";
-import type { Database, Tables } from "@altitutor/shared";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { EditIssueDialog } from "@/features/issues/components/EditIssueDialog";
-import { useIssues } from "@/features/issues/api/queries";
-import { issuesApi } from "@/features/issues/api/issues";
-import type {
-  IssueTagInsert,
-  IssueWithTags,
-  IssueUpdate,
-} from "@/features/issues/types";
-import { extractMentions } from "@/shared/utils/extractMentions";
-import { cn } from "@/shared/utils";
-import {
-  getTagEntity,
-  resolveTagLabels,
-} from "@/features/issues/utils/mentionLabels";
-import { useSendMessage } from "../api/mutations";
-import { ImessageMessageActions } from "../imessage/ImessageMessageActions";
+import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
+import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
+import { StaffAvatar, SystemAvatar } from './StaffAvatar';
+import { X, File, Download, Music, Play, Pause } from 'lucide-react';
+import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
+import { messagesKeys } from '../api/queryKeys';
+import type { Database, Tables } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { useIssues } from '@/features/issues/api/queries';
+import { issuesApi } from '@/features/issues/api/issues';
+import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
+import { extractMentions } from '@/shared/utils/extractMentions';
+import { cn } from '@/shared/utils';
+import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
+import { useSendMessage } from '../api/mutations';
+import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
 import {
   AMBIGUOUS_SMS_RESEND_CONFIRM,
   UNCONFIRMED_SEND_HINT,
@@ -56,7 +30,7 @@ import {
   messageBubbleClassName,
   outboundStatusClassName,
   resendViaSmsAvailability,
-} from "../utils/macBridgePresentation";
+} from '../utils/macBridgePresentation';
 import {
   buildReactionsByTargetGuid,
   collectAttachedReactionIds,
@@ -64,10 +38,10 @@ import {
   reactionTypeToEmoji,
   reactionTypeToLabel,
   type MessageReaction,
-} from "../utils/reactions";
-import { isSystemOutboundMessage } from "../utils/conversationPreview";
+} from '../utils/reactions';
+import { isSystemOutboundMessage } from '../utils/conversationPreview';
 
-type IssueTagDraft = Omit<IssueTagInsert, "issue_id">;
+type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
 function getTagKey(tag: Partial<IssueTagInsert>) {
   if (tag.student_id) return `student:${tag.student_id}`;
@@ -159,7 +133,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
     if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Handle audio time updates
@@ -530,7 +504,7 @@ export function MessageThread({
   const shouldStickToBottomRef = useRef(true);
   const selectionKey =
     feed?.key ??
-    (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ""}`);
+    (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`);
   const lastRenderedContactIdRef = useRef<string | null>(null);
   const prevContactId = useRef(selectionKey);
 
@@ -1085,7 +1059,7 @@ export function MessageThread({
                   </div>
                 )}
                 <div
-                  className={`flex gap-2 items-end ${direction === "OUTBOUND" ? "flex-row-reverse" : "flex-row"}`}
+                  className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {direction === "OUTBOUND" && m.staff && (
                     <StaffAvatar
@@ -1104,11 +1078,11 @@ export function MessageThread({
                   )}
 
                   <div
-                    className={`max-w-[80%] group relative ${direction === "OUTBOUND" ? "text-right" : ""}`}
+                    className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}
                   >
                     {partyLabel && (
                       <div
-                        className={`mb-1 ${direction === "OUTBOUND" ? "flex justify-end" : "flex justify-start"}`}
+                        className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}
                       >
                         <Badge
                           variant="outline"
@@ -1121,7 +1095,7 @@ export function MessageThread({
                     )}
                     {direction === "OUTBOUND" && m.sender && (
                       <div
-                        className={`mb-1 ${direction === "OUTBOUND" ? "flex justify-end" : "flex justify-start"}`}
+                        className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}
                       >
                         <Badge
                           variant="outline"
@@ -1191,16 +1165,14 @@ export function MessageThread({
                           )}
                           {cleanedBody ? (
                             <div
-                              className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${messageBubbleClassName(
-                                {
+                              className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                                messageBubbleClassName({
                                   direction,
-                                  provider: asOwnedNumberProvider(
-                                    m.sender?.provider,
-                                  ),
+                                  provider: asOwnedNumberProvider(m.sender?.provider),
                                   appleService: asAppleService(m.apple_service),
                                   isGroup: isGroupThread,
-                                },
-                              )} break-words [overflow-wrap:anywhere] max-w-full`}
+                                })
+                              } break-words [overflow-wrap:anywhere] max-w-full`}
                             >
                               {isSearching && searchTerm
                                 ? highlightText(cleanedBody, searchTerm)
@@ -1229,10 +1201,10 @@ export function MessageThread({
                       );
                     })()}
                     <div
-                      className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === "OUTBOUND" ? "items-end" : "items-start"}`}
+                      className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}
                     >
                       <div
-                        className={`flex items-center gap-1.5 ${direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}
+                        className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}
                       >
                         <span>{formatMessageDate(m.created_at)}</span>
                         {direction === "OUTBOUND" && m.status && (
@@ -1313,7 +1285,7 @@ export function MessageThread({
                       </div>
                       {showError ? (
                         <div
-                          className={`max-w-full text-[11px] ${m.status === "FAILED" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}`}
+                          className={`max-w-full text-[11px] ${m.status === 'FAILED' ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}
                         >
                           {m.error_message}
                         </div>

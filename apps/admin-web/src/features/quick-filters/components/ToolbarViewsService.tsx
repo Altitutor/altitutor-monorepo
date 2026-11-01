@@ -1,9 +1,7 @@
 "use client";
 import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ToolbarViewsProvider,
-  type ToolbarViewsService,
+import { ToolbarViewsProvider, type ToolbarViewsService,
   type ToolbarViewDialogProps,
 } from "@altitutor/ui";
 import { useCurrentStaff } from "@/shared/hooks";
@@ -61,9 +59,7 @@ export function AdminToolbarViewsProvider({
     [queryClient],
   );
   const service = useMemo(
-    () => ({
-      userId: staff?.id ?? null,
-      save,
+    () => ({ userId: staff?.id ?? null, save,
       remove,
       Dialog: AdminViewDialog,
     }),

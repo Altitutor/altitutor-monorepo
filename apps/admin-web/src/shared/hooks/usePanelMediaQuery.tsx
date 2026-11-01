@@ -1,5 +1,9 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useMediaQuery, MediaQueryWidthProvider } from "@altitutor/ui";
 export function ResponsivePane({
   children,

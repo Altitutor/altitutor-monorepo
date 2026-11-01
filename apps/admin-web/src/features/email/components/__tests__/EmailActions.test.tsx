@@ -18,33 +18,33 @@ it("disables stale hover shortcuts when an accessory tab becomes inactive or col
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <AccessoryTabContext.Provider
-          value={{
-            tab: {
-              key: "hidden-mail",
-              id: "thread",
-              kind: "email",
-              title: "Mail",
-              query: "",
-            },
-            active: false,
-            close: () => {},
-            navigate: () => {},
-            registerClose: () => {},
-          }}
-        >
-          <EmailActions
-            ids={["one"]}
-            threadId="thread"
-            read
-            assignedStaffId={null}
-            mailbox={mailbox}
-            hovered
-            onReply={reply}
-            level="message"
-          />
-        </AccessoryTabContext.Provider>
-      </QueryClientProvider>
+      <AccessoryTabContext.Provider
+        value={{
+          tab: {
+            key: "hidden-mail",
+            id: "thread",
+            kind: "email",
+            title: "Mail",
+            query: "",
+          },
+          active: false,
+          close: () => {},
+          navigate: () => {},
+          registerClose: () => {},
+        }}
+      >
+        <EmailActions
+          ids={["one"]}
+          threadId="thread"
+          read
+          assignedStaffId={null}
+          mailbox={mailbox}
+          hovered
+          onReply={reply}
+          level="message"
+        />
+      </AccessoryTabContext.Provider>
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   fireEvent.keyDown(document.body, { key: "r" });
@@ -55,19 +55,19 @@ it("ignores a hidden primary pane even if its last hover flag is stale", () => {
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <div hidden>
-          <EmailActions
-            ids={["one"]}
-            threadId="thread"
-            read
-            assignedStaffId={null}
-            mailbox={mailbox}
-            hovered
-            onReply={reply}
-            level="message"
-          />
-        </div>
-      </QueryClientProvider>
+      <div hidden>
+        <EmailActions
+          ids={["one"]}
+          threadId="thread"
+          read
+          assignedStaffId={null}
+          mailbox={mailbox}
+          hovered
+          onReply={reply}
+          level="message"
+        />
+      </div>
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   fireEvent.keyDown(document.body, { key: "r" });
@@ -78,18 +78,18 @@ it("retains keyboard ownership when menu focus returns to a row whose mouse-ente
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <div data-email-shortcut-target>
-          <EmailActions
-            ids={["one"]}
-            threadId="thread"
-            read
-            assignedStaffId={null}
-            mailbox={mailbox}
-            onReply={reply}
-            level="message"
-          />
-        </div>
-      </QueryClientProvider>
+      <div data-email-shortcut-target>
+        <EmailActions
+          ids={["one"]}
+          threadId="thread"
+          read
+          assignedStaffId={null}
+          mailbox={mailbox}
+          onReply={reply}
+          level="message"
+        />
+      </div>
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   screen.getByRole("button", { name: "Reply" }).focus();
@@ -115,18 +115,18 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   render(
     <QuickActionsProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <input aria-label="Typing here" />
-        <EmailActions
-          ids={["one"]}
-          threadId="thread"
-          read
-          assignedStaffId={null}
-          mailbox={mailbox}
-          hovered
-          onReply={reply}
-          onForward={forward}
-        />
-      </QueryClientProvider>
+      <input aria-label="Typing here" />
+      <EmailActions
+        ids={["one"]}
+        threadId="thread"
+        read
+        assignedStaffId={null}
+        mailbox={mailbox}
+        hovered
+        onReply={reply}
+        onForward={forward}
+      />
+    </QueryClientProvider>
     </QuickActionsProvider>,
   );
   fireEvent.keyDown(screen.getByRole("textbox", { name: "Typing here" }), {
