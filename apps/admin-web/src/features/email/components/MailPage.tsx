@@ -30,7 +30,7 @@ const defaults: DisplaySettings = {
   sortBy: "received",
   sortDirection: "desc",
   groupBy: null,
-  visibleColumns: ["time", "preview"],
+  visibleColumns: ["sender", "subject", "time", "preview", "assignee"],
 };
 export function MailPage() {
   const [folder, setFolder] = useState<string>();
@@ -44,6 +44,7 @@ export function MailPage() {
     folder,
     search: term,
     assignee: settings.filters.assignee?.map(String).join(",") || "all",
+    from: settings.filters.from?.map(String).join(",") || "",
     offset,
     sort: settings.sortBy ?? "received",
     direction: settings.sortDirection,
@@ -61,10 +62,10 @@ export function MailPage() {
     return () => clearTimeout(timer);
   }, [search]);
   useEffect(() => {
-    if (folder === undefined && mailbox.data)
-      setFolder(
-        mailbox.data.folders.find((item) => item.role === "inbox")?.id ?? "",
-      );
+    if (folder === undefined && mailbox.data) {
+      const inbox = mailbox.data.folders.find((item) => item.role === "inbox");
+      if (inbox) setFolder(inbox.id);
+    }
   }, [folder, mailbox.data]);
   const configured = mailbox.data?.configured;
   const syncNow = sync.mutateAsync;
@@ -141,7 +142,9 @@ export function MailPage() {
   const rows = mailbox.data?.threads ?? [];
   function open(row: EmailSummary) {
     setSelected(row.id);
-    openThread(row.id, row.subject);
+    if (row.draft)
+      openThread(row.id, row.subject, "draft", row.messageIds.at(-1));
+    else openThread(row.id, row.subject);
   }
   const lastPage = mailbox.data?.sync
     .map((state) => state.page_at)
@@ -251,7 +254,18 @@ export function MailPage() {
               setOffset(0);
             }}
             quickFilters={views}
+            allowEmptyColumns
             filterDefinitions={[
+              {
+                key: "from",
+                label: "From",
+                options: (mailbox.data?.senders ?? []).map((sender) => ({
+                  value: sender.email,
+                  label: sender.name
+                    ? `${sender.name} · ${sender.email}`
+                    : sender.email,
+                })),
+              },
               {
                 key: "assignee",
                 label: "Assignee",
@@ -272,6 +286,9 @@ export function MailPage() {
               { key: "sender", label: "Sender" },
             ]}
             columnDefinitions={[
+              { key: "sender", label: "Sender", visibleByDefault: true },
+              { key: "subject", label: "Subject", visibleByDefault: true },
+              { key: "assignee", label: "Assignee", visibleByDefault: true },
               { key: "time", label: "Received", visibleByDefault: true },
               { key: "preview", label: "Preview", visibleByDefault: true },
             ]}
@@ -338,18 +355,22 @@ export function MailPage() {
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
                     />
-                    <span
-                      className={`w-28 shrink-0 truncate text-xs ${row.read ? "" : "font-semibold"}`}
-                    >
-                      {row.senderName || row.sender || "Draft"}
-                    </span>
-                    <span className="flex min-w-0 flex-1 gap-2 text-xs">
+                    {settings.visibleColumns.includes("sender") && (
                       <span
-                        className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
+                        className={`w-28 shrink-0 truncate text-xs ${row.read ? "" : "font-semibold"}`}
                       >
-                        {row.draft ? "Draft · " : ""}
-                        {row.subject || "(no subject)"}
+                        {row.senderName || row.sender || "Draft"}
                       </span>
+                    )}
+                    <span className="flex min-w-0 flex-1 gap-2 text-xs">
+                      {settings.visibleColumns.includes("subject") && (
+                        <span
+                          className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
+                        >
+                          {row.draft ? "Draft · " : ""}
+                          {row.subject || "(no subject)"}
+                        </span>
+                      )}
                       {settings.visibleColumns.includes("preview") && (
                         <span className="min-w-0 flex-1 truncate text-muted-foreground">
                           {row.preview}
@@ -366,6 +387,9 @@ export function MailPage() {
                         assignedStaffId={row.assignedStaffId}
                         mailbox={mailbox.data}
                         hovered={hovered === row.id}
+                        hideAssignee={
+                          !settings.visibleColumns.includes("assignee")
+                        }
                         compact
                         onReply={() => openThread(row.id, row.subject, "reply")}
                         onForward={() =>
@@ -374,29 +398,30 @@ export function MailPage() {
                       />
                     )}
                   </div>
-                  {row.assignedStaffId && (
-                    <span
-                      className="max-w-28 shrink-0 truncate text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
-                      title={mailbox.data?.staff
-                        .filter((person) => person.id === row.assignedStaffId)
-                        .map((person) =>
-                          [person.first_name, person.last_name]
-                            .filter(Boolean)
-                            .join(" "),
-                        )
-                        .join("")}
-                    >
-                      {" "}
-                      {mailbox.data?.staff
-                        .filter((person) => person.id === row.assignedStaffId)
-                        .map((person) =>
-                          [person.first_name, person.last_name]
-                            .filter(Boolean)
-                            .join(" "),
-                        )
-                        .join("") || "Assigned staff"}
-                    </span>
-                  )}
+                  {settings.visibleColumns.includes("assignee") &&
+                    row.assignedStaffId && (
+                      <span
+                        className="max-w-28 shrink-0 truncate rounded-full border bg-muted/25 px-2 py-1 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
+                        title={mailbox.data?.staff
+                          .filter((person) => person.id === row.assignedStaffId)
+                          .map((person) =>
+                            [person.first_name, person.last_name]
+                              .filter(Boolean)
+                              .join(" "),
+                          )
+                          .join("")}
+                      >
+                        {" "}
+                        {mailbox.data?.staff
+                          .filter((person) => person.id === row.assignedStaffId)
+                          .map((person) =>
+                            [person.first_name, person.last_name]
+                              .filter(Boolean)
+                              .join(" "),
+                          )
+                          .join("") || "Assigned staff"}
+                      </span>
+                    )}
                   {settings.visibleColumns.includes("time") && (
                     <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0 md:block">
                       {row.at

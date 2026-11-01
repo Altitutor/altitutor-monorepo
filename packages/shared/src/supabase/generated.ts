@@ -44581,6 +44581,7 @@ export type Database = {
       }
       email_list_threads: {
         Args: {
+          p_from?: string
           p_assignee: string
           p_direction?: string
           p_folder_id: string
@@ -44634,6 +44635,10 @@ export type Database = {
           p_staff_id: string
         }
         Returns: Json
+      }
+      email_sender_options: {
+        Args: Record<PropertyKey, never>
+        Returns: { email: string; name: string | null }[]
       }
       email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
       email_undo_assignment: {

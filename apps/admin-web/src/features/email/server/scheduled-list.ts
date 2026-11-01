@@ -7,6 +7,7 @@ export async function listScheduledMail(
   db: SupabaseClient<Database>,
   options: {
     search: string;
+    from?: string[];
     assignees: string[];
     offset: number;
     sort: string;
@@ -43,6 +44,13 @@ export async function listScheduledMail(
     if (threads.error) throw new Error("Could not load scheduled emails.");
     for (const item of messages.data) {
       const message = emailMessageSchema.parse(item.data);
+      if (
+        options.from?.length &&
+        !options.from.some(
+          (address) => address.toLowerCase() === message.sender.toLowerCase(),
+        )
+      )
+        continue;
       const assignee =
         threads.data.find((thread) => thread.id === item.thread_id)
           ?.assigned_staff_id ?? null;

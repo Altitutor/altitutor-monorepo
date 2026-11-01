@@ -439,7 +439,7 @@ it("opens an editable local draft while Microsoft prepares it and saves only its
   });
 });
 
-it.each(["Save draft", "Delete draft"])(
+it.each(["Close draft", "Delete draft"])(
   "offers an explicit %s choice when closing",
   async (choice) => {
     localStorage.clear();
@@ -472,7 +472,7 @@ it.each(["Save draft", "Delete draft"])(
       screen.queryByRole("dialog", { name: "Keep this draft?" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("menuitem", { name: "Save draft" }),
+      screen.getByRole("menuitem", { name: "Close draft" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("menuitem", { name: "Delete draft" }),

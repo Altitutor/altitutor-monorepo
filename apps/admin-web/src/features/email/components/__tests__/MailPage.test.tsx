@@ -211,3 +211,72 @@ it("offers an Undo toast for a successful folder move and executes its server re
   );
   success.mockRestore();
 });
+it("lets received and preview be independently hidden, including hiding both", async () => {
+  global.fetch = jest.fn(
+    async () => ({ ok: true, json: async () => mailbox }) as Response,
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MailPage />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("button", { name: "Open Lesson update" });
+  fireEvent.click(screen.getByRole("button", { name: "Display options" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Preview", pressed: true }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Received", pressed: true }),
+  );
+  for (const property of ["Sender", "Subject", "Assignee"])
+    fireEvent.click(
+      screen.getByRole("button", { name: property, pressed: true }),
+    );
+  for (const property of ["Sender", "Subject", "Assignee"])
+    expect(
+      screen.getByRole("button", { name: property, pressed: false }),
+    ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Preview", pressed: false }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Received", pressed: false }),
+  ).toBeInTheDocument();
+});
+it("selects Inbox once its first sync discovers folders", async () => {
+  let discovered = false;
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  global.fetch = jest.fn(
+    async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          ...mailbox,
+          folders: discovered ? mailbox.folders : [],
+        }),
+      }) as Response,
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <MailPage />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("button", { name: "Open Lesson update" });
+  await screen.findByRole("heading", { name: "All mail" });
+  discovered = true;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ["email", "mailbox"] });
+  });
+  await waitFor(() =>
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("folder=inbox"),
+      expect.anything(),
+    ),
+  );
+});

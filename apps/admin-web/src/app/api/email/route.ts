@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     );
   const params = request.nextUrl.searchParams;
   const offset = Math.max(0, Number(params.get("offset")) || 0);
-  const [folders, threads, staff, states, templates, signature] =
+  const [folders, threads, staff, states, templates, signature, senders] =
     await Promise.all([
       access.db
         .from("email_folders")
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         .order("name"),
       params.get("folder") === "@scheduled"
         ? listScheduledMail(access.admin, {
+            from: (params.get("from") ?? "").split(",").filter(Boolean),
             search: (params.get("search") ?? "").slice(0, 300),
             assignees: (params.get("assignee") ?? "all")
               .split(",")
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
               error: { message: "Could not load scheduled emails." },
             }))
         : access.db.rpc("email_list_threads", {
+            p_from: (params.get("from") ?? "").slice(0, 5000),
             p_folder_id: params.get("folder") ?? "",
             p_search: (params.get("search") ?? "").slice(0, 300),
             p_assignee: (params.get("assignee") ?? "all")
@@ -61,9 +63,10 @@ export async function GET(request: NextRequest) {
         .select("body_text")
         .eq("staff_id", access.staff.id)
         .maybeSingle(),
+      access.db.rpc("email_sender_options"),
     ]);
   if (
-    [folders, threads, staff, states, templates, signature].some(
+    [folders, threads, staff, states, templates, signature, senders].some(
       (result) => result.error,
     )
   )
@@ -73,6 +76,7 @@ export async function GET(request: NextRequest) {
     );
   return NextResponse.json(
     {
+      senders: senders.data,
       folders: folders.data,
       ...emailListSchema.parse(threads.data),
       staff: staff.data,

@@ -121,6 +121,7 @@ export function useMailbox(
     folder?: string;
     search?: string;
     assignee?: string;
+    from?: string;
     offset?: number;
     sort?: string;
     direction?: string;

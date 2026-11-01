@@ -75,6 +75,9 @@ const graphMessage = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   hasAttachments: z.boolean().optional(),
+  internetMessageHeaders: z
+    .array(z.object({ name: z.string(), value: z.string() }))
+    .optional(),
 });
 const removedMessage = z.object({
   id: z.string(),
@@ -112,6 +115,9 @@ function normalize(message: z.infer<typeof graphMessage>, folderId: string) {
   return {
     id: message.id,
     threadId: message.conversationId,
+    replyToInternetMessageIds: message.internetMessageHeaders
+      ?.filter((header) => header.name.toLowerCase() === "in-reply-to")
+      .flatMap((header) => header.value.match(/<[^>]+>/g) ?? []),
     folderId: message.parentFolderId ?? folderId,
     read: message.isRead,
     draft: message.isDraft,
@@ -323,10 +329,14 @@ export function createGraphMailbox({
         );
       return page.value[0] ? normalize(page.value[0], "") : null;
     },
-    async message(id: string) {
+    async message(id: string, replyHeaders = false) {
       return normalize(
         graphMessage.parse(
-          await (await request(`/messages/${encodeURIComponent(id)}`)).json(),
+          await (
+            await request(
+              `/messages/${encodeURIComponent(id)}${replyHeaders ? "?$select=id,conversationId,parentFolderId,subject,isRead,isDraft,body,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,internetMessageId,changeKey,hasAttachments,internetMessageHeaders" : ""}`,
+            )
+          ).json(),
         ),
         "",
       );

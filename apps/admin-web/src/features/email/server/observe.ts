@@ -7,7 +7,11 @@ import type { GraphMailMessage } from "./graph";
 /** Commands and recovery use the same merge/projection rules as delta pages. */
 export async function observeMailboxMessage(
   db: SupabaseClient<Database>,
-  message: GraphMailMessage,
+  message: GraphMailMessage & {
+    replyToMessageId?: string;
+    replyTargetVersion?: string;
+    draftMode?: "new" | "reply" | "replyAll" | "forward";
+  },
   address = getMailboxPolicy().address,
 ) {
   const saved = await db.rpc("email_apply_sync_page", {

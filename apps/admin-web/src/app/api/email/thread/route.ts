@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { emailThreadSchema } from "@/features/email/types";
 import { emailAccess } from "@/features/email/server/auth";
+import { resolveDraftReplyTargets } from "@/features/email/server/draft-replies";
+import {
+  connectMailbox,
+  mailboxConfigured,
+} from "@/features/email/server/connection";
 export async function GET(request: NextRequest) {
   const access = await emailAccess();
   if ("error" in access)
@@ -25,6 +30,13 @@ export async function GET(request: NextRequest) {
       { status: 404 },
     );
   const thread = emailThreadSchema.parse(result.data);
+  if (mailboxConfigured())
+    thread.messages = await resolveDraftReplyTargets(
+      access.admin,
+      thread.messages,
+      connectMailbox,
+      access.mailbox.address,
+    );
   const attempts = await access.db
     .from("email_send_attempts")
     .select("message_id,state,updated_at,scheduled_at,command_id")

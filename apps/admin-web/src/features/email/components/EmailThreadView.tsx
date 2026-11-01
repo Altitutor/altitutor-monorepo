@@ -5,7 +5,6 @@ import { z } from "zod";
 import { Archive, Mail, Reply, Forward, ListFilter } from "lucide-react";
 import {
   Button,
-  Badge,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -33,6 +32,8 @@ import { EmailBody } from "./EmailBodyEditor";
 import { EmailActions, EmailActionGroup } from "./EmailActions";
 import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
+import { AdminDialogShell } from "@/shared/components/dialog-shell";
+import { isEditableDraft } from "./drafts";
 import { EmailParticipant } from "./EmailParticipant";
 const time = (value?: string | null) =>
   value
@@ -133,6 +134,15 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   const [draftReady, setDraftReady] = useState<
     Promise<{ message?: EmailMessage }> | undefined
   >();
+  const [preparedDraftId, setPreparedDraftId] = useState<string>();
+  const [dismissedDrafts, setDismissedDrafts] = useState<string[]>([]);
+  const [focusDraftId, setFocusDraftId] = useState<string>();
+  const draftCards = useRef(new Map<string, HTMLDivElement>());
+  const [reuse, setReuse] = useState<{
+    message: EmailMessage;
+    original: EmailMessage;
+    mode: "reply" | "replyAll";
+  } | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [hoveredCard, setHoveredCard] = useState<string>();
   const [toolbarHovered, setToolbarHovered] = useState(false);
@@ -140,7 +150,34 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   const started = useRef(false);
   const handledAction = useRef("");
   const activity = useThreadActivity(thread.data, showActivity);
-  const messages = thread.data?.messages ?? [];
+  const messages = (thread.data?.messages ?? []).filter(
+    (message) =>
+      !message.draft || isEditableDraft(message, mailbox.data?.folders ?? []),
+  );
+  const liveDrafts = messages.filter(
+    (message) =>
+      isEditableDraft(message, mailbox.data?.folders ?? []) &&
+      !dismissedDrafts.includes(message.id),
+  );
+  const pendingSend = (id: string) =>
+    thread.data?.sends.find(
+      (send) =>
+        send.message_id === id &&
+        ["scheduled", "paused", "sending", "submitted", "uncertain"].includes(
+          send.state,
+        ),
+    );
+  useEffect(() => {
+    if (scope?.active === false || !focusDraftId) return;
+    const card = draftCards.current.get(focusDraftId);
+    if (card) {
+      card.scrollIntoView({ block: "start", behavior: "smooth" });
+      card
+        .querySelector<HTMLInputElement>('input[aria-label="Email subject"]')
+        ?.focus({ preventScroll: true });
+      setFocusDraftId(undefined);
+    }
+  }, [focusDraftId, liveDrafts.length, scope?.active]);
   const latest =
     messages.filter((message) => !message.draft).at(-1) ?? messages.at(-1);
   const subject =
@@ -170,6 +207,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       .mutateAsync({ action: "draft", mode: "new" })
       .then((value) => {
         const result = draftResponseSchema.parse(value);
+        setPreparedDraftId(result.message?.id);
         if (result.message && scope)
           panel?.navigateTab(scope.tab.key, {
             kind: "email",
@@ -200,8 +238,31 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     // Opening each provider message marks it once; explicit unread remains shared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.data, scope?.active]);
-  function start(mode: "reply" | "replyAll" | "forward", original = latest) {
+  function start(
+    mode: "reply" | "replyAll" | "forward",
+    original = latest,
+    forceNew = false,
+  ) {
     if (!original || !mailbox.data || draft) return;
+    if (!forceNew && mode !== "forward") {
+      const existing = liveDrafts.find(
+        (message) =>
+          (message.replyToMessageId === original.id ||
+            Boolean(
+              original.internetMessageId &&
+                message.replyToInternetMessageIds?.includes(
+                  original.internetMessageId,
+                ),
+            )) &&
+          message.draftMode !== "forward" &&
+          !pendingSend(message.id),
+      );
+      if (existing) {
+        setReuse({ message: existing, original, mode });
+        return;
+      }
+    }
+    setPreparedDraftId(undefined);
     const ownAddress = mailbox.data.mailboxAddress.toLowerCase();
     const recipients =
       mode === "forward"
@@ -242,7 +303,11 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           mode,
           ...(mode === "forward" ? { to: [] } : {}),
         })
-        .then((value) => draftResponseSchema.parse(value)),
+        .then((value) => {
+          const result = draftResponseSchema.parse(value);
+          setPreparedDraftId(result.message?.id);
+          return result;
+        }),
     );
   }
 
@@ -261,26 +326,16 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       return;
     handledAction.current = query;
     if (action === "draft") {
-      const candidate = messages.find(
-        (message) =>
-          message.draft &&
-          !message.removed &&
-          !thread.data?.sends.some(
-            (send) =>
-              send.message_id === message.id &&
-              [
-                "scheduled",
-                "paused",
-                "sending",
-                "submitted",
-                "uncertain",
-              ].includes(send.state),
-          ),
+      const requested = new URLSearchParams(query).get("message");
+      const candidates = messages.filter((message) =>
+        isEditableDraft(message, mailbox.data?.folders ?? []),
       );
+      const candidate =
+        candidates.find((message) => message.id === requested) ??
+        candidates.at(-1);
       if (candidate) {
-        setDraft(candidate);
-        setSignature(undefined);
-        setDraftReady(undefined);
+        setDismissedDrafts((all) => all.filter((id) => id !== candidate.id));
+        setFocusDraftId(candidate.id);
       }
     } else start(action);
     if (scope) panel?.updateQuery(scope.tab.key, "");
@@ -439,6 +494,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const sends = data?.sends ?? [];
   function closeDraft() {
+    if (preparedDraftId || draft?.id)
+      setDismissedDrafts((all) => [...all, preparedDraftId ?? draft!.id]);
     setDraft(null);
     setDraftReady(undefined);
     setDraftSubject("");
@@ -520,53 +577,34 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           </p>
         )}
         {showMessages &&
-          messages
+          liveDrafts
             .filter(
               (message) =>
-                message.draft && !message.removed && message.id !== draft?.id,
+                message.id !== draft?.id && message.id !== preparedDraftId,
             )
-            .filter(() => !draft)
             .map((message) => (
-              <section
+              <div
                 key={message.id}
-                className="m-4 space-y-3 rounded-2xl bg-muted/60 p-4 ring-1 ring-inset ring-border/40"
+                ref={(element) => {
+                  if (element) draftCards.current.set(message.id, element);
+                  else draftCards.current.delete(message.id);
+                }}
               >
-                <div className="flex justify-between gap-2">
-                  <span className="text-sm font-medium">
-                    {message.subject || "New email"}
-                  </span>
-                  <Badge variant="secondary" className="rounded-full">
-                    Draft
-                  </Badge>
-                </div>
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                  {message.bodyText}
-                </p>
-                {!sends.some(
-                  (send) =>
-                    send.message_id === message.id &&
-                    [
-                      "scheduled",
-                      "paused",
-                      "sending",
-                      "submitted",
-                      "uncertain",
-                    ].includes(send.state),
-                ) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => {
-                      setDraft(message);
-                      setDraftReady(undefined);
-                      setSignature(undefined);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </section>
+                <EmailComposer
+                  draft={message}
+                  mailbox={mailbox.data!}
+                  inline
+                  disabledReason={
+                    pendingSend(message.id)
+                      ? "Delivery is reserved. Cancel the schedule before editing."
+                      : undefined
+                  }
+                  onClose={() => {
+                    setDismissedDrafts((all) => [...all, message.id]);
+                    void thread.refetch();
+                  }}
+                />
+              </div>
             ))}
         {sends
           .filter((send) => send.state !== "sent")
@@ -655,6 +693,37 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           </p>
         )}
       </div>
+      <AdminDialogShell
+        open={Boolean(reuse)}
+        onClose={() => setReuse(null)}
+        title="Continue existing reply draft?"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const request = reuse;
+                setReuse(null);
+                if (request) start(request.mode, request.original, true);
+              }}
+            >
+              Create another draft
+            </Button>
+            <Button
+              onClick={() => {
+                if (reuse) setFocusDraftId(reuse.message.id);
+                setReuse(null);
+              }}
+            >
+              Edit existing draft
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          There is already a draft replying to this email. Continue editing it?
+        </p>
+      </AdminDialogShell>
     </div>
   );
 }

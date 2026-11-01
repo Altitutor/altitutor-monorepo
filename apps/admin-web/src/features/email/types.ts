@@ -3,6 +3,11 @@ export const emailMessageSchema = z.object({
   id: z.string(),
   threadId: z.string(),
   folderId: z.string().nullable().optional(),
+  replyToMessageId: z.string().optional(),
+  internetMessageId: z.string().nullish(),
+  replyToInternetMessageIds: z.array(z.string()).optional(),
+  replyTargetVersion: z.string().optional(),
+  draftMode: z.enum(["new", "reply", "replyAll", "forward"]).optional(),
   subject: z
     .string()
     .nullish()
@@ -169,6 +174,9 @@ export const mailboxSchema = emailListSchema.extend({
   mailboxAddress: z.string().email(),
   mailboxEnvironment: z.enum(["development", "production"]),
   folders: z.array(emailFolderSchema),
+  senders: z
+    .array(z.object({ email: z.string(), name: z.string().nullable() }))
+    .optional(),
   staff: z.array(
     z.object({
       id: z.string(),

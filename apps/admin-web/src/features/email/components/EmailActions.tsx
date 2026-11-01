@@ -53,6 +53,7 @@ export function EmailActions({
   onReplyAll,
   level = "thread",
   compact = false,
+  hideAssignee = false,
 }: {
   ids: string[];
   threadId: string;
@@ -65,6 +66,7 @@ export function EmailActions({
   onReplyAll?: () => void;
   level?: "thread" | "message";
   compact?: boolean;
+  hideAssignee?: boolean;
 }) {
   const command = useEmailCommand();
   const scope = useAccessoryTab();
@@ -164,6 +166,45 @@ export function EmailActions({
     };
     return rank(a) - rank(b) || a.name.localeCompare(b.name);
   });
+  const assigneeControl = (
+    <SearchableSelect
+      items={mailbox.staff}
+      value={selected}
+      open={assignOpen}
+      onOpenChange={setAssignOpen}
+      allowClear
+      clearLabel="Unassigned"
+      getItemId={(person) => person.id}
+      getItemLabel={name}
+      searchPlaceholder="Search active adminstaff…"
+      onValueChange={(person) =>
+        command.mutate({
+          action: "assign",
+          threadId,
+          staffId: person?.id ?? null,
+        })
+      }
+      trigger={
+        level === "message" ? (
+          <span aria-hidden="true" />
+        ) : (
+          <EmailIconButton
+            label={selected ? `Assign · ${name(selected)}` : "Assign"}
+            shortcut="A"
+            className={selected && !compact ? "w-auto max-w-40 px-2" : ""}
+            disabled={command.isPending}
+          >
+            <UserRound
+              className={`h-4 w-4 ${selected ? "text-primary" : ""}`}
+            />
+            {selected && !compact && (
+              <span className="truncate text-xs">{name(selected)}</span>
+            )}
+          </EmailIconButton>
+        )
+      }
+    />
+  );
   return (
     <div
       ref={root}
@@ -216,43 +257,6 @@ export function EmailActions({
           </EmailIconButton>
         )}
         <SearchableSelect
-          items={mailbox.staff}
-          value={selected}
-          open={assignOpen}
-          onOpenChange={setAssignOpen}
-          allowClear
-          clearLabel="Unassigned"
-          getItemId={(person) => person.id}
-          getItemLabel={name}
-          searchPlaceholder="Search active adminstaff…"
-          onValueChange={(person) =>
-            command.mutate({
-              action: "assign",
-              threadId,
-              staffId: person?.id ?? null,
-            })
-          }
-          trigger={
-            level === "message" ? (
-              <span aria-hidden="true" />
-            ) : (
-              <EmailIconButton
-                label={selected ? `Assign · ${name(selected)}` : "Assign"}
-                shortcut="A"
-                className={selected && !compact ? "w-auto max-w-40 px-2" : ""}
-                disabled={command.isPending}
-              >
-                <UserRound
-                  className={`h-4 w-4 ${selected ? "text-primary" : ""}`}
-                />
-                {selected && !compact && (
-                  <span className="truncate text-xs">{name(selected)}</span>
-                )}
-              </EmailIconButton>
-            )
-          }
-        />
-        <SearchableSelect
           items={folders}
           value={null}
           open={moveOpen}
@@ -296,6 +300,14 @@ export function EmailActions({
           </EmailIconButton>
         )}
       </EmailActionGroup>
+      {!hideAssignee &&
+        (level === "thread" ? (
+          <EmailActionGroup label="Email responsibility">
+            {assigneeControl}
+          </EmailActionGroup>
+        ) : (
+          assigneeControl
+        ))}
       {command.error && (
         <span role="alert" className="max-w-40 text-xs text-destructive">
           {command.error.message}

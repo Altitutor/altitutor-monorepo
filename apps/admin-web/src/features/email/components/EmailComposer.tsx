@@ -22,7 +22,7 @@ import {
   Clock,
   ArrowUp,
   X,
-  Save,
+  LogOut,
   Trash2,
   LoaderCircle,
   CloudCheck,
@@ -68,7 +68,9 @@ export function EmailComposer({
   onClose,
   draftReady,
   onSubjectChange,
+  disabledReason,
 }: {
+  disabledReason?: string;
   draft: EmailMessage;
   mailbox: MailboxData;
   inline?: boolean;
@@ -119,7 +121,8 @@ export function EmailComposer({
       : "Shared draft in Microsoft",
   );
   const [conflict, setConflict] = useState<EmailMessage | null>(null);
-  const [blocked, setBlocked] = useState(false);
+  const [blockedByConflict, setBlocked] = useState(false);
+  const blocked = blockedByConflict || Boolean(disabledReason);
   const [sending, setSending] = useState(false);
   const [recovery, setRecovery] = useState<Content | null>(null);
   const editToken = useRef<string | null>(null);
@@ -759,7 +762,7 @@ export function EmailComposer({
         </label>
       </div>
       <div
-        className="pt-5"
+        className="border-t pt-3"
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
@@ -793,16 +796,6 @@ export function EmailComposer({
         {/(?:failed|could not|changed|rejected|unresolved|invalid|require|restricted|choose|enter|resolve)/i.test(
           status,
         ) && <p role="alert">{status}</p>}
-        {dirty && !blocked && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={command.isPending}
-            onClick={() => void save()}
-          >
-            Save draft
-          </Button>
-        )}
       </div>
       {conflict && (
         <div className="rounded-md border p-3 text-xs">
@@ -964,8 +957,8 @@ export function EmailComposer({
                 }
                 onClick={() => void saveAndClose()}
               >
-                <Save className="mr-2 h-4 w-4" />
-                {blocked ? "Keep draft and close" : "Save draft"}
+                <LogOut className="mr-2 h-4 w-4" />
+                Close draft
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="justify-start text-destructive focus:bg-destructive/10 focus:text-destructive"
@@ -988,7 +981,7 @@ export function EmailComposer({
               <TooltipTrigger asChild>
                 <span
                   role="status"
-                  aria-label={status}
+                  aria-label={disabledReason ?? status}
                   tabIndex={0}
                   className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground"
                 >
@@ -1003,7 +996,7 @@ export function EmailComposer({
                   )}
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{status}</TooltipContent>
+              <TooltipContent>{disabledReason ?? status}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>

@@ -10,9 +10,18 @@ export function useOpenEmailThread() {
   const panel = useAccessoryPanelActions();
   const workspace = useAccessoryPanel();
   return useCallback(
-    (id: string, subject: string, action?: "reply" | "forward" | "draft") => {
+    (
+      id: string,
+      subject: string,
+      action?: "reply" | "forward" | "draft",
+      messageId?: string,
+    ) => {
       const query = action
-        ? new URLSearchParams({ action, token: crypto.randomUUID() }).toString()
+        ? new URLSearchParams({
+            action,
+            token: crypto.randomUUID(),
+            ...(messageId ? { message: messageId } : {}),
+          }).toString()
         : undefined;
       const existing = workspace?.tabs.find(
         (tab) => tab.kind === "email" && tab.id === id,

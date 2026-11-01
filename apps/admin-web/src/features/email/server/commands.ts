@@ -74,7 +74,7 @@ export function mailboxCommands(
         command.ids,
       );
     const mailbox = connector ?? (await connectMailbox());
-    const observe = (message: Awaited<ReturnType<typeof mailbox.message>>) =>
+    const observe = (message: Parameters<typeof observeMailboxMessage>[1]) =>
       observeMailboxMessage(db, message, mailbox.policy.address);
     if (command.action === "dispatchQueued") {
       await dispatchScheduledMail(db, mailbox, command.id);
@@ -138,7 +138,11 @@ export function mailboxCommands(
                 ? undefined
                 : { messageId: command.messageId!, mode: command.mode },
             );
-      const cached = await observe(draft);
+      const cached = await observe({
+        ...draft,
+        ...(command.messageId ? { replyToMessageId: command.messageId } : {}),
+        draftMode: command.mode,
+      });
       const signature = await db
         .from("email_signatures")
         .select("body_text")
