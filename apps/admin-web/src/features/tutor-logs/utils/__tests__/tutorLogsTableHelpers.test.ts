@@ -18,6 +18,7 @@ describe('tutorLogsTableHelpers', () => {
   describe('formatClassDisplayName', () => {
     const mockClasses: Record<string, Tables<'classes'>> = {
       'class-1': {
+        deleted_at: null, deleted_by: null,
         id: 'class-1',
         subject_id: 'subject-1',
         level: '1',
@@ -51,6 +52,7 @@ describe('tutorLogsTableHelpers', () => {
 
     const mockSubjects: Record<string, Tables<'subjects'>> = {
       'subject-1': {
+        deleted_at: null, deleted_by: null,
         show_on_marketing_profiles: true,
         id: 'subject-1',
         name: 'Mathematics',
@@ -281,6 +283,7 @@ describe('tutorLogsTableHelpers', () => {
 
     const classesById: Record<string, Tables<'classes'>> = {
       'class-1': {
+        deleted_at: null, deleted_by: null,
         id: 'class-1',
         subject_id: 'subject-1',
       } as Tables<'classes'>,
@@ -334,7 +337,8 @@ describe('tutorLogsTableHelpers', () => {
 
   describe('getTutorLogSessionSubjectId', () => {
     const classesById: Record<string, Tables<'classes'>> = {
-      'class-1': { id: 'class-1', subject_id: 'subject-1' } as Tables<'classes'>,
+      'class-1': {
+        deleted_at: null, deleted_by: null, id: 'class-1', subject_id: 'subject-1' } as Tables<'classes'>,
     };
 
     it('should prefer session.subject_id', () => {

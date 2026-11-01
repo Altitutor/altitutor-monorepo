@@ -200,6 +200,7 @@ export const settingsSections = [
   {
     title: "System",
     items: [
+      { title: "Deleted entities", description: "Review retained business records and restore eligible entities", href: "/settings/deleted-records", icon: FileStack },
       {
         title: "Policies",
         description: "Configure billing policy and other policy documents",

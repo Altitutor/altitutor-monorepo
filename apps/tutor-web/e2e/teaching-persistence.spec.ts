@@ -124,3 +124,154 @@ test("shared rich-text formatting and a posted session note survive reload", asy
   await expect(details.locator("strong").filter({ hasText: note })).toBeVisible();
   await expect(details.getByText(note, { exact: true })).toHaveCount(1);
 });
+
+test("a Tutor can edit and delete their saved session note", async ({
+  page, teachingSessionId,
+}) => {
+  await signIn(page);
+  const sessionUrl = `/classes?session=${teachingSessionId}`;
+  await page.goto(sessionUrl);
+  const details = page.getByRole("dialog", { name: "Session Details" });
+  const editor = details.locator('[contenteditable="true"]');
+  await editor.fill("Original session note.");
+  const created = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/sessions/${teachingSessionId}/notes`,
+  );
+  await details.getByRole("button", { name: "Post note", exact: true }).click();
+  const response = await created;
+  expect(response.ok()).toBe(true);
+  const note = await response.json() as { id: string };
+  await expect(editor).toHaveText("");
+  await page.goto(sessionUrl);
+
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await details.locator('[contenteditable="true"]').first().fill("Updated session note.");
+  const edited = page.waitForResponse((result) =>
+    result.request().method() === "PATCH" &&
+    new URL(result.url()).pathname === `/api/notes/${note.id}`,
+  );
+  await details.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await edited).status()).toBe(200);
+  await expect(details.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+  await expect(details.getByText("Updated session note.", { exact: true })).toBeVisible();
+  await expect(details.getByText("Original session note.", { exact: true })).toHaveCount(0);
+
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  const deleted = page.waitForResponse((result) =>
+    result.request().method() === "DELETE" &&
+    new URL(result.url()).pathname === `/api/notes/${note.id}`,
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  expect((await deleted).status()).toBe(200);
+  await expect(details.getByText("Updated session note.", { exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+  await expect(details.getByText("Updated session note.", { exact: true })).toHaveCount(0);
+});
+
+test("a Tutor cannot change another author's visible session note", async ({
+  page, teachingSessionId,
+}) => {
+  // The teachingSessionId fixture above proves this is the owned local stack.
+  const database = createClient<Database>(
+    process.env.TUTOR_E2E_SUPABASE_URL!,
+    process.env.TUTOR_E2E_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data: note, error } = await database.from("notes").insert({
+    target_type: "sessions", target_id: teachingSessionId,
+    created_by: "00000000-0000-0000-0000-000000000001",
+    note: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Another author's session note." }] }] },
+  }).select("id").single();
+  if (error) throw error;
+  try {
+    await signIn(page);
+    await page.goto(`/classes?session=${teachingSessionId}`);
+    const details = page.getByRole("dialog", { name: "Session Details" });
+    await expect(details.getByText("Another author's session note.", { exact: true })).toBeVisible();
+    const url = `/api/notes/${note.id}`;
+    expect((await page.request.patch(url, { data: { note: "Unauthorized change" } })).status()).toBe(403);
+    expect((await page.request.delete(url)).status()).toBe(403);
+    const missing = `/api/notes/${randomUUID()}`;
+    expect((await page.request.patch(missing, { data: { note: "Missing note" } })).status()).toBe(404);
+    expect((await page.request.delete(missing)).status()).toBe(404);
+    await page.goto(`/classes?session=${teachingSessionId}`);
+    await expect(details.getByText("Another author's session note.", { exact: true })).toBeVisible();
+  } finally {
+    await database.from("notes").delete().eq("id", note.id).throwOnError();
+  }
+});
+
+test("pasted tables, mathematics, links and images survive a note edit and reload", async ({
+  page, teachingSessionId, baseURL,
+}) => {
+  await signIn(page);
+  const sessionUrl = `/classes?session=${teachingSessionId}`;
+  await page.goto(sessionUrl);
+  const details = page.getByRole("dialog", { name: "Session Details" });
+  const editor = details.locator('[contenteditable="true"]');
+  const imageSource = new URL("/favicon.ico", baseURL).href;
+  const html = [
+    '<p><strong>Rich-text migration fixture</strong> <a href="https://example.test/reference">Reference</a></p>',
+    '<table><tbody><tr><th><p>Topic</p></th><th><p>Result</p></th></tr><tr><td><p>Algebra</p></td><td><p>Correct</p></td></tr></tbody></table>',
+    '<p>Formula: <span data-type="inline-math" data-latex="x^2"></span></p>',
+    '<div data-type="block-math" data-latex="\\frac{1}{2}"></div>',
+    `<img src="${imageSource}" alt="Study diagram" width="40" height="40">`,
+  ].join("");
+  await editor.click();
+  await editor.evaluate((element, value) => {
+    const clipboard = new DataTransfer();
+    clipboard.setData("text/html", value);
+    clipboard.setData("text/plain", "Rich-text migration fixture");
+    element.dispatchEvent(new ClipboardEvent("paste", {
+      clipboardData: clipboard, bubbles: true, cancelable: true,
+    }));
+  }, html);
+  await expect(editor.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await editor.press("ControlOrMeta+End");
+  await editor.press("Enter");
+  await editor.pressSequentially("Reviewed after pasting.");
+
+  const savedNote = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/sessions/${teachingSessionId}/notes`,
+  );
+  await details.getByRole("button", { name: "Post note", exact: true }).click();
+  expect((await savedNote).ok()).toBe(true);
+  await expect(editor).toHaveText("");
+  await page.goto(sessionUrl);
+
+  // Reopen the persisted JSON in the editable component, then save it again.
+  await details.locator('button[aria-haspopup="menu"]').last().click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const savedEditor = details.locator('[contenteditable="true"]').first();
+  await expect(savedEditor.locator(".katex")).toHaveCount(2);
+  await expect(savedEditor.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await savedEditor.getByText("Reviewed after pasting.", { exact: true }).click();
+  await savedEditor.press("ControlOrMeta+End");
+  await savedEditor.press("Enter");
+  await savedEditor.pressSequentially("Reviewed after reopening.");
+  const editedNote = page.waitForResponse((response) =>
+    response.request().method() === "PATCH" &&
+    new URL(response.url()).pathname.startsWith("/api/notes/"),
+  );
+  await details.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await editedNote).ok()).toBe(true);
+  await expect(details.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await page.goto(sessionUrl);
+
+  await expect(details.locator("strong").filter({ hasText: "Rich-text migration fixture" })).toBeVisible();
+  await expect(details.getByRole("link", { name: "Reference", exact: true }))
+    .toHaveAttribute("href", "https://example.test/reference");
+  await expect(details.locator("th").filter({ hasText: "Topic" })).toBeVisible();
+  await expect(details.locator("td").filter({ hasText: "Algebra" })).toBeVisible();
+  await expect(details.locator("td").filter({ hasText: "Correct" })).toBeVisible();
+  await expect(details.locator(".katex")).toHaveCount(2);
+  await expect(details.locator('[data-latex="x^2"]')).toBeVisible();
+  await expect(details.getByRole("img", { name: "Study diagram" })).toHaveAttribute("src", imageSource);
+  await expect(details.getByText("Reviewed after pasting.", { exact: true })).toBeVisible();
+  await expect(details.getByText("Reviewed after reopening.", { exact: true })).toBeVisible();
+});

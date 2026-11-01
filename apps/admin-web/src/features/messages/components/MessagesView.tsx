@@ -352,6 +352,7 @@ export function MessagesView() {
                 initialDestinationAddress={composeIntent?.contactId === activeContactId ? composeIntent.destinationAddress : undefined}
                 initialSenderId={composeIntent?.contactId === activeContactId ? composeIntent.senderId : undefined}
                 defaultShowActivity={false}
+                defaultShowEmail={false}
                 renderHeader={tabScope ? renderConversationHeader : undefined}
                 isSearching={isSearching}
                 searchTerm={searchTerm}

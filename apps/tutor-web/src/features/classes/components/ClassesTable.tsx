@@ -13,8 +13,8 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SkeletonTable } from "@altitutor/ui";
-import { 
-  Search, 
+import {
+  Search,
   Grid3X3
 } from 'lucide-react';
 import { useClasses } from '../hooks/useClassesQuery';
@@ -39,30 +39,30 @@ interface ClassesTableProps {
 type ViewMode = 'table' | 'timetable';
 
 export function ClassesTable({ addModalState: _addModalState }: ClassesTableProps) {
-  
+
   // React Query hook for data fetching - uses vtutor_classes view
-  const { 
-    data: classesData, 
-    isLoading, 
-    error, 
+  const {
+    data: classesData,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useClasses();
 
   // vtutor_classes returns classes with flattened subject fields
   const tutorClasses = useMemo(() => (classesData || []) as TutorClass[], [classesData]);
-  
+
   // Convert TutorClass to Tables<'classes'> format for compatibility with helper functions
   // Filter out classes missing required fields (start_time, end_time, status are required in Tables<'classes'>)
   const classes: Tables<'classes'>[] = tutorClasses
-    .filter((cls): cls is TutorClass & { 
-      id: string; 
+    .filter((cls): cls is TutorClass & {
+      id: string;
       day_of_week: number;
       start_time: string;
       end_time: string;
       status: string;
-    } => 
-      cls.id !== null && 
+    } =>
+      cls.id !== null &&
       cls.day_of_week !== null &&
       cls.start_time !== null &&
       cls.end_time !== null &&
@@ -71,6 +71,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       cls.session_end_date !== null
     )
     .map((cls) => ({
+      deleted_at: null, deleted_by: null,
       id: cls.id!,
       day_of_week: cls.day_of_week!,
       start_time: cls.start_time!,
@@ -100,7 +101,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       billing_type_effective_from: cls.session_start_date!,
       session_type: (cls as { session_type?: Tables<'classes'>['session_type'] }).session_type ?? 'CLASS',
     }));
-  
+
   // Build subject objects from flattened fields for compatibility
   const classSubjects = useMemo<Record<string, Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>>>(() => {
     const subjects: Record<string, Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>> = {};
@@ -108,6 +109,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       // Only create subject if we have required fields (id and name are required)
       if (cls.subject_id && cls.id && cls.subject_name) {
         subjects[cls.id] = {
+          deleted_at: null, deleted_by: null,
           id: cls.subject_id,
           name: cls.subject_name,
           curriculum: cls.subject_curriculum,
@@ -124,17 +126,17 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
     });
     return subjects;
   }, [tutorClasses]);
-  
+
   // Students and staff are not in vtutor_classes - they're in vtutor_class_detail
   // These will be fetched when viewing individual class details
   const classStudents: Record<string, Tables<'students'>[]> = {};
   const classStaff: Record<string, Tables<'staff'>[]> = {};
-  
+
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [dayFilter, setDayFilter] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  
+
   // Modal states - tutors can only view, not edit
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Tables<'classes'> | null>(null);
@@ -164,18 +166,18 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
   // Memoized filtered and sorted classes
   const filteredClasses = useMemo(() => {
     if (!classes.length) return [];
-    
+
     let result = [...classes];
-    
+
     // Apply search term
     result = filterClassesBySearch(result, searchTerm, getSubjectDisplay);
-    
+
     // Apply day filter (multi-select)
     result = filterClassesByDay(result, dayFilter);
-    
+
     // Default sorting: by day (Monday-Sunday), then by start time (earliest to latest)
     result = sortClassesByDayAndTime(result);
-    
+
     return result;
   }, [classes, searchTerm, dayFilter, getSubjectDisplay]);
 
@@ -189,17 +191,17 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   const getDayOfWeek = (day: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[day] || 'Unknown';
   };
 
-  
+
 
   // Note: Students and staff are not available in list view
   // They're only available when viewing individual class details via vtutor_class_detail
-  
+
   const handleClassClick = (cls: Tables<'classes'>) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
@@ -239,7 +241,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
                 disabled
               />
             </div>
-            
+
             <div className="flex items-center gap-1">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                 <Button key={day} variant="outline" size="sm" disabled>
@@ -248,7 +250,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
               ))}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <div className="flex rounded-md border">
               <Button variant="default" size="sm" disabled className="rounded-r-none">
@@ -261,9 +263,9 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
             </div>
           </div>
         </div>
-        
+
         <SkeletonTable rows={8} columns={5} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading classes...
         </div>
@@ -276,10 +278,10 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
     return (
       <div className="text-red-500 p-4">
         Failed to load classes. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -304,60 +306,60 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex items-center gap-1">
-            <Button 
-              variant={dayFilter.includes(1) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(1) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(1)}
             >
               Mon
             </Button>
-            <Button 
-              variant={dayFilter.includes(2) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(2) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(2)}
             >
               Tue
             </Button>
-            <Button 
-              variant={dayFilter.includes(3) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(3) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(3)}
             >
               Wed
             </Button>
-            <Button 
-              variant={dayFilter.includes(4) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(4) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(4)}
             >
               Thu
             </Button>
-            <Button 
-              variant={dayFilter.includes(5) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(5) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(5)}
             >
               Fri
             </Button>
-            <Button 
-              variant={dayFilter.includes(6) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(6) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(6)}
             >
               Sat
             </Button>
-            <Button 
-              variant={dayFilter.includes(0) ? 'default' : 'outline'} 
+            <Button
+              variant={dayFilter.includes(0) ? 'default' : 'outline'}
               size="sm"
               onClick={() => toggleDay(0)}
             >
               Sun
             </Button>
             {dayFilter.length > 0 && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={clearDayFilter}
                 className="text-muted-foreground hover:text-foreground"
@@ -367,19 +369,19 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border">
-            <Button 
-              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('table')}
               className="rounded-r-none"
             >
               Table
             </Button>
-            <Button 
-              variant={viewMode === 'timetable' ? 'default' : 'ghost'} 
+            <Button
+              variant={viewMode === 'timetable' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('timetable')}
               className="rounded-l-none"
@@ -441,7 +443,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
                           `${formatTime(cls.start_time)} - ${formatTime(cls.end_time)}`}
                       </TableCell>
                       <TableCell className="font-medium">
-                        <Badge 
+                        <Badge
                           className={cn("text-xs whitespace-nowrap", (() => {
                             const { textColorClass, defaultClass } = getSubjectBadgeStyle(cls);
                             return defaultClass || textColorClass;
@@ -484,7 +486,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
           onClassClick={handleClassClick}
         />
       )}
-      
+
       <div className="text-sm text-muted-foreground">
         {filteredClasses.length} classes displayed
         {isFetching && <span className="ml-2">(Refreshing...)</span>}
@@ -492,14 +494,14 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
 
       {/* Class Detail Modal - Tutors can only view, not edit */}
       {selectedClass && (
-        <ViewClassModal 
+        <ViewClassModal
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
           classId={selectedClass.id}
           onClassUpdated={handleClassUpdated}
         />
       )}
-      
+
       {/* Staff Modal */}
       {/* Staff Modal - removed for tutors */}
       {/* {selectedStaffId && (
@@ -516,7 +518,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
           }}
         />
       )} */}
-      
+
       {/* Student Modal - TODO: Tutor-web doesn't have students feature */}
       {/* <ViewStudentModal
         studentId={selectedStudentId}

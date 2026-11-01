@@ -1,4 +1,5 @@
 "use client";
+import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import {
   useCallback,
   useEffect,
@@ -529,7 +530,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       aria-busy={closingEditors}
     >
       <header className="shrink-0 space-y-3 border-b p-4">
-        <h1 className="truncate text-lg font-semibold">{subject}</h1>
+        <AccessoryBreadcrumb />
         <div
           className="flex min-w-0 items-center justify-between gap-2"
           data-email-shortcut-target

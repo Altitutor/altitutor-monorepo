@@ -345,6 +345,8 @@ export function SmartDatePickerPill({
       stopPropagation={stopPropagation}
     >
       <button
+        data-button-variant="outline"
+        data-overdue={overdue || undefined}
         type="button"
         className={cn(
           'relative inline-flex h-8 items-center gap-1.5 rounded-full border bg-background cursor-pointer select-none transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white group',

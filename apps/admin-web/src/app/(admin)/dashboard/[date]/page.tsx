@@ -1,4 +1,6 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
+import { AdminActionGroup } from '@/shared/components/AdminActionGroup';
 
 import { useCallback, useEffect, useMemo, useState, use } from 'react';
 import dynamic from 'next/dynamic';
@@ -283,13 +285,10 @@ export default function DashboardDatePage(props: { params: Promise<{ date: strin
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <AdminPageActions>
+        <AdminActionGroup label="Dashboard date">
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/${previousDateStr}`)}>
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft aria-label="Previous day" className="h-4 w-4" />
           </Button>
           <Button
             variant={'outline'}
@@ -299,10 +298,10 @@ export default function DashboardDatePage(props: { params: Promise<{ date: strin
             Today
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/${nextDateStr}`)}>
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight aria-label="Next day" className="h-4 w-4" />
           </Button>
-        </div>
-      </div>
+        </AdminActionGroup>
+      </AdminPageActions>
 
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
         <Card className="flex flex-col overflow-hidden md:col-span-2">

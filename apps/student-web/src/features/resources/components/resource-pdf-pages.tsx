@@ -12,12 +12,16 @@ type Pdfjs = {
     cMapPacked?: boolean;
     standardFontDataUrl?: string;
     wasmUrl?: string;
-  }) => { promise: Promise<PdfDocument> };
+  }) => PdfLoadingTask;
+};
+
+type PdfLoadingTask = {
+  promise: Promise<PdfDocument>;
+  destroy: () => Promise<void>;
 };
 
 type PdfDocument = {
   numPages: number;
-  destroy: () => Promise<void>;
   getPage: (pageNumber: number) => Promise<PdfPage>;
 };
 
@@ -86,7 +90,7 @@ export function ResourcePdfPages({
     if (!root || !pages) return undefined;
 
     let cancelled = false;
-    let doc: PdfDocument | null = null;
+    let loadingTask: PdfLoadingTask | null = null;
     setStatus('loading');
     pages.replaceChildren();
 
@@ -94,18 +98,16 @@ export function ResourcePdfPages({
       try {
         const pdfjs = await loadPdfjs();
         if (cancelled) return;
-        doc = await pdfjs.getDocument({
+        loadingTask = pdfjs.getDocument({
           url,
           withCredentials: false,
           cMapUrl: '/pdfjs/cmaps/',
           cMapPacked: true,
           standardFontDataUrl: '/pdfjs/standard_fonts/',
           wasmUrl: '/pdfjs/wasm/',
-        }).promise;
-        if (cancelled) {
-          await doc.destroy();
-          return;
-        }
+        });
+        const doc = await loadingTask.promise;
+        if (cancelled) return;
 
         const targetWidth = Math.max(root.clientWidth, 320);
         for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
@@ -141,7 +143,8 @@ export function ResourcePdfPages({
     return () => {
       cancelled = true;
       pages.replaceChildren();
-      if (doc) void doc.destroy();
+      // PDF.js owns document/worker cleanup on the task, including pending loads.
+      if (loadingTask) void loadingTask.destroy().catch(() => undefined);
     };
   }, [url, retryAttempt]);
 

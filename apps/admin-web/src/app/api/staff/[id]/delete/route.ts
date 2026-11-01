@@ -1,86 +1,20 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 
-export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
-    // Verify user is authenticated and has admin role
+    const { id } = await props.params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin or staff with appropriate permissions
-    const { data: currentUserStaff, error: staffError } = await supabase
-      .from('staff')
-      .select('role')
-      .eq('user_id', user.id)
-      .single<{ role: string }>();
-
-    if (staffError || !currentUserStaff || currentUserStaff.role !== 'ADMINSTAFF') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-
-    // Verify admin client is available
-    if (!supabaseAdmin) {
-      console.error('Admin client not initialized - missing SUPABASE_SERVICE_ROLE_KEY');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    const staffId = params.id;
-
-    // Get staff record to get user_id for auth deletion
-    const { data: staff, error: fetchError } = await supabase
-      .from('staff')
-      .select('user_id')
-      .eq('id', staffId)
-      .single<{ user_id: string | null }>();
-
-    if (fetchError) {
-      return NextResponse.json(
-        { error: `Failed to fetch staff: ${fetchError.message}` },
-        { status: 404 }
-      );
-    }
-
-    // Delete staff record (this will trigger cascade delete)
-    const { error: deleteError } = await supabase
-      .from('staff')
-      .delete()
-      .eq('id', staffId);
-
-    if (deleteError) {
-      captureApiError(deleteError, "/api/staff/[id]/delete");
-      return NextResponse.json(
-        { error: `Failed to delete staff: ${deleteError.message}` },
-        { status: 500 }
-      );
-    }
-
-    // Delete auth user if user_id exists
-    if (staff.user_id) {
-      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(staff.user_id);
-      if (authDeleteError) {
-        console.warn(`Failed to delete auth user ${staff.user_id}: ${authDeleteError.message}`);
-        // Don't throw here as the staff record is already deleted
-      }
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error) {
-    captureApiError(error, "/api/staff/[id]/delete");
-    console.error('Unexpected error deleting staff:', error);
-    return NextResponse.json(
-      { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
-    );
-  }
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { error } = await supabase.rpc('retire_business_record', { p_kind: 'staff', p_id: id });
+    if (!error) return NextResponse.json({ success: true });
+    if (error.code === '42501') return NextResponse.json({ error: 'Active AdminStaff access required' }, { status: 403 });
+    if (error.code === 'P0002') return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
+    if (error.code === '22P02') return NextResponse.json({ error: 'Invalid Staff ID' }, { status: 400 });
+    if (error.code === 'P0001' || error.code === '55P03') return NextResponse.json({ error: error.message }, { status: 409 });
+    captureApiError(error, '/api/staff/[id]/delete');
+  } catch (error) { captureApiError(error, '/api/staff/[id]/delete'); }
+  return NextResponse.json({ error: 'Unable to delete this Staff record. Please try again.' }, { status: 500 });
 }
-

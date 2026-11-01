@@ -363,6 +363,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           day_of_week: number
+          deleted_at: string | null
+          deleted_by: string | null
           end_time: string
           id: string
           session_end_date: string | null
@@ -375,6 +377,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           day_of_week: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time: string
           id?: string
           session_end_date?: string | null
@@ -387,6 +391,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           day_of_week?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time?: string
           id?: string
           session_end_date?: string | null
@@ -1737,6 +1743,8 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           day_of_week: number
+          deleted_at: string | null
+          deleted_by: string | null
           end_time: string
           id: string
           level: string | null
@@ -1767,6 +1775,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           day_of_week: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time: string
           id: string
           level?: string | null
@@ -1797,6 +1807,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           day_of_week?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time?: string
           id?: string
           level?: string | null
@@ -6219,6 +6231,8 @@ export type Database = {
           admin_revision: number
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           due_date: string | null
           id: string
@@ -6233,6 +6247,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           id?: string
@@ -6247,6 +6263,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           id?: string
@@ -7180,6 +7198,8 @@ export type Database = {
           content: Json | null
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           folder_id: string | null
           id: string
           is_tutor_documentation: boolean
@@ -7194,6 +7214,8 @@ export type Database = {
           content?: Json | null
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           folder_id?: string | null
           id?: string
           is_tutor_documentation?: boolean
@@ -7208,6 +7230,8 @@ export type Database = {
           content?: Json | null
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           folder_id?: string | null
           id?: string
           is_tutor_documentation?: boolean
@@ -7302,6 +7326,8 @@ export type Database = {
           admin_revision: number
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
           parent_id: string | null
@@ -7311,6 +7337,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -7320,6 +7348,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -7985,6 +8015,8 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           email: string | null
           first_name: string
           id: string
@@ -7997,6 +8029,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email?: string | null
           first_name: string
           id?: string
@@ -8009,6 +8043,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email?: string | null
           first_name?: string
           id?: string
@@ -8366,6 +8402,8 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           id: string
           name: string
@@ -8382,6 +8420,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           id?: string
           name: string
@@ -8398,6 +8438,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           id?: string
           name?: string
@@ -10490,6 +10532,8 @@ export type Database = {
           calendar_tombstone_until: string | null
           class_id: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           end_at: string | null
           id: string
           is_schedule_exception: boolean
@@ -10514,6 +10558,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id: string
           is_schedule_exception?: boolean
@@ -10538,6 +10584,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id?: string
           is_schedule_exception?: boolean
@@ -11679,6 +11727,8 @@ export type Database = {
           child_safe_policy_agreed_at: string | null
           created_at: string | null
           current_tier_number: number
+          deleted_at: string | null
+          deleted_by: string | null
           drafting_availability: boolean | null
           email: string | null
           employment_started_at: string
@@ -11716,6 +11766,8 @@ export type Database = {
           child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           drafting_availability?: boolean | null
           email?: string | null
           employment_started_at?: string
@@ -11753,6 +11805,8 @@ export type Database = {
           child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           drafting_availability?: boolean | null
           email?: string | null
           employment_started_at?: string
@@ -16318,6 +16372,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -16332,6 +16388,8 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
@@ -16346,6 +16404,8 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
@@ -16499,6 +16559,8 @@ export type Database = {
           completed_by: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           due_date: string | null
           estimate: number | null
@@ -16521,6 +16583,8 @@ export type Database = {
           completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           estimate?: number | null
@@ -16543,6 +16607,8 @@ export type Database = {
           completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           estimate?: number | null
@@ -16692,6 +16758,8 @@ export type Database = {
           code: string
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           index: number
           name: string
@@ -16703,6 +16771,8 @@ export type Database = {
           code: string
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           index: number
           name: string
@@ -16714,6 +16784,8 @@ export type Database = {
           code?: string
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           index?: number
           name?: string
@@ -17076,6 +17148,8 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           logged_for_staff_id: string | null
           session_id: string
@@ -17086,6 +17160,8 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id: string
@@ -17096,6 +17172,8 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id?: string
@@ -17349,8 +17427,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
@@ -17432,8 +17524,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
@@ -17550,8 +17656,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
@@ -17676,8 +17796,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
@@ -17774,8 +17908,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
@@ -27209,6 +27357,109 @@ export type Database = {
           },
         ]
       }
+      vadmin_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       vinternal_student_billing_customers: {
         Row: {
           is_primary: boolean | null
@@ -27360,30 +27611,6 @@ export type Database = {
           topic_code: string | null
           topic_id: string | null
           topic_name: string | null
-        }
-        Insert: {
-          description?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          subject_id?: string | null
-          title?: string | null
-          topic_code?: string | null
-          topic_id?: string | null
-          topic_name?: string | null
-        }
-        Update: {
-          description?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          subject_id?: string | null
-          title?: string | null
-          topic_code?: string | null
-          topic_id?: string | null
-          topic_name?: string | null
         }
         Relationships: [
           {
@@ -28090,30 +28317,6 @@ export type Database = {
           title: string | null
           topic_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: never
-          due_review_card_count?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          title?: string | null
-          topic_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: never
-          due_review_card_count?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          title?: string | null
-          topic_id?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -29974,28 +30177,6 @@ export type Database = {
           parent_id: string | null
           subject_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -34960,32 +35141,6 @@ export type Database = {
           updated_at: string | null
           updated_by: string | null
         }
-        Insert: {
-          content?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          folder_id?: string | null
-          id?: string | null
-          is_tutor_documentation?: boolean | null
-          project_id?: string | null
-          search_vector?: unknown
-          title?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          content?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          folder_id?: string | null
-          id?: string | null
-          is_tutor_documentation?: boolean | null
-          project_id?: string | null
-          search_vector?: unknown
-          title?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "notes_documents_created_by_fkey"
@@ -35074,22 +35229,6 @@ export type Database = {
           name: string | null
           parent_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          name?: string | null
-          parent_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          name?: string | null
-          parent_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -36248,18 +36387,6 @@ export type Database = {
           metric_overrides: Json | null
           staff_id: string | null
         }
-        Insert: {
-          current_tier_number?: number | null
-          employment_started_at?: string | null
-          metric_overrides?: Json | null
-          staff_id?: string | null
-        }
-        Update: {
-          current_tier_number?: number | null
-          employment_started_at?: string | null
-          metric_overrides?: Json | null
-          staff_id?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "staff_current_tier_number_fkey"
@@ -36485,54 +36612,6 @@ export type Database = {
           status: string | null
           updated_at: string | null
           user_id: string | null
-        }
-        Insert: {
-          availability_friday?: boolean | null
-          availability_monday?: boolean | null
-          availability_saturday_am?: boolean | null
-          availability_saturday_pm?: boolean | null
-          availability_sunday_am?: boolean | null
-          availability_sunday_pm?: boolean | null
-          availability_thursday?: boolean | null
-          availability_tuesday?: boolean | null
-          availability_wednesday?: boolean | null
-          birthday?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          phone?: string | null
-          profile_bio?: string | null
-          profile_image_file_id?: string | null
-          role?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          availability_friday?: boolean | null
-          availability_monday?: boolean | null
-          availability_saturday_am?: boolean | null
-          availability_saturday_pm?: boolean | null
-          availability_sunday_am?: boolean | null
-          availability_sunday_pm?: boolean | null
-          availability_thursday?: boolean | null
-          availability_tuesday?: boolean | null
-          availability_wednesday?: boolean | null
-          birthday?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          phone?: string | null
-          profile_bio?: string | null
-          profile_image_file_id?: string | null
-          role?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -36901,6 +36980,99 @@ export type Database = {
             foreignKeyName: "sessions_files_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      vtutor_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
           },
@@ -37655,28 +37827,6 @@ export type Database = {
           parent_id: string | null
           subject_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -44409,6 +44559,16 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: undefined
       }
+      deleted_business_records: {
+        Args: never
+        Returns: {
+          can_restore: boolean
+          deleted_at: string
+          id: string
+          kind: string
+          name: string
+        }[]
+      }
       derive_session_absence_billing_treatment: {
         Args: {
           p_is_credited: boolean
@@ -45014,6 +45174,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -45125,6 +45287,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -45802,12 +45966,20 @@ export type Database = {
         Args: { p_client_key: string; p_email: string }
         Returns: string
       }
+      restore_business_record: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
       restore_deleted_student_identity: {
         Args: { p_auth_user_id?: string; p_student_id: string }
         Returns: string
       }
       restore_my_deleted_student: { Args: never; Returns: string }
       restore_student: { Args: { p_student_id: string }; Returns: string }
+      retire_business_record: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
       retire_student: { Args: { p_student_id: string }; Returns: Json }
       retire_student_identity: {
         Args: { p_staff_id: string; p_student_id: string }

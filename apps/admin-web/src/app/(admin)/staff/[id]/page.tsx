@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
@@ -228,7 +230,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
               <UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                 Cancel
               </UIButton>
-              <UIButton 
+              <UIButton
                 disabled={mutations.isUpdatingDetails}
                 onClick={() => {
                   const form = document.getElementById('staff-edit-form') as HTMLFormElement;
@@ -302,9 +304,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the staff member
-                "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
-              </AlertDialogDescription>
+              <RetainedDeletionMessage name={`${staffMember.first_name} ${staffMember.last_name}`} />
+            </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4">
               <div className="space-y-2">

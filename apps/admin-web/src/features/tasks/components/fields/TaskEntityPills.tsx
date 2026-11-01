@@ -58,6 +58,7 @@ export function TaskAssigneeEntityPill({
       emptyMessage="No staff found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -193,6 +194,7 @@ export function TaskEstimateEntityPill({
         getItemId={(o) => (o.value == null ? 'none' : String(o.value))}
         trigger={
           <button
+          data-button-variant="outline"
             type="button"
             className={cn(
               pillTriggerClass,
@@ -237,6 +239,7 @@ export function TaskIssueEntityPill({
       emptyMessage="No issues found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -289,6 +292,7 @@ export function TaskProjectEntityPill({
       emptyMessage="No projects found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -337,6 +341,7 @@ export function TaskLinkEntityPill({
 
   return (
     <button
+          data-button-variant="outline"
       type="button"
       className={cn(
         pillTriggerClass,

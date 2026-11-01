@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -50,35 +51,18 @@ export default function SubjectTopicsPage(props: { params: Promise<{ id: string 
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push(`/subjects/${id}`)}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Topics & Files</h1>
-        </div>
-        <AdminPageActionButton
-          icon={<Plus className="h-4 w-4" />}
-          label="Add Topic"
-          onClick={() => setIsAddModalOpen(true)}
-        />
-      </div>
-      
-      <TopicsTable 
+      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="Add Topic" onClick={() => setIsAddModalOpen(true)} /></AdminPageActions>
+
+      <TopicsTable
         onRefresh={refreshCounter}
         onViewTopic={handleViewTopic}
         subjectId={id}
         basePath={`/subjects/${id}/topics`}
         hideSubjectFilter={true}
       />
-      
-      <AddTopicModal 
-        isOpen={isAddModalOpen} 
+
+      <AddTopicModal
+        isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onTopicAdded={handleTopicAdded}
         preselectedSubjectId={id}

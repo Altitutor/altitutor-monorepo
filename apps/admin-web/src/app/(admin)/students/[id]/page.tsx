@@ -4,12 +4,14 @@ import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTa
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState, use } from 'react';
+import { useEffect, useState, use } from 'react';
+import { StudentOnboardingSidebar } from '@/features/onboarding/components/StudentOnboardingSidebar';
+import { useOnboardingJourneys } from '@/features/onboarding/api/queries';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, PanelRight } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -68,6 +70,22 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const params = use(props.params);
   const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
+  const [detailRoot, setDetailRoot] = useState<HTMLDivElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [narrow, setNarrow] = useState(false);
+  const { data: journeys = [] } = useOnboardingJourneys();
+  useEffect(() => {
+    if (!detailRoot) return;
+    let wasNarrow: boolean | undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = entry.contentRect.width < 1000;
+      setNarrow(next);
+      if (next !== wasNarrow) setSidebarOpen(!next);
+      wasNarrow = next;
+    });
+    observer.observe(detailRoot);
+    return () => observer.disconnect();
+  }, [detailRoot]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
@@ -254,12 +272,15 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   }
 
   const activityLayout = activeTab === 'activity';
+  const hasOnboarding = !student.deleted_at && (student.status === 'TRIAL' || journeys.some(journey => journey.student_id === id && !journey.closed_at));
 
   return (
-    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
+    <div ref={setDetailRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
         <PrimaryEntityBreadcrumb />
+        {hasOnboarding && <Button variant="ghost" size="icon" aria-label="Toggle onboarding sidebar" aria-expanded={sidebarOpen} aria-controls="student-onboarding-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
         <NoteAlertPills entityType="student" entityId={student.id} />
 
         {!student.deleted_at && <ActionsMenu
@@ -558,6 +579,8 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           }}
         />
       )}
+    </div>
+    {hasOnboarding && sidebarOpen && <div id="student-onboarding-sidebar" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 shadow-xl' : 'h-full shrink-0'}><StudentOnboardingSidebar studentId={id} /></div>}
     </div>
   );
 }

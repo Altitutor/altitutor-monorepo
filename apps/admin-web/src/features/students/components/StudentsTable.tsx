@@ -33,7 +33,6 @@ import { cn } from '@/shared/utils/index';
 import { getSubjectCurriculumColor } from '@/shared/utils';
 import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
-import { ViewStudentModal } from './ViewStudentModal';
 import { ViewParentModal } from './ViewParentModal';
 import { ViewClassModal } from '@/features/classes';
 import { useStudentsMinimal } from '../hooks/useStudentsQuery';
@@ -49,7 +48,7 @@ import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDial
 import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useStudentViews, STUDENT_FILTER_KEYS, STUDENT_VIEW_DEFAULTS } from '../hooks/useStudentViews';
 import { useStudentActions } from '../hooks/useStudentActions';
 import { InPersonStatusBadge } from './InPersonStatusBadge';
 import type { StudentSearchField } from '../api/students';
@@ -131,11 +130,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { openCheckInModal } = useQuickActions();
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
 
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
-  const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
+  const defaultFilters = useMemo(() => STUDENT_VIEW_DEFAULTS.in_person.filters, []);
+  const defaultSort = useMemo(() => ({ field: STUDENT_VIEW_DEFAULTS.in_person.sortBy, direction: STUDENT_VIEW_DEFAULTS.in_person.sortDirection }), []);
+  const defaultVisibleColumns = STUDENT_VIEW_DEFAULTS.in_person.visibleColumns;
 
-  const { data: quickFilters = [] } = useQuickFilters('students', {name:'Active',settings:{ filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
+  const quickFilters = useStudentViews();
 
   const {
     state,
@@ -151,7 +150,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
+    filterKeys: STUDENT_FILTER_KEYS,
   });
 
   const {
@@ -163,7 +162,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   } = useStudentsMinimal({
     search: state.search,
     searchFields,
-    statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
+    statuses: (state.filters.status?.length ? state.filters.status : ['ACTIVE', 'TRIAL', 'DISCONTINUED']) as NonNullable<Tables<'students'>['status']>[],
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
@@ -176,8 +175,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   const total = data?.total || 0;
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [isParentModalOpen, setIsParentModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -282,8 +279,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }, [_onRefresh, refetch]);
 
   const handleStudentClick = (id: string) => {
-    setSelectedStudentId(id);
-    setIsViewModalOpen(true);
+    router.push(`/students/${id}`);
   };
 
   const handleStudentUpdated = () => {
@@ -741,15 +737,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         onStudentAdded={handleStudentUpdated}
       />
 
-      <ViewStudentModal
-        isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setSelectedStudentId(null);
-        }}
-        studentId={selectedStudentId}
-        onStudentUpdated={handleStudentUpdated}
-      />
+
 
       {selectedClassId && (
         <ViewClassModal

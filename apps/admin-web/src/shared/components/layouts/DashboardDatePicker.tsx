@@ -139,7 +139,7 @@ export function DashboardDatePicker() {
                   "aspect-square min-w-0 rounded-md border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   navItemTransitionStyles,
                   selected ? navActiveStyles : navHoverStyles,
-                  date === todayStr && "font-semibold ring-1 ring-border",
+                  date === todayStr && "font-semibold ring-2 ring-primary ring-offset-1 ring-offset-popover",
                 )}
               >
                 {format(day, "d")}

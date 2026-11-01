@@ -11,8 +11,9 @@ function copyPdfjsAssets() {
   const pkgDir = path.dirname(require.resolve("pdfjs-dist/package.json", { paths: [__dirname] }));
   const destDir = path.join(__dirname, "public", "pdfjs");
   fs.mkdirSync(destDir, { recursive: true });
+  // Use the publisher's polyfilled bundle for Safari; API and worker must match.
   for (const file of ["pdf.min.mjs", "pdf.worker.min.mjs"]) {
-    fs.copyFileSync(path.join(pkgDir, "build", file), path.join(destDir, file));
+    fs.copyFileSync(path.join(pkgDir, "legacy", "build", file), path.join(destDir, file));
   }
   for (const dir of ["wasm", "cmaps", "standard_fonts"]) {
     fs.cpSync(path.join(pkgDir, dir), path.join(destDir, dir), { recursive: true });

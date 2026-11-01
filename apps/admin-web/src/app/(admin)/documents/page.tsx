@@ -1,3 +1,3 @@
 "use client";
-import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
-export default function Page() { return <AccessoryRoute href="/documents" />; }
+import { DocumentsView } from "@/features/notes/components/DocumentsView";
+export default function DocumentsPage() { return <DocumentsView />; }

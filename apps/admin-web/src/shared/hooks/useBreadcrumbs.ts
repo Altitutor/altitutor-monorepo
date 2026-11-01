@@ -27,6 +27,8 @@ const pathLabelMap: Record<string, string> = {
   classes: 'Classes',
   sessions: 'Sessions',
   messages: 'Messages',
+  email: 'Mail',
+  'deleted-records': 'Deleted entities',
   feedback: 'Feedback',
   forms: 'Forms',
   invoices: 'Invoices',
@@ -66,7 +68,7 @@ function getLabelForSegment(segment: string): string {
   if (pathLabelMap[segment]) {
     return pathLabelMap[segment];
   }
-  
+
   // Convert kebab-case to Title Case
   return segment
     .split('-')
@@ -102,12 +104,12 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       id: string;
       index: number;
     }[] = [];
-    
+
     segments.forEach((segment, index) => {
       if (isUUID(segment)) {
         // Determine entity type based on previous segment
         const prevSegment = index > 0 ? segments[index - 1] : '';
-        
+
         if (prevSegment === 'students') {
           ids.push({ type: 'student', id: segment, index });
         } else if (prevSegment === 'staff') {
@@ -140,7 +142,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         }
       }
     });
-    
+
     return ids;
   }, [segments]);
 
@@ -398,16 +400,16 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     let currentPath = '';
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
-      
+
       const isDynamicRoute = isUUID(segment);
-      
+
       let label: string;
       if (isDynamicRoute) {
         // Try to get the entity name
         const entityId = entityIds.find(e => e.index === index);
         if (entityId) {
           let name: string | undefined;
-          
+
           if (entityId.type === 'student') {
             name = studentQueries.data?.[entityId.id];
           } else if (entityId.type === 'staff') {
@@ -428,7 +430,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           } else if (entityId.type === 'project') {
             name = projectQueries.data?.[entityId.id];
           }
-          
+
           if (name) {
             label = name;
           } else {

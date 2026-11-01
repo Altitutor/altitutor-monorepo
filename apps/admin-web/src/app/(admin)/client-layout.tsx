@@ -6,7 +6,8 @@ import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
 import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
 import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { AdminPageActionsTarget } from '@/shared/components/AdminPageActions';
 import Link from 'next/link';
 import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
 import { usePathname } from 'next/navigation';
@@ -415,7 +416,10 @@ function AdminLayoutContent({
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
-  const showBreadcrumbs = pathname !== '/messages' && !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+/.test(pathname);
+  const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
+  const [secondaryActionsTarget, setSecondaryActionsTarget] = useState<HTMLDivElement | null>(null);
+  const actionTargets = useMemo(() => ({ primary: actionsTarget, secondary: secondaryActionsTarget }), [actionsTarget, secondaryActionsTarget]);
+  const showBreadcrumbs = !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(pathname);
 
   return (
     <AdminToolbarViewsProvider><AdminShortcuts>
@@ -430,12 +434,14 @@ function AdminLayoutContent({
         <AccessoryPanelLayout>
           <div data-admin-main className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70">
             {showBreadcrumbs && (
-              <div className="shrink-0 px-6 pt-6 pb-0">
-                <Breadcrumb items={breadcrumbs} />
+              <div data-admin-page-header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
+                <Breadcrumb items={breadcrumbs} className="mb-0 min-w-0 flex-1" />
+                <div ref={setSecondaryActionsTarget} className="flex max-w-full flex-wrap items-center gap-2" />
+                <div ref={setActionsTarget} className="flex max-w-full flex-wrap items-center justify-end gap-2" />
               </div>
             )}
             <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+              <AdminPageActionsTarget.Provider value={actionTargets}><AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary></AdminPageActionsTarget.Provider>
             </div>
           </div>
           {/* Quick action modals */}

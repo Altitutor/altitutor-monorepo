@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { Suspense, useState } from 'react';
 import { TutorLogsTable } from '@/features/tutor-logs/components/TutorLogsTable';
@@ -19,8 +20,8 @@ export default function TutorLogsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Tutor logs</h1>
+      <AdminPageActions>
+
         <div className="flex items-center gap-2">
           <AdminPageActionButton
             variant="outline"
@@ -34,10 +35,10 @@ export default function TutorLogsPage() {
             onClick={() => setTutorLogModalOpen(true)}
           />
         </div>
-      </div>
+      </AdminPageActions>
 
       <Suspense>
-        <TutorLogsTable 
+        <TutorLogsTable
           onOpenSession={(id) => entityModals.openSession(id as string)}
           onOpenStaff={(id) => entityModals.openStaff(id as string)}
         />
@@ -53,7 +54,7 @@ export default function TutorLogsPage() {
           adminMode={true}
         />
       )}
-      
+
       <QuickBooksExportModal
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}

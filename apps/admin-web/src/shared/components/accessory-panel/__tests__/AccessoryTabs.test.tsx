@@ -14,8 +14,9 @@ jest.mock("@/features/topics/components", () => ({
   FilePreviewModal: () => null,
   GenericFilePreviewModal: () => null,
 }));
+const mockPrimaryPush = jest.fn();
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPrimaryPush }),
   usePathname: () => "/students",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -179,5 +180,6 @@ it("offers every root view in an empty panel and opens the chosen view", () => {
   expect(screen.getByLabelText("3 unread conversations")).toHaveTextContent("3");
   expect(screen.queryByRole("button", {name: "Today"})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Documents" }));
-  expect(tabs()).toEqual([expect.objectContaining({ kind: "documents", title: "Documents" })]);
+  expect(tabs()).toEqual([]);
+  expect(mockPrimaryPush).toHaveBeenCalledWith("/documents", undefined);
 });

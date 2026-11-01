@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MailPage } from "../MailPage";
+import { AdminPageActionsTarget } from "@/shared/components/AdminPageActions";
 import type { MailboxData } from "../../types";
 
 jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
@@ -16,9 +17,10 @@ jest.mock("@/features/command-palette/RecordActionsContext", () => ({
   useRegisterPageActions: () => {},
 }));
 const mockOpenThread = jest.fn();
+const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
   useOpenEmailThread: () => mockOpenThread,
-  useComposeEmail: () => jest.fn(),
+  useComposeEmail: () => mockComposeEmail,
 }));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -279,4 +281,37 @@ it("selects Inbox once its first sync discovers folders", async () => {
       expect.anything(),
     ),
   );
+});
+
+it("places filled Compose in the shared primary header and opens the existing compose workflow", async () => {
+  mockComposeEmail.mockClear();
+  global.fetch = jest.fn(
+    async () => ({ ok: true, json: async () => mailbox }) as Response,
+  );
+  const header = document.createElement("div");
+  document.body.appendChild(header);
+  try {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <AdminPageActionsTarget.Provider
+          value={{ primary: header, secondary: null }}
+        >
+          <MailPage />
+        </AdminPageActionsTarget.Provider>
+      </QueryClientProvider>,
+    );
+    const compose = await screen.findByRole("button", {
+      name: "Compose",
+    });
+    expect(header).toContainElement(compose);
+    await waitFor(() => expect(compose).toBeEnabled());
+    fireEvent.click(compose);
+    expect(mockComposeEmail).toHaveBeenCalledTimes(1);
+  } finally {
+    header.remove();
+  }
 });

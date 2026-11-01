@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import type { ToolbarFilterEditorContext } from "@altitutor/ui";
 
 import React, {
@@ -774,13 +776,7 @@ export function ClassesTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the Class
-              {classToDelete?.level ? ` "${classToDelete.level}"` : ""} and{" "}
-              {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.{" "}
-              Historical Sessions are never deleted.
-              {deleteImpact && !deleteImpact.canDelete
-                ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit Class instead.`
-                : ""}
+              <RetainedDeletionMessage kind="Class" name={classToDelete?.long_name} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

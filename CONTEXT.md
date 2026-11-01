@@ -15,6 +15,9 @@
 - **Student relationship mode** — An independent way a Student engages with Altitutor: through tutor-led in-person services or an online Product app. A Student may have either mode, both modes concurrently, or neither while transitioning between them.
   _Avoid_: Student type, online-versus-in-person classification, conversion
 
+- **Student directory view** — A saved presentation of the shared Student directory for a relationship mode or for In-person onboarding work. In person and Online may overlap; the Trial view retains the full onboarding queue, including family enquiries without a Student and registered Students with unresolved onboarding actions.
+  _Avoid_: Mutually exclusive Student types, trial-status-only queue
+
 - **Student relationship status** — The lifecycle state of one Student relationship mode. Online and in-person statuses change independently; no single global Student status represents both relationships.
   _Avoid_: Student status, account status, global active status
 
@@ -345,6 +348,17 @@
   _Avoid_: Calendar export, calendar sync, shared calendar
 
 ## Core tutoring sessions and billing
+
+- **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
+
+- **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
+  _Avoid_: Taught Topic, submitted Tutor log entry
+
+- **Teaching annotation** — A Tutor's markings on a Lesson resource's worksheet or solutions for one Session, retained on the teaching iPad and accessible to that Tutor after sign-in. Another Tutor or Session has its own markings.
+  _Avoid_: Shared resource edit, Student annotation
+
+- **Classroom display** — The audience-facing presentation of the active worksheet and its live Teaching annotations, following the Tutor's worksheet position and zoom. It presents lesson information outside the resource viewer while keeping the Tutor's solutions private.
+  _Avoid_: iPad screen mirror, solutions display
 
 - **Drafting session** — A subject-specific tutoring Session booked independently of a Class. Self-service Drafting is one-to-one; Admin-booked meetings permit flexible participants. The Subject is stored directly on the Session.
   _Avoid_: Drafting Class, subject-independent Drafting session
@@ -1454,3 +1468,7 @@
   _Avoid_: Row trigger, changed-column automation, scheduled event
 
 - **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.
+
+- **Business record deletion** — An AdminStaff action that hides a main operational record from normal directories and new activity while retaining its identity, relationships and history. Live services or work must be resolved first; restoration does not reclaim released contacts or reactivate access or services. Student deletion retains its separately defined recovery rules, and configuration deletion remains separate.
+
+- **Deleted entities directory** — The Settings directory of retained deleted business records, identified by entity type and name. Eligible operational records can be explicitly restored; financial and learning-content records retain their own recovery rules.

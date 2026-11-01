@@ -59,6 +59,15 @@ jest.mock("@/shared/contexts/EntityNavigation", () => ({
 jest.mock("@/features/command-palette/RecordActionsContext", () => ({
   useRegisterRecordActions: () => {},
 }));
+const mockPrimaryNavigation = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: mockPrimaryNavigation,
+    replace: mockPrimaryNavigation,
+  }),
+  usePathname: () => "/email",
+  useSearchParams: () => new URLSearchParams(),
+}));
 const originalFetch = global.fetch;
 afterEach(() => {
   global.fetch = originalFetch;
@@ -183,6 +192,9 @@ it("opens new composition inside the existing accessory workspace and preserves 
     screen.getByRole("tab", { name: "Work written immediately" }),
   ).toBeInTheDocument();
   expect(create).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Email" }));
+  expect(mockPrimaryNavigation).toHaveBeenCalledWith("/email", undefined);
+  expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
 });
 const existingDraft = {
   id: "existing-draft",
@@ -292,7 +304,7 @@ it("does not render a deleted draft that remains in cached conversation history"
       bodyText: "Deleted draft content",
     },
   ]);
-  await screen.findByRole("heading", { name: "Lesson" });
+  await screen.findByRole("article", { name: "Email: Lesson" });
   expect(screen.queryByText("Deleted draft content")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("textbox", { name: "Email subject" }),

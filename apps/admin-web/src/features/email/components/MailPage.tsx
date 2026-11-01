@@ -1,4 +1,6 @@
 "use client";
+import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, Settings2 } from "lucide-react";
 import Link from "next/link";
@@ -159,23 +161,19 @@ export function MailPage() {
   const loading = mailbox.isLoading || mailbox.isPlaceholderData;
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b px-6 py-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <h1 className="text-lg font-semibold">Mail</h1>
-          <span className="truncate text-xs text-muted-foreground">
-            {mailbox.data?.mailboxAddress ?? "Mailbox"}
-          </span>
-        </div>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={compose}
-          disabled={!mailbox.data}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Compose
-        </Button>
-      </header>
+      <AdminPageActions>
+        <AdminActionGroup label="Mail actions">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={compose}
+            disabled={!mailbox.data}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Compose
+          </Button>
+        </AdminActionGroup>
+      </AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[480px]:flex-row">
         <MailFolders
           folders={mailbox.data?.folders ?? []}

@@ -1,5 +1,8 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
@@ -73,6 +76,23 @@ export function LogSessionModal({
     initialStaffId,
     initialSessionKind,
   });
+
+  const retainedLog = useQuery({
+    queryKey: ['session-log-availability', formData.sessionId],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient().from('vadmin_session_log_state').select('deleted_at').eq('session_id', formData.sessionId!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOpen && !!formData.sessionId,
+    staleTime: 0,
+  });
+
+  if (isOpen && formData.sessionId && (retainedLog.isPending || retainedLog.isError || retainedLog.data?.deleted_at)) {
+    return <AdminDialogShell open={isOpen} onClose={onClose} title="Log session">
+      <p role="status">{retainedLog.isPending ? 'Checking session log…' : retainedLog.isError ? 'Unable to check the existing log. Close and try again.' : 'This Session has a deleted Tutor log. Restore it from Settings → Deleted entities before editing its attendance or notes.'}</p>
+    </AdminDialogShell>;
+  }
 
   const getStepTitle = () => getLogSessionStepTitle(currentStep, !!adminMode, wizardFlow);
 

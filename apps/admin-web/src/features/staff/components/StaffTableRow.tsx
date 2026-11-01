@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import { memo, useCallback, useState } from 'react';
 import { TableCell, TableRow, Button, Label, Input } from "@altitutor/ui";
@@ -140,7 +142,7 @@ export const StaffTableRow = memo(function StaffTableRow({
 
   return (
     <>
-      <TableRow 
+      <TableRow
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={handleClick}
       >
@@ -304,9 +306,8 @@ export const StaffTableRow = memo(function StaffTableRow({
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the staff member
-            "{staff.first_name} {staff.last_name}" and all associated data from the database.
-          </AlertDialogDescription>
+              <RetainedDeletionMessage name={`${staff.first_name} ${staff.last_name}`} />
+            </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4">
           <div className="space-y-2">
@@ -343,4 +344,4 @@ export const StaffTableRow = memo(function StaffTableRow({
     </AlertDialog>
     </>
   );
-}); 
+});

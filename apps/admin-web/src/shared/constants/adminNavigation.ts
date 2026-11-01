@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Beaker,
   ClipboardList,
-  Monitor,
   UserRound,
   TrendingUp,
   MessageSquareText,
@@ -38,34 +37,26 @@ export const navItems: NavItem[] = [
     type: "heading",
     title: "COMMUNICATION",
   },
+  { title: "Messages", href: "/messages", icon: MessageSquareText },
   { title: "Mail", href: "/email", icon: Mail },
   {
     title: "Feedback",
     href: "/feedback",
     icon: MessageSquareText,
+    children: [
+      { title: "Form responses", href: "/feedback/responses" },
+      { title: "Reports", href: "/feedback/reports" },
+      { title: "Check-ins", href: "/feedback/check-ins" },
+    ],
   },
   {
     type: "heading",
     title: "SCHEDULING",
   },
   {
-    title: "Trial students",
-    href: "/trial-students",
-    icon: Users,
-    children: [
-      { title: "Work queue", href: "/trial-students" },
-      { title: "Conversion insights", href: "/trial-students/insights" },
-    ],
-  },
-  {
-    title: "In-person Students",
+    title: "Students",
     href: "/students",
     icon: GraduationCap,
-  },
-  {
-    title: "Online Students",
-    href: "/online-students",
-    icon: Monitor,
   },
   {
     title: "Parents",
@@ -91,6 +82,7 @@ export const navItems: NavItem[] = [
   { title: "Tasks", href: "/tasks", icon: ListTodo },
   { title: "Projects", href: "/projects", icon: FolderKanban },
   { title: "Issues", href: "/issues", icon: AlertTriangle },
+  { title: "Documents", href: "/documents", icon: FileText },
   {
     title: "Reconciliation",
     href: "/reconciliation",

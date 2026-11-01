@@ -69,9 +69,6 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
   return (
     <ReconciliationInteractionProvider>
       <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
-        </div>
 
         {tabCounts.isError && (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center gap-2">
