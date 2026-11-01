@@ -44,7 +44,7 @@
     "url": "git+https://github.com/Altitutor/altitutor-monorepo.git"
   },
   "engines": {
-    "node": "^22.13.0 || ^24.0.0",
+    "node": "^22.22.0 || ^24.0.0",
     "pnpm": "11.28.9"
   }
 }
