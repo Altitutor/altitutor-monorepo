@@ -437,8 +437,8 @@ importers:
         specifier: ^16.4.3
         version: 16.4.3(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(@types/node@20.19.24)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       posthog-js:
-        specifier: ^1.444.0
-        version: 1.444.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: 1.402.0
+        version: 1.402.0
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -784,8 +784,8 @@ importers:
         specifier: ^6.4.299
         version: 6.4.299
       posthog-js:
-        specifier: ^1.444.0
-        version: 1.444.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: 1.402.0
+        version: 1.402.0
       posthog-node:
         specifier: ^5.61.1
         version: 5.61.1(@opentelemetry/api@1.9.1)
@@ -1474,8 +1474,8 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(motion@12.38.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(next@16.4.3(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(@types/node@20.19.24)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       posthog-js:
-        specifier: ^1.444.0
-        version: 1.444.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: 1.402.0
+        version: 1.402.0
       posthog-node:
         specifier: ^5.61.1
         version: 5.61.1(@opentelemetry/api@1.9.1)
@@ -3933,9 +3933,6 @@ packages:
 
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
-
-  '@posthog/browser-common@0.10.2':
-    resolution: {integrity: sha512-ieHSMmY4xG+HfkMTrT9yZoG0NMBWyA4aXMFPCuOOV+xRe706+zoPuwqmNHXv7LGXfi6CvOv4qksEoPNWfP359Q==}
 
   '@posthog/core@1.62.0':
     resolution: {integrity: sha512-KjNwGC7s0141wnWWHubNMdg1lOhZjqKRw2OTNstuzdVvNDfvv2RbFJQSSvvABmbCmTXwlMpdnbb/M/aAigDnNQ==}
@@ -9718,16 +9715,8 @@ packages:
     resolution: {integrity: sha512-d+JFcLM17njZaOLkv6SCev7uoLaBtfK86vMUXhW1Z4glPWh4jozno9APvW/XKFJ3CCxVoC7OL38BqRydtu5nGg==}
     engines: {node: '>=12'}
 
-  posthog-js@1.444.0:
-    resolution: {integrity: sha512-4m+QsAFi1h5Zt8eFq6ciJGD8bcLMt1P/O1cLlo26RrX5F4oMOIKZsNIlf1SIMZWlRNNCFemSpzn6HhwtkZMrnA==}
-    peerDependencies:
-      '@types/react': '>=16.8.0'
-      react: '>=16.8.0'
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-      react:
-        optional: true
+  posthog-js@1.402.0:
+    resolution: {integrity: sha512-HVgg9DmRLdiZP9nQHXcmDgCZmjbTr9s7Ttf23r5lcPWOxV/3PEhItJdRCYYZVGefvL+AYLpudGHu7rGWByT/xg==}
 
   posthog-node@5.61.1:
     resolution: {integrity: sha512-Az2H3hHyxxZ5PQpQAQEoJfa9FrLsM4OnuyIQwzi9hei5mtN0/mepw1yvLtAmPAbEkC6+muWXiBShBnVMKeBSXw==}
@@ -11222,11 +11211,8 @@ packages:
       vue:
         optional: true
 
-  web-vitals@6.2.1:
-    resolution: {integrity: sha512-rLcLXA2sx6+9dE88NHFubwTtGxpK4yYBLj6qHPdFoCaLr0cXGb4efOqtKLlm4loGA4OEKHIQKMKzZkKyOh5ctw==}
-
-  web-vitals@6.2.3:
-    resolution: {integrity: sha512-Dmy+vdO1UPMqXiAtZSNayhl4f794Bxfd94W4HIj2HlYtczEQfEOon969memlcpcHrTuOKLa5baFjX7WbgmOq+A==}
+  web-vitals@5.3.0:
+    resolution: {integrity: sha512-q6LWsLatGYZp5VGBIOvbTj6JBV2nOmC8KvWztXBmwJcfFAzhwKwbOxhUH306XY3CcaZDUlSmSuNPBsCn0bFu+g==}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -13744,14 +13730,6 @@ snapshots:
       playwright: 1.56.1
 
   '@popperjs/core@2.11.8': {}
-
-  '@posthog/browser-common@0.10.2':
-    dependencies:
-      '@posthog/core': 1.62.0
-      '@posthog/types': 1.419.0
-      preact: 10.29.7
-    transitivePeerDependencies:
-      - preact-render-to-string
 
   '@posthog/core@1.62.0':
     dependencies:
@@ -21219,9 +21197,8 @@ snapshots:
 
   postgres@3.4.8: {}
 
-  posthog-js@1.444.0(@types/react@19.3.0)(react@19.3.1):
+  posthog-js@1.402.0:
     dependencies:
-      '@posthog/browser-common': 0.10.2
       '@posthog/core': 1.62.0
       '@posthog/types': 1.419.0
       core-js: 3.49.0
@@ -21229,11 +21206,7 @@ snapshots:
       fflate: 0.4.9
       preact: 10.29.7
       query-selector-shadow-dom: 1.0.1
-      web-vitals: 6.2.3
-      web-vitals-soft-navs: web-vitals@6.2.1
-    optionalDependencies:
-      '@types/react': 19.3.0
-      react: 19.3.1
+      web-vitals: 5.3.0
     transitivePeerDependencies:
       - preact-render-to-string
 
@@ -23211,9 +23184,7 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  web-vitals@6.2.1: {}
-
-  web-vitals@6.2.3: {}
+  web-vitals@5.3.0: {}
 
   webidl-conversions@3.0.1: {}
 

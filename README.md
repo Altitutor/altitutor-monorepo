@@ -45,6 +45,12 @@ For automatic selection when entering the repo, nvm documents a
 [shell hook for `.nvmrc`](https://github.com/nvm-sh/nvm#deeper-shell-integration).
 The install step does not change the environment of its parent terminal.
 
+The web PostHog browser SDK is held at 1.402.0 to preserve the existing analytics
+collection policy. Newer releases add advertising identifiers without a granular
+opt-out that retains prior campaign attribution. Revisit this compatibility
+exception through [DEV-296](https://linear.app/altitutor/issue/DEV-296/upgrade-web-posthog-sdks-while-preserving-analytics-collection)
+before raising the pin; the server SDK can be upgraded independently.
+
 2. For an isolated local web environment, start Docker and run:
 
 ```bash
