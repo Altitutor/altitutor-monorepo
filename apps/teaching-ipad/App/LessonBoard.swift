@@ -80,7 +80,7 @@ private struct LessonThumbnail: View {
             else { Image(systemName: item.resource.worksheet.externalURL == nil ? "doc" : "link").font(.largeTitle).foregroundStyle(.secondary) }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
-            .task(id: item.worksheet.id) {
+            .task(id: item.worksheet.id.uuidString + model.documentRevision.uuidString) {
                 guard let store = model.store, let session = model.session,
                       let url = try? store.documentURL(sessionID: session.id, document: item.worksheet) else { return }
                 if item.resource.worksheet.isPDF {

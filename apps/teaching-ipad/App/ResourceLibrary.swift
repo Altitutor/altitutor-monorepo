@@ -8,10 +8,12 @@ struct ResourceDrawer: View {
     let preview: (TeachingResource) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragOffset = 0.0
+    @State private var edgeReveal = 0.0
     var body: some View {
         GeometryReader { geometry in
+            let hiddenOffset = min(440, max(280, geometry.size.width - 40)) + 40
             ZStack(alignment: .trailing) {
-                Color.black.opacity(isPresented ? 0.12 : 0).contentShape(Rectangle())
+                Color.black.opacity(isPresented ? 0.12 : 0.12 * edgeReveal / hiddenOffset).contentShape(Rectangle())
                     .allowsHitTesting(isPresented).onTapGesture { dismiss() }
                     ResourceLibrary(model: model, isPresented: isPresented, preview: preview)
                         .frame(width: min(440, max(280, geometry.size.width - 40)))
@@ -19,9 +21,10 @@ struct ResourceDrawer: View {
                         .clipShape(RoundedRectangle(cornerRadius: 26))
                         .shadow(color: .black.opacity(0.16), radius: 20, y: 6)
                         .padding(12)
-                        .offset(x: reduceMotion ? dragOffset : (isPresented ? dragOffset : min(440, max(280, geometry.size.width - 40)) + 40))
+                        .offset(x: reduceMotion ? dragOffset : (isPresented ? dragOffset : hiddenOffset - edgeReveal))
                         .opacity(reduceMotion && !isPresented ? 0 : 1)
                         .accessibilityHidden(!isPresented)
+                        .allowsHitTesting(isPresented)
                         .simultaneousGesture(DragGesture(minimumDistance: 20)
                             .onChanged { value in
                                 if abs(value.translation.width) > abs(value.translation.height) {
@@ -31,8 +34,15 @@ struct ResourceDrawer: View {
                                 if dragOffset > 60 || (dragOffset > 0 && value.predictedEndTranslation.width > 140) { dismiss() }
                                 else { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { dragOffset = 0 } }
                             })
+                if !isPresented {
+                    EdgeSwipeRegion(edge: .right, changed: { edgeReveal = min(hiddenOffset, max(0, -$0)) }, ended: { distance, velocity in
+                        withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) {
+                            isPresented = distance < -60 || velocity < -250; edgeReveal = 0
+                        }
+                    }).frame(width: 24)
+                }
             }.animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: isPresented)
-                .clipped().allowsHitTesting(isPresented)
+                .clipped()
         }.ignoresSafeArea(.container, edges: .bottom)
     }
     private func dismiss() {
@@ -169,8 +179,11 @@ private struct TopicFolder: View {
     @ObservedObject var model: TeachingModel
     let preview: (TeachingResource) -> Void
     @State private var expanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
+        DisclosureGroup(isExpanded: Binding(get: { expanded }, set: { value in
+            withAnimation(TeachingMotion.folder(reduceMotion: reduceMotion)) { expanded = value }
+        })) {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(node.children) { child in
                     AnyView(TopicFolder(node: child, model: model, preview: preview))
@@ -184,7 +197,7 @@ private struct TopicFolder: View {
             }.padding(.leading, 10).padding(.vertical, 8)
         } label: {
             Label(node.name, systemImage: expanded ? "folder.fill" : "folder").font(.subheadline.weight(.semibold)).padding(.vertical, 7)
-        }.tint(TeachingColors.navy)
+        }.tint(TeachingColors.navy).animation(TeachingMotion.folder(reduceMotion: reduceMotion), value: expanded)
     }
 }
 

@@ -13,6 +13,8 @@ struct PDFDocumentSurface: UIViewRepresentable {
     let store: LessonStore
     let isWorksheet: Bool
     let fingerDrawing: Bool
+    let navigation: PDFPageNavigation
+    let onEdit: () -> Void
     let onError: (Error) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeUIView(context: Context) -> PDFView {
@@ -55,7 +57,8 @@ struct PDFDocumentSurface: UIViewRepresentable {
             self.view = view
             do {
                 let url = try parent.store.documentURL(sessionID: parent.sessionID, document: parent.document)
-                guard let pdf = PDFDocument(url: url), !pdf.isLocked else { throw APIError(status: 0, message: "This PDF could not be opened or needs a password.") }
+                guard let pdf = PDFDocument(url: url), !pdf.isLocked, pdf.pageCount > 0 else { throw APIError(status: 0, message: "This PDF could not be opened or needs a password.") }
+                parent.navigation.editor = self
                 originalRotations = (0..<pdf.pageCount).map { pdf.page(at: $0)?.rotation ?? 0 }
                 lastSaved = try parent.store.viewport(sessionID: parent.sessionID, document: parent.document); rotation = lastSaved.rotation
                 for index in 0..<pdf.pageCount { pdf.page(at: index)?.rotation = originalRotations[index] + rotation }
@@ -104,7 +107,10 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private func tick() {
             guard active, let view, view.bounds.width > 0, view.bounds.height > 0, view.document != nil else { return }
             if !restored {
-                restore(lastSaved); lastSize = view.bounds.size; restored = true; lastVisible = current(); return
+                restore(lastSaved); lastSize = view.bounds.size; restored = true; lastVisible = current()
+                parent.navigation.thumbnailVersion += 1
+                parent.navigation.activity(page: min(max(lastSaved.page, 0), (view.document?.pageCount ?? 1) - 1), count: view.document?.pageCount ?? 0)
+                return
             }
             // PDFKit lays itself out while the divider moves. Repeated go(to:) during that
             // layout fights the drag and saves intermediate positions. Restore once it settles.
@@ -117,6 +123,12 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 restore(anchor); resizeAnchor = nil; lastVisible = current(); return
             }
             if let state = current() {
+                if let pdf = view.document, let page = view.currentPage {
+                    let index = pdf.index(for: page)
+                    if state != lastVisible || parent.navigation.page != index {
+                        parent.navigation.activity(page: index, count: pdf.pageCount)
+                    }
+                }
                 lastVisible = state
                 ticks += 1
                 if ticks % 4 == 0 { persist() }
@@ -139,10 +151,12 @@ struct PDFDocumentSurface: UIViewRepresentable {
         @discardableResult func persist() -> Bool {
             guard restored, active else { return true }
             do {
+                let inkChanged = !dirty.isEmpty
                 for index in dirty {
                     if let canvas = canvases[index] { try parent.store.saveDrawing(canvas.drawing.dataRepresentation(), sessionID: parent.sessionID, document: parent.document, page: index) }
                 }
                 dirty.removeAll()
+                if inkChanged { parent.navigation.thumbnailVersion += 1 }
                 if let viewport = resizeAnchor ?? current(), viewport != lastSaved {
                     try parent.store.saveViewport(viewport, sessionID: parent.sessionID, document: parent.document); lastSaved = viewport
                 }
@@ -153,6 +167,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
             guard active else { return }
             if persistChanges { persist() }
             active = false; timer?.invalidate(); timer = nil
+            parent.navigation.stop()
             if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
             if let flushObserver { NotificationCenter.default.removeObserver(flushObserver) }
             if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
@@ -163,6 +178,72 @@ struct PDFDocumentSurface: UIViewRepresentable {
         }
         private func hideTools() {
             for canvas in canvases.values { toolPicker.setVisible(false, forFirstResponder: canvas); canvas.resignFirstResponder() }
+        }
+        func jump(to index: Int) {
+            guard active, let pdf = view?.document, let page = pdf.page(at: index) else { return }
+            if !restored {
+                lastSaved.page = index
+                do { try parent.store.saveViewport(lastSaved, sessionID: parent.sessionID, document: parent.document) }
+                catch { parent.onError(error); return }
+            }
+            view?.go(to: page)
+            parent.navigation.activity(page: index, count: pdf.pageCount)
+            _ = persist()
+        }
+
+        func editPages(_ edit: DocumentPageEdit, matching referenceIndex: Int? = nil) {
+            guard active, let view, let currentPDF = view.document, persist() else { return }
+            do {
+                guard let bytes = currentPDF.dataRepresentation(), let pdf = PDFDocument(data: bytes) else {
+                    throw APIError(status: 0, message: "Could not prepare this PDF for editing.")
+                }
+                let count = pdf.pageCount
+                for index in 0..<count { pdf.page(at: index)?.rotation = originalRotations[index] }
+                switch edit {
+                case .insertBlank(let index):
+                    guard (0...count).contains(index), let reference = pdf.page(at: min(max(referenceIndex ?? index, 0), count - 1)) else { return }
+                    let bounds = CGRect(origin: .zero, size: reference.bounds(for: .cropBox).size)
+                    let blank = UIGraphicsPDFRenderer(bounds: bounds).pdfData { context in context.beginPage() }
+                    guard let page = PDFDocument(data: blank)?.page(at: 0) else { throw APIError(status: 0, message: "Could not create a blank page.") }
+                    page.rotation = reference.rotation
+                    pdf.insert(page, at: index)
+                case .delete(let index):
+                    guard count > 1, (0..<count).contains(index) else { return }
+                    pdf.removePage(at: index)
+                }
+                guard let data = pdf.dataRepresentation() else { throw APIError(status: 0, message: "Could not save this PDF edit.") }
+                let viewport = try parent.store.editPages(edit, pdf: data, pageCount: count, sessionID: parent.sessionID, document: parent.document)
+                // Teardown callbacks still describe the old PDF; they must not write into the new revision.
+                restored = false
+                hideTools()
+                for canvas in canvases.values { toolPicker.removeObserver(canvas) }
+                view.pageOverlayViewProvider = nil; canvases.removeAll(); dirty.removeAll()
+                originalRotations = (0..<pdf.pageCount).map { pdf.page(at: $0)?.rotation ?? 0 }
+                rotation = viewport.rotation
+                for index in 0..<pdf.pageCount { pdf.page(at: index)?.rotation = originalRotations[index] + rotation }
+                view.document = pdf; view.pageOverlayViewProvider = self
+                lastSaved = viewport; restored = false; resizeAnchor = nil; lastVisible = nil
+                parent.navigation.activity(page: viewport.page, count: pdf.pageCount)
+                parent.navigation.thumbnailVersion += 1
+                if parent.isWorksheet { ClassroomState.shared.allowWorksheet(parent.document.id) }
+                parent.onEdit()
+            } catch { parent.onError(error) }
+        }
+
+        func thumbnail(at index: Int) -> UIImage? {
+            guard let page = view?.document?.page(at: index), let reference = page.pageRef else { return nil }
+            let crop = reference.getBoxRect(.cropBox)
+            let quarterTurn = abs(page.rotation) % 180 == 90
+            let size = quarterTurn ? CGSize(width: crop.height, height: crop.width) : crop.size
+            guard size.width > 0, size.height > 0 else { return nil }
+            let output = CGSize(width: 220, height: 220 * size.height / size.width)
+            let ink = canvases[index]?.drawing ?? (try? parent.store.drawing(sessionID: parent.sessionID, document: parent.document, page: index)).flatMap { try? PKDrawing(data: $0) }
+            return UIGraphicsImageRenderer(size: output).image { context in
+                let graphics = context.cgContext
+                graphics.translateBy(x: 0, y: output.height); graphics.scaleBy(x: output.width / size.width, y: -output.height / size.height)
+                graphics.concatenate(reference.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size), rotate: Int32(page.rotation) - reference.rotationAngle, preserveAspectRatio: true))
+                TeachingPageRenderer.draw(page, ink: ink, in: graphics)
+            }
         }
         func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
             guard let pdf = view.document else { return nil }

@@ -57,7 +57,7 @@ struct AudiencePDF: UIViewRepresentable {
     private var worksheet: ClassroomWorksheet?
     private var pdf: PDFDocument?
     func show(_ next: ClassroomWorksheet) {
-        if worksheet?.id != next.id { pdf = PDFDocument(url: next.url) }
+        if worksheet?.id != next.id || worksheet?.url != next.url { pdf = PDFDocument(url: next.url) }
         guard worksheet != next else { return }
         worksheet = next; isOpaque = true; backgroundColor = .black; isUserInteractionEnabled = false
         contentMode = .redraw; setNeedsDisplay()

@@ -67,6 +67,11 @@ public struct DocumentViewport: Codable, Equatable, Sendable {
     }
 }
 
+public enum DocumentPageEdit: Sendable {
+    case insertBlank(at: Int)
+    case delete(at: Int)
+}
+
 public struct LessonDraft: Codable, Sendable {
     public var excludedResources: Set<UUID> = []
     public var studentAssignments: [UUID: [UUID]] = [:]

@@ -24,8 +24,20 @@ codes before filenames; selected glass tabs use semantic text contrast. Drag
 the divider to resize the two panes; ink and viewports remain
 independent. Native PDF scrolling and pinch zoom replace the former toolbar.
 
+Use the left Pages button or swipe inward from the left edge to open page
+thumbnails. Tap a thumbnail to jump; its ellipsis menu inserts a matching blank
+page before/after or deletes that page (the last remaining page cannot be
+deleted). A page indicator appears during scrolling/jumps and for two seconds
+afterward; its sidebar button also toggles thumbnails. Worksheet and solutions
+keep independent page sequences. Page edits atomically save the local PDF,
+rebased ink and position together; the pinned original remains intact. Disk
+retention keeps the current and immediately previous revision. Sharing and the
+classroom display follow the edited worksheet; office printing still uses the
+original server resource.
+
 The detached Resources control toggles a floating rounded drawer on the right.
-Swipe it right or tap outside to dismiss. Expand subject topic folders and tap a
+Swipe inward from the right edge to open it; swipe it right or tap outside to
+dismiss. Topic folders use a faster 180 ms disclosure animation. Expand folders and tap a
 file for a separate preview sheet with Close and **Add to lesson** actions. Only
 adding inserts a file into the lesson and log suggestions; preview downloads
 stay in memory. A single native search field matches codes and filenames and presents

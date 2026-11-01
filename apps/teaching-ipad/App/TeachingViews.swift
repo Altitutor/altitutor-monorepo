@@ -6,6 +6,9 @@ enum TeachingMotion {
     static func panel(reduceMotion: Bool) -> Animation {
         reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 1)
     }
+    static func folder(reduceMotion: Bool) -> Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .snappy(duration: 0.18, extraBounce: 0)
+    }
 }
 
 struct TeachingNavigation: View {
@@ -61,6 +64,12 @@ struct TeachingNavigation: View {
     }
     @ToolbarContentBuilder private var lessonControls: some ToolbarContent {
         if let session = model.session {
+            if model.viewer, model.activeResource?.resource.worksheet.isPDF == true, model.activeResource?.resource.worksheet.externalURL == nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { model.pageSidebar.toggle() } } label: { Label("Pages", systemImage: "sidebar.left") }
+                        .accessibilityIdentifier("teaching-pages")
+                }
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.viewer, let item = model.activeResource {
                     Button { library = false; model.showLessonInformation(); printing = true } label: { Label("Print to office", systemImage: "printer") }
@@ -221,13 +230,15 @@ struct DocumentPane: View {
     let sessionID: UUID
     let store: LessonStore
     let worksheet: Bool
+    @State private var solutionsSidebar = false
     var body: some View {
         Group {
             if let external = document.source.externalURL {
                 ContentUnavailableView { Label("External resource", systemImage: "link") } description: { Text(document.source.title) } actions: { Link("Open resource", destination: external).buttonStyle(.borderedProminent) }
             } else if document.source.isPDF {
-                PDFDocumentSurface(document: document, sessionID: sessionID, store: store, isWorksheet: worksheet,
-                    fingerDrawing: model.fingerDrawing, onError: model.report)
+                PDFEditorView(document: document, sessionID: sessionID, store: store, isWorksheet: worksheet,
+                    fingerDrawing: model.fingerDrawing, sidebar: worksheet ? $model.pageSidebar : $solutionsSidebar,
+                    onEdit: { model.documentRevision = UUID() }, onError: model.report)
             } else if let url = try? store.documentURL(sessionID: sessionID, document: document), let image = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: image).resizable().scaledToFit().padding()
             } else { ContentUnavailableView("Resource downloaded", systemImage: "doc", description: Text("Share this file from its lesson card to open it in a compatible app.")) }

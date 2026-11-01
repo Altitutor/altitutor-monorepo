@@ -141,3 +141,85 @@ import Testing
     #expect(throws: (any Error).self) { try store.reorder([UUID(), original[0].id, original[1].id], in: session) }
     #expect(try store.lesson(sessionID: session).resources.map(\.id) == order)
 }
+
+@Test func insertingBlankPageMovesInkWithItsOriginalPageAndPersistsLocalRevision() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let tutor = UUID(), store = try LessonStore(root: root, tutorID: tutor), session = UUID()
+    let resource = TeachingResource(id: UUID(), topicID: UUID(), topicName: "Topic", subjectID: UUID(), subjectName: "Subject",
+        worksheet: TeachingDocument(id: UUID(), title: "Practice.pdf", mimeType: "application/pdf", externalURL: nil),
+        solutions: TeachingDocument(id: UUID(), title: "Answers.pdf", mimeType: "application/pdf", externalURL: nil))
+    let added = try #require(store.add(resource, to: session, worksheet: Data([1]), solutions: Data([2])).resources.first)
+    let originalURL = try store.documentURL(sessionID: session, document: added.worksheet)
+    try store.saveDrawing(Data([10]), sessionID: session, document: added.worksheet, page: 0)
+    try store.saveDrawing(Data([20]), sessionID: session, document: added.worksheet, page: 1)
+    try store.saveDrawing(Data([30]), sessionID: session, document: added.worksheet, page: 2)
+    try store.saveViewport(DocumentViewport(page: 1, scale: 2, rotation: 90), sessionID: session, document: added.worksheet)
+    let viewport = try store.editPages(.insertBlank(at: 1), pdf: Data([3]), pageCount: 3, sessionID: session, document: added.worksheet)
+    #expect(viewport.page == 1 && viewport.scale == 0 && viewport.rotation == 90)
+    let reopened = try LessonStore(root: root, tutorID: tutor)
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 0) == Data([10]))
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 1) == nil)
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 2) == Data([20]))
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 3) == Data([30]))
+    #expect(try reopened.viewport(sessionID: session, document: added.worksheet) == viewport)
+    #expect(try Data(contentsOf: reopened.documentURL(sessionID: session, document: added.worksheet)) == Data([3]))
+    #expect(try Data(contentsOf: originalURL) == Data([1]))
+    #expect(try Data(contentsOf: reopened.documentURL(sessionID: session, document: #require(added.solutions))) == Data([2]))
+    #expect(throws: (any Error).self) { try reopened.editPages(.delete(at: 0), pdf: Data([4]), pageCount: 4, sessionID: UUID(), document: added.worksheet) }
+    let other = try LessonStore(root: root, tutorID: UUID())
+    #expect(throws: (any Error).self) { try other.editPages(.delete(at: 0), pdf: Data([4]), pageCount: 4, sessionID: session, document: added.worksheet) }
+    _ = try reopened.editPages(.insertBlank(at: 4), pdf: Data([4]), pageCount: 4, sessionID: session, document: added.worksheet)
+    _ = try reopened.editPages(.delete(at: 1), pdf: Data([5]), pageCount: 5, sessionID: session, document: added.worksheet)
+    _ = try reopened.editPages(.delete(at: 3), pdf: Data([6]), pageCount: 4, sessionID: session, document: added.worksheet)
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 1) == Data([20]))
+    #expect(try reopened.drawing(sessionID: session, document: added.worksheet, page: 2) == Data([30]))
+    #expect(try Data(contentsOf: reopened.documentURL(sessionID: session, document: added.worksheet)) == Data([6]))
+    #expect(try Data(contentsOf: originalURL) == Data([1]))
+}
+
+@Test func deletingPageRebasesInkAndPositionWithoutDiscardingPinnedSource() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let tutor = UUID(), store = try LessonStore(root: root, tutorID: tutor), session = UUID()
+    let resource = TeachingResource(id: UUID(), topicID: UUID(), topicName: "Topic", subjectID: UUID(), subjectName: "Subject",
+        worksheet: TeachingDocument(id: UUID(), title: "Practice.pdf", mimeType: "application/pdf", externalURL: nil), solutions: nil)
+    let item = try #require(store.add(resource, to: session, worksheet: Data([1]), solutions: nil).resources.first)
+    let pinned = try store.documentURL(sessionID: session, document: item.worksheet)
+    try store.saveDrawing(Data([10]), sessionID: session, document: item.worksheet, page: 0)
+    try store.saveDrawing(Data([20]), sessionID: session, document: item.worksheet, page: 1)
+    try store.saveDrawing(Data([30]), sessionID: session, document: item.worksheet, page: 2)
+    try store.saveViewport(DocumentViewport(page: 2, x: 10, y: 20, scale: 2), sessionID: session, document: item.worksheet)
+    let viewport = try store.editPages(.delete(at: 1), pdf: Data([2]), pageCount: 3, sessionID: session, document: item.worksheet)
+    #expect(viewport == DocumentViewport(page: 1, x: 10, y: 20, scale: 2))
+    let reopened = try LessonStore(root: root, tutorID: tutor)
+    #expect(try reopened.drawing(sessionID: session, document: item.worksheet, page: 0) == Data([10]))
+    #expect(try reopened.drawing(sessionID: session, document: item.worksheet, page: 1) == Data([30]))
+    #expect(try reopened.drawing(sessionID: session, document: item.worksheet, page: 2) == nil)
+    #expect(try Data(contentsOf: pinned) == Data([1]))
+    #expect(throws: (any Error).self) { try reopened.editPages(.delete(at: 0), pdf: Data([3]), pageCount: 1, sessionID: session, document: item.worksheet) }
+    #expect(throws: (any Error).self) { try reopened.editPages(.insertBlank(at: -1), pdf: Data([3]), pageCount: 2, sessionID: session, document: item.worksheet) }
+    #expect(throws: (any Error).self) { try reopened.editPages(.delete(at: 0), pdf: Data(), pageCount: 2, sessionID: session, document: item.worksheet) }
+    #expect(try Data(contentsOf: reopened.documentURL(sessionID: session, document: item.worksheet)) == Data([2]))
+}
+
+@Test func pageEditWriteFailureLeavesCurrentPdfInkAndPositionUntouched() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = try LessonStore(root: root, tutorID: UUID()), session = UUID()
+    let resource = TeachingResource(id: UUID(), topicID: UUID(), topicName: "Topic", subjectID: UUID(), subjectName: "Subject",
+        worksheet: TeachingDocument(id: UUID(), title: "Practice.pdf", mimeType: "application/pdf", externalURL: nil), solutions: nil)
+    let item = try #require(store.add(resource, to: session, worksheet: Data([1]), solutions: nil).resources.first)
+    let pinned = try store.documentURL(sessionID: session, document: item.worksheet)
+    try store.saveDrawing(Data([10]), sessionID: session, document: item.worksheet, page: 0)
+    let viewport = DocumentViewport(page: 0, scale: 2)
+    try store.saveViewport(viewport, sessionID: session, document: item.worksheet)
+    let folder = pinned.deletingLastPathComponent()
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path) }
+    #expect(throws: (any Error).self) { try store.editPages(.insertBlank(at: 0), pdf: Data([2]), pageCount: 1, sessionID: session, document: item.worksheet) }
+    #expect(try store.documentURL(sessionID: session, document: item.worksheet) == pinned)
+    #expect(try Data(contentsOf: pinned) == Data([1]))
+    #expect(try store.drawing(sessionID: session, document: item.worksheet, page: 0) == Data([10]))
+    #expect(try store.viewport(sessionID: session, document: item.worksheet) == viewport)
+}

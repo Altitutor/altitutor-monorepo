@@ -16,6 +16,8 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     @Published var viewer = false
     @Published var solutions = false
     @Published var fingerDrawing = false
+    @Published var pageSidebar = false
+    @Published var documentRevision = UUID()
     @Published var busy = false
     @Published var offline = false
     @Published var error: String?
@@ -65,7 +67,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             for task in printTasks.values { task.cancel() }; printTasks = [:]
             route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
-            activeResourceID = nil; store = nil; suggestions = []; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; offline = false
+            activeResourceID = nil; store = nil; suggestions = []; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; pageSidebar = false; offline = false
         } catch { self.error = error.localizedDescription }
     }
     func report(_ error: Error) {
@@ -313,7 +315,9 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     }
     func share(_ document: CachedDocument) {
         guard let store, let session else { return }
-        NotificationCenter.default.post(name: Notification.Name("TeachingFlushPDF"), object: nil)
+        let save = PDFSaveRequest()
+        NotificationCenter.default.post(name: Notification.Name("TeachingFlushPDF"), object: save)
+        guard !save.failed else { return }
         do { sharedURL = try AnnotatedPDF.export(document, sessionID: session.id, store: store) }
         catch { report(error) }
     }
