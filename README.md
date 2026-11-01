@@ -70,9 +70,13 @@ pnpm dev-web
 pnpm dev --filter=admin-web
 ```
 
-Direct app entrypoints are also available:
+The root dev commands above build shared-package prerequisites automatically.
+Direct app entrypoints bypass that step; build the packages first in a fresh
+checkout:
 
 ```bash
+pnpm build --filter='./packages/*'
+
 pnpm --filter admin-web dev
 pnpm --filter student-web dev
 pnpm --filter tutor-web dev
