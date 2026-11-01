@@ -143,7 +143,7 @@ it("autosaves to the shared draft and prevents another submission while the send
   });
   await waitFor(() =>
     expect(
-      screen.getByText("Saved to Microsoft · shared draft"),
+      screen.getByRole("status", { name: "Saved to Microsoft · shared draft" }),
     ).toBeInTheDocument(),
   );
   fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -158,6 +158,7 @@ it("autosaves to the shared draft and prevents another submission while the send
   expect(commands.filter((command) => command.action === "send")).toEqual([
     {
       action: "send",
+      undoDelaySeconds: 10,
       id: "shared-draft",
       changeKey: "version-two",
       commandId: "fa250000-0000-4000-8000-000000000099",
@@ -332,7 +333,7 @@ it("keeps typing and submission responsive after an autosave without refreshing 
   });
   await waitFor(() =>
     expect(
-      screen.getByText("Saved to Microsoft · shared draft"),
+      screen.getByRole("status", { name: "Saved to Microsoft · shared draft" }),
     ).toBeInTheDocument(),
   );
   expect(reads).toBe(1);
@@ -471,12 +472,12 @@ it.each(["Save draft", "Delete draft"])(
       screen.queryByRole("dialog", { name: "Keep this draft?" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Save draft" }),
+      screen.getByRole("menuitem", { name: "Save draft" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Delete draft" }),
+      screen.getByRole("menuitem", { name: "Delete draft" }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: choice }));
+    fireEvent.click(screen.getByRole("menuitem", { name: choice }));
     await waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
     expect(commands).toEqual(
       choice === "Delete draft" ? ["discard"] : ["releaseDraft"],
@@ -666,4 +667,199 @@ it("requires an incomplete recipient to be committed or corrected before Send", 
     target: { value: "" },
   });
   expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+});
+
+it("attaches files dropped into the draft using the same guarded Microsoft upload as the picker", async () => {
+  localStorage.clear();
+  Object.defineProperty(crypto, "randomUUID", {
+    configurable: true,
+    value: () => "fa250000-0000-4000-8000-000000000099",
+  });
+  const uploaded: File[] = [];
+  global.fetch = jest.fn(async (input, init) => {
+    if (String(input).includes("/attachments") && init?.method === "POST") {
+      uploaded.push((init.body as FormData).get("file") as File);
+      return {
+        ok: true,
+        json: async () => ({
+          state: "saved",
+          message: {
+            ...draft,
+            hasAttachments: true,
+            changeKey: `attachment-${uploaded.length}`,
+          },
+        }),
+      } as Response;
+    }
+    return { ok: true, json: async () => ({ person: null }) } as Response;
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false },
+          },
+        })
+      }
+    >
+      <EmailComposer draft={draft} mailbox={mailbox} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  const file = new File(["Class timetable"], "timetable.txt", {
+    type: "text/plain",
+  });
+  fireEvent.drop(screen.getByRole("region", { name: "Shared email draft" }), {
+    dataTransfer: { files: [file], types: ["Files"] },
+  });
+  await waitFor(() =>
+    expect(uploaded.map((item) => item.name)).toEqual(["timetable.txt"]),
+  );
+});
+
+it("closes after queueing and lets Undo cancel before the ten-second send window", async () => {
+  jest.useFakeTimers();
+  localStorage.clear();
+  const { toast } = await import("sonner");
+  const feedback = jest.spyOn(toast, "success");
+  const commands: Array<{ action: string; undoDelaySeconds?: number }> = [];
+  const closed = jest.fn();
+  global.fetch = jest.fn(async (_input, init) => {
+    if (!init?.body)
+      return { ok: true, json: async () => ({ person: null }) } as Response;
+    const command = JSON.parse(String(init.body));
+    commands.push(command);
+    return {
+      ok: true,
+      json: async () =>
+        command.action === "send"
+          ? {
+              state: "queued",
+              commandId: "fa250000-0000-4000-8000-000000000099",
+              scheduledAt: new Date(Date.now() + 10_000).toISOString(),
+            }
+          : { state: "cancelled" },
+    } as Response;
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <EmailComposer draft={draft} mailbox={mailbox} onClose={closed} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+  expect(commands[0]).toMatchObject({ action: "send", undoDelaySeconds: 10 });
+  const options = feedback.mock.calls.find(
+    ([label]) => label === "Sending in 10 seconds",
+  )?.[1];
+  expect(options?.action).toMatchObject({ label: "Undo" });
+  await act(async () => {
+    const action = options?.action;
+    if (action && typeof action === "object" && "onClick" in action)
+      action.onClick({} as React.MouseEvent<HTMLButtonElement>);
+  });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(11_000);
+  });
+  expect(commands.map((command) => command.action)).toEqual([
+    "send",
+    "cancelSchedule",
+  ]);
+  feedback.mockRestore();
+});
+it("serializes files dropped onto the editor and can undo one upload using the latest draft version", async () => {
+  localStorage.clear();
+  const { toast } = await import("sonner");
+  const feedback = jest.spyOn(toast, "success");
+  const uploaded: Array<{ name: string; version: string }> = [];
+  const removals: unknown[] = [];
+  let finishFirst: (response: Response) => void = () => {};
+  global.fetch = jest.fn(async (input, init) => {
+    if (
+      String(input).includes("/attachments") &&
+      init?.body instanceof FormData
+    ) {
+      const file = init.body.get("file") as File;
+      uploaded.push({
+        name: file.name,
+        version: String(init.body.get("changeKey")),
+      });
+      if (uploaded.length === 1)
+        return new Promise<Response>((resolve) => {
+          finishFirst = resolve;
+        });
+      return {
+        ok: true,
+        json: async () => ({
+          state: "saved",
+          message: { ...draft, changeKey: "upload-two" },
+          attachment: { id: "file-two" },
+        }),
+      } as Response;
+    }
+    if (init?.body) {
+      removals.push(JSON.parse(String(init.body)));
+      return {
+        ok: true,
+        json: async () => ({
+          state: "saved",
+          message: { ...draft, changeKey: "removed-one" },
+        }),
+      } as Response;
+    }
+    return { ok: true, json: async () => ({ person: null }) } as Response;
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <EmailComposer draft={draft} mailbox={mailbox} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  fireEvent.drop(screen.getByRole("textbox", { name: "Email body" }), {
+    dataTransfer: {
+      types: ["Files"],
+      files: [new File(["one"], "one.txt"), new File(["two"], "two.txt")],
+    },
+  });
+  await waitFor(() => expect(uploaded).toHaveLength(1));
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  await act(async () =>
+    finishFirst({
+      ok: true,
+      json: async () => ({
+        state: "saved",
+        message: { ...draft, changeKey: "upload-one" },
+        attachment: { id: "file-one" },
+      }),
+    } as Response),
+  );
+  await waitFor(() => expect(uploaded).toHaveLength(2));
+  expect(uploaded).toEqual([
+    { name: "one.txt", version: "version-one" },
+    { name: "two.txt", version: "upload-one" },
+  ]);
+  await waitFor(() => expect(screen.getByText("two.txt")).toBeInTheDocument());
+  const action = feedback.mock.calls.find(
+    ([label]) => label === "Attached one.txt",
+  )?.[1]?.action;
+  await act(async () => {
+    if (action && typeof action === "object" && "onClick" in action)
+      action.onClick({} as React.MouseEvent<HTMLButtonElement>);
+  });
+  await waitFor(() =>
+    expect(removals).toEqual([
+      expect.objectContaining({
+        action: "removeAttachment",
+        attachmentId: "file-one",
+        changeKey: "upload-two",
+      }),
+    ]),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText("one.txt")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("two.txt")).toBeInTheDocument();
+  feedback.mockRestore();
 });

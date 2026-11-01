@@ -195,7 +195,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       .map((message) => message.id);
     if (ids.length) {
       ids.forEach((id) => opened.current.add(id));
-      command.mutate({ action: "read", ids, read: true });
+      command.mutate({ action: "read", ids, read: true, silent: true });
     }
     // Opening each provider message marks it once; explicit unread remains shared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -217,7 +217,10 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           : [
               original.sender === ownAddress ? original.to[0] : original.sender,
             ].filter((address): address is string => Boolean(address));
-    const quote = `\n\nOn ${time(original.sentAt ?? original.receivedAt)}, ${original.sender} wrote:\n${original.bodyText}`;
+    const quote =
+      mode === "forward"
+        ? `\n\nForwarded message from ${original.sender}:\n${original.bodyText}`
+        : "";
     setDraft({
       ...original,
       id: `local:${crypto.randomUUID()}`,
@@ -394,7 +397,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                   </time>
                   <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
                     <EmailActions
-                      ids={message.removed ? [] : [message.id]}
+                      level="message"
+                      ids={nonDraftIds}
                       threadId={threadId}
                       read={Boolean(message.read)}
                       assignedStaffId={data?.assignedStaffId ?? null}
@@ -403,6 +407,11 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                       onReply={
                         !draft && !message.removed
                           ? () => start("reply", message)
+                          : undefined
+                      }
+                      onReplyAll={
+                        !draft && !message.removed
+                          ? () => start("replyAll", message)
                           : undefined
                       }
                       onForward={
@@ -471,7 +480,6 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
               assignedStaffId={data?.assignedStaffId ?? null}
               mailbox={mailbox.data}
               hovered={toolbarHovered && !hoveredCard}
-              compact
               onReply={!draft ? () => start("reply") : undefined}
               onForward={!draft ? () => start("forward") : undefined}
             />
@@ -555,7 +563,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                       setSignature(undefined);
                     }}
                   >
-                    Continue shared draft
+                    Edit
                   </Button>
                 )}
               </section>

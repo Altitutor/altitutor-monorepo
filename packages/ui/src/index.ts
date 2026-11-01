@@ -125,3 +125,5 @@ export * from "./components/interview-round-calendar-card";
 
 export * from './components/entity-chip';
 export * from './extensions/entity-mention';
+
+export * from "./components/keyboard-shortcut";

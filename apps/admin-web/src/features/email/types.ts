@@ -72,6 +72,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     action: z.literal("read"),
     ids: z.array(z.string().min(1)).min(1).max(100),
     read: z.boolean(),
+    silent: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("move"),
@@ -114,6 +115,13 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     editToken: z.string().uuid(),
   }),
   z.object({
+    action: z.literal("removeAttachment"),
+    id: z.string().min(1),
+    attachmentId: z.string().min(1),
+    changeKey: z.string().min(1),
+    editToken: z.string().uuid(),
+  }),
+  z.object({
     action: z.literal("discard"),
     editToken: z.string().uuid(),
     id: z.string().min(1),
@@ -128,7 +136,13 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("cancelSchedule"), id: z.string().uuid() }),
   z.object({
+    action: z.literal("undo"),
+    ids: z.array(z.string().uuid()).min(1).max(100),
+  }),
+  z.object({ action: z.literal("dispatchQueued"), id: z.string().uuid() }),
+  z.object({
     action: z.literal("send"),
+    undoDelaySeconds: z.literal(10).optional(),
     id: z.string().min(1),
     changeKey: z.string().min(1),
     commandId: z.string().uuid(),

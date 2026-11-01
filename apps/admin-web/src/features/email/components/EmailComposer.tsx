@@ -9,9 +9,10 @@ import {
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DateTimePickerPopover,
   Badge,
 } from "@altitutor/ui";
@@ -23,6 +24,9 @@ import {
   X,
   Save,
   Trash2,
+  LoaderCircle,
+  CloudCheck,
+  CircleAlert,
 } from "lucide-react";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import Link from "next/link";
@@ -120,6 +124,11 @@ export function EmailComposer({
   const [recovery, setRecovery] = useState<Content | null>(null);
   const editToken = useRef<string | null>(null);
   const busy = useRef(false);
+  const idleWaiters = useRef<Array<() => void>>([]);
+  const attachmentQueue = useRef(Promise.resolve());
+  const [queuedFiles, setQueuedFiles] = useState(0);
+  const [draggingFiles, setDraggingFiles] = useState(false);
+  const [attachedNames, setAttachedNames] = useState<string[]>([]);
   const current = useRef(content);
   current.current = content;
   const version = useRef(message.changeKey ?? "");
@@ -296,6 +305,7 @@ export function EmailComposer({
       return false;
     } finally {
       busy.current = false;
+      idleWaiters.current.splice(0).forEach((resolve) => resolve());
       // An edit made while the provider was busy must get its own save,
       // including when the earlier request failed (e.g. an incomplete address).
       if (JSON.stringify(snapshot) !== JSON.stringify(current.current))
@@ -319,9 +329,120 @@ export function EmailComposer({
     preparing,
     creationError,
   ]);
+  function undoAttachment(attachmentId: string, name: string) {
+    setQueuedFiles((count) => count + 1);
+    attachmentQueue.current = attachmentQueue.current.then(async () => {
+      if (busy.current)
+        await new Promise<void>((resolve) => idleWaiters.current.push(resolve));
+      busy.current = true;
+      try {
+        const result = draftResponseSchema.parse(
+          await command.mutateAsync({
+            action: "removeAttachment",
+            id: provider.current.id,
+            changeKey: version.current,
+            editToken: (editToken.current ??= crypto.randomUUID()),
+            attachmentId,
+          }),
+        );
+        if (!result.message)
+          throw new Error(
+            "Attachment removal could not be confirmed. Refresh the draft.",
+          );
+        version.current = result.message.changeKey ?? "";
+        setMessage(result.message);
+        setAttachedNames((names) => {
+          const index = names.indexOf(name);
+          return names.filter((_, at) => at !== index);
+        });
+        setStatus("Attachment removed");
+        toast.success("Attachment removed");
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Attachment removal could not be confirmed.",
+        );
+      } finally {
+        busy.current = false;
+        idleWaiters.current.splice(0).forEach((resolve) => resolve());
+        setQueuedFiles((count) => count - 1);
+        setSaveRevision((value) => value + 1);
+      }
+    });
+  }
+  function attachFiles(files: File[]) {
+    if (!files.length) return;
+    setQueuedFiles((count) => count + files.length);
+    for (const file of files) {
+      attachmentQueue.current = attachmentQueue.current.then(async () => {
+        let ownsBusy = false;
+        try {
+          if (file.size >= 3_000_000)
+            throw new Error("Choose a file smaller than 3 MB for this upload.");
+          if (blocked || conflict || creationError)
+            throw new Error("Resolve this draft before attaching files.");
+          if (draftReady) await draftReady;
+          if (busy.current)
+            await new Promise<void>((resolve) =>
+              idleWaiters.current.push(resolve),
+            );
+          busy.current = true;
+          ownsBusy = true;
+          setStatus(`Attaching ${file.name}…`);
+          const body = new FormData();
+          body.set("id", provider.current.id);
+          body.set("changeKey", version.current);
+          body.set("editToken", (editToken.current ??= crypto.randomUUID()));
+          body.set("file", file);
+          const response = await fetch("/api/email/attachments", {
+            method: "POST",
+            body,
+          });
+          const value: unknown = await response.json();
+          if (!response.ok)
+            throw new Error(z.object({ error: z.string() }).parse(value).error);
+          const result = draftResponseSchema.parse(value);
+          if (!result.message)
+            throw new Error(
+              "Attachment outcome could not be confirmed. Check the draft before retrying.",
+            );
+          setMessage(result.message);
+          version.current = result.message.changeKey ?? "";
+          setAttachedNames((names) => [...names, file.name]);
+          setStatus(`Attached ${file.name}`);
+          const attachment = z
+            .object({ attachment: z.object({ id: z.string() }).optional() })
+            .parse(value).attachment;
+          toast.success(`Attached ${file.name}`, {
+            ...(attachment
+              ? {
+                  action: {
+                    label: "Undo",
+                    onClick: () => undoAttachment(attachment.id, file.name),
+                  },
+                }
+              : {}),
+          });
+        } catch (error) {
+          setStatus(
+            error instanceof Error ? error.message : "Attachment failed.",
+          );
+        } finally {
+          if (ownsBusy) {
+            busy.current = false;
+            idleWaiters.current.splice(0).forEach((resolve) => resolve());
+          }
+          setQueuedFiles((count) => count - 1);
+          setSaveRevision((value) => value + 1);
+        }
+      });
+    }
+  }
   async function send(at = scheduledAt ?? undefined) {
     if (
       sending ||
+      queuedFiles > 0 ||
       blocked ||
       Object.values(pendingRecipients).some(Boolean) ||
       !addresses(current.current.to).length ||
@@ -339,28 +460,23 @@ export function EmailComposer({
         await command.mutateAsync({
           ...(at
             ? { action: "schedule" as const, scheduledAt: at }
-            : { action: "send" as const }),
+            : { action: "send" as const, undoDelaySeconds: 10 as const }),
           id: provider.current.id,
           changeKey: version.current,
           commandId: crypto.randomUUID(),
         }),
       );
-      if (result.state === "submitted" || result.state === "scheduled") {
+      if (
+        result.state === "submitted" ||
+        result.state === "scheduled" ||
+        result.state === "queued"
+      ) {
         try {
           localStorage.removeItem(recoveryKey);
         } catch {
           /* Optional recovery store. */
         }
         setDirty(false);
-        toast.success(
-          result.state === "scheduled" ? "Email scheduled" : "Email submitted",
-          {
-            description:
-              result.state === "scheduled"
-                ? new Date(at!).toLocaleString("en-AU")
-                : "Sent Items will confirm delivery in the conversation.",
-          },
-        );
         onClose();
       } else if (result.state === "failed") {
         setBlocked(false);
@@ -392,6 +508,7 @@ export function EmailComposer({
     setDirty(true);
   }
   const unavailable =
+    queuedFiles > 0 ||
     blocked ||
     sending ||
     command.isPending ||
@@ -490,6 +607,7 @@ export function EmailComposer({
         </DateTimePickerPopover>
         <EmailIconButton
           label={scheduledAt ? "Schedule email" : "Send"}
+          variant="default"
           className="h-9 w-9 rounded-full"
           disabled={
             unavailable ||
@@ -665,47 +783,16 @@ export function EmailComposer({
         type="file"
         ref={upload}
         className="hidden"
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
+        multiple
+        onChange={(event) => {
+          attachFiles(Array.from(event.target.files ?? []));
           event.target.value = "";
-          if (!file) return;
-          if (file.size >= 3_000_000) {
-            setStatus(
-              "Files of 3 MB or more require a large-file upload session, which is not available yet.",
-            );
-            return;
-          }
-          setStatus("Attaching file…");
-          try {
-            const body = new FormData();
-            body.set("id", provider.current.id);
-            body.set("changeKey", version.current);
-            body.set("editToken", (editToken.current ??= crypto.randomUUID()));
-            body.set("file", file);
-            const response = await fetch("/api/email/attachments", {
-              method: "POST",
-              body,
-            });
-            const value: unknown = await response.json();
-            if (!response.ok)
-              throw new Error(
-                z.object({ error: z.string() }).parse(value).error,
-              );
-            const result = draftResponseSchema.parse(value);
-            if (result.message) {
-              setMessage(result.message);
-              version.current = result.message.changeKey ?? "";
-            }
-            setStatus(`Attached ${file.name}`);
-          } catch (error) {
-            setStatus(
-              error instanceof Error ? error.message : "Attachment failed.",
-            );
-          }
         }}
       />
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <p role="status">{status}</p>
+      <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        {/(?:failed|could not|changed|rejected|unresolved|invalid|require|restricted|choose|enter|resolve)/i.test(
+          status,
+        ) && <p role="alert">{status}</p>}
         {dirty && !blocked && (
           <Button
             variant="ghost"
@@ -815,59 +902,134 @@ export function EmailComposer({
   }
   return (
     <section
-      className="m-4 space-y-4 rounded-2xl bg-muted/60 p-4 ring-1 ring-inset ring-border/40"
+      className={`relative m-4 space-y-4 rounded-2xl p-4 ring-1 ring-inset ${draggingFiles ? "bg-primary/10 ring-primary/50" : "bg-muted/60 ring-border/40"}`}
+      onDragOverCapture={(event) => {
+        if (event.dataTransfer.types.includes("Files")) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "copy";
+          setDraggingFiles(true);
+        }
+      }}
+      onDragLeaveCapture={(event) => {
+        if (
+          !(event.relatedTarget instanceof Node) ||
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          setDraggingFiles(false);
+      }}
+      onDropCapture={(event) => {
+        if (!event.dataTransfer.files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDraggingFiles(false);
+        attachFiles(Array.from(event.dataTransfer.files));
+      }}
       aria-label="Shared email draft"
       data-email-shortcut-scope="typing"
     >
       <header className="flex items-center justify-between gap-2">
-        <Popover
-          open={Boolean(pendingClose)}
-          onOpenChange={(open) => {
-            if (open) close();
-            else setPendingClose(null);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <EmailIconButton label="Close editor" onClick={close}>
-              <X className="h-4 w-4" />
-            </EmailIconButton>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-52 space-y-1 p-1"
-            aria-label="Draft options"
+        <div className="flex items-center gap-2">
+          <DropdownMenu
+            open={Boolean(pendingClose)}
+            onOpenChange={(open) => {
+              if (open) close();
+              else setPendingClose(null);
+            }}
           >
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              disabled={
-                sending ||
-                preparing ||
-                command.isPending ||
-                Boolean(creationError) ||
-                Object.values(pendingRecipients).some(Boolean)
-              }
-              onClick={() => void saveAndClose()}
+            <DropdownMenuTrigger asChild>
+              <EmailIconButton
+                label="Close editor"
+                destructive
+                variant="ghost"
+                onClick={close}
+              >
+                <X className="h-4 w-4" />
+              </EmailIconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-52"
+              aria-label="Draft options"
             >
-              <Save className="mr-2 h-4 w-4" />
-              {blocked ? "Keep draft and close" : "Save draft"}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-destructive hover:text-destructive"
-              disabled={sending || preparing || command.isPending || blocked}
-              onClick={() => void discardAndClose()}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {creationError ? "Close without saving" : "Delete draft"}
-            </Button>
-          </PopoverContent>
-        </Popover>
+              <DropdownMenuItem
+                className="justify-start"
+                disabled={
+                  sending ||
+                  queuedFiles > 0 ||
+                  preparing ||
+                  command.isPending ||
+                  Boolean(creationError) ||
+                  Object.values(pendingRecipients).some(Boolean)
+                }
+                onClick={() => void saveAndClose()}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {blocked ? "Keep draft and close" : "Save draft"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="justify-start text-destructive focus:bg-destructive/10 focus:text-destructive"
+                disabled={
+                  sending ||
+                  queuedFiles > 0 ||
+                  preparing ||
+                  command.isPending ||
+                  blocked
+                }
+                onClick={() => void discardAndClose()}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {creationError ? "Close without saving" : "Delete draft"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  role="status"
+                  aria-label={status}
+                  tabIndex={0}
+                  className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground"
+                >
+                  {preparing || queuedFiles || sending || command.isPending ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : /(?:failed|could not|changed|rejected|unresolved|invalid|restricted)/i.test(
+                      status,
+                    ) ? (
+                    <CircleAlert className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <CloudCheck className="h-4 w-4" />
+                  )}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{status}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <Badge variant="secondary" className="rounded-full">
           Draft
         </Badge>
       </header>
+      {draggingFiles && (
+        <p className="pointer-events-none absolute inset-x-4 top-12 z-10 rounded-lg bg-primary p-3 text-center text-sm text-primary-foreground">
+          Drop files to attach
+        </p>
+      )}
       {editor}
+      {attachedNames.length > 0 && (
+        <ul aria-label="Attached files" className="flex flex-wrap gap-2">
+          {attachedNames.map((name, index) => (
+            <li
+              key={`${name}:${index}`}
+              className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+            >
+              <Paperclip className="h-3 w-3" />
+              {name}
+            </li>
+          ))}
+        </ul>
+      )}
       {scheduledAt && new Date(scheduledAt).getTime() <= Date.now() && (
         <p role="alert" className="text-xs text-destructive">
           Choose a future send time or clear the schedule.

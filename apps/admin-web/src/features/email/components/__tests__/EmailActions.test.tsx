@@ -39,6 +39,7 @@ it("disables stale hover shortcuts when an accessory tab becomes inactive or col
           mailbox={mailbox}
           hovered
           onReply={reply}
+          level="message"
         />
       </AccessoryTabContext.Provider>
     </QueryClientProvider>,
@@ -59,6 +60,7 @@ it("ignores a hidden primary pane even if its last hover flag is stale", () => {
           mailbox={mailbox}
           hovered
           onReply={reply}
+          level="message"
         />
       </div>
     </QueryClientProvider>,
@@ -78,11 +80,12 @@ it("retains keyboard ownership when menu focus returns to a row whose mouse-ente
           assignedStaffId={null}
           mailbox={mailbox}
           onReply={reply}
+          level="message"
         />
       </div>
     </QueryClientProvider>,
   );
-  screen.getByRole("button", { name: "Reply (R)" }).focus();
+  screen.getByRole("button", { name: "Reply" }).focus();
   fireEvent.keyDown(document.activeElement!, { key: "r" });
   expect(reply).toHaveBeenCalledTimes(1);
 });

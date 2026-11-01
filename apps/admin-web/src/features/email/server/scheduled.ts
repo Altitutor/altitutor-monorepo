@@ -10,8 +10,11 @@ import { observeMailboxMessage } from "./observe";
 export async function dispatchScheduledMail(
   db: SupabaseClient<Database>,
   mailbox: ReturnType<typeof createGraphMailbox>,
+  commandId?: string,
 ) {
-  const claimed = await db.rpc("email_claim_scheduled_sends");
+  const claimed = commandId
+    ? await db.rpc("email_claim_scheduled_send", { p_command_id: commandId })
+    : await db.rpc("email_claim_scheduled_sends");
   if (claimed.error) throw claimed.error;
   for (const attempt of claimed.data ?? []) {
     let state = "uncertain";

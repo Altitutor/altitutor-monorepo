@@ -1,4 +1,5 @@
 "use client"
+import { KeyboardShortcut } from "./keyboard-shortcut";
 
 import * as React from "react"
 import { DialogProps } from "@radix-ui/react-dialog"
@@ -130,18 +131,32 @@ CommandItem.displayName = CommandPrimitive.Item.displayName
 
 const CommandShortcut = ({
   className,
+  children,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) => {
+  if (typeof children === "string")
+    return (
+      <KeyboardShortcut
+        keys={children
+          .split(/[+\s]+/)
+          .flatMap((key) => (/^[⌘⇧⌥⌃]/.test(key) ? Array.from(key) : [key]))
+          .filter(Boolean)}
+        className={cn("ml-auto", className)}
+        {...props}
+      />
+    );
   return (
     <span
       className={cn(
         "ml-auto text-xs tracking-widest text-muted-foreground",
-        className
+        className,
       )}
       {...props}
-    />
-  )
-}
+    >
+      {children}
+    </span>
+  );
+};
 CommandShortcut.displayName = "CommandShortcut"
 
 export {

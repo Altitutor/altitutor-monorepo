@@ -349,10 +349,21 @@ export function createGraphMailbox({
         throw new Error(
           "This attachment requires a large-file upload session.",
         );
-      await request(`/messages/${encodeURIComponent(id)}/attachments`, "POST", {
-        "@odata.type": "#microsoft.graph.fileAttachment",
-        ...file,
-      });
+      const response = await request(
+        `/messages/${encodeURIComponent(id)}/attachments`,
+        "POST",
+        {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          ...file,
+        },
+      );
+      return z.object({ id: z.string() }).parse(await response.json());
+    },
+    async removeAttachment(id: string, attachmentId: string) {
+      await request(
+        `/messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
+        "DELETE",
+      );
     },
     async attachments(id: string) {
       const path = `/messages/${encodeURIComponent(id)}/attachments`;

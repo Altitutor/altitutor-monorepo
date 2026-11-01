@@ -180,6 +180,7 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
                   variant="outline"
                   size="sm"
                   disabled={busy}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setConfirmDelete(true)}
                 >
                   Delete shared template

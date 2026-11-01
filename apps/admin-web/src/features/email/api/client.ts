@@ -7,6 +7,7 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 import { z } from "zod";
+import { emailCommandFeedback } from "./feedback";
 import {
   mailboxSchema,
   emailThreadSchema,
@@ -173,12 +174,32 @@ export async function executeEmailCommand(
     command.ids.length > 25
   ) {
     let result: unknown;
-    for (let offset = 0; offset < command.ids.length; offset += 25)
-      result = await mailRequest("/commands", {
-        ...command,
-        ids: command.ids.slice(offset, offset + 25),
-      });
-    return result;
+    const undoIds: string[] = [];
+    for (let offset = 0; offset < command.ids.length; offset += 25) {
+      try {
+        result = await mailRequest("/commands", {
+          ...command,
+          ids: command.ids.slice(offset, offset + 25),
+        });
+      } catch (error) {
+        if (!undoIds.length) throw error;
+        return {
+          state: "partial",
+          undoIds,
+          error:
+            "Some emails could not be changed. Undo restores the confirmed earlier changes; refresh to review the remaining emails.",
+        };
+      }
+      const receipt = z
+        .object({
+          undoIds: z.array(z.string()).default([]),
+          state: z.string().optional(),
+        })
+        .parse(result);
+      undoIds.push(...receipt.undoIds);
+      if (receipt.state === "partial") break;
+    }
+    return { ...(result && typeof result === "object" ? result : {}), undoIds };
   }
   return mailRequest("/commands", command);
 }
@@ -193,6 +214,11 @@ export function useEmailCommand() {
       return optimisticMailbox(client, command as OptimisticCommand);
     },
     onError: (_error, _command, optimistic) => optimistic?.rollback(),
+    onSuccess: (result, command) =>
+      emailCommandFeedback(command, result, executeEmailCommand, () => {
+        void client.invalidateQueries({ queryKey: ["email"] });
+        void client.invalidateQueries({ queryKey: ["notifications"] });
+      }),
     onSettled: (_data, _error, command, optimistic) => {
       optimistic?.finish();
       // Draft saves belong to the mounted editor. Refetching every active

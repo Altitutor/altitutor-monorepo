@@ -164,7 +164,7 @@ export function MailPage() {
           </span>
         </div>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           onClick={compose}
           disabled={!mailbox.data}
@@ -173,7 +173,7 @@ export function MailPage() {
           Compose
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[480px]:flex-row">
         <MailFolders
           folders={mailbox.data?.folders ?? []}
           loading={!mailbox.data}
@@ -300,6 +300,16 @@ export function MailPage() {
                 <div
                   key={row.id}
                   draggable
+                  onClick={() => open(row)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.target === event.currentTarget &&
+                      ["Enter", " "].includes(event.key)
+                    ) {
+                      event.preventDefault();
+                      open(row);
+                    }
+                  }}
                   data-email-shortcut-target
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = "move";
@@ -315,11 +325,14 @@ export function MailPage() {
                     if (!event.currentTarget.contains(event.relatedTarget))
                       setHovered(undefined);
                   }}
-                  className={`group flex min-w-0 items-center gap-2 rounded-md px-3 py-3 ${selected === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
+                  className={`group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1 ${selected === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
                 >
                   <button
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                    onClick={() => open(row)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      open(row);
+                    }}
                     aria-label={`Open ${row.subject || "email conversation"}`}
                   >
                     <span
@@ -344,7 +357,7 @@ export function MailPage() {
                       )}
                     </span>
                   </button>
-                  <div className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                  <div className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                     {mailbox.data && (
                       <EmailActions
                         ids={row.messageIds}
@@ -361,8 +374,31 @@ export function MailPage() {
                       />
                     )}
                   </div>
+                  {row.assignedStaffId && (
+                    <span
+                      className="max-w-28 shrink-0 truncate text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
+                      title={mailbox.data?.staff
+                        .filter((person) => person.id === row.assignedStaffId)
+                        .map((person) =>
+                          [person.first_name, person.last_name]
+                            .filter(Boolean)
+                            .join(" "),
+                        )
+                        .join("")}
+                    >
+                      {" "}
+                      {mailbox.data?.staff
+                        .filter((person) => person.id === row.assignedStaffId)
+                        .map((person) =>
+                          [person.first_name, person.last_name]
+                            .filter(Boolean)
+                            .join(" "),
+                        )
+                        .join("") || "Assigned staff"}
+                    </span>
+                  )}
                   {settings.visibleColumns.includes("time") && (
-                    <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground md:block">
+                    <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0 md:block">
                       {row.at
                         ? new Date(row.at).toLocaleDateString("en-AU", {
                             day: "numeric",

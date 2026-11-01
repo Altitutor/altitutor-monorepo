@@ -7,6 +7,7 @@ import {
   Trash2,
   UserRound,
   Reply,
+  ReplyAll,
   Forward,
 } from "lucide-react";
 import { SearchableSelect } from "@altitutor/ui";
@@ -49,6 +50,8 @@ export function EmailActions({
   hovered = false,
   onReply,
   onForward,
+  onReplyAll,
+  level = "thread",
   compact = false,
 }: {
   ids: string[];
@@ -59,6 +62,8 @@ export function EmailActions({
   hovered?: boolean;
   onReply?: () => void;
   onForward?: () => void;
+  onReplyAll?: () => void;
+  level?: "thread" | "message";
   compact?: boolean;
 }) {
   const command = useEmailCommand();
@@ -71,6 +76,7 @@ export function EmailActions({
     read,
     hovered: hovered && scope?.active !== false,
     onReply,
+    onReplyAll,
     onForward,
     busy: command.isPending,
   });
@@ -79,6 +85,7 @@ export function EmailActions({
     read,
     hovered: hovered && scope?.active !== false,
     onReply,
+    onReplyAll,
     onForward,
     busy: command.isPending,
   };
@@ -131,7 +138,10 @@ export function EmailActions({
       )
         return;
       event.preventDefault();
-      if (action === "r") state.onReply?.();
+      if (action === "r") {
+        if (event.shiftKey && state.onReplyAll) state.onReplyAll();
+        else state.onReply?.();
+      }
       if (action === "f") state.onForward?.();
       if (action === "m") setMoveOpen(true);
       if (action === "a") setAssignOpen(true);
@@ -161,35 +171,50 @@ export function EmailActions({
       onClick={(event) => event.stopPropagation()}
     >
       <EmailActionGroup label="Email actions">
-        {onReply && !compact && (
+        {level === "message" && onReply && (
           <EmailIconButton
-            label="Reply (R)"
+            label="Reply"
+            shortcut="R"
             disabled={command.isPending}
             onClick={onReply}
           >
             <Reply className="h-4 w-4" />
           </EmailIconButton>
         )}
-        {onForward && !compact && (
+        {level === "message" && onReplyAll && (
           <EmailIconButton
-            label="Forward (F)"
+            label="Reply all"
+            shortcut={["Shift", "R"]}
+            disabled={command.isPending}
+            onClick={onReplyAll}
+          >
+            <ReplyAll className="h-4 w-4" />
+          </EmailIconButton>
+        )}
+        {level === "message" && onForward && (
+          <EmailIconButton
+            label="Forward"
+            shortcut="F"
             disabled={command.isPending}
             onClick={onForward}
           >
             <Forward className="h-4 w-4" />
           </EmailIconButton>
         )}
-        <EmailIconButton
-          label={read ? "Mark unread (U)" : "Mark read (U)"}
-          disabled={!ids.length || command.isPending}
-          onClick={() => command.mutate({ action: "read", ids, read: !read })}
-        >
-          {read ? (
-            <Mail className="h-4 w-4" />
-          ) : (
-            <MailOpen className="h-4 w-4" />
-          )}
-        </EmailIconButton>
+        {level === "thread" && (
+          <EmailIconButton
+            label={read ? "Mark unread" : "Mark read"}
+            shortcut="U"
+            disabled={!ids.length || command.isPending}
+            onClick={() => command.mutate({ action: "read", ids, read: !read })}
+          >
+            {read ? (
+              <Mail className="h-4 w-4" />
+            ) : (
+              <MailOpen className="h-4 w-4" />
+            )}
+          </EmailIconButton>
+        )}
         <SearchableSelect
           items={mailbox.staff}
           value={selected}
@@ -208,14 +233,23 @@ export function EmailActions({
             })
           }
           trigger={
-            <EmailIconButton
-              label={`Assign (A)${selected ? ` · ${name(selected)}` : ""}`}
-              disabled={command.isPending}
-            >
-              <UserRound
-                className={`h-4 w-4 ${selected ? "text-primary" : ""}`}
-              />
-            </EmailIconButton>
+            level === "message" ? (
+              <span aria-hidden="true" />
+            ) : (
+              <EmailIconButton
+                label={selected ? `Assign · ${name(selected)}` : "Assign"}
+                shortcut="A"
+                className={selected && !compact ? "w-auto max-w-40 px-2" : ""}
+                disabled={command.isPending}
+              >
+                <UserRound
+                  className={`h-4 w-4 ${selected ? "text-primary" : ""}`}
+                />
+                {selected && !compact && (
+                  <span className="truncate text-xs">{name(selected)}</span>
+                )}
+              </EmailIconButton>
+            )
           }
         />
         <SearchableSelect
@@ -235,23 +269,32 @@ export function EmailActions({
               );
           }}
           trigger={
-            <EmailIconButton
-              label="Move to folder (M)"
-              disabled={!ids.length || command.isPending}
-            >
-              <FolderInput className="h-4 w-4" />
-            </EmailIconButton>
+            level === "message" ? (
+              <span aria-hidden="true" />
+            ) : (
+              <EmailIconButton
+                label="Move to folder"
+                shortcut="M"
+                disabled={!ids.length || command.isPending}
+              >
+                <FolderInput className="h-4 w-4" />
+              </EmailIconButton>
+            )
           }
         />
-        <EmailIconButton
-          label="Delete (Backspace)"
-          disabled={!ids.length || command.isPending}
-          onClick={() =>
-            command.mutate({ action: "move", ids, folderId: "deleteditems" })
-          }
-        >
-          <Trash2 className="h-4 w-4" />
-        </EmailIconButton>
+        {level === "thread" && (
+          <EmailIconButton
+            label="Delete"
+            shortcut="Backspace"
+            destructive
+            disabled={!ids.length || command.isPending}
+            onClick={() =>
+              command.mutate({ action: "move", ids, folderId: "deleteditems" })
+            }
+          >
+            <Trash2 className="h-4 w-4" />
+          </EmailIconButton>
+        )}
       </EmailActionGroup>
       {command.error && (
         <span role="alert" className="max-w-40 text-xs text-destructive">

@@ -101,6 +101,8 @@ export function EmailFormatting({
           <EmailIconButton
             key={command.label}
             label={command.label}
+            variant="ghost"
+            className="border-0 bg-transparent shadow-none"
             disabled={disabled || !editor}
             onMouseDown={(event) => event.preventDefault()}
             onClick={command.run}
@@ -207,35 +209,4 @@ export const EmailBodyEditor = forwardRef<
   );
 });
 
-/** Incoming HTML is isolated: no scripts, forms, provider CSS or tracking images. */
-export function EmailBody({
-  html,
-  text,
-}: {
-  html?: string | null;
-  text: string;
-}) {
-  const [height, setHeight] = useState(150);
-  if (!html)
-    return (
-      <p className="whitespace-pre-wrap break-words text-sm leading-7">
-        {text}
-      </p>
-    );
-  // Scripts and forms stay disabled; same-origin permits the parent to size the isolated document.
-  return (
-    <iframe
-      title="Email content"
-      sandbox="allow-same-origin"
-      referrerPolicy="no-referrer"
-      className="w-full rounded-lg border-0 bg-white"
-      style={{ height }}
-      srcDoc={`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><style>body{font:14px/1.7 system-ui;color:#222;margin:12px;overflow-wrap:anywhere}a{color:#2563eb}img{max-width:100%}</style></head><body>${html}</body></html>`}
-      onLoad={(event) => {
-        const body = event.currentTarget.contentDocument?.body;
-        if (body)
-          setHeight(Math.min(2000, Math.max(100, body.scrollHeight + 24)));
-      }}
-    />
-  );
-}
+export { EmailBody } from "./EmailMessageBody";

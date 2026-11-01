@@ -96,14 +96,14 @@ export async function POST(request: NextRequest) {
         },
         { status: 409 },
       );
-    await mailbox.addAttachment(id, {
+    const attachment = await mailbox.addAttachment(id, {
       name: file.name,
       contentType: file.type || "application/octet-stream",
       contentBytes: Buffer.from(await file.arrayBuffer()).toString("base64"),
     });
     const message = await mailbox.message(id);
     const observed = await observeMailboxMessage(access.admin, message);
-    return NextResponse.json({ state: "saved", message: observed });
+    return NextResponse.json({ state: "saved", message: observed, attachment });
   } catch {
     return NextResponse.json(
       {
