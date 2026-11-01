@@ -131,8 +131,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
 
   const defaultFilters = useMemo(() => STUDENT_VIEW_DEFAULTS.in_person.filters, []);
-  const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
+  const defaultSort = useMemo(() => ({ field: STUDENT_VIEW_DEFAULTS.in_person.sortBy, direction: STUDENT_VIEW_DEFAULTS.in_person.sortDirection }), []);
+  const defaultVisibleColumns = STUDENT_VIEW_DEFAULTS.in_person.visibleColumns;
 
   const quickFilters = useStudentViews();
 

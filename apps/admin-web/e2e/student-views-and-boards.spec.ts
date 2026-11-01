@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -81,6 +82,30 @@ test('Student onboarding stays accessible in a responsive collapsible sidebar', 
   await expect(sidebar).toBeHidden();
 });
 
+test('closing onboarding refreshes the Student page without reloading', async ({ page }) => {
+  const id = randomUUID();
+  const url = process.env.ADMIN_E2E_SUPABASE_URL!;
+  if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Fixtures require a local database');
+  const db = createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const student = await db.from('students').insert({ id, first_name: 'Close journey', last_name: 'Browser check', status: 'TRIAL' });
+  if (student.error) throw student.error;
+  const journey = await db.from('onboarding_journeys').insert({ student_id: id, label: 'Close journey Browser check', enquiry_at: '2026-10-30T12:00:00Z' });
+  if (journey.error) throw journey.error;
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signIn(page);
+  await page.goto(`/students/${id}`, { waitUntil: 'domcontentloaded' });
+  const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
+  await expect(toggle).toBeVisible();
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await sidebar.getByText('Close journey', { exact: true }).click();
+  await sidebar.getByLabel('Closure reason').selectOption('withdrawn');
+  await sidebar.getByLabel('Closure detail').fill('Local browser regression: explicit withdrawal');
+  await sidebar.getByRole('button', { name: 'Close and discontinue', exact: true }).click();
+  await expect(toggle).toBeHidden();
+  await expect(sidebar).toBeHidden();
+});
+
 test('individual conversations start with Emails hidden and allow opting in', async ({ page }) => {
   await signIn(page);
   await page.goto('/messages');
@@ -96,15 +121,23 @@ test('work-item boards align toolbars, span the page and scroll columns independ
   await page.setViewportSize({ width: 1000, height: 900 });
   await signIn(page);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
-  const studentsToolbar = await page.getByRole('button', { name: 'Display options', exact: true }).boundingBox();
+  // Wait for the page action portal before measuring the header's final height.
+  await expect(page.getByRole('button', { name: 'Add Student', exact: true })).toBeVisible();
+  const toolbarInsets = async () => {
+    const button = (await page.getByRole('button', { name: 'Display options', exact: true }).boundingBox())!;
+    const main = (await page.locator('[data-admin-main]').boundingBox())!;
+    const header = (await page.locator('[data-admin-page-header]').boundingBox())!;
+    return { right: Math.round(main.x + main.width - button.x - button.width), top: Math.round(button.y - header.y - header.height) };
+  };
+  // Compare page insets, so the shell's width animation cannot skew the reference.
+  await expect.poll(toolbarInsets).toEqual({ right: 24, top: 26 });
+  const studentsToolbar = await toolbarInsets();
   for (const path of ['/tasks', '/issues', '/projects']) {
     await page.locator(`nav a[href="${path}"]`).click();
     await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText(path.slice(1).replace(/^./, char => char.toUpperCase()));
     const display = page.getByRole('button', { name: 'Display options', exact: true });
     await expect(display).toBeVisible({ timeout: 30_000 });
-    const toolbar = await display.boundingBox();
-    expect(Math.abs(toolbar!.y - studentsToolbar!.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(toolbar!.x - studentsToolbar!.x)).toBeLessThanOrEqual(1);
+    await expect.poll(toolbarInsets).toEqual(studentsToolbar);
     const board = page.getByRole('region', { name: 'Board', exact: true });
     await expect(board).toBeVisible();
     expect(await board.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);

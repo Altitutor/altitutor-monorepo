@@ -38,8 +38,8 @@ export function OnlineStudentsTable() {
   const router = useRouter();
   const quickFilters = useStudentViews();
   const defaultFilters = useMemo(() => STUDENT_VIEW_DEFAULTS.online.filters, []);
-  const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['student', 'products', 'online_since'], []);
+  const defaultSort = useMemo(() => ({ field: STUDENT_VIEW_DEFAULTS.online.sortBy, direction: STUDENT_VIEW_DEFAULTS.online.sortDirection }), []);
+  const defaultVisibleColumns = STUDENT_VIEW_DEFAULTS.online.visibleColumns;
   const {
     state,
     setSearch,

@@ -14,6 +14,7 @@ import { CheckInBookSessionModal } from "@/features/sessions/components/CheckInB
 import { EnrollStudentModal } from "@/features/enrollments/components/EnrollStudentModal";
 import { FillFormDialog } from "@/features/forms/components/FillFormDialog";
 import { classesApi } from "@/features/classes/api/classes";
+import { invalidateStudentClassSurfaces, invalidateStudentSessionSurfaces } from "@/shared/lib/query-invalidation";
 import { studentsApi } from "@/features/students/api/students";
 import { JourneyCommunication } from "./JourneyCommunication";
 import {
@@ -180,6 +181,10 @@ export function JourneyDetail({
   );
   function refresh() {
     void qc.invalidateQueries({ queryKey: onboardingKey });
+    if (journey.student_id) {
+      void invalidateStudentClassSurfaces(qc, journey.student_id);
+      void invalidateStudentSessionSurfaces(qc, journey.student_id);
+    }
   }
   function act(action: Action) {
     if (action.key === "registration_link" || action.key === "registration") {

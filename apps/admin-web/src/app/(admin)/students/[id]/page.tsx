@@ -80,7 +80,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     const observer = new ResizeObserver(([entry]) => {
       const next = entry.contentRect.width < 1000;
       setNarrow(next);
-      if (next && !wasNarrow) setSidebarOpen(false);
+      if (next !== wasNarrow) setSidebarOpen(!next);
       wasNarrow = next;
     });
     observer.observe(detailRoot);
