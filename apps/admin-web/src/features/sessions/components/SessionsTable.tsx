@@ -15,7 +15,7 @@ import {
   TablePagination,
 } from '@altitutor/ui';
 import { ArrowUpDown, Search } from 'lucide-react';
-import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import { encodeViewConfig, type QuickFilter, type DisplaySettings, type DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSessionType } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -142,7 +142,7 @@ export function SessionsTable({
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('sessions');
+  const { data: savedViews = [] } = useQuickFilters('sessions');
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
   const [staffFilterSearch, setStaffFilterSearch] = useState('');
   const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
@@ -158,6 +158,28 @@ export function SessionsTable({
     }
     return ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
+
+  const quickFilters = useMemo(() => {
+    if (!toolbarView) return savedViews;
+    const settings: DisplaySettings = {
+      layout: 'calendar', filters: {}, sortBy: defaultSort.field,
+      sortDirection: defaultSort.direction, groupBy: null,
+      visibleColumns: defaultVisibleColumns,
+    };
+    const builtIn = (id: string, name: string, config: DisplaySettings): QuickFilter => ({
+      id: `builtin:sessions:${id}`, name, target_entity: 'sessions', user_id: null,
+      created_at: '', updated_at: '', config: encodeViewConfig(config),
+    });
+    const today = new Date();
+    return [
+      builtIn('calendar', 'Calendar', settings),
+      builtIn('this-week', 'This week', {...settings, layout: 'table', filters: {
+        from: [format(startOfWeek(today, {weekStartsOn: 1}), 'yyyy-MM-dd')],
+        to: [format(endOfWeek(today, {weekStartsOn: 1}), 'yyyy-MM-dd')],
+      }}),
+      ...savedViews,
+    ];
+  }, [savedViews, toolbarView, defaultSort, defaultVisibleColumns]);
 
   const {
     state,

@@ -168,9 +168,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run test --filter="${{ env.TURBO_FILTER }}"
+            pnpm turbo run test --concurrency=2 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run test
+            pnpm test
           fi
 
   ucat-contracts:

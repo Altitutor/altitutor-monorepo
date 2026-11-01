@@ -12,6 +12,7 @@ import {
   isPanelResizeActive,
   MediaQueryWidthProvider,
 } from '@altitutor/ui';
+import { AdminActionGroup } from './AdminActionGroup';
 import { X } from 'lucide-react';
 import {
   ExpandButton,
@@ -145,7 +146,7 @@ export function AdminDialogShell({
         </div>
 
         {footer ? (
-          <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end">{footer}</DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end"><AdminActionGroup label="Dialog actions">{footer}</AdminActionGroup></DialogFooter>
         ) : null}
         </AdminDialogExpandContext.Provider>
         </MediaQueryWidthProvider>

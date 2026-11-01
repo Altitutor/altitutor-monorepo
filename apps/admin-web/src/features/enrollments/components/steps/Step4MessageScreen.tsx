@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { WorkflowEmail } from '@/features/email/components/WorkflowEmail';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
@@ -181,6 +182,11 @@ export function Step4MessageScreen({
       )}
 
 
+      {selectedStudent && selectedClass && currentStaff && <WorkflowEmail student={selectedStudent} parents={parents} subject="Enrolment confirmation" buildBody={async (name) => {
+        const first = calculateFirstSessionDate(selectedClass, getMidnightAdelaide(new Date(enrollmentDate)));
+        if (!first) throw new Error("The first session date is unavailable.");
+        return getEnrollmentConfirmationMessageForClient({ name, className: selectedClass.long_name?.trim() ?? '', startDate: formatDate(first), senderName: getSenderNameFromStaff(currentStaff) });
+      }} />}
       {/* Message Section */}
       {selectedRecipient && recipientOptions.length > 0 ? (
         <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">

@@ -55,10 +55,10 @@ it.each([
   ],
 ] as const)(
   "wires %s to both navigation and the article's next step",
-  (target, href, label, navLabel) => {
+  async (target, href, label, navLabel) => {
     mockArticle.conversionTarget = target;
     const html = renderToStaticMarkup(
-      createElement(ArticleRoute, { params: { slug: "example" } }),
+      await ArticleRoute({ params: Promise.resolve({ slug: "example" }) }),
     );
     expect(html).toContain(`href="${href}">${navLabel}</a>`);
     expect(html).toContain(`href="${href}">${label}</a>`);

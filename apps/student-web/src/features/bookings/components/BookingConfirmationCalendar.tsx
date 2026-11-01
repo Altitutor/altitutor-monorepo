@@ -177,7 +177,7 @@ export function BookingConfirmationCalendar({
               {idx === 0 && (
                 <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
                   {(() => {
-                    const blocks: JSX.Element[] = [];
+                    const blocks: React.JSX.Element[] = [];
                     groups.forEach((group) => {
                       const total = group.length;
                       const columnWidth = total > 1 ? 95 / total : 95;

@@ -4,6 +4,7 @@ const push = jest.fn();
 const updateQuery = jest.fn();
 const openTab = jest.fn();
 const navigate = jest.fn();
+let mockInAccessory = true;
 const tab = {
   key: "one",
   kind: "issue",
@@ -21,9 +22,12 @@ jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
   useAccessoryPanelActions: () => ({ updateQuery, openTab }),
 }));
 jest.mock("@/shared/contexts/AccessoryTabContext", () => ({
-  useAccessoryTab: () => ({ tab, navigate }),
+  useAccessoryTab: () => (mockInAccessory ? { tab, navigate } : null),
 }));
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockInAccessory = true;
+});
 test("query changes on a detail tab stay in the accessory pane with a plural path", () => {
   const { result } = renderHook(() => usePaneNavigation());
   expect(result.current.pathname).toBe("/issues/record");
@@ -44,4 +48,24 @@ test("list and record navigation are handed to the current tab", () => {
   expect(navigate).toHaveBeenCalledWith(
     expect.objectContaining({ kind: "issue", id: "another" }),
   );
+});
+test.each([false, true])(
+  "Mail collection opens in the primary page from accessory scope %s",
+  (inAccessory) => {
+    mockInAccessory = inAccessory;
+    const { result } = renderHook(() => usePaneNavigation());
+    act(() => result.current.router.push("/email"));
+    expect(push).toHaveBeenCalledWith("/email", undefined);
+    expect(openTab).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  },
+);
+test("an email conversation still opens a global accessory tab", () => {
+  mockInAccessory = false;
+  const { result } = renderHook(() => usePaneNavigation());
+  act(() => result.current.router.push("/email/thread-one"));
+  expect(openTab).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: "email", id: "thread-one" }),
+  );
+  expect(push).not.toHaveBeenCalled();
 });

@@ -130,10 +130,27 @@ class WorktreeDevelopmentTests(unittest.TestCase):
         self.assertEqual(json.loads(self.call('status').stdout)['phase'], 'stopped')
         self.assertFalse(Path(data['runtime']).exists())
 
+    def test_published_web_origin_survives_next_auth_redirects(self):
+        data = self.wait_ready(self.start('--apps', 'ucat-web'))
+        origin = data['apps']['ucat-web']
+        # Auth routes receive NextRequest's normalized URL, then build an
+        # absolute redirect from it. Exercise installed Next rather than a
+        # fixture's approximation of its loopback-host normalization.
+        redirected = subprocess.check_output(
+            ['node', '-e',
+             "const {NextRequest}=require('next/server');"
+             "const request=new NextRequest(process.argv[1]+'/auth/continue');"
+             "console.log(new URL('/dashboard',request.url).origin)", origin],
+            cwd=Path(__file__).resolve().parents[1] / 'apps/ucat-web', text=True,
+        ).strip()
+        self.assertEqual(redirected, origin,
+                         'Auth navigation must retain the published host and its host-only cookie')
+
     def test_native_app_includes_its_backend_and_gets_matching_url(self):
         process = self.start('--apps', 'ucat-app')
         data = self.wait_ready(process)
         self.assertEqual(set(data['apps']), {'ucat-app', 'ucat-web'})
+        self.assertTrue(data['apps']['ucat-app'].startswith('http://127.0.0.1:'))
         environment = json.loads((self.fixture.base / 'ucat-app.env.json').read_text())
         self.assertEqual(environment['EXPO_PUBLIC_UCAT_WEB_URL'], data['apps']['ucat-web'])
 

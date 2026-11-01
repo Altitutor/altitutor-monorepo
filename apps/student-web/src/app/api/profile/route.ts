@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a student
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
@@ -206,7 +206,7 @@ export async function PATCH(request: NextRequest) {
 export async function GET(_request: NextRequest) {
   try {
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a student
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');

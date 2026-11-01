@@ -1,0 +1,16 @@
+BEGIN;
+SELECT plan(7);
+SET LOCAL ROLE service_role;
+SELECT has_function('public','email_claim_sync',ARRAY['uuid'],'sync exposes a durable claim before any Microsoft fetch');
+SELECT ok(public.email_claim_sync('fa250200-0000-4000-8000-000000000001'),'the first sync worker owns the mailbox lease');
+SELECT ok(NOT public.email_claim_sync('fa250200-0000-4000-8000-000000000002'),'another sync worker cannot duplicate provider work');
+SELECT public.email_release_sync('fa250200-0000-4000-8000-000000000002');
+SELECT ok(NOT public.email_claim_sync('fa250200-0000-4000-8000-000000000002'),'a different worker cannot release the active lease');
+SELECT public.email_release_sync('fa250200-0000-4000-8000-000000000001');
+SELECT ok(public.email_claim_sync('fa250200-0000-4000-8000-000000000002'),'the next worker can resume after the owner releases its lease');
+UPDATE public.email_sync_lease SET expires_at=clock_timestamp()-interval '1 second';
+SELECT ok(public.email_claim_sync('fa250200-0000-4000-8000-000000000003'),'a crashed worker lease expires for a later sync pass');
+SELECT public.email_release_sync('fa250200-0000-4000-8000-000000000002');
+SELECT ok(NOT public.email_claim_sync('fa250200-0000-4000-8000-000000000004'),'the expired worker cannot release its replacement owner');
+SELECT * FROM finish();
+ROLLBACK;

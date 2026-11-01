@@ -128,7 +128,7 @@ describe("public booking lookup with multiple students", () => {
     jest
       .mocked(createServiceRoleClient)
       .mockReturnValue(fixtureClient(options));
-    return GET({} as NextRequest, { params: { sessionId: identifier } });
+    return GET({} as NextRequest, { params: Promise.resolve({ sessionId: identifier }) });
   }
 
   it.each([1, 2])(

@@ -72,6 +72,19 @@ describe('lifecycle activity mapper', () => {
     expect(result.message).toBe(expectedMessage);
   });
 
+  it.each([
+    ['not_invoiced', 'not charged; no invoice'],
+    ['paid_invoice', 'account credit requested'],
+    ['unpaid_invoice', 'invoice reduction requested'],
+    ['chargeable', 'charge retained because attendance makes the session payable'],
+  ])('distinguishes absence treatment from completed financial credit: %s', (context, outcome) => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_credited',
+      payload: {absence_billing_context: context, display: {student_name: 'Alex Student', session_name: 'Tuesday UCAT'}},
+    }));
+    expect(result.message).toBe(`recorded Alex Student's planned absence from Tuesday UCAT (${outcome})`);
+  });
+
   it('describes an invoice by number and all linked sessions', () => {
     const result = mapActivityEventToDisplay(makeEvent({
       event_name: 'invoice.issued',
@@ -87,21 +100,21 @@ describe('lifecycle activity mapper', () => {
     expect(result.message).toBe('issued invoice INV-1042 for Tuesday UCAT and Thursday UCAT');
   });
 
-  it('includes card vs credit-balance settlement on a paid invoice', () => {
+  it('includes customer payment plus account credit using persisted Stripe amounts', () => {
     const result = mapActivityEventToDisplay(makeEvent({
       event_name: 'invoice.paid',
       subject_type: 'invoice',
       payload: {
-        amount_paid_cents: 15000,
+        amount_paid_cents: 13000,
         amount_paid_from_balance_cents: 2000,
-        amount_paid_from_card_cents: 13000,
+        amount_paid_from_card_cents: 11000, // historical derived field subtracts credit twice
         currency: 'AUD',
         display: { invoice_name: 'INV-1042' },
       },
     }));
 
     expect(result.message).toBe(
-      'recorded invoice INV-1042 as paid ($150.00 AUD, $20.00 AUD from credit balance, $130.00 AUD from card)'
+      'recorded invoice INV-1042 as paid ($150.00 AUD, $20.00 AUD from credit balance, $130.00 AUD from customer payment)'
     );
   });
 
@@ -110,7 +123,7 @@ describe('lifecycle activity mapper', () => {
       event_name: 'invoice.paid',
       subject_type: 'invoice',
       payload: {
-        amount_paid_cents: 8000,
+        amount_paid_cents: 0,
         amount_paid_from_balance_cents: 8000,
         amount_paid_from_card_cents: 0,
         currency: 'AUD',
@@ -180,7 +193,7 @@ describe('lifecycle activity mapper', () => {
     }));
 
     expect(absenceCredit.message).toBe(
-      'added a Credit credit note of $90.00 AUD to invoice INV-1042 (Approved Absence: Sick with flu)'
+      'added a customer balance credit of $90.00 AUD for invoice INV-1042 (Approved Absence: Sick with flu)'
     );
     expect(absenceCredit.performedBy.name).toBe('Admin User');
   });

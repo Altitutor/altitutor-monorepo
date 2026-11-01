@@ -4,7 +4,7 @@ import type { Database } from '@altitutor/shared';
 import { expect, test as base } from '@playwright/test';
 
 const test = base.extend<{ subsidyStudentId: string }>({
-  subsidyStudentId: async ({ baseURL }, use) => {
+  subsidyStudentId: async ({ baseURL }, provideStudent) => {
     const url = process.env.ADMIN_E2E_SUPABASE_URL;
     const key = process.env.ADMIN_E2E_SERVICE_ROLE_KEY;
     if (!url || !key || !baseURL ||
@@ -21,7 +21,7 @@ const test = base.extend<{ subsidyStudentId: string }>({
     });
     if (error) throw new Error(error.message);
     try {
-      await use(id);
+      await provideStudent(id);
     } finally {
       // Student history is retained even in fixtures; the owned DB is disposable.
       const { error: loginError } = await database.auth.signInWithPassword({

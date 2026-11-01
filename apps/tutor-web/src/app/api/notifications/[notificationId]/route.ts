@@ -13,12 +13,13 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { notificationId: string } }
+  props: { params: Promise<{ notificationId: string }> }
 ) {
+  const params = await props.params;
   try {
     const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

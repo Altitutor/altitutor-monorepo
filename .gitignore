@@ -43,6 +43,7 @@ tasks.json
 *storybook.log
 # Next.js output (default .next and custom NEXT_DIST_DIR, e.g. .next-e2e)
 .next*
+next-env.d.ts
 test-results/
 
 # TypeScript build artifacts

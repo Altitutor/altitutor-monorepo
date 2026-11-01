@@ -5,10 +5,8 @@ import {
   resolveInterviewActor,
 } from "@/features/interviews/server/context";
 export const dynamic = "force-dynamic";
-export async function GET(
-  request: Request,
-  { params }: { params: { roundId: string } },
-) {
+export async function GET(request: Request, props: { params: Promise<{ roundId: string }> }) {
+  const params = await props.params;
   try {
     const actor = await resolveInterviewActor(request);
     if ("response" in actor) return actor.response;

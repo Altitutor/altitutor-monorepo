@@ -1,7 +1,7 @@
 "use client";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -94,11 +94,12 @@ type UndoTarget =
       swappedStaffName?: string;
     };
 
-export default function SessionDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function SessionDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   return <SessionDetailView key={params.id} id={params.id} />;
 }
 

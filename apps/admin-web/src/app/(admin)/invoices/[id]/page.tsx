@@ -1,4 +1,5 @@
 "use client";
+import { requestOperationalEmail } from "@/features/email/api/operational";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
 import { useRouter } from "next/navigation";
@@ -20,7 +21,7 @@ import {
   formatInvoiceTagText,
   CreditNoteDialog,
 } from "@/features/billing";
-import { useState } from "react";
+import { useState, use } from "react";
 import { useToast } from "@altitutor/ui";
 import { getErrorMessage } from "@/shared/utils";
 import { format } from "date-fns";
@@ -38,11 +39,12 @@ import {
 } from "@/features/billing/utils/creditNoteDetails";
 import { InvoiceActivityTab } from "@/features/activity/components";
 
-export default function InvoiceDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function InvoiceDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const { toast } = useToast();
@@ -135,7 +137,7 @@ export default function InvoiceDetailPage({
     if (!id) return;
     setIsLoadingAction(true);
     try {
-      const response = await fetch(`/api/invoices/${id}/send-invoice`, {
+      const response = await requestOperationalEmail(`/api/invoices/${id}/send-invoice`, {
         method: "POST",
       });
 
@@ -400,7 +402,7 @@ export default function InvoiceDetailPage({
                 </div>
               </PropertyFormRow>
             )}
-            <PropertyFormRow label="Amount paid">
+            <PropertyFormRow label="Amount paid by customer">
               <div className="text-sm">
                 {formatInvoiceAmount(
                   stripeDetails?.amount_paid_cents ?? invoice.amount_paid_cents,
@@ -410,6 +412,13 @@ export default function InvoiceDetailPage({
                   Payment recorded on this invoice, before refunds. Balance
                   credits are separate.
                 </p>
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Account credit applied">
+              <div className="text-sm">
+                {invoice.amount_paid_from_balance_cents == null
+                  ? 'Not available'
+                  : formatInvoiceAmount(invoice.amount_paid_from_balance_cents, invoice.currency || "AUD")}
               </div>
             </PropertyFormRow>
             <PropertyFormRow

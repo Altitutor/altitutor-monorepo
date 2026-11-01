@@ -1,9 +1,10 @@
 import { TutorDocumentationPage } from '@/features/documentation';
 
-export default function DocumentationDocumentPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function DocumentationDocumentPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   return <TutorDocumentationPage selectedDocumentId={params.id} />;
 }

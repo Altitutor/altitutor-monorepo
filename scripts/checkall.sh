@@ -15,7 +15,7 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
-if [ "${1:-}" != "--database-only" ]; then
+if [ "${1:-}" != "--database-only" ] && [ "${1:-}" != "--owned-only" ]; then
 section "Release-gate contracts"
 node --test \
   scripts/production-release-gate.test.mjs \
@@ -28,6 +28,9 @@ node --test \
 python3 scripts/owned_database.test.py
 python3 scripts/worktree_dev.test.py
 
+section "Mailbox secret-deployment contracts"
+node --test secrets/scripts/deploy-runtime.test.mjs
+
 section "Generated email artifacts"
 pnpm email:check
 
@@ -38,7 +41,7 @@ section "Typecheck"
 pnpm turbo run typecheck
 
 section "Unit tests"
-pnpm turbo run test
+pnpm test
 
 section "UCAT coverage baseline"
 pnpm --filter ucat-web test:coverage
@@ -51,17 +54,25 @@ if ! command -v deno >/dev/null 2>&1; then
 fi
 deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
-section "Build"
-pnpm turbo run build
-
 fi
 
 # Each DB invocation gets its own owned stack and ports, including the browser
 # server lifetime. Only consumers of the same runtime share a lease.
 if [ "${ALTITUTOR_OWNED_DB_INNER:-}" != "1" ]; then
-  exec python3 scripts/owned_database.py gate
+  if [ "${1:-}" = "--database-only" ]; then
+    exec python3 scripts/owned_database.py gate
+  fi
+  exec python3 scripts/owned_database.py run -- bash scripts/checkall.sh --owned-only
 fi
 python3 scripts/owned_database.py verify-inner
+
+# Expo exports and app builds need local connection settings. Bind only these
+# stages to the verified stack; unit tests above also cover unconfigured previews.
+if [ "${1:-}" = "--owned-only" ]; then
+  section "Build"
+  pnpm turbo run build --concurrency=1
+fi
+
 section "Owned disposable Supabase (migrations + seed)"
 supabase db reset --local
 python3 scripts/owned_database.py verify-inner

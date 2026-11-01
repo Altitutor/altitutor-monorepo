@@ -1,4 +1,5 @@
 module.exports = {
+  maxWorkers: 2,
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/.next/", "/e2e/"],
@@ -42,7 +43,7 @@ module.exports = {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
   transform: {
-    "^.+\\.(t|j)sx?$": ["@swc/jest"],
+    "^.+\\.(t|j)sx?$": ["@swc/jest", { jsc: { transform: { react: { runtime: "automatic" } } } }],
   },
   transformIgnorePatterns: [
     "node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked)@)",

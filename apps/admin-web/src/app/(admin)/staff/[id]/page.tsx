@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
@@ -6,7 +8,7 @@ import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
@@ -46,7 +48,8 @@ import { AdminLoadingSkeleton } from '@/shared/components';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
-export default function StaffDetailPage({ params }: { params: { id: string } }) {
+export default function StaffDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -227,7 +230,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
               <UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                 Cancel
               </UIButton>
-              <UIButton 
+              <UIButton
                 disabled={mutations.isUpdatingDetails}
                 onClick={() => {
                   const form = document.getElementById('staff-edit-form') as HTMLFormElement;
@@ -301,9 +304,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the staff member
-                "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
-              </AlertDialogDescription>
+              <RetainedDeletionMessage name={`${staffMember.first_name} ${staffMember.last_name}`} />
+            </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4">
               <div className="space-y-2">

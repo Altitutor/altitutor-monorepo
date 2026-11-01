@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(25);
+SELECT plan(26);
 
 SELECT ok(
   (SELECT bool_and(event_names @> ARRAY[
@@ -276,6 +276,14 @@ SELECT is(
      )),
   'session.student_credited',
   'the composite event is student_credited'
+);
+
+SELECT is(
+  (SELECT payload->>'absence_billing_context' FROM public.domain_events
+   WHERE recorded_at >= transaction_timestamp() AND event_name = 'session.student_credited'
+     AND subject_id = '50000000-0000-0000-0000-000000000005' LIMIT 1),
+  'not_invoiced',
+  'an uninvoiced absence records no-charge context, not a completed account credit'
 );
 
 SELECT is(

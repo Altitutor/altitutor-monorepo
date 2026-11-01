@@ -1,13 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, use } from 'react';
 import { SkeletonAuthCard } from '@altitutor/ui';
 import { AcceptInviteForm } from '@/features/auth/components/AcceptInviteForm';
 
 interface InvitePageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 function InvitePageContent({ token }: { token: string }) {
@@ -21,7 +21,8 @@ function InvitePageContent({ token }: { token: string }) {
   );
 }
 
-export default function InvitePage({ params }: InvitePageProps) {
+export default function InvitePage(props: InvitePageProps) {
+  const params = use(props.params);
   return (
     <Suspense fallback={
       <div className="h-[calc(100dvh-var(--navbar-height))] flex items-center justify-center bg-gray-50 dark:bg-brand-dark-bg px-4">

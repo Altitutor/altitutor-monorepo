@@ -83,7 +83,7 @@ function readDetails(includeCreditNotes = false) {
   const query = includeCreditNotes ? "include_credit_notes=true" : "";
   return GET(
     { nextUrl: { searchParams: new URLSearchParams(query) } } as never,
-    { params: { id: "invoice" } },
+    { params: Promise.resolve({ id: "invoice" }) },
   );
 }
 

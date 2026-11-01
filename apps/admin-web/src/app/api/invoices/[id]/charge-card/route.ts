@@ -5,16 +5,14 @@ import Stripe from 'stripe';
 import { getErrorMessage, getStripeErrorDetails } from '@/shared/utils';
 import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const invoiceId = params.id;
   let actorStaffId: string | null = null;
   let studentId: string | null = null;
 
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {

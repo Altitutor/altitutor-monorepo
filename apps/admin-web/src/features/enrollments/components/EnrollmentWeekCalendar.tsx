@@ -396,7 +396,7 @@ export function EnrollmentWeekCalendar({
                             }))).map((placement) => [placement.id, placement]),
                           );
 
-                          const blocks: JSX.Element[] = [];
+                          const blocks: React.JSX.Element[] = [];
                           
                           daySessions.forEach((s) => {
                               const placement = dayPlacements.get(s.id);

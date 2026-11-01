@@ -4,9 +4,9 @@ import type { Database } from '@altitutor/shared';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
 
-export function createNotificationUserClient(request: Request): SupabaseClient<Database> {
+export async function createNotificationUserClient(request: Request): Promise<SupabaseClient<Database>> {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
-  if (!token) return createServerClient() as SupabaseClient<Database>;
+  if (!token) return await createServerClient() as SupabaseClient<Database>;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) throw new Error('Missing Supabase configuration');

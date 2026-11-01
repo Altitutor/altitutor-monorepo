@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   DropdownMenu,
@@ -333,7 +335,7 @@ export function SendBookingConfirmationDialog({
     try {
       setSendingEmail((prev) => ({ ...prev, [key]: true }));
 
-      const response = await fetch('/api/sessions/send-booking-confirmation', {
+      const response = await requestOperationalEmail('/api/sessions/send-booking-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

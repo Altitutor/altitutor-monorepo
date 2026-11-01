@@ -11,8 +11,9 @@ function copyPdfjsAssets() {
   const pkgDir = path.dirname(require.resolve("pdfjs-dist/package.json", { paths: [__dirname] }));
   const destDir = path.join(__dirname, "public", "pdfjs");
   fs.mkdirSync(destDir, { recursive: true });
+  // Use the publisher's polyfilled bundle for Safari; API and worker must match.
   for (const file of ["pdf.min.mjs", "pdf.worker.min.mjs"]) {
-    fs.copyFileSync(path.join(pkgDir, "build", file), path.join(destDir, file));
+    fs.copyFileSync(path.join(pkgDir, "legacy", "build", file), path.join(destDir, file));
   }
   for (const dir of ["wasm", "cmaps", "standard_fonts"]) {
     fs.cpSync(path.join(pkgDir, dir), path.join(destDir, dir), { recursive: true });
@@ -33,13 +34,9 @@ const nextConfig = {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
   },
-  eslint: { ignoreDuringBuilds: process.env.ALTITUTOR_CI_BUILD === "true" },
   typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
-  experimental: {
-    serverComponentsExternalPackages: ["@open-spaced-repetition/binding"],
-  },
+  serverExternalPackages: ["@open-spaced-repetition/binding"],
   reactStrictMode: true,
-  swcMinify: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   transpilePackages: ["@altitutor/email", "@altitutor/shared", "@altitutor/ui"],
   redirects: async () => {

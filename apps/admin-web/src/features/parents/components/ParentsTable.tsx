@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -396,8 +398,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the parent
-              {parentToDelete ? ` ${parentToDelete.first_name} ${parentToDelete.last_name}` : ''} and all associated data from the database.
+              <RetainedDeletionMessage kind="Parent" name={parentToDelete ? `${parentToDelete.first_name} ${parentToDelete.last_name}` : undefined} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

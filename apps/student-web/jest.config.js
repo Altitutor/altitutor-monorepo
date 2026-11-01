@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 const config = {
+  maxWorkers: 2,
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
@@ -18,7 +19,7 @@ const config = {
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   testPathIgnorePatterns: ['<rootDir>/e2e/'],
   transform: {
-    '^.+\\.(t|j)sx?$': ['@swc/jest'],
+    '^.+\\.(t|j)sx?$': ['@swc/jest', { jsc: { transform: { react: { runtime: 'automatic' } } } }],
   },
   // Shared UI re-exports the ESM Markdown renderer; transform it when
   // exercising real shared controls instead of mocking the UI package.

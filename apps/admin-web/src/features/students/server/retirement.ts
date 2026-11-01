@@ -5,7 +5,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 export async function changeStudentRetirement(studentId: string, action: 'retire' | 'restore') {
   const route = `/api/students/[id]/${action === 'retire' ? 'delete' : 'restore'}`;
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { error } = await supabase.rpc(action === 'retire' ? 'retire_student' : 'restore_student', { p_student_id: studentId });

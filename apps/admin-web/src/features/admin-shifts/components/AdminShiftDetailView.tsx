@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { formatTime, getDayOfWeek } from "@/shared/utils/datetime";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
@@ -401,8 +403,7 @@ export function AdminShiftDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              admin shift and all associated data from the database.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

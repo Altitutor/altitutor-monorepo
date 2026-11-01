@@ -26,7 +26,7 @@ describe('POST /api/ucat/mocks/[id]/blueprint-audit', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprintId: 'blueprint-id' }),
       }),
-      { params: { id: 'mock-id' } },
+      { params: Promise.resolve({ id: 'mock-id' }) },
     )
 
     expect(response.status).toBe(404)

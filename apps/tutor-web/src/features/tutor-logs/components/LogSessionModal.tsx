@@ -1,5 +1,8 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import {
@@ -91,6 +94,17 @@ export function LogSessionModal({
   const wasOpenRef = useRef(false);
 
   const createMutation = useCreateTutorLog();
+
+  const retainedLog = useQuery({
+    queryKey: ['session-log-availability', formData.sessionId],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient().from('vtutor_session_log_state').select('deleted_at').eq('session_id', formData.sessionId!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOpen && !!formData.sessionId,
+    staleTime: 0,
+  });
 
   const sessionIdForSteps = formData.sessionId ?? '';
   const { sessionStaff } = useTutorLogStep2Data(sessionIdForSteps);
@@ -497,6 +511,14 @@ export function LogSessionModal({
         return null;
     }
   };
+
+  if (isOpen && formData.sessionId && (retainedLog.isPending || retainedLog.isError || retainedLog.data?.deleted_at)) {
+    return <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}><DialogContent>
+      <DialogHeader><DialogTitle>Log session</DialogTitle><DialogDescription>
+        {retainedLog.isPending ? 'Checking session log…' : retainedLog.isError ? 'Unable to check the existing log. Close and try again.' : 'This Session has a deleted Tutor log. Ask an administrator to restore it before editing its attendance or notes.'}
+      </DialogDescription></DialogHeader>
+    </DialogContent></Dialog>;
+  }
 
   return (
     <>

@@ -244,9 +244,6 @@ function ReportsFilters() {
 export function ReportsLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-      </div>
 
       <div className="flex flex-col gap-4">
         <ReportsFilters />

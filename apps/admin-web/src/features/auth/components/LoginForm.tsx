@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { signInWithStudentLoginRecovery } from '@altitutor/shared';
 
 import { useState } from 'react';
@@ -96,7 +98,7 @@ export function LoginForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input
+                  <EmailInput
                     type="email"
                     placeholder="Enter your email"
                     autoComplete="email"

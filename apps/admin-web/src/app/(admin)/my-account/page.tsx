@@ -16,7 +16,7 @@ export default function MyAccountPage() {
   const { data: profile, isLoading } = useProfile();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   // Get tab from query params, default to 'details'
   const tabFromQuery = searchParams.get('tab') as TabValue | null;
   const initialTab = tabFromQuery && VALID_TABS.includes(tabFromQuery) ? tabFromQuery : 'details';
@@ -57,7 +57,7 @@ export default function MyAccountPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+
       </div>
 
       <SegmentedTabPanel

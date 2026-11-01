@@ -338,6 +338,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           day_of_week: number
+          deleted_at: string | null
+          deleted_by: string | null
           end_time: string
           id: string
           session_end_date: string | null
@@ -350,6 +352,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           day_of_week: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time: string
           id?: string
           session_end_date?: string | null
@@ -362,6 +366,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           day_of_week?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time?: string
           id?: string
           session_end_date?: string | null
@@ -1712,6 +1718,8 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           day_of_week: number
+          deleted_at: string | null
+          deleted_by: string | null
           end_time: string
           id: string
           level: string | null
@@ -1742,6 +1750,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           day_of_week: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time: string
           id: string
           level?: string | null
@@ -1772,6 +1782,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           day_of_week?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_time?: string
           id?: string
           level?: string | null
@@ -2929,6 +2941,490 @@ export type Database = {
           {
             foreignKeyName: "domain_events_actor_staff_id_fkey"
             columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_draft_edits: {
+        Row: {
+          expires_at: string
+          message_id: string
+          staff_id: string
+          token: string
+          writing_until: string | null
+        }
+        Insert: {
+          expires_at: string
+          message_id: string
+          staff_id: string
+          token: string
+          writing_until?: string | null
+        }
+        Update: {
+          expires_at?: string
+          message_id?: string
+          staff_id?: string
+          token?: string
+          writing_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_draft_edits_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_draft_edits_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_folders: {
+        Row: {
+          id: string
+          name: string
+          parent_id: string | null
+          present: boolean
+          role: string | null
+        }
+        Insert: {
+          id: string
+          name: string
+          parent_id?: string | null
+          present?: boolean
+          role?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          parent_id?: string | null
+          present?: boolean
+          role?: string | null
+        }
+        Relationships: []
+      }
+      email_mailbox_identity: {
+        Row: {
+          address: string
+          bound_at: string
+          singleton: boolean
+        }
+        Insert: {
+          address: string
+          bound_at?: string
+          singleton?: boolean
+        }
+        Update: {
+          address?: string
+          bound_at?: string
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      email_messages: {
+        Row: {
+          data: Json
+          folder_id: string | null
+          id: string
+          occurred_at: string | null
+          removed: boolean
+          seen_at: string
+          thread_id: string
+        }
+        Insert: {
+          data: Json
+          folder_id?: string | null
+          id: string
+          occurred_at?: string | null
+          removed?: boolean
+          seen_at?: string
+          thread_id: string
+        }
+        Update: {
+          data?: Json
+          folder_id?: string | null
+          id?: string
+          occurred_at?: string | null
+          removed?: boolean
+          seen_at?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_operational_sends: {
+        Row: {
+          actor_staff_id: string | null
+          change_key: string | null
+          context_links: Json
+          created_at: string
+          draft_id: string | null
+          id: string
+          idempotency_key: string
+          payload: Json
+          state: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          actor_staff_id?: string | null
+          change_key?: string | null
+          context_links: Json
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          idempotency_key: string
+          payload: Json
+          state: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          actor_staff_id?: string | null
+          change_key?: string | null
+          context_links?: Json
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          idempotency_key?: string
+          payload?: Json
+          state?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_operational_sends_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_participant_links: {
+        Row: {
+          email: string
+          record_id: string
+          record_type: string
+        }
+        Insert: {
+          email: string
+          record_id: string
+          record_type: string
+        }
+        Update: {
+          email?: string
+          record_id?: string
+          record_type?: string
+        }
+        Relationships: []
+      }
+      email_record_links: {
+        Row: {
+          record_id: string
+          record_type: string
+          source: string
+          thread_id: string
+        }
+        Insert: {
+          record_id: string
+          record_type: string
+          source: string
+          thread_id: string
+        }
+        Update: {
+          record_id?: string
+          record_type?: string
+          source?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_record_links_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_attempts: {
+        Row: {
+          command_id: string
+          message_id: string
+          staff_id: string
+          started_at: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          command_id: string
+          message_id: string
+          staff_id: string
+          started_at?: string
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          command_id?: string
+          message_id?: string
+          staff_id?: string
+          started_at?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_attempts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_send_attempts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_signatures: {
+        Row: {
+          body_text: string
+          staff_id: string
+        }
+        Insert: {
+          body_text: string
+          staff_id: string
+        }
+        Update: {
+          body_text?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_signatures_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_sync_lease: {
+        Row: {
+          expires_at: string
+          singleton: boolean
+          token: string
+        }
+        Insert: {
+          expires_at: string
+          singleton?: boolean
+          token: string
+        }
+        Update: {
+          expires_at?: string
+          singleton?: boolean
+          token?: string
+        }
+        Relationships: []
+      }
+      email_sync_state: {
+        Row: {
+          bootstrap_started_at: string | null
+          completed_at: string | null
+          cursor_url: string | null
+          folder_id: string
+          last_error: string | null
+          page_at: string | null
+        }
+        Insert: {
+          bootstrap_started_at?: string | null
+          completed_at?: string | null
+          cursor_url?: string | null
+          folder_id: string
+          last_error?: string | null
+          page_at?: string | null
+        }
+        Update: {
+          bootstrap_started_at?: string | null
+          completed_at?: string | null
+          cursor_url?: string | null
+          folder_id?: string
+          last_error?: string | null
+          page_at?: string | null
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          body_text: string
+          created_at: string
+          id: string
+          name: string
+          subject: string
+        }
+        Insert: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          name: string
+          subject?: string
+        }
+        Update: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          name?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_threads: {
+        Row: {
+          assigned_at: string | null
+          assigned_staff_id: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_staff_id?: string | null
+          created_at?: string
+          id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_staff_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_threads_assigned_staff_id_fkey"
+            columns: ["assigned_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -5651,6 +6147,8 @@ export type Database = {
           admin_revision: number
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           due_date: string | null
           id: string
@@ -5665,6 +6163,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           id?: string
@@ -5679,6 +6179,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           id?: string
@@ -6612,6 +7114,8 @@ export type Database = {
           content: Json | null
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           folder_id: string | null
           id: string
           is_tutor_documentation: boolean
@@ -6626,6 +7130,8 @@ export type Database = {
           content?: Json | null
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           folder_id?: string | null
           id?: string
           is_tutor_documentation?: boolean
@@ -6640,6 +7146,8 @@ export type Database = {
           content?: Json | null
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           folder_id?: string | null
           id?: string
           is_tutor_documentation?: boolean
@@ -6734,6 +7242,8 @@ export type Database = {
           admin_revision: number
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           name: string
           parent_id: string | null
@@ -6743,6 +7253,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -6752,6 +7264,8 @@ export type Database = {
           admin_revision?: number
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -7417,6 +7931,8 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           email: string | null
           first_name: string
           id: string
@@ -7429,6 +7945,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email?: string | null
           first_name: string
           id?: string
@@ -7441,6 +7959,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email?: string | null
           first_name?: string
           id?: string
@@ -7798,6 +8318,8 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           id: string
           name: string
@@ -7814,6 +8336,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           id?: string
           name: string
@@ -7830,6 +8354,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           id?: string
           name?: string
@@ -9922,6 +10448,8 @@ export type Database = {
           calendar_tombstone_until: string | null
           class_id: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           end_at: string | null
           id: string
           is_schedule_exception: boolean
@@ -9946,6 +10474,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id: string
           is_schedule_exception?: boolean
@@ -9970,6 +10500,8 @@ export type Database = {
           calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           end_at?: string | null
           id?: string
           is_schedule_exception?: boolean
@@ -11111,6 +11643,8 @@ export type Database = {
           child_safe_policy_agreed_at: string | null
           created_at: string | null
           current_tier_number: number
+          deleted_at: string | null
+          deleted_by: string | null
           drafting_availability: boolean | null
           email: string | null
           employment_started_at: string
@@ -11148,6 +11682,8 @@ export type Database = {
           child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           drafting_availability?: boolean | null
           email?: string | null
           employment_started_at?: string
@@ -11185,6 +11721,8 @@ export type Database = {
           child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
           drafting_availability?: boolean | null
           email?: string | null
           employment_started_at?: string
@@ -15750,6 +16288,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -15764,6 +16304,8 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
@@ -15778,6 +16320,8 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           curriculum?: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discipline?: Database["public"]["Enums"]["subject_discipline"] | null
           id?: string
           level?: string | null
@@ -15931,6 +16475,8 @@ export type Database = {
           completed_by: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: Json | null
           due_date: string | null
           estimate: number | null
@@ -15953,6 +16499,8 @@ export type Database = {
           completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           estimate?: number | null
@@ -15975,6 +16523,8 @@ export type Database = {
           completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: Json | null
           due_date?: string | null
           estimate?: number | null
@@ -16124,6 +16674,8 @@ export type Database = {
           code: string
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           index: number
           name: string
@@ -16135,6 +16687,8 @@ export type Database = {
           code: string
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           index: number
           name: string
@@ -16146,6 +16700,8 @@ export type Database = {
           code?: string
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           index?: number
           name?: string
@@ -16508,6 +17064,8 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           logged_for_staff_id: string | null
           session_id: string
@@ -16518,6 +17076,8 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id: string
@@ -16528,6 +17088,8 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           logged_for_staff_id?: string | null
           session_id?: string
@@ -16781,8 +17343,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
@@ -16864,8 +17440,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_staff_attendance_tutor_log_id_fkey"
@@ -16982,8 +17572,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_student_attendance_tutor_log_id_fkey"
@@ -17108,8 +17712,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_tutor_log_id_fkey"
@@ -17206,8 +17824,22 @@ export type Database = {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
             columns: ["tutor_log_id"]
             isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tutor_logs_topics_files_tutor_log_id_fkey"
@@ -26641,6 +27273,109 @@ export type Database = {
           },
         ]
       }
+      vadmin_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          deleted_at?: string | null
+          id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       vinternal_student_billing_customers: {
         Row: {
           is_primary: boolean | null
@@ -26792,30 +27527,6 @@ export type Database = {
           topic_code: string | null
           topic_id: string | null
           topic_name: string | null
-        }
-        Insert: {
-          description?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          subject_id?: string | null
-          title?: string | null
-          topic_code?: string | null
-          topic_id?: string | null
-          topic_name?: string | null
-        }
-        Update: {
-          description?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          subject_id?: string | null
-          title?: string | null
-          topic_code?: string | null
-          topic_id?: string | null
-          topic_name?: string | null
         }
         Relationships: [
           {
@@ -27522,30 +28233,6 @@ export type Database = {
           title: string | null
           topic_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: never
-          due_review_card_count?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          title?: string | null
-          topic_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: never
-          due_review_card_count?: never
-          flashcard_count?: never
-          id?: string | null
-          index?: never
-          review_card_count?: never
-          title?: string | null
-          topic_id?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -29406,28 +30093,6 @@ export type Database = {
           parent_id: string | null
           subject_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -34392,32 +35057,6 @@ export type Database = {
           updated_at: string | null
           updated_by: string | null
         }
-        Insert: {
-          content?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          folder_id?: string | null
-          id?: string | null
-          is_tutor_documentation?: boolean | null
-          project_id?: string | null
-          search_vector?: unknown
-          title?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          content?: Json | null
-          created_at?: string | null
-          created_by?: string | null
-          folder_id?: string | null
-          id?: string | null
-          is_tutor_documentation?: boolean | null
-          project_id?: string | null
-          search_vector?: unknown
-          title?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "notes_documents_created_by_fkey"
@@ -34506,22 +35145,6 @@ export type Database = {
           name: string | null
           parent_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          name?: string | null
-          parent_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          name?: string | null
-          parent_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -35680,18 +36303,6 @@ export type Database = {
           metric_overrides: Json | null
           staff_id: string | null
         }
-        Insert: {
-          current_tier_number?: number | null
-          employment_started_at?: string | null
-          metric_overrides?: Json | null
-          staff_id?: string | null
-        }
-        Update: {
-          current_tier_number?: number | null
-          employment_started_at?: string | null
-          metric_overrides?: Json | null
-          staff_id?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "staff_current_tier_number_fkey"
@@ -35917,54 +36528,6 @@ export type Database = {
           status: string | null
           updated_at: string | null
           user_id: string | null
-        }
-        Insert: {
-          availability_friday?: boolean | null
-          availability_monday?: boolean | null
-          availability_saturday_am?: boolean | null
-          availability_saturday_pm?: boolean | null
-          availability_sunday_am?: boolean | null
-          availability_sunday_pm?: boolean | null
-          availability_thursday?: boolean | null
-          availability_tuesday?: boolean | null
-          availability_wednesday?: boolean | null
-          birthday?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          phone?: string | null
-          profile_bio?: string | null
-          profile_image_file_id?: string | null
-          role?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          availability_friday?: boolean | null
-          availability_monday?: boolean | null
-          availability_saturday_am?: boolean | null
-          availability_saturday_pm?: boolean | null
-          availability_sunday_am?: boolean | null
-          availability_sunday_pm?: boolean | null
-          availability_thursday?: boolean | null
-          availability_tuesday?: boolean | null
-          availability_wednesday?: boolean | null
-          birthday?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          phone?: string | null
-          profile_bio?: string | null
-          profile_image_file_id?: string | null
-          role?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
         }
         Relationships: [
           {
@@ -36333,6 +36896,99 @@ export type Database = {
             foreignKeyName: "sessions_files_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      vtutor_session_log_state: {
+        Row: {
+          deleted_at: string | null
+          id: string | null
+          session_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
           },
@@ -37087,28 +37743,6 @@ export type Database = {
           parent_id: string | null
           subject_id: string | null
           updated_at: string | null
-        }
-        Insert: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string | null
-          index?: number | null
-          name?: string | null
-          parent_id?: string | null
-          subject_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -43125,6 +43759,20 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      admin_meeting_warnings: {
+        Args: {
+          p_end_at: string
+          p_original_session_id?: string
+          p_staff_ids: string[]
+          p_start_at: string
+          p_subject_id?: string
+          p_type: Database["public"]["Enums"]["session_type"]
+        }
+        Returns: {
+          reason: string
+          staff_id: string
+        }[]
+      }
       admin_record_reporting_query: {
         Args: { p_fingerprint: string; p_rows: number; p_truncated: boolean }
         Returns: undefined
@@ -43705,6 +44353,20 @@ export type Database = {
         Args: { p_student_id: string; p_timezone?: string }
         Returns: number
       }
+      create_admin_meeting: {
+        Args: {
+          p_end_at: string
+          p_original_session_id?: string
+          p_parent_ids?: string[]
+          p_receiver_staff_ids?: string[]
+          p_staff_ids?: string[]
+          p_start_at: string
+          p_student_ids?: string[]
+          p_subject_id?: string
+          p_type: Database["public"]["Enums"]["session_type"]
+        }
+        Returns: string
+      }
       create_admin_trial_booking: {
         Args: {
           p_created_by: string
@@ -43813,6 +44475,16 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: undefined
       }
+      deleted_business_records: {
+        Args: never
+        Returns: {
+          can_restore: boolean
+          deleted_at: string
+          id: string
+          kind: string
+          name: string
+        }[]
+      }
       derive_session_absence_billing_treatment: {
         Args: {
           p_is_credited: boolean
@@ -43859,6 +44531,126 @@ export type Database = {
         }
         Returns: Json
       }
+      email_apply_sync_page: {
+        Args: {
+          p_complete: boolean
+          p_cursor: string
+          p_expected_cursor: string
+          p_folder_id: string
+          p_mailbox_address?: string
+          p_messages: Json
+          p_observation_only?: boolean
+          p_removed_ids: string[]
+        }
+        Returns: boolean
+      }
+      email_assert_mailbox: { Args: { p_address: string }; Returns: string }
+      email_assign_thread: {
+        Args: { p_staff_id: string; p_thread_id: string }
+        Returns: Json
+      }
+      email_begin_send: {
+        Args: {
+          p_change_key: string
+          p_command_id: string
+          p_message_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      email_claim_draft: {
+        Args: {
+          p_change_key: string
+          p_message_id: string
+          p_staff_id: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      email_claim_sync: { Args: { p_token: string }; Returns: boolean }
+      email_correspondence_for_record: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_record_id: string
+          p_record_type: string
+        }
+        Returns: {
+          data: Json
+          folder_id: string | null
+          id: string
+          occurred_at: string | null
+          removed: boolean
+          seen_at: string
+          thread_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      email_create_enquiry: {
+        Args: { p_email_id: string; p_values: Json }
+        Returns: string
+      }
+      email_link_participant: {
+        Args: {
+          p_email: string
+          p_record_id: string
+          p_record_type: string
+          p_thread_id: string
+        }
+        Returns: Json
+      }
+      email_link_record: {
+        Args: {
+          p_record_id: string
+          p_record_type: string
+          p_thread_id: string
+        }
+        Returns: Json
+      }
+      email_list_threads: {
+        Args: {
+          p_assignee: string
+          p_direction?: string
+          p_folder_id: string
+          p_limit?: number
+          p_offset?: number
+          p_search: string
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      email_operational_prepare: {
+        Args: {
+          p_actor: string
+          p_key: string
+          p_links: Json
+          p_mailbox_address?: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
+      email_operational_update: {
+        Args: {
+          p_change_key?: string
+          p_draft_id?: string
+          p_expected: string
+          p_id: string
+          p_state: string
+          p_token: string
+        }
+        Returns: boolean
+      }
+      email_release_sync: { Args: { p_token: string }; Returns: undefined }
+      email_reset_sync_cursor: {
+        Args: { p_expected_cursor: string; p_folder_id: string }
+        Returns: boolean
+      }
+      email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
       end_student_class_enrolment: {
         Args: {
           p_class_id: string
@@ -44219,6 +45011,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -44330,6 +45124,8 @@ export type Database = {
           color: string | null
           created_at: string | null
           curriculum: Database["public"]["Enums"]["subject_curriculum"] | null
+          deleted_at: string | null
+          deleted_by: string | null
           discipline: Database["public"]["Enums"]["subject_discipline"] | null
           id: string
           level: string | null
@@ -45007,12 +45803,20 @@ export type Database = {
         Args: { p_client_key: string; p_email: string }
         Returns: string
       }
+      restore_business_record: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
       restore_deleted_student_identity: {
         Args: { p_auth_user_id?: string; p_student_id: string }
         Returns: string
       }
       restore_my_deleted_student: { Args: never; Returns: string }
       restore_student: { Args: { p_student_id: string }; Returns: string }
+      retire_business_record: {
+        Args: { p_id: string; p_kind: string }
+        Returns: undefined
+      }
       retire_student: { Args: { p_student_id: string }; Returns: Json }
       retire_student_identity: {
         Args: { p_staff_id: string; p_student_id: string }

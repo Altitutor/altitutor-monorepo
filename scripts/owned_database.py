@@ -248,9 +248,9 @@ def reset(repository, manifest_path):
     (workdir / 'containers.json').write_text(json.dumps(identifiers))
 
 
-def run_child(command, repository, environment, descriptor, *, quiet=False):
+def run_child(command, repository, environment, descriptor, *, quiet=False, stderr=None):
     child = subprocess.Popen(command, cwd=repository, env=environment, pass_fds=(descriptor,), start_new_session=True,
-                             stdout=subprocess.DEVNULL if quiet else None)
+                             stdout=subprocess.DEVNULL if quiet else None, stderr=stderr)
     def cancel(_number, _frame):
         raise KeyboardInterrupt
     old = {number: signal.signal(number, cancel) for number in (signal.SIGINT, signal.SIGTERM)}
@@ -318,7 +318,7 @@ def preview(repository, app, manifest_path):
         raise Blocked('Select an existing web app for the normal foreground preview')
     if not (repository / 'apps' / app).is_dir():
         raise Blocked('Selected preview app is absent')
-    command = ['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev',
+    command = ['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--webpack',
                '--hostname', '127.0.0.1', '--port', '57340']
     with exclusive(PREVIEW_LOCK, wait=False) as descriptor:
         with socket.socket() as probe:
@@ -350,6 +350,68 @@ def verify_cleanup_receipt(workdir, records):
     actual = [record.get('Id') for record in records]
     if len(actual) != len(expected) or set(actual) != set(expected):
         raise Blocked('Owned database container replaced; cleanup requires fresh ownership proof')
+
+
+def project_networks(project):
+    identifiers = subprocess.check_output(['docker', 'network', 'ls', '--no-trunc', '--filter',
+        'label=com.supabase.cli.project=' + project, '--format', '{{.ID}}'], text=True).split()
+    records = []
+    for identifier in identifiers:
+        record = json.loads(subprocess.check_output(['docker', 'network', 'inspect', identifier], text=True))[0]
+        if (record.get('Id') != identifier or record.get('Name') != 'supabase_network_' + project
+                or record.get('Labels', {}).get('com.supabase.cli.project') != project):
+            raise Blocked('Disposable project network ownership mismatch')
+        records.append(record)
+    return records
+
+
+def project_volumes(project):
+    return subprocess.check_output(['docker', 'volume', 'ls', '--filter',
+        'label=com.supabase.cli.project=' + project, '--format', '{{.Name}}'], text=True).split()
+
+
+def stop_owned(repository, workdir, project, executable, environment, descriptor):
+    # Snapshot immutable network IDs while the exact runtime lease is held.
+    networks = {record['Id']: record for record in project_networks(project)}
+    receipt = workdir / 'networks.json'
+    if receipt.exists() and set(json.loads(receipt.read_text())) != set(networks):
+        raise Blocked('Owned network replaced; cleanup requires fresh ownership proof')
+    with tempfile.TemporaryFile(mode='w+') as errors:
+        try:
+            run_child([executable, '--workdir', str(workdir), 'stop',
+                       '--project-id', project, '--no-backup'], repository,
+                      environment, descriptor, quiet=True, stderr=errors)
+        except Blocked:
+            errors.seek(0)
+            message = errors.read()
+            expected = 'failed to prune networks: Error response from daemon: a prune operation is already running'
+            if expected not in message.splitlines():
+                raise
+            # A partial stop or a replaced resource is never a successful cleanup.
+            if project_containers(project) or project_volumes(project):
+                raise Blocked('Owned cleanup incomplete after network-prune contention')
+            for record in project_networks(project):
+                original = networks.get(record['Id'])
+                if original is None or record.get('Containers'):
+                    raise Blocked('Owned network replaced or still attached; cleanup requires fresh ownership proof')
+                # Re-inspect immediately before removing the captured full ID.
+                current = json.loads(subprocess.check_output(
+                    ['docker', 'network', 'inspect', record['Id']], text=True))[0]
+                if current != record:
+                    raise Blocked('Owned network changed during cleanup')
+                subprocess.run(['docker', 'network', 'rm', record['Id']], check=True,
+                               stdout=subprocess.DEVNULL)
+            # Labels alone cannot establish disappearance if an old ID still exists.
+            existing = subprocess.check_output(['docker', 'network', 'ls', '--no-trunc',
+                '--format', '{{.ID}}'], text=True).split()
+            if set(networks).intersection(existing):
+                raise Blocked('Recorded owned network still exists after cleanup')
+            if project_containers(project) or project_networks(project) or project_volumes(project):
+                raise Blocked('Owned cleanup resources remain after network-prune contention')
+            print('Owned cleanup verified after network-prune contention', file=sys.stderr)
+        finally:
+            errors.seek(0)
+            sys.stderr.write(errors.read())
 
 
 def consumer(repository, manifest_path, command=None, *, on_ready=None, before_cleanup=None):
@@ -386,6 +448,8 @@ def consumer(repository, manifest_path, command=None, *, on_ready=None, before_c
                       environment, descriptor, quiet=True)
             identifier = container(workdir, project)
             (workdir / 'containers.json').write_text(json.dumps(identifier))
+            (workdir / 'networks.json').write_text(json.dumps(
+                [record['Id'] for record in project_networks(project)]))
             # Bind every app/E2E consumer to this verified API; never inherit a
             # deployment URL or allow .env files to choose another database.
             status_result = subprocess.run([executable, '--workdir', str(workdir), 'status', '-o', 'env'],
@@ -430,9 +494,7 @@ def consumer(repository, manifest_path, command=None, *, on_ready=None, before_c
             if identifier is not None:
                 verify_cleanup_receipt(workdir, records)
             if records:
-                run_child([executable, '--workdir', str(workdir), 'stop',
-                           '--project-id', project, '--no-backup'], repository,
-                          environment, descriptor, quiet=True)
+                stop_owned(repository, workdir, project, executable, environment, descriptor)
 
 
 def seed(repository, workdir, project, *, ci=False):

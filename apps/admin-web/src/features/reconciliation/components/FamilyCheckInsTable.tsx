@@ -31,6 +31,8 @@ import {
 import { useReconciliationHandlers } from './ReconciliationActions';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useCurrentStaff } from '@/shared/hooks';
+import { encodeViewConfig, readViewSettings, type QuickFilter } from '@altitutor/shared';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
 export type FamilyCheckInsEntity = 'staff' | 'student' | 'parent';
 
@@ -96,14 +98,14 @@ function dedupeStaffPrefill(
 }
 
 export function FamilyCheckInsTable({
-  title,
+  title: _title,
   entity,
   items,
   isLoading,
 }: {
   title: string;
-  entity: FamilyCheckInsEntity;
-  items: FamilyCheckInRow[];
+  entity: FamilyCheckInsEntity | 'all';
+  items: Array<FamilyCheckInRow & { entity?: FamilyCheckInsEntity }>;
   isLoading?: boolean;
 }) {
   const handlers = useReconciliationHandlers();
@@ -111,9 +113,19 @@ export function FamilyCheckInsTable({
   const { data: currentStaff } = useCurrentStaff();
 
   const [tableState, setTableState] = useState<DataTableState>(INITIAL_TABLE_STATE);
+  const { data: savedViews = [] } = useQuickFilters('check-ins');
+  const views: QuickFilter[] = [
+    { name: 'All check-ins', values: [] }, { name: 'Staff', values: ['staff'] },
+    { name: 'Students', values: ['student'] }, { name: 'Parents', values: ['parent'] },
+  ].map(({ name, values }) => ({
+    id: `builtin:check-ins:${name}`, name, target_entity: 'check-ins', user_id: null, created_at: '', updated_at: '',
+    config: encodeViewConfig({ filters: values.length ? { entity: values } : {}, sortBy: 'lastCheckInAt', sortDirection: 'asc', groupBy: null, visibleColumns: INITIAL_TABLE_STATE.visibleColumns }),
+  }));
+  const rowEntity = useCallback((row: FamilyCheckInRow & { entity?: FamilyCheckInsEntity }): FamilyCheckInsEntity => row.entity ?? (entity === 'all' ? 'student' : entity), [entity]);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
+      ...(entity === 'all' ? [{ key: 'entity', label: 'Audience', type: 'multi-select' as const, options: [{ value: 'staff', label: 'Staff' }, { value: 'student', label: 'Students' }, { value: 'parent', label: 'Parents' }] }] : []),
       {
         key: 'staleness',
         label: 'Time since last check-in',
@@ -121,7 +133,7 @@ export function FamilyCheckInsTable({
         options: STALENESS_FILTER_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
       },
     ],
-    []
+    [entity]
   );
 
   const sortOptions: DataTableSortOption[] = useMemo(
@@ -143,6 +155,8 @@ export function FamilyCheckInsTable({
 
   const processed = useMemo(() => {
     let rows = [...items];
+    const audiences = tableState.filters.entity ?? [];
+    if (audiences.length) rows = rows.filter(row => audiences.includes(rowEntity(row)));
     const q = tableState.search.trim().toLowerCase();
     if (q) {
       rows = rows.filter(
@@ -169,7 +183,7 @@ export function FamilyCheckInsTable({
       return sortDirection === 'desc' ? kb - ka : ka - kb;
     });
     return rows;
-  }, [items, tableState]);
+  }, [items, tableState, rowEntity]);
 
   const totalItems = processed.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / tableState.pageSize));
@@ -206,16 +220,17 @@ export function FamilyCheckInsTable({
   }, []);
 
   const openProfile = useCallback(
-    (id: string) => {
-      if (entity === 'staff') handlers.onOpenStaff(id);
-      else if (entity === 'student') handlers.onOpenStudent(id);
-      else handlers.onOpenParent(id);
+    (row: FamilyCheckInRow & { entity?: FamilyCheckInsEntity }) => {
+      const kind = rowEntity(row);
+      if (kind === 'staff') handlers.onOpenStaff(row.entityId);
+      else if (kind === 'student') handlers.onOpenStudent(row.entityId);
+      else handlers.onOpenParent(row.entityId);
     },
-    [entity, handlers]
+    [rowEntity, handlers]
   );
 
   const openCreateCheckIn = useCallback(
-    (row: FamilyCheckInRow) => {
+    (row: FamilyCheckInRow & { entity?: FamilyCheckInsEntity }) => {
       if (!currentStaff) return;
       const self = {
         id: currentStaff.id,
@@ -227,11 +242,11 @@ export function FamilyCheckInsTable({
         first_name: row.firstName,
         last_name: row.lastName,
       };
-      if (entity === 'staff') {
+      if (rowEntity(row) === 'staff') {
         openCheckInModal({
           staff: dedupeStaffPrefill([targetStaff, self]),
         });
-      } else if (entity === 'student') {
+      } else if (rowEntity(row) === 'student') {
         openCheckInModal({
           staff: [self],
           students: [{ id: row.entityId, first_name: row.firstName, last_name: row.lastName }],
@@ -243,7 +258,7 @@ export function FamilyCheckInsTable({
         });
       }
     },
-    [currentStaff, entity, openCheckInModal]
+    [currentStaff, rowEntity, openCheckInModal]
   );
 
   const showName = tableState.visibleColumns.includes('name');
@@ -252,7 +267,7 @@ export function FamilyCheckInsTable({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">{title}</h3>
+
 
       <DataTableToolbar
         state={tableState}
@@ -263,13 +278,16 @@ export function FamilyCheckInsTable({
         onVisibleColumnsChange={(cols) =>
           setTableState((s) => ({ ...s, visibleColumns: cols.length ? cols : s.visibleColumns }))
         }
-        onQuickFilterApply={() => {}}
+        onQuickFilterApply={view => {
+          const settings = readViewSettings(view.config, INITIAL_TABLE_STATE, currentStaff?.id);
+          setTableState(previous => ({ ...previous, ...settings, page: 1 }));
+        }}
         onReset={onReset}
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={[]}
-        searchPlaceholder={`Search ${entity === 'staff' ? 'staff' : entity === 'student' ? 'students' : 'parents'}…`}
+        quickFilters={[...views, ...savedViews]} viewTarget="check-ins"
+        searchPlaceholder="Search check-ins…"
         isLoading={!!isLoading}
       />
 
@@ -304,11 +322,12 @@ export function FamilyCheckInsTable({
               </TableRow>
             ) : (
               paged.map((row) => (
-                <TableRow key={row.entityId}>
+                <TableRow key={`${rowEntity(row)}:${row.entityId}`}>
                   {showName ? (
                     <TableCell>
-                      <LinkishButton onClick={() => openProfile(row.entityId)} className="font-medium">
+                      <LinkishButton onClick={() => openProfile(row)} className="font-medium">
                         {displayName(row)}
+                        {entity === 'all' && <span className="ml-2 text-xs text-muted-foreground">{rowEntity(row)}</span>}
                       </LinkishButton>
                     </TableCell>
                   ) : null}

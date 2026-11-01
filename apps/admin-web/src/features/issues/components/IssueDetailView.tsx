@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
@@ -61,7 +63,7 @@ function IssueLiveTagsPanels({
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
-  descriptionRef: React.RefObject<RichTextEditorRef>;
+  descriptionRef: React.RefObject<RichTextEditorRef | null>;
 }) {
   const liveTags = useLiveIssueTags({
     form,
@@ -234,8 +236,7 @@ export function IssueDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              issue and all associated activity records.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

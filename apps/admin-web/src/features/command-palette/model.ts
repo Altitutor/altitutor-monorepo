@@ -1,5 +1,6 @@
 import {
   Calendar,
+  Mail,
   CheckSquare,
   AlertTriangle,
   GraduationCap,
@@ -15,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export const paletteEntities = {
+  email: { label: "Email", icon: Mail },
   student: { label: "Students", icon: GraduationCap },
   parent: { label: "Parents", icon: UserRound },
   staff: { label: "Staff", icon: Users },

@@ -1,7 +1,7 @@
 /**
  * Tests for useTopicUpdate hook
  * Tests the business logic for topic update orchestration
- * 
+ *
  * Note: Full integration tests would require React Query setup.
  * These tests focus on verifying the hook structure and basic functionality.
  */
@@ -84,9 +84,10 @@ import { useTopicUpdate } from '../useTopicUpdate';
 
 describe('useTopicUpdate', () => {
   let queryClient: QueryClient;
-  let wrapper: ({ children }: { children: ReactNode }) => JSX.Element;
+  let wrapper: ({ children }: { children: ReactNode }) => React.JSX.Element;
 
   const createMockTopic = (overrides?: Partial<Tables<'topics'>>): Tables<'topics'> => ({
+    deleted_at: null, deleted_by: null,
     id: 'topic-1',
     name: 'Test Topic',
     subject_id: 'subject-1',
@@ -161,7 +162,7 @@ describe('useTopicUpdate', () => {
       }, 0);
     }) as typeof defaultMockResult.mutate;
     mockMutations.useUpdateTopic.mockReturnValue(defaultMockResult);
-    
+
     const defaultIndicesResult = createUpdateTopicIndicesMock();
     defaultIndicesResult.mutate = jest.fn((variables, options) => {
       setTimeout(() => {
@@ -174,7 +175,7 @@ describe('useTopicUpdate', () => {
       }, 0);
     }) as typeof defaultIndicesResult.mutate;
     mockMutations.useUpdateTopicIndices.mockReturnValue(defaultIndicesResult);
-    
+
     const defaultFileResult = createUpdateTopicFileMock();
     defaultFileResult.mutate = jest.fn((variables, options) => {
       setTimeout(() => {
@@ -188,7 +189,7 @@ describe('useTopicUpdate', () => {
       }, 0);
     }) as typeof defaultFileResult.mutate;
     mockMutations.useUpdateTopicFile.mockReturnValue(defaultFileResult);
-    
+
     const defaultFileIndicesResult = createUpdateTopicFileIndicesMock();
     defaultFileIndicesResult.mutate = jest.fn((variables, options) => {
       setTimeout(() => {
@@ -479,7 +480,7 @@ describe('useTopicUpdate', () => {
   describe('error handling', () => {
     it('should handle errors gracefully', async () => {
       const currentTopic = createMockTopic();
-      
+
       const errorMockResult = createUpdateTopicMock();
       errorMockResult.mutate = jest.fn((variables, options) => {
         // Simulate async error

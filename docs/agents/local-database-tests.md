@@ -30,9 +30,13 @@ are copied from the source tree. Local keys from the disposable stack stay in
 child-process memory; startup's key-bearing output is suppressed. The installed
 repo CLI is preferred; the ordinary PATH CLI is the fallback.
 
-`checkall` runs coding/lint/build/unit stages before taking its runtime lock. Startup,
-reset, seed, database contracts, browser server/tests and cleanup then share one
-lock. `db:committypes` similarly holds it through reset/lint/type generation/build
+`checkall` runs contracts, lint, typechecking, unit tests, coverage and Edge checks
+before taking its runtime lock. App builds and Expo exports then receive the
+verified local settings inside the owned lifetime; unit preview tests remain
+unconfigured. Startup, builds, reset, seed, database contracts, browser server/tests
+and cleanup share one lock. The normal unit-test command budgets two workspace
+tasks with at most two Jest workers each, also used by CI, so nested Jest worker pools
+cannot multiply across the whole monorepo. `db:committypes` similarly holds it through reset/lint/type generation/build
 and its existing generated-file-only commit. Independent runtimes do not wait on
 that lock. Standalone seed/types also start
 and end their own disposable stack. Type-generation failures preserve the prior

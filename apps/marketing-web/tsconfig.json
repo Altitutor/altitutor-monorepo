@@ -9,13 +9,14 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "types": ["node", "jest", "mdx"],
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -47,7 +48,10 @@
     ".next/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
     ".next-isolated/types/**/*.ts",
-    ".next-teaching-prototype/types/**/*.ts"
+    ".next-teaching-prototype/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    ".next-isolated/dev/types/**/*.ts",
+    ".next-e2e/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

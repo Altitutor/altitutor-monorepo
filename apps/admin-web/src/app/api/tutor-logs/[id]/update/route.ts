@@ -15,7 +15,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userClient = createUserClient();
+    const userClient = await createUserClient();
     const {
       data: { user },
       error: authError,

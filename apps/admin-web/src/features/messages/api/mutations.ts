@@ -297,30 +297,3 @@ export function useMarkConversationRead() {
     onSettled: () => markUnreadQueriesStale(qc),
   });
 }
-
-/**
- * Delete a message
- * Only ADMINSTAFF can delete messages (enforced by RLS)
- */
-export function useDeleteMessage() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (messageId: string) => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      // Invalidate all message-related queries
-      qc.invalidateQueries({ queryKey: messagesKeys.all });
-      // Also invalidate reconciliation queries since failed messages view will change
-      qc.invalidateQueries({ queryKey: ['reconciliation'] });
-    },
-  });
-}
-
-

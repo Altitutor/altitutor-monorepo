@@ -1,9 +1,11 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button, Badge, Separator } from "@altitutor/ui";
 import { Input, Label } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
@@ -72,6 +74,7 @@ export function TopicDetailView({
   subjectId?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -90,6 +93,9 @@ export function TopicDetailView({
   const [solutionUnlinks, setSolutionUnlinks] = useState<string[]>([]);
 
   const { data: topic, isLoading, error } = useTopicById(id);
+  useEffect(() => {
+    if (topic && pathname.startsWith('/topics/')) router.replace(`/subjects/${topic.subject_id}/topics/${topic.id}`);
+  }, [topic, pathname, router]);
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(
@@ -499,43 +505,6 @@ export function TopicDetailView({
 
               <Separator className="my-4" />
 
-              {/* Files Section */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold">Files</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsAddResourceModalOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add File
-                  </Button>
-                </div>
-                {topicFiles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No files attached to this topic
-                  </p>
-                ) : (
-                  <TopicFilesList
-                    files={topicFiles}
-                    topicName={topic.name}
-                    onEdit={(fileId) => {
-                      setEditingFileId(fileId);
-                      setIsEditFileModalOpen(true);
-                    }}
-                  />
-                )}
-              </div>
-
-              <Separator className="my-4" />
-
-              <FlashcardManager topicId={id} />
-
-              <Separator className="my-4" />
-
               {/* Subtopics Section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -577,6 +546,47 @@ export function TopicDetailView({
                   <p className="text-sm text-muted-foreground">No subtopics</p>
                 )}
               </div>
+
+              <Separator className="my-4" />
+
+              {/* Files Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold">Files</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsAddResourceModalOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add File
+                  </Button>
+                </div>
+                {topicFiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No files attached to this topic
+                  </p>
+                ) : (
+                  <TopicFilesList
+                    files={topicFiles}
+                    topicName={topic.name}
+                    onEdit={(fileId) => {
+                      setEditingFileId(fileId);
+                      setIsEditFileModalOpen(true);
+                    }}
+                  />
+                )}
+              </div>
+
+              <Separator className="my-4" />
+
+              <FlashcardManager topicId={id} />
+
+              <Separator className="my-4" />
+
+
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
@@ -595,8 +605,7 @@ export function TopicDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              topic and all its children.
+              <RetainedDeletionMessage kind="Topic" name={topic?.name} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useId,
   useRef,
   type ReactNode,
 } from "react";
@@ -18,7 +19,8 @@ import {
 } from "./model";
 
 type Source = {
-  target: EntityTarget;
+  target?: EntityTarget;
+  key: string;
   active: boolean;
   actions: RecordMenuAction[];
 };
@@ -43,7 +45,7 @@ export function RecordActionsProvider({ children }: { children: ReactNode }) {
         return source.active
           ? source.actions.map((action) => ({
               ...action,
-              id: `${source.target.type}-${source.target.id}-${action.id}`,
+              id: `${source.target ? `${source.target.type}-${source.target.id}` : source.key}-${action.id}`,
               target: source.target,
               parents: action.group ? [action.group] : [],
             }))
@@ -60,6 +62,7 @@ export function useRecordCommands() {
 }
 
 const routeNames: Record<string, string> = {
+  email: "email",
   student: "students",
   parent: "parents",
   staff: "staff",
@@ -93,11 +96,13 @@ export function useRegisterRecordActions(
       : !!routeNames[type] &&
         !!pathname?.endsWith(`/${routeNames[type]}/${id}`));
   const latest = useRef<Source>({
+    key: `${type}:${id}`,
     target: { type: "student", id: "", title: "" },
     active: false,
     actions: [],
   });
   latest.current = {
+    key: `${type}:${id}`,
     target: {
       type: supported ? (entityType as EntityTarget["type"]) : "student",
       id: id ?? "",
@@ -110,4 +115,28 @@ export function useRegisterRecordActions(
     if (!registry || !supported || !id) return;
     return registry.register(`${type}:${id}`, () => latest.current);
   }, [registry, supported, type, id]);
+}
+
+/** Page actions share the global registry without pretending to be a record. */
+export function useRegisterPageActions(
+  path: string,
+  actions: RecordMenuAction[],
+) {
+  const registry = useContext(Context);
+  const pathname = usePathname();
+  const scope = useAccessoryTab();
+  const instance = useId();
+  const key = `page:${path}:${instance}`;
+  const latest = useRef<Source>({ key, active: false, actions: [] });
+  latest.current = {
+    key,
+    actions,
+    active: scope
+      ? scope.active && !scope.tab.id && scope.tab.kind === path.slice(1)
+      : pathname === path,
+  };
+  useEffect(
+    () => registry?.register(key, () => latest.current),
+    [registry, key],
+  );
 }

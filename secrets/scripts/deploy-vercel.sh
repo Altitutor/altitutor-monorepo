@@ -48,8 +48,9 @@ if [ -f "$SECRETS_DIR/.env.shared" ]; then
         [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
         # Remove leading/trailing whitespace and quotes
         key=$(echo "$key" | xargs)
+        [ "$key" = "VERCEL_TOKEN" ] || continue
         value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-        if [ "$key" = "VERCEL_TOKEN" ] && [ -n "$value" ]; then
+        if [ -n "$value" ]; then
             export VERCEL_TOKEN="$value"
             break
         fi
@@ -443,6 +444,15 @@ done < <({
     parse_env_file "$SECRETS_DIR/.env.shared"
     derive_env_vars "$SECRETS_DIR/.env.production"
 })
+fi
+
+# Full deployments include the server-only Microsoft email configuration.
+if [ -z "$ONLY_SECRET" ]; then
+    for email_environment in development production; do
+        if [ "$DEPLOY_ENVIRONMENT" = all ] || [ "$DEPLOY_ENVIRONMENT" = "$email_environment" ]; then
+            deploy_email_runtime vercel "$email_environment" || exit 1
+        fi
+    done
 fi
 
 echo ""

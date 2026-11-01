@@ -8,10 +8,8 @@ import {
   loadPublicBookingSession,
 } from '@/features/bookings/lib/public-booking-guards';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ sessionId: string }> }) {
+  const params = await props.params;
   try {
     const sessionId = params.sessionId;
 

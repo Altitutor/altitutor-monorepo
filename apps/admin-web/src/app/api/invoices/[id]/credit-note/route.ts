@@ -41,11 +41,12 @@ const creditNoteBodySchema = z
     },
   );
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const invoiceId = params.id;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { session },
       error: authError,

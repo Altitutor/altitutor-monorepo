@@ -65,3 +65,11 @@ REVOKE ALL ON FUNCTION public.retire_student_identity(uuid,uuid),
   public.guard_future_session_students(),public.suppress_retired_student_email(),
   public.guard_resolved_student_booking(),public.guard_retired_student_reservation()
   FROM PUBLIC,anon,authenticated,service_role;
+
+-- Preserve DEV-250's immutable mailbox binding after hosted-grant emulation.
+REVOKE ALL ON public.email_mailbox_identity
+  FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT,INSERT ON public.email_mailbox_identity TO service_role;
+
+-- Replay the production conversation-history privilege boundary after broad fixture grants.
+REVOKE DELETE, TRUNCATE ON public.messages, public.conversations FROM anon, authenticated;

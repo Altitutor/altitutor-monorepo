@@ -11,10 +11,8 @@ import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff
 
 type PromotionOutcome = 'approved' | 'deferred' | 'not_ready';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { staffId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ staffId: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 

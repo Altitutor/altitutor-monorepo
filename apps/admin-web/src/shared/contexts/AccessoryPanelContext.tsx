@@ -12,7 +12,6 @@ import {
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 
 export type AccessoryKind =
-  | "today"
   | "tasks"
   | "task"
   | "issues"
@@ -21,7 +20,8 @@ export type AccessoryKind =
   | "project"
   | "documents"
   | "document"
-  | "messages";
+  | "messages"
+  | "email";
 export type AccessoryOwner = { kind: AccessoryKind; id: string; title: string };
 export type AccessoryDestination = {
   owner?: AccessoryOwner;
@@ -77,7 +77,6 @@ const empty: Workspace = {
   width: 520,
 };
 const kinds: AccessoryKind[] = [
-  "today",
   "tasks",
   "task",
   "issues",
@@ -87,6 +86,7 @@ const kinds: AccessoryKind[] = [
   "documents",
   "document",
   "messages",
+  "email",
 ];
 type AccessoryPanel = Workspace & {
   openTab: (

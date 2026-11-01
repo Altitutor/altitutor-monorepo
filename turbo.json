@@ -5,7 +5,9 @@
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "package.json",
-    "turbo.json"
+    "turbo.json",
+    "tsconfig.json",
+    "eslint.configs.mjs"
   ],
   "globalPassThroughEnv": [
     "CI", "VERCEL_ENV", "VERCEL_TARGET_ENV",

@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/shared/utils';
 import { AdminDialogShell } from '@/shared/components';
@@ -497,7 +499,7 @@ export function NewConversationDialog({
 
             {imessageOwnedNumberId && (
               <div className="space-y-2">
-                <Input
+                <EmailInput
                   type="email"
                   value={appleIdEmail}
                   onChange={(e) => setAppleIdEmail(e.target.value)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type JSX } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, Input, Label, useToast } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { TutorDialogShell } from '@/shared/components/tutor-dialog-shell';
@@ -98,7 +98,7 @@ export function OfficePrintConfirmDialog({
   onOpenChange,
   fileId,
   filename,
-}: OfficePrintConfirmDialogProps): JSX.Element {
+}: OfficePrintConfirmDialogProps): React.JSX.Element {
   const { toast } = useToast();
   const [copies, setCopies] = useState(1);
   const [submitting, setSubmitting] = useState(false);

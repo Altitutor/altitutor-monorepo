@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderSuspending } from "@/shared/test-utils";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import SubjectDetailPage from "../page";
 
 const mockGet = jest.fn();
@@ -94,7 +95,7 @@ beforeEach(() => {
 });
 
 async function edit() {
-  render(<SubjectDetailPage params={{ id: "subject" }} />);
+  await renderSuspending(<SubjectDetailPage params={Promise.resolve({ id: "subject" })} />);
   fireEvent.click(await screen.findByText("Edit subject"));
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -277,7 +278,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+        <AdminPageActions priority="secondary">
           <Button
             variant={isSelectMode ? "secondary" : "outline"}
             size="sm"
@@ -313,7 +314,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               Change Color ({selectedSubjectIds.size})
             </Button>
           )}
-        </div>
+        </AdminPageActions>
 
         <DataTableToolbar
           state={state}

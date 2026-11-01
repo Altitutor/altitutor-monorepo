@@ -310,6 +310,7 @@ describe('processSessionStudents', () => {
 
 describe('processSessionStaff', () => {
   const mockStaff: Tables<'staff'> = {
+    deleted_at: null, deleted_by: null,
     id: 'staff-1',
     first_name: 'Jane',
     last_name: 'Smith',

@@ -1,9 +1,10 @@
 import { StudentInterviewResults } from "@/features/interviews/components/student-interview-results";
 
-export default function InterviewResultsPage({
-  params,
-}: {
-  params: { roundId: string };
-}) {
+export default async function InterviewResultsPage(
+  props: {
+    params: Promise<{ roundId: string }>;
+  }
+) {
+  const params = await props.params;
   return <StudentInterviewResults roundId={params.roundId} />;
 }

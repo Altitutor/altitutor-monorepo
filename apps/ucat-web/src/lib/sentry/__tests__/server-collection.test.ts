@@ -17,8 +17,8 @@ describe.each(['server', 'edge'])('%s collection', (runtime) => {
   ])('gates actual SDK initialization for %p', (env, expected) => {
     process.env = { ...previous, NODE_ENV: 'production', CI: '', VERCEL_ENV: '', VERCEL_TARGET_ENV: '', SENTRY_ENVIRONMENT: '', SENTRY_DISABLED: '', SENTRY_TEST_OPT_IN: '', NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1', ...env };
     jest.isolateModules(() => {
-      if (runtime === 'server') require('@/sentry.server.config');
-      else require('@/sentry.edge.config');
+      if (runtime === 'server') jest.requireActual('@/sentry.server.config');
+      else jest.requireActual('@/sentry.edge.config');
     });
     const options = jest.mocked(Sentry.init).mock.calls.at(-1)?.[0];
     expect(options?.enabled).toBe(expected);

@@ -27,7 +27,7 @@ interface TaskContentPanelProps {
   taskStatus?: TaskStatus;
   enabled?: boolean;
   autoFocusTitle?: boolean;
-  descriptionRef?: React.RefObject<RichTextEditorRef>;
+  descriptionRef?: React.RefObject<RichTextEditorRef | null>;
 }
 
 export function TaskContentPanel({

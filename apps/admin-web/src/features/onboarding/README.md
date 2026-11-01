@@ -24,3 +24,7 @@ References: [Microsoft delta message synchronization](https://learn.microsoft.co
 ## Prototype source
 
 ALTI-615 records the approved decisions and verification. The throwaway UI is preserved at `codex/prototype-trial-students`, commit `8d3ccd6c32a8bf61fac1729fefe0dd60a38ec67a`, including the initial alternatives. Its data is fictional and its actions are simulated.
+
+## Unified mailbox
+
+DEV-250 supersedes the standalone mailbox reader and sync endpoint. See [Shared admin mailbox](../email/README.md) for current permissions, sync, delivery and cutover requirements. Journey correspondence remains a consumer of the same canonical mailbox history.

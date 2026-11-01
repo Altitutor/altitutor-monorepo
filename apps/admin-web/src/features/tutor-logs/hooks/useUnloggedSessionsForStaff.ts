@@ -76,10 +76,10 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
 
         // Filter out sessions that already have tutor logs
         const { data: existingLogs } = await supabase
-          .from('tutor_logs')
+          .from('vadmin_session_log_state')
           .select('session_id');
 
-        const loggedSessionIds = new Set((existingLogs || []).map((log: { session_id: string }) => log.session_id));
+        const loggedSessionIds = new Set((existingLogs || []).map((log) => log.session_id));
         const unloggedSessions = (rpcData.sessions || []).filter(
           (s: Tables<'sessions'>) =>
             s.status === 'ACTIVE' &&

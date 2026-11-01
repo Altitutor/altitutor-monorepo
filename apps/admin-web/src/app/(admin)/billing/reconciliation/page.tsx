@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { useEffect, useState, useCallback } from 'react';
 import { billingApi, type MissingPaymentObligation, type FailedPaymentAttempt, type StuckPaymentAttempt } from '@/features/billing';
@@ -69,14 +70,11 @@ export default function ReconciliationPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Payment Reconciliation</h1>
-        </div>
+      <AdminPageActions>
         <Button onClick={handleReconcile} disabled={reconciling || loading} variant="outline">
           {reconciling ? 'Reconciling...' : 'Info'}
         </Button>
-      </div>
+      </AdminPageActions>
 
       <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
         <CardContent className="pt-6">
@@ -85,8 +83,8 @@ export default function ReconciliationPage() {
             <div className="text-blue-800 dark:text-blue-300">
               <p className="font-medium mb-1">Reconciliation is now automatic</p>
               <p className="text-sm">
-                With the migration to Stripe Invoices, reconciliation is handled automatically by Stripe. 
-                Failed payments are automatically retried using Smart Retries, and payment status is automatically 
+                With the migration to Stripe Invoices, reconciliation is handled automatically by Stripe.
+                Failed payments are automatically retried using Smart Retries, and payment status is automatically
                 reconciled. Manual reconciliation is no longer needed.
               </p>
             </div>
@@ -194,8 +192,8 @@ export default function ReconciliationPage() {
                             <Badge variant="destructive">{attempt.failure_code || 'unknown'}</Badge>
                           </TableCell>
                           <TableCell className="text-xs">
-                            {attempt.card_brand && attempt.card_last4 
-                              ? `${attempt.card_brand} ****${attempt.card_last4}` 
+                            {attempt.card_brand && attempt.card_last4
+                              ? `${attempt.card_brand} ****${attempt.card_last4}`
                               : '-'}
                           </TableCell>
                           <TableCell className="font-mono text-xs">

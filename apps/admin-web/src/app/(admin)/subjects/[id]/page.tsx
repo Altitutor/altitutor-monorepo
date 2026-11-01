@@ -1,12 +1,14 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { subjectsKeys } from '@/features/subjects/hooks/useSubjectsQuery';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Label, SearchableSelectFieldTrigger } from "@altitutor/ui";
-import { 
+import {
   AlertTriangle,
   Loader2,
   Pencil,
@@ -84,7 +86,8 @@ const formSchema = z.object({
   ]).transform((val) => val === '' ? null : val).nullable(),
 });
 
-export default function SubjectDetailPage({ params }: { params: { id: string } }) {
+export default function SubjectDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -275,8 +278,8 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
           <div className="flex flex-col items-center py-8 text-center">
             <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
             <p className="text-muted-foreground">{error}</p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="mt-4"
               onClick={() => id && loadSubject(id)}
             >
@@ -332,10 +335,10 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                     <FormItem>
                       <FormLabel>Year Level</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="Enter year level" 
-                          {...field} 
+                        <Input
+                          type="number"
+                          placeholder="Enter year level"
+                          {...field}
                           onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value))}
                           value={field.value === null ? '' : field.value}
                         />
@@ -545,9 +548,8 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the subject
-                        "{subject.name}" and all associated data from the database.
-                      </AlertDialogDescription>
+              <RetainedDeletionMessage kind="Subject" name={subject.name} />
+            </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="py-4">
                       <FormItem>
@@ -567,7 +569,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                     </div>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
+                      <AlertDialogAction
                         onClick={handleDeleteSubject}
                         disabled={isDeleting || deleteConfirmText !== subject.name}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -590,7 +592,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                 <Button variant="outline" type="button" onClick={handleCancelEdit}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   type="submit"
                   disabled={loading}
                 >
@@ -663,9 +665,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button 
-                variant="outline" 
-                className="flex items-center" 
+              <Button
+                variant="outline"
+                className="flex items-center"
                 onClick={handleEditClick}
               >
                 <Pencil className="mr-2 h-4 w-4" />

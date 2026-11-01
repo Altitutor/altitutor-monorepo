@@ -15,6 +15,8 @@ const SHARED_WEB_PATHS = [
   /^pnpm-workspace\.yaml$/u,
   /^package\.json$/u,
   /^turbo\.json$/u,
+  /^tsconfig\.json$/u,
+  /^eslint\.configs\.mjs$/u,
   /^\.github\/workflows\/ci\.yml$/u,
   /^\.github\/workflows\/supabase-deploy\.yml$/u,
   /^scripts\/web-system-test-paths(?:\.test)?\.mjs$/u,

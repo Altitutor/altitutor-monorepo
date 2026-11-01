@@ -17,6 +17,16 @@ FAKE = r"""import json,os,re,sys,time
 from pathlib import Path
 state=Path(os.environ['FIXTURE_STATE']);data=json.loads(state.read_text());args=sys.argv[1:];name=Path(sys.argv[0]).name
 with open(os.environ['FIXTURE_LOG'],'a') as output: output.write(json.dumps([name,args])+'\n')
+if name == 'pnpm' and os.environ.get('FIXTURE_CHECK_STAGE_ENV'):
+ if args[:3] == ['turbo', 'run', 'build']:
+  assert data.get('started'), 'app builds require the owned database to be running'
+  assert os.environ.get('ALTITUTOR_OWNED_DB_INNER') == '1', 'app builds require the owned lease'
+  assert os.environ.get('NEXT_PUBLIC_SUPABASE_URL') == 'http://127.0.0.1:' + data['api_port']
+ elif args == ['test'] or args[:3] == ['turbo', 'run', 'test']:
+  assert not os.environ.get('NEXT_PUBLIC_SUPABASE_URL'), 'unit previews must remain unconfigured'
+  assert not os.environ.get('ALTITUTOR_OWNED_DB_INNER'), 'unit tests must precede database startup'
+if name == 'node' and args[:1] == ['-e']:
+ print('57349')
 if name=='docker':
  if args[0]=='inspect':
   record=data['records'].get(args[1]);
@@ -24,6 +34,17 @@ if name=='docker':
   print(json.dumps([record]))
  elif args[0]=='ps':
   if data.get('started'):print('owned-db\nowned-api')
+ elif args[:2]==['network','ls']:
+  print('\n'.join(data.get('networks',{})))
+ elif args[:2]==['network','inspect']:
+  record=data.get('networks',{}).get(args[2])
+  if not record:sys.exit(1)
+  print(json.dumps([record]))
+ elif args[:2]==['network','rm']:
+  assert args[2]=='owned-network', 'foreign or replacement network removal'
+  del data['networks'][args[2]];state.write_text(json.dumps(data))
+ elif args[:2]==['volume','ls']:
+  print('\n'.join(data.get('volumes',[])))
  elif args[0]=='exec':
   assert args[2]=='owned-db', 'foreign container seed';sys.stdin.read()
 elif name=='pnpm' and 'next' in args:
@@ -51,6 +72,7 @@ elif name=='supabase':
  assert args[:2]==['--workdir',data['workdir']], 'foreign workdir'
  args=args[2:]
  if args[0]=='start':
+  data['networks']={'owned-network':{'Id':'owned-network','Name':'supabase_network_'+project,'Labels':{'com.supabase.cli.project':project},'Containers':{}}}
   data['started']=True;data['stopped']=False;state.write_text(json.dumps(data))
   if os.environ.get('FIXTURE_START_FAIL'):sys.exit(9)
  elif args[0]=='status':
@@ -64,7 +86,18 @@ elif name=='supabase':
   if os.environ.get('FIXTURE_GEN_FAIL'):sys.exit(9)
   print('// fixture generated types')
  elif args[0]=='stop':
-  data['started']=False;data['stopped']=True;state.write_text(json.dumps(data))
+  data['started']=False;data['stopped']=True
+  if os.environ.get('FIXTURE_STOP_NETWORK_CONTENTION'):
+   if os.environ.get('FIXTURE_STOP_LEFT_VOLUME'):data['volumes']=['supabase_db_'+project]
+   if os.environ.get('FIXTURE_STOP_LEFT_CONTAINER'):data['started']=True
+   if os.environ.get('FIXTURE_STOP_REPLACE_NETWORK'):
+    record=data['networks'].pop('owned-network');record['Id']='replacement-network';data['networks']['replacement-network']=record
+   if os.environ.get('FIXTURE_STOP_ATTACHED_NETWORK'):data['networks']['owned-network']['Containers']={'foreign':'endpoint'}
+   state.write_text(json.dumps(data))
+   print('failed to prune networks: Error response from daemon: a prune operation is already running',file=sys.stderr);sys.exit(1)
+  data['networks']={};state.write_text(json.dumps(data))
+  if os.environ.get('FIXTURE_STOP_OTHER_ERROR'):
+   print('failed to stop container: daemon unavailable',file=sys.stderr);sys.exit(1)
 """
 
 class OwnedDatabaseTests(unittest.TestCase):
@@ -150,6 +183,48 @@ class OwnedDatabaseTests(unittest.TestCase):
                 self.assertTrue(json.loads(self.state.read_text())['stopped'])
                 self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
 
+    def test_completed_owned_cleanup_recovers_only_network_prune_contention(self):
+        self.env['FIXTURE_STOP_NETWORK_CONTENTION'] = '1'
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(self.state.read_text())
+        self.assertFalse(data['started'])
+        self.assertEqual(data['networks'], {})
+        self.assertEqual(data['normal_database'], 'untouched')
+
+    def test_network_prune_recovery_rejects_incomplete_or_replaced_resources(self):
+        self.env['FIXTURE_STOP_NETWORK_CONTENTION'] = '1'
+        for fault in ['FIXTURE_STOP_LEFT_VOLUME', 'FIXTURE_STOP_LEFT_CONTAINER',
+                      'FIXTURE_STOP_REPLACE_NETWORK', 'FIXTURE_STOP_ATTACHED_NETWORK']:
+            with self.subTest(fault=fault):
+                self.env[fault] = '1'
+                result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(name == 'docker' and args[:2] == ['network', 'rm']
+                                     for name, args in self.calls()))
+                self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
+                del self.env[fault]
+                data = json.loads(self.state.read_text())
+                data['started'] = False
+                data['volumes'] = []
+                self.state.write_text(json.dumps(data))
+                self.log.unlink()
+
+    def test_unrelated_stop_error_remains_failure_even_after_resources_are_gone(self):
+        self.env['FIXTURE_STOP_OTHER_ERROR'] = '1'
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, '-c', 'pass')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('daemon unavailable', result.stderr)
+        self.assertEqual(json.loads(self.state.read_text())['normal_database'], 'untouched')
+
+    def test_network_replaced_before_cleanup_is_not_adopted(self):
+        consumer = self.base / 'replace-network.py'
+        consumer.write_text('import json,os\nfrom pathlib import Path\np=Path(os.environ["FIXTURE_STATE"])\nd=json.loads(p.read_text())\nr=d["networks"].pop("owned-network")\nr["Id"]="replacement-network"\nd["networks"][r["Id"]]=r\np.write_text(json.dumps(d))\n')
+        result = self.call('run', '--manifest', str(self.manifest), '--', sys.executable, str(consumer))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('network replaced', result.stderr.lower())
+        self.assertFalse(any(name == 'supabase' and 'stop' in args for name, args in self.calls()))
+
     def test_normal_development_manifest_is_rejected_before_any_command(self):
         data=json.loads(self.manifest.read_text());data['workdir']=str(self.repo);data['project_id']='altitutor-admin-app'
         bad=self.repo/'ownership.json';bad.write_text(json.dumps(data))
@@ -202,6 +277,33 @@ class OwnedDatabaseTests(unittest.TestCase):
         self.assertLess(actions.index(('supabase',['test','db'])),actions.index(('interview-concurrency',[])))
         self.assertLess(actions.index(('interview-concurrency',[])),actions.index(('pnpm',['--filter','ucat-web','test:e2e:critical'])))
         self.assertEqual(actions[-1],('supabase',['stop','--project-id',self.project,'--no-backup']))
+
+    def test_full_gate_configures_app_builds_without_configuring_unit_previews(self):
+        for name in ['node', 'deno']:
+            executable = self.bin / name
+            executable.write_text('#!' + sys.executable + '\n' + FAKE)
+            executable.chmod(0o700)
+        for name in ['owned_database.test.py', 'worktree_dev.test.py']:
+            (self.repo / 'scripts' / name).write_text('pass\n')
+        self.env.update(FIXTURE_CHECK_STAGE_ENV='1',
+                        ALTITUTOR_TEST_DB_MANIFEST=str(self.manifest))
+        for key in ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']:
+            self.env.pop(key, None)
+        result = subprocess.run(['bash', str(self.repo / 'scripts/checkall.sh')],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = [(name, args[2:] if name == 'supabase' else args)
+                   for name, args in self.calls()]
+        build = next(index for index, (name, args) in enumerate(actions)
+                     if name == 'pnpm' and args[:3] == ['turbo', 'run', 'build'])
+        start = next(index for index, (name, args) in enumerate(actions)
+                     if name == 'supabase' and args[:1] == ['start'])
+        unit = next(index for index, (name, args) in enumerate(actions)
+                    if name == 'pnpm' and (args == ['test'] or args[:3] == ['turbo', 'run', 'test']))
+        self.assertLess(unit, start)
+        self.assertLess(start, build)
+        self.assertLess(build, actions.index(('supabase', ['db', 'reset', '--local'])))
+        self.assertEqual(actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
 
     def test_type_commands_use_owned_stack_and_preserve_existing_output_on_failure(self):
         for action in ['types','committypes']:

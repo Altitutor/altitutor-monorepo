@@ -13,7 +13,7 @@ export function isSavedViewId(id: string): boolean {
 type ExistingView = { target_entity: string; user_id: string | null }
 
 export async function requireTutorActor() {
-  const userClient = createClient()
+  const userClient = await createClient()
   const [{ data: userData, error: userError }, { data: isTutor, error: tutorError }] = await Promise.all([
     userClient.auth.getUser(),
     userClient.rpc('is_tutor'),

@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useMemo, useState } from 'react';
 import {
   Table,
@@ -37,6 +39,7 @@ import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentInvoiceOwing } from '@/features/billing/hooks/useInvoicesQuery';
+import { CustomerBalanceSummary } from './CustomerBalanceSummary';
 
 interface StudentInvoicesTableProps {
   studentId: string;
@@ -150,7 +153,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
     setActionInvoiceId(invoiceId);
     setIsLoadingAction(true);
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/send-invoice`, {
+      const response = await requestOperationalEmail(`/api/invoices/${invoiceId}/send-invoice`, {
         method: 'POST',
       });
 
@@ -220,21 +223,24 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">Invoices</h3>
-        <div className="text-sm" aria-live="polite">
-          <span className="text-muted-foreground">Total amount owing: </span>
-          {owing.isError ? (
-            <span role="alert">Unable to load total</span>
-          ) : owing.isPending ? (
-            <span>Loading…</span>
-          ) : owing.data.length === 0 ? (
-            <span>No open invoices</span>
-          ) : (
-            owing.data.map(({ currency, amountCents }) => (
-              <span className="ml-2 font-medium" key={currency}>
-                {new Intl.NumberFormat('en-AU', { style: 'currency', currency, currencyDisplay: 'code' }).format(amountCents / 100)}
-              </span>
-            ))
-          )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <CustomerBalanceSummary studentId={studentId} />
+          <div className="text-sm" aria-live="polite">
+            <span className="text-muted-foreground">Total amount owing: </span>
+            {owing.isError ? (
+              <span role="alert">Unable to load total</span>
+            ) : owing.isPending ? (
+              <span>Loading…</span>
+            ) : owing.data.length === 0 ? (
+              <span>No open invoices</span>
+            ) : (
+              owing.data.map(({ currency, amountCents }) => (
+                <span className="ml-2 font-medium" key={currency}>
+                  {new Intl.NumberFormat('en-AU', { style: 'currency', currency, currencyDisplay: 'code' }).format(amountCents / 100)}
+                </span>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -317,7 +323,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                     return sum + (settlement > 0 ? settlement : note.amount_cents);
                   }, 0);
                 const invoiceTotalCents =
-                  (invoice.total_cents ?? invoice.amount_due_cents ?? null) ?? 0;
+                  invoice.total_cents ?? invoice.amount_due_cents ?? 0;
                 const isRefunded = invoice.is_refunded;
                 const isFullyCredited =
                   totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;

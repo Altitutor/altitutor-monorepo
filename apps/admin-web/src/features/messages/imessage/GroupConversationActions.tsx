@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
-import { ImageOff, LogOut, Pencil, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
+import { ImageOff, LogOut, Pencil, UserMinus, UserPlus, Users } from 'lucide-react';
 import { useImessageControl } from './hooks';
 import { ImessageCommandDialog } from './ImessageCommandDialog';
 import type { ImessageCommandType } from './types';
@@ -22,7 +22,6 @@ import type { ImessageCommandType } from './types';
 type EditableAction = 'update_chat' | 'add_participant' | 'remove_participant';
 type DestructiveAction =
   | 'leave_chat'
-  | 'delete_chat'
   | 'remove_participant'
   | 'remove_group_icon';
 
@@ -101,7 +100,6 @@ export function GroupConversationActions({
       <DropdownMenuItem onClick={() => openEditable('remove_participant')}><UserMinus className="mr-2 h-4 w-4" />Remove participant</DropdownMenuItem>
       <DropdownMenuItem onClick={() => setDestructiveAction('remove_group_icon')}><ImageOff className="mr-2 h-4 w-4" />Remove group icon…</DropdownMenuItem>
       <DropdownMenuItem onClick={() => setDestructiveAction('leave_chat')}><LogOut className="mr-2 h-4 w-4" />Leave group…</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => setDestructiveAction('delete_chat')}><Trash2 className="mr-2 h-4 w-4" />Delete chat…</DropdownMenuItem>
     </>
   );
 

@@ -13,12 +13,14 @@ export const dynamicParams = false;
 export function generateStaticParams() {
   return getArticles().map((article) => ({ slug: article.slug }));
 }
-export function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const article = getArticle(params.slug);
   if (!article) notFound();
   return blogMetadata(article);
 }
-export default function ArticleRoute({ params }: { params: { slug: string } }) {
+export default async function ArticleRoute(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const article = getArticle(params.slug);
   if (!article) notFound();
   const Content = article.content;
