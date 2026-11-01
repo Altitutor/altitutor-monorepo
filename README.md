@@ -24,7 +24,7 @@ pnpm + Turborepo workspace for Altitutor's web apps, native student app, and sha
 
 Use **Node 24.22.2** (the supported Node 24 LTS line) and **pnpm 11.28.9**.
 The Node version is pinned in `.nvmrc`; CI reads that same file. The engine
-check also permits the compatible Node 22 LTS line (22.13+). Node 20 cannot
+check also permits the compatible Node 22 LTS line (22.22+). Node 20 cannot
 run pnpm 11. An older terminal can otherwise fail with
 `ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING` before a repository command starts.
 
