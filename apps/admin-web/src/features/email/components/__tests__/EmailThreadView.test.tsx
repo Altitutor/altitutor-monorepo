@@ -358,3 +358,110 @@ it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject"
     }),
   ).toBeInTheDocument();
 });
+it("flushes both dirty drafts before closing their shared tab", async () => {
+  localStorage.clear();
+  const drafts = [
+    existingDraft,
+    { ...existingDraft, id: "second-draft", subject: "Second draft" },
+  ];
+  existingThread(
+    [originalMessage, ...drafts],
+    <AccessoryPanelProvider>
+      <DraftWorkspace />
+    </AccessoryPanelProvider>,
+  );
+  const get = global.fetch!;
+  const pending = new Map<string, (value: Response) => void>();
+  const savedIds: string[] = [];
+  global.fetch = jest.fn(async (input, init) => {
+    if (!init?.body) return get(input, init);
+    const command = JSON.parse(String(init.body));
+    if (command.action === "save") {
+      savedIds.push(command.id);
+      return await new Promise<Response>((resolve) =>
+        pending.set(command.id, resolve),
+      );
+    }
+    return { ok: true, json: async () => ({ state: "released" }) } as Response;
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open selected draft" }));
+  const subjects = await screen.findAllByRole("textbox", {
+    name: "Email subject",
+  });
+  expect(subjects).toHaveLength(2);
+  subjects.forEach((subject, index) =>
+    fireEvent.change(subject, { target: { value: "Changed " + index } }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^Close .* tab$/ }));
+  const legacyMenu = screen.queryByRole("menuitem", { name: "Close draft" });
+  if (legacyMenu) fireEvent.click(legacyMenu);
+  await waitFor(() => expect(pending.size).toBe(1));
+  // The browser must prevent further edits/replies while a multi-draft flush waits.
+  const conversation = screen.getByLabelText("Email conversation");
+  expect(conversation).toHaveAttribute("inert");
+  expect(conversation).toHaveAttribute("aria-busy", "true");
+  const [firstId, resolveFirst] = [...pending.entries()][0];
+  await act(async () =>
+    resolveFirst({
+      ok: true,
+      json: async () => ({
+        state: "saved",
+        message: {
+          ...drafts.find((item) => item.id === firstId),
+          subject: "Saved work",
+          changeKey: "two",
+        },
+      }),
+    } as Response),
+  );
+  await waitFor(() =>
+    expect(new Set(savedIds)).toEqual(new Set(drafts.map((item) => item.id))),
+  );
+  expect(screen.getByRole("tab")).toBeInTheDocument();
+  expect(conversation).toHaveAttribute("inert");
+  const [secondId, resolveSecond] = [...pending.entries()].find(
+    ([id]) => id !== firstId,
+  )!;
+  await act(async () =>
+    resolveSecond({
+      ok: true,
+      json: async () => ({
+        state: "saved",
+        message: {
+          ...drafts.find((item) => item.id === secondId),
+          subject: "Saved work",
+          changeKey: "two",
+        },
+      }),
+    } as Response),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument(),
+  );
+});
+it("keeps the same draft editor mounted when Messages are hidden and shown", async () => {
+  existingThread([originalMessage, existingDraft]);
+  const subject = await screen.findByRole("textbox", { name: "Email subject" });
+  fireEvent.change(subject, {
+    target: { value: "Work retained across visibility" },
+  });
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: "Show messages and Activity" }),
+    { key: "Enter", code: "Enter" },
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitemcheckbox", { name: "Messages" }),
+  );
+  expect(subject).toBeInTheDocument();
+  expect(subject).not.toBeVisible();
+  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: "Show messages and Activity" }),
+    { key: "Enter", code: "Enter" },
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitemcheckbox", { name: "Messages" }),
+  );
+  expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
+  expect(subject).toHaveValue("Work retained across visibility");
+});

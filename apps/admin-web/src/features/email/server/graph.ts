@@ -205,7 +205,12 @@ export function createGraphMailbox({
     }
     return value;
   }
-  async function request(path: string, method = "GET", body?: unknown) {
+  async function request(
+    path: string,
+    method = "GET",
+    body?: unknown,
+    signal?: AbortSignal,
+  ) {
     const response = await fetchImpl(
       path.startsWith("https:") ? path : `${base}${path}`,
       {
@@ -217,7 +222,7 @@ export function createGraphMailbox({
             'IdType="ImmutableId", outlook.body-content-type="html", odata.maxpagesize=100',
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(15_000),
+        signal: signal ?? AbortSignal.timeout(15_000),
         cache: "no-store",
       },
     );
@@ -329,12 +334,15 @@ export function createGraphMailbox({
         );
       return page.value[0] ? normalize(page.value[0], "") : null;
     },
-    async message(id: string, replyHeaders = false) {
+    async message(id: string, replyHeaders = false, signal?: AbortSignal) {
       return normalize(
         graphMessage.parse(
           await (
             await request(
               `/messages/${encodeURIComponent(id)}${replyHeaders ? "?$select=id,conversationId,parentFolderId,subject,isRead,isDraft,body,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,internetMessageId,changeKey,hasAttachments,internetMessageHeaders" : ""}`,
+              "GET",
+              undefined,
+              signal,
             )
           ).json(),
         ),

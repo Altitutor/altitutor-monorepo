@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Archive, Mail, Reply, Forward, ListFilter } from "lucide-react";
@@ -26,7 +32,8 @@ import {
   type EmailMessage,
   type EmailThread,
 } from "../types";
-import { EmailComposer } from "./EmailComposer";
+import { toast } from "sonner";
+import { EmailComposer, type RegisterDraftClose } from "./EmailComposer";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailBody } from "./EmailBodyEditor";
 import { EmailActions, EmailActionGroup } from "./EmailActions";
@@ -127,6 +134,45 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   );
   const mailbox = useMailbox();
   const command = useEmailCommand();
+  const closeEditors = useRef(new Map<string, () => Promise<boolean>>());
+  const closing = useRef(false);
+  const [closingEditors, setClosingEditors] = useState(false);
+  const registerDraftClose = useCallback<RegisterDraftClose>((id, prepare) => {
+    closeEditors.current.set(id, prepare);
+    return () => {
+      if (closeEditors.current.get(id) === prepare)
+        closeEditors.current.delete(id);
+    };
+  }, []);
+  useEffect(() => {
+    if (!scope) return;
+    scope.registerClose((next) => {
+      if (closing.current) return;
+      closing.current = true;
+      setClosingEditors(true);
+      void (async () => {
+        for (const prepare of [...closeEditors.current.values()]) {
+          if (!(await prepare())) {
+            toast.error(
+              "Some drafts still need attention. The conversation was kept open.",
+            );
+            return;
+          }
+        }
+        (next ?? scope.close)();
+      })()
+        .catch(() =>
+          toast.error(
+            "Drafts could not be saved. The conversation was kept open.",
+          ),
+        )
+        .finally(() => {
+          closing.current = false;
+          setClosingEditors(false);
+        });
+    });
+    return () => scope.registerClose(null);
+  }, [scope]);
   const [showActivity, setShowActivity] = useState(false);
   const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);
@@ -169,6 +215,10 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     );
   useEffect(() => {
     if (scope?.active === false || !focusDraftId) return;
+    if (!showMessages) {
+      setShowMessages(true);
+      return;
+    }
     const card = draftCards.current.get(focusDraftId);
     if (card) {
       card.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -177,7 +227,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         ?.focus({ preventScroll: true });
       setFocusDraftId(undefined);
     }
-  }, [focusDraftId, liveDrafts.length, scope?.active]);
+  }, [focusDraftId, liveDrafts.length, scope?.active, showMessages]);
   const latest =
     messages.filter((message) => !message.draft).at(-1) ?? messages.at(-1);
   const subject =
@@ -243,7 +293,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     original = latest,
     forceNew = false,
   ) {
-    if (!original || !mailbox.data || draft) return;
+    if (closing.current || !original || !mailbox.data || draft) return;
     if (!forceNew && mode !== "forward") {
       const existing = liveDrafts.find(
         (message) =>
@@ -335,6 +385,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         candidates.at(-1);
       if (candidate) {
         setDismissedDrafts((all) => all.filter((id) => id !== candidate.id));
+        setShowMessages(true);
         setFocusDraftId(candidate.id);
       }
     } else start(action);
@@ -350,28 +401,28 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       id: "reply",
       title: "Reply to email",
       icon: Reply,
-      disabled: !latest || Boolean(draft),
+      disabled: closingEditors || !latest || Boolean(draft),
       action: () => start("reply"),
     },
     {
       id: "reply-all",
       title: "Reply all",
       icon: Reply,
-      disabled: !latest || Boolean(draft),
+      disabled: closingEditors || !latest || Boolean(draft),
       action: () => start("replyAll"),
     },
     {
       id: "forward",
       title: "Forward email",
       icon: Forward,
-      disabled: !latest || Boolean(draft),
+      disabled: closingEditors || !latest || Boolean(draft),
       action: () => start("forward"),
     },
     {
       id: "archive",
       title: "Archive email",
       icon: Archive,
-      disabled: !nonDraftIds.length || command.isPending,
+      disabled: closingEditors || !nonDraftIds.length || command.isPending,
       action: () =>
         command.mutate({
           action: "move",
@@ -383,7 +434,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       id: "unread",
       title: "Mark email unread",
       icon: Mail,
-      disabled: !nonDraftIds.length || command.isPending,
+      disabled: closingEditors || !nonDraftIds.length || command.isPending,
       action: () =>
         command.mutate({ action: "read", ids: nonDraftIds, read: false }),
     },
@@ -506,6 +557,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     <div
       className="flex h-full min-h-0 flex-col"
       aria-label="Email conversation"
+      inert={closingEditors}
+      aria-busy={closingEditors}
     >
       <header className="shrink-0 space-y-3 border-b p-4">
         <h1 className="truncate text-lg font-semibold">{subject}</h1>
@@ -576,8 +629,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             Could not load linked Activity.
           </p>
         )}
-        {showMessages &&
-          liveDrafts
+        <div hidden={!showMessages}>
+          {liveDrafts
             .filter(
               (message) =>
                 message.id !== draft?.id && message.id !== preparedDraftId,
@@ -591,6 +644,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                 }}
               >
                 <EmailComposer
+                  registerForClose={registerDraftClose}
                   draft={message}
                   mailbox={mailbox.data!}
                   inline
@@ -606,6 +660,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                 />
               </div>
             ))}
+        </div>
         {sends
           .filter((send) => send.state !== "sent")
           .map((send) => (
@@ -644,6 +699,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         {draft ? (
           <EmailComposer
             key={draft.id}
+            registerForClose={registerDraftClose}
             draft={draft}
             mailbox={mailbox.data}
             signature={signature}
@@ -697,6 +753,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         open={Boolean(reuse)}
         onClose={() => setReuse(null)}
         title="Continue existing reply draft?"
+        subtitle="Continue that draft or create a separate reply."
         footer={
           <>
             <Button

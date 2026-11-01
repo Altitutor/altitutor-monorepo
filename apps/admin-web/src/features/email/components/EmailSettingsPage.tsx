@@ -154,9 +154,13 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
           ? a.subject.localeCompare(b.subject)
           : a.name.localeCompare(b.name)),
     );
+  const effectivePage = Math.min(
+    display.page,
+    Math.max(1, Math.ceil(rows.length / display.pageSize)),
+  );
   const page = rows.slice(
-    (display.page - 1) * display.pageSize,
-    display.page * display.pageSize,
+    (effectivePage - 1) * display.pageSize,
+    effectivePage * display.pageSize,
   );
   return (
     <>
@@ -328,7 +332,7 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
           </Table>
         </div>
         <TablePagination
-          page={display.page}
+          page={effectivePage}
           pageSize={display.pageSize}
           total={rows.length}
           onPageChange={(page) => setDisplay((all) => ({ ...all, page }))}
@@ -344,6 +348,11 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
       )}
       <AdminDialogShell
         open={editing}
+        subtitle={
+          tab === "signature"
+            ? "Used for your messages from the shared mailbox."
+            : "Shared templates are available to all administrators."
+        }
         onClose={() => {
           if (!busy) setEditing(false);
         }}
@@ -411,6 +420,7 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
           if (!busy) setConfirmDelete(false);
         }}
         title="Delete shared email template?"
+        subtitle="Existing drafts keep their text."
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmDelete(false)}>

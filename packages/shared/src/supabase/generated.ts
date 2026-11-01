@@ -44486,6 +44486,10 @@ export type Database = {
         }
         Returns: Json
       }
+      email_cache_draft_reply_targets: {
+        Args: { p_message_id: string; p_change_key: string; p_targets: string[] }
+        Returns: boolean
+      }
       email_cancel_schedule: { Args: { p_command_id: string }; Returns: Json }
       email_claim_draft: {
         Args: {

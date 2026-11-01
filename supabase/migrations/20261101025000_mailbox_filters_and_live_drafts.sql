@@ -56,3 +56,16 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
 $$;
 REVOKE ALL ON FUNCTION public.email_thread_detail(text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.email_thread_detail(text) TO authenticated,service_role;
+
+-- Header enrichment cannot overwrite a body/folder/version already advanced by
+-- delta sync. Merge only metadata, and only into the exact observed draft version.
+CREATE FUNCTION public.email_cache_draft_reply_targets(p_message_id text,p_change_key text,p_targets text[])
+RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ UPDATE public.email_messages SET data=data || jsonb_build_object('replyToInternetMessageIds',to_jsonb(coalesce(p_targets,'{}'::text[])),'replyTargetVersion',p_change_key)
+ WHERE id=p_message_id AND NOT removed AND data->>'changeKey'=p_change_key AND coalesce((data->>'draft')::boolean,false);
+ RETURN FOUND;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.email_cache_draft_reply_targets(text,text,text[]) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.email_cache_draft_reply_targets(text,text,text[]) TO service_role;

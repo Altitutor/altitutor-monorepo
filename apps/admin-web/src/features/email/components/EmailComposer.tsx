@@ -60,6 +60,10 @@ type Content = {
   cc: string;
   bcc: string;
 };
+export type RegisterDraftClose = (
+  id: string,
+  prepare: () => Promise<boolean>,
+) => () => void;
 export function EmailComposer({
   draft,
   mailbox,
@@ -69,7 +73,9 @@ export function EmailComposer({
   draftReady,
   onSubjectChange,
   disabledReason,
+  registerForClose,
 }: {
+  registerForClose?: RegisterDraftClose;
   disabledReason?: string;
   draft: EmailMessage;
   mailbox: MailboxData;
@@ -842,12 +848,56 @@ export function EmailComposer({
     </div>
   );
   useEffect(() => {
+    if (registerForClose)
+      return registerForClose(draft.id, async () => {
+        if (
+          preparing ||
+          creationError ||
+          sending ||
+          conflict ||
+          (blocked && dirty) ||
+          Object.values(pendingRecipients).some(Boolean)
+        ) {
+          setStatus(
+            "Could not close yet. Finish recipients, wait for preparation, or resolve this draft first.",
+          );
+          return false;
+        }
+        await attachmentQueue.current;
+        if (busy.current)
+          await new Promise<void>((resolve) =>
+            idleWaiters.current.push(resolve),
+          );
+        if (dirty && !(await save())) return false;
+        if (editToken.current && !provider.current.id.startsWith("local:"))
+          await command.mutateAsync({
+            action: "releaseDraft",
+            id: provider.current.id,
+            editToken: editToken.current,
+          });
+        return true;
+      });
     if (!scope) return;
     scope.registerClose((next) => {
       setPendingClose(() => next ?? scope.close);
     });
     return () => scope.registerClose(null);
-  }, [scope, dirty, sending]);
+    // The registered snapshot follows state that controls whether this editor may close;
+    // content and provider versions are read from their current refs when it runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    scope,
+    registerForClose,
+    draft.id,
+    dirty,
+    sending,
+    preparing,
+    creationError,
+    conflict,
+    blocked,
+    pendingRecipients,
+  ]);
+
   function close() {
     setPendingClose(() => onClose);
   }

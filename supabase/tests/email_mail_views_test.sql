@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(12);
+SELECT plan(17);
 INSERT INTO public.staff(id,first_name,last_name,email,role,status) VALUES('fa250800-0000-4000-8000-000000000001','Matthew','Fixture','mail-staff@example.test','ADMINSTAFF','ACTIVE');
 INSERT INTO public.contacts(id,email,contact_type,staff_id) VALUES('fa250800-0000-4000-8000-000000000002','mail-alias@example.test','STAFF','fa250800-0000-4000-8000-000000000001');
 INSERT INTO public.email_folders(id,name,role) VALUES('view-inbox','Inbox','inbox'),('view-drafts','Drafts','drafts'),('view-deleted','Deleted Items','deleteditems');
@@ -22,6 +22,13 @@ SELECT is(public.email_list_threads('view-inbox','','all',0,50,'received','desc'
 SELECT is(jsonb_array_length(public.email_list_threads('view-inbox','','all',0,100,'received','desc','mail-staff@example.test,page-from@example.test')->'threads'),61,'From supports multiple senders');
 SELECT is(jsonb_array_length(public.email_list_threads('view-inbox','','all',0,50,'received','desc','unknown@example.test')->'threads'),0,'unmatched From returns no rows');
 SELECT ok(NOT has_function_privilege('anon','public.email_sender_options()','EXECUTE'),'sender options are unavailable anonymously');
+INSERT INTO public.email_messages(id,thread_id,folder_id,data) VALUES('view-header-cas','view-thread','view-drafts','{"draft":true,"changeKey":"v1","bodyText":"Keep this body","extra":"retained"}');
+SELECT ok(public.email_cache_draft_reply_targets('view-header-cas','v1',ARRAY['<original@example.test>']),'matching draft version accepts reply metadata');
+SELECT is((SELECT data->>'bodyText' FROM public.email_messages WHERE id='view-header-cas'),'Keep this body','header enrichment preserves body data');
+UPDATE public.email_messages SET data=data || '{"changeKey":"v3","bodyText":"Newer Outlook work"}' WHERE id='view-header-cas';
+SELECT ok(NOT public.email_cache_draft_reply_targets('view-header-cas','v1',ARRAY['<stale@example.test>']),'stale header response cannot patch newer delta data');
+SELECT is((SELECT data->>'bodyText' FROM public.email_messages WHERE id='view-header-cas'),'Newer Outlook work','newer body remains intact after the stale response');
+SELECT ok(NOT has_function_privilege('authenticated','public.email_cache_draft_reply_targets(text,text,text[])','EXECUTE'),'reply enrichment is a service-only projection operation');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"role":"authenticated"}',true);
 SELECT is((SELECT count(*) FROM public.email_sender_options()),0::bigint,'non-admin sender options retain mailbox RLS');

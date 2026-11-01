@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EmailSettingsPage } from "../EmailSettingsPage";
+const removeTemplate = jest.fn(async () => ({ error: null }));
 const upsert = jest.fn(async () => ({ error: null }));
 jest.mock("@/shared/lib/supabase/client", () => ({
-  getSupabaseClient: () => ({ from: () => ({ upsert }) }),
+  getSupabaseClient: () => ({
+    from: () => ({ upsert, delete: () => ({ eq: removeTemplate }) }),
+  }),
 }));
 const originalFetch = global.fetch;
 afterEach(() => {
@@ -50,7 +53,10 @@ it("lists templates with row actions and edits through the shared dialog", async
   expect(
     screen.queryByRole("textbox", { name: "Template name" }),
   ).not.toBeInTheDocument();
-  fireEvent.keyDown(screen.getByRole("button", {name:"Actions for Welcome"}),{key:"Enter",code:"Enter"});
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: "Actions for Welcome" }),
+    { key: "Enter", code: "Enter" },
+  );
   fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
   expect(
     await screen.findByRole("dialog", { name: "Edit email template" }),
@@ -79,4 +85,56 @@ beforeAll(() => {
     unobserve: jest.fn(),
     disconnect: jest.fn(),
   }));
+});
+it("keeps remaining templates reachable after deleting the final row on page two", async () => {
+  let templates = Array.from({ length: 21 }, (_, index) => ({
+    id: String(index + 1),
+    name: `Template ${String(index + 1).padStart(2, "0")}`,
+    subject: "",
+    body_text: "Body",
+  }));
+  removeTemplate.mockImplementation(async () => {
+    templates = templates.slice(0, 20);
+    return { error: null };
+  });
+  global.fetch = jest.fn(
+    async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          threads: [],
+          hasMore: false,
+          folders: [],
+          staff: [],
+          currentStaffId: "admin",
+          configured: false,
+          mailboxAddress: "admin@development.altitutor.com",
+          mailboxEnvironment: "development",
+          signature: "",
+          templates,
+          sync: [],
+        }),
+      }) as Response,
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <EmailSettingsPage />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("table");
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: "Actions for Template 21" }),
+    { key: "Enter", code: "Enter" },
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete template" }));
+  expect(
+    await screen.findByRole("button", { name: "Actions for Template 01" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("No templates found.")).not.toBeInTheDocument();
 });
