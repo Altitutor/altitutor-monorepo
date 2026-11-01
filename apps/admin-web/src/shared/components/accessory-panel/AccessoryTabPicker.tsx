@@ -1,6 +1,4 @@
 "use client";
-import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
-import { panelShortcut } from "@/shared/shortcuts/registry";
 import { useState } from "react";
 import {
   Button,
@@ -22,16 +20,12 @@ import {
 import { useEntitySearch } from "@/shared/hooks/useEntitySearch";
 import {
   useConversationList,
-  useUnreadConversationCount,
 } from "@/features/messages/api/queries";
 import { formatContactName } from "@/features/messages/utils/formatContactName";
 import { isContactConversation } from "@/features/messages/types";
 import { AccessoryIcon } from "./AccessoryIcon";
-import { accessoryRootViews } from "./AccessoryRootViews";
-import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
 export function AccessoryTabPicker() {
   const panel = useAccessoryPanel();
-  const { data: unreadCount = 0 } = useUnreadConversationCount();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const { results, isLoading, hasError } = useEntitySearch({
@@ -51,9 +45,6 @@ export function AccessoryTabPicker() {
     setSearch("");
   };
   const term = search.trim().toLowerCase();
-  const matchingViews = accessoryRootViews.filter((view) =>
-    view.title.toLowerCase().includes(term),
-  );
   const recentTabs = (panel?.recentlyClosed ?? []).filter((tab) =>
     tab.title.toLowerCase().includes(term),
   );
@@ -123,35 +114,9 @@ export function AccessoryTabPicker() {
           <CommandInput
             value={search}
             onValueChange={setSearch}
-            placeholder="Search views, conversations, tasks…"
+            placeholder="Search records and conversations…"
           />
           <CommandList>
-            {matchingViews.length > 0 && (
-              <CommandGroup heading="Views">
-                {matchingViews.map((view) => (
-                  <CommandItem
-                    key={view.kind}
-                    value={`view:${view.kind}`}
-                    onSelect={() => choose(view)}
-                  >
-                    <AccessoryIcon
-                      kind={view.kind}
-                      className="mr-2 h-4 w-4 shrink-0"
-                    />
-                    {view.title}
-                    {view.kind === "messages" && (
-                      <MessageUnreadBadge
-                        count={unreadCount}
-                        className="ml-2"
-                      />
-                    )}
-                    {panelShortcut(view.kind) && (
-                      <ShortcutKeys id={panelShortcut(view.kind)!} always />
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
             {recentTabs.length > 0 && (
               <CommandGroup heading="Recently closed">
                 {recentTabs.map((tab) => (
@@ -220,8 +185,7 @@ export function AccessoryTabPicker() {
                 })}
               </CommandGroup>
             )}
-            {!matchingViews.length &&
-              !recentTabs.length &&
+            {!recentTabs.length &&
               !records.length &&
               !matchingConversations.length &&
               !isLoading &&

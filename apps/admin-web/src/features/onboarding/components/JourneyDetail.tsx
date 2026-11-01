@@ -25,7 +25,7 @@ import {
   type Action,
   type Journey,
 } from "../lib/model";
-import { onboardingKey, useOnboardingSettings } from "../api/queries";
+import { invalidateOnboarding, onboardingKey, useOnboardingSettings } from "../api/queries";
 import type { ClassWithExpandedSubject } from "@altitutor/shared";
 
 export function ActionBadges({ actions }: { actions: Action[] }) {
@@ -70,7 +70,7 @@ function Assignment({
         ...values,
       });
     if (error) onError(error.message);
-    else await qc.invalidateQueries({ queryKey: onboardingKey });
+    else await invalidateOnboarding(qc);
   }
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -180,7 +180,7 @@ export function JourneyDetail({
     settings?.followup_business_days,
   );
   function refresh() {
-    void qc.invalidateQueries({ queryKey: onboardingKey });
+    void invalidateOnboarding(qc);
     if (journey.student_id) {
       void invalidateStudentClassSurfaces(qc, journey.student_id);
       void invalidateStudentSessionSurfaces(qc, journey.student_id);

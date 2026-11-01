@@ -3,8 +3,6 @@
  * Renders a page item in the command palette
  */
 
-import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
-import { panelShortcut } from "@/shared/shortcuts/registry";
 import { Badge } from "@altitutor/ui";
 import {
   commandPaletteItemActiveStyles,
@@ -28,7 +26,6 @@ interface PageItemProps {
 export function PageItem({
   id,
   title,
-  href,
   icon: Icon,
   isSelected,
   searchQuery,
@@ -58,9 +55,6 @@ export function PageItem({
       <div className="flex-1 min-w-0 text-left">
         <div className="font-medium">{highlightText(title, searchQuery)}</div>
       </div>
-      {panelShortcut(href.slice(1)) && (
-        <ShortcutKeys id={panelShortcut(href.slice(1))!} always />
-      )}
       <Badge variant="outline" className="text-xs flex-shrink-0">
         Page
       </Badge>

@@ -46120,6 +46120,10 @@ export type Database = {
         }
         Returns: Json
       }
+      search_student_directory_admin: {
+        Args: { p_journeys?: Json; p_request?: Json }
+        Returns: Json
+      }
       search_students_admin: {
         Args: {
           p_ascending?: boolean

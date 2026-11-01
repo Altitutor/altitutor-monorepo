@@ -12,6 +12,11 @@ test.beforeAll(async () => {
   const db = createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   const student = await db.from('students').upsert({ id: studentId, first_name: 'Journey', last_name: 'Browser check', status: 'TRIAL' });
   if (student.error) throw student.error;
+  const online = await db.from('students').upsert({ id: '28200000-0000-4000-8000-000000000005', first_name: 'Unified Online', last_name: 'Browser check', status: null });
+  if (online.error) throw online.error;
+  const product = await db.from('student_online_product_relationships').upsert({ student_id: '28200000-0000-4000-8000-000000000005', product: 'UCAT_WEB', started_at: '2026-10-01T12:00:00Z' }, { onConflict: 'student_id,product' });
+  if (product.error) throw product.error;
+
   const journey = await db.from('onboarding_journeys').upsert({ id: '28200000-0000-4000-8000-000000000002', student_id: studentId, label: 'Journey Browser check', enquiry_at: '2026-10-30T12:00:00Z' });
   if (journey.error) throw journey.error;
   const family = await db.from('onboarding_journeys').upsert({ id: '28200000-0000-4000-8000-000000000004', label: 'Family browser enquiry', enquiry_email: 'family-browser-check@altitutor.test', enquiry_at: '2026-10-30T12:00:00Z' });
@@ -20,6 +25,8 @@ test.beforeAll(async () => {
   if (sender.error) throw sender.error;
   const tasks = await db.from('tasks').upsert(Array.from({ length: 90 }, (_, index) => ({ id: `28200001-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Board drag check ${String(index + 1).padStart(3, '0')}`, status: ['backlog', 'todo', 'in_progress'][index % 3], priority: 1 })));
   if (tasks.error) throw tasks.error;
+  const done = await db.from('tasks').upsert({ id: '28200001-0000-4000-8000-000000000091', title: 'Board edge done', status: 'done' });
+  if (done.error) throw done.error;
 });
 
 async function signIn(page: Page) {
@@ -264,4 +271,141 @@ test('board dragging stays responsive and persists a cross-column move', async (
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
   await page.reload();
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
+});
+
+
+test('board outer card edges align with the toolbar at both horizontal ends', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+  const board = page.getByRole('region', { name: 'Board', exact: true });
+  const firstCard = board.getByRole('region', { name: 'Backlog column', exact: true }).locator('[aria-roledescription="sortable"]').first();
+  const firstView = page.getByLabel('Views', { exact: true }).getByRole('button').first();
+  await expect(firstCard).toBeVisible();
+  await expect.poll(async () => Math.abs((await firstCard.boundingBox())!.x - (await firstView.boundingBox())!.x)).toBeLessThanOrEqual(1);
+  await board.evaluate(el => { el.scrollLeft = el.scrollWidth; });
+  const lastCard = board.getByRole('region', { name: 'Done column', exact: true }).getByText('Board edge done', { exact: true }).locator('..');
+  await expect(lastCard).toBeInViewport();
+  const display = page.getByRole('button', { name: 'Display options', exact: true });
+  await expect.poll(async () => {
+    const card = (await lastCard.boundingBox())!;
+    const control = (await display.boundingBox())!;
+    return Math.abs(card.x + card.width - control.x - control.width);
+  }).toBeLessThanOrEqual(1);
+});
+
+
+test('the accessory panel offers only individual records and recently closed', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'Expand accessory panel', exact: true }).click();
+  const panel = page.locator('#admin-accessory-panel');
+  await expect(panel.getByRole('button', { name: 'Tasks', exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('heading', { name: 'Recently closed', exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Add accessory tab', exact: true }).click();
+  const picker = page.getByRole('dialog');
+  await expect(picker.getByText('Views', { exact: true })).toHaveCount(0);
+  await picker.getByRole('combobox').fill('tasks');
+  await expect(picker.getByRole('option', { name: /^Tasks/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Alt+t');
+  await expect(panel.getByRole('tab')).toHaveCount(0);
+  await page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true }).click();
+  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Close Board drag check 001 tab', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: 'Recently closed', exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Board drag check 001', exact: true }).click();
+  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
+});
+
+
+test('Student presets share every column and clearing filters reveals every relationship', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/students', { waitUntil: 'domcontentloaded' });
+  const display = page.getByRole('button', { name: 'Display options', exact: true });
+  await display.click();
+  const options = page.getByRole('dialog', { name: 'Display options', exact: true });
+  for (const column of ['Products', 'Online since', 'Onboarding status']) {
+    await expect(options.getByRole('button', { name: column, exact: true })).toBeVisible();
+    await options.getByRole('button', { name: column, exact: true }).click();
+  }
+  await options.getByRole('button', { name: 'Clear all filters', exact: true }).click();
+  await page.keyboard.press('Escape');
+  for (const name of ['Alice Williams', 'Journey Browser check', 'Unified Online Browser check']) {
+    await expect(page.getByRole('row').filter({ has: page.getByText(name, { exact: true }) })).toBeVisible();
+  }
+  await expect(page.getByRole('row').filter({ hasText: 'Unified Online Browser check' })).toContainText('UCAT Web');
+  const views = page.getByLabel('Views', { exact: true });
+  await views.getByRole('button', { name: 'Online', exact: true }).click();
+  await display.click();
+  await expect(options.getByRole('button', { name: 'Onboarding status', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await views.getByRole('button', { name: 'Trial', exact: true }).click();
+  await display.click();
+  await options.getByRole('button', { name: 'Clear all filters', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Board', exact: true }).getByText('Unified Online Browser check', { exact: true })).toBeVisible();
+  const board = page.getByRole('region', { name: 'Board', exact: true });
+  const viewEdge = (await views.getByRole('button', { name: 'In person', exact: true }).boundingBox())!.x;
+  const firstCard = board.getByRole('button', { name: /^Family browser enquiry/ });
+  expect(Math.abs((await firstCard.boundingBox())!.x - viewEdge)).toBeLessThanOrEqual(1);
+  await board.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+  const lastCard = board.getByRole('button', { name: /^Unified Online Browser check/ });
+  const card = (await lastCard.boundingBox())!;
+  const toolbar = (await display.boundingBox())!;
+  expect(Math.abs(card.x + card.width - toolbar.x - toolbar.width)).toBeLessThanOrEqual(1);
+});
+
+
+test('restored accessory state discards collection tabs and collection history', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true }).click();
+  const panel = page.locator('#admin-accessory-panel');
+  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith('admin-accessory-v1:'))!;
+    const saved = JSON.parse(localStorage.getItem(key)!);
+    for (const kind of ['tasks', 'messages', 'email']) {
+      const collection = { key: `legacy-${kind}`, kind, title: `Legacy ${kind}`, query: '' };
+      saved.tabs.push(collection);
+      saved.recentlyClosed.push(collection);
+    }
+    localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(panel.getByRole('tab', { includeHidden: true })).toHaveCount(1);
+  if (!await panel.isVisible()) await page.getByRole('button', { name: 'Expand accessory panel', exact: true }).click();
+  await panel.getByRole('button', { name: 'Close Board drag check 001 tab', exact: true }).click();
+  for (const kind of ['tasks', 'messages', 'email']) {
+    await expect(panel.getByRole('button', { name: `Legacy ${kind}`, exact: true })).toHaveCount(0);
+  }
+  await expect(panel.getByRole('button', { name: 'Board drag check 001', exact: true })).toBeVisible();
+});
+
+
+test('Student directory filters the whole dataset before pagination and denies anonymous access', async ({ page, request }) => {
+  const input = { search: 'Browser check', filters: {}, sortBy: 'last_name', sortDirection: 'asc', page: 1, pageSize: 1 };
+  const denied = await request.post('/api/students/directory', { data: input });
+  expect(denied.status()).toBe(401);
+  await signIn(page);
+  const first = await page.request.post('/api/students/directory', { data: input });
+  expect(first.ok()).toBe(true);
+  const firstPage = await first.json();
+  expect(firstPage.total).toBeGreaterThanOrEqual(2);
+  expect(firstPage.entries).toHaveLength(1);
+  const second = await page.request.post('/api/students/directory', { data: { ...input, page: 2 } });
+  const secondPage = await second.json();
+  expect(secondPage.total).toBe(firstPage.total);
+  expect(secondPage.entries).toHaveLength(1);
+  expect(secondPage.entries[0].id).not.toBe(firstPage.entries[0].id);
+  const online = await page.request.post('/api/students/directory', { data: { ...input, filters: { relationship: ['online'], product: ['UCAT_WEB'] } } });
+  const onlinePage = await online.json();
+  expect(onlinePage.total).toBe(1);
+  expect(onlinePage.entries[0]).toMatchObject({ kind: 'student', student: { status: null }, label: 'Unified Online Browser check' });
+  const mixed = await page.request.post('/api/students/directory', { data: { ...input, pageSize: 50, filters: { relationship: ['online', 'trial'] } } });
+  const mixedPage = await mixed.json();
+  expect(mixedPage.entries.map((entry: { label: string }) => entry.label)).toEqual(expect.arrayContaining(['Unified Online Browser check', 'Journey Browser check']));
+  const families = await page.request.post('/api/students/directory', { data: { ...input, search: 'Family browser enquiry', filters: { relationship: ['trial'], queue: ['open'] } } });
+  expect((await families.json()).entries[0]).toMatchObject({ kind: 'enquiry', student: null, label: 'Family browser enquiry' });
 });

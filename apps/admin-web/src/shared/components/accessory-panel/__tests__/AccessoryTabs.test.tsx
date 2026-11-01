@@ -1,4 +1,3 @@
-import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   AccessoryPanelProvider,
@@ -34,10 +33,8 @@ jest.mock("../AccessoryTabPicker", () => ({
 jest.mock("../AccessoryViews", () => ({
   AccessoryView: () => {
     const scope = useAccessoryTab()!;
-    const { EntityList } = jest.requireActual<typeof import('@altitutor/ui')>('@altitutor/ui');
     return (
       <>
-        {scope.tab.kind === 'issues' ? <EntityList items={[]} getItemId={(item: {id: string}) => item.id} renderName={(item) => item.id} rightPills={[]} /> : null}
         <button
           onClick={() =>
             scope.navigate({ kind: "issue", id: "a", title: "Issue A" })
@@ -53,7 +50,7 @@ jest.mock("../AccessoryViews", () => ({
           Linked task
         </button>
         <button
-          onClick={() => scope.navigate({ kind: "issues", title: "Issues" })}
+          onClick={() => scope.navigate({ kind: "issue", id: "original", title: "Original issue" })}
         >
           Back to issues
         </button>
@@ -84,8 +81,9 @@ function Harness() {
       <button
         onClick={() =>
           panel.openTab({
-            kind: "issues",
-            title: "Issues",
+            kind: "issue",
+            id: "original",
+            title: "Original issue",
             query: "search=math",
           })
         }
@@ -126,8 +124,7 @@ test("same-family records replace the current tab, cross-family links add a tab,
   expect(tabs()).toHaveLength(1);
   expect(tabs()[0]).toMatchObject({ key, kind: "issue", id: "a" });
   fireEvent.click(screen.getByText("Back to issues"));
-  expect(tabs()[0]).toMatchObject({ kind: "issues", query: "search=math" });
-  expect(tabs()[0].id).toBeUndefined();
+  expect(tabs()[0]).toMatchObject({ kind: "issue", id: "original", query: "search=math" });
   fireEvent.click(screen.getByText("Open issue"));
   fireEvent.click(screen.getByText("Linked task"));
   expect(tabs()).toHaveLength(2);
@@ -156,30 +153,10 @@ test("links and bubbled mentions navigate their originating accessory tab", asyn
   expect(tabs()[0]).toMatchObject({ kind: "issue", id: "mentioned" });
 });
 
-test("the active list tab owns its persistent View menu", async () => {
+it("offers only recently closed in an empty panel", () => {
   render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
-  await userEvent.click(await screen.findByText('Start'));
-  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'Board' }));
-  expect(new URLSearchParams(tabs()[0].query).get('view')).toBe('board');
-  await userEvent.keyboard('{Escape}{Escape}');
-  await userEvent.click(screen.getByText('Open issue'));
-  expect(screen.queryByRole('button', { name: 'Display options' })).not.toBeInTheDocument();
-  await userEvent.click(screen.getByText('Back to issues'));
-  await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  expect(await screen.findByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
-  expect(new URLSearchParams(tabs()[0].query).get('search')).toBe('math');
-});
-
-
-it("offers every root view in an empty panel and opens the chosen view", () => {
-  render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
+  expect(screen.getByText("Recently closed")).toBeInTheDocument();
   for (const title of ["Messages", "Tasks", "Issues", "Projects", "Documents"]) {
-    expect(screen.getByRole("button", { name: new RegExp(title) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: title })).not.toBeInTheDocument();
   }
-  expect(screen.getByLabelText("3 unread conversations")).toHaveTextContent("3");
-  expect(screen.queryByRole("button", {name: "Today"})).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Documents" }));
-  expect(tabs()).toEqual([]);
-  expect(mockPrimaryPush).toHaveBeenCalledWith("/documents", undefined);
 });

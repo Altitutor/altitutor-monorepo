@@ -7,7 +7,7 @@ import type { Tables } from "@altitutor/shared";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { useStudentSearchFilter } from "@/features/students/hooks/useStudentSearchFilter";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
-import { onboardingKey } from "../api/queries";
+import { invalidateOnboarding } from "../api/queries";
 export function NewJourney({
   onClose,
   sourceEmail,
@@ -73,7 +73,7 @@ export function NewJourney({
         if (result.error) throw result.error;
       }
       await qc.invalidateQueries({ queryKey: ["email"] });
-      await qc.invalidateQueries({ queryKey: onboardingKey });
+      await invalidateOnboarding(qc);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create journey.");

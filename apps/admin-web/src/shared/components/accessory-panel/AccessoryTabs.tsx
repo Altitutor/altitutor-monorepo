@@ -9,8 +9,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
-import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
-import { panelShortcut } from "@/shared/shortcuts/registry";
 import { X } from "lucide-react";
 import {
   useAccessoryPanel,
@@ -22,12 +20,8 @@ import {
 import { AccessoryTabContext } from "@/shared/contexts/AccessoryTabContext";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
 import { AccessoryView } from "./AccessoryViews";
-import { ToolbarViewProvider } from "@altitutor/ui";
 import { AccessoryIcon } from "./AccessoryIcon";
-import { useUnreadConversationCount } from "@/features/messages/api/queries";
-import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
 import { RecentlyClosedTabs } from "./RecentlyClosedTabs";
-import { AccessoryRootViews } from "./AccessoryRootViews";
 import { AccessoryTabPicker } from "./AccessoryTabPicker";
 
 type CloseGate = (next?: () => void) => void;
@@ -115,28 +109,6 @@ const TabContent = memo(function TabContent({
     node?.addEventListener("accessory-navigate", handle);
     return () => node?.removeEventListener("accessory-navigate", handle);
   }, [navigate]);
-  const toolbarView = useMemo(
-    () =>
-      ["tasks", "issues", "projects"].includes(tab.kind)
-        ? {
-            value:
-              new URLSearchParams(tab.query).get("view") === "board"
-                ? "board"
-                : "list",
-            options: [
-              { value: "list", label: "List" },
-              { value: "board", label: "Board" },
-            ],
-            onChange: (view: string) => {
-              if (view !== "list" && view !== "board") return;
-              const params = new URLSearchParams(tab.query);
-              params.set("view", view);
-              updateQuery?.(tab.key, params.toString());
-            },
-          }
-        : undefined,
-    [tab.kind, tab.key, tab.query, updateQuery],
-  );
   const scope = useMemo(
     () => ({ tab, active, close, registerClose, navigate }),
     [tab, active, close, registerClose, navigate],
@@ -156,16 +128,13 @@ const TabContent = memo(function TabContent({
     >
       <AccessoryTabContext.Provider value={scope}>
         <ResponsivePane className="h-full overflow-auto">
-          <ToolbarViewProvider value={toolbarView}>
-            <AccessoryView key={viewKey} />
-          </ToolbarViewProvider>
+          <AccessoryView key={viewKey} />
         </ResponsivePane>
       </AccessoryTabContext.Provider>
     </div>
   );
 });
 export function AccessoryTabs() {
-  const { data: unreadCount = 0 } = useUnreadConversationCount();
   const panel = useAccessoryPanel();
   const gates = useRef(new Map<string, CloseGate>());
   const registerGate = useCallback((key: string, gate: CloseGate | null) => {
@@ -246,12 +215,7 @@ export function AccessoryTabs() {
               >
                 <AccessoryIcon kind={tab.kind} />
                 <span className="truncate">{tab.title}</span>
-                {tab.kind === "messages" && !tab.id && (
-                  <MessageUnreadBadge count={unreadCount} />
-                )}
-                {panelShortcut(tab.kind) && (
-                  <ShortcutKeys id={panelShortcut(tab.kind)!} />
-                )}
+
               </button>
               <button
                 type="button"
@@ -288,7 +252,6 @@ export function AccessoryTabs() {
           ))
         ) : (
           <div className="flex h-full flex-col items-center gap-4 overflow-auto p-6 text-center">
-            <AccessoryRootViews />
             <RecentlyClosedTabs />
           </div>
         )}

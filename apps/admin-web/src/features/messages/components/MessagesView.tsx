@@ -321,17 +321,17 @@ export function MessagesView() {
             - Medium (md-xl): Fixed width, always visible alongside messages
             - Wide (xl+): Fixed width, always visible with info panel
         */}
-        <div className={`
+        {!tabScope && <div className={`
           flex-shrink-0
           ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[320px]'}
           md:w-[320px]
         `}>
           <ConversationList 
-            filterScope={tabScope ? `tab:${tabScope.tab.key}` : "page"}
+            filterScope="page"
             activeSelection={activeSelection}
             onSelect={handleConversationSelect}
           />
-        </div>
+        </div>}
         
         {/* Messages 
             - Mobile (< md): Full width when viewing thread, hidden when viewing list
