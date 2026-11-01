@@ -25,13 +25,13 @@ const AiTimeBurdenInputSchema = z.string().nullable().optional().refine(
 )
 
 export const AiToolQuestionStemPayloadSchema = z.object({
-  sectionId: z.string().uuid(),
-  categoryId: z.string().uuid().nullable().optional(),
-  stemText: z.unknown(),
+  sectionId: z.string().guid('Invalid uuid'),
+  categoryId: z.string().guid('Invalid uuid').nullable().optional(),
+  stemText: z.unknown().optional(),
   accessScope: z.enum(['public', 'private']).default('public'),
   questions: z.array(
     z.object({
-      questionText: z.unknown(),
+      questionText: z.unknown().optional(),
       responseType: z.enum(['multiple_choice', 'drag_and_drop']),
       answerScheme: z.enum([
         'single_choice',
@@ -44,10 +44,10 @@ export const AiToolQuestionStemPayloadSchema = z.object({
         'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
       ),
       timeBurdenSeconds: AiTimeBurdenInputSchema,
-      tagIds: z.array(z.string().uuid()).default([]),
+      tagIds: z.array(z.string().guid('Invalid uuid')).default([]),
       options: z.array(
         z.object({
-          answerText: z.unknown(),
+          answerText: z.unknown().optional(),
           answerExplanation: z.unknown().nullable().optional(),
           answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
         })

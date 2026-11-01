@@ -5,7 +5,7 @@ import { parseSessionStudentList } from '@/features/sessions/utils/parseSessionD
 import { TeachingError } from './auth';
 import { teachingResources } from './queries';
 
-const uuid = z.string().uuid().transform(value => value.toLowerCase());
+const uuid = z.string().guid('Invalid uuid').transform(value => value.toLowerCase());
 const schema = z.object({ sessionID: uuid, resourceIDs: z.array(uuid).max(500), activeResourceID: uuid.optional() }).strict();
 
 export async function teachingSuggestions(client: SupabaseClient<Database>, body: unknown) {

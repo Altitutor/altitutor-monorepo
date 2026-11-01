@@ -110,7 +110,7 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
       toast({
         title: "Validation Error",
         description:
-          validation.error.errors[0]?.message ??
+          validation.error.issues[0]?.message ??
           "Check your public profile details",
         variant: "destructive",
       });

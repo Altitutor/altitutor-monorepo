@@ -28,7 +28,7 @@ const StemInputSchema = AiToolQuestionStemPayloadSchema.extend({
 })
 
 const BodySchema = z.object({
-  modelProfileId: z.string().uuid().nullable().optional(),
+  modelProfileId: z.string().guid('Invalid uuid').nullable().optional(),
   stems: z.array(StemInputSchema).min(1).max(50),
   concurrency: z.number().int().min(1).max(8).optional(),
 })

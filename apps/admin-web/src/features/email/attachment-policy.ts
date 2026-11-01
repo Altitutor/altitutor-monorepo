@@ -6,7 +6,7 @@ export const EMAIL_ATTACHMENT_CHUNK_BYTES = 1_966_080;
 export const uploadFileSchema = z.object({
   id: z.string().min(1),
   changeKey: z.string().min(1),
-  editToken: z.string().uuid(),
+  editToken: z.string().guid('Invalid uuid'),
   name: z.string().min(1).max(255),
   contentType: z.string().max(255),
   size: z

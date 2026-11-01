@@ -1,4 +1,3 @@
-import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
 import { z } from 'zod'
 import {
   AuditSelectorSchema,
@@ -50,7 +49,7 @@ describe('UCAT MCP authoring schemas', () => {
   })
 
   it('preserves the text-block contract through MCP JSON Schema conversion', () => {
-    const jsonSchema = toJsonSchemaCompat(z.object({
+    const jsonSchema = z.toJSONSchema(z.object({
       blocks: z.array(LearningModuleBlockSchema),
     }))
     const serialized = JSON.stringify(jsonSchema)
@@ -143,10 +142,10 @@ describe('UCAT MCP authoring schemas', () => {
     }).success).toBe(true)
 
     const serialized = JSON.stringify({
-      createSet: toJsonSchemaCompat(CreateQuestionSetInputSchema),
-      changeSet: toJsonSchemaCompat(ChangeQuestionSetInputSchema),
-      createMock: toJsonSchemaCompat(CreateMockInputSchema),
-      changeMock: toJsonSchemaCompat(ChangeMockInputSchema),
+      createSet: z.toJSONSchema(CreateQuestionSetInputSchema),
+      changeSet: z.toJSONSchema(ChangeQuestionSetInputSchema),
+      createMock: z.toJSONSchema(CreateMockInputSchema),
+      changeMock: z.toJSONSchema(ChangeMockInputSchema),
     })
     expect(serialized).toContain('referenceBlueprintId')
     expect(serialized).toContain('setFormat')

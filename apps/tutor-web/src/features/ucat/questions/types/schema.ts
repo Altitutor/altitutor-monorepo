@@ -3,13 +3,13 @@ import type { Json } from '@altitutor/shared'
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 
 const jsonSchema: z.ZodType<Json> = z.lazy(() =>
-  z.union<[z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny]>([
+  z.union([
     z.string(),
     z.number(),
     z.boolean(),
     z.null(),
     z.array(jsonSchema),
-    z.record(jsonSchema),
+    z.record(z.string(), jsonSchema),
   ])
 )
 
@@ -34,7 +34,7 @@ const timeBurdenInputSchema = z.string().optional().nullable().refine(
 
 /** Option answer/statement text; may be empty (only at least one option needs content). */
 export const ucatQuestionOptionSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().guid('Invalid uuid').optional(),
   answerText: jsonSchema,
   answerExplanation: jsonSchema.nullable().optional(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
@@ -42,7 +42,7 @@ export const ucatQuestionOptionSchema = z.object({
 
 export const ucatQuestionItemSchema = z
   .object({
-    id: z.string().uuid().optional(),
+    id: z.string().guid('Invalid uuid').optional(),
     questionText: nonEmptyRichTextSchema,
     responseType: z.enum(['multiple_choice', 'drag_and_drop']),
     answerScheme: z.enum([
@@ -57,7 +57,7 @@ export const ucatQuestionItemSchema = z
     ),
     /** Expected time to a fully correct first-exposure answer, as mm:ss or whole seconds. */
     timeBurdenSeconds: timeBurdenInputSchema,
-    tagIds: z.array(z.string().uuid()).default([]),
+    tagIds: z.array(z.string().guid('Invalid uuid')).default([]),
     sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
     aiGenerationMetadata: jsonSchema.nullable().optional(),
     options: z.array(ucatQuestionOptionSchema).min(1, 'At least one option/statement is required'),
@@ -71,8 +71,8 @@ export const ucatQuestionItemSchema = z
 
 export const ucatQuestionStemSchema = z
   .object({
-    sectionId: z.string().uuid('Section is required'),
-    categoryId: z.string().uuid().nullable().optional(),
+    sectionId: z.string().guid('Section is required'),
+    categoryId: z.string().guid('Invalid uuid').nullable().optional(),
     stemText: nonEmptyRichTextSchema,
     accessScope: z.enum(['public', 'private']).default('public'),
     tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),

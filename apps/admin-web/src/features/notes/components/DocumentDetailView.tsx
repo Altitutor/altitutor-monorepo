@@ -41,7 +41,7 @@ import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/
 
 const schema = z.object({
   title: z.string().min(1, "Title is required"),
-  content: z.unknown(),
+  content: z.unknown().optional(),
   folder_id: z.string().nullable().optional(),
   project_id: z.string().nullable().optional(),
   is_tutor_documentation: z.boolean().optional(),

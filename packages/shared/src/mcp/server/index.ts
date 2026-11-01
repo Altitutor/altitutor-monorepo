@@ -8,7 +8,7 @@ function requestError(status: number, code: number, message: string) {
   );
 }
 
-/** Bound uploads before mcp-handler 1.x eagerly parses them, retaining verified auth. */
+/** Bound uploads before the HTTP adapter parses them, retaining verified auth. */
 export function withMcpRequestBodyLimit<Auth>(
   handler: (request: Request & { auth?: Auth }) => Response | Promise<Response>,
 ) {
@@ -55,8 +55,8 @@ export function withMcpRequestBodyLimit<Auth>(
       body.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    // The v1 adapter parses JSON in an async listener whose rejection is not returned.
-    // Validate this bounded body before invoking it, so malformed JSON returns 400.
+    // Preserve the public parse-error envelope before handing the bounded body
+    // to the SDK, and forward the verified per-request auth on the new Request.
     try {
       JSON.parse(new TextDecoder().decode(body));
     } catch {

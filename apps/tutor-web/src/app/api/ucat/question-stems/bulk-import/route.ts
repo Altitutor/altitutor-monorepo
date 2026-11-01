@@ -11,19 +11,19 @@ import { normalizeBulkImportCreatePayload } from '@/features/ucat/questions/serv
 import { observeUcatRpc } from '@/features/ucat/shared/server/rpc-diagnostics'
 
 const SerializedAnswerOptionSchema = z.object({
-  id: z.string().uuid().nullable().optional(),
+  id: z.string().guid('Invalid uuid').nullable().optional(),
   index: z.number().int().positive(),
   // Allow full JSON structures (ProseMirror, etc.) for answer text/explanation.
-  answer_text: z.unknown(),
+  answer_text: z.unknown().optional(),
   answer_explanation: z.unknown().nullable().optional(),
   answer_key_value: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const SerializedQuestionSchema = z.object({
-  id: z.string().uuid().nullable().optional(),
+  id: z.string().guid('Invalid uuid').nullable().optional(),
   index: z.number().int().positive(),
   // Question text and explanation are rich-text JSON blobs in practice.
-  question_text: z.unknown(),
+  question_text: z.unknown().optional(),
   answer_explanation: z.unknown().nullable().optional(),
   difficulty: z.number().min(0).max(1).nullable().optional(),
   time_burden_seconds: z.number().int().positive().nullable().optional(),
@@ -36,16 +36,16 @@ const SerializedQuestionSchema = z.object({
   ]),
   source_channel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   ai_generation_metadata: z.unknown().nullable().optional(),
-  tag_ids: z.array(z.string().uuid()),
+  tag_ids: z.array(z.string().guid('Invalid uuid')),
   answer_options: z.array(SerializedAnswerOptionSchema),
 })
 
 const SerializedStemSchema = z.object({
-  stemId: z.string().uuid().nullable().optional(),
-  sectionId: z.string().uuid(),
-  categoryId: z.string().uuid().nullable().optional(),
+  stemId: z.string().guid('Invalid uuid').nullable().optional(),
+  sectionId: z.string().guid('Invalid uuid'),
+  categoryId: z.string().guid('Invalid uuid').nullable().optional(),
   // Stem text is also rich-text JSON.
-  stemText: z.unknown(),
+  stemText: z.unknown().optional(),
   accessScope: z.enum(['public', 'private']).default('public'),
   sourceChannel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   tutorSourceNote: z.string().nullable().optional(),
@@ -54,7 +54,7 @@ const SerializedStemSchema = z.object({
 })
 
 const BulkImportBodySchema = z.object({
-  sectionId: z.string().uuid(),
+  sectionId: z.string().guid('Invalid uuid'),
   stems: z.array(SerializedStemSchema).min(1),
 })
 

@@ -61,12 +61,12 @@ import {
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z
-    .union([z.record(z.unknown()), z.string(), z.null()])
+    .union([z.record(z.string(), z.unknown()), z.string(), z.null()])
     .optional(),
   status: z.enum(["backlog", "planned", "in_progress", "completed"]),
   priority: z.number().min(0).max(4),
-  projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
-  memberIds: z.array(z.string().uuid()).default([]),
+  projectLeadId: z.union([z.string().guid('Invalid uuid'), z.null()]).default(null),
+  memberIds: z.array(z.string().guid('Invalid uuid')).default([]),
   startDate: z.union([z.string(), z.null()]).default(null),
   targetDate: z.union([z.string(), z.null()]).default(null),
 });

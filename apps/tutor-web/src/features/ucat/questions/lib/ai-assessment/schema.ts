@@ -32,14 +32,14 @@ export const UcatFormatCheckSchema = z.object({
   message: z.string().trim().min(1),
   severity: z.enum(['error', 'warning']),
   scopeType: z.enum(['shared', 'question']),
-  questionId: z.string().uuid().nullable().optional(),
+  questionId: z.string().guid('Invalid uuid').nullable().optional(),
   questionIndex: z.number().int().nonnegative().nullable().optional(),
   optionIndex: z.number().int().nonnegative().nullable().optional(),
 })
 
 const TextTargetSchema = z.object({
   kind: z.enum(['stem', 'question', 'option']),
-  id: z.string().uuid().nullable().optional(),
+  id: z.string().guid('Invalid uuid').nullable().optional(),
   field: z.enum(['stem_text', 'question_text', 'answer_text', 'answer_explanation']),
 })
 
@@ -49,7 +49,7 @@ const PatchValueSchema = z.union([
   z.boolean(),
   z.null(),
   z.array(z.unknown()),
-  z.record(z.unknown()),
+  z.record(z.string(), z.unknown()),
 ])
 
 const RichContentSchema: z.ZodType<Json> = z.custom<Json>((value) => {
@@ -59,7 +59,7 @@ const RichContentSchema: z.ZodType<Json> = z.custom<Json>((value) => {
 }, 'A ProseMirror document is required.')
 
 const ReplacementOptionSchema = z.object({
-  id: z.string().uuid().nullable().optional(),
+  id: z.string().guid('Invalid uuid').nullable().optional(),
   answerText: z.string().trim().min(1),
   answerExplanation: z.string().trim().nullable().optional(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
@@ -76,7 +76,7 @@ const ReplacementQuestionSchema = z.object({
   timeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
     'Expected active working time in whole seconds to submit a fully correct first-exposure answer in authored stem order. Null means unknown.',
   ),
-  tagIds: z.array(z.string().uuid()).default([]),
+  tagIds: z.array(z.string().guid('Invalid uuid')).default([]),
   options: z.array(ReplacementOptionSchema).min(1).max(8),
 })
 
@@ -89,14 +89,14 @@ export const UcatAssessmentPatchSchema = z.discriminatedUnion('operation', [
   }),
   z.object({
     operation: z.literal('set_answer_key'),
-    questionId: z.string().uuid(),
-    currentCorrectOptionId: z.string().uuid().nullable(),
-    correctOptionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    currentCorrectOptionId: z.string().guid('Invalid uuid').nullable(),
+    correctOptionId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     operation: z.literal('replace_option_and_key'),
-    questionId: z.string().uuid(),
-    optionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    optionId: z.string().guid('Invalid uuid'),
     beforeAnswerText: z.string().trim().min(1),
     answerText: z.string().trim().min(1),
     answerExplanation: z.string().trim().nullable().optional(),
@@ -115,41 +115,41 @@ export const UcatAssessmentPatchSchema = z.discriminatedUnion('operation', [
   }),
   z.object({
     operation: z.literal('replace_question'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
     beforeQuestionText: z.string().trim().min(1),
     question: ReplacementQuestionSchema,
   }),
   z.object({
     operation: z.literal('insert_question'),
-    afterQuestionId: z.string().uuid().nullable(),
+    afterQuestionId: z.string().guid('Invalid uuid').nullable(),
     question: ReplacementQuestionSchema,
   }),
   z.object({
     operation: z.literal('remove_question'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
     beforeQuestionText: z.string().trim().min(1),
   }),
   z.object({
     operation: z.literal('insert_option'),
-    questionId: z.string().uuid(),
-    afterOptionId: z.string().uuid().nullable(),
+    questionId: z.string().guid('Invalid uuid'),
+    afterOptionId: z.string().guid('Invalid uuid').nullable(),
     option: ReplacementOptionSchema,
   }),
   z.object({
     operation: z.literal('remove_option'),
-    questionId: z.string().uuid(),
-    optionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    optionId: z.string().guid('Invalid uuid'),
     beforeAnswerText: z.string().trim().min(1),
   }),
   z.object({
     operation: z.literal('reorder_options'),
-    questionId: z.string().uuid(),
-    optionIds: z.array(z.string().uuid()).min(1).max(8),
+    questionId: z.string().guid('Invalid uuid'),
+    optionIds: z.array(z.string().guid('Invalid uuid')).min(1).max(8),
   }),
   z.object({
     operation: z.literal('set_metadata'),
     targetKind: z.enum(['stem', 'question']),
-    targetId: z.string().uuid(),
+    targetId: z.string().guid('Invalid uuid'),
     field: z.enum([
       'section_id',
       'category_id',
@@ -183,11 +183,11 @@ export const UcatAssessmentSuggestionSchema = z.object({
 })
 
 export const BlindQuestionSolutionSchema = z.object({
-  questionId: z.string().uuid(),
+  questionId: z.string().guid('Invalid uuid'),
   selectedOptionId: z.string().trim().min(1).nullable().optional(),
   proposedAnswer: z.string().trim().nullable().optional(),
   placementAnswers: z.array(z.object({
-    optionId: z.string().uuid(),
+    optionId: z.string().guid('Invalid uuid'),
     answer: z.enum(['yes', 'no']),
   })).optional().default([]),
   justification: z.string().trim().min(1),
@@ -202,7 +202,7 @@ export const BlindSolutionResponseSchema = z.object({
 
 export const UcatAssessmentCategoryResultSchema = z.object({
   scopeType: z.enum(['shared', 'question']),
-  questionId: z.string().uuid().nullable().optional(),
+  questionId: z.string().guid('Invalid uuid').nullable().optional(),
   category: UcatAssessmentCategorySchema,
   rating: UcatAssessmentRatingSchema,
   confidence: z.number().min(0).max(1),
@@ -213,7 +213,7 @@ export const UcatAssessmentCategoryResultSchema = z.object({
 export const UcatAssessmentFindingSchema = z.object({
   key: z.string().trim().min(1),
   scopeType: z.enum(['shared', 'question']),
-  questionId: z.string().uuid().nullable().optional(),
+  questionId: z.string().guid('Invalid uuid').nullable().optional(),
   category: UcatAssessmentCategorySchema,
   rating: z.enum(['concern', 'critical', 'unreviewable']),
   confidence: z.number().min(0).max(1),
