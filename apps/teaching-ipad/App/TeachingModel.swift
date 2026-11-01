@@ -27,7 +27,6 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     private var printTasks: [UUID: Task<Void, Never>] = [:]
     private var libraryRequest = UUID()
     @Published var libraryTopics: [LibraryTopic] = []
-    @Published var nextOffset: Int?
     @Published var libraryBusy = false
     @Published var sharedURL: URL?
     @Published var suggestions: [TeachingResource] = []
@@ -151,22 +150,28 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             if let answer = resource.solutions { resourceCodes[answer.id] = answer.code }
         }
     }
-    func search(_ text: String, more: Bool = false) async {
+    func search(_ text: String) async {
         guard let session else { return }
         let version = epoch, sessionID = session.id, subjectID = librarySubjectID, requestID = UUID()
         libraryRequest = requestID
-        let offset = more ? nextOffset ?? 0 : 0
-        if !more { catalog = [] }
+        var offset = 0
+        catalog = []
         libraryBusy = true; defer { if version == epoch, libraryRequest == requestID { libraryBusy = false } }
         do {
-            var query = [URLQueryItem(name: "query", value: text), .init(name: "offset", value: String(offset))]
-            if let subjectID { query.append(.init(name: "subjectID", value: subjectID.uuidString)) }
-            let page: ResourcePage = try await api.request("resources", query: query)
-            try Task.checkCancellation()
-            guard version == epoch, selectedSessionID == sessionID, librarySubjectID == subjectID, libraryRequest == requestID else { return }
-            librarySubjects = page.subjects; rememberCodes(page.resources)
-            if librarySubjectID == nil, let first = page.subjects.first { librarySubjectID = first.id; return }
-            catalog = more ? catalog + page.resources : page.resources; libraryTopics = page.topics; nextOffset = page.nextOffset
+            while true {
+                try Task.checkCancellation()
+                var query = [URLQueryItem(name: "query", value: text), .init(name: "offset", value: String(offset))]
+                if let subjectID { query.append(.init(name: "subjectID", value: subjectID.uuidString)) }
+                let page: ResourcePage = try await api.request("resources", query: query)
+                try Task.checkCancellation()
+                guard version == epoch, selectedSessionID == sessionID, librarySubjectID == subjectID, libraryRequest == requestID else { return }
+                librarySubjects = page.subjects; rememberCodes(page.resources)
+                if librarySubjectID == nil, let first = page.subjects.first { librarySubjectID = first.id; return }
+                catalog.append(contentsOf: page.resources); libraryTopics = page.topics
+                guard let next = page.nextOffset else { return }
+                guard next > offset else { throw APIError(status: 503, message: "Could not finish loading the resource library. Please try again.") }
+                offset = next
+            }
         } catch { if !Task.isCancelled { report(error) } }
     }
     func add(_ resource: TeachingResource, freshCopy: Bool = false) async {

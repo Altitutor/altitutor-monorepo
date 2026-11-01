@@ -52,17 +52,23 @@ struct ResourceLibrary: View {
                 Text("Resource library").font(.title3.bold())
                 Spacer()
                 Menu {
-                    Picker("Subject", selection: $model.librarySubjectID) {
-                        ForEach(model.librarySubjects) { subject in Text(subject.name).tag(Optional(subject.id)) }
+                    ForEach(subjectYears, id: \.self) { year in
+                        Menu(year.map { "Year \($0)" } ?? "Other") {
+                            Picker("Subject", selection: $model.librarySubjectID) {
+                                ForEach(model.librarySubjects.filter { $0.yearLevel == year }) { subject in
+                                    Text(subject.shortName).tag(Optional(subject.id))
+                                }
+                            }
+                        }
                     }
                 } label: {
-                    Label(model.librarySubjects.first { $0.id == model.librarySubjectID }?.name ?? "Subject", systemImage: "chevron.down")
+                    Label(model.librarySubjects.first { $0.id == model.librarySubjectID }?.shortName ?? "Subject", systemImage: "chevron.down")
                         .font(.subheadline.weight(.semibold)).lineLimit(2)
                 }.accessibilityLabel("Choose library subject")
             }.padding(20)
             Divider()
             VStack(alignment: .leading, spacing: 14) {
-                LibrarySearchBar(text: $query).frame(height: 48).glassEffect(.regular, in: .capsule)
+                LibrarySearchBar(text: $query).frame(height: 44)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -76,26 +82,27 @@ struct ResourceLibrary: View {
                             }
                             ForEach(subjectIDs, id: \.self) { subject in
                                 ForEach(nodes(subject: subject, parent: nil, ancestors: [])) { node in
-                                    TopicFolder(node: node, model: model, preview: preview, loadMore: { Task { await model.search(query, more: true) } })
+                                    TopicFolder(node: node, model: model, preview: preview)
                                 }
                             }
                         }
                             if model.libraryBusy { ProgressView().frame(maxWidth: .infinity) }
                             if query.isEmpty && model.libraryTopics.isEmpty && !model.libraryBusy { Text("No accessible topics.").foregroundStyle(.secondary) }
-                            if model.nextOffset != nil {
-                                Button("Load more files") { Task { await model.search(query, more: true) } }.disabled(model.libraryBusy)
-                            }
                         }.padding(.bottom, 20)
                     }
                 }.padding(20)
         }
         .task(id: String(isPresented) + suggestionKey) { if isPresented { await model.loadSuggestions() } }
-        .onChange(of: query) { _, _ in model.catalog = []; model.nextOffset = nil }
-        .onChange(of: model.librarySubjectID) { _, _ in model.catalog = []; model.libraryTopics = []; model.nextOffset = nil }
+        .onChange(of: query) { _, _ in model.catalog = [] }
+        .onChange(of: model.librarySubjectID) { _, _ in model.catalog = []; model.libraryTopics = [] }
         .task(id: String(isPresented) + query + (model.librarySubjectID?.uuidString ?? "")) {
             guard isPresented else { return }
             do { try await Task.sleep(for: .milliseconds(250)); await model.search(query) } catch {}
         }
+    }
+
+    private var subjectYears: [Int?] {
+        Array(Set(model.librarySubjects.map(\.yearLevel))).sorted { ($0 ?? Int.max) < ($1 ?? Int.max) }
     }
 
     private var suggested: [TeachingResource] {
@@ -133,6 +140,7 @@ private struct LibrarySearchBar: UIViewRepresentable {
         let bar = UISearchBar()
         bar.searchBarStyle = .minimal; bar.placeholder = "Search code or filename"
         bar.autocapitalizationType = .none; bar.autocorrectionType = .no
+        bar.searchTextField.backgroundColor = .tertiarySystemFill
         bar.searchTextField.accessibilityIdentifier = "resource-search"
         bar.delegate = context.coordinator
         return bar
@@ -160,21 +168,18 @@ private struct TopicFolder: View {
     let node: LibraryTopicNode
     @ObservedObject var model: TeachingModel
     let preview: (TeachingResource) -> Void
-    let loadMore: () -> Void
     @State private var expanded = false
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(node.children) { child in
-                    AnyView(TopicFolder(node: child, model: model, preview: preview, loadMore: loadMore))
+                    AnyView(TopicFolder(node: child, model: model, preview: preview))
                 }
                 ForEach(node.resources) { resource in
                     LibraryFile(model: model, resource: resource, preview: preview)
                 }
                 if node.resources.isEmpty && node.children.isEmpty {
-                    if model.nextOffset != nil {
-                        Button("Load more files", action: loadMore).font(.subheadline).disabled(model.libraryBusy)
-                    } else { Text("No files in this topic.").font(.caption).foregroundStyle(.secondary) }
+                    Text(model.libraryBusy ? "Loading files…" : "No files in this topic.").font(.caption).foregroundStyle(.secondary)
                 }
             }.padding(.leading, 10).padding(.vertical, 8)
         } label: {

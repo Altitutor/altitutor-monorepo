@@ -62,11 +62,13 @@ export async function teachingResources(client: Client, params: URLSearchParams)
   const offset = Number(params.get('offset') ?? 0);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000) throw new TeachingError(400, 'Invalid resource page.');
   const [subjects, topics] = await Promise.all([
-    allRows((start, end) => client.from('vtutor_subjects').select('id,name').order('id').range(start, end)),
+    allRows((start, end) => client.from('vtutor_subjects').select('id,name,short_name,year_level').order('id').range(start, end)),
     allRows((start, end) => client.from('vtutor_topics').select('id,name,subject_id,parent_id,index').order('id').range(start, end)),
   ]);
-  const librarySubjects = subjects.flatMap(subject => subject.id ? [{ id: subject.id, name: subject.name ?? 'Subject' }] : [])
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const librarySubjects = subjects.flatMap(subject => subject.id ? [{ id: subject.id, name: subject.name ?? 'Subject',
+    shortName: subject.short_name || subject.name || 'Subject', yearLevel: subject.year_level }] : [])
+    .sort((a, b) => (a.yearLevel ?? Number.MAX_SAFE_INTEGER) - (b.yearLevel ?? Number.MAX_SAFE_INTEGER)
+      || a.shortName.localeCompare(b.shortName, undefined, { numeric: true, sensitivity: 'base' }) || a.id.localeCompare(b.id));
   const scopedTopics = topics.filter(t => t.id && (!subjectID || t.subject_id === subjectID));
   const libraryTopics = scopedTopics.flatMap(topic => {
     const subject = subjects.find(s => s.id === topic.subject_id);

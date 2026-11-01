@@ -147,7 +147,7 @@ data(await admin.from('files').insert(pagingFiles), 'paging files');
 data(await admin.from('topics_files').insert(pagingFiles.map((f, i) => ({ id: randomUUID(), topic_id: pagingTopic, file_id: f.id, type: 'PRACTICE_QUESTIONS', index: i + 1, is_solutions: false }))), 'paging resources');
 const firstPage = await call('resources?subjectID=' + subject, first.token);
 assert.equal(firstPage.body.resources.length, 50, 'catalog remains bounded per page');
-assert.equal(firstPage.body.nextOffset, 50, 'library must offer more files before claiming an empty topic');
+assert.equal(firstPage.body.nextOffset, 50, 'API tells the native library to fetch the next page automatically');
 assert.ok(firstPage.body.topics.some(t => t.id === pagingTopic), 'hierarchy metadata is available before all files load');
 const lastPage = await call('resources?subjectID=' + subject + '&offset=50', first.token);
 assert.equal(lastPage.body.nextOffset, null, 'library knows when all files have loaded');

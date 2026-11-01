@@ -49,12 +49,34 @@ const scope = data(await admin.from('topics').select('subject_id').eq('id', row.
 const exact = await call('resources?resourceID=' + receipt.resource, token);
 assert.equal(exact.body.resources[0].worksheet.code, row.code, 'documents expose the file code');
 assert.ok(exact.body.subjects.some(subject => subject.id === scope.subject_id), 'subject menu lists caller subjects');
+const subjectRow = data(await admin.from('subjects').select('short_name,year_level').eq('id', scope.subject_id).single(), 'fixture subject labels');
+const subjectEntry = exact.body.subjects.find(subject => subject.id === scope.subject_id);
+assert.equal(subjectEntry.shortName, subjectRow.short_name, 'subject menu exposes the canonical short name');
+assert.equal(subjectEntry.yearLevel, subjectRow.year_level, 'subject menu exposes year level for nested menus');
 const search = await call('resources?subjectID=' + scope.subject_id + '&query=' + encodeURIComponent(row.code), token);
 assert.equal(search.status, 200, search.body.error);
 assert.equal(search.body.resources[0]?.id, receipt.resource, 'an exact file code is the first search result');
 const other = await call('resources?query=' + encodeURIComponent(row.code), otherToken);
 assert.ok(!other.body.resources.some(resource => resource.id === receipt.resource), 'search retains caller access');
 assert.ok(!other.body.subjects.some(subject => subject.id === scope.subject_id), 'subject menu retains caller access');
+const menuSubjects = [
+  {id:randomUUID(),name:'Zoology ordering preview',year_level:9},
+  {id:randomUUID(),name:'Biology ordering preview',year_level:10},
+  {id:randomUUID(),name:'Algebra ordering preview',year_level:10},
+];
+const menuIDs = menuSubjects.map(subject => subject.id);
+try {
+  data(await admin.from('subjects').insert(menuSubjects),'subject ordering fixtures');
+  data(await admin.from('staff_subjects').insert(menuIDs.map(subject_id => ({staff_id:receipt.first.id,subject_id}))),'subject ordering access');
+  const menu = await call('resources?resourceID='+receipt.resource,token);
+  assert.deepEqual(menu.body.subjects.filter(subject => menuIDs.includes(subject.id)).map(subject => subject.id),
+    [menuSubjects[0].id,menuSubjects[2].id,menuSubjects[1].id], 'subject menu sorts years numerically before alphabetical short names');
+  const privateMenu = await call('resources',otherToken);
+  assert.ok(!privateMenu.body.subjects.some(subject => menuIDs.includes(subject.id)), 'nested subject metadata stays caller scoped');
+} finally {
+  data(await admin.from('staff_subjects').delete().eq('staff_id',receipt.first.id).in('subject_id',menuIDs),'remove subject ordering access');
+  data(await admin.from('subjects').delete().in('id',menuIDs),'remove subject ordering fixtures');
+}
 // An exact code outranks a filename containing that same code.
 const aliasFile = randomUUID(), aliasResource = randomUUID();
 try {

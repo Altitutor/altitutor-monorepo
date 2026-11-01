@@ -28,10 +28,14 @@ The detached Resources control toggles a floating rounded drawer on the right.
 Swipe it right or tap outside to dismiss. Expand subject topic folders and tap a
 file for a separate preview sheet with Close and **Add to lesson** actions. Only
 adding inserts a file into the lesson and log suggestions; preview downloads
-stay in memory. A native search bar matches codes and filenames and presents
+stay in memory. A single native search field matches codes and filenames and presents
 flat relevance-ranked results. Exact codes rank first, then exact names,
-prefixes and substring/token matches; ranking precedes 50-result pagination.
-The header subject menu lists the caller’s accessible subjects. Suggested files
+prefixes and substring/token matches. The app automatically fetches every API page
+for the selected subject or search; there is no manual Load more step. PDF bytes
+are downloaded only for preview or adding, not while browsing the catalog.
+The header menu groups accessible subjects by ascending year level, with
+alphabetically sorted short names in each submenu; subjects without a year
+appear under Other. Suggested files
 appear first: unused files from the active topic,
 with the next file in the same type/sequence prioritized. An empty lesson uses
 the latest earlier logged lesson assigned to this tutor with the same subject
@@ -110,7 +114,8 @@ background/lock recovery, and share-sheet destinations.
 For a richer fictional library on an existing owned preview, run
 `pnpm dev:isolated exec -- node apps/teaching-ipad/Verification/expand-preview-library.mjs /path/to/owned-api-receipt.json`.
 It verifies the runtime/receipt and synthetic tutor/file ownership before adding
-nested folders, multiple worksheets and paired solutions. Node 22.13+ is needed
+nested folders, multiple worksheets and paired solutions, plus five subjects
+across Years 9, 10 and 12 for reviewing the nested menu. Node 22.13+ is needed
 for this checkout's pinned pnpm 11; Node 22.22 is installed on the development Mac.
 
 ## Installation

@@ -62,16 +62,24 @@ for (const [topic, title] of [[originalTopic.id, 'Differentiation extension.pdf'
   const id = await file(topic, title);
   await file(topic, title.replace('.pdf', ' — solutions.pdf'), id);
 }
-// A second accessible subject makes the native subject picker reviewable.
-const scienceRows = checked(await admin.from('staff_subjects').select('subject_id,subjects!inner(name)').eq('staff_id', actor.id).eq('subjects.name','Science preview'));
-let science = scienceRows[0]?.subject_id;
-if (!science) {
-  science = randomUUID();
-  checked(await admin.from('subjects').insert({id:science,name:'Science preview',short_name:'PREVSCI-'+actor.id.slice(0,8),year_level:12}));
-  checked(await admin.from('staff_subjects').insert({staff_id:actor.id,subject_id:science}));
+// Multiple years and same-year subjects make nested ordering reviewable.
+checked(await admin.from('subjects').update({short_name:'12MATH'}).eq('id',subject));
+for (const [name, shortName, year, topicName] of [
+  ['Science preview', '12SCIE', 12, 'Motion'],
+  ['Zoology preview', '9ZOOL', 9, 'Habitats'],
+  ['Biology preview', '10BIOL', 10, 'Cells'],
+  ['Algebra preview', '10ALGE', 10, 'Equations'],
+]) {
+  const rows = checked(await admin.from('staff_subjects').select('subject_id,subjects!inner(name)').eq('staff_id', actor.id).eq('subjects.name',name));
+  let extra = rows[0]?.subject_id;
+  if (!extra) {
+    extra = randomUUID();
+    checked(await admin.from('subjects').insert({id:extra,name,short_name:shortName,year_level:year}));
+    checked(await admin.from('staff_subjects').insert({staff_id:actor.id,subject_id:extra}));
+  }
+  let topic = checked(await admin.from('topics').select('id').eq('subject_id',extra).eq('name',topicName).maybeSingle())?.id;
+  if (!topic) { topic=randomUUID(); checked(await admin.from('topics').insert({id:topic,subject_id:extra,name:topicName,index:1})); }
+  const worksheet = await file(topic,topicName+' practice.pdf',null,extra);
+  await file(topic,topicName+' practice — solutions.pdf',worksheet,extra);
 }
-let physics = checked(await admin.from('topics').select('id').eq('subject_id',science).eq('name','Motion').maybeSingle())?.id;
-if (!physics) { physics=randomUUID(); checked(await admin.from('topics').insert({id:physics,subject_id:science,name:'Motion',index:1})); }
-const motion = await file(physics,'Motion practice.pdf',null,science);
-await file(physics,'Motion practice — solutions.pdf',motion,science);
-console.log(JSON.stringify({ project: proof.project_id, expandedFolders: 8, addedWorksheets: 7, subjects:2, pairedSolutions: true, syntheticOnly: true }));
+console.log(JSON.stringify({ project: proof.project_id, expandedFolders: 11, addedWorksheets: 10, subjects:5, pairedSolutions: true, syntheticOnly: true }));
