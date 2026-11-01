@@ -506,6 +506,8 @@ test("accessory resizing preserves edits, responsive layout, keyboard bounds and
   page,
   baseURL,
 }) => {
+  // Exercise both stacked and side-by-side states; the default 1280px viewport cannot fit the latter.
+  await page.setViewportSize({ width: 1600, height: 1000 });
   const db = localDatabase(baseURL),
     id = randomUUID(),
     name = `Resize browser ${randomUUID().slice(0, 8)}`;
@@ -764,4 +766,87 @@ test("Add issue uses one main-record command and persists the contextual referen
   await expect(
     dialog.locator('[data-mention][data-type="student"]'),
   ).toContainText("Alice Williams");
+});
+
+test("Issues retain editable priority through create, autosave and hover previews", async ({
+  page,
+  baseURL,
+}) => {
+  await signIn(page);
+  const db = localDatabase(baseURL);
+  const auth = await db.auth.signInWithPassword({
+    email: "admin@altitutor.test",
+    password: "test-password",
+  });
+  if (auth.error) throw auth.error;
+  const created = await db.rpc("admin_work_item_change", {
+    p_kind: "issue",
+    p_key: randomUUID(),
+    p_changes: { name: `Priority browser check ${randomUUID()}`, priority: 1 },
+  });
+  expect(created.error).toBeNull();
+  const record = (created.data as { record: { id: string; priority: number } })
+    .record;
+  expect(record.priority).toBe(1);
+  await page.goto(`/issues/${record.id}`);
+  await page.getByRole("button", { name: "Urgent", exact: true }).click();
+  await page.getByRole("option", { name: "High", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const read = await db.rpc("admin_work_item_read", {
+        p_kind: "issue",
+        p_id: record.id,
+      });
+      if (read.error) throw read.error;
+      return (read.data as { record: { priority: number } }).record.priority;
+    })
+    .toBe(2);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "High", exact: true }),
+  ).toBeVisible();
+  const preview = await page.request.get(
+    `/api/entity-references/issue/${record.id}`,
+  );
+  expect(preview.ok()).toBe(true);
+  expect((await preview.json()).fields).toContainEqual({
+    label: "Priority",
+    value: "High",
+  });
+  const invalid = await db.rpc("admin_work_item_patch", {
+    p_kind: "issue",
+    p_id: record.id,
+    p_key: randomUUID(),
+    p_changes: { priority: 5 },
+    p_expected: { priority: 2 },
+  });
+  expect(invalid.error).not.toBeNull();
+
+  await page
+    .getByRole("button", { name: "Record actions", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Create Issue",
+    exact: true,
+  });
+  await dialog
+    .getByPlaceholder("Issue title")
+    .fill(`Created with priority ${randomUUID()}`);
+  await dialog
+    .getByRole("button", { name: "No priority", exact: true })
+    .click();
+  await page.getByRole("option", { name: "Medium", exact: true }).click();
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().includes("/rpc/admin_work_item_change") &&
+      response.request().method() === "POST",
+  );
+  await dialog
+    .getByRole("button", { name: "Create Issue", exact: true })
+    .click();
+  const response = await saved;
+  expect(response.ok()).toBe(true);
+  expect((await response.json()).record.priority).toBe(3);
+  await expect(dialog).toBeHidden();
 });

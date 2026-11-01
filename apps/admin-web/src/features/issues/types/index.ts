@@ -13,6 +13,7 @@ export interface IssueFormData {
   name: string;
   description?: JSONContent | null;
   status: IssueStatus;
+  priority: number;
   dueDate: string | null;
 }
 

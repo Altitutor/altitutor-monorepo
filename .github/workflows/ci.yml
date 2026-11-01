@@ -248,6 +248,13 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
+      # This job runs web builds only. Supabase images, their cache archive,
+      # browsers and Next build artifacts otherwise exhaust the hosted disk.
+      - name: Reclaim unused native SDK space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4

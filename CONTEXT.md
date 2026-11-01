@@ -1103,6 +1103,8 @@
 
 ## Projects
 
+- **Work priority** — The shared Task, Issue and Project scale: No priority (0), Urgent (1), High (2), Medium (3), Low (4). Existing and new Issues default to No priority until a staff member sets it.
+
 - **Staff procedure document** — Altitutor guidance for staff carrying out work such as communications, operations, building management and marketing. These documents are distinct from development-team documentation and AI-generated business strategy reports.
   _Avoid_: Business strategy report, development specification
 

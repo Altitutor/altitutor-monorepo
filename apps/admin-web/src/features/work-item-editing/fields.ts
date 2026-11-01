@@ -57,10 +57,12 @@ export const issueFromRecord = (r: EditRecord): IssueFormData => ({
   name: text(r.name),
   description: (r.description as JSONContent) ?? null,
   status: (r.status ?? "open") as IssueFormData["status"],
+  priority: Number(r.priority ?? 0),
   dueDate: date(r.due_date),
 });
 export const issueToRecord = (v: IssueFormData): EditRecord => ({
   name: v.name,
+  priority: v.priority,
   description: json(v.description),
   status: v.status,
   due_date: v.dueDate ? new Date(v.dueDate).toISOString() : null,

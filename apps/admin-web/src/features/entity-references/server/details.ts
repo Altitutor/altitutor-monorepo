@@ -244,17 +244,16 @@ export async function referenceDetails(
       const row = await read(
         db
           .from("issues")
-          .select("name,status,due_date")
+          .select("name,status,priority,due_date")
           .eq("id", id)
           .maybeSingle(),
       );
       if (!row) return null;
-      // Issues currently have no priority property; do not infer one from their tasks.
       return {
         title: row.name,
         status: row.status,
         fields: [
-          field("Priority", "Not set"),
+          field("Priority", priority(row.priority)),
           field("Due date", date(row.due_date)),
         ],
       };
