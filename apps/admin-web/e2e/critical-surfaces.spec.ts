@@ -24,7 +24,7 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
 
   const surfaces = [
     ['/students', 'Students'],
-    ['/online-students', 'Online Students'],
+    ['/online-students', 'Students'],
     ['/classes', 'Classes'],
   ] as const;
   for (const [path, breadcrumb] of surfaces) {

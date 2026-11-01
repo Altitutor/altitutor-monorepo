@@ -28,7 +28,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from './button';
-import { ScrollArea } from './scroll-area';
 import { cn } from '../lib/cn';
 import {
   Plus,
@@ -460,7 +459,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   return (
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
-      {!props.hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
+      {!props.hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 px-6 pt-6 pb-4">
         <EntityToolbar
             viewTarget={viewTarget}
           statusColumn={statusColumn} rightPills={rightPills} columnDefs={columnDefs}
@@ -491,8 +490,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="h-full w-full overflow-x-auto overflow-y-hidden">
-            <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
+          <div role="region" aria-label="Board" tabIndex={0} className="h-full w-full overflow-x-auto overflow-y-hidden">
+            <div className="flex h-full pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
                 const persistedColumnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
@@ -675,7 +674,7 @@ function KanbanColumn<TItem>({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full w-[300px] min-w-[300px] flex-col rounded-[var(--radius)] bg-muted/30 transition-colors',
+        'flex h-full min-h-0 w-[300px] min-w-[300px] flex-col overflow-hidden rounded-[var(--radius)] bg-muted/30 transition-colors',
         isOver && 'bg-muted/50'
       )}
     >
@@ -693,7 +692,7 @@ function KanbanColumn<TItem>({
         )}
       </div>
 
-      <ScrollArea className="flex-1" viewportRef={viewportRef}>
+      <div role="region" aria-label={`${label} column`} tabIndex={0} ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
         {ungroupedItems ? (
           <SortableContext items={ungroupedItems.map(getItemId)} strategy={verticalListSortingStrategy}>
             <div
@@ -760,7 +759,7 @@ function KanbanColumn<TItem>({
             )}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -815,7 +814,13 @@ function SortableCard<TItem>({
       {...attributes}
       {...listeners}
     >
-      {renderCard(item, visiblePillKeys)}
+      <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
     </div>
   );
 }
+
+// Drag context updates the lightweight sortable wrapper on every pointer move.
+// Keep menus, pickers and other card contents outside that hot render path.
+const CardContent = React.memo(function CardContent<TItem>({ item, renderCard, visiblePillKeys }: Pick<SortableCardProps<TItem>, 'item' | 'renderCard' | 'visiblePillKeys'>) {
+  return <>{renderCard(item, visiblePillKeys)}</>;
+}) as <TItem>(props: Pick<SortableCardProps<TItem>, 'item' | 'renderCard' | 'visiblePillKeys'>) => React.ReactNode;

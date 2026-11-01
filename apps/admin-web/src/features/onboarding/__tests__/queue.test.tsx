@@ -55,7 +55,7 @@ jest.mock("@/shared/lib/supabase/client", () => ({
                 ...journey("Discontinued student", "student-discontinued"),
                 closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
               },
-              journey("Family enquiry", null),
+              { ...journey("Family enquiry", null), next_contact_at: mockNextContact },
             ]
           : [],
       error: null,
@@ -120,27 +120,8 @@ it.each(["TRIAL", "ACTIVE", null])(
   },
 );
 
-it("opens the linked student's page from the journey dialog", async () => {
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <ToastProvider>
-        <TrialStudentsPage />
-      </ToastProvider>
-    </QueryClientProvider>,
-  );
-  fireEvent.click(
-    await screen.findByRole("button", { name: /Current student/ }),
-  );
-  expect(
-    within(
-      await screen.findByRole("heading", { name: "Current student" }),
-    ).getByRole("link", { name: "Current student" }),
-  ).toHaveAttribute("href", "/students/student-current");
-});
+// Linked Student cards now open the Student page; browser coverage lives in
+// e2e/student-views-and-boards.spec.ts. Unlinked family enquiries retain dialogs.
 
 it("hides discontinued students from the worklist and search results", async () => {
   mockView = "worklist";
@@ -243,7 +224,7 @@ it("also hides discontinued students from the completed / closed queue view", as
   ).not.toBeInTheDocument();
 });
 
-it("shows status pills in the dialog subheading instead of subjects", async () => {
+it("shows status pills in the family enquiry dialog subheading instead of subjects", async () => {
   render(
     <QueryClientProvider
       client={
@@ -256,7 +237,7 @@ it("shows status pills in the dialog subheading instead of subjects", async () =
     </QueryClientProvider>,
   );
   fireEvent.click(
-    await screen.findByRole("button", { name: /Current student/ }),
+    await screen.findByRole("button", { name: /Family enquiry/ }),
   );
   const dialog = await screen.findByRole("dialog");
   const subheading = document.getElementById(
@@ -284,7 +265,7 @@ it("sets and clears the next contact date using the shared date picker", async (
     </QueryClientProvider>,
   );
   fireEvent.click(
-    await screen.findByRole("button", { name: /Current student/ }),
+    await screen.findByRole("button", { name: /Family enquiry/ }),
   );
   fireEvent.click(
     await screen.findByRole("button", { name: /Agreed next contact date/ }),

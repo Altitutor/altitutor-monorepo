@@ -1,13 +1,5 @@
-import { OnlineStudentsTable } from '@/features/students/components/OnlineStudentsTable';
+import { redirect } from 'next/navigation';
 
 export default function OnlineStudentsPage() {
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-
-
-      </div>
-      <OnlineStudentsTable />
-    </div>
-  );
+  redirect('/students?relationship=online');
 }

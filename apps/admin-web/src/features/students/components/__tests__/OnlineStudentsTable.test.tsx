@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OnlineStudentsTable } from '../OnlineStudentsTable';
 import { useOnlineStudentsMinimal } from '../../hooks/useStudentsQuery';
 
@@ -12,9 +13,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-jest.mock('../ViewStudentModal', () => ({
-  ViewStudentModal: () => null,
-}));
+jest.mock('@/features/quick-filters/api/quick-filters', () => ({ quickFiltersApi: { list: async () => [] } }));
 
 const mockedUseOnlineStudentsMinimal = jest.mocked(useOnlineStudentsMinimal);
 
@@ -61,7 +60,7 @@ describe('OnlineStudentsTable', () => {
       error: null,
     } as ReturnType<typeof useOnlineStudentsMinimal>);
 
-    render(<OnlineStudentsTable />);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><OnlineStudentsTable /></QueryClientProvider>);
 
     expect(mockedUseOnlineStudentsMinimal).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import { TrialStudentsPage } from "@/features/onboarding/components/TrialStudentsPage";
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return (
-    <Suspense fallback={null}>
-      <TrialStudentsPage />
-    </Suspense>
-  );
+export default function TrialStudentsPage() {
+  redirect('/students?relationship=trial');
 }
