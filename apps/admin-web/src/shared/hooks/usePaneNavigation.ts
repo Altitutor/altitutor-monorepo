@@ -10,34 +10,26 @@ import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { ownedPrimaryHref } from "@/shared/utils/primaryOwnership";
 export const ACCESSORY_ROUTES: Record<
   string,
-  { kind: AccessoryKind; detail?: AccessoryKind; title: string }
+  { kind: AccessoryKind; title: string }
 > = {
-  tasks: { kind: "tasks", detail: "task", title: "Tasks" },
-  issues: { kind: "issues", detail: "issue", title: "Issues" },
-  projects: { kind: "projects", detail: "project", title: "Projects" },
-  documents: { kind: "documents", detail: "document", title: "Documents" },
-  notes: { kind: "documents", detail: "document", title: "Documents" },
-  email: { kind: "email", detail: "email", title: "Email" },
+  tasks: { kind: "task", title: "Task" },
+  issues: { kind: "issue", title: "Issue" },
+  projects: { kind: "project", title: "Project" },
+  documents: { kind: "document", title: "Document" },
+  notes: { kind: "document", title: "Document" },
+  email: { kind: "email", title: "Email" },
   messages: { kind: "messages", title: "Messages" },
 };
 export function accessoryDestination(href: string) {
   const url = new URL(href, "http://admin.local");
-  const [route, id] = url.pathname.split("/").filter(Boolean);
+  const [route, pathId] = url.pathname.split("/").filter(Boolean);
   const destination = ACCESSORY_ROUTES[route] ?? ACCESSORY_ROUTES[`${route}s`];
   if (!destination) return null;
-  if (!id && ["tasks", "issues", "projects", "email", "documents", "notes", "messages"].includes(route) && !(route === "messages" && (url.searchParams.has("contact") || url.searchParams.has("group") || url.searchParams.has("conversation")))) return null;
-  return {
-    kind: id && destination.detail ? destination.detail : destination.kind,
-    id:
-      id ??
-      (route === "messages"
-        ? (url.searchParams.get("contact") ??
-          url.searchParams.get("group") ??
-          undefined)
-        : undefined),
-    title: id ? destination.title.replace(/s$/, "") : destination.title,
-    query: url.search.slice(1),
-  };
+  const id = pathId ?? (destination.kind === "messages"
+    ? url.searchParams.get("contact") ?? url.searchParams.get("group") ?? url.searchParams.get("conversation")
+    : null);
+  if (!id) return null;
+  return { ...destination, id, query: url.search.slice(1) };
 }
 /** Accessory views own their query state; primary views continue to use Next routing. */
 export function usePaneNavigation() {

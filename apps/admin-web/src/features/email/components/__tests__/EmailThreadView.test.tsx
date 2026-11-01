@@ -18,9 +18,6 @@ import {
 } from "../../hooks/useOpenEmailThread";
 import { EmailThreadView } from "../EmailThreadView";
 import { AccessoryTabs } from "@/shared/components/accessory-panel/AccessoryTabs";
-jest.mock("@/shared/components/accessory-panel/AccessoryRootViews", () => ({
-  AccessoryRootViews: () => null,
-}));
 jest.mock("@/features/messages/api/queries", () => ({
   useUnreadConversationCount: () => ({ data: 0 }),
 }));

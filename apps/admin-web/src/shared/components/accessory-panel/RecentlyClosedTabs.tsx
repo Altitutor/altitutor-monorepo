@@ -6,12 +6,13 @@ import { AccessoryIcon } from "./AccessoryIcon";
 
 export function RecentlyClosedTabs() {
   const panel = useAccessoryPanel();
-  if (!panel?.recentlyClosed.length) return null;
+  if (!panel) return null;
   return (
     <div className="w-full max-w-xs space-y-2 text-left">
       <h3 className="px-3 text-xs font-medium text-muted-foreground">
         Recently closed
       </h3>
+      {!panel.recentlyClosed.length && <p className="px-3 text-sm text-muted-foreground">No recently closed records.</p>}
       {panel.recentlyClosed.map((tab) => (
         <Button
           key={tab.key}

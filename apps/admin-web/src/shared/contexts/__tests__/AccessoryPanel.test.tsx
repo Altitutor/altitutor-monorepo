@@ -7,7 +7,7 @@ function Controls() {
   const panel = useAccessoryPanel()!;
   return (
     <>
-      <button onClick={() => panel.openTab({ kind: "tasks", title: "Tasks" })}>Tasks</button>
+      <button onClick={() => panel.openTab({ kind: "task", id: "two", title: "Second task" })}>Tasks</button>
       <button onClick={() => panel.openTab({ kind: "task", id: "one", title: "First task" })}>Task</button>
       <button onClick={() => panel.openTab({ kind: "messages", title: "Messages" })}>Messages</button>
       <button
@@ -69,43 +69,17 @@ test("destination rule identifies accessory records and conversation links", () 
   expect(accessoryDestination("/messages?contact=person")).toMatchObject({ kind: "messages", id: "person", query: "contact=person" });
   expect(accessoryDestination("/students/one")).toBeNull(); expect(accessoryDestination("/invoices/one")).toBeNull();
 });
-test("opening Messages focuses a conversation-list tab, not an open conversation", async () => {
-  render(<AccessoryPanelProvider><Controls /></AccessoryPanelProvider>);
-  fireEvent.click(await screen.findByText("Conversation"));
-  const conversationKey = state().activeKey;
-  expect(state().tabs).toHaveLength(1);
-  expect(state().tabs[0]).toMatchObject({ kind: "messages", id: "person", query: "contact=person" });
-
-  fireEvent.click(screen.getByText("Messages"));
-  expect(state().tabs).toHaveLength(2);
-  expect(state().activeKey).not.toBe(conversationKey);
-  const listTab = state().tabs.find((tab: { key: string }) => tab.key === state().activeKey);
-  expect(listTab).toMatchObject({
-    kind: "messages",
-    query: "",
-    title: "Messages",
-  });
-  expect(listTab.id).toBeUndefined();
-
-  const listKey = state().activeKey;
-  fireEvent.click(screen.getByText("Messages"));
-  expect(state().tabs).toHaveLength(2);
-  expect(state().activeKey).toBe(listKey);
-});
-test("selecting a conversation updates the messages tab id so list open stays separate", async () => {
+test("message collections cannot open and a conversation query cannot lose its identity", async () => {
   render(<AccessoryPanelProvider><Controls /></AccessoryPanelProvider>);
   fireEvent.click(await screen.findByText("Messages"));
-  fireEvent.click(screen.getByText("Open conversation query"));
-  expect(state().tabs[0]).toMatchObject({ kind: "messages", id: "person", query: "contact=person" });
-
+  expect(state().tabs).toHaveLength(0);
+  fireEvent.click(screen.getByText("Conversation"));
+  fireEvent.click(screen.getByText("Filter"));
+  expect(state().tabs[0]).toMatchObject({ kind: "messages", id: "person" });
+  expect(state().tabs[0].query).toContain("contact=person");
   fireEvent.click(screen.getByText("Messages"));
-  expect(state().tabs).toHaveLength(2);
-  expect(state().tabs.map((tab: { query: string }) => tab.query)).toEqual([
-    "contact=person",
-    "",
-  ]);
+  expect(state().tabs).toHaveLength(1);
 });
-
 
 test("recently closed tabs persist and reopen with their filters and conversation", async () => {
   const first = render(<AccessoryPanelProvider><Controls /></AccessoryPanelProvider>);

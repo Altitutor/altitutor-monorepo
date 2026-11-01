@@ -1,19 +1,4 @@
 "use client";
-const TasksCollection = dynamic(() =>
-  import("@/features/tasks/components/TasksCollection").then(
-    (module) => module.TasksCollection,
-  ),
-);
-const IssuesCollection = dynamic(() =>
-  import("@/features/issues/components/IssuesCollection").then(
-    (module) => module.IssuesCollection,
-  ),
-);
-const ProjectsCollection = dynamic(() =>
-  import("@/features/projects/components/ProjectsCollection").then(
-    (module) => module.ProjectsCollection,
-  ),
-);
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 const TaskDetailView = dynamic(() =>
@@ -36,57 +21,19 @@ const DocumentDetailView = dynamic(() =>
     (module) => module.DocumentDetailView,
   ),
 );
-const DocumentsView = dynamic(() =>
-  import("@/features/notes/components/DocumentsView").then(
-    (module) => module.DocumentsView,
-  ),
-);
 const EmailThreadView = dynamic(() => import("@/features/email/components/EmailThreadView").then((module) => module.EmailThreadView));
-const MailPage = dynamic(() => import("@/features/email/components/MailPage").then((module) => module.MailPage));
 const MessagesView = dynamic(() =>
   import("@/features/messages/components/MessagesView").then(
     (module) => module.MessagesView,
   ),
 );
-import { useCurrentStaff } from "@/shared/hooks";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 export function AccessoryView() {
   const scope = useAccessoryTab();
-  const { data: staff, isLoading } = useCurrentStaff();
   if (!scope) return null;
   const { tab, close } = scope;
-  const board = new URLSearchParams(tab.query).get("view") === "board";
   let content;
   switch (tab.kind) {
-    case "tasks":
-      content = isLoading ? (
-        <p className="p-4">Loading tasks…</p>
-      ) : (
-        <TasksCollection
-          mode={board ? "board" : "list"}
-          defaultFilters={{
-            status: ["backlog", "todo", "in_progress", "in_review"],
-            ...(staff?.id ? { assignee: [staff.id] } : {}),
-          }}
-        />
-      );
-      break;
-    case "issues":
-      content = (
-        <IssuesCollection
-          mode={board ? "board" : "list"}
-          defaultFilters={{ status: ["open", "awaiting_response"] }}
-        />
-      );
-      break;
-    case "projects":
-      content = (
-        <ProjectsCollection
-          mode={board ? "board" : "list"}
-          defaultFilters={{ status: ["backlog", "planned", "in_progress"] }}
-        />
-      );
-      break;
     case "task":
       content = tab.id && (
         <TaskDetailView taskId={tab.id} variant="page" onClose={close} />
@@ -107,11 +54,8 @@ export function AccessoryView() {
         <DocumentDetailView noteId={tab.id} variant="page" onClose={close} />
       );
       break;
-    case "documents":
-      content = <DocumentsView />;
-      break;
     case "email":
-      content = tab.id ? <EmailThreadView threadId={tab.id} /> : <MailPage />;
+      content = tab.id && <EmailThreadView threadId={tab.id} />;
       break;
     case "messages":
       content = <MessagesView />;

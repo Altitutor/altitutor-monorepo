@@ -491,7 +491,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           onDragCancel={handleDragCancel}
         >
           <div role="region" aria-label="Board" tabIndex={0} className="h-full w-full overflow-x-auto overflow-y-hidden">
-            <div className="flex h-full pb-0 pt-2 gap-4 min-w-max">
+            <div className="flex h-full px-4 pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
                 const persistedColumnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
