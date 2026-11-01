@@ -69,7 +69,7 @@ export function EntityCollection<TItem>({
       {!props.hideToolbar && (
         <div
           data-work-item-toolbar
-          className="w-full min-w-0 shrink-0 border-b p-2"
+          className="w-full min-w-0 shrink-0 px-6 pt-6 pb-4"
         >
           <EntityToolbar
             viewTarget={props.viewTarget}

@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useStudentViews, STUDENT_FILTER_KEYS, STUDENT_VIEW_DEFAULTS } from '../hooks/useStudentViews';
 import {
   Badge,
   DataTableToolbar,
@@ -22,7 +24,6 @@ import { Loader2 } from 'lucide-react';
 import { useOnlineStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { SettingsTableActions } from '@/shared/components';
-import { ViewStudentModal } from './ViewStudentModal';
 import type { StudentSearchField } from '../api/students';
 
 function formatDate(value: string): string {
@@ -34,9 +35,11 @@ function formatDate(value: string): string {
 }
 
 export function OnlineStudentsTable() {
-  const defaultFilters = useMemo(() => ({ accountClass: ['external'] }), []);
-  const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['student', 'products', 'online_since'], []);
+  const router = useRouter();
+  const quickFilters = useStudentViews();
+  const defaultFilters = useMemo(() => STUDENT_VIEW_DEFAULTS.online.filters, []);
+  const defaultSort = useMemo(() => ({ field: STUDENT_VIEW_DEFAULTS.online.sortBy, direction: STUDENT_VIEW_DEFAULTS.online.sortDirection }), []);
+  const defaultVisibleColumns = STUDENT_VIEW_DEFAULTS.online.visibleColumns;
   const {
     state,
     setSearch,
@@ -51,12 +54,11 @@ export function OnlineStudentsTable() {
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['product', 'entitlement', 'accountClass'],
+    filterKeys: STUDENT_FILTER_KEYS,
   });
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
 
-  const { data, isLoading, isFetching, error, refetch } = useOnlineStudentsMinimal({
+  const { data, isLoading, isFetching, error } = useOnlineStudentsMinimal({
     search: state.search,
     searchFields,
     products: state.filters.product as string[] | undefined,
@@ -108,7 +110,7 @@ export function OnlineStudentsTable() {
 
   const students = data?.students ?? [];
   const total = data?.total ?? 0;
-  const openStudent = (studentId: string) => setSelectedStudentId(studentId);
+  const openStudent = (studentId: string) => router.push(`/students/${studentId}`);
 
   return (
     <div className="space-y-4">
@@ -124,7 +126,7 @@ export function OnlineStudentsTable() {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={[]}
+        quickFilters={quickFilters} viewTarget="students"
         searchPlaceholder="Search name, email or phone..."
         searchFromOptions={[
           { label: 'Name', value: 'name' },
@@ -229,13 +231,7 @@ export function OnlineStudentsTable() {
         onPageSizeChange={setPageSize}
       />
 
-      <ViewStudentModal
-        isOpen={selectedStudentId !== null}
-        onClose={() => setSelectedStudentId(null)}
-        studentId={selectedStudentId}
-        onStudentUpdated={() => void refetch()}
-        defaultTab="online"
-      />
+
     </div>
   );
 }

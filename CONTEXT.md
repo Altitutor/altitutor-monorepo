@@ -15,6 +15,9 @@
 - **Student relationship mode** — An independent way a Student engages with Altitutor: through tutor-led in-person services or an online Product app. A Student may have either mode, both modes concurrently, or neither while transitioning between them.
   _Avoid_: Student type, online-versus-in-person classification, conversion
 
+- **Student directory view** — A saved presentation of the shared Student directory for a relationship mode or for In-person onboarding work. In person and Online may overlap; the Trial view retains the full onboarding queue, including family enquiries without a Student and registered Students with unresolved onboarding actions.
+  _Avoid_: Mutually exclusive Student types, trial-status-only queue
+
 - **Student relationship status** — The lifecycle state of one Student relationship mode. Online and in-person statuses change independently; no single global Student status represents both relationships.
   _Avoid_: Student status, account status, global active status
 

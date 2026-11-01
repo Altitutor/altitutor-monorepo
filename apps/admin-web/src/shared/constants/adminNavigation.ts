@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Beaker,
   ClipboardList,
-  Monitor,
   UserRound,
   TrendingUp,
   MessageSquareText,
@@ -55,20 +54,9 @@ export const navItems: NavItem[] = [
     title: "SCHEDULING",
   },
   {
-    title: "Trial students",
-    href: "/trial-students",
-    icon: Users,
-
-  },
-  {
-    title: "In-person Students",
+    title: "Students",
     href: "/students",
     icon: GraduationCap,
-  },
-  {
-    title: "Online Students",
-    href: "/online-students",
-    icon: Monitor,
   },
   {
     title: "Parents",

@@ -19,11 +19,12 @@ import { Loader2, Paperclip } from 'lucide-react';
 import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
 import { calculateSMSSegments } from '../utils/smsSegments';
-import { useResponsiveButtons } from '../hooks/useResponsiveButtons';
+import { useComposerControlsLayout } from '../hooks/useComposerControlsLayout';
 import { useContactClasses } from '../hooks/useContactClasses';
 import { useVariableReplacement } from '../hooks/useVariableReplacement';
 import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
+import { ComposerControlTooltip } from './ComposerControlTooltip';
 import { isMessageComposerSendShortcut } from '../utils/composerShortcut';
 
 interface Props {
@@ -80,7 +81,7 @@ export function Composer({
   const { data: availableSenders } = useAvailableSenders();
   const { data: lastInboundOwnedNumberId, isFetched: lastInboundFetched } =
     useLastInboundOwnedNumberId(groupChatId ? null : contactId);
-  const canExpand = useResponsiveButtons(buttonRowRef);
+  const canExpand = useComposerControlsLayout(buttonRowRef);
   const {
     attachments,
     addFiles,
@@ -532,12 +533,12 @@ export function Composer({
         </div>
 
         {/* Button row: template/attachments/phone on left, send on right */}
-        <div ref={buttonRowRef} className="flex flex-wrap items-end justify-between gap-2 min-w-0" data-message-composer-controls>
+        <div ref={buttonRowRef} className="flex items-end justify-between gap-2 min-w-0" data-message-composer-controls>
           {/* Left side: Template, Attachments, Phone buttons */}
-          <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
+          <div className="flex flex-1 items-center gap-2 min-w-0">
             {toolbarBeforeTemplate}
             {/* Template button */}
-            <div className="relative flex-shrink-0">
+            <ComposerControlTooltip label="Template" compact={!canExpand}><div className="relative flex-shrink-0">
               <MessageTemplatesPicker
                 onSelect={handleTemplateSelect}
                 disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId || isGeneratingTokens}
@@ -548,9 +549,9 @@ export function Composer({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               )}
-            </div>
+            </div></ComposerControlTooltip>
 
-            <ComposerVariablesDropdown
+            <ComposerControlTooltip label="Insert variable" compact={!canExpand}><ComposerVariablesDropdown
               availableVariables={availableVariables}
               parentStudents={parentStudents}
               studentHasClasses={studentHasClasses}
@@ -560,14 +561,15 @@ export function Composer({
               onInsertVariable={handleInsertVariable}
               canExpand={canExpand}
               disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
-            />
+            /></ComposerControlTooltip>
 
             {/* Upload button - only show for iMessage senders */}
             {isIMessageSender && canAddMore && (
-              <div className="flex-shrink-0">
+              <ComposerControlTooltip label="Attach files" compact={!canExpand}><div className="flex-shrink-0">
                 {canExpand ? (
                   <Button
                     type="button"
+                    data-composer-label="Attach"
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
@@ -580,6 +582,7 @@ export function Composer({
                 ) : (
                   <Button
                     type="button"
+                    data-composer-label="Attach"
                     variant="outline"
                     size="icon"
                     onClick={() => fileInputRef.current?.click()}
@@ -590,17 +593,17 @@ export function Composer({
                     <Paperclip className="h-4 w-4" />
                   </Button>
                 )}
-              </div>
+              </div></ComposerControlTooltip>
             )}
 
             {(contactId || conversationId) && availableSenders && availableSenders.length > 0 && (
-              <ComposerSenderSelector
+              <ComposerControlTooltip label="Select sender" compact={!canExpand}><ComposerSenderSelector
                 availableSenders={groupChatId ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE') : availableSenders}
                 selectedSenderId={selectedSenderId}
                 onSelectSender={setSelectedSenderId}
                 canExpand={canExpand}
                 disabled={send.isPending || (!contactId && !conversationId)}
-              />
+              /></ComposerControlTooltip>
             )}
           </div>
 

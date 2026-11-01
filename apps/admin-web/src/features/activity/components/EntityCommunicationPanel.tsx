@@ -71,6 +71,7 @@ interface EntityCommunicationPanelProps {
   initialDestinationAddress?: string;
   initialSenderId?: string;
   defaultShowActivity?: boolean;
+  defaultShowEmail?: boolean;
   isSearching?: boolean;
   searchTerm?: string;
   onSearchTermChange?: (value: string) => void;
@@ -105,6 +106,7 @@ function EntityCommunicationContent({
   initialDestinationAddress,
   initialSenderId,
   defaultShowActivity = true,
+  defaultShowEmail = true,
   isSearching,
   searchTerm,
   onSearchTermChange,
@@ -137,7 +139,7 @@ function EntityCommunicationContent({
     : defaultCommunicationSources({ entityType, contacts }).filter(
         (source) => defaultShowActivity || source !== ACTIVITY_SOURCE_ID,
       );
-  const defaultSources = [EMAIL_SOURCE_ID, ...messageSources];
+  const defaultSources = [...(defaultShowEmail ? [EMAIL_SOURCE_ID] : []), ...messageSources];
   const sources = sourceOverride ?? defaultSources;
   const emails = useEntityEmails(entityType, entityId, enabled && sources.includes(EMAIL_SOURCE_ID));
   const showActivity = hasActivitySource(sources);

@@ -236,6 +236,7 @@
 
 /* Admin outline controls use the same surface as Search and Display. */
 [data-button-variant="outline"] {
+  font-weight: 500;
   border-color: hsl(var(--border));
   background-color: hsl(var(--muted) / 0.5);
   color: hsl(var(--foreground));
@@ -246,6 +247,9 @@
   background-color: rgb(255 255 255 / 0.07);
 }
 .dark [data-button-variant="outline"]:hover { background-color: rgb(255 255 255 / 0.11); }
+[data-button-variant="outline"][data-overdue] { border-color: hsl(var(--destructive)); }
+/* Work-item property pills share an icon scale across native and Button triggers. */
+button[data-button-variant="outline"].rounded-full svg { width: .875rem; height: .875rem; }
 /* Detail pages already pair record breadcrumbs and actions in one row. */
 [data-admin-main] div:has(> nav[data-primary-breadcrumb]) {
   margin-inline: -1.5rem;
