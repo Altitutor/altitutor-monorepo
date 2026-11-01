@@ -17121,6 +17121,8 @@ export type Database = {
       }
       tutor_logs: {
         Row: {
+          automated_text_suppressed_parent_ids: string[]
+          automated_text_suppressed_student_ids: string[]
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -17133,6 +17135,8 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          automated_text_suppressed_parent_ids?: string[]
+          automated_text_suppressed_student_ids?: string[]
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -17145,6 +17149,8 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          automated_text_suppressed_parent_ids?: string[]
+          automated_text_suppressed_student_ids?: string[]
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -45746,10 +45752,19 @@ export type Database = {
         }
         Returns: string
       }
-      record_automation_message_skip: {
-        Args: { p_action_id: string; p_execution_id: string }
-        Returns: undefined
-      }
+      record_automation_message_skip:
+        | {
+            Args: { p_action_id: string; p_execution_id: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_action_id: string
+              p_execution_id: string
+              p_reason: string
+            }
+            Returns: undefined
+          }
       record_current_ucat_authenticated_visit: {
         Args: never
         Returns: {
