@@ -21,6 +21,14 @@ test.beforeAll(async () => {
   if (journey.error) throw journey.error;
   const family = await db.from('onboarding_journeys').upsert({ id: '28200000-0000-4000-8000-000000000004', label: 'Family browser enquiry', enquiry_email: 'family-browser-check@altitutor.test', enquiry_at: '2026-10-30T12:00:00Z' });
   if (family.error) throw family.error;
+  const closedStudent = await db.from('students').upsert({ id: '28200000-0000-4000-8000-000000000006', first_name: 'Completed onboarding', last_name: 'Browser check', status: 'ACTIVE' });
+  if (closedStudent.error) throw closedStudent.error;
+  const closedJourney = await db.from('onboarding_journeys').upsert({ id: '28200000-0000-4000-8000-000000000007', student_id: '28200000-0000-4000-8000-000000000006', label: 'Completed onboarding Browser check', enquiry_at: '2026-10-30T12:00:00Z', closed_at: null, closure_reason: null, closed_evidence: null });
+  if (closedJourney.error) throw closedJourney.error;
+  const closedFamily = await db.from('onboarding_journeys').upsert({ id: '28200000-0000-4000-8000-000000000008', label: 'Completed family enquiry Browser check', enquiry_email: 'completed-family-browser@altitutor.test', enquiry_at: '2026-10-30T12:00:00Z', closed_at: null, closure_reason: null, closed_evidence: null });
+  if (closedFamily.error) throw closedFamily.error;
+  const closed = await db.from('onboarding_journeys').update({ closed_at: '2026-10-31T12:00:00Z', closure_reason: 'completed' }).in('id', ['28200000-0000-4000-8000-000000000007', '28200000-0000-4000-8000-000000000008']);
+  if (closed.error) throw closed.error;
   const sender = await db.from('owned_numbers').upsert({ id: '28200000-0000-4000-8000-000000000003', phone_e164: '+61428200000', label: 'Browser iMessage', provider: 'IMESSAGE', sender_type: 'PHONE' });
   if (sender.error) throw sender.error;
   const tasks = await db.from('tasks').upsert(Array.from({ length: 90 }, (_, index) => ({ id: `28200001-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Board drag check ${String(index + 1).padStart(3, '0')}`, status: ['backlog', 'todo', 'in_progress'][index % 3], priority: 1 })));
@@ -334,7 +342,7 @@ test('Student presets share every column and clearing filters reveals every rela
   for (const name of ['Alice Williams', 'Journey Browser check', 'Unified Online Browser check']) {
     await expect(page.getByRole('row').filter({ has: page.getByText(name, { exact: true }) })).toBeVisible();
   }
-  await expect(page.getByRole('row').filter({ hasText: 'Unified Online Browser check' })).toContainText('UCAT Web');
+  await expect(page.getByRole('row').filter({ hasText: 'Unified Online Browser check' })).toContainText('Altitutor UCAT');
   const views = page.getByLabel('Views', { exact: true });
   await views.getByRole('button', { name: 'Online', exact: true }).click();
   await display.click();
@@ -408,4 +416,23 @@ test('Student directory filters the whole dataset before pagination and denies a
   expect(mixedPage.entries.map((entry: { label: string }) => entry.label)).toEqual(expect.arrayContaining(['Unified Online Browser check', 'Journey Browser check']));
   const families = await page.request.post('/api/students/directory', { data: { ...input, search: 'Family browser enquiry', filters: { relationship: ['trial'], queue: ['open'] } } });
   expect((await families.json()).entries[0]).toMatchObject({ kind: 'enquiry', student: null, label: 'Family browser enquiry' });
+});
+
+
+test('Trial queue can show completed onboarding for active Students and family enquiries', async () => {
+  const db = createClient<Database>(process.env.ADMIN_E2E_SUPABASE_URL!, (process.env.ADMIN_E2E_PUBLIC_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const signedIn = await db.auth.signInWithPassword({ email: 'admin@altitutor.test', password: 'test-password' });
+  if (signedIn.error) throw signedIn.error;
+  const response = await db.rpc('search_student_directory_admin', {
+    p_request: { search: 'Completed', filters: { relationship: ['trial'], queue: ['closed'] }, page: 1, pageSize: 50 },
+    p_journeys: [
+      { id: '28200000-0000-4000-8000-000000000007', student_id: '28200000-0000-4000-8000-000000000006', stage: 'Enquiry', open: false },
+      { id: '28200000-0000-4000-8000-000000000008', student_id: null, stage: 'Enquiry', open: false },
+    ],
+  });
+  if (response.error) throw response.error;
+  const result = response.data as { entries: Array<{ kind: string; student: { status: string } | null; label: string }> };
+  expect(result.entries).toHaveLength(2);
+  expect(result.entries.find(entry => entry.kind === 'student')).toMatchObject({ student: { status: 'ACTIVE' } });
+  expect(result.entries.find(entry => entry.kind === 'enquiry')).toMatchObject({ student: null, label: 'Completed family enquiry Browser check' });
 });

@@ -28,6 +28,8 @@ import {
   TablePagination,
 } from "@altitutor/ui";
 import { ArrowUpDown, Loader2 } from 'lucide-react';
+import { ONLINE_PRODUCT_NAMES } from '@altitutor/shared';
+import { onlineProductSummary } from '../lib/onlineProducts';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { getSubjectCurriculumColor } from '@/shared/utils';
@@ -204,7 +206,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     { key: 'relationship', label: 'Relationship', options: [{ value: 'in_person', label: 'In person' }, { value: 'online', label: 'Online' }, { value: 'trial', label: 'Trial / onboarding' }] },
-    { key: 'product', label: 'Product', options: [{ value: 'UCAT_WEB', label: 'UCAT Web' }, { value: 'STUDENT_WEB', label: 'Student Web' }] },
+    { key: 'product', label: 'Product', options: [{ value: 'UCAT_WEB', label: ONLINE_PRODUCT_NAMES.UCAT_WEB }, { value: 'STUDENT_WEB', label: ONLINE_PRODUCT_NAMES.STUDENT_WEB }] },
     { key: 'entitlement', label: 'Tier', options: [{ value: 'FREE', label: 'Free' }, { value: 'PAID', label: 'Unlimited' }] },
     { key: 'accountClass', label: 'Account', options: [{ value: 'external', label: 'External' }, { value: 'internal_test', label: 'Internal test' }] },
     { key: 'onboardingStatus', label: 'Onboarding status', options: [...stages, 'No onboarding'].map(value => ({ value, label: value })) },
@@ -670,7 +672,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         )}
                       </TableCell>
                     )}
-                    {state.visibleColumns.includes('products') && <TableCell><div className="flex flex-wrap gap-1">{entry.products.map(product => <Badge key={product.product} variant="secondary">{product.product === 'UCAT_WEB' ? 'UCAT Web' : 'Student Web'} · {product.tier === 'UNLIMITED' ? 'Unlimited' : 'Free'}</Badge>)}</div></TableCell>}
+                    {state.visibleColumns.includes('products') && <TableCell><div className="flex flex-wrap gap-1">{entry.products.map(product => <Badge key={product.product} variant="secondary">{onlineProductSummary(product)}</Badge>)}</div></TableCell>}
                     {state.visibleColumns.includes('online_since') && <TableCell>{entry.online_since ? new Date(entry.online_since).toLocaleDateString('en-AU') : '—'}</TableCell>}
                     {state.visibleColumns.includes('onboarding_status') && <TableCell>{entry.stage ?? 'No onboarding'}</TableCell>}
                     <TableCell onClick={(e) => e.stopPropagation()}>

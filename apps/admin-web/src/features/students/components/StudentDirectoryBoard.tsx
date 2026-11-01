@@ -1,4 +1,5 @@
 "use client";
+import { onlineProductSummary } from "../lib/onlineProducts";
 import { Badge, ScrollArea } from "@altitutor/ui";
 import { stages } from "@/features/onboarding/lib/model";
 import { ActionBadges } from "@/features/onboarding/components/JourneyDetail";
@@ -103,10 +104,7 @@ export function StudentDirectoryBoard({
                       {columns.includes("products") && (
                         <span className="text-xs">
                           {entry.products
-                            .map(
-                              (product) =>
-                                `${product.product === "UCAT_WEB" ? "UCAT Web" : "Student Web"} · ${product.tier === "UNLIMITED" ? "Unlimited" : "Free"}`,
-                            )
+                            .map(onlineProductSummary)
                             .join(", ") || "No online products"}
                         </span>
                       )}

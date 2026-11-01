@@ -52,7 +52,7 @@ BEGIN
         (coalesce(p_request->'searchFields','["name","email","phone"]'::jsonb) ? 'email' AND b.email ILIKE '%' || (p_request->>'search') || '%') OR
         (coalesce(p_request->'searchFields','["name","email","phone"]'::jsonb) ? 'phone' AND b.phone ILIKE '%' || (p_request->>'search') || '%')
       ))
-      AND (coalesce(p_request->'filters'->'relationship', '[]'::jsonb) = '[]'::jsonb OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_request->'filters'->'relationship') f(value) WHERE ((f.value = 'in_person' AND b.status IS NOT NULL) OR (f.value = 'online' AND b.online_since IS NOT NULL) OR (f.value = 'trial' AND coalesce(b.status,'') <> 'DISCONTINUED' AND (b.status = 'TRIAL' OR b.open)))))
+      AND (coalesce(p_request->'filters'->'relationship', '[]'::jsonb) = '[]'::jsonb OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_request->'filters'->'relationship') f(value) WHERE ((f.value = 'in_person' AND b.status IS NOT NULL) OR (f.value = 'online' AND b.online_since IS NOT NULL) OR (f.value = 'trial' AND coalesce(b.status,'') <> 'DISCONTINUED' AND (b.status = 'TRIAL' OR b.journey_id IS NOT NULL)))))
       AND (coalesce(p_request->'filters'->'status', '[]'::jsonb) = '[]'::jsonb OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_request->'filters'->'status') f(value) WHERE f.value = b.status))
       AND (coalesce(p_request->'filters'->'curriculum', '[]'::jsonb) = '[]'::jsonb OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_request->'filters'->'curriculum') f(value) WHERE f.value = b.curriculum))
       AND (coalesce(p_request->'filters'->'yearLevel', '[]'::jsonb) = '[]'::jsonb OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_request->'filters'->'yearLevel') f(value) WHERE f.value = b.year_level::text))
