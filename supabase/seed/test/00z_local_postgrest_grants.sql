@@ -71,5 +71,7 @@ REVOKE ALL ON public.email_mailbox_identity
   FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT,INSERT ON public.email_mailbox_identity TO service_role;
 
+-- Keep short-lived mail Undo receipts private after hosted-grant emulation.
+REVOKE ALL ON public.email_command_undos FROM PUBLIC,anon,authenticated;
 -- Replay the production conversation-history privilege boundary after broad fixture grants.
 REVOKE DELETE, TRUNCATE ON public.messages, public.conversations FROM anon, authenticated;

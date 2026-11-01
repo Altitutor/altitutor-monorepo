@@ -4,7 +4,7 @@ import { Button, SearchableSelect } from "@altitutor/ui";
 import { Mail } from "lucide-react";
 import { useMailbox, useEmailCommand } from "../api/client";
 import { draftResponseSchema, type EmailMessage } from "../types";
-import { EmailComposer } from "./EmailComposer";
+import { textHtml } from "./EmailBodyEditor";
 import { useOpenEmailThread } from "../hooks/useOpenEmailThread";
 
 type Person = {
@@ -46,6 +46,10 @@ export function WorkflowEmail({
     ) ?? recipients[0];
   async function prepare() {
     if (!recipient || busy) return;
+    if (ready && draft) {
+      openThread(draft.threadId, subject, "draft");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -82,7 +86,35 @@ export function WorkflowEmail({
           recordType: "session",
           recordId: id,
         });
+      const editToken = crypto.randomUUID();
+      const saved = draftResponseSchema.parse(
+        await command.mutateAsync({
+          action: "save",
+          id: current.id,
+          editToken,
+          content: {
+            expectedChangeKey: current.changeKey ?? "",
+            subject,
+            bodyText: body,
+            bodyHtml: textHtml(body),
+            to: [recipient.email!],
+            cc: [],
+            bcc: [],
+          },
+        }),
+      );
+      if (saved.state !== "saved" || !saved.message)
+        throw new Error(
+          "The shared draft changed; reopen it to review your text.",
+        );
+      setDraft(saved.message);
+      await command.mutateAsync({
+        action: "releaseDraft",
+        id: current.id,
+        editToken,
+      });
       setReady(true);
+      openThread(current.threadId, subject, "draft");
     } catch (failure) {
       setError(
         failure instanceof Error
@@ -147,23 +179,6 @@ export function WorkflowEmail({
         <p role="alert" className="text-xs text-destructive">
           {error || mailbox.error?.message}
         </p>
-      )}
-      {ready && draft && mailbox.data && (
-        <EmailComposer
-          key={draft.id}
-          draft={draft}
-          mailbox={mailbox.data}
-          initialContent={{
-            subject,
-            bodyText: initialBody ?? "",
-            to: [recipient?.email ?? ""],
-          }}
-          onClose={() => {
-            setReady(false);
-            setDraft(null);
-            setInitialBody(null);
-          }}
-        />
       )}
     </section>
   );

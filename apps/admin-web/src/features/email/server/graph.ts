@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from "zod";
 import {
   OPERATIONAL_MAIL_PROPERTY,
@@ -75,6 +76,9 @@ const graphMessage = z.object({
     .nullish()
     .transform((value) => value ?? undefined),
   hasAttachments: z.boolean().optional(),
+  internetMessageHeaders: z
+    .array(z.object({ name: z.string(), value: z.string() }))
+    .optional(),
 });
 const removedMessage = z.object({
   id: z.string(),
@@ -112,11 +116,29 @@ function normalize(message: z.infer<typeof graphMessage>, folderId: string) {
   return {
     id: message.id,
     threadId: message.conversationId,
+    replyToInternetMessageIds: message.internetMessageHeaders
+      ?.filter((header) => header.name.toLowerCase() === "in-reply-to")
+      .flatMap((header) => header.value.match(/<[^>]+>/g) ?? []),
     folderId: message.parentFolderId ?? folderId,
     read: message.isRead,
     draft: message.isDraft,
     subject: message.subject,
-    bodyText: message.body?.content,
+    bodyText:
+      message.body?.contentType?.toLowerCase() === "html"
+        ? message.body.content
+            .replace(/<br\s*\/?\s*>|<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&lt;/gi, "<")
+            .replace(/&gt;/gi, ">")
+            .replace(/&amp;/gi, "&")
+            .trim()
+        : message.body?.content,
+    bodyHtml: message.body
+      ? message.body.contentType?.toLowerCase() === "html"
+        ? message.body.content
+        : null
+      : undefined,
     sender: message.from?.emailAddress.address.toLowerCase(),
     senderName: message.from?.emailAddress.name,
     to: message.toRecipients?.map((item) =>
@@ -142,10 +164,12 @@ export function createGraphMailbox({
   mailbox,
   accessToken,
   fetchImpl = fetch,
+  requestSignal,
 }: {
   mailbox: MailboxPolicy;
   accessToken: string;
   fetchImpl?: typeof fetch;
+  requestSignal?: AbortSignal;
 }) {
   assertMailboxPolicy(mailbox);
   const base = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox.address)}`;
@@ -184,7 +208,16 @@ export function createGraphMailbox({
     }
     return value;
   }
-  async function request(path: string, method = "GET", body?: unknown) {
+  function boundedSignal(signal: AbortSignal) {
+    requestSignal?.throwIfAborted();
+    return requestSignal ? AbortSignal.any([requestSignal, signal]) : signal;
+  }
+  async function request(
+    path: string,
+    method = "GET",
+    body?: unknown,
+    signal?: AbortSignal,
+  ) {
     const response = await fetchImpl(
       path.startsWith("https:") ? path : `${base}${path}`,
       {
@@ -193,15 +226,28 @@ export function createGraphMailbox({
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
           Prefer:
-            'IdType="ImmutableId", outlook.body-content-type="text", odata.maxpagesize=100',
+            'IdType="ImmutableId", outlook.body-content-type="html", odata.maxpagesize=100',
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(15_000),
+        signal: boundedSignal(signal ?? AbortSignal.timeout(15_000)),
         cache: "no-store",
       },
     );
     if (!response.ok) throw new GraphMailboxError(response.status);
     return response;
+  }
+  function uploadUrl(value: string) {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !["outlook.office.com", "outlook.office365.com"].includes(url.hostname) ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.hash
+    )
+      throw new Error("Unexpected Microsoft attachment upload URL.");
+    return value;
   }
   return {
     policy: mailbox,
@@ -308,10 +354,17 @@ export function createGraphMailbox({
         );
       return page.value[0] ? normalize(page.value[0], "") : null;
     },
-    async message(id: string) {
+    async message(id: string, replyHeaders = false, signal?: AbortSignal) {
       return normalize(
         graphMessage.parse(
-          await (await request(`/messages/${encodeURIComponent(id)}`)).json(),
+          await (
+            await request(
+              `/messages/${encodeURIComponent(id)}${replyHeaders ? "?$select=id,conversationId,parentFolderId,subject,isRead,isDraft,body,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,internetMessageId,changeKey,hasAttachments,internetMessageHeaders" : ""}`,
+              "GET",
+              undefined,
+              signal,
+            )
+          ).json(),
         ),
         "",
       );
@@ -330,14 +383,113 @@ export function createGraphMailbox({
       file: { name: string; contentType: string; contentBytes: string },
     ) {
       // Larger files use Graph upload sessions; this JSON endpoint is <3 MB.
-      if (file.contentBytes.length > 3_900_000)
+      if (Buffer.byteLength(file.contentBytes, "base64") >= 3_000_000)
         throw new Error(
           "This attachment requires a large-file upload session.",
         );
-      await request(`/messages/${encodeURIComponent(id)}/attachments`, "POST", {
-        "@odata.type": "#microsoft.graph.fileAttachment",
-        ...file,
+      const response = await request(
+        `/messages/${encodeURIComponent(id)}/attachments`,
+        "POST",
+        {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          ...file,
+        },
+      );
+      return z.object({ id: z.string() }).parse(await response.json());
+    },
+    async createAttachmentUpload(
+      id: string,
+      file: { name: string; size: number; contentType: string },
+    ) {
+      const response = await request(
+        `/messages/${encodeURIComponent(id)}/attachments/createUploadSession`,
+        "POST",
+        {
+          AttachmentItem: { attachmentType: "file", ...file },
+        },
+      );
+      const session = z
+        .object({
+          uploadUrl: z.string().url(),
+          expirationDateTime: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime"),
+        })
+        .parse(await response.json());
+      uploadUrl(session.uploadUrl);
+      return session;
+    },
+    async uploadAttachmentChunk(
+      url: string,
+      bytes: ArrayBuffer,
+      offset: number,
+      total: number,
+    ) {
+      if (
+        !bytes.byteLength ||
+        bytes.byteLength > 1_966_080 ||
+        offset < 0 ||
+        offset + bytes.byteLength > total
+      )
+        throw new Error("Invalid attachment byte range.");
+      const response = await fetchImpl(uploadUrl(url), {
+        method: "PUT",
+        redirect: "error",
+        cache: "no-store",
+        body: bytes,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(bytes.byteLength),
+          "Content-Range": `bytes ${offset}-${offset + bytes.byteLength - 1}/${total}`,
+        },
+        signal: boundedSignal(AbortSignal.timeout(45_000)),
       });
+      if (!response.ok) throw new GraphMailboxError(response.status);
+      if (response.status === 201) {
+        const location = response.headers.get("Location");
+        if (!location)
+          throw new Error("Attachment completion was not confirmed.");
+        const path = new URL(location).pathname;
+        const attachment =
+          /\/Attachments\('([^']+)'\)/i.exec(path)?.[1] ??
+          /\/attachments\/([^/]+)$/i.exec(path)?.[1];
+        if (!attachment)
+          throw new Error("Attachment completion was not confirmed.");
+        return {
+          complete: true as const,
+          attachmentId: decodeURIComponent(attachment),
+        };
+      }
+      const status = z
+        .union([
+          z
+            .object({ nextExpectedRanges: z.array(z.string()).min(1) })
+            .transform((value) => value.nextExpectedRanges),
+          z
+            .object({ NextExpectedRanges: z.array(z.string()).min(1) })
+            .transform((value) => value.NextExpectedRanges),
+        ])
+        .parse(await response.json());
+      const next = Number(status[0].split("-")[0]);
+      if (next !== offset + bytes.byteLength)
+        throw new Error(
+          "Microsoft requested a different attachment range. Review the draft before retrying.",
+        );
+      return { complete: false as const, nextOffset: next };
+    },
+    async cancelAttachmentUpload(url: string) {
+      const response = await fetchImpl(uploadUrl(url), {
+        method: "DELETE",
+        redirect: "error",
+        cache: "no-store",
+        signal: boundedSignal(AbortSignal.timeout(15_000)),
+      });
+      if (!response.ok && response.status !== 404 && response.status !== 410)
+        throw new GraphMailboxError(response.status);
+    },
+    async removeAttachment(id: string, attachmentId: string) {
+      await request(
+        `/messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
+        "DELETE",
+      );
     },
     async attachments(id: string) {
       const path = `/messages/${encodeURIComponent(id)}/attachments`;
@@ -384,9 +536,12 @@ export function createGraphMailbox({
       }
       return result;
     },
-    async attachment(id: string, attachmentId: string) {
+    async attachment(id: string, attachmentId: string, signal?: AbortSignal) {
       return request(
         `/messages/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}/$value`,
+        "GET",
+        undefined,
+        signal,
       );
     },
     async createDraft(reply?: {
@@ -428,6 +583,7 @@ export function createGraphMailbox({
       input: {
         expectedChangeKey: string;
         bodyText: string;
+        bodyHtml?: string;
         subject: string;
         to: string[];
         cc?: string[];
@@ -447,7 +603,10 @@ export function createGraphMailbox({
         addresses.map((address) => ({ emailAddress: { address } }));
       const response = await request(path, "PATCH", {
         subject: input.subject,
-        body: { contentType: "Text", content: input.bodyText },
+        body: {
+          contentType: input.bodyHtml ? "HTML" : "Text",
+          content: input.bodyHtml ?? input.bodyText,
+        },
         toRecipients: recipients(input.to),
         ...(input.cc ? { ccRecipients: recipients(input.cc) } : {}),
         ...(input.bcc ? { bccRecipients: recipients(input.bcc) } : {}),

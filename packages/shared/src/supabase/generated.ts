@@ -2947,6 +2947,56 @@ export type Database = {
           },
         ]
       }
+      email_command_undos: {
+        Row: {
+          expires_at: string
+          id: string
+          payload: Json
+          staff_id: string
+        }
+        Insert: {
+          expires_at?: string
+          id?: string
+          payload: Json
+          staff_id: string
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          payload?: Json
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_command_undos_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_command_undos_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_command_undos_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "email_command_undos_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_draft_edits: {
         Row: {
           expires_at: string
@@ -3207,24 +3257,30 @@ export type Database = {
       }
       email_send_attempts: {
         Row: {
+          change_key: string | null
           command_id: string
           message_id: string
+          scheduled_at: string | null
           staff_id: string
           started_at: string
           state: string
           updated_at: string
         }
         Insert: {
+          change_key?: string | null
           command_id: string
           message_id: string
+          scheduled_at?: string | null
           staff_id: string
           started_at?: string
           state: string
           updated_at?: string
         }
         Update: {
+          change_key?: string | null
           command_id?: string
           message_id?: string
+          scheduled_at?: string | null
           staff_id?: string
           started_at?: string
           state?: string
@@ -3387,18 +3443,21 @@ export type Database = {
           assigned_staff_id: string | null
           created_at: string
           id: string
+          responsibility_version: number
         }
         Insert: {
           assigned_at?: string | null
           assigned_staff_id?: string | null
           created_at?: string
           id: string
+          responsibility_version?: number
         }
         Update: {
           assigned_at?: string | null
           assigned_staff_id?: string | null
           created_at?: string
           id?: string
+          responsibility_version?: number
         }
         Relationships: [
           {
@@ -44549,6 +44608,10 @@ export type Database = {
         Args: { p_staff_id: string; p_thread_id: string }
         Returns: Json
       }
+      email_assign_with_undo: {
+        Args: { p_actor_id: string; p_staff_id: string; p_thread_id: string }
+        Returns: Json
+      }
       email_begin_send: {
         Args: {
           p_change_key: string
@@ -44558,6 +44621,15 @@ export type Database = {
         }
         Returns: Json
       }
+      email_cache_draft_reply_targets: {
+        Args: {
+          p_change_key: string
+          p_message_id: string
+          p_targets: string[]
+        }
+        Returns: boolean
+      }
+      email_cancel_schedule: { Args: { p_command_id: string }; Returns: Json }
       email_claim_draft: {
         Args: {
           p_change_key: string
@@ -44566,6 +44638,44 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      email_claim_scheduled_send: {
+        Args: { p_command_id: string }
+        Returns: {
+          change_key: string | null
+          command_id: string
+          message_id: string
+          scheduled_at: string | null
+          staff_id: string
+          started_at: string
+          state: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_send_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      email_claim_scheduled_sends: {
+        Args: never
+        Returns: {
+          change_key: string | null
+          command_id: string
+          message_id: string
+          scheduled_at: string | null
+          staff_id: string
+          started_at: string
+          state: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_send_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       email_claim_sync: { Args: { p_token: string }; Returns: boolean }
       email_correspondence_for_record: {
@@ -44617,6 +44727,7 @@ export type Database = {
           p_assignee: string
           p_direction?: string
           p_folder_id: string
+          p_from?: string
           p_limit?: number
           p_offset?: number
           p_search: string
@@ -44645,12 +44756,46 @@ export type Database = {
         }
         Returns: boolean
       }
+      email_people_for_address: {
+        Args: { p_email: string }
+        Returns: {
+          label: string
+          record_id: string
+          record_type: string
+        }[]
+      }
       email_release_sync: { Args: { p_token: string }; Returns: undefined }
       email_reset_sync_cursor: {
         Args: { p_expected_cursor: string; p_folder_id: string }
         Returns: boolean
       }
+      email_schedule_send: {
+        Args: {
+          p_change_key: string
+          p_command_id: string
+          p_message_id: string
+          p_scheduled_at: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      email_sender_options: {
+        Args: never
+        Returns: {
+          email: string
+          name: string
+        }[]
+      }
       email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
+      email_undo_assignment: {
+        Args: {
+          p_assigned_at: string
+          p_staff_id: string
+          p_thread_id: string
+          p_version: number
+        }
+        Returns: undefined
+      }
       end_student_class_enrolment: {
         Args: {
           p_class_id: string

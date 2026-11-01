@@ -1,33 +1,44 @@
 "use client";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
-import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { z } from "zod";
-import { Archive, Mail, Reply, Trash2 } from "lucide-react";
-import { Button, Checkbox, Input, SearchableSelect } from "@altitutor/ui";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useQueries } from "@tanstack/react-query";
+import { Archive, Mail, Reply, Forward, ListFilter } from "lucide-react";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@altitutor/ui";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
-import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
 import { activityApi } from "@/features/activity/api";
 import { communicationActivityAt } from "@/features/activity/lib/entityCommunication";
-import {
-  useEmailCommand,
-  useEmailThread,
-  useMailbox,
-  mailRequest,
-} from "../api/client";
+import { useEmailCommand, useEmailThread, useMailbox } from "../api/client";
 import {
   draftResponseSchema,
   type EmailMessage,
   type EmailThread,
 } from "../types";
-import { EmailComposer } from "./EmailComposer";
-import { EmailContextLinks } from "./EmailContextLinks";
-import { EmailEnquiryActions } from "./EmailEnquiryActions";
-import { EmailAssignee } from "./EmailAssignee";
+import { toast } from "sonner";
+import { EmailComposer, type RegisterDraftClose } from "./EmailComposer";
+import { EmailIconButton } from "./EmailIconButton";
+import { EmailBody } from "./EmailBodyEditor";
+import { EmailActions, EmailActionGroup } from "./EmailActions";
+import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
+import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
+import { AdminDialogShell } from "@/shared/components/dialog-shell";
+import { isEditableDraft } from "./drafts";
 import { EmailParticipant } from "./EmailParticipant";
+import { EmailAttachments } from "./EmailAttachments";
+import { EmailPendingMessage } from "./EmailPendingMessage";
 const time = (value?: string | null) =>
   value
     ? new Date(value).toLocaleString("en-AU", {
@@ -35,39 +46,6 @@ const time = (value?: string | null) =>
         timeStyle: "short",
       })
     : "Draft";
-function Attachments({ id }: { id: string }) {
-  const files = useQuery({
-    queryKey: ["email", "attachments", id],
-    queryFn: async () =>
-      z
-        .array(z.object({ id: z.string(), name: z.string(), type: z.string() }))
-        .parse(await mailRequest(`/attachments?id=${encodeURIComponent(id)}`)),
-  });
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {files.data?.map((file) =>
-        file.type === "#microsoft.graph.referenceAttachment" ? (
-          <span key={file.id} className="text-xs text-muted-foreground">
-            {file.name} · cloud attachment
-          </span>
-        ) : (
-          <a
-            key={file.id}
-            className="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-            href={`/api/email/attachments?id=${encodeURIComponent(id)}&attachment=${encodeURIComponent(file.id)}`}
-          >
-            {file.name}
-          </a>
-        ),
-      )}
-      {files.error && (
-        <p role="alert" className="text-xs text-destructive">
-          {files.error.message}
-        </p>
-      )}
-    </div>
-  );
-}
 function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
   const links =
     thread?.links.filter((link) =>
@@ -112,29 +90,152 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
 }
 export function EmailThreadView({ threadId }: { threadId: string }) {
   const scope = useAccessoryTab();
-  const thread = useEmailThread(threadId, scope?.active ?? true);
+  const panel = useAccessoryPanelActions();
+  const creating = threadId.startsWith("compose:");
+  const thread = useEmailThread(
+    creating ? "" : threadId,
+    scope?.active ?? true,
+  );
   const mailbox = useMailbox();
   const command = useEmailCommand();
+  const closeEditors = useRef(new Map<string, () => Promise<boolean>>());
+  const closing = useRef(false);
+  const [closingEditors, setClosingEditors] = useState(false);
+  const registerDraftClose = useCallback<RegisterDraftClose>((id, prepare) => {
+    closeEditors.current.set(id, prepare);
+    return () => {
+      if (closeEditors.current.get(id) === prepare)
+        closeEditors.current.delete(id);
+    };
+  }, []);
+  useEffect(() => {
+    if (!scope) return;
+    scope.registerClose((next) => {
+      if (closing.current) return;
+      closing.current = true;
+      setClosingEditors(true);
+      void (async () => {
+        for (const prepare of [...closeEditors.current.values()]) {
+          if (!(await prepare())) {
+            toast.error(
+              "Some drafts still need attention. The conversation was kept open.",
+            );
+            return;
+          }
+        }
+        (next ?? scope.close)();
+      })()
+        .catch(() =>
+          toast.error(
+            "Drafts could not be saved. The conversation was kept open.",
+          ),
+        )
+        .finally(() => {
+          closing.current = false;
+          setClosingEditors(false);
+        });
+    });
+    return () => scope.registerClose(null);
+  }, [scope]);
   const [showActivity, setShowActivity] = useState(false);
+  const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);
   const [signature, setSignature] = useState<string>();
-  const [forward, setForward] = useState(false);
-  const [forwardTo, setForwardTo] = useState("");
-  const [notice, setNotice] = useState("");
+  const [draftReady, setDraftReady] = useState<
+    Promise<{ message?: EmailMessage }> | undefined
+  >();
+  const [preparedDraftId, setPreparedDraftId] = useState<string>();
+  const [dismissedDrafts, setDismissedDrafts] = useState<string[]>([]);
+  const [focusDraftId, setFocusDraftId] = useState<string>();
+  const draftCards = useRef(new Map<string, HTMLDivElement>());
+  const [reuse, setReuse] = useState<{
+    message: EmailMessage;
+    original: EmailMessage;
+    mode: "reply" | "replyAll";
+  } | null>(null);
+  const [draftSubject, setDraftSubject] = useState("");
+  const [hoveredCard, setHoveredCard] = useState<string>();
+  const [toolbarHovered, setToolbarHovered] = useState(false);
   const opened = useRef(new Set<string>());
+  const started = useRef(false);
+  const handledAction = useRef("");
   const activity = useThreadActivity(thread.data, showActivity);
-  const messages = thread.data?.messages ?? [];
+  const messages = (thread.data?.messages ?? []).filter(
+    (message) =>
+      !message.draft || isEditableDraft(message, mailbox.data?.folders ?? []),
+  );
+  const liveDrafts = messages.filter(
+    (message) =>
+      isEditableDraft(message, mailbox.data?.folders ?? []) &&
+      (!dismissedDrafts.includes(message.id) ||
+        Boolean(pendingSend(message.id))),
+  );
+  function pendingSend(id: string) {
+    return thread.data?.sends.find(
+      (send) =>
+        send.message_id === id &&
+        ["scheduled", "paused", "sending", "submitted", "uncertain"].includes(
+          send.state,
+        ),
+    );
+  }
+  useEffect(() => {
+    if (scope?.active === false || !focusDraftId) return;
+    if (!showMessages) {
+      setShowMessages(true);
+      return;
+    }
+    const card = draftCards.current.get(focusDraftId);
+    if (card) {
+      card.scrollIntoView({ block: "start", behavior: "smooth" });
+      card
+        .querySelector<HTMLInputElement>('input[aria-label="Email subject"]')
+        ?.focus({ preventScroll: true });
+      setFocusDraftId(undefined);
+    }
+  }, [focusDraftId, liveDrafts.length, scope?.active, showMessages]);
   const latest =
     messages.filter((message) => !message.draft).at(-1) ?? messages.at(-1);
-  const subject = latest?.subject || "Email conversation";
-  const participant = [...messages]
-    .reverse()
-    .find(
-      (message) =>
-        !message.draft &&
-        message.sender &&
-        message.sender.toLowerCase() !== mailbox.data?.mailboxAddress,
-    );
+  const subject =
+    draftSubject ||
+    latest?.subject ||
+    (creating || draft || latest?.draft ? "New email" : "Email conversation");
+  const subjectRef = useRef(subject);
+  subjectRef.current = subject;
+  useAccessoryTitle(subject);
+  useEffect(() => {
+    if (!creating || !mailbox.data || started.current) return;
+    started.current = true;
+    setDraft({
+      id: `local:${threadId}`,
+      threadId: "",
+      subject: "",
+      bodyText: "",
+      sender: mailbox.data.mailboxAddress,
+      to: [],
+      cc: [],
+      bcc: [],
+      draft: true,
+      removed: false,
+    });
+    setSignature(mailbox.data.signature);
+    const ready = command
+      .mutateAsync({ action: "draft", mode: "new" })
+      .then((value) => {
+        const result = draftResponseSchema.parse(value);
+        setPreparedDraftId(result.message?.id);
+        if (result.message && scope)
+          panel?.navigateTab(scope.tab.key, {
+            kind: "email",
+            id: result.message.threadId,
+            title: subjectRef.current,
+          });
+        return result;
+      });
+    setDraftReady(ready);
+    // One provider draft per compose tab, including Strict Mode effect replay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating, mailbox.data]);
   useEffect(() => {
     if (scope && !scope.active) return;
     const ids = messages
@@ -148,42 +249,118 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       .map((message) => message.id);
     if (ids.length) {
       ids.forEach((id) => opened.current.add(id));
-      command.mutate({ action: "read", ids, read: true });
+      command.mutate({ action: "read", ids, read: true, silent: true });
     }
-    // Read each newly opened message once; explicit mark-unread remains shared.
+    // Opening each provider message marks it once; explicit unread remains shared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.data, scope?.active]);
-  async function start(mode: "reply" | "replyAll" | "forward") {
-    if (!latest) return;
-    try {
-      const result = draftResponseSchema.parse(
-        await command.mutateAsync({
-          action: "draft",
-          messageId: latest.id,
-          mode,
-          ...(mode === "forward"
-            ? {
-                to: forwardTo
-                  .split(/[,;]/)
-                  .map((address) => address.trim())
-                  .filter(Boolean),
-              }
-            : {}),
-        }),
+  function start(
+    mode: "reply" | "replyAll" | "forward",
+    original = latest,
+    forceNew = false,
+  ) {
+    if (closing.current || !original || !mailbox.data || draft) return;
+    if (!forceNew && mode !== "forward") {
+      const existing = liveDrafts.find(
+        (message) =>
+          (message.replyToMessageId === original.id ||
+            Boolean(
+              original.internetMessageId &&
+                message.replyToInternetMessageIds?.includes(
+                  original.internetMessageId,
+                ),
+            )) &&
+          message.draftMode !== "forward" &&
+          !pendingSend(message.id),
       );
-      if (result.message) {
-        setDraft(result.message);
-        setSignature(result.signature);
-        setForward(false);
+      if (existing) {
+        setReuse({ message: existing, original, mode });
+        return;
       }
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "Could not create shared draft.",
-      );
     }
+    setPreparedDraftId(undefined);
+    const ownAddress = mailbox.data.mailboxAddress.toLowerCase();
+    const recipients =
+      mode === "forward"
+        ? []
+        : mode === "replyAll"
+          ? [
+              ...new Set(
+                [original.sender, ...original.to, ...original.cc].filter(
+                  (address) => address && address.toLowerCase() !== ownAddress,
+                ),
+              ),
+            ]
+          : [
+              original.sender === ownAddress ? original.to[0] : original.sender,
+            ].filter((address): address is string => Boolean(address));
+    const quote =
+      mode === "forward"
+        ? `\n\nForwarded message from ${original.sender}:\n${original.bodyText}`
+        : "";
+    setDraft({
+      ...original,
+      id: `local:${crypto.randomUUID()}`,
+      subject: `${mode === "forward" ? "Fwd" : "Re"}: ${original.subject.replace(/^(?:re|fwd):\s*/i, "")}`,
+      bodyText: quote,
+      bodyHtml: undefined,
+      draft: true,
+      draftMode: mode,
+      replyToMessageId: original.id,
+      to: recipients,
+      cc: [],
+      bcc: [],
+      hasAttachments: false,
+    });
+    setSignature(mailbox.data.signature);
+    setDraftReady(
+      command
+        .mutateAsync({
+          action: "draft",
+          messageId: original.id,
+          mode,
+          ...(mode === "forward" ? { to: [] } : {}),
+        })
+        .then((value) => {
+          const result = draftResponseSchema.parse(value);
+          setPreparedDraftId(result.message?.id);
+          return result;
+        }),
+    );
   }
+
+  useEffect(() => {
+    const query = scope?.tab.query ?? "";
+    if (
+      !query ||
+      query === handledAction.current ||
+      draft ||
+      !latest ||
+      !mailbox.data
+    )
+      return;
+    const action = new URLSearchParams(query).get("action");
+    if (action !== "reply" && action !== "forward" && action !== "draft")
+      return;
+    handledAction.current = query;
+    if (action === "draft") {
+      const requested = new URLSearchParams(query).get("message");
+      const candidates = messages.filter((message) =>
+        isEditableDraft(message, mailbox.data?.folders ?? []),
+      );
+      const candidate =
+        candidates.find((message) => message.id === requested) ??
+        candidates.at(-1);
+      if (candidate) {
+        setDismissedDrafts((all) => all.filter((id) => id !== candidate.id));
+        setShowMessages(true);
+        setFocusDraftId(candidate.id);
+      }
+    } else start(action);
+    if (scope) panel?.updateQuery(scope.tab.key, "");
+    // Intent is consumed once after the target conversation has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope?.tab.query, latest, mailbox.data, draft]);
   const nonDraftIds = messages
     .filter((message) => !message.draft && !message.removed)
     .map((message) => message.id);
@@ -192,25 +369,28 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       id: "reply",
       title: "Reply to email",
       icon: Reply,
-      disabled: !latest || command.isPending,
-      action: () => {
-        void start("reply");
-      },
+      disabled: closingEditors || !latest || Boolean(draft),
+      action: () => start("reply"),
     },
     {
       id: "reply-all",
       title: "Reply all",
       icon: Reply,
-      disabled: !latest || command.isPending,
-      action: () => {
-        void start("replyAll");
-      },
+      disabled: closingEditors || !latest || Boolean(draft),
+      action: () => start("replyAll"),
+    },
+    {
+      id: "forward",
+      title: "Forward email",
+      icon: Forward,
+      disabled: closingEditors || !latest || Boolean(draft),
+      action: () => start("forward"),
     },
     {
       id: "archive",
       title: "Archive email",
       icon: Archive,
-      disabled: !nonDraftIds.length || command.isPending,
+      disabled: closingEditors || !nonDraftIds.length || command.isPending,
       action: () =>
         command.mutate({
           action: "move",
@@ -222,165 +402,191 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       id: "unread",
       title: "Mark email unread",
       icon: Mail,
-      disabled: !nonDraftIds.length || command.isPending,
+      disabled: closingEditors || !nonDraftIds.length || command.isPending,
       action: () =>
         command.mutate({ action: "read", ids: nonDraftIds, read: false }),
     },
   ]);
-  if (thread.isLoading || mailbox.isLoading)
+  if (!mailbox.data || (!draft && !thread.data && !creating))
     return (
-      <p className="p-4 text-sm text-muted-foreground">
-        Loading email conversation…
+      <p
+        role={thread.error || mailbox.error ? "alert" : undefined}
+        className="p-4 text-sm text-muted-foreground"
+      >
+        {thread.error?.message ??
+          mailbox.error?.message ??
+          "Loading email conversation…"}
       </p>
     );
-  if (thread.error || mailbox.error)
-    return (
-      <p role="alert" className="p-4 text-sm text-destructive">
-        {thread.error?.message ?? mailbox.error?.message}
-      </p>
-    );
-  if (!thread.data || !mailbox.data) return null;
-  const entries: Array<{ id: string; at: string; content: ReactNode }> =
-    messages
-      .filter((message) => !message.draft)
-      .map((message) => ({
-        id: message.id,
-        at: message.sentAt ?? message.receivedAt ?? "",
-        content: (
-          <article className="border-b px-5 py-5">
-            <header className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <EmailParticipant
-                  mailboxAddress={mailbox.data.mailboxAddress}
-                  threadId={threadId}
-                  email={message.sender}
-                  label={message.senderName || message.sender}
-                />
-                <p className="mt-1 break-all text-xs text-muted-foreground">
-                  {message.sender} → {message.to.join(", ")}
-                  {message.cc.length > 0
-                    ? ` · Cc: ${message.cc.join(", ")}`
-                    : ""}
-                </p>
-              </div>
-              <time className="shrink-0 text-xs text-muted-foreground">
-                {time(message.sentAt ?? message.receivedAt)}
-              </time>
-            </header>
-            <p className="whitespace-pre-wrap break-words text-sm leading-7">
-              {message.bodyText}
-            </p>
-            {message.removed && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Saved correspondence history
-              </p>
-            )}
-            {message.hasAttachments && !message.removed && (
-              <Attachments id={message.id} />
-            )}
-          </article>
+  const data = thread.data;
+  const contacts = [
+    ...new Set(
+      messages
+        .flatMap((message) => [message.sender, ...message.to, ...message.cc])
+        .filter(
+          (email) =>
+            email &&
+            email.toLowerCase() !== mailbox.data.mailboxAddress.toLowerCase(),
         ),
-      }));
+    ),
+  ];
+  const entries: Array<{ id: string; at: string; content: ReactNode }> =
+    showMessages
+      ? messages
+          .filter((message) => !message.draft)
+          .map((message) => ({
+            id: message.id,
+            at: message.sentAt ?? message.receivedAt ?? "",
+            content: (
+              <article
+                data-email-shortcut-target
+                className="group relative m-4 rounded-2xl bg-muted/35 p-4"
+                onMouseEnter={() => setHoveredCard(message.id)}
+                onMouseLeave={() => setHoveredCard(undefined)}
+                onFocus={() => setHoveredCard(message.id)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget))
+                    setHoveredCard(undefined);
+                }}
+                tabIndex={0}
+                aria-label={`Email: ${message.subject || "No subject"}`}
+              >
+                <header className="relative mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <EmailParticipant
+                      mailboxAddress={mailbox.data!.mailboxAddress}
+                      threadId={threadId}
+                      email={message.sender}
+                      label={message.senderName || message.sender}
+                    />
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      To {message.to.join(", ")}
+                      {message.cc.length
+                        ? ` · Cc ${message.cc.join(", ")}`
+                        : ""}
+                    </p>
+                  </div>
+                  <time className="shrink-0 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
+                    {time(message.sentAt ?? message.receivedAt)}
+                  </time>
+                  <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
+                    <EmailActions
+                      level="message"
+                      ids={nonDraftIds}
+                      threadId={threadId}
+                      read={Boolean(message.read)}
+                      assignedStaffId={data?.assignedStaffId ?? null}
+                      mailbox={mailbox.data!}
+                      hovered={hoveredCard === message.id}
+                      onReply={
+                        !draft && !message.removed
+                          ? () => start("reply", message)
+                          : undefined
+                      }
+                      onReplyAll={
+                        !draft && !message.removed
+                          ? () => start("replyAll", message)
+                          : undefined
+                      }
+                      onForward={
+                        !draft && !message.removed
+                          ? () => start("forward", message)
+                          : undefined
+                      }
+                    />
+                  </div>
+                </header>
+                <EmailBody html={message.bodyHtml} text={message.bodyText} />
+                {message.removed && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Saved correspondence history
+                  </p>
+                )}
+                {message.hasAttachments && !message.removed && (
+                  <EmailAttachments id={message.id} />
+                )}
+              </article>
+            ),
+          }))
+      : [];
   entries.push(...activity.entries);
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+  const sends = data?.sends ?? [];
+  function closeDraft() {
+    if (preparedDraftId || draft?.id)
+      setDismissedDrafts((all) => [...all, preparedDraftId ?? draft!.id]);
+    setDraft(null);
+    setDraftReady(undefined);
+    setPreparedDraftId(undefined);
+    setDraftSubject("");
+    if (creating) scope?.close();
+    else void thread.refetch();
+  }
   return (
     <div
       className="flex h-full min-h-0 flex-col"
       aria-label="Email conversation"
+      inert={closingEditors}
+      aria-busy={closingEditors}
     >
       <header className="shrink-0 space-y-3 border-b p-4">
         <AccessoryBreadcrumb />
-        {participant && (
-          <EmailParticipant
-            mailboxAddress={mailbox.data.mailboxAddress}
-            threadId={threadId}
-            email={participant.sender}
-            label={participant.senderName || participant.sender}
-          />
-        )}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <EmailAssignee
-            threadId={threadId}
-            value={thread.data.assignedStaffId}
-            staff={mailbox.data.staff}
-            pill
-          />
-          {latest &&
-            latest.sender !== mailbox.data?.mailboxAddress &&
-            !latest.draft && (
-              <EmailEnquiryActions messageId={latest.id} threadId={threadId} />
-            )}
-          <label className="flex items-center gap-2 text-xs">
-            <Checkbox
-              checked={showActivity}
-              onCheckedChange={(checked) => setShowActivity(checked === true)}
+        <div
+          className="flex min-w-0 items-center justify-between gap-2"
+          data-email-shortcut-target
+          onMouseEnter={() => setToolbarHovered(true)}
+          onMouseLeave={() => setToolbarHovered(false)}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+            {contacts.map((email) => (
+              <span key={email} className="shrink-0">
+                <EmailParticipant
+                  email={email}
+                  label={email}
+                  threadId={threadId}
+                  mailboxAddress={mailbox.data!.mailboxAddress}
+                />
+              </span>
+            ))}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <EmailActions
+              ids={nonDraftIds}
+              threadId={threadId}
+              read={messages
+                .filter((message) => !message.draft && !message.removed)
+                .every((message) => message.read)}
+              assignedStaffId={data?.assignedStaffId ?? null}
+              mailbox={mailbox.data}
+              hovered={toolbarHovered && !hoveredCard}
+              onReply={!draft ? () => start("reply") : undefined}
+              onForward={!draft ? () => start("forward") : undefined}
             />
-            Show Activity
-          </label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <EmailIconButton label="Show messages and Activity">
+                  <ListFilter className="h-4 w-4" />
+                </EmailIconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuCheckboxItem
+                  checked={showMessages}
+                  onCheckedChange={setShowMessages}
+                >
+                  Messages
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={showActivity}
+                  onCheckedChange={setShowActivity}
+                >
+                  Activity
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <EmailContextLinks thread={thread.data} />
-        <AdminActionGroup label="Email actions">
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Archive email conversation"
-            disabled={command.isPending || !nonDraftIds.length}
-            onClick={() =>
-              command.mutate({
-                action: "move",
-                ids: nonDraftIds,
-                folderId: "archive",
-              })
-            }
-          >
-            <Archive className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Move email conversation to Deleted Items"
-            disabled={command.isPending || !nonDraftIds.length}
-            onClick={() =>
-              command.mutate({
-                action: "move",
-                ids: nonDraftIds,
-                folderId: "deleteditems",
-              })
-            }
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Mark email conversation unread"
-            disabled={command.isPending || !nonDraftIds.length}
-            onClick={() =>
-              command.mutate({ action: "read", ids: nonDraftIds, read: false })
-            }
-          >
-            <Mail className="h-4 w-4" />
-          </Button>
-          <SearchableSelect
-            items={mailbox.data.folders}
-            value={null}
-            onValueChange={(folder) => {
-              if (folder)
-                command.mutate({
-                  action: "move",
-                  ids: nonDraftIds,
-                  folderId: folder.id,
-                });
-            }}
-            getItemId={(folder) => folder.id}
-            getItemLabel={(folder) => folder.name}
-            searchPlaceholder="Search Microsoft folders…"
-            placeholder="Move to folder"
-            disabled={!nonDraftIds.length || command.isPending}
-          />
-        </AdminActionGroup>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {entries.map((entry) => (
           <div key={entry.id}>{entry.content}</div>
         ))}
@@ -392,113 +598,179 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             Could not load linked Activity.
           </p>
         )}
-        {messages
-          .filter((message) => message.draft)
-          .map((message) => (
+        <div hidden={!showMessages}>
+          {liveDrafts
+            .filter(
+              (message) =>
+                message.id !== draft?.id &&
+                (!draft || message.id !== preparedDraftId),
+            )
+            .map((message) => {
+              const pending = pendingSend(message.id);
+              return (
+                <div
+                  key={message.id}
+                  ref={(element) => {
+                    if (element) draftCards.current.set(message.id, element);
+                    else draftCards.current.delete(message.id);
+                  }}
+                >
+                  {pending ? (
+                    <EmailPendingMessage
+                      message={message}
+                      state={pending.state}
+                      scheduledAt={pending.scheduled_at}
+                      mailboxAddress={mailbox.data!.mailboxAddress}
+                      busy={command.isPending}
+                      onCancel={() =>
+                        command.mutate({
+                          action: "cancelSchedule",
+                          id: pending.command_id,
+                        })
+                      }
+                    />
+                  ) : (
+                    <EmailComposer
+                      registerForClose={registerDraftClose}
+                      draft={message}
+                      mailbox={mailbox.data!}
+                      inline
+                      onClose={() => {
+                        setDismissedDrafts((all) => [...all, message.id]);
+                        void thread.refetch();
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+        </div>
+        {sends
+          .filter(
+            (send) =>
+              send.state !== "sent" &&
+              !liveDrafts.some(
+                (message) =>
+                  message.id === send.message_id && pendingSend(message.id),
+              ),
+          )
+          .map((send) => (
             <div
-              key={message.id}
-              className="m-3 rounded-md bg-muted p-3 text-xs"
+              key={send.command_id}
+              role="status"
+              className="mx-4 flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
             >
-              <p className="font-medium">Shared draft · {message.subject}</p>
-              <p className="mt-1 truncate text-muted-foreground">
-                {message.bodyText}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2"
-                onClick={() => {
-                  setDraft(message);
-                  setSignature(undefined);
-                }}
-              >
-                Continue shared draft
-              </Button>
+              <span>
+                {send.state === "scheduled"
+                  ? `Scheduled for ${time(send.scheduled_at)}`
+                  : send.state === "paused"
+                    ? "Scheduled delivery paused after an Outlook draft change. Cancel to review it."
+                    : send.state === "failed"
+                      ? "Submission failed; review the preserved draft"
+                      : send.state === "submitted"
+                        ? "Submitted to Microsoft; awaiting Sent Items confirmation"
+                        : "Send outcome unresolved; do not submit another copy"}
+              </span>
+              {["scheduled", "paused"].includes(send.state) && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() =>
+                    command.mutate({
+                      action: "cancelSchedule",
+                      id: send.command_id,
+                    })
+                  }
+                >
+                  Cancel schedule
+                </Button>
+              )}
             </div>
           ))}
-        {thread.data.sends.map((send) => (
-          <p
-            key={send.message_id}
-            role="status"
-            className="px-4 py-2 text-xs text-muted-foreground"
-          >
-            {send.state === "failed"
-              ? "Microsoft rejected this submission; the preserved draft can be reviewed and sent again"
-              : send.state === "sent"
-                ? "Confirmed in Microsoft Sent Items"
-                : send.state === "submitted"
-                  ? "Submitted to Microsoft; awaiting Sent Items confirmation"
-                  : "Send outcome unresolved; do not submit another copy"}
-          </p>
-        ))}
-      </div>
-      {(command.error || notice) && (
-        <p role="alert" className="p-3 text-xs text-destructive">
-          {command.error?.message ?? notice}
-        </p>
-      )}
-      {draft ? (
-        <div className="max-h-[65%] shrink-0 overflow-auto">
+        {draft ? (
           <EmailComposer
             key={draft.id}
+            registerForClose={registerDraftClose}
             draft={draft}
             mailbox={mailbox.data}
             signature={signature}
+            draftReady={draftReady}
             inline
-            onClose={() => setDraft(null)}
+            onSubjectChange={setDraftSubject}
+            onClose={closeDraft}
           />
-        </div>
-      ) : (
-        <footer className="flex shrink-0 flex-wrap gap-2 border-t p-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void start("reply")}
-            disabled={!latest || command.isPending}
-          >
-            <Reply className="mr-1 h-3 w-3" />
-            Reply
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void start("replyAll")}
-            disabled={!latest || command.isPending}
-          >
-            Reply all
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setForward(true)}
-            disabled={!latest || command.isPending}
-          >
-            Forward
-          </Button>
-        </footer>
-      )}
+        ) : (
+          showMessages &&
+          latest &&
+          !latest.draft && (
+            <div className="flex gap-2 p-4">
+              <EmailActionGroup label="Respond to email">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => start("reply")}
+                >
+                  <Reply className="mr-1.5 h-4 w-4" />
+                  Reply
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => start("replyAll")}
+                >
+                  Reply all
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => start("forward")}
+                >
+                  <Forward className="mr-1.5 h-4 w-4" />
+                  Forward
+                </Button>
+              </EmailActionGroup>
+            </div>
+          )
+        )}
+        {(command.error || thread.error || mailbox.error) && (
+          <p role="alert" className="p-3 text-xs text-destructive">
+            {command.error?.message ??
+              thread.error?.message ??
+              mailbox.error?.message}
+          </p>
+        )}
+      </div>
       <AdminDialogShell
-        open={forward}
-        onClose={() => setForward(false)}
-        title="Forward email"
-        subtitle="Choose a recipient for the shared forward draft."
+        open={Boolean(reuse)}
+        onClose={() => setReuse(null)}
+        title="Continue existing reply draft?"
+        subtitle="Continue that draft or create a separate reply."
         footer={
-          <Button
-            disabled={!forwardTo.trim() || command.isPending}
-            onClick={() => void start("forward")}
-          >
-            Create forward draft
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const request = reuse;
+                setReuse(null);
+                if (request) start(request.mode, request.original, true);
+              }}
+            >
+              Create another draft
+            </Button>
+            <Button
+              onClick={() => {
+                if (reuse) setFocusDraftId(reuse.message.id);
+                setReuse(null);
+              }}
+            >
+              Edit existing draft
+            </Button>
+          </>
         }
       >
-        <label className="text-sm">
-          To
-          <Input
-            type="email"
-            value={forwardTo}
-            onChange={(event) => setForwardTo(event.target.value)}
-          />
-        </label>
+        <p className="text-sm">
+          There is already a draft replying to this email. Continue editing it?
+        </p>
       </AdminDialogShell>
     </div>
   );
