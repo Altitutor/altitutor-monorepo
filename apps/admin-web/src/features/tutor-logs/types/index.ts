@@ -2,6 +2,8 @@ import type { Tables, TutorLogAttendanceChoice } from '@altitutor/shared';
 
 export type TutorLogFormData = {
   sessionId: string;
+  automatedTextSuppressedStudentIds?: string[];
+  automatedTextSuppressedParentIds?: string[];
   staffAttendance: {
     staffId: string;
     attended: TutorLogAttendanceChoice;

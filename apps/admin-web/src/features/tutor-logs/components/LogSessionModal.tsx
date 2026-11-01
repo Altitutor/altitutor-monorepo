@@ -238,7 +238,7 @@ export function LogSessionModal({
             />
           );
         case 3:
-          return <Step9Confirmation title={getStepTitle()} formData={formData} />;
+          return <Step9Confirmation title={getStepTitle()} formData={formData} onUpdate={updateFormData} />;
         default:
           return null;
       }
@@ -295,7 +295,7 @@ export function LogSessionModal({
             />
           );
         case 3:
-          return <Step9Confirmation title={getStepTitle()} formData={formData} />;
+          return <Step9Confirmation title={getStepTitle()} formData={formData} onUpdate={updateFormData} />;
         default:
           return null;
       }
@@ -411,7 +411,7 @@ export function LogSessionModal({
           />
         );
       case 8:
-        return <Step9Confirmation title={getStepTitle()} formData={formData} />;
+        return <Step9Confirmation title={getStepTitle()} formData={formData} onUpdate={updateFormData} />;
       default:
         return null;
     }
