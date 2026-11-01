@@ -88,6 +88,36 @@ export async function signInForResource(page: Page, href: string, email: string)
   }
 }
 
+export function captureRuntimeErrors(page: Page) {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    // React boundaries may report a runtime exception through console.error.
+    if (message.type() === 'error' && /(?:TypeError|ReferenceError|SyntaxError|RangeError|Error):/.test(message.text())) {
+      errors.push(message.text());
+    }
+  });
+  return errors;
+}
+
+export async function expectResourcePageZoom(page: Page, viewer: Locator, browserName: string) {
+  // CDP controls genuine page zoom in Chromium. Other compatibility projects
+  // still exercise rendering/resizing; Safari/iOS zoom remains a manual check.
+  if (browserName !== 'chromium') return;
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1.5 });
+    await expect.poll(() => page.evaluate(() => window.visualViewport?.scale)).toBe(1.5);
+    await expectResourcePages(viewer);
+    const screenshot = base.info().outputPath('zoomed-resource-page.png');
+    await page.screenshot({ path: screenshot });
+    await base.info().attach('Resource at 150 percent page zoom', { path: screenshot, contentType: 'image/png' });
+  } finally {
+    await session.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+    await session.detach();
+  }
+}
+
 export async function expectResourcePages(viewer: Locator) {
   const pages = viewer.locator('canvas');
   await expect(pages).toHaveCount(2, { timeout: 30_000 });
