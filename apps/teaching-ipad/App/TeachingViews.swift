@@ -147,6 +147,8 @@ struct SessionDayView: View {
 
 struct LessonWorkspace: View {
     @ObservedObject var model: TeachingModel
+    @State private var dragging: UUID?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -155,7 +157,10 @@ struct LessonWorkspace: View {
                         ForEach(model.lesson?.resources ?? []) { item in tab(item) }
                     }.padding(.leading, 16).padding(.trailing, 190).padding(.vertical, 8)
                 }
-            }.overlay(alignment: .trailing) {
+            }
+            .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil,
+                animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+            .overlay(alignment: .trailing) {
                 Button { model.solutions.toggle() } label: {
                     Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
                         .font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
@@ -166,6 +171,7 @@ struct LessonWorkspace: View {
                 PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
             }
         }.background(TeachingColors.background)
+            .onDisappear { dragging = nil }
     }
     private func tab(_ item: LessonResource) -> some View {
         Menu {
@@ -179,6 +185,7 @@ struct LessonWorkspace: View {
             .glassEffect(.regular.tint(model.activeResourceID == item.id ? TeachingColors.teal.opacity(0.2) : .clear).interactive(), in: .capsule)
             .overlay { Capsule().strokeBorder(.primary.opacity(model.activeResourceID == item.id ? 0.45 : 0), lineWidth: 1) }
             .accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
+            .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
     }
 }
 

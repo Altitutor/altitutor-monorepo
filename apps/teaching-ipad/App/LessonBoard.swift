@@ -19,17 +19,7 @@ struct LessonBoard: View {
                         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 20))
                     }.buttonStyle(.plain)
                         .contextMenu { LessonResourceActions(model: model, item: item) }
-                        .onDrag {
-                            dragging = item.id
-                            let provider = NSItemProvider()
-                            provider.registerDataRepresentation(forTypeIdentifier: LessonReorder.type.identifier, visibility: .ownProcess) { completion in
-                                completion(Data(item.id.uuidString.utf8), nil); return nil
-                            }
-                            return provider
-                        }
-                        .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: item.id, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
-                        .accessibilityAction(named: "Move before previous file") { model.move(item, by: -1) }
-                        .accessibilityAction(named: "Move after next file") { model.move(item, by: 1) }
+                        .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
                 }
             }.padding(28)
             if model.lesson?.resources.isEmpty != false {
@@ -41,7 +31,31 @@ struct LessonBoard: View {
     }
 }
 
-private struct LessonReorder: DropDelegate {
+/// Board cards and document tabs use the same local move session and persisted order.
+struct LessonResourceDrag: ViewModifier {
+    @ObservedObject var model: TeachingModel
+    let item: LessonResource
+    @Binding var dragging: UUID?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.onDrag {
+            dragging = item.id
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(forTypeIdentifier: LessonReorder.type.identifier, visibility: .ownProcess) { completion in
+                completion(Data(item.id.uuidString.utf8), nil)
+                return nil
+            }
+            return provider
+        }
+        .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: item.id,
+            animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+        .accessibilityAction(named: "Move before previous file") { model.move(item, by: -1) }
+        .accessibilityAction(named: "Move after next file") { model.move(item, by: 1) }
+    }
+}
+
+struct LessonReorder: DropDelegate {
     static let type = UTType(exportedAs: "com.altitutor.lesson-resource")
     @ObservedObject var model: TeachingModel
     let target: UUID?
