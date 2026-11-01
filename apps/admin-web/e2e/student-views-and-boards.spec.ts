@@ -111,8 +111,9 @@ test('closing onboarding refreshes the Student page without reloading', async ({
   await page.goto(`/students/${id}`, { waitUntil: 'domcontentloaded' });
   const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
   await expect(toggle).toBeVisible();
-  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await expect(sidebar).toBeVisible();
   await sidebar.getByText('Close journey', { exact: true }).click();
   await sidebar.getByLabel('Closure reason').selectOption('withdrawn');
   await sidebar.getByLabel('Closure detail').fill('Local browser regression: explicit withdrawal');
