@@ -11,6 +11,7 @@ export function PrimaryEntityBreadcrumb({ label }: { label?: string }) {
   return (
     <Breadcrumb
       items={items}
+      primary
       className="mb-0 min-w-0 flex-1 flex-wrap gap-1.5 [&>div]:min-w-0 [&>div:last-child]:flex-1 [&>div:last-child>span]:truncate"
     />
   );

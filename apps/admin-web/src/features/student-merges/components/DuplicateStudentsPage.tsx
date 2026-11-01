@@ -515,13 +515,6 @@ export function DuplicateStudentsPage({ studentId }: { studentId?: string }) {
   }
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Duplicate students</h1>
-        <p className="mt-2 text-muted-foreground">
-          Review possible matches and combine records only after confirming they
-          belong to the same person.
-        </p>
-      </div>
       {success && (
         <p role="status" className="rounded border p-3">
           Students merged.{" "}

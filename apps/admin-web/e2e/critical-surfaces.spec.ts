@@ -23,19 +23,21 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
   await signIn(page);
 
   const surfaces = [
-    ['/students', 'In-person Students'],
+    ['/students', 'Students'],
     ['/online-students', 'Online Students'],
     ['/classes', 'Classes'],
   ] as const;
-  for (const [path, heading] of surfaces) {
+  for (const [path, breadcrumb] of surfaces) {
     await test.step(path, async () => {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} must return a successful response`).toBe(
         true,
       );
       await expect(
-        page.getByRole('heading', { level: 1, name: heading }),
-      ).toBeVisible({ timeout: 30_000 });
+        page.getByRole('navigation', { name: 'Breadcrumb', exact: true }),
+      ).toContainText(breadcrumb, { timeout: 30_000 });
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Display options', exact: true })).toBeVisible();
     });
   }
 

@@ -28,9 +28,6 @@ export function PayTiersShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="p-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Pay tiers</h1>
-      </div>
 
       <SegmentedControl
         className="w-full max-w-md min-w-0"

@@ -15,6 +15,7 @@ function buildSubjectFromClassDetail(detail: VtutorClassDetailRow): Omit<Tables<
   if (detail.subject_level) displayParts.push(detail.subject_level);
 
   return {
+    deleted_at: null, deleted_by: null,
     id: detail.subject_id,
     name: detail.subject_name ?? '',
     long_name: displayParts.join(' ') || detail.subject_name || '',
@@ -33,6 +34,7 @@ function buildClassFromClassDetail(detail: VtutorClassDetailRow): Tables<'classe
   if (!detail.class_id) return null;
 
   return {
+    deleted_at: null, deleted_by: null,
     id: detail.class_id,
     day_of_week: detail.day_of_week ?? 0,
     start_time: detail.start_time ?? '',

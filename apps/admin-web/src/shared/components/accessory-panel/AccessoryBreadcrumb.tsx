@@ -28,7 +28,7 @@ export function AccessoryBreadcrumb({
         type="button"
         className="shrink-0 text-muted-foreground hover:text-foreground"
         onClick={() =>
-          ["tasks", "issues", "projects"].includes(family) ? router.push(`/${family}`) : scope.navigate({
+          ["tasks", "issues", "projects", "documents", "messages", "email"].includes(family) ? router.push(`/${family}`) : scope.navigate({
             kind: family,
             title,
             // Messages keeps the same kind for list + thread; clear the

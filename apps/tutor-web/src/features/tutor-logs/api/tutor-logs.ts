@@ -7,7 +7,7 @@ import type { TutorLogFormData } from '../types';
 
 /**
  * Tutor Logs API client for tutor-web
- * 
+ *
  * IMPORTANT: Tutor-web can only READ through views (vtutor_tutor_log, vtutor_sessions)
  * All writes (create tutor logs) must go through API route: POST /api/tutor-logs
  */
@@ -30,7 +30,7 @@ export const tutorLogsApi = {
     }
 
     const result = await response.json();
-    
+
     if (!result.success) {
       throw new Error(result.error || 'Failed to create tutor log');
     }
@@ -38,7 +38,7 @@ export const tutorLogsApi = {
     // Extract tutor_log_id from RPC result
     type RpcResult = { tutor_log_id?: string };
     const tutorLogId = (result.data as RpcResult)?.tutor_log_id;
-    
+
     if (!tutorLogId) {
       throw new Error('Tutor log ID not returned from RPC function');
     }
@@ -57,14 +57,14 @@ export const tutorLogsApi = {
       .select('*')
       .eq('tutor_log_id', tutorLogId)
       .maybeSingle();
-    
+
     if (error) {
       if (error.code === 'PGRST116') {
         return null;
       }
       throw error;
     }
-    
+
     return data;
   },
 
@@ -79,14 +79,14 @@ export const tutorLogsApi = {
       .select('*')
       .eq('session_id', sessionId)
       .maybeSingle();
-    
+
     if (error) {
       if (error.code === 'PGRST116') {
         return null;
       }
       throw error;
     }
-    
+
     return data;
   },
 
@@ -104,11 +104,11 @@ export const tutorLogsApi = {
    */
   getUnloggedSessions: async (staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & {
     id: string;
-    class?: { 
+    class?: {
       id: string;
       level?: string | null;
       subject?: Omit<Database['public']['Tables']['subjects']['Row'], 'show_on_marketing_profiles'>
-    } 
+    }
   }>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
@@ -133,7 +133,7 @@ export const tutorLogsApi = {
 
       // Filter out sessions that already have logs
       const { data: existingLogs, error: logsError } = await supabase
-        .from('vtutor_tutor_log')
+        .from('vtutor_session_log_state')
         .select('session_id')
         .in('session_id', sessionIds);
 
@@ -175,7 +175,7 @@ export const tutorLogsApi = {
           subject?: Omit<Database['public']['Tables']['subjects']['Row'], 'show_on_marketing_profiles'>;
         };
       };
-      
+
       return (sessions || [])
         .filter(
           (s) =>
@@ -195,6 +195,7 @@ export const tutorLogsApi = {
             id: s.class_id,
             level: s.class_level,
             subject: s.subject_id ? {
+              deleted_at: null, deleted_by: null,
               id: s.subject_id,
               name: s.subject_name || '',
               curriculum: s.subject_curriculum,

@@ -70,3 +70,6 @@ REVOKE ALL ON FUNCTION public.retire_student_identity(uuid,uuid),
 REVOKE ALL ON public.email_mailbox_identity
   FROM PUBLIC,anon,authenticated,service_role;
 GRANT SELECT,INSERT ON public.email_mailbox_identity TO service_role;
+
+-- Replay the production conversation-history privilege boundary after broad fixture grants.
+REVOKE DELETE, TRUNCATE ON public.messages, public.conversations FROM anon, authenticated;

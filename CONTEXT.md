@@ -1454,3 +1454,7 @@
   _Avoid_: Row trigger, changed-column automation, scheduled event
 
 - **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.
+
+- **Business record deletion** — An AdminStaff action that hides a main operational record from normal directories and new activity while retaining its identity, relationships and history. Live services or work must be resolved first; restoration does not reclaim released contacts or reactivate access or services. Student deletion retains its separately defined recovery rules, and configuration deletion remains separate.
+
+- **Deleted entities directory** — The Settings directory of retained deleted business records, identified by entity type and name. Eligible operational records can be explicitly restored; financial and learning-content records retain their own recovery rules.

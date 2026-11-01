@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { Suspense, useState } from 'react';
 import { SessionsTable } from '@/features/sessions';
@@ -27,8 +28,8 @@ export default function SessionsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
+      <AdminPageActions>
+
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -88,7 +89,7 @@ export default function SessionsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </AdminPageActions>
 
       <Suspense>
         <SessionsTable renderMode={view} toolbarView={{value:view,options:[{value:'table',label:'Table'},{value:'calendar',label:'Calendar'}],onChange:(next) => {if(next === 'table' || next === 'calendar') setView(next);}}}

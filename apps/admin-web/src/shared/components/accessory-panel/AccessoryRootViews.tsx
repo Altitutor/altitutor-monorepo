@@ -29,7 +29,7 @@ export function AccessoryRootViews() {
           key={view.kind}
           variant="outline"
           className="justify-start gap-2"
-          onClick={() => ["tasks", "issues", "projects"].includes(view.kind) ? router.push(`/${view.kind}`) : panel?.openTab(view)}
+          onClick={() => ["tasks", "issues", "projects", "documents", "messages"].includes(view.kind) ? router.push(`/${view.kind}`) : panel?.openTab(view)}
         >
           <AccessoryIcon kind={view.kind} className="h-4 w-4" />
           {view.title}

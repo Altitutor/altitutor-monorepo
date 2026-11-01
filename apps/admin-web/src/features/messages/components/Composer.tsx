@@ -47,13 +47,13 @@ interface Props {
 export function Composer({
   onboarding,
   onQueued,
-  contactId, 
+  contactId,
   conversationId,
   groupChatId,
   initialSenderId,
   initialDestinationAddress,
   preferredSenderId,
-  onTyping, 
+  onTyping,
   onBeforeSend,
   draft,
   onDraftChange,
@@ -64,7 +64,7 @@ export function Composer({
   const [internalText, setInternalText] = useState('');
   const text = draft !== undefined ? draft : internalText;
   const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
-  
+
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(initialSenderId ?? null);
   const [destinationAddress, setDestinationAddress] = useState(initialDestinationAddress ?? '');
   const { data: messagingAddresses } = useContactMessagingAddresses(groupChatId ? null : contactId);
@@ -90,7 +90,7 @@ export function Composer({
     hasAttachments,
     canAddMore,
   } = useMessageAttachments();
-  
+
   useEffect(() => {
     setSelectedSenderId(initialSenderId ?? preferredSenderId ?? null);
     setDestinationAddress(initialDestinationAddress ?? '');
@@ -125,14 +125,14 @@ export function Composer({
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
   const isIMessageSender = selectedSender?.provider === 'IMESSAGE';
   const isSMSSender = selectedSender?.provider === 'TWILIO';
-  
+
   // Calculate SMS segments for SMS senders
   const smsSegments = isSMSSender ? calculateSMSSegments(text) : null;
 
   // Handle file selection
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0 || !isIMessageSender) return;
-    
+
     try {
       await addFiles(files);
     } catch (error: unknown) {
@@ -201,7 +201,7 @@ export function Composer({
       textareaRef.current.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
     }
   }, [text]);
-  
+
   const handleTextChange = (newText: string) => {
     setText(newText);
     if (onTyping) onTyping();
@@ -215,7 +215,7 @@ export function Composer({
 
     // Get successful attachments
     const successfulAttachments = getSuccessfulAttachments();
-    
+
     // Don't send if there are failed uploads
     const hasFailedUploads = attachments.some(att => att.status === 'error');
     if (hasFailedUploads) {
@@ -229,20 +229,20 @@ export function Composer({
       alert('Please wait for all files to finish uploading');
       return;
     }
-    
+
     // Clear draft (either via callback or directly)
     if (onDraftClear) {
       onDraftClear();
     } else {
       setText('');
     }
-    
+
     try {
       // Call onBeforeSend if provided (for backward compatibility)
       if (onBeforeSend) {
         await onBeforeSend(body, selectedSenderId);
       }
-      
+
       await send.mutateAsync({
         contactId,
         onboarding,
@@ -270,28 +270,28 @@ export function Composer({
   };
   const handleTemplateSelect = async (template: Tables<'message_templates'>) => {
     let content = template.content;
-    
+
     // Get sender name from current staff
-    const senderName = currentStaff 
-      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+    const senderName = currentStaff
+      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim()
       : null;
-    
+
     // Check if template contains link variables
     const needsLinks = templateContainsLinkVariables(template.content);
-    
+
     // Try to replace variables if we have contact data
     if (contactData) {
       const contact = contactData;
-      
+
       // Check if it's a student contact
       if (contact.contact_type === 'STUDENT' && contact.students) {
         const student = contact.students as Tables<'students'>;
         try {
           setIsGeneratingTokens(needsLinks);
-          
+
           // Fetch student classes
           const classes = await getStudentClasses(student.id);
-          
+
           // Generate link tokens if template contains link variables
           let linkTokens = null;
           if (needsLinks) {
@@ -306,7 +306,7 @@ export function Composer({
               // Continue without tokens - variables will be replaced with empty strings
             }
           }
-          
+
           // Replace variables with actual data
           content = await replaceVariables(template.content, student, classes, senderName, linkTokens || undefined);
         } catch (error) {
@@ -320,6 +320,7 @@ export function Composer({
       else if (contact.contact_type === 'PARENT' && contact.parents) {
         const parentData = contact.parents as Tables<'parents'> & { parents_students?: Array<{ students: Tables<'students'> }> };
         const parent: Tables<'parents'> = {
+    deleted_at: null, deleted_by: null,
           id: parentData.id,
           first_name: parentData.first_name || '',
           last_name: parentData.last_name || '',
@@ -332,11 +333,11 @@ export function Composer({
           updated_at: parentData.updated_at || null,
         };
         const parentStudents = parentData.parents_students || [];
-        
+
         if (parentStudents.length > 0) {
           try {
             setIsGeneratingTokens(needsLinks);
-            
+
             // Build students array with classes and link tokens
             const rawStudentsWithClasses = await Promise.all(
               parentStudents.map(async (ps: { students: Tables<'students'> }) => {
@@ -344,7 +345,7 @@ export function Composer({
                 if (!student) return null;
 
                 const classes = await getStudentClasses(student.id);
-                
+
                 let linkTokens = null;
                 if (needsLinks) {
                   try {
@@ -380,7 +381,7 @@ export function Composer({
                 const nameB = `${b.student.first_name || ''} ${b.student.last_name || ''}`.trim().toLowerCase();
                 return nameA.localeCompare(nameB);
               });
-            
+
             // Replace variables with actual data (using parent replacer)
             content = await replaceVariablesForParent(template.content, parent, validStudents, senderName);
           } catch (error) {
@@ -396,10 +397,10 @@ export function Composer({
         const staff = contact.staff as Tables<'staff'>;
         try {
           setIsGeneratingTokens(needsLinks);
-          
+
           // Fetch staff classes
           const classes = await getStaffClasses(staff.id);
-          
+
           // Generate link tokens if template contains link variables
           let linkTokens = null;
           if (needsLinks) {
@@ -413,7 +414,7 @@ export function Composer({
               // Continue without tokens - variables will be replaced with empty strings
             }
           }
-          
+
           // Replace variables with actual data
           content = await replaceVariablesForStaff(template.content, staff, classes, senderName, linkTokens || undefined);
         } catch (error) {
@@ -423,7 +424,7 @@ export function Composer({
         }
       }
     }
-    
+
     setText(content);
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -439,16 +440,16 @@ export function Composer({
     const end = textarea.selectionEnd || 0;
     const textBefore = text.substring(0, start);
     const textAfter = text.substring(end);
-    
+
     // Get the replacement value
     const replacementValue = await getVariableValue(variable);
     const newText = textBefore + replacementValue + textAfter;
-    
+
     setText(newText);
-    
+
     // Dismiss the dropdown
     setVariablesMenuOpen(false);
-    
+
     // Restore cursor position after variable insertion
     setTimeout(() => {
       const newPosition = start + replacementValue.length;
@@ -466,7 +467,7 @@ export function Composer({
       {hasAttachments && (
         <AttachmentPreviewList attachments={attachments} onRemove={removeAttachment} />
       )}
-      
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -476,8 +477,8 @@ export function Composer({
         onChange={(e) => handleFileSelect(e.target.files)}
         accept="*/*"
       />
-      
-      <div 
+
+      <div
         className={`flex flex-col gap-2 p-2 ${isDragging && isIMessageSender ? 'bg-muted/50' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -529,15 +530,15 @@ export function Composer({
             </div>
           )}
         </div>
-        
+
         {/* Button row: template/attachments/phone on left, send on right */}
-        <div ref={buttonRowRef} className="flex items-center justify-between gap-2 min-w-0">
+        <div ref={buttonRowRef} className="flex flex-wrap items-end justify-between gap-2 min-w-0" data-message-composer-controls>
           {/* Left side: Template, Attachments, Phone buttons */}
-          <div className="flex items-center gap-2 flex-shrink min-w-0">
+          <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
             {toolbarBeforeTemplate}
             {/* Template button */}
             <div className="relative flex-shrink-0">
-              <MessageTemplatesPicker 
+              <MessageTemplatesPicker
                 onSelect={handleTemplateSelect}
                 disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId || isGeneratingTokens}
                 expanded={canExpand}
@@ -548,7 +549,7 @@ export function Composer({
                 </div>
               )}
             </div>
-            
+
             <ComposerVariablesDropdown
               availableVariables={availableVariables}
               parentStudents={parentStudents}
@@ -560,7 +561,7 @@ export function Composer({
               canExpand={canExpand}
               disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
             />
-            
+
             {/* Upload button - only show for iMessage senders */}
             {isIMessageSender && canAddMore && (
               <div className="flex-shrink-0">
@@ -591,7 +592,7 @@ export function Composer({
                 )}
               </div>
             )}
-            
+
             {(contactId || conversationId) && availableSenders && availableSenders.length > 0 && (
               <ComposerSenderSelector
                 availableSenders={groupChatId ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE') : availableSenders}
@@ -602,7 +603,7 @@ export function Composer({
               />
             )}
           </div>
-          
+
           {/* Right side: Send button */}
           <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
             {send.isPending && (
@@ -618,9 +619,9 @@ export function Composer({
               }`}
               onClick={onSend}
               disabled={
-                send.isPending || 
+                send.isPending ||
                 (!contactId && !conversationId) ||
-                !selectedSenderId || 
+                !selectedSenderId ||
                 (!text.trim() && !(isIMessageSender && hasAttachments))
               }
             >

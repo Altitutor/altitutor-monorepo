@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
@@ -357,8 +359,7 @@ export function TaskDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              task and all associated data.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

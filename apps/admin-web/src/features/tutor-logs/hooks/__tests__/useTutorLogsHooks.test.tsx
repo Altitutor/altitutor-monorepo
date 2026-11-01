@@ -55,7 +55,7 @@ function mockUnloggedFromQueries(
   assignments: Array<{ session_id: string; type: string }> = []
 ) {
   (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
-    if (table === 'tutor_logs') {
+    if (table === 'vadmin_session_log_state') {
       return { select: jest.fn().mockResolvedValue({ data: existingLogs, error: null }) };
     }
     if (table === 'sessions_staff') {

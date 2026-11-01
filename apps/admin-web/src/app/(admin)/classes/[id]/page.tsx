@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
@@ -245,13 +247,8 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-            This permanently deletes the Class
-            {classData?.level ? ` "${classData.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
-            {' '}Historical Sessions are never deleted.
-            {deleteImpact && !deleteImpact.canDelete
-              ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit Class instead.`
-              : ''}
-
+              <RetainedDeletionMessage kind="Class" name={classData?.long_name} />
+              {deleteImpact && !deleteImpact.canDelete && ' Make the Class inactive and resolve enrolments and future bookings before deletion.'}
               {isDeleteImpactLoading && ' Checking deletion impact…'}
               {isDeleteImpactError && ' Unable to check deletion impact. Close this dialog and try again.'}
             </AlertDialogDescription>

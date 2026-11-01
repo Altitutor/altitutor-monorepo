@@ -1,3 +1,4 @@
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 import { EmailInput } from '@/shared/components/EmailInput';
 import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
@@ -123,13 +124,13 @@ export function StaffDetailsTab({
   useEffect(() => {
     if (isEditing && !hasResetRef.current) {
       // Ensure role and status are properly set - they must be valid enum values
-      const role: 'TUTOR' | 'ADMINSTAFF' = (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') 
-        ? staffMember.role 
+      const role: 'TUTOR' | 'ADMINSTAFF' = (staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF')
+        ? staffMember.role
         : 'TUTOR'; // Default to TUTOR if invalid
-      const status: 'ACTIVE' | 'INACTIVE' | 'TRIAL' = (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') 
-        ? staffMember.status 
+      const status: 'ACTIVE' | 'INACTIVE' | 'TRIAL' = (staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL')
+        ? staffMember.status
         : 'ACTIVE'; // Default to ACTIVE if invalid
-      
+
       const resetValues: FormData = {
         firstName: staffMember.first_name || '',
         lastName: staffMember.last_name || '',
@@ -164,7 +165,7 @@ export function StaffDetailsTab({
           }
           return `${field}: Invalid value`;
         }).join('\n');
-        
+
         toast({
           title: 'Validation Error',
           description: `Please fix the following errors:\n${errorMessages}`,
@@ -178,9 +179,9 @@ export function StaffDetailsTab({
   return isEditing ? (
     <>
       <div className="flex-1 overflow-y-auto">
-        <form 
-          id="staff-edit-form" 
-          onSubmit={handleFormSubmit} 
+        <form
+          id="staff-edit-form"
+          onSubmit={handleFormSubmit}
           className="space-y-6"
         >
               <PropertyForm>
@@ -189,10 +190,10 @@ export function StaffDetailsTab({
                     control={form.control}
                     name="firstName"
                     render={({ field }) => (
-                      <Input 
+                      <Input
                         id="staff-first-name"
                         {...field}
-                        disabled={isLoading} 
+                        disabled={isLoading}
                         required
                       />
                     )}
@@ -201,16 +202,16 @@ export function StaffDetailsTab({
                     <p className="mt-1 text-sm text-destructive">{form.formState.errors.firstName.message}</p>
                   )}
                 </PropertyFormRow>
-                
+
                 <PropertyFormRow label="Last Name *" htmlFor="staff-last-name">
                   <Controller
                     control={form.control}
                     name="lastName"
                     render={({ field }) => (
-                      <Input 
+                      <Input
                         id="staff-last-name"
                         {...field}
-                        disabled={isLoading} 
+                        disabled={isLoading}
                         required
                       />
                     )}
@@ -227,9 +228,9 @@ export function StaffDetailsTab({
                     render={({ field }) => (
                       <EmailInput
                         id="staff-email"
-                        type="email" 
+                        type="email"
                         {...field}
-                        disabled={isLoading} 
+                        disabled={isLoading}
                       />
                     )}
                   />
@@ -237,7 +238,7 @@ export function StaffDetailsTab({
                     <p className="mt-1 text-sm text-destructive">{form.formState.errors.email.message}</p>
                   )}
                 </PropertyFormRow>
-                
+
                 <PropertyFormRow label="Phone Number" htmlFor="staff-phone-number">
                   <Controller
                     control={form.control}
@@ -297,7 +298,7 @@ export function StaffDetailsTab({
                     <p className="mt-1 text-sm text-destructive">{form.formState.errors.officeKeyNumber.message}</p>
                   )}
                 </PropertyFormRow>
-                
+
                 <PropertyFormRow label="Parking Remote">
                   <Controller
                     control={form.control}
@@ -355,7 +356,7 @@ export function StaffDetailsTab({
                     )}
                   />
                 </PropertyFormRow>
-                
+
                 <PropertyFormRow label="Status">
                   <Controller
                     control={form.control}
@@ -446,7 +447,7 @@ export function StaffDetailsTab({
                     <p className="text-sm text-muted-foreground">
                       This staff member does not have an associated user account yet. Send them an invite to create one.
                     </p>
-                    
+
                     <Button
                       variant="default"
                       onClick={() => setInviteDialogOpen(true)}
@@ -502,9 +503,8 @@ export function StaffDetailsTab({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the staff member
-                            "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
-                          </AlertDialogDescription>
+              <RetainedDeletionMessage name={`${staffMember.first_name} ${staffMember.last_name}`} />
+            </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="py-4">
                           <div className="space-y-2">
@@ -522,7 +522,7 @@ export function StaffDetailsTab({
                         </div>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
+                          <AlertDialogAction
                             onClick={() => {
                               if (onDelete) {
                                 onDelete();
@@ -706,7 +706,7 @@ export function StaffDetailsTab({
             <p className="text-sm text-muted-foreground">
               This staff member does not have an associated user account yet. Send them an invite to create one.
             </p>
-            
+
             <Button
               variant="default"
               onClick={() => setInviteDialogOpen(true)}
@@ -746,4 +746,4 @@ export function StaffDetailsTab({
 }
 
 export { formSchema };
-export type { FormData as StaffDetailsFormData }; 
+export type { FormData as StaffDetailsFormData };
