@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_events_legacy: {
@@ -44647,7 +44622,11 @@ export type Database = {
         Returns: Json
       }
       email_cache_draft_reply_targets: {
-        Args: { p_message_id: string; p_change_key: string; p_targets: string[] }
+        Args: {
+          p_change_key: string
+          p_message_id: string
+          p_targets: string[]
+        }
         Returns: boolean
       }
       email_cancel_schedule: { Args: { p_command_id: string }; Returns: Json }
@@ -44745,10 +44724,10 @@ export type Database = {
       }
       email_list_threads: {
         Args: {
-          p_from?: string
           p_assignee: string
           p_direction?: string
           p_folder_id: string
+          p_from?: string
           p_limit?: number
           p_offset?: number
           p_search: string
@@ -44801,8 +44780,11 @@ export type Database = {
         Returns: Json
       }
       email_sender_options: {
-        Args: Record<PropertyKey, never>
-        Returns: { email: string; name: string | null }[]
+        Args: never
+        Returns: {
+          email: string
+          name: string
+        }[]
       }
       email_thread_detail: { Args: { p_thread_id: string }; Returns: Json }
       email_undo_assignment: {
@@ -47618,9 +47600,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       billing_type: ["CLASS", "EXAM_COURSE", "DRAFTING"],
