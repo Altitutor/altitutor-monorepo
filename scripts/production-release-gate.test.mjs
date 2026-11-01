@@ -373,10 +373,10 @@ test("pnpm checkall runs the same system suites as CI", async () => {
   const packageJson = JSON.parse(packageJsonSource);
 
   assert.equal(packageJson.scripts.checkall, "bash scripts/checkall.sh");
-  assert.match(checkall, /pnpm turbo run lint/u);
-  assert.match(checkall, /pnpm turbo run typecheck/u);
+  assert.match(checkall, /^pnpm lint$/mu);
+  assert.match(checkall, /^pnpm typecheck$/mu);
   assert.match(checkall, /pnpm test/u);
-  assert.match(checkall, /pnpm turbo run build/u);
+  assert.match(checkall, /^  pnpm build --concurrency=1$/mu);
   assert.match(checkall, /pnpm --filter ucat-web test:coverage/u);
   assert.match(
     checkall,
