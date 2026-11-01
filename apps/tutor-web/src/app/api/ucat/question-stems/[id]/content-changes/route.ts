@@ -8,7 +8,7 @@ import {
   restoreUcatMcpPublishedChange,
 } from '@/features/ucat/mcp/server/workflow-service'
 
-const RestoreSchema = z.object({ changeId: z.string().uuid() })
+const RestoreSchema = z.object({ changeId: z.string().guid('Invalid uuid') })
 
 type ChangeItem = {
   id?: unknown

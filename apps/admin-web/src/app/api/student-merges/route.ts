@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 
-const uuid = z.string().uuid();
+const uuid = z.string().guid('Invalid uuid');
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("preview"), retained: uuid, source: uuid }),
   z.object({
@@ -20,7 +20,7 @@ const requestSchema = z.discriminatedUnion("action", [
     choices: z.object({
       login_user_id: uuid.nullable(),
       billing_student_id: uuid.nullable(),
-      fields: z.record(z.enum(["retained", "source"])),
+      fields: z.record(z.string(), z.enum(["retained", "source"])),
       confirmed_same_person: z.literal(true),
       reviewed_parent_access: z.literal(true),
     }),

@@ -8,3 +8,19 @@ it('accepts flexible participant mixes without availability or type-specific car
   });
   expect(result.success).toBe(true);
 });
+
+it('accepts minute-precision meeting times without rewriting them', () => {
+  const meeting = {
+    type: 'ADMIN_MEETING',
+    startAt: '2026-11-01T10:30Z',
+    endAt: '2026-11-01T11:30Z',
+  };
+
+  expect(manualMeetingSchema.parse(meeting)).toEqual({
+    ...meeting,
+    studentIds: [],
+    parentIds: [],
+    staffIds: [],
+    receiverStaffIds: [],
+  });
+});

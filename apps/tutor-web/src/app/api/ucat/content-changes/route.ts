@@ -9,7 +9,7 @@ const ContentTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
 const StatusSchema = z.enum(['pending', 'applied', 'rejected', 'stale'])
 const ReviewSchema = z.object({
   action: z.enum(['apply', 'reject']),
-  changeIds: z.array(z.string().uuid()).min(1).max(50),
+  changeIds: z.array(z.string().guid('Invalid uuid')).min(1).max(50),
   reason: z.string().trim().max(4000).nullable().optional(),
 })
 

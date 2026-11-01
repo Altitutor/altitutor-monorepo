@@ -1,6 +1,6 @@
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ImageContent } from '@modelcontextprotocol/sdk/types.js'
+import type { ImageContent } from '@modelcontextprotocol/server'
 import sharp from 'sharp'
 import {
   editUcatImageBytes,

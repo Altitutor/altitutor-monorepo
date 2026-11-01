@@ -12,7 +12,7 @@ const jsonSchema: z.ZodType<unknown> = z.lazy(() =>
     z.boolean(),
     z.null(),
     z.array(jsonSchema),
-    z.record(jsonSchema),
+    z.record(z.string(), jsonSchema),
   ])
 )
 
@@ -26,7 +26,7 @@ const chatMessageSchema = z.object({
     id: z.string(),
     name: z.string(),
     summary: z.string(),
-    input: z.record(jsonSchema).default({}),
+    input: z.record(z.string(), jsonSchema).default({}),
     requiresConfirmation: z.boolean().optional(),
   })).optional(),
   toolResult: z.object({
@@ -63,7 +63,7 @@ const toolCallSchema = z.object({
   id: z.string().optional(),
   name: z.string(),
   summary: z.string(),
-  input: z.record(jsonSchema).default({}),
+  input: z.record(z.string(), jsonSchema).default({}),
   requiresConfirmation: z.boolean().optional(),
 })
 

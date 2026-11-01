@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
 const BodySchema = z.object({
-  stemIds: z.array(z.string().uuid()).min(1).max(500),
+  stemIds: z.array(z.string().guid('Invalid uuid')).min(1).max(500),
 })
 
 export async function DELETE(

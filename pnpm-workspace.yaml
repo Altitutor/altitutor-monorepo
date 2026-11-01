@@ -63,16 +63,8 @@ overrides:
 patchedDependencies:
   "react-big-calendar@1.19.4": "patches/react-big-calendar@1.19.4.patch"
 
-packageExtensions:
-  "@hookform/resolvers@5.2.2":
-    peerDependencies:
-      zod: ">=3.25.0"
-
 peerDependencyRules:
   allowedVersions:
-    # DEV-275: HTTP regressions verify the security-patched SDK with handler 1.1.0.
-    # Remove this exact peer exception when migrating handler/SDK2/Zod4 together.
-    "mcp-handler@1.1.0>@modelcontextprotocol/sdk": "1.32.2"
     tailwindcss: "3.4.18"
     typescript: ">=4.8.4 <7.0.0"
 

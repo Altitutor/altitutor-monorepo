@@ -49,13 +49,13 @@ import type { Resolver } from "react-hook-form";
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z
-    .union([z.record(z.unknown()), z.string(), z.null()])
+    .union([z.record(z.string(), z.unknown()), z.string(), z.null()])
     .optional(),
   status: z.enum(["backlog", "todo", "in_progress", "in_review", "done"]),
   priority: z.number().min(0).max(4),
-  assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
-  issueId: z.union([z.string().uuid(), z.null()]).default(null),
-  projectId: z.union([z.string().uuid(), z.null()]).default(null),
+  assignedTo: z.union([z.string().guid('Invalid uuid'), z.null()]).default(null),
+  issueId: z.union([z.string().guid('Invalid uuid'), z.null()]).default(null),
+  projectId: z.union([z.string().guid('Invalid uuid'), z.null()]).default(null),
   estimate: z.preprocess(
     (val) => {
       if (

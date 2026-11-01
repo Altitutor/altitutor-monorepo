@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from "zod";
 export const emailMessageSchema = z.object({
   id: z.string(),
@@ -87,7 +88,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("assign"),
     threadId: z.string().min(1),
-    staffId: z.string().uuid().nullable(),
+    staffId: z.string().guid('Invalid uuid').nullable(),
   }),
   z.object({
     action: z.literal("link"),
@@ -100,7 +101,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
       "invoice",
       "onboarding_journey",
     ]),
-    recordId: z.string().uuid(),
+    recordId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     action: z.literal("draft"),
@@ -110,25 +111,25 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("save"),
-    editToken: z.string().uuid(),
+    editToken: z.string().guid('Invalid uuid'),
     id: z.string().min(1),
     content: draftContentSchema,
   }),
   z.object({
     action: z.literal("releaseDraft"),
     id: z.string().min(1),
-    editToken: z.string().uuid(),
+    editToken: z.string().guid('Invalid uuid'),
   }),
   z.object({
     action: z.literal("removeAttachment"),
     id: z.string().min(1),
     attachmentId: z.string().min(1),
     changeKey: z.string().min(1),
-    editToken: z.string().uuid(),
+    editToken: z.string().guid('Invalid uuid'),
   }),
   z.object({
     action: z.literal("discard"),
-    editToken: z.string().uuid(),
+    editToken: z.string().guid('Invalid uuid'),
     id: z.string().min(1),
     changeKey: z.string().min(1),
   }),
@@ -136,21 +137,21 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     action: z.literal("schedule"),
     id: z.string().min(1),
     changeKey: z.string().min(1),
-    commandId: z.string().uuid(),
-    scheduledAt: z.string().datetime({ offset: true }),
+    commandId: z.string().guid('Invalid uuid'),
+    scheduledAt: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime"),
   }),
-  z.object({ action: z.literal("cancelSchedule"), id: z.string().uuid() }),
+  z.object({ action: z.literal("cancelSchedule"), id: z.string().guid('Invalid uuid') }),
   z.object({
     action: z.literal("undo"),
-    ids: z.array(z.string().uuid()).min(1).max(100),
+    ids: z.array(z.string().guid('Invalid uuid')).min(1).max(100),
   }),
-  z.object({ action: z.literal("dispatchQueued"), id: z.string().uuid() }),
+  z.object({ action: z.literal("dispatchQueued"), id: z.string().guid('Invalid uuid') }),
   z.object({
     action: z.literal("send"),
     undoDelaySeconds: z.literal(10).optional(),
     id: z.string().min(1),
     changeKey: z.string().min(1),
-    commandId: z.string().uuid(),
+    commandId: z.string().guid('Invalid uuid'),
   }),
 ]);
 export type EmailCommand = z.infer<typeof emailCommandSchema>;
