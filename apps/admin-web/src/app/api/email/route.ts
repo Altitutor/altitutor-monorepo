@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { emailAccess } from "@/features/email/server/auth";
 import { emailListSchema } from "@/features/email/types";
 import { mailboxConfigured } from "@/features/email/server/connection";
+import { listScheduledMail } from "@/features/email/server/scheduled-list";
 export async function GET(request: NextRequest) {
   const access = await emailAccess();
   if ("error" in access)
@@ -11,25 +12,42 @@ export async function GET(request: NextRequest) {
     );
   const params = request.nextUrl.searchParams;
   const offset = Math.max(0, Number(params.get("offset")) || 0);
-  const [folders, threads, staff, states, templates, signature] =
+  const [folders, threads, staff, states, templates, signature, senders] =
     await Promise.all([
       access.db
         .from("email_folders")
         .select("id,name,parent_id,role")
         .eq("present", true)
         .order("name"),
-      access.db.rpc("email_list_threads", {
-        p_folder_id: params.get("folder") ?? "",
-        p_search: (params.get("search") ?? "").slice(0, 300),
-        p_assignee: (params.get("assignee") ?? "all")
-          .split(",")
-          .map((value) => (value === "mine" ? access.staff.id : value))
-          .join(","),
-        p_offset: offset,
-        p_limit: 50,
-        p_sort: params.get("sort") ?? "received",
-        p_direction: params.get("direction") ?? "desc",
-      }),
+      params.get("folder") === "@scheduled"
+        ? listScheduledMail(access.admin, {
+            from: (params.get("from") ?? "").split(",").filter(Boolean),
+            search: (params.get("search") ?? "").slice(0, 300),
+            assignees: (params.get("assignee") ?? "all")
+              .split(",")
+              .map((value) => (value === "mine" ? access.staff.id : value)),
+            offset,
+            sort: params.get("sort") ?? "received",
+            direction: params.get("direction") ?? "desc",
+          })
+            .then((data) => ({ data, error: null }))
+            .catch(() => ({
+              data: null,
+              error: { message: "Could not load scheduled emails." },
+            }))
+        : access.db.rpc("email_list_threads", {
+            p_from: (params.get("from") ?? "").slice(0, 5000),
+            p_folder_id: params.get("folder") ?? "",
+            p_search: (params.get("search") ?? "").slice(0, 300),
+            p_assignee: (params.get("assignee") ?? "all")
+              .split(",")
+              .map((value) => (value === "mine" ? access.staff.id : value))
+              .join(","),
+            p_offset: offset,
+            p_limit: 50,
+            p_sort: params.get("sort") ?? "received",
+            p_direction: params.get("direction") ?? "desc",
+          }),
       access.db
         .from("staff")
         .select("id,first_name,last_name")
@@ -45,9 +63,10 @@ export async function GET(request: NextRequest) {
         .select("body_text")
         .eq("staff_id", access.staff.id)
         .maybeSingle(),
+      access.db.rpc("email_sender_options"),
     ]);
   if (
-    [folders, threads, staff, states, templates, signature].some(
+    [folders, threads, staff, states, templates, signature, senders].some(
       (result) => result.error,
     )
   )
@@ -57,6 +76,7 @@ export async function GET(request: NextRequest) {
     );
   return NextResponse.json(
     {
+      senders: senders.data,
       folders: folders.data,
       ...emailListSchema.parse(threads.data),
       staff: staff.data,

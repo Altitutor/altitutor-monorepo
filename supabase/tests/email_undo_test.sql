@@ -1,0 +1,40 @@
+BEGIN;
+SELECT plan(17);
+INSERT INTO public.staff(id,first_name,last_name,role,status) VALUES
+ ('fa252000-0000-4000-8000-000000000001','Undo','Owner','ADMINSTAFF','ACTIVE'),
+ ('fa252000-0000-4000-8000-000000000002','Undo','Next','ADMINSTAFF','ACTIVE');
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+INSERT INTO public.email_threads(id,assigned_staff_id,assigned_at) VALUES('undo-thread','fa252000-0000-4000-8000-000000000001',now()-interval '1 hour');
+CREATE TEMP TABLE receipt AS SELECT public.email_assign_with_undo('undo-thread','fa252000-0000-4000-8000-000000000002','fa252000-0000-4000-8000-000000000001') AS value;
+SELECT ok((SELECT value ? 'undoIds' FROM receipt),'assignment returns a private undo receipt');
+SELECT is((SELECT staff_id FROM public.email_command_undos), 'fa252000-0000-4000-8000-000000000001'::uuid,'receipt is owned by the acting staff member');
+SELECT public.email_undo_assignment('undo-thread',(payload->>'staffId')::uuid,(payload->>'assignedAt')::timestamptz,(payload->>'version')::bigint) FROM public.email_command_undos;
+SELECT is((SELECT assigned_staff_id FROM public.email_threads WHERE id='undo-thread'),'fa252000-0000-4000-8000-000000000001'::uuid,'undo restores the prior assignee');
+SELECT is((SELECT assigned_at FROM public.email_threads WHERE id='undo-thread'),now()-interval '1 hour','undo restores the original responsibility interval');
+SELECT throws_ok($$SELECT public.email_undo_assignment('undo-thread',NULL,NULL,1)$$,'P0001','Responsibility changed since this action; it was not overwritten','stale receipt cannot overwrite a subsequent assignment');
+-- Clearing after a real reply and assigning the same person again is an ABA edit.
+UPDATE public.email_threads SET assigned_staff_id=NULL,assigned_at=NULL WHERE id='undo-thread';
+SELECT public.email_assign_thread('undo-thread','fa252000-0000-4000-8000-000000000001');
+SELECT throws_ok($$SELECT public.email_undo_assignment('undo-thread',NULL,NULL,1)$$,'P0001','Responsibility changed since this action; it was not overwritten','a reply and reassignment invalidate older undo');
+SELECT public.email_apply_sync_page('drafts',NULL,'undo-queue',true,'[{"id":"undo-send-draft","threadId":"undo-send-thread","draft":true,"changeKey":"one"}]','{}');
+SELECT public.email_schedule_send('undo-send-draft','one','fa252000-0000-4000-8000-000000000001','fa252000-0000-4000-8000-000000000099',now()+interval '1 minute');
+SELECT is((SELECT count(*) FROM public.email_claim_scheduled_send('fa252000-0000-4000-8000-000000000099')),0::bigint,'foreground send cannot bypass the undo deadline');
+UPDATE public.email_send_attempts SET scheduled_at=now()-interval '1 second' WHERE message_id='undo-send-draft';
+SELECT is((SELECT count(*) FROM public.email_claim_scheduled_send('fa252000-0000-4000-8000-000000000099')),1::bigint,'foreground send atomically claims its due reservation');
+SELECT is((SELECT count(*) FROM public.email_claim_scheduled_send('fa252000-0000-4000-8000-000000000099')),0::bigint,'cron and another client cannot claim that delivery again');
+SELECT is(public.email_cancel_schedule('fa252000-0000-4000-8000-000000000099')->>'state','busy','undo cannot retract a delivery that has begun');
+SELECT public.email_apply_sync_page('drafts','','',false,'[{"id":"undo-edit-draft","threadId":"undo-edit-thread","draft":true,"changeKey":"one"},{"id":"undo-other-draft","threadId":"undo-other-thread","draft":true,"changeKey":"one"}]','{}',true);
+SELECT is(public.email_claim_draft('undo-edit-draft','one','fa252000-0000-4000-8000-000000000001','fa252000-0000-4000-8000-000000000071')->>'state','ready','original editor acquires its draft lease');
+SELECT public.email_claim_draft('undo-other-draft','one','fa252000-0000-4000-8000-000000000001','fa252000-0000-4000-8000-000000000072');
+UPDATE public.email_draft_edits SET writing_until=NULL WHERE message_id='undo-edit-draft';
+SELECT public.email_schedule_send('undo-edit-draft','one','fa252000-0000-4000-8000-000000000001','fa252000-0000-4000-8000-000000000073',now()+interval '1 hour');
+SELECT is(public.email_cancel_schedule('fa252000-0000-4000-8000-000000000073')->>'state','cancelled','undo releases the reservation');
+SELECT is(public.email_claim_draft('undo-edit-draft','one','fa252000-0000-4000-8000-000000000001','fa252000-0000-4000-8000-000000000074')->>'state','ready','a fresh editor can immediately edit after cancellation');
+SELECT is((SELECT count(*) FROM public.email_draft_edits WHERE message_id='undo-other-draft'),1::bigint,'cancellation preserves unrelated draft editors');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT * FROM public.email_command_undos$$,'42501','permission denied for table email_command_undos','browser cannot read undo payloads');
+SELECT throws_ok($$SELECT public.email_undo_assignment('undo-thread',NULL,NULL,1)$$,'42501','permission denied for function email_undo_assignment','browser cannot forge assignment undo');
+SELECT throws_ok($$SELECT * FROM public.email_claim_scheduled_send('fa252000-0000-4000-8000-000000000001')$$,'42501','permission denied for function email_claim_scheduled_send','browser cannot claim queued delivery directly');
+SELECT * FROM finish();
+ROLLBACK;

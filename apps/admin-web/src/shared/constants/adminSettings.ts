@@ -75,6 +75,12 @@ export const settingsSections = [
         icon: MessageSquare,
       },
       {
+        title: "Email",
+        description: "Shared email templates and your rich text signature",
+        href: "/settings/email",
+        icon: FileText,
+      },
+      {
         title: "Message Templates",
         description: "Create and manage message templates",
         href: "/settings/templates",

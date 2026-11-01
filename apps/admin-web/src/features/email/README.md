@@ -85,8 +85,15 @@ updates and sends. This detects previously completed Outlook edits. Graph v1.0
 has no established atomic conditional send contract here: simultaneous Outlook
 editing/sending still has a read/check/write race. Conflict UI preserves portal
 text and requires choosing a version. Unsaved browser recovery is scoped to staff
-and draft. Uploads currently support files smaller than 3 MB; large upload sessions
-and Online Archive are not implemented.
+and draft. Attachments support a 20 MB aggregate budget. Files below 3 MB use
+Graph's simple attachment endpoint; larger files use sequential authenticated
+chunk requests backed by a Microsoft upload session and the existing draft lease.
+The provider capability stays encrypted in a staff/mailbox/draft-bound ticket;
+no new runtime secret is needed. Failed chunks are not automatically replayed.
+Abandoned operations can hold the draft for up to ten minutes before expiry;
+a page reload does not resume the upload. Images/PDFs preview in the shared file
+dialog, and attached files can be removed from reopened drafts. Online Archive
+is not implemented.
 
 Microsoft references: [draft send and Sent Items](https://learn.microsoft.com/en-us/graph/api/message-send?view=graph-rest-1.0), [message write permissions](https://learn.microsoft.com/en-us/graph/api/message-update?view=graph-rest-1.0), and [Outlook throttling](https://learn.microsoft.com/en-us/graph/throttling-limits#outlook-service-limits).
 

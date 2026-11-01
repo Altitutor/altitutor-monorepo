@@ -38,3 +38,25 @@ it("stops later batches when Microsoft work cannot be confirmed", async () => {
   ).rejects.toThrow("Provider unavailable");
   expect(requests).toBe(2);
 });
+it("retains confirmed Undo receipts when a later conversation batch fails", async () => {
+  let requests = 0;
+  global.fetch = jest.fn(async () =>
+    ++requests === 2
+      ? Response.json({ error: "Provider unavailable" }, { status: 503 })
+      : Response.json({
+          state: "saved",
+          undoIds: ["fa250000-0000-4000-8000-000000000099"],
+        }),
+  );
+  await expect(
+    executeEmailCommand({
+      action: "move",
+      ids: Array.from({ length: 105 }, (_, index) => `message-${index}`),
+      folderId: "archive",
+    }),
+  ).resolves.toMatchObject({
+    state: "partial",
+    undoIds: ["fa250000-0000-4000-8000-000000000099"],
+  });
+  expect(requests).toBe(2);
+});

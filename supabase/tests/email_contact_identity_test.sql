@@ -1,0 +1,31 @@
+BEGIN;
+SELECT plan(11);
+INSERT INTO public.parents(id,first_name,last_name,email) VALUES('fa250600-0000-4000-8000-000000000001','Alias','Parent','profile-parent@example.test');
+INSERT INTO public.contacts(id,email,contact_type,parent_id) VALUES('fa250600-0000-4000-8000-000000000002','linked-address@example.test','PARENT','fa250600-0000-4000-8000-000000000001');
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+SELECT public.email_apply_sync_page('inbox',NULL,NULL,false,'[{"id":"linked-address-message","threadId":"linked-address-thread","sender":"linked-address@example.test","to":["admin@altitutor.com"],"receivedAt":"2026-10-31T00:00:00Z","draft":false}]','{}',true);
+SELECT is(public.email_thread_detail('linked-address-thread')->'links'->0->>'recordId','fa250600-0000-4000-8000-000000000001','an address already linked to a messaging contact is a known direct email participant');
+SELECT is((SELECT count(*) FROM public.email_correspondence_for_record('parent','fa250600-0000-4000-8000-000000000001')),1::bigint,'the same direct correspondence is available to normal Parent Activity');
+SELECT is((SELECT count(*) FROM public.email_people_for_address('profile-parent@example.test')),1::bigint,'a profile and its synchronized Contact resolve to one person');
+SELECT is((SELECT record_id::text FROM public.email_people_for_address(' LINKED-ADDRESS@example.test ')),'fa250600-0000-4000-8000-000000000001','lookup chips use the same normalized contact address identity');
+INSERT INTO public.students(id,first_name,last_name,email) VALUES('fa250600-0000-4000-8000-000000000003','Other','Person','linked-address@example.test');
+SELECT is((SELECT count(*) FROM public.email_people_for_address('linked-address@example.test')),2::bigint,'two distinct owners are ambiguous, not an arbitrary chip');
+SELECT public.email_apply_sync_page('inbox',NULL,NULL,false,'[{"id":"ambiguous-address-message","threadId":"ambiguous-address-thread","sender":"linked-address@example.test","receivedAt":"2026-10-31T00:01:00Z","draft":false}]','{}',true);
+SELECT is(jsonb_array_length(public.email_thread_detail('ambiguous-address-thread')->'links'),0,'ambiguous linked contacts do not acquire correspondence');
+SELECT public.email_link_participant('ambiguous-address-thread','linked-address@example.test','parent','fa250600-0000-4000-8000-000000000001');
+SELECT is((SELECT count(*) FROM public.email_people_for_address('linked-address@example.test')),1::bigint,'an explicit reviewed participant choice resolves ambiguity');
+-- A reviewed alias reassignment must not rewrite older correspondence when
+-- Microsoft repeats an unchanged envelope for a read or folder update.
+SELECT public.email_link_participant('ambiguous-address-thread','linked-address@example.test','student','fa250600-0000-4000-8000-000000000003');
+SELECT public.email_apply_sync_page('inbox',NULL,NULL,false,'[{"id":"linked-address-message","threadId":"linked-address-thread","sender":"linked-address@example.test","to":["admin@altitutor.com"],"receivedAt":"2026-10-31T00:00:00Z","draft":false,"read":true}]','{}',true);
+SELECT is(jsonb_array_length(public.email_thread_detail('linked-address-thread')->'links'),1,'an unchanged historical envelope preserves its original owner after alias reassignment');
+SELECT public.email_apply_sync_page('archive',NULL,NULL,false,'[{"id":"linked-address-message","folderId":"archive"}]','{}',true);
+SELECT is(jsonb_array_length(public.email_thread_detail('linked-address-thread')->'links'),1,'a partial folder update never adds the current alias owner to old history');
+SELECT public.email_apply_sync_page('inbox',NULL,NULL,false,'[{"id":"new-owner-message","threadId":"new-owner-thread","sender":"linked-address@example.test","receivedAt":"2026-10-31T00:02:00Z","draft":false}]','{}',true);
+SELECT is(public.email_thread_detail('new-owner-thread')->'links'->0->>'recordId','fa250600-0000-4000-8000-000000000003','new correspondence uses the reviewed current address owner');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims','{"role":"authenticated"}',true);
+SELECT is((SELECT count(*) FROM public.email_people_for_address('linked-address@example.test')),0::bigint,'non-admin callers cannot use the email contact directory');
+SELECT * FROM finish();
+ROLLBACK;

@@ -3,6 +3,11 @@ export const emailMessageSchema = z.object({
   id: z.string(),
   threadId: z.string(),
   folderId: z.string().nullable().optional(),
+  replyToMessageId: z.string().optional(),
+  internetMessageId: z.string().nullish(),
+  replyToInternetMessageIds: z.array(z.string()).optional(),
+  replyTargetVersion: z.string().optional(),
+  draftMode: z.enum(["new", "reply", "replyAll", "forward"]).optional(),
   subject: z
     .string()
     .nullish()
@@ -11,6 +16,7 @@ export const emailMessageSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? ""),
+  bodyHtml: z.string().nullish(),
   sender: z
     .string()
     .nullish()
@@ -60,6 +66,7 @@ export type EmailFolder = z.infer<typeof emailFolderSchema>;
 export const draftContentSchema = z.object({
   expectedChangeKey: z.string().min(1),
   bodyText: z.string().max(1_000_000),
+  bodyHtml: z.string().max(1_000_000).optional(),
   subject: z.string().max(998),
   to: z.array(z.string().email()).max(100),
   cc: z.array(z.string().email()).max(100).default([]),
@@ -70,6 +77,7 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     action: z.literal("read"),
     ids: z.array(z.string().min(1)).min(1).max(100),
     read: z.boolean(),
+    silent: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("move"),
@@ -107,7 +115,39 @@ export const emailCommandSchema = z.discriminatedUnion("action", [
     content: draftContentSchema,
   }),
   z.object({
+    action: z.literal("releaseDraft"),
+    id: z.string().min(1),
+    editToken: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal("removeAttachment"),
+    id: z.string().min(1),
+    attachmentId: z.string().min(1),
+    changeKey: z.string().min(1),
+    editToken: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal("discard"),
+    editToken: z.string().uuid(),
+    id: z.string().min(1),
+    changeKey: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal("schedule"),
+    id: z.string().min(1),
+    changeKey: z.string().min(1),
+    commandId: z.string().uuid(),
+    scheduledAt: z.string().datetime({ offset: true }),
+  }),
+  z.object({ action: z.literal("cancelSchedule"), id: z.string().uuid() }),
+  z.object({
+    action: z.literal("undo"),
+    ids: z.array(z.string().uuid()).min(1).max(100),
+  }),
+  z.object({ action: z.literal("dispatchQueued"), id: z.string().uuid() }),
+  z.object({
     action: z.literal("send"),
+    undoDelaySeconds: z.literal(10).optional(),
     id: z.string().min(1),
     changeKey: z.string().min(1),
     commandId: z.string().uuid(),
@@ -134,6 +174,9 @@ export const mailboxSchema = emailListSchema.extend({
   mailboxAddress: z.string().email(),
   mailboxEnvironment: z.enum(["development", "production"]),
   folders: z.array(emailFolderSchema),
+  senders: z
+    .array(z.object({ email: z.string(), name: z.string().nullable() }))
+    .optional(),
   staff: z.array(
     z.object({
       id: z.string(),

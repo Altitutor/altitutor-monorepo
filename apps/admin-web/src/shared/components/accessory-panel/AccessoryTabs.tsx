@@ -42,6 +42,24 @@ const TabContent = memo(function TabContent({
   registerGate: (key: string, gate: CloseGate | null) => void;
   gates: React.MutableRefObject<Map<string, CloseGate>>;
 }) {
+  // A local compose tab acquires its provider identity without navigating away
+  // from the editor. Other destination changes still reset the view.
+  const [identity, setIdentity] = useState(() => ({
+    kind: tab.kind,
+    id: tab.id,
+    key: `${tab.kind}:${tab.id ?? ""}`,
+  }));
+  let viewKey = identity.key;
+  if (identity.kind !== tab.kind || identity.id !== tab.id) {
+    const promotedDraft =
+      identity.kind === "email" &&
+      tab.kind === "email" &&
+      identity.id?.startsWith("compose:") &&
+      tab.id &&
+      !tab.id.startsWith("compose:");
+    viewKey = promotedDraft ? identity.key : `${tab.kind}:${tab.id ?? ""}`;
+    setIdentity({ kind: tab.kind, id: tab.id, key: viewKey });
+  }
   const panel = useAccessoryPanelActions();
   const closeTab = panel?.closeTab;
   const close = useCallback(() => closeTab?.(tab.key), [closeTab, tab.key]);
@@ -97,16 +115,28 @@ const TabContent = memo(function TabContent({
     node?.addEventListener("accessory-navigate", handle);
     return () => node?.removeEventListener("accessory-navigate", handle);
   }, [navigate]);
-  const toolbarView = useMemo(() => ["tasks", "issues", "projects"].includes(tab.kind) ? {
-    value: new URLSearchParams(tab.query).get("view") === "board" ? "board" : "list",
-    options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }],
-    onChange: (view: string) => {
-      if (view !== "list" && view !== "board") return;
-      const params = new URLSearchParams(tab.query);
-      params.set("view", view);
-      updateQuery?.(tab.key, params.toString());
-    },
-  } : undefined, [tab.kind, tab.key, tab.query, updateQuery]);
+  const toolbarView = useMemo(
+    () =>
+      ["tasks", "issues", "projects"].includes(tab.kind)
+        ? {
+            value:
+              new URLSearchParams(tab.query).get("view") === "board"
+                ? "board"
+                : "list",
+            options: [
+              { value: "list", label: "List" },
+              { value: "board", label: "Board" },
+            ],
+            onChange: (view: string) => {
+              if (view !== "list" && view !== "board") return;
+              const params = new URLSearchParams(tab.query);
+              params.set("view", view);
+              updateQuery?.(tab.key, params.toString());
+            },
+          }
+        : undefined,
+    [tab.kind, tab.key, tab.query, updateQuery],
+  );
   const scope = useMemo(
     () => ({ tab, active, close, registerClose, navigate }),
     [tab, active, close, registerClose, navigate],
@@ -126,7 +156,9 @@ const TabContent = memo(function TabContent({
     >
       <AccessoryTabContext.Provider value={scope}>
         <ResponsivePane className="h-full overflow-auto">
-          <ToolbarViewProvider value={toolbarView}><AccessoryView key={`${tab.kind}:${tab.id ?? ""}`} /></ToolbarViewProvider>
+          <ToolbarViewProvider value={toolbarView}>
+            <AccessoryView key={viewKey} />
+          </ToolbarViewProvider>
         </ResponsivePane>
       </AccessoryTabContext.Provider>
     </div>
@@ -163,7 +195,13 @@ export function AccessoryTabs() {
   }, [activeKey]);
   if (!panel) return null;
   const keyboard = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (event.altKey || event.metaKey || event.ctrlKey || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (
+      event.altKey ||
+      event.metaKey ||
+      event.ctrlKey ||
+      !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+    )
+      return;
     event.preventDefault();
     const next =
       event.key === "Home"
@@ -208,8 +246,12 @@ export function AccessoryTabs() {
               >
                 <AccessoryIcon kind={tab.kind} />
                 <span className="truncate">{tab.title}</span>
-                {tab.kind === "messages" && !tab.id && <MessageUnreadBadge count={unreadCount} />}
-                {panelShortcut(tab.kind) && <ShortcutKeys id={panelShortcut(tab.kind)!} />}
+                {tab.kind === "messages" && !tab.id && (
+                  <MessageUnreadBadge count={unreadCount} />
+                )}
+                {panelShortcut(tab.kind) && (
+                  <ShortcutKeys id={panelShortcut(tab.kind)!} />
+                )}
               </button>
               <button
                 type="button"
