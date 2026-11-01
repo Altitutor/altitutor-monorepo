@@ -27,7 +27,18 @@ import {
   toolbarControlUnselectedStyles,
 } from "../lib/toolbar-control-styles";
 
+export interface ToolbarViewDialogProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  busy: boolean;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}
+
 export interface ToolbarViewsService {
+  Dialog?: React.ComponentType<ToolbarViewDialogProps>;
   userId: string | null;
   shareLabel?: string;
   save: (
@@ -37,6 +48,36 @@ export interface ToolbarViewsService {
 }
 const ViewsContext = React.createContext<ToolbarViewsService | null>(null);
 export const ToolbarViewsProvider = ViewsContext.Provider;
+
+function DefaultToolbarViewDialog({
+  open,
+  onClose,
+  title,
+  description,
+  busy,
+  children,
+  footer,
+}: ToolbarViewDialogProps) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
+      }}
+    >
+      <DialogContent className="flex min-h-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[36rem]">
+        <DialogHeader className="shrink-0 px-6 pb-4 pt-6 pr-10">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {children}
+        <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
+          {footer}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function useMatchingView(
   views: SavedView[],
@@ -74,9 +115,7 @@ export function ToolbarSavedViews({
   const [overrides, setOverrides] = React.useState<Record<string, SavedView>>(
     {},
   );
-  const [removedIds, setRemovedIds] = React.useState<Record<string, true>>(
-    {},
-  );
+  const [removedIds, setRemovedIds] = React.useState<Record<string, true>>({});
   const combined = [
     ...views.map((view) => overrides[view.id] ?? view),
     ...Object.values(overrides).filter(
@@ -160,6 +199,7 @@ export function ToolbarSavedViews({
       setSaving(false);
     }
   };
+  const ViewDialog = service?.Dialog ?? DefaultToolbarViewDialog;
   if (!views.length && !(service && target)) return null;
   return (
     <>
@@ -223,51 +263,16 @@ export function ToolbarSavedViews({
           </Button>
         ) : null}
       </div>
-      <Dialog
+      <ViewDialog
         open={editing !== null}
-        onOpenChange={(open) => {
-          if (!open && !saving) setEditing(null);
+        onClose={() => {
+          if (!saving) setEditing(null);
         }}
-      >
-        <DialogContent className="flex min-h-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[36rem]">
-          <DialogHeader className="shrink-0 px-6 pb-4 pt-6 pr-10">
-            <DialogTitle>
-              {editing === "new" ? "New view" : "Edit view"}
-            </DialogTitle>
-            <DialogDescription>
-              Save the layout, filters, sorting, grouping and visible properties
-              for this view.
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            role="region"
-            aria-label="View settings"
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"
-          >
-            <label className="block space-y-1 text-sm">
-              View name
-              <Input
-                autoFocus
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Name this view"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={shared}
-                onCheckedChange={(checked) => setShared(checked === true)}
-              />
-              {service?.shareLabel ?? "Share with all admins"}
-            </label>
-            {renderEditor(draft, setDraft)}
-            {error ? (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
+        title={editing === "new" ? "New view" : "Edit view"}
+        description="Save the layout, filters, sorting, grouping and visible properties for this view."
+        busy={saving}
+        footer={
+          <>
             {editing !== "new" && service?.remove ? (
               <Button
                 type="button"
@@ -276,7 +281,7 @@ export function ToolbarSavedViews({
                 disabled={saving}
                 onClick={() => void remove()}
               >
-                Delete
+                Delete view
               </Button>
             ) : null}
             <Button
@@ -294,9 +299,38 @@ export function ToolbarSavedViews({
             >
               {saving ? "Saving…" : "Save view"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div
+          role="region"
+          aria-label="View settings"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"
+        >
+          <label className="block space-y-1 text-sm">
+            View name
+            <Input
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Name this view"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={shared}
+              onCheckedChange={(checked) => setShared(checked === true)}
+            />
+            {service?.shareLabel ?? "Share with all admins"}
+          </label>
+          {renderEditor(draft, setDraft)}
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </ViewDialog>
     </>
   );
 }

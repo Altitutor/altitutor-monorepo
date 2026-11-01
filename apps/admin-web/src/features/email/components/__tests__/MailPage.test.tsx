@@ -1,3 +1,4 @@
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import {
   act,
   fireEvent,
@@ -66,13 +67,15 @@ it("keeps folder navigation visible while another folder is loading", async () =
     return { ok: true, json: async () => mailbox } as Response;
   });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
   fireEvent.click(screen.getByRole("button", { name: "Archive" }));
@@ -95,18 +98,20 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
       : ({ ok: true, json: async () => mailbox } as Response),
   );
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-          },
-        })
-      }
-    >
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false },
+              mutations: { retry: false },
+            },
+          })
+        }
+      >
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   const row = await screen.findByRole("button", { name: "Open Lesson update" });
   const values = new Map<string, string>();
@@ -139,13 +144,15 @@ it("opens a conversation when the non-button space inside its highlighted row is
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   const rowButton = await screen.findByRole("button", {
     name: "Open Lesson update",
@@ -174,9 +181,11 @@ it("offers an Undo toast for a successful folder move and executes its server re
     } as Response;
   });
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   const row = await screen.findByRole("button", { name: "Open Lesson update" });
   const values = new Map<string, string>();
@@ -218,13 +227,15 @@ it("lets received and preview be independently hidden, including hiding both", a
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
   fireEvent.click(screen.getByRole("button", { name: "Display options" }));
@@ -265,9 +276,11 @@ it("selects Inbox once its first sync discovers folders", async () => {
       }) as Response,
   );
   render(
-    <QueryClientProvider client={client}>
-      <MailPage />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={client}>
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
   await screen.findByRole("heading", { name: "All mail" });
@@ -292,17 +305,19 @@ it("places filled Compose in the shared primary header and opens the existing co
   document.body.appendChild(header);
   try {
     render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <AdminPageActionsTarget.Provider
-          value={{ primary: header, secondary: null }}
+      <QuickActionsProvider>
+        <QueryClientProvider
+          client={
+            new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }
         >
-          <MailPage />
-        </AdminPageActionsTarget.Provider>
-      </QueryClientProvider>,
+          <AdminPageActionsTarget.Provider
+            value={{ primary: header, secondary: null }}
+          >
+            <MailPage />
+          </AdminPageActionsTarget.Provider>
+        </QueryClientProvider>
+      </QuickActionsProvider>,
     );
     const compose = await screen.findByRole("button", {
       name: "Compose",

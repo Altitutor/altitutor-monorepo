@@ -1,25 +1,97 @@
 "use client";
 
-import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
-const MediaQueryWidthContext = createContext<number | null>(null);
-/** Optional measured content width for split-pane applications. */
-export function MediaQueryWidthProvider({ width, children }: { width: number | null; children: ReactNode }) {
-  return createElement(MediaQueryWidthContext.Provider, { value: width }, children);
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+
+function createWidthStore(initialWidth: number | null) {
+  let width = initialWidth;
+  const listeners = new Set<() => void>();
+  return {
+    getWidth: () => width,
+    setWidth(next: number | null) {
+      if (next === width) return;
+      width = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }
-export function useMediaQuery(query: string) {
-  const width = useContext(MediaQueryWidthContext);
-  const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    const listener = (event: MediaQueryListEvent) => setMatches(event.matches);
-    setMatches(media.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
-  }, [query]);
-  if (width !== null) {
-    const min = query.match(/min-width:\s*([\d.]+)px/);
-    const max = query.match(/max-width:\s*([\d.]+)px/);
-    if (min || max) return (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
-  }
-  return matches;
+
+const MediaQueryWidthContext = createContext<ReturnType<
+  typeof createWidthStore
+> | null>(null);
+
+/** A stable store lets each consumer subscribe to its query result, rather than every pixel. */
+export function MediaQueryWidthProvider({
+  width,
+  children,
+}: {
+  width: number | null;
+  children: ReactNode;
+}) {
+  const [store] = useState(() => createWidthStore(width));
+  useLayoutEffect(() => store.setWidth(width), [store, width]);
+  return createElement(
+    MediaQueryWidthContext.Provider,
+    { value: store },
+    children,
+  );
+}
+
+const serverSnapshot = () => false;
+/** Disabled queries return false and do not subscribe to width changes. */
+export function useMediaQuery(query: string, enabled = true) {
+  const store = useContext(MediaQueryWidthContext);
+  const media = useMemo(
+    () =>
+      !enabled || typeof window === "undefined"
+        ? null
+        : window.matchMedia(query),
+    [query, enabled],
+  );
+  const bounds = useMemo(
+    () => ({
+      min: query.match(/min-width:\s*([\d.]+)px/),
+      max: query.match(/max-width:\s*([\d.]+)px/),
+    }),
+    [query],
+  );
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      if (!enabled) return () => {};
+      const unsubscribe = store?.subscribe(listener);
+      media?.addEventListener("change", listener);
+      return () => {
+        unsubscribe?.();
+        media?.removeEventListener("change", listener);
+      };
+    },
+    [store, media, enabled],
+  );
+  const snapshot = useCallback(() => {
+    if (!enabled) return false;
+    const width = store?.getWidth() ?? null;
+    if (width !== null && (bounds.min || bounds.max)) {
+      return (
+        (!bounds.min || width >= Number(bounds.min[1])) &&
+        (!bounds.max || width <= Number(bounds.max[1]))
+      );
+    }
+    return media?.matches ?? false;
+  }, [store, bounds, media, enabled]);
+  return useSyncExternalStore(subscribe, snapshot, serverSnapshot);
 }

@@ -1,14 +1,6 @@
 "use client";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMediaQuery, MediaQueryWidthProvider } from "@altitutor/ui";
-const WidthContext = createContext<number | null>(null);
 export function ResponsivePane({
   children,
   className = "",
@@ -38,20 +30,12 @@ export function ResponsivePane({
       className={`admin-responsive-pane min-w-0 ${className}`}
       style={{ containerType: "inline-size", containerName: "admin-pane" }}
     >
-      <WidthContext.Provider value={width}>
-        <MediaQueryWidthProvider width={width}>
-          {children}
-        </MediaQueryWidthProvider>
-      </WidthContext.Provider>
+      <MediaQueryWidthProvider width={width}>
+        {children}
+      </MediaQueryWidthProvider>
     </div>
   );
 }
 export function usePanelMediaQuery(query: string) {
-  const width = useContext(WidthContext);
-  const viewport = useMediaQuery(query);
-  if (width === null) return viewport;
-  const min = query.match(/min-width:\s*([\d.]+)px/);
-  const max = query.match(/max-width:\s*([\d.]+)px/);
-  if (!min && !max) return viewport;
-  return (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
+  return useMediaQuery(query);
 }

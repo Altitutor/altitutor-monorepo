@@ -1,19 +1,19 @@
 /**
  * Command Palette Configuration
- * 
+ *
  * This file defines all searchable commands, pages, and entity types for the Command Palette.
- * 
+ *
  * ## Adding New Pages
  * Pages added to `navItems` in `apps/admin-web/src/app/(admin)/layout.tsx` are automatically
  * searchable. No additional configuration needed.
- * 
+ *
  * For settings pages or other pages not in navItems, add them to the `additionalPages` array below.
- * 
+ *
  * ## Adding New Commands
  * 1. Add the command to `QUICK_ACTIONS` in `apps/admin-web/src/shared/constants/quickActions.ts`
  * 2. The action will be wired up automatically via `useCommandPaletteCommandActions` hook
  * 3. If the command needs custom handling, update `useCommandPaletteCommandActions` hook
- * 
+ *
  * ## Adding/Removing Entity Types
  * 1. Update the `entityTypes` object below
  * 2. Ensure the corresponding search RPC exists in the database (e.g., `search_students_admin`)
@@ -22,6 +22,8 @@
 
 import {
   CheckSquare,
+  Mail,
+  MessageSquare,
   AlertTriangle,
   GraduationCap,
   UserRound,
@@ -39,9 +41,9 @@ import {
   File,
   FolderKanban,
   Printer,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { QUICK_ACTIONS } from "@/shared/constants/quickActions";
 
 export type CommandAction = () => void;
 
@@ -73,119 +75,136 @@ export interface EntityTypeConfig {
 /**
  * Commands that can be executed from the Command Palette
  * These trigger actions rather than navigation
- * 
+ *
  * Commands are derived from QUICK_ACTIONS to ensure consistency across
  * dashboard, floating menu, and command palette
  */
-export const commands: CommandPaletteCommand[] = QUICK_ACTIONS.map((action) => ({
-  id: action.id,
-  title: action.title,
-  description: action.description,
-  icon: action.icon,
-  keywords: action.keywords,
-  action: () => {}, // Will be set by CommandPalette component via useCommandPaletteCommands
-}));
+export const commands: CommandPaletteCommand[] = QUICK_ACTIONS.map(
+  (action) => ({
+    id: action.id,
+    title: action.title,
+    description: action.description,
+    icon: action.icon,
+    keywords: action.keywords,
+    action: () => {}, // Will be set by CommandPalette component via useCommandPaletteCommands
+  }),
+);
 
 /**
  * Pages that can be navigated to from the Command Palette
- * 
+ *
  * NOTE: Pages are automatically extracted from navItems in layout.tsx
  * This array includes additional pages (like settings sub-pages) that aren't in the main nav
  */
 export const additionalPages: CommandPalettePage[] = [
   // Settings pages
   {
-    id: 'settings-opening-hours',
-    title: 'Opening Hours',
-    href: '/settings/opening-hours',
+    id: "settings-opening-hours",
+    title: "Opening Hours",
+    href: "/settings/opening-hours",
     icon: Clock,
-    keywords: ['opening', 'hours', 'schedule'],
+    keywords: ["opening", "hours", "schedule"],
   },
   {
-    id: 'settings-blockouts',
-    title: 'Blockout Dates',
-    href: '/settings/blockouts',
+    id: "settings-blockouts",
+    title: "Blockout Dates",
+    href: "/settings/blockouts",
     icon: Ban,
-    keywords: ['blockout', 'dates', 'unavailable'],
+    keywords: ["blockout", "dates", "unavailable"],
   },
   {
-    id: 'settings-booking',
-    title: 'Booking Settings',
-    href: '/settings/booking',
+    id: "settings-booking",
+    title: "Booking Settings",
+    href: "/settings/booking",
     icon: Calendar,
-    keywords: ['booking', 'settings', 'config'],
+    keywords: ["booking", "settings", "config"],
   },
   {
-    id: 'settings-templates',
-    title: 'Message Templates',
-    href: '/settings/templates',
+    id: "settings-templates",
+    title: "Message Templates",
+    href: "/settings/templates",
     icon: FileText,
-    keywords: ['templates', 'messages', 'message'],
+    keywords: ["templates", "messages", "message"],
   },
   {
-    id: 'settings-automation',
-    title: 'Automation Rules',
-    href: '/settings/automation',
+    id: "settings-automation",
+    title: "Automation Rules",
+    href: "/settings/automation",
     icon: Zap,
-    keywords: ['automation', 'rules', 'auto'],
+    keywords: ["automation", "rules", "auto"],
   },
   {
-    id: 'settings-billing',
-    title: 'Billing Settings',
-    href: '/settings/billing',
+    id: "settings-billing",
+    title: "Billing Settings",
+    href: "/settings/billing",
     icon: CreditCard,
-    keywords: ['billing', 'pricing', 'settings'],
+    keywords: ["billing", "pricing", "settings"],
   },
   {
-    id: 'settings-pay-tiers',
-    title: 'Pay tiers ladder',
-    href: '/pay-tiers/ladder',
+    id: "settings-pay-tiers",
+    title: "Pay tiers ladder",
+    href: "/pay-tiers/ladder",
     icon: CreditCard,
-    keywords: ['pay', 'tier', 'staff', 'salary', 'wage'],
+    keywords: ["pay", "tier", "staff", "salary", "wage"],
   },
   {
-    id: 'pay-tiers',
-    title: 'Pay tiers',
-    href: '/pay-tiers',
+    id: "pay-tiers",
+    title: "Pay tiers",
+    href: "/pay-tiers",
     icon: CreditCard,
-    keywords: ['pay', 'tier', 'staff', 'promotion', 'review'],
+    keywords: ["pay", "tier", "staff", "promotion", "review"],
   },
   {
-    id: 'settings-stripe-sync',
-    title: 'Stripe Sync',
-    href: '/settings/stripe-sync',
+    id: "settings-stripe-sync",
+    title: "Stripe Sync",
+    href: "/settings/stripe-sync",
     icon: Link2,
-    keywords: ['stripe', 'sync', 'payment'],
+    keywords: ["stripe", "sync", "payment"],
   },
   {
-    id: 'settings-office-print',
-    title: 'Office print',
-    href: '/settings/office-print',
+    id: "settings-office-print",
+    title: "Office print",
+    href: "/settings/office-print",
     icon: Printer,
-    keywords: ['print', 'printer', 'office', 'tutor', 'shift', 'fuj'],
+    keywords: ["print", "printer", "office", "tutor", "shift", "fuj"],
   },
   {
-    id: 'settings-ucat-billing',
-    title: 'UCAT billing',
-    href: '/settings/ucat-billing',
+    id: "settings-ucat-billing",
+    title: "UCAT billing",
+    href: "/settings/ucat-billing",
     icon: GraduationCap,
-    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount', 'free', 'tier', 'quota', 'limit', 'sets', 'mocks', 'reset', 'student'],
+    keywords: [
+      "ucat",
+      "subscription",
+      "trial",
+      "stripe",
+      "practice",
+      "discount",
+      "free",
+      "tier",
+      "quota",
+      "limit",
+      "sets",
+      "mocks",
+      "reset",
+      "student",
+    ],
   },
   // Main settings page
   {
-    id: 'settings',
-    title: 'Settings',
-    href: '/settings',
+    id: "settings",
+    title: "Settings",
+    href: "/settings",
     icon: Settings,
-    keywords: ['settings', 'config', 'preferences'],
+    keywords: ["settings", "config", "preferences"],
   },
   // My Account page
   {
-    id: 'my-account',
-    title: 'My Account',
-    href: '/my-account',
+    id: "my-account",
+    title: "My Account",
+    href: "/my-account",
     icon: UserRound,
-    keywords: ['account', 'profile', 'my'],
+    keywords: ["account", "profile", "my"],
   },
 ];
 
@@ -194,79 +213,93 @@ export const additionalPages: CommandPalettePage[] = [
  * Each entity type uses its corresponding RPC function for search
  */
 export const entityTypes: Record<string, EntityTypeConfig> = {
+  emails: {
+    id: "emails",
+    label: "Emails",
+    icon: Mail,
+    limit: 20,
+    enabled: true,
+  },
+  messages: {
+    id: "messages",
+    label: "Messages",
+    icon: MessageSquare,
+    limit: 20,
+    enabled: true,
+  },
   students: {
-    id: 'students',
-    label: 'Students',
+    id: "students",
+    label: "Students",
     icon: GraduationCap,
     limit: 8,
     enabled: true,
   },
   staff: {
-    id: 'staff',
-    label: 'Staff',
+    id: "staff",
+    label: "Staff",
     icon: Users,
     limit: 8,
     enabled: true,
   },
   parents: {
-    id: 'parents',
-    label: 'Parents',
+    id: "parents",
+    label: "Parents",
     icon: UserRound,
     limit: 8,
     enabled: true,
   },
   classes: {
-    id: 'classes',
-    label: 'Classes',
+    id: "classes",
+    label: "Classes",
     icon: Calendar,
     limit: 8,
     enabled: true,
   },
   subjects: {
-    id: 'subjects',
-    label: 'Subjects',
+    id: "subjects",
+    label: "Subjects",
     icon: Beaker,
     limit: 8,
     enabled: true,
   },
   tasks: {
-    id: 'tasks',
-    label: 'Tasks',
+    id: "tasks",
+    label: "Tasks",
     icon: CheckSquare,
     limit: 8,
     enabled: true,
   },
   issues: {
-    id: 'issues',
-    label: 'Issues',
+    id: "issues",
+    label: "Issues",
     icon: AlertTriangle,
     limit: 8,
     enabled: true,
   },
   projects: {
-    id: 'projects',
-    label: 'Projects',
+    id: "projects",
+    label: "Projects",
     icon: FolderKanban,
     limit: 8,
     enabled: true,
   },
   topics: {
-    id: 'topics',
-    label: 'Topics',
+    id: "topics",
+    label: "Topics",
     icon: Newspaper,
     limit: 8,
     enabled: true,
   },
   files: {
-    id: 'files',
-    label: 'Files',
+    id: "files",
+    label: "Files",
     icon: File,
     limit: 8,
     enabled: true,
   },
   notes: {
-    id: 'notes',
-    label: 'Notes',
+    id: "notes",
+    label: "Notes",
     icon: FileText,
     limit: 8,
     enabled: true,
@@ -277,10 +310,13 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
  * Helper function to extract pages from navItems
  * This ensures pages added to the sidebar are automatically searchable
  */
-export function extractPagesFromNavItems(navItems: Array<{ title: string; href: string; icon: LucideIcon }>): CommandPalettePage[] {
+export function extractPagesFromNavItems(
+  navItems: Array<{ title: string; href: string; icon: LucideIcon }>,
+): CommandPalettePage[] {
   return navItems
-    .filter((item): item is { title: string; href: string; icon: LucideIcon } => 
-      'href' in item && 'icon' in item
+    .filter(
+      (item): item is { title: string; href: string; icon: LucideIcon } =>
+        "href" in item && "icon" in item,
     )
     .map((item) => ({
       id: item.href,

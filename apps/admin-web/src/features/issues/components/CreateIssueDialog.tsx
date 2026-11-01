@@ -66,6 +66,12 @@ async function buildDescriptionFromInitialTags(
   return { type: "doc", content };
 }
 
+import {
+  referenceDescription,
+  referenceKey,
+  type EntityReference,
+} from "@/shared/utils/entityReference";
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z
@@ -76,6 +82,7 @@ const formSchema = z.object({
 });
 
 interface CreateIssueDialogProps {
+  reference?: EntityReference | null;
   isOpen: boolean;
   onClose: () => void;
   onIssueCreated?: () => void;
@@ -85,6 +92,7 @@ interface CreateIssueDialogProps {
 }
 
 export function CreateIssueDialog({
+  reference,
   isOpen,
   onClose,
   onIssueCreated,
@@ -109,7 +117,7 @@ export function CreateIssueDialog({
     },
   });
 
-  const draftKey = `issue:${JSON.stringify(initialTags?.map((tag) => Object.entries(tag).sort()).sort() ?? [])}`;
+  const draftKey = `issue:${referenceKey(reference)}:${JSON.stringify(initialTags?.map((tag) => Object.entries(tag).sort()).sort() ?? [])}`;
   const { readDraft, saveDraft, clearDraft, storageKey } = useCreateDialogDraft(
     form,
     isOpen,
@@ -134,7 +142,9 @@ export function CreateIssueDialog({
 
     let cancelled = false;
     (async () => {
-      const description = await buildDescriptionFromInitialTags(initialTags);
+      const description = reference
+        ? referenceDescription(reference)
+        : await buildDescriptionFromInitialTags(initialTags);
       if (cancelled || form.formState.isDirty) return;
       form.reset({
         name: "",
@@ -155,6 +165,7 @@ export function CreateIssueDialog({
     initialStatus,
     initialDueDate,
     initialTags,
+    reference,
     form,
     readDraft,
     storageKey,

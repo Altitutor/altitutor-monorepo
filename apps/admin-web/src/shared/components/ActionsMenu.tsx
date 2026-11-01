@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { Button } from "@altitutor/ui";
 import {
   DropdownMenu,
@@ -25,9 +25,7 @@ import {
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
-import { CreateIssueDialog } from "@/features/issues/components/CreateIssueDialog";
 import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
-import type { IssueTagInsert } from "@/features/issues/types";
 
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
@@ -187,11 +185,11 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<
   session: "session",
   invoice: "invoice",
   class: "class",
-  adminShift: "adminShift",
+  adminShift: "admin-shift",
   parent: "parent",
   topic: "topic",
   subject: "subject",
-  tutorLog: "tutorLog",
+  tutorLog: "tutor-log",
   issue: "issue",
   task: "task",
   project: "project",
@@ -200,19 +198,17 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<
 
 export function ActionsMenu(props: ActionsMenuProps) {
   const { toast } = useToast();
-  const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
-
-  const issueInitialTags = useMemo<Omit<IssueTagInsert, "issue_id">[]>(() => {
-    if (!props.entityId) return [];
-
-    if (props.type === "student") return [{ student_id: props.entityId }];
-    if (props.type === "staff") return [{ staff_id: props.entityId }];
-    if (props.type === "parent") return [{ parent_id: props.entityId }];
-    if (props.type === "class") return [{ class_id: props.entityId }];
-    if (props.type === "session") return [{ session_id: props.entityId }];
-
-    return [];
-  }, [props]);
+  const quickActions = useQuickActions();
+  const reference = props.entityId
+    ? {
+        type:
+          props.copyTagType ||
+          DEFAULT_TAG_TYPE_BY_MENU_TYPE[props.type] ||
+          props.type,
+        id: props.entityId,
+        label: props.copyTagDisplayText || props.entityId,
+      }
+    : undefined;
 
   const messageAction = useOpenPersonMessages(
     props.type === "student" ||
@@ -223,7 +219,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
     props.entityId,
     props.copyTagDisplayText,
   );
-  const canAddIssue = issueInitialTags.length > 0;
 
   const handleCopyId = async () => {
     if (!props.entityId) return;
@@ -272,7 +267,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
         }
       : undefined,
     messageDisabled: messageAction.isOpening,
-    addIssue: canAddIssue ? () => setIsCreateIssueOpen(true) : undefined,
+    addIssue: reference
+      ? () => quickActions.openCreateIssueDialog(reference)
+      : undefined,
+    addTask: reference
+      ? () => quickActions.openCreateTaskDialog(reference)
+      : undefined,
   });
   useRegisterRecordActions(
     props.type,
@@ -296,6 +296,16 @@ export function ActionsMenu(props: ActionsMenuProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {copyMenuItem}
+          {actions
+            .filter(
+              (action) => action.id === "add-task" || action.id === "add-issue",
+            )
+            .map((action) => (
+              <DropdownMenuItem key={action.id} onSelect={action.action}>
+                <action.icon className="mr-2 h-4 w-4" />
+                {action.title}
+              </DropdownMenuItem>
+            ))}
           {(props.onViewPaymentPage || props.onViewInStripe) && (
             <>
               <DropdownMenuSeparator />
@@ -439,13 +449,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {actions.filter((action) => action.destructive).map(renderAction)}
         </DropdownMenuContent>
       </DropdownMenu>
-      {canAddIssue && (
-        <CreateIssueDialog
-          isOpen={isCreateIssueOpen}
-          onClose={() => setIsCreateIssueOpen(false)}
-          initialTags={issueInitialTags}
-        />
-      )}
     </>
   );
 }

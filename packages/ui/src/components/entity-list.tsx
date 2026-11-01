@@ -254,7 +254,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     renderAddRow,
   } = props;
 
-  const narrow = !useMediaQuery('(min-width: 768px)');
+  const narrow = !useMediaQuery('(min-width: 768px)', !compactProp);
   const compact = compactProp || narrow;
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
     rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)

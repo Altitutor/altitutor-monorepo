@@ -26,7 +26,13 @@ export type AccessoryDestination = {
   title: string;
   query?: string;
 };
-export type AccessoryFamily = "tasks" | "issues" | "projects" | "documents" | "messages" | "email";
+export type AccessoryFamily =
+  | "tasks"
+  | "issues"
+  | "projects"
+  | "documents"
+  | "messages"
+  | "email";
 export const accessoryFamily = (kind: AccessoryKind) =>
   (
     ({
@@ -49,15 +55,22 @@ function messagesConversationId(query: string, fallback?: string) {
 
 function recordDestination<T extends AccessoryDestination>(value: T): T | null {
   if (!kinds.includes(value.kind)) return null;
-  const id = value.kind === "messages"
-    ? messagesConversationId(value.query ?? "", value.id)
-    : value.id;
+  const id =
+    value.kind === "messages"
+      ? messagesConversationId(value.query ?? "", value.id)
+      : value.id;
   if (!id?.trim()) return null;
   const query = new URLSearchParams(value.query ?? "");
   if (value.kind === "messages" && !messagesConversationId(query.toString())) {
     query.set("contact", id);
   }
-  return { ...value, id, ...(value.query !== undefined || value.kind === "messages" ? { query: query.toString() } : {}) };
+  return {
+    ...value,
+    id,
+    ...(value.query !== undefined || value.kind === "messages"
+      ? { query: query.toString() }
+      : {}),
+  };
 }
 export type AccessoryTab = {
   owner?: AccessoryOwner;
@@ -126,32 +139,52 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
           "tabs" in saved &&
           Array.isArray(saved.tabs)
         ) {
-          const readTabs = (tabs: unknown[]) => tabs
-            .filter(
-              (tab): tab is AccessoryTab =>
-                !!tab && typeof tab === "object" &&
-                "key" in tab && "kind" in tab && "title" in tab && "query" in tab &&
-                typeof tab.key === "string" &&
-                kinds.includes(tab.kind as AccessoryKind) &&
-                typeof tab.title === "string" &&
-                typeof tab.query === "string" &&
-                (!("id" in tab) || tab.id === undefined || typeof tab.id === "string"),
-            )
-            .flatMap((tab) => {
-              const record = recordDestination(tab);
-              if (!record) return [];
-              return [{ ...record, owner: tab.owner && recordDestination(tab.owner) || undefined,
-                locations: tab.locations ? Object.fromEntries(Object.entries(tab.locations).flatMap(([key, value]) => {
-                  const location = recordDestination(value);
-                  return location ? [[key, location]] : [];
-                })) : undefined,
-              }];
-            });
+          const readTabs = (tabs: unknown[]) =>
+            tabs
+              .filter(
+                (tab): tab is AccessoryTab =>
+                  !!tab &&
+                  typeof tab === "object" &&
+                  "key" in tab &&
+                  "kind" in tab &&
+                  "title" in tab &&
+                  "query" in tab &&
+                  typeof tab.key === "string" &&
+                  kinds.includes(tab.kind as AccessoryKind) &&
+                  typeof tab.title === "string" &&
+                  typeof tab.query === "string" &&
+                  (!("id" in tab) ||
+                    tab.id === undefined ||
+                    typeof tab.id === "string"),
+              )
+              .flatMap((tab) => {
+                const record = recordDestination(tab);
+                if (!record) return [];
+                return [
+                  {
+                    ...record,
+                    owner:
+                      (tab.owner && recordDestination(tab.owner)) || undefined,
+                    locations: tab.locations
+                      ? Object.fromEntries(
+                          Object.entries(tab.locations).flatMap(
+                            ([key, value]) => {
+                              const location = recordDestination(value);
+                              return location ? [[key, location]] : [];
+                            },
+                          ),
+                        )
+                      : undefined,
+                  },
+                ];
+              });
           const valid = readTabs(saved.tabs);
           const data = saved as Partial<Workspace>;
           next = {
             tabs: valid,
-            recentlyClosed: readTabs(Array.isArray(data.recentlyClosed) ? data.recentlyClosed : []).slice(0, 10),
+            recentlyClosed: readTabs(
+              Array.isArray(data.recentlyClosed) ? data.recentlyClosed : [],
+            ).slice(0, 10),
             activeKey: valid.some((t) => t.key === data.activeKey)
               ? data.activeKey!
               : (valid[0]?.key ?? null),
@@ -192,11 +225,22 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
           if (t.kind !== tab.kind) return false;
           return t.id === id;
         });
-        const recentlyClosed = current.recentlyClosed.filter((closed) =>
-          closed.kind !== tab.kind || closed.id !== id,
+        const recentlyClosed = current.recentlyClosed.filter(
+          (closed) => closed.kind !== tab.kind || closed.id !== id,
         );
         if (existing)
-          return { ...current, recentlyClosed, activeKey: existing.key, expanded: true };
+          return {
+            ...current,
+            tabs:
+              tab.query === undefined
+                ? current.tabs
+                : current.tabs.map((item) =>
+                    item.key === existing.key ? { ...item, query } : item,
+                  ),
+            recentlyClosed,
+            activeKey: existing.key,
+            expanded: true,
+          };
         const next = {
           ...tab,
           id,
@@ -265,9 +309,12 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
         return {
           ...current,
           tabs,
-          recentlyClosed: [closed, ...current.recentlyClosed.filter((tab) =>
-            tab.kind !== closed.kind || tab.id !== closed.id,
-          )].slice(0, 10),
+          recentlyClosed: [
+            closed,
+            ...current.recentlyClosed.filter(
+              (tab) => tab.kind !== closed.kind || tab.id !== closed.id,
+            ),
+          ].slice(0, 10),
           activeKey:
             current.activeKey === key
               ? (tabs[Math.min(index, tabs.length - 1)]?.key ?? null)
@@ -337,7 +384,10 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       toggle,
     ],
   );
-  const value = useMemo(() => ({ ...workspace, ...actions }), [workspace, actions]);
+  const value = useMemo(
+    () => ({ ...workspace, ...actions }),
+    [workspace, actions],
+  );
   return (
     <ActionsContext.Provider value={actions}>
       <Context.Provider value={value}>

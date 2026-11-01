@@ -1,3 +1,4 @@
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { EmailActions } from "../EmailActions";
@@ -15,34 +16,36 @@ beforeAll(() => {
 it("disables stale hover shortcuts when an accessory tab becomes inactive or collapsed", () => {
   const reply = jest.fn();
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <AccessoryTabContext.Provider
-        value={{
-          tab: {
-            key: "hidden-mail",
-            id: "thread",
-            kind: "email",
-            title: "Mail",
-            query: "",
-          },
-          active: false,
-          close: () => {},
-          navigate: () => {},
-          registerClose: () => {},
-        }}
-      >
-        <EmailActions
-          ids={["one"]}
-          threadId="thread"
-          read
-          assignedStaffId={null}
-          mailbox={mailbox}
-          hovered
-          onReply={reply}
-          level="message"
-        />
-      </AccessoryTabContext.Provider>
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <AccessoryTabContext.Provider
+          value={{
+            tab: {
+              key: "hidden-mail",
+              id: "thread",
+              kind: "email",
+              title: "Mail",
+              query: "",
+            },
+            active: false,
+            close: () => {},
+            navigate: () => {},
+            registerClose: () => {},
+          }}
+        >
+          <EmailActions
+            ids={["one"]}
+            threadId="thread"
+            read
+            assignedStaffId={null}
+            mailbox={mailbox}
+            hovered
+            onReply={reply}
+            level="message"
+          />
+        </AccessoryTabContext.Provider>
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   fireEvent.keyDown(document.body, { key: "r" });
   expect(reply).not.toHaveBeenCalled();
@@ -50,20 +53,22 @@ it("disables stale hover shortcuts when an accessory tab becomes inactive or col
 it("ignores a hidden primary pane even if its last hover flag is stale", () => {
   const reply = jest.fn();
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <div hidden>
-        <EmailActions
-          ids={["one"]}
-          threadId="thread"
-          read
-          assignedStaffId={null}
-          mailbox={mailbox}
-          hovered
-          onReply={reply}
-          level="message"
-        />
-      </div>
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <div hidden>
+          <EmailActions
+            ids={["one"]}
+            threadId="thread"
+            read
+            assignedStaffId={null}
+            mailbox={mailbox}
+            hovered
+            onReply={reply}
+            level="message"
+          />
+        </div>
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   fireEvent.keyDown(document.body, { key: "r" });
   expect(reply).not.toHaveBeenCalled();
@@ -71,19 +76,21 @@ it("ignores a hidden primary pane even if its last hover flag is stale", () => {
 it("retains keyboard ownership when menu focus returns to a row whose mouse-enter flag has cleared", () => {
   const reply = jest.fn();
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <div data-email-shortcut-target>
-        <EmailActions
-          ids={["one"]}
-          threadId="thread"
-          read
-          assignedStaffId={null}
-          mailbox={mailbox}
-          onReply={reply}
-          level="message"
-        />
-      </div>
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <div data-email-shortcut-target>
+          <EmailActions
+            ids={["one"]}
+            threadId="thread"
+            read
+            assignedStaffId={null}
+            mailbox={mailbox}
+            onReply={reply}
+            level="message"
+          />
+        </div>
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   screen.getByRole("button", { name: "Reply" }).focus();
   fireEvent.keyDown(document.activeElement!, { key: "r" });
@@ -106,19 +113,21 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   const reply = jest.fn(),
     forward = jest.fn();
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <input aria-label="Typing here" />
-      <EmailActions
-        ids={["one"]}
-        threadId="thread"
-        read
-        assignedStaffId={null}
-        mailbox={mailbox}
-        hovered
-        onReply={reply}
-        onForward={forward}
-      />
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <input aria-label="Typing here" />
+        <EmailActions
+          ids={["one"]}
+          threadId="thread"
+          read
+          assignedStaffId={null}
+          mailbox={mailbox}
+          hovered
+          onReply={reply}
+          onForward={forward}
+        />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
   fireEvent.keyDown(screen.getByRole("textbox", { name: "Typing here" }), {
     key: "r",

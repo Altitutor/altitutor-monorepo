@@ -195,7 +195,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     searchFromViewGroups,
     columnViewGroups = [],
   } = props;
-  const narrow = !useMediaQuery("(min-width: 768px)");
+  const narrow = !useMediaQuery("(min-width: 768px)", !compactProp);
   const compact = compactProp || narrow;
   const [searchOpen, setSearchOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -559,7 +559,11 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                   state.sortBy ? (
                     <button
                       type="button"
-                      title={state.sortDirection === "asc" ? "Sort descending" : "Sort ascending"}
+                      title={
+                        state.sortDirection === "asc"
+                          ? "Sort descending"
+                          : "Sort ascending"
+                      }
                       aria-label={
                         state.sortDirection === "asc"
                           ? "Sort descending"
