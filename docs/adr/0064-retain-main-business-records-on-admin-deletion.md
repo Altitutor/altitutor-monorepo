@@ -11,3 +11,5 @@ Deleted Topics leave the live sibling ordering; restoration appends them to the 
 Expired pristine generated calendar cancellation tombstones use the existing maintenance entry point, which now archives them instead of physically deleting them. System maintenance snapshots have no human deletion actor. Active or authored Sessions are outside this maintenance boundary.
 
 Retained Staff/Parent Auth identities reject physical Auth deletion, including the separate cleanup request made by older Staff endpoints. This protects shared roles and identity-linked history while application versions roll forward.
+
+Conversation Messages cannot be deleted by users, including through conversation/contact cascades or provider delete commands. Trusted inbound reconciliation may consolidate duplicate representations while retaining canonical history and references. Provider unsend remains a delivery correction recorded in local history. Student subsidy pricing configuration is not a core business entity and keeps its separate configuration lifecycle.

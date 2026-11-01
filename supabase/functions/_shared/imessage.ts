@@ -126,6 +126,9 @@ export function validateCommandRequest(value: unknown): {
   if (typeof commandType !== "string" || !isCommandType(commandType)) {
     throw new Error("Unsupported commandType");
   }
+  if (commandType === "delete_message" || commandType === "delete_chat") {
+    throw new Error("Message deletion is not allowed");
+  }
   const messageId = optionalString(value.messageId, "messageId");
   const conversationId = optionalString(value.conversationId, "conversationId");
   const payload = value.payload === undefined ? {} : value.payload;
