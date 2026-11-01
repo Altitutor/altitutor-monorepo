@@ -11,6 +11,7 @@ export type TutorLogFormData = {
     studentId: string;
     attended: TutorLogAttendanceChoice;
   }[];
+  parentAttendance?: { parentId: string; attended: boolean }[];
   topics: {
     topicId: string;
     studentIds: string[];
