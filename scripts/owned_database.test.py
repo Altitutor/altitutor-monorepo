@@ -18,7 +18,7 @@ from pathlib import Path
 state=Path(os.environ['FIXTURE_STATE']);data=json.loads(state.read_text());args=sys.argv[1:];name=Path(sys.argv[0]).name
 with open(os.environ['FIXTURE_LOG'],'a') as output: output.write(json.dumps([name,args])+'\n')
 if name == 'pnpm' and os.environ.get('FIXTURE_CHECK_STAGE_ENV'):
- if args[:3] == ['turbo', 'run', 'build']:
+ if args[:1] == ['build']:
   assert data.get('started'), 'app builds require the owned database to be running'
   assert os.environ.get('ALTITUTOR_OWNED_DB_INNER') == '1', 'app builds require the owned lease'
   assert os.environ.get('NEXT_PUBLIC_SUPABASE_URL') == 'http://127.0.0.1:' + data['api_port']
@@ -295,7 +295,7 @@ class OwnedDatabaseTests(unittest.TestCase):
         actions = [(name, args[2:] if name == 'supabase' else args)
                    for name, args in self.calls()]
         build = next(index for index, (name, args) in enumerate(actions)
-                     if name == 'pnpm' and args[:3] == ['turbo', 'run', 'build'])
+                     if name == 'pnpm' and args[:1] == ['build'])
         start = next(index for index, (name, args) in enumerate(actions)
                      if name == 'supabase' and args[:1] == ['start'])
         unit = next(index for index, (name, args) in enumerate(actions)

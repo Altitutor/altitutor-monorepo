@@ -35,10 +35,10 @@ section "Generated email artifacts"
 pnpm email:check
 
 section "Lint"
-pnpm turbo run lint
+pnpm lint
 
 section "Typecheck"
-pnpm turbo run typecheck
+pnpm typecheck
 
 section "Unit tests"
 pnpm test
@@ -70,7 +70,7 @@ python3 scripts/owned_database.py verify-inner
 # stages to the verified stack; unit tests above also cover unconfigured previews.
 if [ "${1:-}" = "--owned-only" ]; then
   section "Build"
-  pnpm turbo run build --concurrency=1
+  pnpm build --concurrency=1
 fi
 
 section "Owned disposable Supabase (migrations + seed)"
