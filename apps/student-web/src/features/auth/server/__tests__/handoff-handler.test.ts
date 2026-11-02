@@ -66,6 +66,43 @@ beforeEach(() => {
 });
 
 describe("native handoff issuance", () => {
+  it("issues a ticket for a LAN browser when Next normalizes the route URL to localhost", async () => {
+    const request = new NextRequest("http://localhost:3001/api/auth/native/ticket", {
+      method: "POST",
+      headers: {
+        host: "192.168.0.251:3001",
+        origin: "http://192.168.0.251:3001",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ challenge }),
+    });
+    expect((await issueNativeHandoff(request)).status).toBe(200);
+    expect(generateLink).toHaveBeenCalledWith({ type: "magiclink", email: user.email });
+  });
+
+  it.each([
+    "http://evil.test:3001",
+    "http://192.168.0.251:3002",
+    "https://192.168.0.251:3001",
+    "http://localhost:3001",
+    "null",
+  ])("rejects a LAN request from a different origin: %s", async (origin) => {
+    const request = new NextRequest("http://localhost:3001/api/auth/native/ticket", {
+      method: "POST",
+      headers: {
+        host: "192.168.0.251:3001",
+        origin,
+        // A caller-controlled forwarded host must not make an origin trusted.
+        "x-forwarded-host": new URL(origin === "null" ? "http://evil.test" : origin).host,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ challenge }),
+    });
+    expect((await issueNativeHandoff(request)).status).toBe(403);
+    expect(getUser).not.toHaveBeenCalled();
+    expect(generateLink).not.toHaveBeenCalled();
+  });
+
   it("requires cookie auth plus same origin", async () => {
     for (const headers of [
       {},
