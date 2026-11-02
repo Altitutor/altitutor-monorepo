@@ -9,12 +9,17 @@ import {
   Label,
   SearchableSelect,
   SmartDatePickerField,
+  TimePicker,
+  DurationPicker,
+  addMinutesToTime,
+  durationMinutesBetween,
+  shiftStartKeepingDuration,
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
 import { AdminDialogShell } from '@/shared/components';
-import { cn, showEntityCreatedToast } from '@/shared/utils';
+import { cn, getErrorMessage, showEntityCreatedToast } from '@/shared/utils';
 import { useApplyClassSchedule, usePreviewClassSchedule } from '../hooks/useClassesQuery';
 import type {
   ClassBillingType,
@@ -24,7 +29,9 @@ import type {
   ScheduledOfferingType,
 } from '../types/schedule';
 import {
+  adelaideCalendarDate,
   buildClassScheduleProposal,
+  resolveScheduleEffectiveFrom,
   validateClassScheduleRows,
 } from '../utils/classScheduleForm';
 import { GeneratedTimetablePreview } from './GeneratedTimetablePreview';
@@ -134,6 +141,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     if (offeringType === 'CLASS' && !selectedSubject) return 'A subject is required for a Class.';
     if (!startDate || !endDate) return 'Offering start and end dates are required.';
     if (endDate < startDate) return 'Offering end date must be on or after its start date.';
+    if (endDate < adelaideCalendarDate()) return 'Offering end date must be today or later. Sessions are only created from today.';
     return null;
   };
 
@@ -163,6 +171,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       cohortLabel,
       startDate,
       endDate,
+      effectiveFrom: resolveScheduleEffectiveFrom(startDate),
       frequencyWeeks,
       rows,
     });
@@ -173,7 +182,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       setPlan(nextPlan);
       setStep(2);
     } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : 'Unable to preview this timetable.');
+      setError(getErrorMessage(previewError));
     }
   };
 
@@ -195,7 +204,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       onClassAdded();
       onClose();
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : 'Unable to create this class.');
+      setError(getErrorMessage(applyError));
     }
   };
 
@@ -302,11 +311,11 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                 <SmartDatePickerField
                   value={endDate}
                   onChange={(value) => setEndDate(value ?? '')}
-                  minDate={startDate || undefined}
+                  minDate={startDate > adelaideCalendarDate() ? startDate : adelaideCalendarDate()}
                 />
               </PropertyForm>
               <p className="text-sm text-muted-foreground">
-                Sessions use Australia/Adelaide time and are generated only inside these dates.
+                Sessions use Australia/Adelaide time. They are created from the start date, or from today when the start date is earlier, through the end date.
               </p>
             </div>
           )}
@@ -343,20 +352,26 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`start-${row.id}`}>Start</Label>
-                      <Input
+                      <TimePicker
                         id={`start-${row.id}`}
-                        type="time"
+                        aria-label={`Start time for day ${index + 1}`}
                         value={row.startTime}
-                        onChange={(event) => updateRow(row.id, { startTime: event.target.value })}
+                        onChange={(startTime) => {
+                          const next = shiftStartKeepingDuration(row.startTime, row.endTime, startTime);
+                          if (next) updateRow(row.id, next);
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`end-${row.id}`}>End</Label>
-                      <Input
-                        id={`end-${row.id}`}
-                        type="time"
-                        value={row.endTime}
-                        onChange={(event) => updateRow(row.id, { endTime: event.target.value })}
+                      <Label htmlFor={`duration-${row.id}`}>Duration</Label>
+                      <DurationPicker
+                        id={`duration-${row.id}`}
+                        aria-label={`Duration for day ${index + 1}`}
+                        value={durationMinutesBetween(row.startTime, row.endTime)}
+                        onChange={(minutes) => {
+                          const endTime = addMinutesToTime(row.startTime, minutes);
+                          if (endTime) updateRow(row.id, { endTime });
+                        }}
                       />
                     </div>
                     <div className="space-y-2">

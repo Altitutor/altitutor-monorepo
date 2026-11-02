@@ -13,6 +13,10 @@ export function stripeInvoiceDashboardUrl(stripeInvoiceId: string): string {
   return `https://dashboard.stripe.com${stripeDashboardPathPrefix()}/invoices/${stripeInvoiceId}`;
 }
 
+export function stripeCustomerDashboardUrl(stripeCustomerId: string): string {
+  return `https://dashboard.stripe.com${stripeDashboardPathPrefix()}/customers/${stripeCustomerId}`;
+}
+
 export function stripeSubscriptionDashboardUrl(stripeSubscriptionId: string): string {
   return `https://dashboard.stripe.com${stripeDashboardPathPrefix()}/subscriptions/${stripeSubscriptionId}`;
 }

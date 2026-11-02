@@ -1,25 +1,21 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { Input } from "@altitutor/ui";
 import { Search } from "lucide-react";
 import { FolderTree } from "@/features/notes/components/FolderTree";
-import { EditDocumentDialog } from "@/features/notes/components/EditDocumentDialog";
 import { EditProjectDialog } from "@/features/projects/components/EditProjectDialog";
 import { useUrlQueryParam } from "@/shared/hooks/useUrlQueryParam";
 
 export function DocumentsView() {
   const [searchQuery, setSearchQuery] = useUrlQueryParam("search");
-  const [editNoteId, setEditNoteId] = useState<string | null>(null);
+  const { router } = usePaneNavigation();
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 
   const openDocument = useCallback((noteId: string) => {
-    setEditNoteId(noteId);
-  }, []);
-
-  const closeDocument = useCallback(() => {
-    setEditNoteId(null);
-  }, []);
+    router.push(`/documents/${noteId}`);
+  }, [router]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -44,12 +40,6 @@ export function DocumentsView() {
           onProjectClick={(projectId) => setEditProjectId(projectId)}
         />
       </div>
-
-      <EditDocumentDialog
-        isOpen={!!editNoteId}
-        onClose={closeDocument}
-        noteId={editNoteId}
-      />
       <EditProjectDialog
         isOpen={!!editProjectId}
         onClose={() => setEditProjectId(null)}

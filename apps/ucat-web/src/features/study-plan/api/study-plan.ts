@@ -6,6 +6,8 @@ import type {
   StudyPlanResponse,
 } from "@/features/study-plan/model/types";
 
+import { recordStudyPlanTaskAction } from "@/features/study-plan/lib/launch-diagnostics";
+
 async function parseJsonResponse<T>(
   response: Response,
   fallback: string,
@@ -82,4 +84,5 @@ export async function updateStudyPlanTask(
     };
     throw new Error(body.error ?? "Failed to update Study plan task.");
   }
+  recordStudyPlanTaskAction(taskId, action);
 }

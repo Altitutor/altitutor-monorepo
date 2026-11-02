@@ -249,6 +249,25 @@ export function useMarkContactUnread() {
   });
 }
 
+export function useAssignConversations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { conversationIds: string[]; staffId: string }) => {
+      if (args.conversationIds.length === 0) return;
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { error } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: args.staffId })
+        .in('id', args.conversationIds);
+      if (error) throw error;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+    },
+  });
+}
+
 export function useMarkConversationRead() {
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
@@ -278,30 +297,3 @@ export function useMarkConversationRead() {
     onSettled: () => markUnreadQueriesStale(qc),
   });
 }
-
-/**
- * Delete a message
- * Only ADMINSTAFF can delete messages (enforced by RLS)
- */
-export function useDeleteMessage() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (messageId: string) => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      // Invalidate all message-related queries
-      qc.invalidateQueries({ queryKey: messagesKeys.all });
-      // Also invalidate reconciliation queries since failed messages view will change
-      qc.invalidateQueries({ queryKey: ['reconciliation'] });
-    },
-  });
-}
-
-

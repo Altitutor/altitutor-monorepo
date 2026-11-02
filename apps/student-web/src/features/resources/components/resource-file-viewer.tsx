@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
+import { Button } from '@altitutor/ui';
 import { ResourcePdfPages } from './resource-pdf-pages';
 
 function isPdfResource(mimetype: string | null, filename: string): boolean {
@@ -18,6 +19,8 @@ export function ResourceFileViewer({
   externalUrl,
   signedUrl,
   frameClassName,
+  onRetry,
+  isRetrying = false,
 }: {
   filename: string;
   mimetype: string | null;
@@ -25,11 +28,29 @@ export function ResourceFileViewer({
   externalUrl: string | null;
   signedUrl: string | null;
   frameClassName?: string;
+  onRetry?: () => void;
+  isRetrying?: boolean;
 }) {
   const isPdf = isPdfResource(mimetype, filename);
   const isImage = useMemo(
     () => (mimetype ?? '').startsWith('image/'),
     [mimetype],
+  );
+  const pdfIdentity = `${filename}\u0000${mimetype ?? ''}\u0000${resourceType}\u0000${externalUrl ?? ''}`;
+  const loadedPdfRef = useRef<{ identity: string; url: string | null }>({
+    identity: pdfIdentity,
+    url: null,
+  });
+  if (loadedPdfRef.current.identity !== pdfIdentity) {
+    loadedPdfRef.current = { identity: pdfIdentity, url: null };
+  }
+  const handlePdfReady = useCallback(
+    (loadedUrl: string) => {
+      if (loadedPdfRef.current.identity === pdfIdentity) {
+        loadedPdfRef.current.url = loadedUrl;
+      }
+    },
+    [pdfIdentity],
   );
 
   const videoEmbed = useMemo(() => {
@@ -68,15 +89,24 @@ export function ResourceFileViewer({
 
   if (!signedUrl) {
     return (
-      <p className="text-sm text-muted-foreground">File preview unavailable.</p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">File preview unavailable.</p>
+        {onRetry ? <Button type="button" variant="outline" disabled={isRetrying} onClick={onRetry}>
+          {isRetrying ? 'Retrying…' : 'Retry file'}
+        </Button> : null}
+      </div>
     );
   }
 
   if (isPdf) {
+    const previewUrl = loadedPdfRef.current.url ?? signedUrl;
     return (
       <ResourcePdfPages
-        url={signedUrl}
+        url={previewUrl}
         filename={filename}
+        onReady={handlePdfReady}
+        onRetry={onRetry}
+        isRetrying={isRetrying}
         className={[
           'h-[calc(100dvh-var(--navbar-height)-4rem)] w-full',
           frameClassName,

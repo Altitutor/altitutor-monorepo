@@ -30,7 +30,7 @@ export async function uploadGeneratedUcatImage(params: {
 }) {
   let tutorId = params.tutorId
   if (!tutorId) {
-    const userClient = createClient()
+    const userClient = await createClient()
     const { data, error } = await userClient.rpc('current_tutor_id')
     if (error || !data) {
       throw new Error('Failed to resolve tutor')

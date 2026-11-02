@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing moduleId' }, { status: 400 })
     }
 
-    const userClient = createClient()
+    const userClient = await createClient()
     const { data: tutorId, error: tutorIdError } = await userClient.rpc('current_tutor_id')
     if (tutorIdError || !tutorId) {
       return NextResponse.json({ error: 'Failed to resolve tutor' }, { status: 500 })

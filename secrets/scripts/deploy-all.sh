@@ -44,14 +44,15 @@ echo ""
 
 if bash "$SCRIPT_DIR/deploy-github.sh"; then
     echo -e "${GREEN}✓ GitHub deployment completed successfully${NC}"
-    GITHUB_SUCCESS=$SUCCESS_COUNT
+    GITHUB_SUCCESS=1
+    OVERALL_SUCCESS=$((OVERALL_SUCCESS + 1))
 else
     echo -e "${RED}✗ GitHub deployment had failures${NC}"
-    GITHUB_FAILURES=$FAILURE_COUNT
-    OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
+    GITHUB_FAILURES=1
+    OVERALL_FAILURES=$((OVERALL_FAILURES + 1))
 fi
 
-OVERALL_SUCCESS=$((OVERALL_SUCCESS + SUCCESS_COUNT))
+
 
 # Reset counters for next deployment
 SUCCESS_COUNT=0
@@ -72,14 +73,15 @@ echo ""
 
 if bash "$SCRIPT_DIR/deploy-vercel.sh"; then
     echo -e "${GREEN}✓ Vercel deployment completed successfully${NC}"
-    VERCEL_SUCCESS=$SUCCESS_COUNT
+    VERCEL_SUCCESS=1
+    OVERALL_SUCCESS=$((OVERALL_SUCCESS + 1))
 else
     echo -e "${RED}✗ Vercel deployment had failures${NC}"
-    VERCEL_FAILURES=$FAILURE_COUNT
-    OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
+    VERCEL_FAILURES=1
+    OVERALL_FAILURES=$((OVERALL_FAILURES + 1))
 fi
 
-OVERALL_SUCCESS=$((OVERALL_SUCCESS + SUCCESS_COUNT))
+
 
 # Reset counters for next deployment
 SUCCESS_COUNT=0
@@ -100,14 +102,15 @@ echo ""
 
 if bash "$SCRIPT_DIR/deploy-supabase.sh"; then
     echo -e "${GREEN}✓ Supabase deployment completed successfully${NC}"
-    SUPABASE_SUCCESS=$SUCCESS_COUNT
+    SUPABASE_SUCCESS=1
+    OVERALL_SUCCESS=$((OVERALL_SUCCESS + 1))
 else
     echo -e "${RED}✗ Supabase deployment had failures${NC}"
-    SUPABASE_FAILURES=$FAILURE_COUNT
-    OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
+    SUPABASE_FAILURES=1
+    OVERALL_FAILURES=$((OVERALL_FAILURES + 1))
 fi
 
-OVERALL_SUCCESS=$((OVERALL_SUCCESS + SUCCESS_COUNT))
+
 
 echo ""
 echo ""
@@ -123,14 +126,15 @@ echo ""
 
 if bash "$SCRIPT_DIR/deploy-eas.sh"; then
     echo -e "${GREEN}✓ EAS deployment completed successfully${NC}"
-    EAS_SUCCESS=$SUCCESS_COUNT
+    EAS_SUCCESS=1
+    OVERALL_SUCCESS=$((OVERALL_SUCCESS + 1))
 else
     echo -e "${RED}✗ EAS deployment had failures${NC}"
-    EAS_FAILURES=$FAILURE_COUNT
-    OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
+    EAS_FAILURES=1
+    OVERALL_FAILURES=$((OVERALL_FAILURES + 1))
 fi
 
-OVERALL_SUCCESS=$((OVERALL_SUCCESS + SUCCESS_COUNT))
+
 
 echo ""
 echo ""
@@ -152,8 +156,8 @@ echo -e "  EAS (Expo):          ${GREEN}${EAS_SUCCESS:-0} successful${NC} / ${RE
 echo ""
 
 echo -e "${YELLOW}Overall Total:${NC}"
-echo -e "  ${GREEN}Successful: $OVERALL_SUCCESS${NC}"
-echo -e "  ${RED}Failed: $OVERALL_FAILURES${NC}"
+echo -e "  ${GREEN}Successful platforms: $OVERALL_SUCCESS${NC}"
+echo -e "  ${RED}Failed platforms: $OVERALL_FAILURES${NC}"
 echo ""
 
 if [ $OVERALL_FAILURES -eq 0 ]; then

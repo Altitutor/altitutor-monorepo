@@ -1,39 +1,6 @@
 "use client";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-const TodayView = dynamic(() =>
-  import("./TodayView").then((module) => module.TodayView),
-);
-const TasksBoard = dynamic(() =>
-  import("@/features/tasks/components/TasksBoard").then(
-    (module) => module.TasksBoard,
-  ),
-);
-const IssuesBoard = dynamic(() =>
-  import("@/features/issues/components/IssuesBoard").then(
-    (module) => module.IssuesBoard,
-  ),
-);
-const ProjectsBoard = dynamic(() =>
-  import("@/features/projects/components/ProjectsBoard").then(
-    (module) => module.ProjectsBoard,
-  ),
-);
-const TasksList = dynamic(() =>
-  import("@/features/tasks/components/TasksList").then(
-    (module) => module.TasksList,
-  ),
-);
-const IssuesList = dynamic(() =>
-  import("@/features/issues/components/IssuesList").then(
-    (module) => module.IssuesList,
-  ),
-);
-const ProjectsList = dynamic(() =>
-  import("@/features/projects/components/ProjectsList").then(
-    (module) => module.ProjectsList,
-  ),
-);
 const TaskDetailView = dynamic(() =>
   import("@/features/tasks/components/TaskDetailView").then(
     (module) => module.TaskDetailView,
@@ -54,56 +21,19 @@ const DocumentDetailView = dynamic(() =>
     (module) => module.DocumentDetailView,
   ),
 );
-const DocumentsView = dynamic(() =>
-  import("@/features/notes/components/DocumentsView").then(
-    (module) => module.DocumentsView,
-  ),
-);
+const EmailThreadView = dynamic(() => import("@/features/email/components/EmailThreadView").then((module) => module.EmailThreadView));
 const MessagesView = dynamic(() =>
   import("@/features/messages/components/MessagesView").then(
     (module) => module.MessagesView,
   ),
 );
-import { useCurrentStaff } from "@/shared/hooks";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 export function AccessoryView() {
   const scope = useAccessoryTab();
-  const { data: staff, isLoading } = useCurrentStaff();
   if (!scope) return null;
   const { tab, close } = scope;
-  const board = new URLSearchParams(tab.query).get("view") === "board";
-  const TaskView = board ? TasksBoard : TasksList;
-  const IssueView = board ? IssuesBoard : IssuesList;
-  const ProjectView = board ? ProjectsBoard : ProjectsList;
   let content;
   switch (tab.kind) {
-    case "today":
-      content = <TodayView />;
-      break;
-    case "tasks":
-      content = isLoading ? (
-        <p className="p-4">Loading tasks…</p>
-      ) : (
-        <TaskView
-          defaultFilters={{
-            status: ["backlog", "todo", "in_progress", "in_review"],
-            ...(staff?.id ? { assignee: [staff.id] } : {}),
-          }}
-        />
-      );
-      break;
-    case "issues":
-      content = (
-        <IssueView defaultFilters={{ status: ["open", "awaiting_response"] }} />
-      );
-      break;
-    case "projects":
-      content = (
-        <ProjectView
-          defaultFilters={{ status: ["backlog", "planned", "in_progress"] }}
-        />
-      );
-      break;
     case "task":
       content = tab.id && (
         <TaskDetailView taskId={tab.id} variant="page" onClose={close} />
@@ -124,8 +54,8 @@ export function AccessoryView() {
         <DocumentDetailView noteId={tab.id} variant="page" onClose={close} />
       );
       break;
-    case "documents":
-      content = <DocumentsView />;
+    case "email":
+      content = tab.id && <EmailThreadView threadId={tab.id} />;
       break;
     case "messages":
       content = <MessagesView />;

@@ -13,8 +13,9 @@ jest.mock("@/features/topics/components", () => ({
   FilePreviewModal: () => null,
   GenericFilePreviewModal: () => null,
 }));
+const mockPrimaryPush = jest.fn();
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPrimaryPush }),
   usePathname: () => "/students",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -49,7 +50,7 @@ jest.mock("../AccessoryViews", () => ({
           Linked task
         </button>
         <button
-          onClick={() => scope.navigate({ kind: "issues", title: "Issues" })}
+          onClick={() => scope.navigate({ kind: "issue", id: "original", title: "Original issue" })}
         >
           Back to issues
         </button>
@@ -66,6 +67,8 @@ jest.mock("../AccessoryViews", () => ({
         >
           Mention
         </button>
+        {/* A test-only plain anchor exercises navigation interception. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/issues/linked">Linked issue</a>
       </>
     );
@@ -78,8 +81,9 @@ function Harness() {
       <button
         onClick={() =>
           panel.openTab({
-            kind: "issues",
-            title: "Issues",
+            kind: "issue",
+            id: "original",
+            title: "Original issue",
             query: "search=math",
           })
         }
@@ -98,6 +102,9 @@ beforeEach(() => {
     configurable: true,
     value: () => `${Math.random()}`,
   });
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({ matches: false, media: query, addEventListener: jest.fn(), removeEventListener: jest.fn() }));
+  Element.prototype.hasPointerCapture = jest.fn(() => false);
+  Element.prototype.releasePointerCapture = jest.fn();
   Element.prototype.scrollIntoView = jest.fn();
   global.ResizeObserver = class {
     observe() {}
@@ -117,8 +124,7 @@ test("same-family records replace the current tab, cross-family links add a tab,
   expect(tabs()).toHaveLength(1);
   expect(tabs()[0]).toMatchObject({ key, kind: "issue", id: "a" });
   fireEvent.click(screen.getByText("Back to issues"));
-  expect(tabs()[0]).toMatchObject({ kind: "issues", query: "search=math" });
-  expect(tabs()[0].id).toBeUndefined();
+  expect(tabs()[0]).toMatchObject({ kind: "issue", id: "original", query: "search=math" });
   fireEvent.click(screen.getByText("Open issue"));
   fireEvent.click(screen.getByText("Linked task"));
   expect(tabs()).toHaveLength(2);
@@ -147,32 +153,10 @@ test("links and bubbled mentions navigate their originating accessory tab", asyn
   expect(tabs()[0]).toMatchObject({ kind: "issue", id: "mentioned" });
 });
 
-test("the active list tab owns its persistent List/Board controls", async () => {
-  render(
-    <AccessoryPanelProvider>
-      <Harness />
-    </AccessoryPanelProvider>,
-  );
-  fireEvent.click(await screen.findByText("Start"));
-  fireEvent.click(screen.getByRole("button", { name: "Issues board view" }));
-  expect(new URLSearchParams(tabs()[0].query).get("view")).toBe("board");
-  fireEvent.click(screen.getByText("Open issue"));
-  expect(
-    screen.queryByRole("button", { name: "Issues board view" }),
-  ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText("Back to issues"));
-  expect(
-    screen.getByRole("button", { name: "Issues board view" }),
-  ).toHaveAttribute("aria-pressed", "true");
-});
-
-
-it("offers every root view in an empty panel and opens the chosen view", () => {
+it("offers only recently closed in an empty panel", () => {
   render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
-  for (const title of ["Messages", "Today", "Tasks", "Issues", "Projects", "Documents"]) {
-    expect(screen.getByRole("button", { name: new RegExp(title) })).toBeInTheDocument();
+  expect(screen.getByText("Recently closed")).toBeInTheDocument();
+  for (const title of ["Messages", "Tasks", "Issues", "Projects", "Documents"]) {
+    expect(screen.queryByRole("button", { name: title })).not.toBeInTheDocument();
   }
-  expect(screen.getByLabelText("3 unread conversations")).toHaveTextContent("3");
-  fireEvent.click(screen.getByRole("button", { name: "Today" }));
-  expect(tabs()).toEqual([expect.objectContaining({ kind: "today", title: "Today" })]);
 });

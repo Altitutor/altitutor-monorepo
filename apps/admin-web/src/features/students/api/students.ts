@@ -109,6 +109,23 @@ export type OnlineStudentListRow = {
  * Students API client for working with student data
  */
 export const studentsApi = {
+  listDeleted: async ({ search = '', page = 1 }: { search?: string; page?: number }) => {
+    let query = (getSupabaseClient() as SupabaseClient<Database>).from('students')
+      .select('id,first_name,last_name,deleted_at', { count: 'exact' }).not('deleted_at', 'is', null);
+    for (const filter of buildPersonFieldOrFilters(search.trim(), ['first_name', 'last_name'])) {
+      query = query.or(filter);
+    }
+    const { data, count, error } = await query.order('deleted_at', { ascending: false }).order('id').range((page - 1) * 20, page * 20 - 1);
+    if (error) throw error;
+    return { students: data ?? [], total: count ?? 0 };
+  },
+  restoreStudent: async (id: string): Promise<void> => {
+    const response = await fetch(`/api/students/${id}/restore`, { method: 'POST' });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error || 'Unable to restore Student');
+    }
+  },
   /** Paginated online operational view, deduplicated to one row per Student. */
   listOnline: async (params: {
     search?: string;
@@ -195,7 +212,7 @@ export const studentsApi = {
         // Narrow projection to columns required by index views
         'id, first_name, last_name, status, curriculum, year_level, school',
         { count: 'exact' }
-      );
+      ).is('deleted_at', null);
 
     // Search across common fields
     const trimmed = search.trim();
@@ -673,7 +690,7 @@ export const studentsApi = {
    * Get all students
    */
   getAllStudents: async (): Promise<Tables<'students'>[]> => {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').select('*');
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students').select('*').is('deleted_at', null);
     if (error) throw error;
     return (data ?? []) as Tables<'students'>[];
   },
@@ -746,7 +763,7 @@ export const studentsApi = {
     if (!trimmed) return [];
     let request = (getSupabaseClient() as SupabaseClient<Database>)
       .from('students')
-      .select('*');
+      .select('*').is('deleted_at', null);
     for (const orFilter of buildPersonFieldOrFilters(trimmed, [
       'first_name',
       'last_name',

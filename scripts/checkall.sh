@@ -15,6 +15,7 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
+if [ "${1:-}" != "--database-only" ] && [ "${1:-}" != "--owned-only" ]; then
 section "Release-gate contracts"
 node --test \
   scripts/production-release-gate.test.mjs \
@@ -24,17 +25,23 @@ node --test \
   scripts/ucat-production-smoke.test.mjs \
   scripts/web-system-test-paths.test.mjs
 
+python3 scripts/owned_database.test.py
+python3 scripts/worktree_dev.test.py
+
+section "Mailbox secret-deployment contracts"
+node --test secrets/scripts/deploy-runtime.test.mjs
+
 section "Generated email artifacts"
 pnpm email:check
 
 section "Lint"
-pnpm turbo run lint
+pnpm lint
 
 section "Typecheck"
-pnpm turbo run typecheck
+pnpm typecheck
 
 section "Unit tests"
-pnpm turbo run test
+pnpm test
 
 section "UCAT coverage baseline"
 pnpm --filter ucat-web test:coverage
@@ -47,22 +54,44 @@ if ! command -v deno >/dev/null 2>&1; then
 fi
 deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
-section "Build"
-pnpm turbo run build
-
-section "Local Supabase (migrations + seed)"
-bash supabase/scripts/render-email-templates.sh
-if supabase status >/dev/null 2>&1; then
-  echo "Local stack is already running; resetting so schema and seed match a fresh CI start."
-  supabase db reset
-else
-  echo "Starting a fresh local stack (applies all migrations and automatic seed)."
-  node scripts/start-local-supabase.mjs
 fi
+
+# Each DB invocation gets its own owned stack and ports, including the browser
+# server lifetime. Only consumers of the same runtime share a lease.
+if [ "${ALTITUTOR_OWNED_DB_INNER:-}" != "1" ]; then
+  if [ "${1:-}" = "--database-only" ]; then
+    exec python3 scripts/owned_database.py gate
+  fi
+  exec python3 scripts/owned_database.py run -- bash scripts/checkall.sh --owned-only
+fi
+python3 scripts/owned_database.py verify-inner
+
+# Expo exports and app builds need local connection settings. Bind only these
+# stages to the verified stack; unit tests above also cover unconfigured previews.
+if [ "${1:-}" = "--owned-only" ]; then
+  section "Build"
+  pnpm build --concurrency=1
+fi
+
+section "Owned disposable Supabase (migrations + seed)"
+supabase db reset --local
+python3 scripts/owned_database.py verify-inner
 bash supabase/scripts/apply-ucat-test-seed.sh
 
 section "Database contracts"
 supabase test db
+
+section "Student registration Auth/database contracts"
+python3 supabase/scripts/test-student-registration.py
+
+section "Inbound iMessage identity and replay contracts"
+python3 scripts/test-imessage-inbound.py
+
+section "Medicine interview station migration preservation"
+python3 supabase/scripts/test-interview-station-upgrade.py
+
+section "Concurrent medicine interview participants"
+python3 supabase/scripts/test-interview-concurrency.py
 
 section "UCAT critical browser journeys"
 pnpm --filter ucat-web exec playwright install chromium

@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { invitesApi } from '@/features/auth/api/invites';
 
 export interface LinkTokens {
@@ -103,7 +105,7 @@ export async function generateLinkTokensForStudent(
     // Generate registration token if needed
     if (includeRegistration) {
       try {
-        const response = await fetch('/api/students/send-registration-invite', {
+        const response = await requestOperationalEmail('/api/students/send-registration-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId }),
@@ -220,7 +222,7 @@ export async function batchGenerateLinkTokens(
       for (const student of students) {
         if (!tokensMap[student.id]?.registrationToken) {
           try {
-            const response = await fetch('/api/students/send-registration-invite', {
+            const response = await requestOperationalEmail('/api/students/send-registration-invite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ studentId: student.id }),

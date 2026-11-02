@@ -1,4 +1,6 @@
 "use client";
+import { toast } from "sonner";
+import { EntityReferenceHovers } from "@/features/entity-references/components/EntityReferenceHovers";
 import {
   useCallback,
   useEffect,
@@ -16,6 +18,9 @@ import { accessoryDestination } from "@/shared/hooks/usePaneNavigation";
 import { ownedPrimaryHref } from "@/shared/utils/primaryOwnership";
 import { useAccessoryTab } from "./AccessoryTabContext";
 export type EntityType =
+  | "tutor-log"
+  | "message"
+  | "email"
   | "student"
   | "parent"
   | "staff"
@@ -70,6 +75,22 @@ export function useEntityNavigation(): EntityNavigationType {
   const collapse = panel?.collapse;
   const openEntity = useCallback(
     (type: EntityType, id: string, options?: OpenOptions) => {
+      if (type === "message" || type === "email" || type === "tutor-log") {
+        void fetch(`/api/entity-references/${type}/${encodeURIComponent(id)}`)
+          .then(async (response) => {
+            if (!response.ok) throw new Error("Reference unavailable");
+            const details =
+              (await response.json()) as import("@/features/entity-references/types").ReferenceDetails;
+            if (details.href) router.push(details.href);
+            else if (details.destination)
+              panel?.openTab({
+                ...details.destination,
+                query: `${details.destination.query}${details.destination.query ? "&" : ""}focus=${crypto.randomUUID()}`,
+              });
+          })
+          .catch(() => toast.error("This correspondence is unavailable."));
+        return;
+      }
       const primary = primaryRoutes[type];
       if (primary) {
         if (
@@ -92,7 +113,7 @@ export function useEntityNavigation(): EntityNavigationType {
       const destination = accessoryDestination(`/${route}/${id}`);
       if (destination) openTab?.(destination);
     },
-    [router, openTab, collapse],
+    [router, openTab, collapse, panel],
   );
   return useMemo(
     () => ({
@@ -181,12 +202,31 @@ export function EntityNavigationEvents({ children }: { children: ReactNode }) {
         if (type === "file" || type === "file-preview") setFile({ type, id });
         return;
       }
-      const entity =
+      const eventEntity =
         event.type === "mentionClick"
           ? type
           : getEntityTypeFromEventName(event.type);
+      const entity =
+        eventEntity === "adminShift"
+          ? "admin-shift"
+          : eventEntity === "tutorLog"
+            ? "tutor-log"
+            : eventEntity;
+      if (
+        entity === "email" ||
+        entity === "message" ||
+        entity === "tutor-log"
+      ) {
+        openEntity(entity, id);
+        return;
+      }
       if (typeof entity === "string") {
-        const route = entity === "note" ? "documents" : `${entity}s`;
+        const route =
+          entity === "email"
+            ? "email"
+            : entity === "note"
+              ? "documents"
+              : `${entity}s`;
         const destination = accessoryDestination(`/${route}/${id}`);
         const focused =
           (event.target instanceof Element
@@ -270,6 +310,7 @@ export function EntityNavigationEvents({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      <EntityReferenceHovers />
       {file?.type === "file" ? (
         <FilePreviewModal
           isOpen

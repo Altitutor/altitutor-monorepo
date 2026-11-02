@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
           },
         },
         cookieOptions: {
-          name: 'admin-auth',
+          name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
           path: '/',
           sameSite: 'lax' as const,
           secure: process.env.NODE_ENV === 'production',
@@ -81,9 +81,9 @@ export async function GET(request: NextRequest) {
           
           // Redirect TUTOR to tutor app
           if (role === 'TUTOR') {
-            const tutorAppUrl = process.env.NODE_ENV === 'production' 
+            const tutorAppUrl = process.env.NEXT_PUBLIC_TUTOR_URL || (process.env.NODE_ENV === 'production'
               ? 'https://tutor.altitutor.com'
-              : 'http://localhost:3002';
+              : 'http://localhost:3002');
             return NextResponse.redirect(new URL(tutorAppUrl))
           }
           

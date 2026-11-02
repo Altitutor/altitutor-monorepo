@@ -1,3 +1,4 @@
+import { isAuthCookie } from "@/lib/supabase/auth-cookie";
 import * as Sentry from "@sentry/nextjs";
 import type { Database } from "@altitutor/shared";
 import {
@@ -5,6 +6,7 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 import { isMobileAuthBrowserContext } from "@/lib/privacy/mobile-auth-telemetry";
+import type { SessionRecoveryObservation } from "@/lib/supabase/recover-transient-session";
 
 type Operation = "password" | "refresh" | "profile" | "access" | "sessions";
 type CredentialMode = "anonymous-key" | "bearer" | "missing" | "unknown";
@@ -22,6 +24,7 @@ type Boundary = {
   visibility: "visible" | "hidden" | "unknown";
   operation?: Operation;
   request_sequence?: number;
+  session_sequence?: number;
   credential_mode?: CredentialMode;
   fetch_credentials?: "omit" | "same-origin" | "include";
   elapsed_ms?: number;
@@ -41,6 +44,7 @@ type Boundary = {
   session_present?: boolean;
   previous_session_present?: boolean;
   session_error?: "none" | "refresh-discarded" | "other";
+  session_threw?: boolean;
 };
 
 const VIEW_OPERATIONS: Record<string, Operation> = {
@@ -49,6 +53,9 @@ const VIEW_OPERATIONS: Record<string, Operation> = {
   "/rest/v1/vstudent_sessions": "sessions",
   "/rest/v1/vstudent_operational_sessions": "sessions",
 };
+
+const MAX_HISTORY = 20;
+const MAX_AGE_MS = 30_000;
 
 function providerRequestId(response: Response): string | undefined {
   // Cross-origin exposure varies. Only the two provider correlation headers,
@@ -76,7 +83,7 @@ function environment(): Pick<
     if (typeof document !== "undefined") {
       cookiePresent = document.cookie
         .split(";")
-        .some((cookie) => /^student-auth(?:\.\d+)?=/.test(cookie.trim()));
+        .some((cookie) => isAuthCookie(cookie.trim().split("=", 1)[0]));
     }
   } catch {
     /* Cookie access can be disabled by the browser. */
@@ -108,7 +115,27 @@ export function createBrowserAuthDiagnostics(
   const recent: Boundary[] = [];
   let sequence = 0;
   let requestSequence = 0;
+  let sessionSequence = 0;
+  let pendingSessions = 0;
   let previousSessionPresent = false;
+  let droppedEntries = 0;
+  let expiredEntries = 0;
+  let lastRefresh: Boundary | undefined;
+  let lastSession: Boundary | undefined;
+  let lastAuthEvent: Boundary | undefined;
+  let lastPresentSession: number | undefined;
+  let lastRecovery:
+    | (SessionRecoveryObservation & { time_ms: number })
+    | undefined;
+  let cookieGap:
+    | {
+        first: number;
+        last: number;
+        observations: number;
+        restored: boolean;
+        truncated: boolean;
+      }
+    | undefined;
   type Snapshot = { time: number; context: Record<string, unknown> };
   const authErrors = new WeakMap<object, Snapshot>();
   const viewFailures = new Map<Operation, Snapshot>();
@@ -119,11 +146,66 @@ export function createBrowserAuthDiagnostics(
     const now = Date.now();
     const context: Record<string, unknown> = {
       version: 1,
+      snapshot_time_ms: now,
       association,
       ...(operation ? { trigger_operation: operation } : {}),
+      history: {
+        max_entries: MAX_HISTORY,
+        max_age_ms: MAX_AGE_MS,
+        dropped_entries: droppedEntries,
+        expired_entries: expiredEntries,
+      },
+      pending_get_sessions: pendingSessions,
     };
+    if (lastRefresh && now - lastRefresh.time_ms <= MAX_AGE_MS)
+      context.last_refresh = {
+        ...lastRefresh,
+        observed_age_ms: Math.max(0, now - lastRefresh.time_ms),
+      };
+    if (lastSession && now - lastSession.time_ms <= MAX_AGE_MS)
+      context.last_session = {
+        ...lastSession,
+        observed_age_ms: Math.max(0, now - lastSession.time_ms),
+        result: lastSession.session_threw
+          ? "threw"
+          : lastSession.session_error === "refresh-discarded"
+            ? "refresh-discarded"
+            : lastSession.session_error === "other"
+              ? "error"
+              : lastSession.session_present
+                ? "present"
+                : "missing",
+      };
+    if (
+      lastPresentSession !== undefined &&
+      now - lastPresentSession <= MAX_AGE_MS
+    )
+      context.last_present_session_age_ms = Math.max(
+        0,
+        now - lastPresentSession,
+      );
+    if (lastAuthEvent && now - lastAuthEvent.time_ms <= MAX_AGE_MS)
+      context.last_auth_event = {
+        ...lastAuthEvent,
+        observed_age_ms: Math.max(0, now - lastAuthEvent.time_ms),
+      };
+    if (lastRecovery && now - lastRecovery.time_ms <= MAX_AGE_MS)
+      context.recovery = {
+        ...lastRecovery,
+        observed_age_ms: Math.max(0, now - lastRecovery.time_ms),
+      };
+    if (cookieGap && now - cookieGap.last <= MAX_AGE_MS) {
+      context.cookie_gap = {
+        sampling: "boundary-observations",
+        observed_span_ms: Math.max(0, cookieGap.last - cookieGap.first),
+        last_observed_age_ms: Math.max(0, now - cookieGap.last),
+        observations: cookieGap.observations,
+        restored_observed: cookieGap.restored,
+        window_truncated: cookieGap.truncated,
+      };
+    }
     recent
-      .filter((entry) => now - entry.time_ms <= 30_000)
+      .filter((entry) => now - entry.time_ms <= MAX_AGE_MS)
       .forEach((entry, index) => {
         context[`event_${String(index + 1).padStart(2, "0")}`] = { ...entry };
       });
@@ -159,8 +241,44 @@ export function createBrowserAuthDiagnostics(
       ...environment(),
       ...fields,
     };
+    if (entry.kind === "request-end" && entry.operation === "refresh")
+      lastRefresh = entry;
+    if (entry.kind === "session-end") lastSession = entry;
+    if (entry.kind === "auth-event") lastAuthEvent = entry;
+    if (entry.session_present) lastPresentSession = entry.time_ms;
+    while (recent.length && entry.time_ms - recent[0]!.time_ms > MAX_AGE_MS) {
+      recent.shift();
+      expiredEntries = Math.min(65_535, expiredEntries + 1);
+    }
+    if (entry.cookie_present === false) {
+      if (!cookieGap || cookieGap.restored) {
+        cookieGap = {
+          first: entry.time_ms,
+          last: entry.time_ms,
+          observations: 1,
+          restored: false,
+          truncated: false,
+        };
+      } else if (entry.time_ms - cookieGap.first > MAX_AGE_MS) {
+        cookieGap = {
+          first: entry.time_ms,
+          last: entry.time_ms,
+          observations: 1,
+          restored: false,
+          truncated: true,
+        };
+      } else {
+        cookieGap.last = entry.time_ms;
+        cookieGap.observations = Math.min(255, cookieGap.observations + 1);
+      }
+    } else if (entry.cookie_present === true && cookieGap) {
+      cookieGap.restored = true;
+    }
     recent.push(entry);
-    if (recent.length > 20) recent.shift();
+    if (recent.length > MAX_HISTORY) {
+      recent.shift();
+      droppedEntries = Math.min(65_535, droppedEntries + 1);
+    }
     if (failed) {
       if (
         fields.operation &&
@@ -209,7 +327,7 @@ export function createBrowserAuthDiagnostics(
       );
       if (path) evidence = viewFailures.get(VIEW_OPERATIONS[path]!);
     }
-    if (!evidence || Date.now() - evidence.time > 30_000) return event;
+    if (!evidence || Date.now() - evidence.time > MAX_AGE_MS) return event;
     return {
       ...event,
       contexts: { ...event.contexts, ucat_auth_boundary: evidence.context },
@@ -324,13 +442,33 @@ export function createBrowserAuthDiagnostics(
     const getSession = client.auth.getSession.bind(client.auth);
     client.auth.getSession = async function getSessionWithDiagnostics() {
       const began = sequence;
+      const beganAt = performance.now();
+      const currentSessionSequence = ++sessionSequence;
+      pendingSessions += 1;
       record({
         kind: "session-start",
+        session_sequence: currentSessionSequence,
         previous_session_present: previousSessionPresent,
       });
-      const result = await getSession();
+      let result: Awaited<ReturnType<typeof getSession>>;
+      try {
+        result = await getSession();
+      } catch (error) {
+        pendingSessions -= 1;
+        record({
+          kind: "session-end",
+          session_sequence: currentSessionSequence,
+          elapsed_ms: Math.round(performance.now() - beganAt),
+          session_error: "other",
+          session_threw: true,
+        });
+        throw error;
+      }
+      pendingSessions -= 1;
       record({
         kind: "session-end",
+        session_sequence: currentSessionSequence,
+        elapsed_ms: Math.round(performance.now() - beganAt),
         session_present: Boolean(result.data.session),
         previous_session_present: previousSessionPresent,
         session_error: !result.error
@@ -346,5 +484,10 @@ export function createBrowserAuthDiagnostics(
     return client;
   }
 
-  return { fetch: diagnosticFetch, observeClient };
+  function observeRecovery(observation: SessionRecoveryObservation) {
+    if (isMobileAuthBrowserContext()) return;
+    lastRecovery = { ...observation, time_ms: Date.now() };
+  }
+
+  return { fetch: diagnosticFetch, observeClient, observeRecovery };
 }

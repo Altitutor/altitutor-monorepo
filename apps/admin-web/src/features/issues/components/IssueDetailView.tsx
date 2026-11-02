@@ -1,4 +1,6 @@
 "use client";
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
@@ -61,7 +63,7 @@ function IssueLiveTagsPanels({
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
-  descriptionRef: React.RefObject<RichTextEditorRef>;
+  descriptionRef: React.RefObject<RichTextEditorRef | null>;
 }) {
   const liveTags = useLiveIssueTags({
     form,
@@ -92,9 +94,10 @@ function IssueLiveTagsPanels({
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z
-    .union([z.record(z.unknown()), z.string(), z.null()])
+    .union([z.record(z.string(), z.unknown()), z.string(), z.null()])
     .optional(),
   status: z.enum(["open", "awaiting_response", "resolved"]),
+  priority: z.number().int().min(0).max(4).default(0),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -136,6 +139,7 @@ export function IssueDetailView({
       name: "",
       description: null,
       status: "open",
+      priority: 0,
       dueDate: null,
     },
   });
@@ -166,6 +170,9 @@ export function IssueDetailView({
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
+                        copyTagDisplayText={
+                          form.watch("name") || issue?.name || "Untitled issue"
+                        }
                         onDelete={() => {
                           if (editor.editable) setIsDeleteDialogOpen(true);
                         }}
@@ -231,8 +238,7 @@ export function IssueDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              issue and all associated activity records.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

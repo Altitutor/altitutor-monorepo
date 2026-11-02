@@ -100,7 +100,7 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
         setIsAddDialogOpen(true);
       }, 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [onCreateTrigger]);
 
   const columns: SettingsDataTableColumn<BlockoutRow>[] = [

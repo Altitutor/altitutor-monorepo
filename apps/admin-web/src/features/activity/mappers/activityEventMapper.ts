@@ -138,15 +138,29 @@ function invoicePaidSettlement(payload: Payload): string {
   if (paid == null) return '';
   const currency = invoiceCurrency(payload);
   const fromBalance = cents(payload.amount_paid_from_balance_cents) ?? 0;
-  const fromCard = cents(payload.amount_paid_from_card_cents) ?? Math.max(0, paid - fromBalance);
-  const total = formatCents(paid, currency);
-  if (fromBalance > 0 && fromCard > 0) {
-    return ` (${total}, ${formatCents(fromBalance, currency)} from credit balance, ${formatCents(fromCard, currency)} from card)`;
+  // Stored amount_paid is the customer payment; account credit is separate.
+  // Older payloads derived the card field by subtracting credit again.
+  const fromPayment = paid;
+  const total = formatCents(paid + fromBalance, currency);
+  if (fromBalance > 0 && fromPayment > 0) {
+    return ` (${total}, ${formatCents(fromBalance, currency)} from credit balance, ${formatCents(fromPayment, currency)} from customer payment)`;
   }
   if (fromBalance > 0) {
     return ` (${total} from credit balance)`;
   }
   return ` (${total})`;
+}
+
+function absenceBillingOutcome(payload: Payload): string {
+  const descriptions: Record<string, string> = {
+    not_invoiced: 'not charged; no invoice',
+    draft_invoice: 'draft invoice charge removal requested',
+    unpaid_invoice: 'invoice reduction requested',
+    paid_invoice: 'account credit requested',
+    chargeable: 'charge retained because attendance makes the session payable',
+  };
+  const outcome = descriptions[text(payload.absence_billing_context) ?? ''];
+  return ` (${outcome ?? 'credit treatment selected; financial outcome not recorded'})`;
 }
 
 function invoiceCreditNoteAmount(payload: Payload): string {
@@ -318,7 +332,7 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'session.student_absence_cleared': [`cleared ${student}'s planned absence from ${session}`, 'check', 'green'],
     'session.student_rescheduled': [`rescheduled ${student} from ${sessionFrom} to ${sessionTo}`, 'arrow-right', 'blue'],
     'session.student_reschedule_reversed': [`reversed ${student}'s reschedule from ${sessionFrom} to ${sessionTo}`, 'arrow-left', 'gray'],
-    'session.student_credited': [`credited ${student} for ${session}`, 'check', 'purple'],
+    'session.student_credited': [`recorded ${student}'s planned absence from ${session}${absenceBillingOutcome(payload)}`, 'check', 'purple'],
     'session.student_credit_reversed': [`reversed ${student}'s credit for ${session}`, 'arrow-left', 'gray'],
     'session.staff_absence_recorded': [`recorded ${staff}'s planned absence from ${session}`, 'x', 'yellow'],
     'session.staff_absence_cleared': [`cleared ${staff}'s planned absence from ${session}`, 'check', 'green'],
@@ -341,7 +355,9 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'invoice.notification_sent': [`sent the invoice notification for ${invoiceWithSessions}${invoiceNotificationRecipients(payload)}`, 'file', 'blue'],
     'invoice.voided': [`voided ${invoiceWithSessions}`, 'x', 'red'],
     'invoice.refunded': [`refunded ${invoiceWithSessions}`, 'arrow-left', 'purple'],
-    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}${invoiceCreditNoteWhy(payload)}`, 'file', 'purple'],
+    'invoice.credit_note_added': [text(payload.credit_note_type) === 'credit'
+      ? `added a customer balance credit${invoiceCreditNoteAmount(payload)} for ${invoiceWithSessions}${invoiceCreditNoteWhy(payload)}`
+      : `added a ${titleCase(text(payload.credit_note_type) || 'adjustment')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}${invoiceCreditNoteWhy(payload)}`, 'file', 'purple'],
     'invoice.credit_note_voided': [`voided the credit note for ${invoiceWithSessions}`, 'x', 'red'],
 
     'task.created': [`created ${task}`, 'flag', 'green'],

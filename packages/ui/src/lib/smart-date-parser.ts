@@ -11,7 +11,9 @@ export function parseNaturalDate(
   referenceDate: Date,
   options?: ParseNaturalDateOptions,
 ): Date | null {
-  const parsed = chrono.en.GB.parseDate(input, referenceDate, { forwardDate: true });
+  // Chrono's forward refiner also moves explicitly past weekdays into next week.
+  const forwardDate = !/\b(?:last|past)\b/i.test(input);
+  const parsed = chrono.en.GB.parseDate(input, referenceDate, { forwardDate });
   if (!parsed || !isValid(parsed)) return null;
   if (options?.anchorYear != null) {
     parsed.setFullYear(options.anchorYear);

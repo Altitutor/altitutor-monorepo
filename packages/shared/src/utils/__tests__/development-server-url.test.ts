@@ -3,6 +3,20 @@ import { developmentServerUrl } from '../development-server-url';
 const device = { isNativeDevelopment: true, hostUri: '192.168.1.20:8082' };
 
 describe('native development server URLs', () => {
+  it('keeps browser handoffs on localhost for the Android emulator while native requests use its host bridge', () => {
+    const emulator = { isNativeDevelopment: true, hostUri: '10.0.2.2:8081', target: 'browser' as const };
+    expect(developmentServerUrl('http://localhost:3016/mobile-auth?state=test', emulator))
+      .toBe('http://localhost:3016/mobile-auth?state=test');
+    expect(developmentServerUrl('http://localhost:3016/api/auth/native/exchange', { ...emulator, target: 'native' as const }))
+      .toBe('http://10.0.2.2:3016/api/auth/native/exchange');
+  });
+
+  it.each(['192.168.1.20', '10.0.0.4', '172.16.0.4'])('keeps browser login reachable on a physical phone via %s', (host) => {
+    const browser = { isNativeDevelopment: true, hostUri: `${host}:8082`, target: 'browser' as const };
+    expect(developmentServerUrl('http://localhost:3016/mobile-auth?state=test', browser))
+      .toBe(`http://${host}:3016/mobile-auth?state=test`);
+  });
+
   it.each([3001, 3004, 3016, 54321])('uses the Expo computer host and keeps service port %s', (port) => {
     expect(developmentServerUrl(`http://localhost:${port}/mobile-auth?state=test`, device))
       .toBe(`http://192.168.1.20:${port}/mobile-auth?state=test`);

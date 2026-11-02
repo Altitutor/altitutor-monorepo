@@ -16,6 +16,7 @@ const mockUseInvoiceSessionMutation = useInvoiceSessionMutation as jest.MockedFu
 
 function createBaseSession(): Tables<'sessions'> {
   return {
+    deleted_at: null, deleted_by: null,
     id: 'session-1',
     start_at: new Date('2024-01-01T10:00:00Z').toISOString(),
     end_at: new Date('2024-01-01T11:00:00Z').toISOString(),

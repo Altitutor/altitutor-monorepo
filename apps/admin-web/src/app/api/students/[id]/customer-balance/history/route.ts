@@ -9,10 +9,8 @@ import { getErrorMessage } from '@/shared/utils';
  * GET /api/students/[id]/customer-balance/history
  * Get customer balance transaction history from Stripe
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const studentId = params.id;
     const { searchParams } = new URL(request.url);
@@ -20,7 +18,7 @@ export async function GET(
     const startingAfter = searchParams.get('starting_after') || undefined;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {

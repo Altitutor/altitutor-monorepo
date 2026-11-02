@@ -52,6 +52,12 @@ describe('normalizeTimeInput', () => {
     expect(normalizeTimeInput('0930')).toBe('09:30');
   });
 
+  it('uses the shared working-hours reading for compact times', () => {
+    expect(normalizeTimeInput('4')).toBe('16:00');
+    expect(normalizeTimeInput('415')).toBe('16:15');
+    expect(normalizeTimeInput('1615')).toBe('16:15');
+  });
+
   it('rejects invalid times', () => {
     expect(normalizeTimeInput('25:00')).toBeNull();
     expect(normalizeTimeInput('12:99')).toBeNull();

@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import React, { useState } from 'react';
 import { Separator } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -102,7 +104,7 @@ export function ParentDetailsTab({
               />
             </PropertyFormRow>
             <PropertyFormRow label="Email" htmlFor="parent-email">
-              <Input
+              <EmailInput
                 id="parent-email"
                 type="email"
                 value={formData.email || ''}

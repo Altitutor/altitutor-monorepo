@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A valid image is required' }, { status: 400 })
     }
 
-    const { data: tutorId, error: tutorError } = await createClient().rpc('current_tutor_id')
+    const { data: tutorId, error: tutorError } = await (await createClient()).rpc('current_tutor_id')
     if (tutorError || !tutorId) {
       return NextResponse.json({ error: 'Failed to resolve tutor' }, { status: 500 })
     }

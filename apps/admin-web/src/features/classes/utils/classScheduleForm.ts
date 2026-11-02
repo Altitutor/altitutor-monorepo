@@ -4,11 +4,30 @@ import type {
   ClassScheduleRow,
 } from '../types/schedule';
 
+const ADELAIDE_TIME_ZONE = 'Australia/Adelaide';
+
 interface LegacyClassSchedule {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
   room: string | null;
+}
+
+export function adelaideCalendarDate(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ADELAIDE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/**
+ * New offerings may start in the past, but session generation cannot.
+ * Keep the offering start date, and begin the timetable on today when that start is earlier.
+ */
+export function resolveScheduleEffectiveFrom(startDate: string, today = adelaideCalendarDate()): string {
+  return startDate > today ? startDate : today;
 }
 
 export function resolveClassScheduleRows(
@@ -34,9 +53,9 @@ export function validateClassScheduleRows(rows: ClassScheduleRow[]): string | nu
 
   for (const row of rows) {
     if (row.dayOfWeek < 0 || row.dayOfWeek > 6 || !row.startTime || !row.endTime) {
-      return 'Every schedule row needs a weekday, start time, and end time.';
+      return 'Every schedule row needs a weekday, start time, and duration.';
     }
-    if (row.endTime <= row.startTime) return 'Every end time must be after its start time.';
+    if (row.endTime <= row.startTime) return 'Duration must finish after the start time.';
   }
 
   for (let index = 0; index < rows.length; index += 1) {

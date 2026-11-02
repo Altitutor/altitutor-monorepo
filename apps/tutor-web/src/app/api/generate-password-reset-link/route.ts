@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -49,9 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isDev = process.env.NODE_ENV === 'development';
-    const baseUrl = isDev
-      ? 'http://localhost:3002'
-      : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+    const baseUrl = process.env.NEXT_PUBLIC_TUTOR_URL || (isDev ? 'http://localhost:3002' : 'https://tutor.altitutor.com');
     const redirectUrl = `${baseUrl}/auth/callback`;
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({

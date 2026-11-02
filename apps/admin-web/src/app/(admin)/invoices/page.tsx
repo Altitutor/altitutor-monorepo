@@ -142,7 +142,7 @@ export default function InvoicesPage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
+
       </div>
 
       <DataTableToolbar
@@ -157,7 +157,7 @@ export default function InvoicesPage() {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="invoices"
         filterSearchValues={{ student: studentFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'student') setStudentFilterSearch(value);

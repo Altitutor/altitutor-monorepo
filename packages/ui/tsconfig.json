@@ -10,7 +10,6 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "types": ["jest", "node"],
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"]

@@ -10,7 +10,7 @@ import {
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from '../../_lib';
 
 async function assertCardAccess(cardId: string) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return false;
   const { data } = await userClient
@@ -22,14 +22,15 @@ async function assertCardAccess(cardId: string) {
 }
 
 async function assertTopicAccess(topicId: string) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return false;
   const { data } = await userClient.from('topics').select('id').eq('id', topicId).maybeSingle();
   return Boolean(data);
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!supabaseAdmin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
   if (!(await assertCardAccess(params.id))) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -150,7 +151,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   return NextResponse.json({ data });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!supabaseAdmin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
   if (!(await assertCardAccess(params.id))) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

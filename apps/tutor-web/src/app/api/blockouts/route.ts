@@ -12,7 +12,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
  */
 export async function GET() {
   try {
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

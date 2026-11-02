@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
@@ -25,7 +26,7 @@ export async function createServerComponentClient(globalFetch?: typeof fetch) {
             }
           },
         },
-        cookieOptions: { name: "student-auth" },
+        cookieOptions: { name: getAuthCookieName() },
         ...(globalFetch ? { global: { fetch: globalFetch } } : {}),
       },
     ),

@@ -932,6 +932,7 @@ export function DashboardHome() {
     nextTask,
     true,
     planQuery.data ?? null,
+    "dashboard-next-task",
   );
   const week = useMemo(
     () =>

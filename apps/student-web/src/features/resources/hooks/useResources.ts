@@ -1,7 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { normalizeSlug } from '@altitutor/shared';
-import { resourcesApi } from '../api/resources';
+import { RESOURCE_SIGNED_URL_LIFETIME_SECONDS, resourcesApi } from '../api/resources';
 import type { ResourceSubject, ResourceSubjectNavItem } from '../lib/types';
+
+const RESOURCE_SIGNED_URL_REFRESH_SAFETY_SECONDS = 10 * 60;
+const RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS =
+  (RESOURCE_SIGNED_URL_LIFETIME_SECONDS - RESOURCE_SIGNED_URL_REFRESH_SAFETY_SECONDS) * 1000;
 
 export function useResourceAccessBySubject() {
   return useQuery({
@@ -116,5 +120,16 @@ export function useResourceSignedFileUrl(topicId: string | null, fileCode: strin
       return resourcesApi.getSignedFileUrl(file);
     },
     enabled: Boolean(topicId && fileCode),
+    staleTime: RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS,
+    refetchInterval: (query) => {
+      if (!query.state.data) return false;
+      const nextRefreshAt = query.state.status === 'error'
+        ? query.state.errorUpdatedAt + 60_000
+        : query.state.dataUpdatedAt + RESOURCE_SIGNED_URL_REFRESH_INTERVAL_MS;
+      return Math.max(1000, nextRefreshAt - Date.now());
+    },
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }

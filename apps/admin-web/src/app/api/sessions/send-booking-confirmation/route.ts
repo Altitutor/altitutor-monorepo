@@ -2,7 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { sendEmail } from '@/shared/lib/email';
+import { sendOperationalEmail } from '@/features/email/server/operational';
 import { buildBookingConfirmationEmail } from '@altitutor/email';
 import { getBookingConfirmationMessage } from '@/features/messages/api/systemTemplates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
       .from('staff')
       .select('id, role, first_name, last_name')
       .eq('user_id', user.id)
+      .eq('status', 'ACTIVE')
       .single<{ id: string; role: string; first_name: string | null; last_name: string | null }>();
 
-    if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
+    if (staffError || !staffData || staffData.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
@@ -186,7 +187,10 @@ export async function POST(request: NextRequest) {
             staffIntroduction: customMessage?.trim() || undefined,
           });
 
-          await sendEmail({
+          await sendOperationalEmail({
+            actorStaffId: staffData.id,
+            idempotencyKey: request.headers.get("idempotency-key") ? `booking/${sessionId}/${studentId}/${recipient.email}/${request.headers.get("idempotency-key")}` : undefined,
+            links: [{ type: "student", id: studentId }, { type: "session", id: sessionId }, ...(recipient.id !== studentId ? [{ type: "parent" as const, id: recipient.id }] : [])],
             to: recipient.email,
             email,
           });

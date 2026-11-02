@@ -293,7 +293,7 @@ export function AssignStaffWeekCalendar({
                                 new Date(a.start_at).getTime() - new Date(b.start_at).getTime()
                             );
 
-                          const blocks: JSX.Element[] = [];
+                          const blocks: React.JSX.Element[] = [];
                           daySessions.forEach((s) => {
                             const isPotential = 'isPotential' in s && s.isPotential;
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at);
@@ -317,7 +317,7 @@ export function AssignStaffWeekCalendar({
                                 ? selectedClasses[0]
                                 : data?.classesById?.[s.class_id || ''];
                             const subj =
-                              cls && 'subject_id' in cls && cls.subject_id
+                              'subject_id' in s && s.subject_id ? data?.subjectsById?.[s.subject_id] : cls && 'subject_id' in cls && cls.subject_id
                                 ? data?.subjectsById?.[cls.subject_id]
                                 : classSubject;
 
@@ -396,6 +396,7 @@ export function AssignStaffWeekCalendar({
                                 }}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={mockSession}
                                   classData={cls}
                                   subject={subj}

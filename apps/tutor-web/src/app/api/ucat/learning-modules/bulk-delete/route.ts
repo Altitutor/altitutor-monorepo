@@ -4,7 +4,7 @@ import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/
 import { jsonUcatDeleteErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 const BodySchema = z.object({
-  moduleIds: z.array(z.string().uuid()).min(1).max(500),
+  moduleIds: z.array(z.string().guid('Invalid uuid')).min(1).max(500),
 })
 
 export async function POST(request: NextRequest) {

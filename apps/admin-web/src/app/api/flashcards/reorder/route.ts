@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { persistTopicFlashcardOrder } from '../_lib';
 
 async function assertTopicAccess(topicId: string) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return false;
   const { data } = await userClient.from('topics').select('id').eq('id', topicId).maybeSingle();

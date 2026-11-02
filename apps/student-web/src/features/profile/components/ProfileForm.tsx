@@ -28,7 +28,7 @@ const profileFormSchema = z.object({
   phone: z.string().optional(),
   school: z.string().optional(),
   curriculum: z.string().optional(),
-  year_level: z.coerce.number().int().min(1).max(13).optional(),
+  year_level: z.coerce.number<number>().int().min(1).max(13).optional(),
   availability_monday: z.boolean().optional(),
   availability_tuesday: z.boolean().optional(),
   availability_wednesday: z.boolean().optional(),

@@ -39,6 +39,7 @@ type ParentWithStudents = {
 /** Normalize parent to Tables<'parents'> shape */
 function toParentTable(parentData: ParentWithStudents): Tables<'parents'> {
   return {
+    deleted_at: null, deleted_by: null,
     id: parentData.id,
     first_name: parentData.first_name || '',
     last_name: parentData.last_name || '',

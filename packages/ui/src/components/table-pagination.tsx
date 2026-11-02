@@ -1,19 +1,21 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from './button';
-import { SearchableSelect } from './searchable-select';
-import { cn } from '../lib/cn';
+import { useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "./button";
+import { SearchableSelect } from "./searchable-select";
+import { cn } from "../lib/cn";
 import {
   paginationPageActiveStyles,
   paginationPageInactiveStyles,
-} from '../lib/styles';
+} from "../lib/styles";
 
 export interface TablePaginationProps {
   page: number;
   pageSize: number;
-  total: number;
+  total?: number;
+  /** Cursor/offset APIs can paginate without claiming a total they do not know. */
+  hasNextPage?: boolean;
   isFetching?: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
@@ -35,6 +37,7 @@ export function TablePagination({
   page,
   pageSize,
   total,
+  hasNextPage,
   isFetching = false,
   onPageChange,
   onPageSizeChange,
@@ -45,15 +48,19 @@ export function TablePagination({
   className,
   activePageButtonClassName,
 }: TablePaginationProps) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const pageCount =
+    total === undefined
+      ? Math.max(1, page + (hasNextPage ? 1 : 0))
+      : Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(page, 1), pageCount);
 
   const pages = useMemo(() => {
+    if (total === undefined) return [currentPage];
     if (pageCount <= MAX_VISIBLE_PAGES) {
       return Array.from({ length: pageCount }, (_, index) => index + 1);
     }
 
-    const pagesList: Array<number | 'ellipsis'> = [];
+    const pagesList: Array<number | "ellipsis"> = [];
     const showLeftEllipsis = currentPage > 4;
     const showRightEllipsis = currentPage < pageCount - 3;
 
@@ -65,7 +72,7 @@ export function TablePagination({
 
     pagesList.push(1);
     if (showLeftEllipsis) {
-      pagesList.push('ellipsis');
+      pagesList.push("ellipsis");
     }
 
     const start = showLeftEllipsis ? currentPage - 1 : 2;
@@ -73,12 +80,12 @@ export function TablePagination({
     addRange(start, end);
 
     if (showRightEllipsis) {
-      pagesList.push('ellipsis');
+      pagesList.push("ellipsis");
     }
     pagesList.push(pageCount);
 
     return pagesList;
-  }, [currentPage, pageCount]);
+  }, [currentPage, pageCount, total]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= pageCount && newPage !== currentPage) {
@@ -87,8 +94,11 @@ export function TablePagination({
   };
 
   type PageSizeItem = { value: number };
-  const pageSizeItems: PageSizeItem[] = pageSizeOptions.map((n) => ({ value: n }));
-  const selectedPageSize = pageSizeItems.find((i) => i.value === pageSize) ?? pageSizeItems[0];
+  const pageSizeItems: PageSizeItem[] = pageSizeOptions.map((n) => ({
+    value: n,
+  }));
+  const selectedPageSize =
+    pageSizeItems.find((i) => i.value === pageSize) ?? pageSizeItems[0];
 
   const handlePageSizeChange = (item: PageSizeItem | null) => {
     if (item && item.value !== pageSize && onPageSizeChange) {
@@ -97,17 +107,24 @@ export function TablePagination({
   };
 
   return (
-    <div className={cn('w-full overflow-x-auto overscroll-x-contain text-sm text-muted-foreground', className)}>
+    <div
+      className={cn(
+        "w-full overflow-x-auto overscroll-x-contain text-sm text-muted-foreground",
+        className,
+      )}
+    >
       <div
         className={cn(
-          'flex min-w-max items-center gap-4',
-          showPageSummary ? 'justify-between' : 'justify-end',
+          "flex min-w-max items-center gap-4",
+          showPageSummary ? "justify-between" : "justify-end",
         )}
       >
         {showPageSummary ? (
           <div className="flex shrink-0 items-center gap-2">
             <span className="whitespace-nowrap">
-              Page {currentPage} of {pageCount} • {countSummary ?? `${total} total`}
+              {total === undefined
+                ? `Page ${currentPage}`
+                : `Page ${currentPage} of ${pageCount} • ${countSummary ?? `${total} total`}`}
             </span>
             {isFetching && <span className="text-xs">(Refreshing...)</span>}
           </div>
@@ -131,12 +148,18 @@ export function TablePagination({
           ) : null}
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1}>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Previous page"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-1">
               {pages.map((item, index) =>
-                item === 'ellipsis' ? (
+                item === "ellipsis" ? (
                   <span key={`ellipsis-${index}`} className="px-2">
                     …
                   </span>
@@ -146,11 +169,12 @@ export function TablePagination({
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePageChange(item)}
-                    aria-current={item === currentPage ? 'page' : undefined}
+                    aria-current={item === currentPage ? "page" : undefined}
                     className={cn(
-                      'min-w-[36px] tabular-nums',
+                      "min-w-[36px] tabular-nums",
                       item === currentPage
-                        ? (activePageButtonClassName ?? paginationPageActiveStyles)
+                        ? (activePageButtonClassName ??
+                            paginationPageActiveStyles)
                         : paginationPageInactiveStyles,
                     )}
                   >
@@ -159,7 +183,13 @@ export function TablePagination({
                 ),
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= pageCount}>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Next page"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= pageCount}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

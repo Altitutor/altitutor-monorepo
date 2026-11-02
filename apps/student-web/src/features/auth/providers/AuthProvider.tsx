@@ -67,8 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Only validate if session user is missing (shouldn't happen, but safety check)
         if (session) {
           setSession(session);
-          // Invalidate profile so it refetches with new auth (fixes stale null after sign-in)
-          queryClient.invalidateQueries({ queryKey: ['student', 'profile'] });
+          // A pre-restore initial fetch may still return null. Cancel it first;
+          // invalidation alone can reuse that request when no data is cached yet.
+          void queryClient.cancelQueries({ queryKey: ['student', 'profile'] }).then(() =>
+            queryClient.invalidateQueries({ queryKey: ['student', 'profile'] }),
+          );
           // Use session.user directly - it's already validated by Supabase
           // Only call getUser() if session.user is missing (edge case)
           if (session.user) {

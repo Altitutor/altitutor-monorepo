@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePaneNavigation } from './usePaneNavigation';
-import { DataTableState, QuickFilter, resolveQuickFilterPlaceholders } from '@altitutor/shared';
-import { addDays, endOfWeek, format, startOfWeek, subDays } from 'date-fns';
+import { DataTableState, QuickFilter, resolveQuickFilterPlaceholders, getViewSettings, readViewSettings, isFilterMetadata } from '@altitutor/shared';
 
 // Helper for deep equality check that handles key ordering
 function isEqual(a: unknown, b: unknown): boolean {
@@ -21,7 +20,7 @@ function isEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
-const MANAGED_PARAM_KEYS = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'];
+const MANAGED_PARAM_KEYS = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns', 'view'];
 
 function mergeTableState(prev: DataTableState, updates: Partial<DataTableState>): DataTableState {
   const next: DataTableState = { ...prev, ...updates };
@@ -37,7 +36,7 @@ function clearManagedParams(params: URLSearchParams, filterKeys?: string[]) {
   MANAGED_PARAM_KEYS.forEach((key) => params.delete(key));
 
   if (filterKeys) {
-    filterKeys.forEach((key) => params.delete(key));
+    Array.from(params.keys()).filter(key => filterKeys.includes(key) || isFilterMetadata(key)).forEach(key => params.delete(key));
     return;
   }
 
@@ -54,21 +53,20 @@ function applyTableStateToParams(
   initialPageSize: number,
   defaultVisibleColumns: string[],
   filterKeys?: string[],
+  defaultGroupBy?: string | null,
 ) {
   clearManagedParams(params, filterKeys);
+
+  if (tableState.view) params.set('view', tableState.view);
 
   if (tableState.search) {
     params.set('search', tableState.search);
   }
 
-  if (tableState.sortBy) {
-    params.set('sort', tableState.sortBy);
-    params.set('order', tableState.sortDirection);
-  }
+  params.set('sort', tableState.sortBy ?? '__none__');
+  params.set('order', tableState.sortDirection);
 
-  if (tableState.groupBy) {
-    params.set('group', tableState.groupBy);
-  }
+  if (tableState.groupBy || defaultGroupBy) params.set('group', tableState.groupBy ?? '__none__');
 
   if (tableState.page > 1) {
     params.set('page', String(tableState.page));
@@ -80,17 +78,17 @@ function applyTableStateToParams(
 
   const columnsChanged =
     tableState.visibleColumns.join(',') !== defaultVisibleColumns.join(',');
-  if (columnsChanged && tableState.visibleColumns.length > 0) {
+  if (columnsChanged || tableState.columnsConfigured) {
     params.set('columns', tableState.visibleColumns.join(','));
   }
 
   const filterEntries = filterKeys
-    ? filterKeys.map((key) => [key, tableState.filters[key]] as const)
+    ? Object.entries(tableState.filters).filter(([key]) => filterKeys.includes(key) || isFilterMetadata(key))
     : Object.entries(tableState.filters);
 
   filterEntries.forEach(([key, values]) => {
     if (values && values.length > 0) {
-      params.set(key, values.map(String).join(','));
+      params.set(key, values.some((value) => value !== null && typeof value === 'object') ? 'json:' + JSON.stringify(values) : values.map(String).join(','));
     }
   });
 }
@@ -124,23 +122,25 @@ export function useDataTable({
   const hasSyncedInitialDefaults = useRef(false);
   const pendingUrlUpdateRef = useRef(false);
   const isManagedKey = useCallback((key: string) => {
-    return MANAGED_PARAM_KEYS.includes(key) || (filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key));
+    if (key === 'view') return false;
+    return MANAGED_PARAM_KEYS.includes(key) || (filterKeys ? (filterKeys.includes(key) || isFilterMetadata(key)) : !MANAGED_PARAM_KEYS.includes(key));
   }, [filterKeys]);
 
   const commitTableUrl = useCallback((tableState: DataTableState) => {
     const params = new URLSearchParams(searchParams.toString());
-    applyTableStateToParams(params, tableState, initialPageSize, defaultVisibleColumns, filterKeys);
+    applyTableStateToParams(params, tableState, initialPageSize, defaultVisibleColumns, filterKeys, defaultGroupBy);
     pendingUrlUpdateRef.current = true;
     router.replace(buildTableHref(pathname, params), { scroll: false });
-  }, [defaultVisibleColumns, filterKeys, initialPageSize, pathname, router, searchParams]);
+  }, [defaultVisibleColumns, defaultGroupBy, filterKeys, initialPageSize, pathname, router, searchParams]);
 
   // Parse filters from URL helper
   const parseFiltersFromUrl = useCallback(() => {
     if (skipUrlSync) return {};
     const filters: Record<string, unknown[]> = {};
     searchParams.forEach((value, key) => {
-      const canParseKey = filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key);
+      const canParseKey = filterKeys ? (filterKeys.includes(key) || isFilterMetadata(key)) : !MANAGED_PARAM_KEYS.includes(key);
       if (canParseKey) {
+        if (value.startsWith('json:')) {try {const parsed: unknown = JSON.parse(value.slice(5)); if (Array.isArray(parsed)) filters[key] = parsed;} catch {} return;}
         const values = value.split(',').filter(Boolean);
         filters[key] = values.map(v => {
           const num = Number(v);
@@ -156,6 +156,8 @@ export function useDataTable({
     if (skipUrlSync) {
       return {
         search: '',
+        view: searchParams.get('view') ?? undefined,
+        columnsConfigured: false,
         filters: defaultFilters,
         sortBy: defaultSort.field,
         sortDirection: defaultSort.direction,
@@ -170,7 +172,7 @@ export function useDataTable({
     const search = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort');
     const sortDirection = (searchParams.get('order') || defaultSort.direction) as 'asc' | 'desc';
-    const groupBy = searchParams.get('group') ?? defaultGroupBy;
+    const groupBy = searchParams.get('group') === '__none__' ? null : searchParams.get('group') ?? defaultGroupBy;
     const page = Number(searchParams.get('page')) || 1;
     const pageSize = Number(searchParams.get('pageSize')) || initialPageSize;
     const visibleColumns = searchParams.get('columns')?.split(',').filter(Boolean) || defaultVisibleColumns;
@@ -185,6 +187,8 @@ export function useDataTable({
     if (!hasAnyParam) {
       return {
         search: '',
+        view: searchParams.get('view') ?? undefined,
+        columnsConfigured: false,
         filters: defaultFilters,
         sortBy: defaultSort.field,
         sortDirection: defaultSort.direction,
@@ -198,8 +202,10 @@ export function useDataTable({
 
     return {
       search,
+      view: searchParams.get('view') ?? undefined,
+      columnsConfigured: searchParams.has('columns'),
       filters,
-      sortBy: sortBy || defaultSort.field,
+      sortBy: sortBy === '__none__' ? null : sortBy || defaultSort.field,
       sortDirection,
       groupBy,
       page,
@@ -260,6 +266,7 @@ export function useDataTable({
     const next = mergeTableState(stateRef.current, updates);
     if (isEqual(stateRef.current, next)) return;
 
+    stateRef.current = next;
     setState(next);
     if (!skipUrlSync) {
       commitTableUrl(next);
@@ -305,55 +312,24 @@ export function useDataTable({
   }, [updateUrl]);
 
   const setVisibleColumns = useCallback((columns: string[]) => {
-    updateUrl({ visibleColumns: columns });
+    updateUrl({ visibleColumns: columns, columnsConfigured: true });
   }, [updateUrl]);
 
   const applyQuickFilter = useCallback((qf: QuickFilter, currentUserId?: string | null) => {
-    const resolvedConfig = resolveQuickFilterPlaceholders(qf.config, currentUserId || undefined);
-    const normalizedConfig = { ...resolvedConfig } as Record<string, unknown[]>;
-    const legacyDateKeys = ['scheduled_at', 'date', 'created_at', 'start_time'];
-    const now = new Date();
-    const today = format(now, 'yyyy-MM-dd');
-    const yesterday = format(subDays(now, 1), 'yyyy-MM-dd');
-    const tomorrow = format(addDays(now, 1), 'yyyy-MM-dd');
-    const monday = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const sunday = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-
-    legacyDateKeys.forEach((legacyKey) => {
-      const legacyValues = normalizedConfig[legacyKey];
-      if (!legacyValues || legacyValues.length === 0) return;
-
-      const first = String(legacyValues[0]);
-      if (first === '$THIS_WEEK$') {
-        normalizedConfig.from = [monday];
-        normalizedConfig.to = [sunday];
-      } else if (first === '$TODAY$') {
-        normalizedConfig.from = [today];
-        normalizedConfig.to = [today];
-      } else if (first === '$YESTERDAY$') {
-        normalizedConfig.from = [yesterday];
-        normalizedConfig.to = [yesterday];
-      } else if (first === '$TOMORROW$') {
-        normalizedConfig.from = [tomorrow];
-        normalizedConfig.to = [tomorrow];
-      } else if (first === '$FUTURE$') {
-        normalizedConfig.from = [today];
-      } else if (first === '$PAST$') {
-        normalizedConfig.to = [today];
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(first)) {
-        normalizedConfig.from = [first];
-        normalizedConfig.to = [first];
-      }
-
-      delete normalizedConfig[legacyKey];
-    });
-
+    const display = getViewSettings(qf.config);
+    if (display) {
+      updateUrl({filters: resolveQuickFilterPlaceholders(display.filters,currentUserId ?? undefined),sortBy:display.sortBy,sortDirection:display.sortDirection,groupBy:display.groupBy,visibleColumns:display.visibleColumns,columnsConfigured:true,...(display.layout ? {view:display.layout} : {}),page:1});
+      return;
+    }
+    const normalizedConfig = readViewSettings(qf.config, {filters:{},sortBy:null,sortDirection:'asc',groupBy:null,visibleColumns:[]},currentUserId ?? undefined).filters;
     setFilters(normalizedConfig);
-  }, [setFilters]);
+  }, [setFilters, updateUrl]);
 
   const resetFilters = useCallback(() => {
     const resetState: DataTableState = {
       search: '',
+      view: stateRef.current.view,
+      columnsConfigured: false,
       filters: defaultFilters,
       sortBy: defaultSort.field,
       sortDirection: defaultSort.direction,

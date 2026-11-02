@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
@@ -157,7 +159,7 @@ export function StaffIntervieweeStep({
               )}
             </PropertyFormRow>
             <PropertyFormRow label="Email" htmlFor="email">
-              <Input
+              <EmailInput
                 id="email"
                 type="email"
                 {...form.register('email')}

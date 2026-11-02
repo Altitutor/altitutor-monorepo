@@ -1,5 +1,7 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
+import { recordAdminAuthNavigation } from "@/lib/sentry/admin-auth-diagnostics";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const hostname = typeof window === "undefined" ? undefined : window.location.hostname;
@@ -21,14 +23,14 @@ Sentry.init({
   enabled: collection.feedback,
   environment: collection.environment,
   sendClientReports: collection.errors,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSend: (event) => collection.errors || event.type === "feedback" ? event : null,
   beforeSendTransaction: (event) => collection.errors ? event : null,
   tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
   integrations: (defaults) => [
-    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
+    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession").map((integration) => integration.name === "BrowserSession" ? Sentry.browserSessionIntegration({ lifecycle: "route" }) : integration),
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({
@@ -55,4 +57,7 @@ Sentry.init({
   ],
 });
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart: typeof Sentry.captureRouterTransitionStart = (...args) => {
+  recordAdminAuthNavigation();
+  Sentry.captureRouterTransitionStart(...args);
+};

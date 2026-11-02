@@ -213,11 +213,23 @@ describe("iMessage control validation", () => {
   it("requires a reason for destructive commands", () => {
     expect(() =>
       validateCommandRequest({
-        commandType: "delete_message",
+        commandType: "unsend_message",
         messageId: "message-1",
         payload: {},
       })
     ).toThrow("reason");
+  });
+
+  it("rejects provider message and chat deletion even with a reason", () => {
+    for (const commandType of ["delete_message", "delete_chat"]) {
+      expect(() => validateCommandRequest({
+        commandType,
+        messageId: "message-1",
+        conversationId: "conversation-1",
+        reason: "Requested deletion",
+        payload: {},
+      })).toThrow("Message deletion is not allowed");
+    }
   });
 
   it("validates command-specific payload fields", () => {

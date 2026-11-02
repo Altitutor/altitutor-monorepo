@@ -19,7 +19,7 @@ interface ProjectDescriptionFieldProps {
   form: UseFormReturn<ProjectFormData>;
   value?: JSONContent | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
-  descriptionRef?: React.RefObject<RichTextEditorRef>;
+  descriptionRef?: React.RefObject<RichTextEditorRef | null>;
 }
 
 export function ProjectDescriptionField({

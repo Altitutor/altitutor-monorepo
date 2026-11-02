@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/lib/supabase/auth-cookie";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -23,7 +24,7 @@ export async function getSupabaseServerClient(
             setAll: () => {},
           },
           cookieOptions: {
-            name: "student-auth",
+            name: getAuthCookieName(),
           },
         },
       ) as unknown as SupabaseClient<Database>,
@@ -77,7 +78,7 @@ export async function getSupabaseServerClient(
         },
       },
       cookieOptions: {
-        name: "student-auth",
+        name: getAuthCookieName(),
       },
       global: { fetch: createGatewayReadFetch(supabaseUrl, globalFetch) },
     }) as unknown as SupabaseClient<Database>,

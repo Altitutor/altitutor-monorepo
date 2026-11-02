@@ -6,7 +6,7 @@ import { parseFlashcardCsv } from '@altitutor/shared';
 import { listAccessibleFlashcards } from '../_lib';
 
 export async function POST(request: NextRequest) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor } = await userClient.rpc('is_tutor');
   if (!isTutor) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 

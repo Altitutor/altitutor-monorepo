@@ -7,7 +7,7 @@ import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-clien
  * Create a Supabase client for use in Server Components and API Routes
  * Uses @supabase/ssr for better TypeScript support
  */
-export function createClient() {
+export async function createClient() {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
@@ -19,11 +19,12 @@ export function createClient() {
           getAll: () => [],
           setAll: () => {},
         },
+        cookieOptions: { name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth" },
       }
     ));
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +49,7 @@ export function createClient() {
         },
       },
       cookieOptions: {
-        name: 'admin-auth',
+        name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',

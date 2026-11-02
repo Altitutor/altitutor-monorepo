@@ -1,12 +1,16 @@
 /** @type {import('jest').Config} */
 const config = {
+  maxWorkers: 2,
   testEnvironment: "node",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   testMatch: ["**/__tests__/**/*.test.ts"],
   transform: {
-    "^.+\\.(t|j)sx?$": ["@swc/jest"],
+    "^.+\\.(t|j)sx?$": [
+      "@swc/jest",
+      { jsc: { transform: { react: { runtime: "automatic" } } } },
+    ],
   },
   moduleFileExtensions: ["ts", "tsx", "js", "json"],
 };

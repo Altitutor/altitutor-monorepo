@@ -13,8 +13,9 @@ type PromotionOutcome = 'approved' | 'deferred' | 'not_ready';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { staffId: string; promotionId: string } }
+  props: { params: Promise<{ staffId: string; promotionId: string }> }
 ) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 

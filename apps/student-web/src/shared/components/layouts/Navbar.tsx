@@ -27,6 +27,7 @@ import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visua
 import { cn } from '@/shared/utils';
 import { shouldHideNavbar } from '@/shared/lib/shell-layout';
 import { openUserFeedback } from '@/lib/sentry/open-user-feedback';
+import { isStudentRecoveryEmail } from '@altitutor/shared';
 
 export function Navbar() {
   const router = useRouter();
@@ -38,6 +39,7 @@ export function Navbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [formResponseSubmitted, setFormResponseSubmitted] = useState(false);
+  const contactEmail = isStudentRecoveryEmail(user?.email) ? undefined : user?.email;
 
   useEffect(() => {
     setFormResponseSubmitted(false);
@@ -67,7 +69,7 @@ export function Navbar() {
     if (profile?.first_name && profile?.last_name) {
       return `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase();
     }
-    return user?.email?.charAt(0).toUpperCase() || 'U';
+    return contactEmail?.charAt(0).toUpperCase() || 'U';
   };
 
   // Get user full name
@@ -80,7 +82,7 @@ export function Navbar() {
       return profile.first_name;
     }
     // Final fallback to email username
-    return user?.email?.split('@')[0] || 'User';
+    return contactEmail?.split('@')[0] || 'User';
   };
 
   return (
@@ -211,7 +213,7 @@ export function Navbar() {
         appName="student-web"
         user={{
           id: user?.id,
-          email: user?.email,
+          email: contactEmail,
           name: getFullName(),
         }}
       />

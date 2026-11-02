@@ -45,12 +45,12 @@ const trialContactSchema = z.object({
   student_email: z.string().email('Invalid email address'),
   student_phone: z.string().optional().or(z.literal('')),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
-    required_error: 'Please select a curriculum',
+    error: (issue) => issue.input === undefined ? 'Please select a curriculum' : undefined,
   }),
   year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'], {
-    required_error: 'Please select a year level',
+    error: (issue) => issue.input === undefined ? 'Please select a year level' : undefined,
   }),
-  subject_ids: z.array(z.string().uuid()).min(1, 'Please select at least one subject'),
+  subject_ids: z.array(z.string().guid('Invalid uuid')).min(1, 'Please select at least one subject'),
   skip_parent_details: z.boolean().default(false),
   parent_first_name: z.string().max(100).optional(),
   parent_last_name: z.string().max(100).optional(),

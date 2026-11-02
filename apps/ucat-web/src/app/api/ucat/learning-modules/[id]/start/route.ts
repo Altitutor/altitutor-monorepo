@@ -6,6 +6,9 @@ import {
   quotaExceededResponse,
 } from "@/lib/ucat/quota/quota-service";
 import { ensureLessonStarted } from "@/lib/ucat/learning/progress-service";
+import { getRejectedStudyPlanDiagnostics } from "@/features/study-plan/server/rejected-start-diagnostics";
+
+import { parseStudyPlanLaunchDiagnostics } from "@/features/study-plan/model/launch-diagnostics";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,6 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
     studyPlanTaskId?: unknown;
+    studyPlanLaunch?: unknown;
   };
   const studyPlanTaskId =
     typeof body.studyPlanTaskId === "string" ? body.studyPlanTaskId : null;
@@ -60,7 +64,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
         JSON.parse(message.slice("QUOTA_EXCEEDED:".length)),
       );
     }
-    captureApiError(error, "/api/ucat/learning-modules/[id]/start");
+    const diagnostics =
+      message === "invalid_study_plan_learning_task" &&
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "22023"
+        ? await getRejectedStudyPlanDiagnostics(auth.admin, {
+            operation: "learning",
+            studentId: auth.studentId,
+            taskId: studyPlanTaskId,
+            moduleId: id,
+          })
+        : undefined;
+    captureApiError(
+      error,
+      "/api/ucat/learning-modules/[id]/start",
+      diagnostics
+        ? {
+            study_plan_start: diagnostics,
+            ...(diagnostics.task_id
+              ? {
+                  study_plan_launch: parseStudyPlanLaunchDiagnostics(
+                    body.studyPlanLaunch,
+                    "learn",
+                  ),
+                }
+              : {}),
+          }
+        : undefined,
+    );
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

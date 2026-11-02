@@ -610,3 +610,18 @@ it('renders the date navigation inside Session Information’s Day value', () =>
   const label = screen.getByText('Day:');
   expect(label.nextElementSibling).toContainElement(screen.getByRole('button', { name: 'Choose session date' }));
 });
+
+
+it('opens the recurring admin shift from its session information', () => {
+  const onOpenAdminShift = jest.fn();
+  renderComponent({
+    session: {
+      id: 'shift-session', type: 'ADMIN_SHIFT', admin_shift_id: 'shift-1',
+      admin_shift: { id: 'shift-1', day_of_week: 1, start_time: '09:00', end_time: '10:00' },
+    },
+    onOpenAdminShift,
+  });
+  expect(screen.getByText('Admin shift:')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: /Monday/ }));
+  expect(onOpenAdminShift).toHaveBeenCalledWith('shift-1');
+});

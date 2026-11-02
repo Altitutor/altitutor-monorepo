@@ -34,7 +34,7 @@ type NotificationRecipient = { staff_id?: string; student_id?: string };
  */
 type NotificationRecipientResolver = (
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ) => Promise<NotificationRecipient[]>;
 
 /**
@@ -42,7 +42,7 @@ type NotificationRecipientResolver = (
  */
 async function resolveClassStudents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_students recipient type');
@@ -64,7 +64,7 @@ async function resolveClassStudents(
  */
 async function resolveClassStaff(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_staff recipient type');
@@ -86,7 +86,7 @@ async function resolveClassStaff(
  */
 async function resolveClassAll(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_all recipient type');
@@ -110,7 +110,7 @@ async function resolveClassAll(
  */
 async function resolveSessionStudents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_students recipient type');
@@ -131,7 +131,7 @@ async function resolveSessionStudents(
  */
 async function resolveSessionStaff(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_staff recipient type');
@@ -150,7 +150,7 @@ async function resolveSessionStaff(
 /** Notify session staff and the original booking creator, including on cancellation. */
 async function resolveSessionStaffAndBookingCreator(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_staff_and_booking_creator recipient type');
@@ -180,7 +180,7 @@ async function resolveSessionStaffAndBookingCreator(
  */
 async function resolveSessionAll(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_all recipient type');
@@ -204,7 +204,7 @@ async function resolveSessionAll(
  */
 async function resolveAllAdminStaff(
   supabase: SupabaseClient<Database>,
-  _activityEvent: ActivityEvent
+  _activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   const { data: staff, error } = await supabase
     .from('staff')
@@ -226,7 +226,7 @@ async function resolveAllAdminStaff(
  */
 async function resolveAllStaff(
   supabase: SupabaseClient<Database>,
-  _activityEvent: ActivityEvent
+  _activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   const { data: staff, error } = await supabase
     .from('staff')
@@ -247,7 +247,7 @@ async function resolveAllStaff(
  */
 async function resolveAllUcatStudents(
   supabase: SupabaseClient<Database>,
-  _activityEvent: ActivityEvent
+  _activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   const recipients: NotificationRecipient[] = [];
   for (let offset = 0; ; offset += 1000) {
@@ -276,7 +276,7 @@ async function resolveAllUcatStudents(
  */
 async function resolveAdminStaffOnDay(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   let dayOfWeek: number | null = null;
   
@@ -392,7 +392,7 @@ async function resolveAdminStaffOnDay(
  */
 async function resolveTutorLogStaff(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.entity_id) {
     throw new Error('entity_id (tutor_log_id) required for tutor_log_staff recipient type');
@@ -413,7 +413,7 @@ async function resolveTutorLogStaff(
  */
 async function resolveSingle(
   _supabase: SupabaseClient<Database>,
-  _activityEvent: ActivityEvent
+  _activityEvent: Partial<ActivityEvent>
 ): Promise<NotificationRecipient[]> {
   // Single recipient is handled by the caller (backward compatibility)
   return [];
@@ -450,7 +450,7 @@ const notificationRecipientResolvers: Record<string, NotificationRecipientResolv
 export async function resolveNotificationRecipients(
   supabase: SupabaseClient<Database>,
   recipientType: string,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<Array<{ staff_id?: string; student_id?: string }>> {
   const resolver = notificationRecipientResolvers[recipientType];
   
@@ -472,7 +472,7 @@ export interface MessageRecipientTarget {
 
 type MessageRecipientResolver = (
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ) => Promise<MessageRecipientTarget[]>;
 
 function dedupeTargets(targets: MessageRecipientTarget[]): MessageRecipientTarget[] {
@@ -534,18 +534,19 @@ async function getTargetsForStudents(
 
 async function resolveMessageClassStudents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_students recipient type');
   }
   
-  const { data: enrollments } = await supabase
+  const { data: enrollments, error: lookupError } = await supabase
     .from('classes_students')
     .select('student_id')
     .eq('class_id', activityEvent.class_id)
     .is('unenrolled_at', null);
   
+  if (lookupError) throw lookupError;
   if (!enrollments || enrollments.length === 0) return [];
   
   const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
@@ -554,18 +555,19 @@ async function resolveMessageClassStudents(
 
 async function resolveMessageClassStudentsAndParents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_students_and_parents recipient type');
   }
   
-  const { data: enrollments } = await supabase
+  const { data: enrollments, error: lookupError } = await supabase
     .from('classes_students')
     .select('student_id')
     .eq('class_id', activityEvent.class_id)
     .is('unenrolled_at', null);
   
+  if (lookupError) throw lookupError;
   if (!enrollments || enrollments.length === 0) return [];
   
   const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
@@ -574,17 +576,18 @@ async function resolveMessageClassStudentsAndParents(
 
 async function resolveMessageSessionStudents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_students recipient type');
   }
   
-  const { data: sessionStudents } = await supabase
+  const { data: sessionStudents, error: lookupError } = await supabase
     .from('sessions_students')
     .select('student_id')
     .eq('session_id', activityEvent.session_id);
   
+  if (lookupError) throw lookupError;
   if (!sessionStudents || sessionStudents.length === 0) return [];
   
   const studentIds = sessionStudents.map((ss: { student_id: string }) => ss.student_id);
@@ -593,17 +596,18 @@ async function resolveMessageSessionStudents(
 
 async function resolveMessageSessionStudentsAndParents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_students_and_parents recipient type');
   }
   
-  const { data: sessionStudents } = await supabase
+  const { data: sessionStudents, error: lookupError } = await supabase
     .from('sessions_students')
     .select('student_id')
     .eq('session_id', activityEvent.session_id);
   
+  if (lookupError) throw lookupError;
   const studentIds = (sessionStudents ?? []).map((ss: { student_id: string }) => ss.student_id);
   const targets = await getTargetsForStudents(supabase, studentIds, true);
 
@@ -647,7 +651,7 @@ async function resolveMessageSessionStudentsAndParents(
 
 async function resolveMessageStudentAndParents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.student_id) {
     throw new Error('student_id required for student_and_parents recipient type');
@@ -658,17 +662,18 @@ async function resolveMessageStudentAndParents(
 
 async function resolveMessageTutorLogStudents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
     throw new Error('entity_id (tutor_log_id) required for tutor_log_students recipient type');
   }
   
-  const { data: studentAttendance } = await supabase
+  const { data: studentAttendance, error: lookupError } = await supabase
     .from('tutor_logs_student_attendance')
     .select('student_id')
     .eq('tutor_log_id', activityEvent.entity_id);
   
+  if (lookupError) throw lookupError;
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
   const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
@@ -677,17 +682,18 @@ async function resolveMessageTutorLogStudents(
 
 async function resolveMessageTutorLogStudentsAndParents(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
     throw new Error('entity_id (tutor_log_id) required for tutor_log_students_and_parents recipient type');
   }
   
-  const { data: studentAttendance } = await supabase
+  const { data: studentAttendance, error: lookupError } = await supabase
     .from('tutor_logs_student_attendance')
     .select('student_id')
     .eq('tutor_log_id', activityEvent.entity_id);
   
+  if (lookupError) throw lookupError;
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
   const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
@@ -696,7 +702,7 @@ async function resolveMessageTutorLogStudentsAndParents(
 
 async function resolveMessageTutorLogAttendees(
   supabase: SupabaseClient<Database>,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id || !activityEvent.session_id) {
     throw new Error('tutor_log_attendees requires tutor log entity_id and session_id');
@@ -756,7 +762,7 @@ async function resolveMessageTutorLogAttendees(
 
 async function resolveMessageSingle(
   _supabase: SupabaseClient<Database>,
-  _activityEvent: ActivityEvent
+  _activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   return [];
 }
@@ -788,7 +794,7 @@ const messageRecipientResolvers: Record<string, MessageRecipientResolver> = {
 export async function resolveMessageRecipients(
   supabase: SupabaseClient<Database>,
   recipientType: string,
-  activityEvent: ActivityEvent
+  activityEvent: Partial<ActivityEvent>
 ): Promise<MessageRecipientTarget[]> {
   const resolver = messageRecipientResolvers[recipientType];
   

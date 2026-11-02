@@ -1,4 +1,7 @@
 'use client';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { getViewSettings } from '@altitutor/shared';
+
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -40,6 +43,9 @@ import {
   type FormResponseDetail,
   responsePersonLabel,
 } from './FormResponseDialog';
+
+import { buildAnswerFilterToolbar } from '../lib/answer-filter-toolbar';
+import { buildAnswerFilterQuestions, matchesAnswerFilters, type AnswerFilter } from '../lib/answer-filters';
 
 type AnswerRow = FormResponseAnswer & {
   response: FormResponseDetail;
@@ -83,8 +89,10 @@ function answerValue(answer: AnswerRow | FormResponseAnswer) {
 }
 
 export function FormReportsPage() {
+  const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([]);
   const [forms, setForms] = useState<AdminFormRow[]>([]);
   const [formId, setFormId] = useState<string>('');
+  const {data:savedViews=[]}=useQuickFilters(`form_reports:${formId}`);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [responses, setResponses] = useState<FormResponseDetail[]>([]);
   const [responseCount, setResponseCount] = useState(0);
@@ -103,25 +111,35 @@ export function FormReportsPage() {
       .catch((err) => setError(err.message));
   }, []);
 
-  const loadReport = useCallback(async () => {
+  const loadReport = useCallback(async (signal?: AbortSignal) => {
     if (!formId) return;
     setError(null);
-    const res = await fetch(`/api/forms/reports?formId=${formId}`);
-    const json = await res.json();
-    if (!res.ok) {
-      setError(json.error ?? 'Failed to load report');
-      return;
+    try {
+      const res = await fetch(`/api/forms/reports?formId=${formId}`, { signal });
+      const json = await res.json();
+      if (signal?.aborted) return;
+      if (!res.ok) {
+        setError(json.error ?? 'Failed to load report');
+        return;
+      }
+      setAnswers(json.report?.answers ?? []);
+      setResponses(json.report?.responses ?? []);
+      setResponseCount(json.report?.responseCount ?? 0);
+      setSelectedQuestion(null);
+      setSelectedResponse(null);
+    } catch (err) {
+      if (!signal?.aborted) setError(err instanceof Error ? err.message : 'Failed to load report');
     }
-    setAnswers(json.report?.answers ?? []);
-    setResponses(json.report?.responses ?? []);
-    setResponseCount(json.report?.responseCount ?? 0);
-    setSelectedQuestion(null);
-    setSelectedResponse(null);
   }, [formId]);
 
   useEffect(() => {
-    void loadReport();
+    const controller = new AbortController();
+    void loadReport(controller.signal);
+    return () => controller.abort();
   }, [loadReport]);
+
+  const answerQuestions = useMemo(() => buildAnswerFilterQuestions(responses), [responses]);
+  const matchingResponseIds = useMemo(() => new Set(responses.filter((response) => matchesAnswerFilters(response, answerFilters)).map((response) => response.id)), [responses, answerFilters]);
 
   const selectedForm = forms.find((form) => form.id === formId) ?? null;
 
@@ -181,6 +199,7 @@ export function FormReportsPage() {
     () =>
       answers.filter((answer) => {
         const response = answer.response;
+        if (!matchingResponseIds.has(response.id)) return false;
         const filters = filterState.filters;
         const query = filterState.search.trim().toLowerCase();
         if (filters.respondent_type?.length && !filters.respondent_type.includes(response.respondent_type)) return false;
@@ -206,7 +225,7 @@ export function FormReportsPage() {
         }
         return true;
       }),
-    [answers, filterState.filters, filterState.search],
+    [answers, filterState.filters, filterState.search, matchingResponseIds],
   );
 
   const groups = useMemo(() => {
@@ -236,7 +255,13 @@ export function FormReportsPage() {
             value={selectedForm}
             onValueChange={(form) => {
               setFormId(form?.id ?? '');
+              setAnswers([]);
+              setResponses([]);
+              setResponseCount(0);
+              setSelectedQuestion(null);
+              setSelectedResponse(null);
               setFilterState(REPORT_FILTER_STATE);
+              setAnswerFilters([]);
             }}
             getItemId={(form) => form.id}
             getItemLabel={(form) => form.name}
@@ -253,17 +278,22 @@ export function FormReportsPage() {
       </div>
       <DataTableToolbar
         state={filterState}
+        conditionFilters={buildAnswerFilterToolbar(answerQuestions, answerFilters, setAnswerFilters)}
         onSearchChange={(search) => setFilterState((current) => ({ ...current, search, page: 1 }))}
         onFiltersChange={(filters) => setFilterState((current) => ({ ...current, filters, page: 1 }))}
         onSortChange={(sortBy, sortDirection) => setFilterState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
         onGroupByChange={(groupBy) => setFilterState((current) => ({ ...current, groupBy }))}
         onVisibleColumnsChange={(visibleColumns) => setFilterState((current) => ({ ...current, visibleColumns }))}
-        onQuickFilterApply={() => undefined}
-        onReset={() => setFilterState(REPORT_FILTER_STATE)}
+        onQuickFilterApply={(view) => {const settings=getViewSettings(view.config);if(settings) setFilterState((previous) => ({...previous,...settings,page:1}));}}
+        quickFilters={savedViews}
+        viewTarget={`form_reports:${formId}`}
+        onReset={() => { setFilterState(REPORT_FILTER_STATE); setAnswerFilters([]); }}
         filterDefinitions={filterDefinitions}
         sortOptions={[]}
         columnDefinitions={[]}
       />
+
+      {answerFilters.length ? <div className="text-sm text-muted-foreground">{matchingResponseIds.size} of {responseCount} responses match answer filters</div> : null}
 
       <div className="space-y-8">
         {groups.map((group) => (

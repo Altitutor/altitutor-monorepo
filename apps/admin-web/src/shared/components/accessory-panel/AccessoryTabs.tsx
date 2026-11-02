@@ -9,9 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
-import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
-import { panelShortcut } from "@/shared/shortcuts/registry";
-import { List, Columns, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   useAccessoryPanel,
   useAccessoryPanelActions,
@@ -22,12 +20,8 @@ import {
 import { AccessoryTabContext } from "@/shared/contexts/AccessoryTabContext";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
 import { AccessoryView } from "./AccessoryViews";
-import { Button } from "@altitutor/ui";
 import { AccessoryIcon } from "./AccessoryIcon";
-import { useUnreadConversationCount } from "@/features/messages/api/queries";
-import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
 import { RecentlyClosedTabs } from "./RecentlyClosedTabs";
-import { AccessoryRootViews } from "./AccessoryRootViews";
 import { AccessoryTabPicker } from "./AccessoryTabPicker";
 
 type CloseGate = (next?: () => void) => void;
@@ -42,6 +36,24 @@ const TabContent = memo(function TabContent({
   registerGate: (key: string, gate: CloseGate | null) => void;
   gates: React.MutableRefObject<Map<string, CloseGate>>;
 }) {
+  // A local compose tab acquires its provider identity without navigating away
+  // from the editor. Other destination changes still reset the view.
+  const [identity, setIdentity] = useState(() => ({
+    kind: tab.kind,
+    id: tab.id,
+    key: `${tab.kind}:${tab.id ?? ""}`,
+  }));
+  let viewKey = identity.key;
+  if (identity.kind !== tab.kind || identity.id !== tab.id) {
+    const promotedDraft =
+      identity.kind === "email" &&
+      tab.kind === "email" &&
+      identity.id?.startsWith("compose:") &&
+      tab.id &&
+      !tab.id.startsWith("compose:");
+    viewKey = promotedDraft ? identity.key : `${tab.kind}:${tab.id ?? ""}`;
+    setIdentity({ kind: tab.kind, id: tab.id, key: viewKey });
+  }
   const panel = useAccessoryPanelActions();
   const closeTab = panel?.closeTab;
   const close = useCallback(() => closeTab?.(tab.key), [closeTab, tab.key]);
@@ -116,14 +128,13 @@ const TabContent = memo(function TabContent({
     >
       <AccessoryTabContext.Provider value={scope}>
         <ResponsivePane className="h-full overflow-auto">
-          <AccessoryView key={`${tab.kind}:${tab.id ?? ""}`} />
+          <AccessoryView key={viewKey} />
         </ResponsivePane>
       </AccessoryTabContext.Provider>
     </div>
   );
 });
 export function AccessoryTabs() {
-  const { data: unreadCount = 0 } = useUnreadConversationCount();
   const panel = useAccessoryPanel();
   const gates = useRef(new Map<string, CloseGate>());
   const registerGate = useCallback((key: string, gate: CloseGate | null) => {
@@ -153,7 +164,13 @@ export function AccessoryTabs() {
   }, [activeKey]);
   if (!panel) return null;
   const keyboard = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (event.altKey || event.metaKey || event.ctrlKey || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (
+      event.altKey ||
+      event.metaKey ||
+      event.ctrlKey ||
+      !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+    )
+      return;
     event.preventDefault();
     const next =
       event.key === "Home"
@@ -198,41 +215,8 @@ export function AccessoryTabs() {
               >
                 <AccessoryIcon kind={tab.kind} />
                 <span className="truncate">{tab.title}</span>
-                {tab.kind === "messages" && !tab.id && <MessageUnreadBadge count={unreadCount} />}
-                {panelShortcut(tab.kind) && <ShortcutKeys id={panelShortcut(tab.kind)!} />}
+
               </button>
-              {tab.key === panel.activeKey &&
-                ["tasks", "issues", "projects"].includes(tab.kind) && (
-                  <div
-                    role="group"
-                    aria-label={`${tab.title} view`}
-                    className="flex items-center gap-0.5 pr-1"
-                  >
-                    {(["list", "board"] as const).map((view) => {
-                      const selected =
-                        (new URLSearchParams(tab.query).get("view") ??
-                          "list") === view;
-                      const Icon = view === "list" ? List : Columns;
-                      return (
-                        <Button
-                          key={view}
-                          variant="ghost"
-                          size="icon"
-                          className={`h-7 w-7 ${selected ? navLinkActiveStyles : navLinkInactiveStyles}`}
-                          aria-label={`${tab.title} ${view} view`}
-                          aria-pressed={selected}
-                          onClick={() => {
-                            const params = new URLSearchParams(tab.query);
-                            params.set("view", view);
-                            panel.updateQuery(tab.key, params.toString());
-                          }}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
               <button
                 type="button"
                 aria-label={`Close ${tab.title} tab`}
@@ -268,7 +252,6 @@ export function AccessoryTabs() {
           ))
         ) : (
           <div className="flex h-full flex-col items-center gap-4 overflow-auto p-6 text-center">
-            <AccessoryRootViews />
             <RecentlyClosedTabs />
           </div>
         )}

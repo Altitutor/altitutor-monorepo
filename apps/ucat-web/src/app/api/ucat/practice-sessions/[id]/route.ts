@@ -10,10 +10,8 @@ import { ServerTiming } from "@/lib/performance/server-timing";
 import { waitUntil } from "@vercel/functions";
 import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
@@ -81,10 +79,8 @@ export async function GET(
   });
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
 

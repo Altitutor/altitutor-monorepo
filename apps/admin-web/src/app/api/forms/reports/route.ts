@@ -1,3 +1,5 @@
+import { loadResponsePages } from '@/features/feedback/server/load-response-pages';
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import {
@@ -55,6 +57,9 @@ export async function GET(request: Request) {
       .select(`
         id,
         form_version_id,
+        form_id,
+        forms ( id, name, purpose ),
+        form_versions ( id, version_number, blocks ),
         session_id,
         respondent_type,
         subject_type,
@@ -71,53 +76,49 @@ export async function GET(request: Request) {
       `)
       .eq('form_id', formId)
       .is('deleted_at', null)
-      .order('submitted_at', { ascending: false });
-  const countQuery = admin
-      .from('form_responses')
-      .select('id', { count: 'exact', head: true })
-      .eq('form_id', formId)
-      .is('deleted_at', null);
+      .order('submitted_at', { ascending: false })
+      .order('id', { ascending: false });
+  if (versionId) responseQuery.eq('form_version_id', versionId);
 
-  if (versionId) {
-    responseQuery.eq('form_version_id', versionId);
-    countQuery.eq('form_version_id', versionId);
-  }
+  try {
+    const [{ data: version }, responses, { data: definitionVersions }] = await Promise.all([
+      versionId
+        ? admin.from('form_versions').select('*').eq('id', versionId).eq('form_id', formId).maybeSingle().throwOnError()
+        : Promise.resolve({ data: null }),
+      loadResponsePages((from, to) => responseQuery.range(from, to)),
+      admin.from('form_versions').select('id, blocks').eq('form_id', formId).throwOnError(),
+    ]);
 
-  const [{ data: version }, { data: responses }, { count }, { data: definitionVersions }] = await Promise.all([
-    versionId
-      ? admin.from('form_versions').select('*').eq('id', versionId).eq('form_id', formId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    responseQuery,
-    countQuery,
-    admin.from('form_versions').select('id, blocks').eq('form_id', formId),
-  ]);
-
-  const responseRows = (responses ?? []) as unknown as ReportResponse[];
-  const signatures = new Map<string, string>();
-  for (const definitionVersion of definitionVersions ?? []) {
-    for (const block of asFormBlocks(definitionVersion.blocks)) {
-      if (isQuestionBlock(block)) {
-        signatures.set(
-          `${definitionVersion.id}:${block.id}`,
-          getFormQuestionReportingSignature(block),
-        );
+    const responseRows = (responses ?? []) as unknown as ReportResponse[];
+    const signatures = new Map<string, string>();
+    for (const definitionVersion of definitionVersions ?? []) {
+      for (const block of asFormBlocks(definitionVersion.blocks)) {
+        if (isQuestionBlock(block)) {
+          signatures.set(
+            `${definitionVersion.id}:${block.id}`,
+            getFormQuestionReportingSignature(block),
+          );
+        }
       }
     }
-  }
 
-  return NextResponse.json({
-    report: {
-      form,
-      version,
-      responseCount: count ?? 0,
-      responses: responses ?? [],
-      answers: responseRows.flatMap((response) =>
-        (response.form_response_answers ?? []).map((answer) => ({
-          ...answer,
-          response,
-          reporting_question_id: `${answer.question_id}:${signatures.get(`${response.form_version_id}:${answer.question_id}`) ?? answer.question_type}`,
-        }))
-      ),
-    },
-  });
+    return NextResponse.json({
+      report: {
+        form,
+        version,
+        responseCount: responses.length,
+        responses: responses ?? [],
+        answers: responseRows.flatMap((response) =>
+          (response.form_response_answers ?? []).map((answer) => ({
+            ...answer,
+            response,
+            reporting_question_id: `${answer.question_id}:${signatures.get(`${response.form_version_id}:${answer.question_id}`) ?? answer.question_type}`,
+          }))
+        ),
+      },
+    });
+  } catch (error) {
+    captureApiError(error, '/api/forms/reports');
+    return NextResponse.json({ error: 'Failed to load form report.' }, { status: 500 });
+  }
 }

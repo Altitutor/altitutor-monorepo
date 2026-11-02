@@ -7,7 +7,7 @@ import { getErrorMessage, getStripeErrorDetails } from '@/shared/utils';
 export async function GET(request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {

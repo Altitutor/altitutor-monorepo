@@ -162,7 +162,15 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
             subject_id: string;
           }> = [];
           for (const item of json) {
-            if (typeof item === 'object' && item !== null && 'id' in item && 'name' in item && 'subject_id' in item) {
+            if (typeof item !== 'object' || item === null || !('subject_id' in item)) continue;
+            if ('topic_id' in item && 'topic_name' in item) {
+              // The view's id identifies the log-topic link, rather than the topic.
+              result.push({
+                id: String(item.topic_id),
+                name: String(item.topic_name),
+                subject_id: String(item.subject_id),
+              });
+            } else if ('id' in item && 'name' in item) {
               result.push({
                 id: String(item.id),
                 name: String(item.name),

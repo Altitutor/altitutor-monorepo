@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@altitutor/shared';
@@ -7,7 +8,7 @@ import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-clien
  * Create a Supabase client for use in Server Components and API Routes
  * Uses @supabase/ssr for better TypeScript support
  */
-export function createClient(options: { fetch?: typeof fetch } = {}) {
+export async function createClient(options: { fetch?: typeof fetch } = {}) {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
@@ -20,11 +21,12 @@ export function createClient(options: { fetch?: typeof fetch } = {}) {
           getAll: () => [],
           setAll: () => {},
         },
+        cookieOptions: { name: getAuthCookieName() },
       }
     ));
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +50,7 @@ export function createClient(options: { fetch?: typeof fetch } = {}) {
         },
       },
       cookieOptions: {
-        name: 'student-auth',
+        name: getAuthCookieName(),
       },
     }
   ));

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button, Input } from '@altitutor/ui';
-import { Save } from 'lucide-react';
+import { Input } from '@altitutor/ui';
 import { SettingsPageHeader } from '@/features/settings/components/SettingsPageHeader';
 import { SettingsRow } from '@/features/settings/components/SettingsRow';
+import { SettingsSaveBar } from '@/features/settings/components/SettingsSaveBar';
 import { StudentPageContainer } from '@/shared/components/layouts';
-import { studentBtnPrimary, studentCardCn } from '@/shared/lib/student-visual';
+import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 
 type PresetPreference = {
@@ -19,6 +19,17 @@ type PresetPreference = {
 
 const NUMBER_INPUT_CLASS = 'w-full tabular-nums sm:w-28';
 
+type SettingsSnapshot = {
+  newLimit: number;
+  reviewLimit: number;
+  timezone: string;
+  presets: PresetPreference[];
+};
+
+function retention(preset: PresetPreference) {
+  return preset.desiredRetention ?? preset.defaultRetention;
+}
+
 export function FlashcardSettingsPage() {
   const [newLimit, setNewLimit] = useState(20);
   const [reviewLimit, setReviewLimit] = useState(200);
@@ -27,16 +38,22 @@ export function FlashcardSettingsPage() {
   const [pendingTimezone, setPendingTimezone] = useState<string | null>(null);
   const [presets, setPresets] = useState<PresetPreference[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [savingSection, setSavingSection] = useState<'study' | 'retention' | null>(null);
-  const [savedSection, setSavedSection] = useState<'study' | 'retention' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSettings, setSavedSettings] = useState<SettingsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setBrowserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     void Promise.all([
-      fetch('/api/flashcards/preferences').then((response) => response.json()),
-      fetch('/api/flashcards/presets').then((response) => response.json()),
+      fetch('/api/flashcards/preferences').then((response) => {
+        if (!response.ok) throw new Error('Unable to load preferences');
+        return response.json();
+      }),
+      fetch('/api/flashcards/presets').then((response) => {
+        if (!response.ok) throw new Error('Unable to load presets');
+        return response.json();
+      }),
     ])
       .then(([preferences, presetResult]) => {
         if (cancelled) return;
@@ -46,6 +63,12 @@ export function FlashcardSettingsPage() {
         setTimezone(data.pending_timezone ?? data.timezone);
         setPendingTimezone(data.pending_timezone);
         setPresets(presetResult.data ?? []);
+        setSavedSettings({
+          newLimit: data.new_cards_per_study_day,
+          reviewLimit: data.review_cards_per_study_day,
+          timezone: data.pending_timezone ?? data.timezone,
+          presets: presetResult.data ?? [],
+        });
       })
       .catch((loadError) => {
         console.error('Failed to load flashcard settings:', loadError);
@@ -59,53 +82,68 @@ export function FlashcardSettingsPage() {
     };
   }, []);
 
-  const saveStudySettings = async () => {
-    setSavingSection('study');
-    setSavedSection(null);
+  const studyChanged = savedSettings !== null && (
+    newLimit !== savedSettings.newLimit || reviewLimit !== savedSettings.reviewLimit || timezone !== savedSettings.timezone
+  );
+  const changedPresets = savedSettings ? presets.filter((preset) => {
+    const saved = savedSettings.presets.find((item) => item.id === preset.id);
+    return saved && retention(preset) !== retention(saved);
+  }) : [];
+  const isDirty = studyChanged || changedPresets.length > 0;
+
+  const cancelChanges = () => {
+    if (!savedSettings) return;
+    setNewLimit(savedSettings.newLimit);
+    setReviewLimit(savedSettings.reviewLimit);
+    setTimezone(savedSettings.timezone);
+    setPresets(savedSettings.presets);
     setError(null);
-    try {
-      const response = await fetch('/api/flashcards/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newLimit, reviewLimit, timezone }),
-      });
-      if (!response.ok) throw new Error('Unable to save study settings');
-      const { data } = await response.json();
-      setPendingTimezone(data.pending_timezone);
-      setSavedSection('study');
-    } catch (saveError) {
-      console.error('Failed to save flashcard study settings:', saveError);
-      setError('Your study settings could not be saved. Please try again.');
-    } finally {
-      setSavingSection(null);
-    }
   };
 
-  const saveRetentionSettings = async () => {
-    setSavingSection('retention');
-    setSavedSection(null);
+  const saveChanges = async () => {
+    if (!savedSettings || !isDirty || isSaving) return;
+    setIsSaving(true);
     setError(null);
     try {
-      const responses = await Promise.all(presets.map((preset) => fetch('/api/flashcards/presets', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          presetId: preset.id,
-          desiredRetention: preset.desiredRetention ?? preset.defaultRetention,
+      const saveStudy = async () => {
+        const response = await fetch('/api/flashcards/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newLimit, reviewLimit, timezone }),
+        });
+        if (!response.ok) throw new Error('Unable to save study settings');
+        const { data } = await response.json();
+        setPendingTimezone(data.pending_timezone);
+        setSavedSettings((current) => current && ({ ...current, newLimit, reviewLimit, timezone }));
+      };
+      const results = await Promise.allSettled([
+        ...(studyChanged ? [saveStudy()] : []),
+        ...changedPresets.map(async (preset) => {
+          const response = await fetch('/api/flashcards/presets', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presetId: preset.id, desiredRetention: retention(preset) }),
+          });
+          if (!response.ok) throw new Error('Unable to save retention settings');
+          setSavedSettings((current) => current && ({
+            ...current,
+            presets: current.presets.map((item) => item.id === preset.id ? preset : item),
+          }));
         }),
-      })));
-      if (responses.some((response) => !response.ok)) throw new Error('Unable to save retention settings');
-      setSavedSection('retention');
+      ]);
+      if (results.some((result) => result.status === 'rejected')) {
+        setError('Some settings could not be saved. Your remaining changes are ready to retry.');
+      }
     } catch (saveError) {
-      console.error('Failed to save flashcard retention settings:', saveError);
-      setError('Your retention settings could not be saved. Please try again.');
+      console.error('Failed to save flashcard settings:', saveError);
+      setError('Your settings could not be saved. Please try again.');
     } finally {
-      setSavingSection(null);
+      setIsSaving(false);
     }
   };
 
   return (
-    <StudentPageContainer className="space-y-6">
+    <StudentPageContainer className="space-y-6 pb-28">
       <SettingsPageHeader
         title="Flashcard settings"
         description="Choose your daily study allowances, study-day timezone, and retention targets."
@@ -130,7 +168,7 @@ export function FlashcardSettingsPage() {
               min={0}
               max={9999}
               value={newLimit}
-              disabled={isLoading}
+              disabled={isLoading || isSaving || !savedSettings}
               className={NUMBER_INPUT_CLASS}
               onChange={(event) => setNewLimit(Number(event.target.value))}
             />
@@ -146,7 +184,7 @@ export function FlashcardSettingsPage() {
               min={0}
               max={9999}
               value={reviewLimit}
-              disabled={isLoading}
+              disabled={isLoading || isSaving || !savedSettings}
               className={NUMBER_INPUT_CLASS}
               onChange={(event) => setReviewLimit(Number(event.target.value))}
             />
@@ -165,19 +203,12 @@ export function FlashcardSettingsPage() {
             <Input
               aria-label="Study-day timezone"
               value={timezone}
-              disabled={isLoading}
+              disabled={isLoading || isSaving || !savedSettings}
               className="w-full sm:w-64"
               onChange={(event) => setTimezone(event.target.value)}
             />
           }
         />
-        <div className="mt-6 flex items-center justify-end gap-3">
-          {savedSection === 'study' ? <span className="text-sm text-muted-foreground">Saved</span> : null}
-          <Button className={studentBtnPrimary} onClick={() => void saveStudySettings()} disabled={isLoading || savingSection !== null}>
-            <Save className="mr-2 h-4 w-4" />
-            {savingSection === 'study' ? 'Saving…' : 'Save daily study'}
-          </Button>
-        </div>
       </section>
 
       <section className={cn(studentCardCn(), 'p-6 sm:p-8')} aria-labelledby="retention-heading">
@@ -200,7 +231,7 @@ export function FlashcardSettingsPage() {
                 max={0.95}
                 step={0.01}
                 value={preset.desiredRetention ?? preset.defaultRetention}
-                disabled={isLoading}
+                disabled={isLoading || isSaving || !savedSettings}
                 className={NUMBER_INPUT_CLASS}
                 onChange={(event) => setPresets((current) => current.map((item) => item.id === preset.id
                   ? { ...item, desiredRetention: Number(event.target.value) }
@@ -211,16 +242,8 @@ export function FlashcardSettingsPage() {
         )) : (
           <p className="text-sm text-muted-foreground">{isLoading ? 'Loading retention settings…' : 'No flashcard presets are assigned yet.'}</p>
         )}
-        {presets.length ? (
-          <div className="mt-6 flex items-center justify-end gap-3">
-            {savedSection === 'retention' ? <span className="text-sm text-muted-foreground">Saved</span> : null}
-            <Button variant="outline" onClick={() => void saveRetentionSettings()} disabled={isLoading || savingSection !== null}>
-              <Save className="mr-2 h-4 w-4" />
-              {savingSection === 'retention' ? 'Saving…' : 'Save retention'}
-            </Button>
-          </div>
-        ) : null}
       </section>
+      <SettingsSaveBar visible={isDirty} saving={isSaving} onCancel={cancelChanges} onSave={() => void saveChanges()} />
     </StudentPageContainer>
   );
 }

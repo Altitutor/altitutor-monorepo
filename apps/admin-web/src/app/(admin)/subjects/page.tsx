@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { useState, useEffect } from 'react';
 import { SubjectsTable, AddSubjectModal, ViewSubjectModal } from '@/features/subjects';
@@ -32,26 +33,26 @@ export default function SubjectsPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Subjects</h1>
+      <AdminPageActions>
+
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
           label="Add Subject"
           onClick={() => setIsAddModalOpen(true)}
         />
-      </div>
-      
-      <SubjectsTable 
-        onRefresh={refreshCounter} 
+      </AdminPageActions>
+
+      <SubjectsTable
+        onRefresh={refreshCounter}
         onViewSubject={setViewSubjectId}
       />
-      
-      <AddSubjectModal 
-        isOpen={isAddModalOpen} 
+
+      <AddSubjectModal
+        isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSubjectAdded={handleSubjectAdded}
       />
-      
+
       <ViewSubjectModal
         isOpen={!!viewSubjectId}
         subjectId={viewSubjectId}

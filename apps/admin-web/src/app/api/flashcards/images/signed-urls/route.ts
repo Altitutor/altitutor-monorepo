@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin, error: authError } = await userClient.rpc(
     'is_adminstaff_active',
   );

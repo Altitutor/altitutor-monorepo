@@ -270,7 +270,7 @@ function ResponsiveCursor({
   pressed,
   draggingChoice,
 }: {
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   target?: string;
   pressed?: boolean;
   draggingChoice?: "yes" | "no";

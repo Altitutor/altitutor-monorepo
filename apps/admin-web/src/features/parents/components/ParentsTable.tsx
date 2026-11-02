@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -46,13 +48,14 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('parents');
   const { openCheckInModal } = useQuickActions();
-  
+
   const [searchFields, setSearchFields] = useState<ParentSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['parent', 'students'], []);
+
+  const { data: quickFilters = [] } = useQuickFilters('parents', {name:'All parents',settings:{ filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
 
   const {
     state,
@@ -71,7 +74,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
     filterKeys: [],
   });
 
-  const { 
+  const {
     data,
     isLoading,
     isFetching,
@@ -153,7 +156,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="parents"
           searchPlaceholder="Search name, email or phone..."
           searchFromOptions={[
             { label: 'Name', value: 'name' },
@@ -164,9 +167,9 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           onSearchFromChange={(values) => setSearchFields(values as ParentSearchField[])}
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading parents...
         </div>
@@ -179,10 +182,10 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
     return (
       <div className="text-red-500 p-4">
         Failed to load parents. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -205,7 +208,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="parents"
         searchPlaceholder="Search name, email or phone..."
         searchFromOptions={[
           { label: 'Name', value: 'name' },
@@ -365,7 +368,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           </TableBody>
         </Table>
       </div>
-      
+
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
@@ -376,7 +379,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
       />
 
       {/* View/Edit Parent Modal */}
-      <ViewParentModal 
+      <ViewParentModal
         isOpen={isViewModalOpen}
         onClose={handleCloseViewModal}
         parentId={selectedParentId}
@@ -395,8 +398,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the parent
-              {parentToDelete ? ` ${parentToDelete.first_name} ${parentToDelete.last_name}` : ''} and all associated data from the database.
+              <RetainedDeletionMessage kind="Parent" name={parentToDelete ? `${parentToDelete.first_name} ${parentToDelete.last_name}` : undefined} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

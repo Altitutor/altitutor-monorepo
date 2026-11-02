@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,15 +28,20 @@ import {
   TablePagination,
 } from "@altitutor/ui";
 import { ArrowUpDown, Loader2 } from 'lucide-react';
+import { ONLINE_PRODUCT_NAMES } from '@altitutor/shared';
+import { onlineProductSummary } from '../lib/onlineProducts';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { getSubjectCurriculumColor } from '@/shared/utils';
-import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
-import { ViewStudentModal } from './ViewStudentModal';
 import { ViewParentModal } from './ViewParentModal';
 import { ViewClassModal } from '@/features/classes';
-import { useStudentsMinimal } from '../hooks/useStudentsQuery';
+import { useStudentDirectory } from '../hooks/useStudentDirectory';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
+import { StudentDirectoryBoard, studentGroupOptions, studentGroup } from './StudentDirectoryBoard';
+import type { StudentDirectoryEntry } from '../types/directory';
+import { JourneyDetail } from '@/features/onboarding/components/JourneyDetail';
+import { defaultDeadlines, stages } from '@/features/onboarding/lib/model';
 import { useSubjects } from '@/features/subjects';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -49,7 +54,7 @@ import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDial
 import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useStudentViews, STUDENT_FILTER_KEYS, STUDENT_VIEW_DEFAULTS } from '../hooks/useStudentViews';
 import { useStudentActions } from '../hooks/useStudentActions';
 import { InPersonStatusBadge } from './InPersonStatusBadge';
 import type { StudentSearchField } from '../api/students';
@@ -127,14 +132,15 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: allSubjects = [] } = useSubjects();
-  const { data: quickFilters = [] } = useQuickFilters('students');
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
-  
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
-  const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
+
+  const defaultFilters = useMemo(() => STUDENT_VIEW_DEFAULTS.in_person.filters, []);
+  const defaultSort = useMemo(() => ({ field: STUDENT_VIEW_DEFAULTS.in_person.sortBy, direction: STUDENT_VIEW_DEFAULTS.in_person.sortDirection }), []);
+  const defaultVisibleColumns = STUDENT_VIEW_DEFAULTS.in_person.visibleColumns;
+
+  const quickFilters = useStudentViews();
 
   const {
     state,
@@ -144,39 +150,36 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     setPage,
     setPageSize,
     setVisibleColumns,
+    setGroupBy,
     applyQuickFilter,
     resetFilters,
   } = useDataTable({
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
+    filterKeys: STUDENT_FILTER_KEYS,
   });
 
-  const { 
+  const {
     data,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useStudentsMinimal({
-    search: state.search,
-    searchFields,
-    statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
-    curriculums: state.filters.curriculum as string[],
-    yearLevels: state.filters.yearLevel as number[],
-    subjectIds: state.filters.subject as string[],
-    inPersonClass: state.filters.inPersonClass as string[] | undefined,
-    page: state.page,
-    pageSize: state.pageSize,
-    orderBy: (state.sortBy || 'status') as keyof Tables<'students'>,
-    ascending: state.sortDirection === 'asc',
+  } = useStudentDirectory({
+    search: state.search, searchFields, filters: state.filters,
+    page: state.page, pageSize: state.pageSize,
+    sortBy: state.sortBy, sortDirection: state.sortDirection, groupBy: state.groupBy,
   });
+  const [view, setView] = useAdminPageViewParam(['list', 'board', 'worklist'] as const, 'list');
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
+  const selectedJourney = data?.entries.find(entry => entry.journey?.id === selectedJourneyId)?.journey;
+  const openEntry = (entry: StudentDirectoryEntry) => entry.kind === 'student'
+    ? router.push(`/students/${entry.student.id}`) : setSelectedJourneyId(entry.journey?.id);
+
 
   const total = data?.total || 0;
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [isParentModalOpen, setIsParentModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -202,6 +205,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    { key: 'relationship', label: 'Relationship', options: [{ value: 'in_person', label: 'In person' }, { value: 'online', label: 'Online' }, { value: 'trial', label: 'Trial / onboarding' }] },
+    { key: 'product', label: 'Product', options: [{ value: 'UCAT_WEB', label: ONLINE_PRODUCT_NAMES.UCAT_WEB }, { value: 'STUDENT_WEB', label: ONLINE_PRODUCT_NAMES.STUDENT_WEB }] },
+    { key: 'entitlement', label: 'Tier', options: [{ value: 'FREE', label: 'Free' }, { value: 'PAID', label: 'Unlimited' }] },
+    { key: 'accountClass', label: 'Account', options: [{ value: 'external', label: 'External' }, { value: 'internal_test', label: 'Internal test' }] },
+    { key: 'onboardingStatus', label: 'Onboarding status', options: [...stages, 'No onboarding'].map(value => ({ value, label: value })) },
+    { key: 'queue', label: 'Queue', options: [{ value: 'open', label: 'All open' }, { value: 'ours', label: 'Our action' }, { value: 'waiting', label: 'Waiting' }, { value: 'overdue', label: 'Overdue' }, { value: 'closed', label: 'Completed / closed' }] },
     {
       key: 'status',
       label: 'In-person status',
@@ -243,6 +252,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
     { key: 'created_at', label: 'Created At' },
+    { key: 'online_since', label: 'Online since' },
+    { key: 'stage', label: 'Onboarding status' },
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
@@ -255,21 +266,13 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     { key: 'subjects', label: 'Subjects' },
     { key: 'parents', label: 'Parents' },
     { key: 'classes', label: 'Classes' },
+    { key: 'products', label: 'Products' },
+    { key: 'online_since', label: 'Online since' },
+    { key: 'onboarding_status', label: 'Onboarding status' },
   ];
 
-  // Server provides filtered/sorted page; apply compound sorting for status field
-  const filteredStudents = useMemo(() => {
-    const students = data?.students || [];
-    if (!students.length) return students;
-    
-    // If sorting by status, apply secondary sort by first_name
-    if (state.sortBy === 'status') {
-      return sortStudentsByStatus(students, state.sortDirection);
-    }
-    
-    return students;
-  }, [data?.students, state.sortBy, state.sortDirection]);
-
+  const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
+  const filteredStudents = useMemo(() => entries.flatMap(entry => entry.kind === 'student' ? [entry.student] : []), [entries]);
   // Non-virtualized table for stability (virtualization can be re-enabled later)
   const parentRef = useRef<HTMLDivElement | null>(null);
 
@@ -281,8 +284,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }, [_onRefresh, refetch]);
 
   const handleStudentClick = (id: string) => {
-    setSelectedStudentId(id);
-    setIsViewModalOpen(true);
+    router.push(`/students/${id}`);
   };
 
   const handleStudentUpdated = () => {
@@ -303,7 +305,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handlePasswordResetOrRegistration = (student: Tables<'students'>) => {
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
-    
+
     if (hasAccount) {
       handlePasswordResetRequest(student);
     } else if (isRegistered) {
@@ -318,7 +320,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const getPasswordResetLabel = (student: Tables<'students'>) => {
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
-    
+
     if (hasAccount) {
       return 'Send password reset';
     } else if (isRegistered) {
@@ -389,7 +391,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       console.error('Failed to delete student:', error);
       toast({
         title: "Error",
-        description: "Failed to delete student. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete student. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -398,7 +400,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   };
 
   // Loading state
-  if (isLoading && filteredStudents.length === 0) {
+  if (isLoading && entries.length === 0) {
     return (
       <div className="space-y-4">
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
@@ -410,14 +412,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }
 
   // Error state
-  if (error && filteredStudents.length === 0) {
+  if (error && entries.length === 0) {
     return (
       <div className="text-red-500 p-4">
         Failed to load students. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -427,20 +429,23 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <DataTableToolbar
         state={state}
         onSearchChange={setSearch}
         onFiltersChange={setFilters}
         onSortChange={setSort}
-        onGroupByChange={() => {}} // Students table doesn't support grouping yet
+        onGroupByChange={setGroupBy}
+        groupByOptions={studentGroupOptions}
+        view={{ value: view === 'worklist' ? 'list' : view, options: [{ value: 'list', label: 'List' }, { value: 'board', label: 'Board' }], onChange: value => { if (value === 'list' || value === 'board') setView(value); } }}
+        className="px-6 pt-6 pb-2"
         onVisibleColumnsChange={setVisibleColumns}
         onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
         onReset={resetFilters}
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="students"
         searchPlaceholder="Search name, email or phone..."
         searchFromOptions={[
           { label: 'Name', value: 'name' },
@@ -452,7 +457,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         isLoading={isFetching}
       />
 
-      <div className="rounded-md border overflow-x-auto" ref={parentRef}>
+      {view === 'board' ? <StudentDirectoryBoard entries={entries} groupBy={state.groupBy} columns={state.visibleColumns} open={openEntry} /> : <div className="min-h-0 flex-1 overflow-auto px-6 pt-2" ref={parentRef}><div className="rounded-md border overflow-x-auto">
         <Table className="min-w-full">
           <TableHeader>
             <TableRow>
@@ -497,11 +502,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               {state.visibleColumns.includes('subjects') && <TableHead>Subjects</TableHead>}
               {state.visibleColumns.includes('parents') && <TableHead>Parents</TableHead>}
               {state.visibleColumns.includes('classes') && <TableHead>Classes</TableHead>}
+              {state.visibleColumns.includes('products') && <TableHead>Products</TableHead>}
+              {state.visibleColumns.includes('online_since') && <TableHead>Online since</TableHead>}
+              {state.visibleColumns.includes('onboarding_status') && <TableHead>Onboarding status</TableHead>}
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredStudents.length === 0 ? (
+            {entries.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                   {isLoading ? (
@@ -514,7 +522,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStudents.map((student, index) => {
+              entries.map((entry, index) => {
+                const heading = state.groupBy && (index === 0 || studentGroup(entries[index - 1], state.groupBy) !== studentGroup(entry, state.groupBy)) ? <TableRow><TableCell colSpan={state.visibleColumns.length + 1} className="bg-muted/30 font-semibold">{studentGroup(entry, state.groupBy)}</TableCell></TableRow> : null;
+                if (entry.kind === 'enquiry') return <React.Fragment key={entry.id}>{heading}<TableRow key={entry.id} className="cursor-pointer" onClick={() => openEntry(entry)}>{columnDefinitions.filter(column => state.visibleColumns.includes(column.key)).map(({ key: column }) => <TableCell key={column}>{column === 'student' ? entry.label : column === 'onboarding_status' ? entry.stage : column === 'subjects' ? entry.journey?.evidence.subjects.map(subject => subject.name).join(' · ') : '—'}</TableCell>)}<TableCell /></TableRow></React.Fragment>;
+                const student = entry.student;
                 const studentWithClasses = student as Tables<'students'> & {
                   classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
                   subjects?: Tables<'subjects'>[];
@@ -524,8 +535,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                 const subjects = studentWithClasses.subjects || [];
                 const parents = studentWithClasses.parents || [];
                 return (
+                  <React.Fragment key={entry.id}>
+                  {heading}
                   <TableRow
-                    key={student.id}
                     data-index={index}
                     className="cursor-pointer"
                     onClick={() => handleStudentClick(student.id)}
@@ -660,6 +672,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         )}
                       </TableCell>
                     )}
+                    {state.visibleColumns.includes('products') && <TableCell><div className="flex flex-wrap gap-1">{entry.products.map(product => <Badge key={product.product} variant="secondary">{onlineProductSummary(product)}</Badge>)}</div></TableCell>}
+                    {state.visibleColumns.includes('online_since') && <TableCell>{entry.online_since ? new Date(entry.online_since).toLocaleDateString('en-AU') : '—'}</TableCell>}
+                    {state.visibleColumns.includes('onboarding_status') && <TableCell>{entry.stage ?? 'No onboarding'}</TableCell>}
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <StudentRowActions
                         student={student}
@@ -716,39 +731,32 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         }}
                       />
                     </TableCell>
-                  </TableRow>
+                  </TableRow></React.Fragment>
                 );
               })
             )}
           </TableBody>
         </Table>
-      </div>
-      
-      <TablePagination
+      </div></div>}
+
+      <div className="shrink-0 px-6 py-3"><TablePagination
         page={state.page}
         pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
-      />
+      /></div>
+      {selectedJourney && <JourneyDetail key={selectedJourney.id} journey={selectedJourney} deadlines={data?.deadlines ?? defaultDeadlines} onClose={() => setSelectedJourneyId(undefined)} />}
 
       {/* Modals ... */}
-      <AddStudentModal 
+      <AddStudentModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onStudentAdded={handleStudentUpdated}
       />
 
-      <ViewStudentModal 
-        isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setSelectedStudentId(null);
-        }}
-        studentId={selectedStudentId}
-        onStudentUpdated={handleStudentUpdated}
-      />
+
 
       {selectedClassId && (
         <ViewClassModal
@@ -864,8 +872,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the student
-                  "{studentFullName}" and all associated data from the database.
+                  This will hide the Student
+                  "{studentFullName}" and block their access while retaining all history. Resolve active enrolments, future bookings, subscriptions and open checkouts first. Their existing login or an AdminStaff restore can make the record available again.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="py-4">

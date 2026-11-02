@@ -1,0 +1,266 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import type { TutorLogFormData } from '@/features/tutor-logs/types';
+import { hasSessionStarted, type Database } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
+import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
+import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server/ensurePayTierEligibilityNotification';
+
+/**
+ * POST /api/tutor-logs
+ * Create a new tutor log using the create_tutor_log RPC function
+ *
+ * Authorization:
+ * - User must be an active tutor (checked via is_tutor())
+ * - Session must be accessible by the tutor (checked via vtutor_sessions view)
+ */
+export async function submitTutorLog(request: NextRequest, userClient: SupabaseClient<Database>) {
+  try {
+    const body: TutorLogFormData = await request.json();
+
+    // Validate required fields
+    if (!body || !body.sessionId) {
+      return NextResponse.json(
+        { error: 'sessionId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the authenticated user's supabase client
+
+
+    // Verify user is a tutor
+    const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
+
+    if (tutorCheckError) {
+      console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/tutor-logs");
+      return NextResponse.json(
+        { error: 'Failed to verify tutor status' },
+        { status: 500 }
+      );
+    }
+
+    if (!isTutor) {
+      return NextResponse.json(
+        { error: 'Unauthorized: User is not a tutor' },
+        { status: 403 }
+      );
+    }
+
+    // Get current tutor's staff ID
+    const { data: tutorId, error: tutorIdError } = await userClient.rpc('current_tutor_id');
+
+    if (tutorIdError || !tutorId) {
+      console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/tutor-logs");
+      return NextResponse.json(
+        { error: 'Failed to get tutor ID' },
+        { status: 500 }
+      );
+    }
+
+    // Verify the session is accessible by this tutor (check vtutor_sessions view)
+    const { data: sessionAccess, error: sessionError } = await userClient
+      .from('vtutor_sessions')
+      .select('session_id, start_at, session_type, session_status, calendar_tombstone_until')
+      .eq('session_id', body.sessionId)
+      .maybeSingle();
+
+    if (sessionError) {
+      console.error('Error checking session access:', sessionError);
+      captureApiError(sessionError, "/api/tutor-logs");
+      return NextResponse.json(
+        { error: 'Failed to verify session access' },
+        { status: 500 }
+      );
+    }
+
+    if (!sessionAccess) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You do not have access to this session' },
+        { status: 403 }
+      );
+    }
+
+    type SessionAccess = Pick<
+      Database['public']['Views']['vtutor_sessions']['Row'],
+      'session_id' | 'start_at' | 'session_type' | 'session_status' | 'calendar_tombstone_until'
+    >;
+    const typedSessionAccess = sessionAccess as SessionAccess;
+
+    if (typedSessionAccess.session_status !== 'ACTIVE' || typedSessionAccess.calendar_tombstone_until !== null) {
+      return NextResponse.json(
+        { error: 'Cannot log an inactive or cancelled session.' },
+        { status: 400 }
+      );
+    }
+
+    // Block logging until the session has started (start_at is a UTC instant in DB)
+    if (!hasSessionStarted(typedSessionAccess.start_at)) {
+      return NextResponse.json(
+        { error: 'Cannot log a session that has not started yet.' },
+        { status: 400 }
+      );
+    }
+
+    // Check if a tutor log already exists for this session
+    const { data: existingLog, error: existingLogError } = await userClient
+      .from('vtutor_tutor_log')
+      .select('tutor_log_id')
+      .eq('session_id', body.sessionId)
+      .maybeSingle();
+
+    if (existingLogError) {
+      console.error('Error checking existing log:', existingLogError);
+      captureApiError(existingLogError, "/api/tutor-logs");
+      return NextResponse.json(
+        { error: 'Failed to check for existing log' },
+        { status: 500 }
+      );
+    }
+
+    if (existingLog) {
+      return NextResponse.json(
+        { error: 'A tutor log already exists for this session' },
+        { status: 409 }
+      );
+    }
+
+    // Get Supabase client with service role key for RPC call
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase configuration');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    if (typedSessionAccess.session_type === 'CHECK_IN') {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('sessions_staff')
+        .select('type')
+        .eq('session_id', body.sessionId)
+        .eq('staff_id', tutorId)
+        .maybeSingle();
+
+      if (assignmentError) {
+        console.error('Error checking check-in role:', assignmentError);
+        captureApiError(assignmentError, "/api/tutor-logs");
+        return NextResponse.json(
+          { error: 'Failed to verify check-in role' },
+          { status: 500 }
+        );
+      }
+
+      if (!staffMaySubmitTutorLog('CHECK_IN', assignment?.type)) {
+        return NextResponse.json(
+          { error: CHECK_IN_LOG_FORBIDDEN_MESSAGE },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Prepare data for RPC call
+    const staffAttendance = (body.staffAttendance || []).map((sa) => ({
+      staffId: sa.staffId,
+      attended: sa.attended,
+      type: sa.type,
+    }));
+
+    const studentAttendance = (body.studentAttendance || []).map((sa) => ({
+      studentId: sa.studentId,
+      attended: sa.attended,
+    }));
+
+    const topics = (body.topics || []).map((t) => ({
+      topicId: t.topicId,
+      studentIds: t.studentIds || [],
+    }));
+
+    const topicFiles = (body.topicFiles || []).map((tf) => ({
+      topicsFilesId: tf.topicsFilesId,
+      topicId: tf.topicId,
+      studentIds: tf.studentIds || [],
+    }));
+
+    // Ensure notes is an array of non-empty strings
+    // Trim whitespace only when submitting (not during typing)
+    const notes: string[] = Array.isArray(body.notes)
+      ? body.notes
+          .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
+          .map((note) => String(note).trim())
+      : [];
+
+    // Prepare RPC parameters
+    // The RPC function now handles both NULL and empty arrays correctly
+    // Pass empty arrays as [] - the function will handle serialization issues
+    const rpcParams = {
+      p_session_id: body.sessionId,
+      p_created_by: tutorId,
+      p_logged_for_staff_id: tutorId,
+      p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
+      p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
+      p_topics: topics.length > 0 ? topics : [],
+      p_topic_files: topicFiles.length > 0 ? topicFiles : [],
+      p_notes: notes.length > 0 ? notes : [],
+      p_parent_attendance: body.parentAttendance ?? [],
+    };
+
+    // Call the RPC function
+    const { data: result, error } = await supabase.rpc('create_tutor_log', rpcParams);
+
+    if (error) {
+      console.error('Error calling create_tutor_log RPC:', error);
+      captureApiError(error, "/api/tutor-logs");
+      return NextResponse.json(
+        { error: error.message || 'Failed to create tutor log' },
+        { status: 500 }
+      );
+    }
+
+    // Check if the RPC function returned an error in the result
+    type TutorLogResult = { success?: boolean; error?: string };
+    if (result && typeof result === 'object' && 'success' in result && !(result as TutorLogResult).success) {
+      return NextResponse.json(
+        { error: (result as TutorLogResult).error || 'Failed to create tutor log' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const progress = await fetchPayTierProgressForStaff(
+        userClient as unknown as SupabaseClient<Database>,
+        tutorId
+      );
+      await ensurePayTierEligibilityNotification(getServiceRoleClient(), progress);
+    } catch (syncError) {
+      console.error('Failed to sync pay tier eligibility notification after tutor log:', syncError);
+    }
+
+    return NextResponse.json({ success: true, data: result });
+  } catch (error) {
+    captureApiError(error, "/api/tutor-logs");
+    console.error('Unexpected error in POST /api/tutor-logs:', error);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}

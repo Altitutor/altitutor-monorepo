@@ -1,3 +1,5 @@
+import { CHUNK_DIAGNOSTIC_BOOTSTRAP } from "./chunk-diagnostics";
+
 /**
  * Runs before the Next/React bundles, including the error boundary's bundle.
  * Keep this native script self-contained: a missing chunk must not prevent its
@@ -5,6 +7,7 @@
  */
 export const LOGIN_CHUNK_RECOVERY_SCRIPT = `
 (function () {
+  var diagnostics = ${CHUNK_DIAGNOSTIC_BOOTSTRAP};
   var retryKey = 'ucat-login-chunk-recovery';
   var recoveryStarted = false;
   var fallback;
@@ -12,6 +15,7 @@ export const LOGIN_CHUNK_RECOVERY_SCRIPT = `
 
   function showRetry() {
     if (!fallback) {
+      diagnostics.record('fallback');
       fallback = document.createElement('section');
       fallback.id = 'ucat-login-chunk-recovery';
       fallback.setAttribute('role', 'alert');
@@ -28,7 +32,7 @@ export const LOGIN_CHUNK_RECOVERY_SCRIPT = `
       button.type = 'button';
       button.textContent = 'Reload sign-in';
       button.style.cssText = 'border:0;border-radius:8px;padding:12px 20px;background:#111827;color:#fff;font:inherit;cursor:pointer';
-      button.onclick = function () { window.location.reload(); };
+      button.onclick = function () { diagnostics.record('manual-retry'); diagnostics.persist(); window.location.reload(); };
       content.appendChild(heading);
       content.appendChild(message);
       content.appendChild(button);
@@ -48,6 +52,8 @@ export const LOGIN_CHUNK_RECOVERY_SCRIPT = `
     try {
       if (window.sessionStorage.getItem(retryKey) !== '1') {
         window.sessionStorage.setItem(retryKey, '1');
+        diagnostics.record('auto-reload');
+        diagnostics.persist();
         window.location.reload();
         return;
       }

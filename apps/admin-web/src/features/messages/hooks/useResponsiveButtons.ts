@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
  * Hook to detect if there's enough horizontal space for expanded buttons
  * Returns true if buttons can be expanded, false if they should be icon-only
  */
-export function useResponsiveButtons(containerRef: React.RefObject<HTMLElement>) {
+export function useResponsiveButtons(containerRef: React.RefObject<HTMLElement | null>) {
   const [canExpand, setCanExpand] = useState(false); // Start false to be safe
 
   useEffect(() => {

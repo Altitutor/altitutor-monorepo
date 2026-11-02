@@ -131,17 +131,17 @@ export async function replaceVariablesForParent(
   const parentFullName = `${parent.first_name || ''} ${parent.last_name || ''}`.trim();
   result = result.replace(/\{parent_full_name\}/gi, parentFullName);
   result = result.replace(/\{sender_name\}/gi, senderName || '');
-  
+
   // Backward compatibility: also replace {parent_last_name} (deprecated)
   result = result.replace(/\{parent_last_name\}/gi, parent.last_name || '');
 
   // Replace student sub-variables: {parent.student{N}.{variable}}
   // Match pattern: {parent.student1.first_name}, {parent.student2.classes}, etc.
   const studentSubVariablePattern = /\{parent\.student(\d+)\.(\w+)\}/gi;
-  
+
   result = result.replace(studentSubVariablePattern, (match, studentIndexStr, variableName) => {
     const studentIndex = parseInt(studentIndexStr, 10) - 1; // Convert to 0-based index
-    
+
     // Check if student index is valid
     if (studentIndex < 0 || studentIndex >= students.length) {
       console.warn(`Invalid student index ${studentIndexStr} for parent ${parent.id}`);
@@ -167,16 +167,16 @@ function replaceStudentVariable(
   switch (variableName.toLowerCase()) {
     case 'first_name':
       return student.first_name || '';
-    
+
     case 'full_name': {
       const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
       return fullName;
     }
-    
+
     // Backward compatibility: also handle {last_name} (deprecated)
     case 'last_name':
       return student.last_name || '';
-    
+
     case 'classes': {
       if (classes.length === 0) {
         return 'No classes enrolled';
@@ -190,7 +190,7 @@ function replaceStudentVariable(
 
       return classesText;
     }
-    
+
     case 'classes_with_start_date': {
       if (classesWithStartDates && classesWithStartDates.length > 0) {
         const classesWithDatesText = classesWithStartDates
@@ -221,22 +221,22 @@ function replaceStudentVariable(
         return classesText;
       }
     }
-    
+
     case 'registration_link':
       if (linkTokens?.registrationToken) {
         return getInviteUrlForStudent(linkTokens.registrationToken, 'register');
       }
       return '';
-    
+
     case 'invite_link':
       if (linkTokens?.inviteToken) {
         return getInviteUrlForStudent(linkTokens.inviteToken, 'invite');
       }
       return '';
-    
+
     case 'forgot_password_link':
       return linkTokens?.forgotPasswordLink || '';
-    
+
     default:
       console.warn(`Unknown student variable: ${variableName}`);
       return '';
@@ -265,6 +265,7 @@ export async function replaceVariablesForParentLegacy(
   // For backward compatibility, create a parent object with student's name
   // This is a fallback - ideally callers should use the new signature
   const mockParent: Tables<'parents'> = {
+    deleted_at: null, deleted_by: null,
     id: '',
     first_name: '',
     last_name: '',

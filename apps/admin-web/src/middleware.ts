@@ -160,7 +160,7 @@ export async function handleAuthRequest(request: NextRequest) {
         },
       },
       cookieOptions: {
-        name: "admin-auth",
+        name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
         path: "/",
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",

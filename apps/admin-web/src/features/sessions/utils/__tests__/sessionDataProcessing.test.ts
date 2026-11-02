@@ -124,6 +124,8 @@ describe('processSessionStudents', () => {
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   };
 
   it('should process student with planned attendance', () => {
@@ -308,6 +310,7 @@ describe('processSessionStudents', () => {
 
 describe('processSessionStaff', () => {
   const mockStaff: Tables<'staff'> = {
+    deleted_at: null, deleted_by: null,
     id: 'staff-1',
     first_name: 'Jane',
     last_name: 'Smith',

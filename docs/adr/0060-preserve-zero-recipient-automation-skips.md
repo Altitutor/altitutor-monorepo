@@ -1,0 +1,3 @@
+# Preserve zero-recipient automation message skips
+
+When an automation message resolves no eligible contacts, record a terminal skipped outcome for that action and execution and notify active AdminStaff through the existing staff inbox. Continue the other actions. Do not retry the skipped message when contacts appear later, including when another action causes the whole execution to retry; lookup failures remain retryable errors rather than evidence of an empty recipient set. Matthew selected this behavior in DEV-232 to preserve opt-outs, avoid unexpected delayed messages and make the reason inspectable.

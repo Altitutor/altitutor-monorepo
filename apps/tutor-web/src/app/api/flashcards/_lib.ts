@@ -6,7 +6,7 @@ import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 type ServiceClient = SupabaseClient<Database>;
 
 export async function assertTutorTopicAccess(topicId: string) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor } = await userClient.rpc('is_tutor');
   if (!isTutor) return false;
   const { data } = await userClient.from('vtutor_topics').select('id').eq('id', topicId).maybeSingle();
@@ -18,7 +18,7 @@ export async function listAccessibleFlashcards(topicId: string): Promise<Flashca
     throw new Error('Topic not accessible');
   }
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data, error } = await userClient
     .from('vstaff_flashcards')
     .select('*')
@@ -48,7 +48,7 @@ export async function listAccessibleFlashcards(topicId: string): Promise<Flashca
 }
 
 export async function getAccessibleFlashcard(cardId: string): Promise<Flashcard | null> {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data, error } = await userClient
     .from('vstaff_flashcards')
     .select('*')

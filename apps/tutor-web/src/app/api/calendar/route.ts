@@ -13,7 +13,7 @@ function getTutorBaseUrl(request: NextRequest): string {
 
 /** Provision (or return) the authenticated tutor's private calendar URL. */
 export async function POST(request: NextRequest) {
-  const userClient = createUserClient();
+  const userClient = await createUserClient();
   const {
     data: { user },
     error: userError,

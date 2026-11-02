@@ -1,10 +1,9 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { Suspense, useState } from 'react';
 import { SessionsTable } from '@/features/sessions';
-import { SessionsCalendarView } from '@/features/sessions';
 import {
-  SegmentedControl,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,17 +28,9 @@ export default function SessionsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
+      <AdminPageActions>
+
         <div className="flex items-center gap-4">
-          <SegmentedControl
-            value={view}
-            onValueChange={(v) => setView(v as 'table' | 'calendar')}
-            options={[
-              { value: 'table', label: 'Table' },
-              { value: 'calendar', label: 'Calendar' },
-            ]}
-          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <AdminPageActionButton
@@ -98,22 +89,13 @@ export default function SessionsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </AdminPageActions>
 
       <Suspense>
-        {view === 'table' ? (
-          <SessionsTable 
-            onOpenSession={(id) => entityModals.openSession(id as string)}
-            onOpenStudent={(id) => entityModals.openStudent(id as string)}
-            onOpenStaff={(id) => entityModals.openStaff(id as string)}
-          />
-        ) : (
-          <SessionsCalendarView
-            onOpenSession={(id) => entityModals.openSession(id as string)}
-            initialDate={search.get('date') ?? undefined}
-            initialViewMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
-          />
-        )}
+        <SessionsTable renderMode={view} toolbarView={{value:view,options:[{value:'table',label:'Table'},{value:'calendar',label:'Calendar'}],onChange:(next) => {if(next === 'table' || next === 'calendar') setView(next);}}}
+          initialCalendarDate={search.get('date') ?? undefined}
+          initialCalendarMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
+          onOpenSession={(id) => entityModals.openSession(id)} onOpenStudent={(id) => entityModals.openStudent(id)} onOpenStaff={(id) => entityModals.openStaff(id)} />
       </Suspense>
 
       {bookingSessionType === 'STAFF_INTERVIEW' ? (

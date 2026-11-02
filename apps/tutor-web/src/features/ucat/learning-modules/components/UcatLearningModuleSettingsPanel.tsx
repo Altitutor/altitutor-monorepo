@@ -1,5 +1,7 @@
 'use client'
 
+import { LEARNING_MODULE_JOURNEY_PLACEMENTS, type LearningModuleJourneyPlacement } from '@altitutor/shared'
+
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import {
@@ -46,6 +48,8 @@ type UcatLearningModuleSettingsPanelProps = {
   sectionId: string | null
   parentId: string | null
   accessScope: UcatAccessScope
+  journeyPlacement: LearningModuleJourneyPlacement | null
+  onJourneyPlacementChange: (placement: LearningModuleJourneyPlacement | null) => void
   studyPlanPriority: UcatLearningModuleStudyPlanPriority
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]
@@ -91,6 +95,8 @@ export function UcatLearningModuleSettingsPanel({
   sectionId,
   parentId,
   accessScope,
+  journeyPlacement,
+  onJourneyPlacementChange,
   studyPlanPriority,
   studyPlanCategoryIds,
   studyPlanTagIds,
@@ -342,6 +348,22 @@ export function UcatLearningModuleSettingsPanel({
                   <span className="text-sm font-semibold">Study plan</span>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-3 border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
+                  <PropertyRow label="Placement">
+                    <SearchableSelect<{ value: string; label: string }>
+                      items={[
+                        { value: 'unclassified', label: sectionId ? 'Section learning (default)' : 'Unclassified' },
+                        ...Object.entries(LEARNING_MODULE_JOURNEY_PLACEMENTS)
+                          .filter(([value]) => (value === 'section_learning') === Boolean(sectionId))
+                          .map(([value, label]) => ({ value, label })),
+                      ]}
+                      value={journeyPlacement ? { value: journeyPlacement, label: LEARNING_MODULE_JOURNEY_PLACEMENTS[journeyPlacement] } : { value: 'unclassified', label: sectionId ? 'Section learning (default)' : 'Unclassified' }}
+                      onValueChange={(item) => onJourneyPlacementChange(item?.value === 'unclassified' ? null : item?.value as LearningModuleJourneyPlacement ?? null)}
+                      getItemLabel={(item) => item.label}
+                      getItemId={(item) => item.value}
+                      disabled={editorMode === 'view'}
+                    />
+                  </PropertyRow>
+                  {!sectionId && !journeyPlacement ? <p role="status" className="text-xs text-amber-700 dark:text-amber-400">Choose a placement to include this sectionless lesson in preparation. Unclassified lessons are not scheduled.</p> : null}
                   <PropertyRow label="Priority">
                     <SearchableSelect<{ value: UcatLearningModuleStudyPlanPriority; label: string }>
                       items={priorityItems}
@@ -353,7 +375,7 @@ export function UcatLearningModuleSettingsPanel({
                     />
                   </PropertyRow>
                   <p className="text-xs text-muted-foreground">
-                    Essential and recommended lessons are placed near the start. Excluded lessons are never prescribed.
+                    Placement controls when a lesson belongs. Essential lessons precede Recommended within that placement; Optional and Excluded are never automatically prescribed.
                   </p>
                   <div className="space-y-2">
                     <span className="text-sm text-muted-foreground">Question categories</span>

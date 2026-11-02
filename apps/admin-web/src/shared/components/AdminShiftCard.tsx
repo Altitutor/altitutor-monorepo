@@ -1,5 +1,6 @@
 'use client';
 
+import { CalendarDetailsTooltip } from '@/shared/components/CalendarDetailsTooltip';
 import React, { useState, useEffect } from 'react';
 import { Briefcase } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
@@ -82,6 +83,7 @@ export function AdminShiftCard({
   const iconBackgroundColor = { backgroundColor: adminShiftColorHex };
 
   return (
+    <CalendarDetailsTooltip enabled={isCalendarView} title="Admin shift" subtitle={<><span>{day}</span><span>{timeRange}</span></>} staff={staff}>
     <div
       ref={cardRef}
       className={cn(
@@ -115,7 +117,7 @@ export function AdminShiftCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2">
-                {shouldUseCompact ? (
+                {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     Admin Shift
                   </span>
@@ -174,7 +176,7 @@ export function AdminShiftCard({
                     </span>
                   );
                   
-                  if (!showFullNames) {
+                  if (!showFullNames && !isCalendarView) {
                     return (
                       <TooltipProvider key={staffMember.id} delayDuration={100}>
                         <Tooltip>
@@ -203,5 +205,6 @@ export function AdminShiftCard({
         </div>
       </div>
     </div>
+    </CalendarDetailsTooltip>
   );
 }

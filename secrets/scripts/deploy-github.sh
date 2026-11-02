@@ -133,7 +133,7 @@ should_deploy_github_environment_secret() {
     local key=$1
 
     # Vercel runtime-only secrets do not need to live in GitHub Actions.
-    if [[ "$key" == "OPENROUTER_API_KEY" ]] || [[ "$key" == "SUPABASE_SENTRY_DSN" ]]; then
+    if [[ "$key" == "DAILY_API_KEY" ]] || [[ "$key" == "OPENROUTER_API_KEY" ]] || [[ "$key" == "SUPABASE_SENTRY_DSN" ]]; then
         return 1
     fi
 
@@ -151,7 +151,9 @@ should_deploy_github_environment_secret() {
 
 echo -e "${BLUE}1. Deploying Shared Secrets to GitHub Repository${NC}"
 while IFS='=' read -r key value; do
-    deploy_github_secret "$key" "$value" "repo"
+    if [ "$key" != "DAILY_API_KEY" ]; then
+        deploy_github_secret "$key" "$value" "repo"
+    fi
 done < <(parse_env_file "$SECRETS_DIR/.env.shared")
 
 echo ""

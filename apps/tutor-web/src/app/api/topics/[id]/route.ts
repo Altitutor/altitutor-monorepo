@@ -13,16 +13,14 @@ import type { TablesUpdate } from '@altitutor/shared';
  * - topic must be in tutor's authorized topics (vtutor_topics)
  * - If changing parent, new parent must be in vtutor_topics and same subject
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body = await request.json();
     const topicId = params.id;
     
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

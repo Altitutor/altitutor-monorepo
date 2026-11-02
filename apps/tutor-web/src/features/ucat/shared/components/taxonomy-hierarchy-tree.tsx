@@ -28,15 +28,15 @@ export const taxonomySectionDropId = (sectionId: string | null) =>
 
 type TaxonomyHierarchyTreeProps = {
   nodes: TaxonomyHierarchyNode[]
-  itemCountNoun: 'question' | 'stem'
+  itemCountNoun: 'question' | 'stem' | 'station'
   onItemClick: (id: string) => void
   searchQuery?: string
   className?: string
   editMode?: boolean
 }
 
-function formatItemCount(count: number, noun: 'question' | 'stem') {
-  const plural = noun === 'question' ? 'questions' : 'stems'
+function formatItemCount(count: number, noun: 'question' | 'stem' | 'station') {
+  const plural = `${noun}s`
   return `${count} ${count === 1 ? noun : plural}`
 }
 
@@ -47,7 +47,7 @@ function CountBadges({
 }: {
   childCount: number
   itemCount: number
-  itemCountNoun: 'question' | 'stem'
+  itemCountNoun: 'question' | 'stem' | 'station'
 }) {
   const parts: string[] = []
   if (childCount > 0) {
@@ -78,7 +78,7 @@ function TaxonomyHierarchyTreeNode({
   node: TaxonomyHierarchyNode
   onItemClick: (id: string) => void
   searchQuery: string
-  itemCountNoun: 'question' | 'stem'
+  itemCountNoun: 'question' | 'stem' | 'station'
   depth?: number
   editMode?: boolean
 }) {

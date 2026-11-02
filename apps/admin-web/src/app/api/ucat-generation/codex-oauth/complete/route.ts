@@ -27,7 +27,7 @@ type SupabaseAny = NonNullable<typeof supabaseAdmin> & {
 };
 
 async function requireAdminStaff() {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: { user }, error: userError } = await userClient.auth.getUser();
   if (userError || !user) {
     return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };

@@ -11,7 +11,7 @@ function isFlashcardRating(value: unknown): value is FlashcardRating {
   return typeof value === 'string' && value in ratingMap;
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const body = (await request.json()) as { rating?: unknown; requestId?: unknown; expectedRevision?: unknown; durationMs?: unknown; previewSeed?: unknown; answeredAt?: unknown };
   const rating = body.rating;
   if (!isFlashcardRating(rating)) {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const { data: accessibleCard, error: accessError } = await userClient
     .from('vstudent_flashcard_review_cards')
     .select('id, topic_id')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle();
   if (accessError) return captureApiErrorResponse(accessError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: accessError.message }, { status: 500 }));
   if (!accessibleCard) return NextResponse.json({ error: 'flashcard_review_card_not_accessible' }, { status: 404 });
@@ -67,11 +67,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (receiptError) return captureApiErrorResponse(receiptError, '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: receiptError.message }, { status: 500 }));
   if (receipt) {
     const receiptResult = receipt.result as { leechSuggested?: boolean; previewSeed?: string; studyDayEndsAt?: string };
-    const sameCommand = receipt.review_card_id === params.id && receipt.action === 'answer' && receipt.rating === rating
+    const sameCommand = receipt.review_card_id === (await params).id && receipt.action === 'answer' && receipt.rating === rating
       && receipt.pre_revision === body.expectedRevision && receipt.duration_ms === Math.min(60000, Math.max(0, Math.round(body.durationMs)))
       && new Date(receipt.answered_at).getTime() === new Date(body.answeredAt).getTime() && receiptResult.previewSeed === body.previewSeed;
     if (!sameCommand) return NextResponse.json({ error: 'flashcard_idempotency_conflict' }, { status: 409 });
-    const { data: replayedCard, error: replayError } = await userClient.from('vstudent_flashcard_review_cards').select('*').eq('id', params.id).single();
+    const { data: replayedCard, error: replayError } = await userClient.from('vstudent_flashcard_review_cards').select('*').eq('id', (await params).id).single();
     if (replayError) return captureApiErrorResponse(replayError, '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: replayError.message }, { status: 500 }));
     const row = replayedCard as FlashcardReviewCard;
     const replayPreviewSeed = createHash('sha256').update(`${row.id}:${row.revision}:${row.due_at}`).digest('hex');
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .from('student_flashcard_review_states')
     .select('due_at, stability, difficulty, scheduled_days, learning_steps, reps, lapses, state, last_reviewed_at, revision')
     .eq('student_id', studentId)
-    .eq('review_card_id', params.id)
+    .eq('review_card_id', (await params).id)
     .maybeSingle();
   if (stateError) return captureApiErrorResponse(stateError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: stateError.message }, { status: 500 }));
 
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const nextState = { due_at: nextCard.due.toISOString(), stability: nextCard.stability, difficulty: nextCard.difficulty,
     scheduled_days: nextCard.scheduled_days, learning_steps: nextCard.learning_steps, reps: nextCard.reps,
     lapses: nextCard.lapses, state: stateName(nextCard.state) };
-  const fingerprint = createHash('sha256').update(JSON.stringify({ reviewCardId: params.id, rating, expectedRevision: body.expectedRevision, previewSeed: body.previewSeed, nextState })).digest('hex');
+  const fingerprint = createHash('sha256').update(JSON.stringify({ reviewCardId: (await params).id, rating, expectedRevision: body.expectedRevision, previewSeed: body.previewSeed, nextState })).digest('hex');
   const { data: commitResult, error } = await adminClient.rpc('commit_flashcard_review_answer', {
-    p_student_id: studentId, p_review_card_id: params.id, p_request_id: body.requestId,
+    p_student_id: studentId, p_review_card_id: (await params).id, p_request_id: body.requestId,
     p_request_fingerprint: fingerprint, p_expected_revision: body.expectedRevision, p_answered_at: now.toISOString(),
     p_duration_ms: Math.min(60000, Math.max(0, Math.round(body.durationMs))), p_rating: rating,
     p_preset_id: presetId, p_preset_version: presetVersion.version, p_scheduler_version: flashcardSchedulerVersion,
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const { data: updatedCard, error: cardError } = await userClient
     .from('vstudent_flashcard_review_cards')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .single();
   if (cardError) return captureApiErrorResponse(cardError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: cardError.message }, { status: 500 }));
 

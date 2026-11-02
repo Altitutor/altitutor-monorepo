@@ -1,12 +1,24 @@
 import Stripe from 'npm:stripe@16.6.0';
 import {
   buildInvoiceNotificationEmail,
-  deliverEdgeEmail,
 } from '../../_shared/email.generated.ts';
+import { sendOperationalEdgeEmail } from '../../_shared/operational-mail.ts';
+
+export function resolveInvoiceEmailRecipients(
+  toStudent: boolean,
+  toParents: boolean,
+  studentEmail: string | undefined,
+  parentEmails: string[],
+): string[] {
+  return [...new Set([
+    ...(toStudent && studentEmail ? [studentEmail] : []),
+    ...(toParents ? parentEmails.filter(Boolean) : []),
+  ])];
+}
 
 /**
  * Send invoice email to recipients based on billing preferences
- * Uses Resend instead of Stripe's built-in email system for better control
+ * Uses the shared mailbox while preserving domain-owned content and recipient preferences
  */
 export async function sendInvoiceEmail(
   stripe: Stripe,
@@ -16,7 +28,7 @@ export async function sendInvoiceEmail(
   invoiceEmailToParents: boolean,
   studentEmail: string | undefined,
   parentEmails: string[],
-  resendApiKey: string
+  localInvoiceId: string
 ): Promise<{ sent: string[]; failed: string[] }> {
   const sent: string[] = [];
   const failed: string[] = [];
@@ -32,19 +44,7 @@ export async function sendInvoiceEmail(
   }
 
   // Build recipient list based on preferences
-  const recipients: string[] = [];
-  
-  if (invoiceEmailToStudent && studentEmail) {
-    recipients.push(studentEmail);
-  }
-  
-  if (invoiceEmailToParents && parentEmails.length > 0) {
-    for (const email of parentEmails) {
-      if (email && !recipients.includes(email)) {
-        recipients.push(email);
-      }
-    }
-  }
+  const recipients = resolveInvoiceEmailRecipients(invoiceEmailToStudent, invoiceEmailToParents, studentEmail, parentEmails);
 
   if (recipients.length === 0) {
     console.warn(`[invoice-email] No recipients configured for invoice ${invoiceId} (student: ${invoiceEmailToStudent}, parents: ${invoiceEmailToParents})`);
@@ -86,9 +86,9 @@ export async function sendInvoiceEmail(
 
   for (const recipient of recipients) {
     try {
-      await deliverEdgeEmail({
-        apiKey: resendApiKey,
-        to: recipient,
+      await sendOperationalEdgeEmail({
+        links: [{ type: "student", id: studentId }, { type: "invoice", id: localInvoiceId }],
+        to: [recipient],
         email,
         idempotencyKey: `core-invoice/${invoiceId}/${recipient}`,
       });

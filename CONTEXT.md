@@ -15,6 +15,9 @@
 - **Student relationship mode** — An independent way a Student engages with Altitutor: through tutor-led in-person services or an online Product app. A Student may have either mode, both modes concurrently, or neither while transitioning between them.
   _Avoid_: Student type, online-versus-in-person classification, conversion
 
+- **Student directory view** — A saved presentation of the shared Student directory for a relationship mode or for In-person onboarding work. In person and Online may overlap; the Trial view retains the full onboarding queue, including family enquiries without a Student and registered Students with unresolved onboarding actions.
+  _Avoid_: Mutually exclusive Student types, trial-status-only queue
+
 - **Student relationship status** — The lifecycle state of one Student relationship mode. Online and in-person statuses change independently; no single global Student status represents both relationships.
   _Avoid_: Student status, account status, global active status
 
@@ -35,6 +38,9 @@
 
 - **Online product signup** — A Product app's product-specific process for establishing an online relationship with a Student. Completing the signup activates that online relationship; creating an auth user or an incomplete Student profile does not.
   _Avoid_: Account creation, In-person registration, first login
+
+- **Student deletion** — An AdminStaff action that hides a Student from normal directories, blocks Student access and new activity, and retains the Student and all history. Existing services must be resolved first. The Student's released contact details can belong to a new person without transferring history. The original login or an AdminStaff restore can make the same Student available again without reclaiming those details or recreating ended services. This is separate from discontinuing an In-person relationship, Product account deletion and Student merge.
+  _Avoid_: Permanent Student deletion, discontinuation
 
 - **Online product relationship** — A Student's relationship with one online SaaS product, such as Altitutor UCAT or the future Altitutor Student Online SaaS offering. Each product relationship has an independent lifecycle; using Altitutor Student Online as the portal included with in-person tutoring does not create an online SaaS relationship.
 - **Product account deletion** — A Student's request to end their account in one Product app. It closes that Online product relationship, removes that product's learning data, and removes their login only when no other relationship needs it, while the Student and their invoicing and attendance records remain. A later signup with the same email reopens that product on the same Student without restoring the deleted learning data.
@@ -145,13 +151,26 @@
 - **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the Altitutor UCAT relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
   _Avoid_: UCAT account lifecycle, discontinued UCAT student, expired online student
 
-- **In-person Students view** — The AdminWeb operational view for Students with an In-person trial, Active in-person relationship, or historical Discontinued in-person relationship. Its default list contains `TRIAL` and `ACTIVE` relationships; `DISCONTINUED` relationships remain available through a status filter. It excludes online-only Students by default, while global search may still locate any Student.
+- **In-person Students view** — The AdminWeb operational view for Students with an In-person trial, Active in-person relationship, or historical Discontinued in-person relationship. Its default list contains `TRIAL` and `ACTIVE` relationships; `DISCONTINUED` relationships remain available through a status filter. It excludes online-only Students by default, while command-palette search also includes Students with an active Online product relationship. A discontinued in-person relationship does not exclude a Student whose Online product relationship remains active. Deleted Students are excluded.
   _Avoid_: All Students page, Student type list, students table
 
 - **Online Students view** — The AdminWeb operational view for Students with an Online product relationship. It focuses on Product app, entitlement, subscription, engagement, invoices, and preparation-cycle information rather than classes and attendance. A Student with both relationship modes appears in both operational views.
   _Avoid_: Separate online Student records, UCAT subscribers list, mutually exclusive student list
 
 ## Customer communication
+
+- **Shared admin mailbox** — Altitutor's company correspondence at `admin@altitutor.com`, available to all active AdminStaff. It has one shared set of messages, read states and folders regardless of which mail client a staff member uses.
+  _Avoid_: Separate admin-web inbox, per-staff copy of admin mail
+
+- **Email thread responsibility** — The responsibility of one assigned AdminStaff for an email thread's next staff reply, independent of read state. Incoming follow-ups preserve it until any staff member replies; a later incoming email is unassigned until explicitly assigned again.
+  _Avoid_: Personal unread status, permanent thread ownership
+
+- **Email context link** — The association of an email thread with the particular Student or Parent whose correspondence history it belongs to. A unique direct participant match establishes that person's link automatically, using profile addresses and already-linked shared Contact addresses. A reviewed email-participant mapping takes precedence; ambiguous owners require review. Linking a child requires an explicit decision rather than inheriting every conversation from their Parent.
+  _Avoid_: Household email roll-up, all children's email history
+
+- **Staff email signature** — The actual replying AdminStaff member's sign-off on routine correspondence sent using the Shared admin mailbox's common Altitutor Admin identity. It identifies the author without creating a personal mailbox or changing the reply destination.
+
+- **Core operational email** — A tutoring-service message such as an enrolment confirmation, absence acknowledgement or invoice notification that belongs in shared correspondence history as well as the directly relevant business records. Shared identity emails and UCAT campaign emails retain their separate domain workflows.
 
 - **Account invite** — A single-use credential that lets a person without an Altitutor User create and link one. It is independent of an In-person registration link, even when account creation is offered within In-person registration.
   _Avoid_: Registration link, password reset, online signup
@@ -330,8 +349,21 @@
 
 ## Core tutoring sessions and billing
 
-- **Drafting session** — A subject-specific, one-to-one tutoring Session booked independently of a Class. Its Subject is selected at booking and stored directly on the Session.
+- **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
+
+- **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
+  _Avoid_: Taught Topic, submitted Tutor log entry
+
+- **Teaching annotation** — A Tutor's markings on a Lesson resource's worksheet or solutions for one Session, retained on the teaching iPad and accessible to that Tutor after sign-in. Another Tutor or Session has its own markings.
+  _Avoid_: Shared resource edit, Student annotation
+
+- **Classroom display** — The audience-facing presentation of the active worksheet and its live Teaching annotations, following the Tutor's worksheet position and zoom. It presents lesson information outside the resource viewer while keeping the Tutor's solutions private.
+  _Avoid_: iPad screen mirror, solutions display
+
+- **Drafting session** — A subject-specific tutoring Session booked independently of a Class. Self-service Drafting is one-to-one; Admin-booked meetings permit flexible participants. The Subject is stored directly on the Session.
   _Avoid_: Drafting Class, subject-independent Drafting session
+
+- **Admin-booked meeting** — A manually scheduled Drafting, Trial, Subsidy interview, Staff interview, Check-in, or Admin meeting. AdminStaff choose participants, time, duration and staff directly; availability warnings are advisory and participant mixes/counts are flexible. Recurring Class, Homework Help and Admin Shift workflows remain separate.
 
 - **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
   _Avoid_: Attendance record, Session completion flag
@@ -412,6 +444,9 @@
 - **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
   _Avoid_: Survey result, submission
 
+- **Form answer filter** — A condition on the answer to one specific Form question that selects whole Form responses, preserving their other answers for review and reporting. Each condition specifies how an answer must match; several question conditions must all match.
+  _Avoid_: Recorded-by filter, question search
+
 - **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
   _Avoid_: Form response, public form link, unenrolment form
 
@@ -489,6 +524,53 @@
 
 - **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
   _Avoid_: Anki note model, front/back row
+
+## Medicine interview practice
+
+- **Interview station** — A reusable interview exercise comprising one shared reading prompt and one or more ordered, linked questions, with exactly one category and an overall score maximum. Interviews are assembled from whole stations.
+
+- **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
+  _Avoid_: Standalone bank question, independently reusable question
+
+- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score, optional general station feedback and feedback for its individual questions.
+
+- **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
+
+- **Interview feedback mode** — A coordinated mock interview mode with two-way communication throughout reading, question and feedback time. When recording is enabled, it covers question time and verbal feedback, excluding reading time.
+
+- **Interview rotation** — One allocation of students across the stations of a coordinated mock interview. Any participating tutor may explicitly advance the group once the required station work is finished; losing a connection does not itself stop the interview.
+
+- **Scheduled interview round** — A coordinated mock interview arranged for a future date and time and shown in the selected students' upcoming interviews. Students may come from different interview classes while holding current interview enrolment. The scheduled time does not start the round automatically; a participating tutor explicitly starts it.
+
+- **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
+
+- **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
+
+- **Interview tutor assignment** — A tutor's responsibility for one station throughout a round. Assignments are fixed once the round starts; another tutor cannot take over that station mid-round.
+
+- **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
+
+- **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
+
+- **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
+
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, before that tutor marks ready. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student. Claims stay locked after readiness and throughout the encounter.
+
+- **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
+
+- **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
+
+- **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
+
+- **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
+
+- **Interview station category** — The single configurable classification assigned to a bank station. Categories may be grouped, such as Personal → Motivation; they are separate from tags.
+
+- **Interview question tag** — A configurable label assigned to an individual station question. A question may have multiple tags, independently of the category of its owning station.
+
+- **Interview station placement** — One ordered use of a whole bank station in an interview, including that station's prompt and complete sequence of questions. The same station may appear more than once in an interview, with a repetition warning.
+
+- **Live interview rubric correction** — A saved change to the marking guidance for a station question during delivery. Active tutors receive revision notices; the station's question wording and order remain fixed for that round.
 
 ## UCAT content
 
@@ -1021,6 +1103,8 @@
 
 ## Projects
 
+- **Work priority** — The shared Task, Issue and Project scale: No priority (0), Urgent (1), High (2), Medium (3), Low (4). Existing and new Issues default to No priority until a staff member sets it.
+
 - **Staff procedure document** — Altitutor guidance for staff carrying out work such as communications, operations, building management and marketing. These documents are distinct from development-team documentation and AI-generated business strategy reports.
   _Avoid_: Business strategy report, development specification
 
@@ -1213,8 +1297,21 @@
 - **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
   _Avoid_: Minimum accuracy gate, mandatory lesson sequence, weekday preference alone
 
-- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. While a section remains in Learning, incomplete Essential lessons remain strongly prioritised in authored order and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended lessons follow only after the Essential tier, while Optional and Excluded lessons are not automatically prescribed.
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Within Section learning, incomplete Essential lessons remain strongly prioritised in authored order while their section remains in Learning and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended section lessons follow only after that section's Essential tier. Within each eligible General learning lesson placement, Essential lessons likewise precede Recommended lessons in authored order within each tier; Optional and Excluded lessons are not automatically prescribed.
   _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
+
+- **Learning module journey placement** — The authored point in UCAT preparation at which a lesson belongs: Section learning, Orientation, Later Learning, or Pre-Exam. Placement is independent of Study-plan priority and informs both the Study plan and Next-step guidance.
+  _Avoid_: Lesson priority, global section sequence
+
+- **General learning lesson** — A deliberately sectionless Learning module lesson with Orientation, Later Learning, or Pre-Exam journey placement. Its completion is independent of each cognitive section's Learning graduation; an unclassified sectionless lesson is not automatically a General learning lesson.
+  _Avoid_: Unassigned section lesson, fourth cognitive section
+
+- **Orientation lesson** — A General learning lesson introducing UCAT preparation before a beginner's section learning and benchmarks are scheduled. Its position guides the Student's preparation without restricting access to later activities or requiring completion before the Student may proceed.
+  _Avoid_: Mandatory onboarding, prerequisite access gate
+
+- **Later Learning lesson** — A General learning lesson intended for the point when every cognitive section is nearing the end of its Essential instruction or has genuinely graduated from Learning. Once relevant, an unfinished lesson remains useful in later preparation phases without delaying section graduation.
+
+- **Pre-Exam lesson** — A General learning lesson preparing a Student for the transition into Exam phase, shortly before that phase begins 60 days before the test or provisional planning date. It is distinct from a lesson first introduced in the final days before the test.
 
 - **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
   _Avoid_: Study-plan tags, category arrays, polymorphic taxonomy link
@@ -1371,3 +1468,9 @@
 
 - **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
   _Avoid_: Row trigger, changed-column automation, scheduled event
+
+- **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.
+
+- **Business record deletion** — An AdminStaff action that hides a main operational record from normal directories and new activity while retaining its identity, relationships and history. Live services or work must be resolved first; restoration does not reclaim released contacts or reactivate access or services. Student deletion retains its separately defined recovery rules, and configuration deletion remains separate.
+
+- **Deleted entities directory** — The Settings directory of retained deleted business records, identified by entity type and name. Eligible operational records can be explicitly restored; financial and learning-content records retain their own recovery rules.

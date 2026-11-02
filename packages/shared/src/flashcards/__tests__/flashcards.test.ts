@@ -25,6 +25,20 @@ describe('flashcard cloze helpers', () => {
 });
 
 describe('parseFlashcardCsv', () => {
+  it('imports and renders quoted multiline Anki answers and hints', () => {
+    const text = '<div>{{c1::first line\nsecond line::two\nlines}}</div>';
+    const parsed = parseFlashcardCsv(`#separator:tab\n#html:true\n"${text}"\t"Extra context"\n`);
+
+    expect(parsed.rejected).toEqual([]);
+    expect(parsed.rows).toEqual([{ clozeText: text, extra: 'Extra context', order: null }]);
+    expect(getClozeIndexes(parsed.rows[0].clozeText)).toEqual([1]);
+    const siblings = `${text}<div>{{c2::other answer}}</div>`;
+    expect(getClozeIndexes(siblings)).toEqual([1, 2]);
+    expect(renderClozeQuestionText(siblings, 1)).toBe('<div>[...] (two\nlines)</div><div>other answer</div>');
+    expect(renderClozeQuestionText(siblings, 2)).toBe('<div>first line\nsecond line</div><div>[...]</div>');
+    expect(renderClozeAnswerText(siblings)).toBe('<div>first line\nsecond line</div><div>other answer</div>');
+  });
+
   it('imports valid cloze rows and rejects non-cloze rows', () => {
     const parsed = parseFlashcardCsv(
       'text,order,extra\n"{{c1::Cell membrane}} controls movement",2,"Selective permeability"\n"No marker",1,\n',

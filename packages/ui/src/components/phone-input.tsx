@@ -1,11 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import PhoneInputLib from 'react-phone-number-input';
-import type { Country, Value as PhoneValue } from 'react-phone-number-input';
-import { cn } from '../lib/cn';
+import { getCountries, getCountryCallingCode, type Country } from 'react-phone-number-input';
+import flags from 'react-phone-number-input/flags';
+import labels from 'react-phone-number-input/locale/en.json';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { Info } from 'lucide-react';
+import { cn } from '../lib/cn';
 import { PhoneCountrySelect } from './phone-country-select';
+import { Input } from './input';
 import 'react-phone-number-input/style.css';
 
 export interface PhoneInputProps {
@@ -22,75 +25,89 @@ export interface PhoneInputProps {
   countrySelectClassName?: string;
 }
 
-const phoneFieldClassName = cn(
-  'phone-input-wrapper flex items-center gap-2',
-  '[&_.PhoneInputInput]:flex [&_.PhoneInputInput]:h-12 [&_.PhoneInputInput]:min-w-0 [&_.PhoneInputInput]:flex-1 [&_.PhoneInputInput]:rounded-md [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-input [&_.PhoneInputInput]:bg-background [&_.PhoneInputInput]:px-3 [&_.PhoneInputInput]:py-2 [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:ring-offset-background [&_.PhoneInputInput]:placeholder:text-muted-foreground [&_.PhoneInputInput]:focus-visible:outline-none [&_.PhoneInputInput]:focus-visible:ring-2 [&_.PhoneInputInput]:focus-visible:ring-ring [&_.PhoneInputInput]:focus-visible:ring-offset-2 [&_.PhoneInputInput]:disabled:cursor-not-allowed [&_.PhoneInputInput]:disabled:opacity-50',
-);
+function displayNumber(value: string, country: Country, international: boolean) {
+  const parsed = parsePhoneNumberFromString(value, country);
+  return parsed?.isPossible()
+    ? international ? parsed.formatInternational() : parsed.formatNational()
+    : value;
+}
 
-/**
- * PhoneInput component for international phone numbers
- * Defaults to Australia (+61) but allows country selection
- */
+/** Keep text edits intact; infer country and format only after leaving the number field. */
 export function PhoneInput({
-  id,
-  value = '',
-  onChange,
-  placeholder,
-  disabled = false,
-  className,
-  error,
-  defaultCountry = 'AU',
-  international = true,
-  countries,
-  countrySelectClassName,
+  id, value = '', onChange, placeholder, disabled = false, className, error,
+  defaultCountry = 'AU', international = true, countries, countrySelectClassName,
 }: PhoneInputProps) {
-  const handleChange = (phoneValue: PhoneValue) => {
-    onChange?.(phoneValue || '');
-  };
+  const [country, setCountry] = React.useState<Country>(() =>
+    parsePhoneNumberFromString(value, defaultCountry)?.country ?? defaultCountry);
+  const [draft, setDraft] = React.useState(() => displayNumber(value, defaultCountry, international));
+  const lastEmitted = React.useRef(value);
+  React.useEffect(() => {
+    // A controlled parent's echo must not overwrite a partially edited calling code.
+    if (value === lastEmitted.current) return;
+    lastEmitted.current = value;
+    const nextCountry = parsePhoneNumberFromString(value, defaultCountry)?.country ?? defaultCountry;
+    setCountry(nextCountry);
+    setDraft(displayNumber(value, nextCountry, international));
+  }, [value, defaultCountry, international]);
 
-  const handleNumberKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>) => {
-      // Spaces in an empty/partial international field reset the country to defaultCountry.
-      if (event.key === ' ') {
-        event.preventDefault();
-      }
-    },
-    [],
-  );
+  const emit = (text: string, selectedCountry: Country) => {
+    const parsed = parsePhoneNumberFromString(text, selectedCountry);
+    const nextValue = parsed?.isPossible() ? parsed.number : text.trim();
+    lastEmitted.current = nextValue;
+    onChange?.(nextValue);
+  };
+  const options = React.useMemo(() => (countries ?? getCountries()).map(code => ({
+    value: code, label: `${labels[code]} +${getCountryCallingCode(code)}`,
+  })), [countries]);
 
   return (
     <div className={cn('space-y-1', className)}>
-      <div className="relative">
-        <PhoneInputLib
-          international={international}
-          defaultCountry={defaultCountry}
-          countries={countries}
-          addInternationalOption={false}
-          countryCallingCodeEditable
-          smartCaret={false}
-          countrySelectComponent={PhoneCountrySelect}
-          countrySelectProps={{ className: countrySelectClassName }}
-          value={value as PhoneValue}
-          onChange={handleChange}
+      <div className="phone-input-wrapper flex items-center gap-2">
+        <PhoneCountrySelect
+          value={country}
+          options={options}
+          disabled={disabled}
+          className={countrySelectClassName}
+          aria-label="Phone number country"
+          iconComponent={({ country: code }) => {
+            const Flag = code ? flags[code] : undefined;
+            return Flag ? <span className="PhoneInputCountryIcon"><Flag title={labels[code!]} /></span> : null;
+          }}
+          onChange={nextCountry => {
+            if (!nextCountry) return;
+            const parsed = parsePhoneNumberFromString(draft, country);
+            const next = parsed
+              ? `+${getCountryCallingCode(nextCountry)}${parsed.nationalNumber}`
+              : draft ? draft : '';
+            setCountry(nextCountry);
+            setDraft(displayNumber(next, nextCountry, international));
+            emit(next, nextCountry);
+          }}
+        />
+        <Input
+          id={id}
+          type="tel"
+          autoComplete="tel"
+          value={draft}
           disabled={disabled}
           placeholder={placeholder}
-          className={cn(
-            phoneFieldClassName,
-            error && '[&_.PhoneInputInput]:border-destructive [&_.PhoneInputInput]:focus-visible:ring-destructive',
-          )}
-          numberInputProps={{
-            id,
-            className: cn(error && 'border-destructive focus-visible:ring-destructive'),
-            onKeyDown: handleNumberKeyDown,
+          aria-invalid={error ? true : undefined}
+          className={cn('PhoneInputInput h-12 min-w-0 flex-1', error && 'border-destructive focus-visible:ring-destructive')}
+          onChange={event => {
+            const text = event.target.value;
+            setDraft(text);
+            // Keep form state current for Enter-to-submit, without changing visible text.
+            emit(text, country);
+          }}
+          onBlur={() => {
+            const parsed = parsePhoneNumberFromString(draft, country);
+            if (parsed?.country && (!countries || countries.includes(parsed.country))) setCountry(parsed.country);
+            setDraft(displayNumber(draft, country, international));
+            emit(draft, country);
           }}
         />
       </div>
-      {error && (
-        <p className="text-sm text-destructive flex items-start gap-1">
-          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <span>{error}</span>
-        </p>
-      )}
+      {error && <p className="text-sm text-destructive flex items-start gap-1"><Info className="h-4 w-4 mt-0.5 flex-shrink-0" /><span>{error}</span></p>}
     </div>
   );
 }

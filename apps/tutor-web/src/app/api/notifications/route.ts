@@ -16,7 +16,7 @@ type NotificationIdRow = {
 };
 
 async function resolveTutorContext() {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
 
   if (tutorCheckError) {
@@ -47,7 +47,7 @@ async function resolveTutorContext() {
 }
 
 async function verifyNotificationIds(
-  userClient: ReturnType<typeof createClient>,
+  userClient: Awaited<ReturnType<typeof createClient>>,
   notificationIds: string[],
 ) {
   const { data: visibleNotifications, error: noteError } = await userClient

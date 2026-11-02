@@ -12,7 +12,8 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
 }
 
-export async function POST(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 

@@ -34,15 +34,15 @@ import { UcatAiJsonParseError } from '@/features/ucat/shared/server/ucat-ai-clie
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
   shared: z.string().min(1),
-  questions: z.record(z.string()),
+  questions: z.record(z.string(), z.string()),
 })
 
 const ReviewProvenanceSchema = z.object({
-  blindSolverModelProfileId: z.string().uuid().nullable(),
-  assessmentModelProfileId: z.string().uuid().nullable(),
-  blindProviderId: z.string().uuid().nullable(),
+  blindSolverModelProfileId: z.string().guid('Invalid uuid').nullable(),
+  assessmentModelProfileId: z.string().guid('Invalid uuid').nullable(),
+  blindProviderId: z.string().guid('Invalid uuid').nullable(),
   blindModel: z.string().nullable(),
-  assessmentProviderId: z.string().uuid().nullable(),
+  assessmentProviderId: z.string().guid('Invalid uuid').nullable(),
   assessmentModel: z.string().nullable(),
 })
 
@@ -57,7 +57,7 @@ const CachedReviewSchema = z.object({
 
 const BodySchema = z.object({
   stems: z.array(z.object({
-    id: z.string().uuid(),
+    id: z.string().guid('Invalid uuid'),
     values: ucatQuestionStemSchema,
     previous: CachedReviewSchema.nullable().optional(),
   })).min(1).max(50),

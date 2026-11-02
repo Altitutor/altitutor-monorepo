@@ -1,4 +1,6 @@
 "use client";
+
+import { requestOperationalEmail } from '@/features/email/api/operational';
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import {
   Button,
@@ -9,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@altitutor/ui";
 import { Check, ChevronDown, Filter, MessageSquare } from "lucide-react";
+import { useOpenEmailThread } from "@/features/email/hooks/useOpenEmailThread";
 import { Composer } from "@/features/messages/components/Composer";
 import {
   MessageThread,
@@ -49,6 +52,7 @@ export const JourneyCommunication = forwardRef<
   { prepare: (purpose: Purpose) => void },
   { journey: Journey; onRefresh: () => void }
 >(function JourneyCommunication({ journey, onRefresh }, ref) {
+  const openEmail = useOpenEmailThread();
   const [mode, setMode] = useState<ComposeMode>("message");
   const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const emails = useJourneyEmails(journey.id);
@@ -103,7 +107,7 @@ export const JourneyCommunication = forwardRef<
   const filterOptions = communicationFilterOptions({
     contacts: contacts.map((person) => ({
       id: person.id,
-      kind: person.kind === "parent" ? "parent" as const : "student" as const,
+      kind: person.kind === "parent" ? ("parent" as const) : ("student" as const),
       label: person.label,
       isCurrent: true,
       detail: person.phone_e164 || person.kind,
@@ -154,8 +158,21 @@ export const JourneyCommunication = forwardRef<
               Email · {email.sender} → {email.recipients.join(", ")} ·{" "}
               {new Date(email.occurred_at).toLocaleString("en-AU")}
             </div>
-            <strong>{email.subject}</strong>
-            <p className="whitespace-pre-wrap break-words">{email.body_text}</p>
+            <Button
+              variant="link"
+              className="h-auto p-0 text-left"
+              onClick={() =>
+                openEmail(
+                  email.conversation_id || `message:${email.id}`,
+                  email.subject,
+                )
+              }
+            >
+              {email.subject || "Email conversation"}
+            </Button>
+            <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+              {email.body_text}
+            </p>
           </article>
         ),
       });
@@ -168,7 +185,7 @@ export const JourneyCommunication = forwardRef<
           throw new Error("Link a student before preparing registration.");
         let inviteUrl = invite?.inviteUrl;
         if (!inviteUrl) {
-          const response = await fetch(
+          const response = await requestOperationalEmail(
             "/api/students/send-registration-invite",
             {
               method: "POST",
@@ -307,7 +324,10 @@ export const JourneyCommunication = forwardRef<
         </p>
       )}
       {(error || contextError || messages.error || activity.error) && (
-        <p role="alert" className="flex-shrink-0 px-3 py-2 text-sm text-destructive">
+        <p
+          role="alert"
+          className="flex-shrink-0 px-3 py-2 text-sm text-destructive"
+        >
           {error ||
             contextError?.message ||
             messages.error?.message ||
@@ -328,11 +348,16 @@ export const JourneyCommunication = forwardRef<
             if (activity.hasNextPage) activity.fetchNextPage();
             if (emails.hasNextPage) void emails.fetchNextPage();
           },
+          showConversationLabels:
+            new Set(visible.map((message) => message.conversation_id)).size > 1,
           labelForConversation: (id) => {
             const conversation = conversations.find((item) => item.id === id);
             if (!conversation) return undefined;
-            if (conversation.is_group_chat) return conversation.group_chat_name ?? "Group";
-            const person = contacts.find((item) => item.id === conversation.contact_id);
+            if (conversation.is_group_chat)
+              return conversation.group_chat_name ?? "Group";
+            const person = contacts.find(
+              (item) => item.id === conversation.contact_id,
+            );
             if (!person) return undefined;
             return person.label;
           },
@@ -342,7 +367,12 @@ export const JourneyCommunication = forwardRef<
         <div
           className="flex-shrink-0 border-t bg-background p-2"
           onKeyDownCapture={(event) => {
-            if (!journey.student_id || !isMessageComposerSendShortcut(event) || isTiptapContentEmpty(noteComposer.content)) return;
+            if (
+              !journey.student_id ||
+              !isMessageComposerSendShortcut(event) ||
+              isTiptapContentEmpty(noteComposer.content)
+            )
+              return;
             event.preventDefault();
             void noteComposer.onSubmit();
           }}
@@ -354,11 +384,15 @@ export const JourneyCommunication = forwardRef<
               onSubmit={noteComposer.onSubmit}
               isSubmitting={noteComposer.isSubmitting}
               canPost={noteComposer.canPost}
-              modeControl={<ComposeModeControl value={mode} onValueChange={setMode} />}
+              modeControl={
+                <ComposeModeControl value={mode} onValueChange={setMode} />
+              }
             />
           ) : (
             <div className="flex items-center justify-between gap-2 p-2">
-              <p className="text-sm text-muted-foreground">Link a student before adding a note.</p>
+              <p className="text-sm text-muted-foreground">
+                Link a student before adding a note.
+              </p>
               <ComposeModeControl value={mode} onValueChange={setMode} />
             </div>
           )}
@@ -372,7 +406,9 @@ export const JourneyCommunication = forwardRef<
           draft={draft}
           onDraftChange={setDraft}
           onDraftClear={() => setDraft("")}
-          toolbarBeforeTemplate={<ComposeModeControl value={mode} onValueChange={setMode} />}
+          toolbarBeforeTemplate={
+            <ComposeModeControl value={mode} onValueChange={setMode} />
+          }
           onboarding={purpose ? { journeyId: journey.id, purpose } : undefined}
           onQueued={() => {
             setPurpose(undefined);
@@ -383,7 +419,8 @@ export const JourneyCommunication = forwardRef<
       ) : (
         <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t p-4">
           <p className="text-sm text-muted-foreground">
-            Link a student or enquiry contact with a phone number to send a text.
+            Link a student or enquiry contact with a phone number to send a
+            text.
           </p>
           <ComposeModeControl value={mode} onValueChange={setMode} />
         </div>

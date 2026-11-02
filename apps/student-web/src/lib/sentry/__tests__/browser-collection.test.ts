@@ -12,7 +12,7 @@ describe('student browser collection', () => {
   afterEach(() => { process.env = originalEnv; jest.clearAllMocks(); });
   function initialize(env: Record<string, string>) {
     process.env = { ...originalEnv, NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1', NEXT_PUBLIC_SENTRY_DISABLED: '', NEXT_PUBLIC_SENTRY_TEST_OPT_IN: '', ...env };
-    jest.isolateModules(() => require('@/instrumentation-client'));
+    jest.isolateModules(() => jest.requireActual('@/instrumentation-client'));
     return jest.mocked(Sentry.init).mock.calls.at(-1)?.[0] as (Parameters<typeof Sentry.init>[0] & { replaysSessionSampleRate?: number; replaysOnErrorSampleRate?: number }) | undefined;
   }
   it.each(['local', 'preview', 'development', 'production'])('does not report automatic localhost events even from a %s build', (deployment) => {
@@ -35,6 +35,21 @@ describe('student browser collection', () => {
     expect(options?.replaysSessionSampleRate).toBe(0);
     expect(options?.replaysOnErrorSampleRate).toBe(0.1);
   });
+  it('strips inherited private data from handled interview failure events', () => {
+    const options = initialize({ NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'true' });
+    const beforeSend = options?.beforeSend as (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null;
+    const sent = beforeSend({
+      type: undefined, message: 'private provider message',
+      tags: { 'interview.failure': 'true', app: 'student-web', 'interview.source': 'sdk', 'interview.category': 'connection', 'interview.phase': 'questions', 'interview.state': 'joined', privateTag: 'private room' },
+      user: { id: 'private student', email: 'private email' },
+      request: { url: 'https://private/round?token=private' }, breadcrumbs: [{ message: 'private device label' }],
+      extra: { token: 'private token' }, exception: { values: [{ value: 'private SDK details' }] },
+      contexts: { browser: { name: 'Safari', version: '18.1' }, trace: { trace_id: 'private trace', span_id: 'private span' } },
+    }, {});
+    expect(sent?.message).toBe('Interview call failed');
+    expect(sent?.contexts).toEqual({ browser: { name: 'Safari', version: '18.1' } });
+    expect(JSON.stringify(sent)).not.toContain('private');
+  });
   it('disables even feedback when the E2E/CI kill switch is set', () => {
     const options = initialize({ NEXT_PUBLIC_SENTRY_DISABLED: 'true', NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'true' });
     expect(options?.enabled).toBe(false);
@@ -48,7 +63,7 @@ it('excludes sensitive mobile auth contexts from replay even during explicit tes
   window.history.replaceState({}, '', '/mobile-auth?ticket=fixture');
   process.env = { ...previous, NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1', NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'true', NEXT_PUBLIC_SENTRY_DISABLED: '' };
   try {
-    jest.isolateModules(() => require('@/instrumentation-client'));
+    jest.isolateModules(() => jest.requireActual('@/instrumentation-client'));
     expect((jest.mocked(Sentry.init).mock.calls.at(-1)?.[0] as { replaysOnErrorSampleRate?: number })?.replaysOnErrorSampleRate).toBe(0);
   } finally { process.env = previous; window.history.replaceState({}, '', '/'); }
 });

@@ -19,6 +19,7 @@ jest.mock('@/features/parents/api/parents', () => ({
 const mockedParentsApi = jest.mocked(parentsApi);
 
 const existingParent = {
+  deleted_at: null, deleted_by: null,
   id: 'parent-existing',
   first_name: 'Sam',
   last_name: 'Cole',

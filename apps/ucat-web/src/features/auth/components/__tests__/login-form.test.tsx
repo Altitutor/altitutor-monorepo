@@ -35,6 +35,7 @@ describe("LoginForm", () => {
     window.sessionStorage.clear();
     window.localStorage.clear();
     jest.clearAllMocks();
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 });
     signInWithPassword.mockResolvedValue({
       data: { user: { id: "student-user" } },
       error: null,

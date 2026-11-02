@@ -9,6 +9,8 @@ import { useMentionSuggestions } from "@/shared/hooks/useMentionSuggestions";
 import { DashboardCardHeader } from "@/shared/components/DashboardCardHeader";
 
 const NOTE_MENTION_TYPES = [
+  "emails",
+  "messages",
   "issues",
   "tasks",
   "students",

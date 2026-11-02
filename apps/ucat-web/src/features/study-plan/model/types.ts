@@ -1,3 +1,4 @@
+import type { LearningModuleJourneyPlacement } from "@altitutor/shared";
 export type StudyPlanWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type StudyPlanSjtPreference = "normally" | "a_little" | "not_at_all";
 
@@ -136,11 +137,12 @@ export type StudyPlanSkillTrainer = {
 };
 
 export type StudyPlanLearningModule = {
+  journeyPlacement?: LearningModuleJourneyPlacement | null;
   id: string;
   title: string;
   sectionId: string | null;
   sectionNumber: number | null;
-  priority: "essential" | "recommended" | "optional";
+  priority: "essential" | "recommended" | "optional" | "excluded";
   estimatedMinutes: number;
   completionPercent: number;
   relevanceScore: number;

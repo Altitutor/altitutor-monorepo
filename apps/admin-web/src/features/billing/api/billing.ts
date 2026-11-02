@@ -2,11 +2,15 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvoiceRow, InvoiceItemRow, CreditNoteRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
+import { getStudentInvoiceOwing } from './student-invoice-owing';
 
 // Re-export types for backward compatibility
 export type { InvoiceRow, InvoiceItemRow, CreditNoteRow, MissingPaymentObligation, FailedPaymentAttempt, StuckPaymentAttempt } from '../types';
 
 export const billingApi = {
+  getStudentInvoiceOwing(studentId: string) {
+    return getStudentInvoiceOwing(getSupabaseClient() as SupabaseClient<Database>, studentId);
+  },
   // Get all invoices for a student
   async getInvoicesByStudent(studentId: string): Promise<InvoiceRow[]> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)

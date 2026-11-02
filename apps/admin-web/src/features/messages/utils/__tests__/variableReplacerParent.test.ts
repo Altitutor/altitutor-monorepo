@@ -22,6 +22,7 @@ const getInviteUrlForStudent = jest.requireMock<{
 
 function createParent(overrides: Partial<Tables<'parents'>> = {}): Tables<'parents'> {
   return {
+    deleted_at: null, deleted_by: null,
     id: 'parent-1',
     first_name: 'Jane',
     last_name: 'Smith',

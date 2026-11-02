@@ -83,6 +83,7 @@ type EnrollmentRow = {
 };
 
 type SessionStaffWithDetails = Tables<'sessions_staff'> & {
+  staff: Tables<'staff'> | null;
   swapped_sessions_staff_id?: string | null;
 };
 
@@ -548,7 +549,12 @@ export const sessionsApi = {
     // Ensure the user is an admin first
     
     const { data: updated, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions').update(data).eq('id', id).select().single();
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505' && error.message.includes('uq_sessions_class_start_end')) {
+        throw new Error('This class already has an active session at that start and end.');
+      }
+      throw error;
+    }
     return updated as Tables<'sessions'>;
   },
 
@@ -808,6 +814,7 @@ export const sessionsApi = {
         .select(`
           *,
           subject:subjects(*),
+          admin_shift:admin_shifts(id, day_of_week, start_time, end_time),
           class:classes(
             *,
             subject:subjects(*)

@@ -10,7 +10,7 @@ const recent = {
   title: "Recent task",
   query: "view=board",
   locations: {
-    "tasks:": { kind: "tasks", title: "Tasks", query: "assignee=me" },
+    "task:previous": { kind: "task", id: "previous", title: "Previous task", query: "assignee=me" },
   },
 };
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
@@ -71,11 +71,11 @@ beforeEach(() => {
   };
 });
 
-it("shows recently closed below views and restores all saved tab state", async () => {
+it("shows recently closed without collection views and restores all saved tab state", async () => {
   const user = userEvent.setup();
   render(<AccessoryTabPicker />);
   await user.click(screen.getByRole("button", { name: "Add accessory tab" }));
-  expect(screen.getByText("Views")).toBeInTheDocument();
+  expect(screen.queryByText("Views")).not.toBeInTheDocument();
   expect(screen.getByText("Recently closed")).toBeInTheDocument();
   await user.click(screen.getByRole("option", { name: "Recent task" }));
   expect(mockOpenTab).toHaveBeenCalledWith(recent);

@@ -1,6 +1,8 @@
 'use client';
 
+import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
 import React, { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -17,11 +19,13 @@ function getInitials(firstName: string, lastName: string): string {
 
 
 interface SessionsCardProps {
+  hasTutorLog?: boolean;
+  details?: { classData?: Tables<'classes'>; subject?: Tables<'subjects'>; students: CalendarStudent[]; staff: CalendarStaff[] };
   session: Tables<'sessions'>;
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
-  students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
+  staff: Array<Tables<'staff'> & CalendarStaff>;
+  students?: Array<Tables<'students'> & CalendarStudent>;
   onClick?: () => void;
   /** Override the title (e.g. session/class name in the absence reschedule picker). */
   title?: string;
@@ -41,11 +45,13 @@ interface SessionsCardProps {
 
 export function SessionsCard({
   session,
+  hasTutorLog = false,
   classData,
   subject,
   staff = [],
   students = [],
   onClick,
+  details,
   title,
   isSelecting = false,
   isSelected = false,
@@ -114,6 +120,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={details?.students ?? students} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(
@@ -156,7 +163,7 @@ export function SessionsCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2">
-                {shouldUseCompact ? (
+                {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     {subjectDisplay}
                   </span>
@@ -231,8 +238,8 @@ export function SessionsCard({
                     </span>
                   );
                   
-                  // Always show tooltip with name and status
-                  return (
+                  // Calendar cards expose all details in the parent tooltip.
+                  return isCalendarView ? badge : (
                     <TooltipProvider key={staffMember.id} delayDuration={100}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -295,8 +302,8 @@ export function SessionsCard({
                     </span>
                   );
                   
-                  // Always show tooltip with name and status
-                  return (
+                  // Calendar cards expose all details in the parent tooltip.
+                  return isCalendarView ? badge : (
                     <TooltipProvider key={student.id} delayDuration={100}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -315,5 +322,6 @@ export function SessionsCard({
         </div>
       </div>
     </div>
+    </CalendarDetailsTooltip>
   );
 }

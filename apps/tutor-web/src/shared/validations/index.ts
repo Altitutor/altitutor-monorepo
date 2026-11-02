@@ -29,10 +29,10 @@ export const baseSchemas = {
     .max(100, { message: messages.maxLength("Name", 100) }),
   email: z.string().email({ message: messages.email }),
   phone: z.string().regex(patterns.phone, { message: messages.phone }),
-  date: z.date({ required_error: messages.required, invalid_type_error: messages.date }),
+  date: z.date({ error: (issue) => issue.input === undefined ? messages.required : messages.date }),
   futureDate: z.date().min(new Date(), { message: messages.future }),
   pastDate: z.date().max(new Date(), { message: messages.past }),
-  numeric: z.number({ required_error: messages.required, invalid_type_error: messages.numeric }),
+  numeric: z.number({ error: (issue) => issue.input === undefined ? messages.required : messages.numeric }),
 }
 
 // Student form schema
@@ -110,7 +110,7 @@ export async function validateField<T extends z.ZodType>(
     return { success: true }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.issues[0].message }
     }
     return { success: false, error: "Validation failed" }
   }

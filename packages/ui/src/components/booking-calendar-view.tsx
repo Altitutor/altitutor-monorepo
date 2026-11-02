@@ -285,7 +285,7 @@ export function BookingCalendarView({
                             groups.push(group);
                           });
 
-                          const blocks: JSX.Element[] = [];
+                          const blocks: React.JSX.Element[] = [];
                           groups.forEach((group) => {
                             const total = group.length;
                             const columnWidth = total > 1 ? 95 / total : 95;

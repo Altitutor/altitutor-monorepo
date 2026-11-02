@@ -8,6 +8,7 @@ export interface ParentWithPhone {
   first_name: string;
   last_name: string;
   phone: string | null;
+  email?: string | null;
 }
 
 type ParentStudentRow = {
@@ -17,6 +18,7 @@ type ParentStudentRow = {
     first_name: string | null;
     last_name: string | null;
     phone: string | null;
+    email?: string | null;
   } | null;
 };
 
@@ -26,7 +28,7 @@ async function fetchParentsForStudent(
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('parents_students')
-    .select('parent_id, parents(id, first_name, last_name, phone)')
+    .select('parent_id, parents(id, first_name, last_name, phone, email)')
     .eq('student_id', studentId);
 
   if (error) return [];
@@ -34,12 +36,13 @@ async function fetchParentsForStudent(
   const typed = (data ?? []) as ParentStudentRow[];
   return typed
     .map((ps) => ps.parents)
-    .filter((p): p is NonNullable<typeof p> => p !== null && p.phone !== null)
+    .filter((p): p is NonNullable<typeof p> => p !== null)
     .map((p) => ({
       id: p.id,
       first_name: p.first_name ?? '',
       last_name: p.last_name ?? '',
       phone: p.phone,
+      email: p.email,
     }));
 }
 

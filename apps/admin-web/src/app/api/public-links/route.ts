@@ -6,7 +6,7 @@ import { getBookingConfirmationUrl, getInviteUrlForStudent } from '@/shared/util
 type PublicLinkPurpose = 'registration' | 'booking';
 
 async function handle(request: NextRequest, rotate: boolean) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

@@ -19,9 +19,7 @@ export function buildInviteUrl(token: string, type: 'staff' | 'student'): string
     // For staff, we need role info, so use getInviteUrlForStaff with default role
     // This is a fallback - prefer using getInviteUrlForStaff directly
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const baseUrl = isDevelopment
-      ? 'http://localhost:3000'
-      : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+    const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || (isDevelopment ? 'http://localhost:3000' : 'https://admin.altitutor.com');
     return `${baseUrl}/invite/${token}`;
   } else {
     return getInviteUrlForStudent(token, 'invite');
@@ -36,9 +34,7 @@ export function buildInviteUrl(token: string, type: 'staff' | 'student'): string
  */
 export function getInviteUrlForStudent(token: string, path: 'invite' | 'register' = 'invite'): string {
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const baseUrl = isDevelopment 
-    ? 'http://localhost:3001'
-    : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+  const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || (isDevelopment ? 'http://localhost:3001' : 'https://student.altitutor.com');
   const route = path === 'register' ? 'r' : 'invite';
   return `${baseUrl}/${route}/${token}`;
 }
@@ -53,14 +49,10 @@ export function getInviteUrlForStaff(token: string, role: string): string {
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   if (role === 'TUTOR') {
-    const baseUrl = isDevelopment 
-      ? 'http://localhost:3002'
-      : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+    const baseUrl = process.env.NEXT_PUBLIC_TUTOR_URL || (isDevelopment ? 'http://localhost:3002' : 'https://tutor.altitutor.com');
     return `${baseUrl}/invite/${token}`;
   } else {
-    const baseUrl = isDevelopment
-      ? 'http://localhost:3000'
-      : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+    const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || (isDevelopment ? 'http://localhost:3000' : 'https://admin.altitutor.com');
     return `${baseUrl}/invite/${token}`;
   }
 }
@@ -72,8 +64,6 @@ export function getInviteUrlForStaff(token: string, role: string): string {
  */
 export function getBookingConfirmationUrl(publicToken: string): string {
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const baseUrl = isDevelopment 
-    ? 'http://localhost:3001'
-    : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+  const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || (isDevelopment ? 'http://localhost:3001' : 'https://student.altitutor.com');
   return `${baseUrl}/b/${publicToken}`;
 }

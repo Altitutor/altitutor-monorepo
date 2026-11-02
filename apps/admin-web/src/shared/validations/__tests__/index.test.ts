@@ -291,6 +291,28 @@ describe('createFormSchema', () => {
 });
 
 describe('validateField', () => {
+  it('distinguishes a missing date from a value of the wrong type', async () => {
+    expect(await validateField(baseSchemas.date, undefined)).toEqual({
+      success: false,
+      error: 'This field is required',
+    });
+    expect(await validateField(baseSchemas.date, 'not-a-date')).toEqual({
+      success: false,
+      error: 'Please enter a valid date',
+    });
+  });
+
+  it('distinguishes a missing number from a value of the wrong type', async () => {
+    expect(await validateField(baseSchemas.numeric, undefined)).toEqual({
+      success: false,
+      error: 'This field is required',
+    });
+    expect(await validateField(baseSchemas.numeric, 'abc')).toEqual({
+      success: false,
+      error: 'Please enter a valid number',
+    });
+  });
+
   it('should return success for valid value', async () => {
     const schema = z.string().min(3);
     const result = await validateField(schema, 'valid');

@@ -1,3 +1,4 @@
+import { isLearningModuleJourneyPlacement } from "@altitutor/shared";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -561,9 +562,8 @@ async function loadGenerationInputs(
         supabase
           .from("vstudent_ucat_learning_modules")
           .select(
-            "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
-          )
-          .neq("study_plan_priority", "excluded"),
+            "id, title, kind, ucat_section_id, study_plan_priority, study_plan_journey_placement, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
+          ),
       () =>
         admin
           .from("student_ucat_mock_attempts")
@@ -933,12 +933,7 @@ async function loadGenerationInputs(
   visitModules(null);
   const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap(
     (moduleRow) => {
-      if (
-        !moduleRow.id ||
-        !moduleRow.title ||
-        moduleRow.kind !== "lesson" ||
-        moduleRow.study_plan_priority === "excluded"
-      )
+      if (!moduleRow.id || !moduleRow.title || moduleRow.kind !== "lesson")
         return [];
       const categoryIds = (moduleCategoriesRes.data ?? [])
         .filter((link) => link.learning_module_id === moduleRow.id)
@@ -1009,6 +1004,13 @@ async function loadGenerationInputs(
             sections.find((section) => section.id === moduleRow.ucat_section_id)
               ?.sectionNumber ?? null,
           priority: moduleRow.study_plan_priority ?? "recommended",
+          journeyPlacement: isLearningModuleJourneyPlacement(
+            moduleRow.study_plan_journey_placement,
+          )
+            ? moduleRow.study_plan_journey_placement
+            : moduleRow.ucat_section_id
+              ? "section_learning"
+              : null,
           estimatedMinutes: Math.max(5, moduleRow.estimated_minutes ?? 5),
           completionPercent: moduleRow.completion_percent ?? 0,
           authoredOrder:
@@ -1456,12 +1458,12 @@ async function persistGeneration(
   completedMockCount: number,
   signals: StudyPlanSectionSignal[],
   today: string,
+  preserveThrough: string | null,
   refreshRequestVersion?: number,
 ): Promise<void> {
   const admin = requireAdmin();
   const result = preparation.plan;
   const generatedAt = preparation.generatedAt;
-  const preserveThrough = reason === "onboarding" ? null : today;
   if (preserveThrough) {
     const { data: activeGeneration, error: generationError } = await admin
       .from("ucat_student_study_plan_generations")
@@ -1707,6 +1709,8 @@ type CanonicalPreparationInputs = {
 };
 
 async function runCanonicalPreparation(input: {
+  preservePlanThrough?: string | null;
+  preservedGeneralLessonIds?: string[];
   supabase: SupabaseClient<Database>;
   studentId: string;
   profile: StudyPlanProfileInput;
@@ -1729,7 +1733,12 @@ async function runCanonicalPreparation(input: {
     seed: input.seed,
     versions: CURRENT_PREPARATION_VERSIONS,
     timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: { planningDate: input.planningDate, profile: input.profile },
+    goal: {
+      planningDate: input.planningDate,
+      profile: input.profile,
+      preservePlanThrough: input.preservePlanThrough,
+      preservedGeneralLessonIds: input.preservedGeneralLessonIds,
+    },
     content: {
       sections: input.inputs.sections,
       categories: input.inputs.categories,
@@ -1774,9 +1783,44 @@ async function generateForProfile(
     .single();
   if (studentError) throw studentError;
   const today = todayIso(now, student.timezone || "Australia/Adelaide");
+  const preserveThrough = reason === "onboarding" ? null : today;
+  const { data: activeGeneration, error: activeGenerationError } =
+    preserveThrough
+      ? await requireAdmin()
+          .from("ucat_student_study_plan_generations")
+          .select("id")
+          .eq("student_id", studentId)
+          .is("superseded_at", null)
+          .maybeSingle()
+      : { data: null, error: null };
+  if (activeGenerationError) throw activeGenerationError;
+  // Replacement retains today's tasks and earlier active work. Reserve those
+  // general lessons without treating missed tasks or lessons as complete.
+  const { data: preservedGeneralTasks, error: preservedGeneralTasksError } =
+    preserveThrough && activeGeneration
+      ? await requireAdmin()
+          .from("ucat_student_study_plan_tasks")
+          .select("learning_module_id, scheduled_date, status")
+          .eq("student_id", studentId)
+          .eq("generation_id", activeGeneration.id)
+          .eq("task_type", "learn")
+          .is("section_id", null)
+          .in("status", ["planned", "partial", "in_progress"])
+          .lte("scheduled_date", preserveThrough)
+      : { data: [], error: null };
+  if (preservedGeneralTasksError) throw preservedGeneralTasksError;
+  const preservedGeneralLessonIds = (preservedGeneralTasks ?? []).flatMap(
+    (task) =>
+      task.learning_module_id &&
+      (task.scheduled_date === preserveThrough || task.status === "in_progress")
+        ? [task.learning_module_id]
+        : [],
+  );
   const generatedPreparation = await runCanonicalPreparation({
     supabase,
     studentId,
+    preservePlanThrough: preserveThrough,
+    preservedGeneralLessonIds,
     profile: { ...profileInput(profile), studyPlanEnabled: true },
     planningDate,
     inputs,
@@ -1810,6 +1854,7 @@ async function generateForProfile(
     inputs.completedMockCount,
     inputs.signals,
     today,
+    preserveThrough,
     refreshRequestVersion,
   );
 }

@@ -3,7 +3,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
 export async function GET() {
-  const user=createClient(); const {data:claims}=await user.auth.getClaims();
+  const user=await createClient(); const {data:claims}=await user.auth.getClaims();
   if(!claims?.claims?.sub) return NextResponse.json({error:'Unauthorized'},{status:401});
   const {data:studentId}=await user.rpc('current_student_id');
   if(!studentId) return NextResponse.json({error:'student_not_found'},{status:403});

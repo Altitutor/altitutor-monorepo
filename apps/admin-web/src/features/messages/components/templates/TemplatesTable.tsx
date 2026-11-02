@@ -107,7 +107,7 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
       setSelectedTemplate(null);
       setIsEditDialogOpen(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [onCreateTrigger]);
 
   // Highlight variables in preview text

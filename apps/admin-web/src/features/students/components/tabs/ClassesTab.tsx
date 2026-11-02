@@ -498,7 +498,7 @@ export function ClassesTab({
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-base font-medium">Details</h3>
               {!isEditMode && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} disabled={!!student.deleted_at}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
@@ -632,7 +632,7 @@ export function ClassesTab({
                               variant="ghost"
                               size="sm"
                               className="flex items-center gap-2"
-                              disabled={student.status !== 'ACTIVE'}
+                              disabled={!!student.deleted_at || student.status !== 'ACTIVE'}
                             >
                               <Plus className="h-4 w-4" />
                               <span>Add Class</span>

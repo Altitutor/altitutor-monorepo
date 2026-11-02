@@ -1,30 +1,17 @@
 "use client";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { Tables } from "@altitutor/shared";
+import { keepPreviousData, useQuery, type QueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
+import { parseBoard } from "../lib/parseBoard";
 import { evidenceSchema, type Journey } from "../lib/model";
 
 export const onboardingKey = ["onboarding"] as const;
 
-function parseBoard(data: unknown): Journey[] {
-  const payload: unknown =
-    typeof data === "string" ? (JSON.parse(data) as unknown) : data;
-  if (!Array.isArray(payload)) {
-    throw new Error("Unexpected onboarding board payload");
-  }
-  return payload.map((row) => {
-    if (!row || typeof row !== "object") {
-      throw new Error("Unexpected onboarding journey");
-    }
-    const record = row as Record<string, unknown>;
-    const { preferences, evidence, ...journey } = record;
-    return {
-      ...(journey as Journey),
-      preferences: Array.isArray(preferences)
-        ? (preferences as Journey["preferences"])
-        : [],
-      evidence: evidenceSchema.parse(evidence),
-    };
-  });
+export async function invalidateOnboarding(client: QueryClient) {
+  await Promise.all([
+    client.invalidateQueries({ queryKey: onboardingKey }),
+    client.invalidateQueries({ queryKey: ['students', 'directory'] }),
+  ]);
 }
 
 function missingBoardFunction(error: { code?: string; message?: string }) {
@@ -92,12 +79,43 @@ async function fetchJourneys(): Promise<Journey[]> {
   return fetchJourneysFallback();
 }
 
+async function fetchJourneysWithStudentStatus() {
+  const journeys = await fetchJourneys();
+  const studentIds = [
+    ...new Set(
+      journeys.flatMap((journey) =>
+        journey.student_id ? [journey.student_id] : [],
+      ),
+    ),
+  ];
+  const deletedIds = new Set<string>();
+  const statuses = new Map<string, Tables<"students">["status"]>();
+  // Bound each request below the API row limit and keep URLs small.
+  for (let offset = 0; offset < studentIds.length; offset += 200) {
+    const { data, error } = await getSupabaseClient()
+      .from("students")
+      .select("id, status, deleted_at")
+      .in("id", studentIds.slice(offset, offset + 200));
+    if (error) throw error;
+    for (const student of data) {
+      statuses.set(student.id, student.status);
+      if (student.deleted_at) deletedIds.add(student.id);
+    }
+  }
+  return journeys.filter(journey => !journey.student_id || !deletedIds.has(journey.student_id)).map((journey) => ({
+    ...journey,
+    student_status: journey.student_id
+      ? (statuses.get(journey.student_id) ?? null)
+      : null,
+  }));
+}
+
 export function useOnboardingJourneys() {
   return useQuery({
     queryKey: [...onboardingKey, "journeys"],
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
-    queryFn: fetchJourneys,
+    queryFn: fetchJourneysWithStudentStatus,
   });
 }
 export function useOnboardingSettings() {

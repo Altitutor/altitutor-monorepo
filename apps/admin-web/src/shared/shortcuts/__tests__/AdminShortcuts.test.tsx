@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
-import { matchShortcut, panelShortcuts } from "../registry";
+import { matchShortcut } from "../registry";
 
 const openTab = jest.fn();
 const togglePanel = jest.fn();
@@ -10,7 +10,7 @@ const togglePalette = jest.fn();
 const createTask = jest.fn();
 const createIssue = jest.fn();
 const createProject = jest.fn();
-let kind = "tasks";
+let kind = "task";
 let expanded = true;
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
   useAccessoryPanel: () => ({
@@ -57,15 +57,15 @@ beforeEach(() => {
   jest
     .spyOn(HTMLElement.prototype, "getClientRects")
     .mockReturnValue([{}] as unknown as DOMRectList);
-  kind = "tasks";
+  kind = "task";
   expanded = true;
   window.matchMedia = jest.fn().mockReturnValue({ matches: false });
 });
 function press(code: string, extra = {}) {
   fireEvent.keyDown(window, { code, key: code, altKey: true, ...extra });
 }
-it.each(panelShortcuts)(
-  "opens %s in the right panel from an editable field",
+it.each(["messages", "tasks", "issues", "documents", "projects"] as const)(
+  "does not open removed %s collection shortcuts from an editable field",
   (kind) => {
     render(
       <AdminShortcuts>
@@ -84,7 +84,7 @@ it.each(panelShortcuts)(
       code: codes[kind],
       altKey: true,
     });
-    expect(openTab).toHaveBeenCalledWith({ kind, title: expect.any(String) });
+    expect(openTab).not.toHaveBeenCalled();
   },
 );
 it("supports Mac Option symbols, Cmd/Ctrl K, and panel toggles", () => {
@@ -175,8 +175,8 @@ it("leaves non-palette dialogs and composition to their local controls", () => {
 it("accepts Mac Option even when the browser also reports AltGraph", () => {
   render(<AdminShortcuts>Content</AdminShortcuts>);
   const event = new KeyboardEvent("keydown", {
-    code: "KeyM",
-    key: "µ",
+    code: "KeyK",
+    key: "˚",
     altKey: true,
     bubbles: true,
     cancelable: true,
@@ -185,7 +185,7 @@ it("accepts Mac Option even when the browser also reports AltGraph", () => {
     value: (modifier: string) => modifier === "AltGraph",
   });
   fireEvent(window, event);
-  expect(openTab).toHaveBeenCalledWith({ kind: "messages", title: "Messages" });
+  expect(togglePalette).toHaveBeenCalled();
   expect(event.defaultPrevented).toBe(true);
 });
 it("handles app shortcuts before an editor consumes its key events", () => {
@@ -201,18 +201,13 @@ it("handles app shortcuts before an editor consumes its key events", () => {
     </AdminShortcuts>,
   );
   fireEvent.keyDown(screen.getByLabelText("Editor"), {
-    code: "KeyT",
-    key: "†",
+    code: "KeyK",
+    key: "˚",
     altKey: true,
   });
-  expect(openTab).toHaveBeenCalledWith({ kind: "tasks", title: "Tasks" });
+  expect(togglePalette).toHaveBeenCalled();
 });
 it.each([
-  ["µ", "messages"],
-  ["†", "tasks"],
-  ["ˆ", "issues"],
-  ["∂", "documents"],
-  ["π", "projects"],
   ["˚", "palette"],
   ["˜", "new"],
   ["ƒ", "search"],
@@ -225,11 +220,11 @@ it("labels the modifier as Option on Mac and Alt on Windows", () => {
   const platform = jest
     .spyOn(navigator, "platform", "get")
     .mockReturnValue("MacIntel");
-  const view = render(<ShortcutKeys id="tasks" always />);
-  expect(screen.getByLabelText("Option+T")).toBeInTheDocument();
+  const view = render(<ShortcutKeys id="palette" always />);
+  expect(screen.getByLabelText("Option+K")).toBeInTheDocument();
   platform.mockReturnValue("Win32");
-  view.rerender(<ShortcutKeys id="tasks" always />);
-  expect(screen.getByLabelText("Alt+T")).toBeInTheDocument();
+  view.rerender(<ShortcutKeys id="palette" always />);
+  expect(screen.getByLabelText("Alt+K")).toBeInTheDocument();
   platform.mockRestore();
 });
 it("ignores the closed mobile palette dialog preserved on desktop", () => {
@@ -240,8 +235,8 @@ it("ignores the closed mobile palette dialog preserved on desktop", () => {
       </div>
     </AdminShortcuts>,
   );
-  press("KeyT");
-  expect(openTab).toHaveBeenCalledWith({ kind: "tasks", title: "Tasks" });
+  press("KeyK");
+  expect(togglePalette).toHaveBeenCalled();
 });
 
 afterEach(() => jest.restoreAllMocks());

@@ -1,5 +1,6 @@
+import { renderSuspending } from "@/shared/test-utils";
 import type { ComponentProps, ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import SessionDetailPage from "../page";
 import type { SessionDetailsTab } from "@/features/sessions/components/SessionDetailsTab";
 import type { AddStudentToSessionModal } from "@/features/sessions/components/AddStudentToSessionModal";
@@ -28,6 +29,7 @@ const mockToast = jest.fn();
 const mockPerson = { id: "person", first_name: "Test", last_name: "Person" };
 let mockCurrentStaff: { id: string } | null = null;
 let mockType = "CLASS";
+let mockAdminShiftId: string | null = null;
 let mockHasTutorLog = false;
 let mockDetailsProps: ComponentProps<typeof SessionDetailsTab>;
 
@@ -137,7 +139,8 @@ jest.mock("@/features/sessions/hooks", () => ({
         type: mockType,
         start_at: "2026-10-06T08:00:00Z",
         end_at: "2026-10-06T09:00:00Z",
-        class_id: "class",
+        class_id: mockAdminShiftId ? null : "class",
+        admin_shift_id: mockAdminShiftId,
       },
       sessionsStudents: [
         {
@@ -266,6 +269,7 @@ jest.mock("@/features/sessions/components/AddStaffToSessionModal", () => ({
 }));
 
 beforeEach(() => {
+  mockAdminShiftId = null;
   jest.clearAllMocks();
   mockType = "CLASS";
   mockCurrentStaff = null;
@@ -273,7 +277,7 @@ beforeEach(() => {
 });
 
 it("opens the class participant dialogs and saves confirmed students and staff", async () => {
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   fireEvent.click(screen.getByText("Add student"));
   fireEvent.click(screen.getByText("Confirm student (existing-student)"));
   await waitFor(() =>
@@ -301,7 +305,7 @@ it("opens the class participant dialogs and saves confirmed students and staff",
 
 it("restores meeting parents and adds all participant types with the check-in staff role", async () => {
   mockType = "CHECK_IN";
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   expect(mockDetailsProps.meetingMode).toBe(true);
   expect(mockDetailsProps.parentsData).toEqual([
     {
@@ -338,18 +342,18 @@ it("restores meeting parents and adds all participant types with the check-in st
   await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(3));
 });
 
-it("preserves staff-only admin meetings", () => {
+it("preserves staff-only admin meetings", async () => {
   mockType = "ADMIN_MEETING";
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   expect(mockDetailsProps.adminMeetingMode).toBe(true);
   expect(screen.queryByText("Add meeting student")).not.toBeInTheDocument();
   expect(screen.queryByText("Add parent")).not.toBeInTheDocument();
   expect(screen.getByText("Add meeting staff")).toBeInTheDocument();
 });
 
-it("does not offer class participant additions after a tutor log", () => {
+it("does not offer class participant additions after a tutor log", async () => {
   mockHasTutorLog = true;
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   expect(screen.queryByText("Add student")).not.toBeInTheDocument();
   expect(screen.queryByText("Add staff")).not.toBeInTheDocument();
 });
@@ -384,7 +388,7 @@ jest.mock(
 
 it("opens absence dialogs with the clicked person and session preselected and refreshes on close", async () => {
   mockCurrentStaff = { id: "admin" };
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   fireEvent.click(screen.getByText("Log student absence"));
   expect(
     screen.getByText(
@@ -431,7 +435,7 @@ jest.mock("@/features/sessions/components/UndoLogAbsenceConfirmDialog", () => ({
 }));
 
 it("requires confirmation before saving session edits and refreshes on success", async () => {
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   act(() => mockDetailsProps.onEdit?.());
   expect(mockDetailsProps.isEditing).toBe(true);
   await act(async () =>
@@ -465,7 +469,7 @@ it("requires confirmation before saving session edits and refreshes on success",
 it.each(["student", "staff", "parent"] as const)(
   "removes a %s only after confirmation",
   async (kind) => {
-    render(<SessionDetailPage params={{ id: "session" }} />);
+    await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
     act(() => {
       const remove =
         kind === "student"
@@ -497,7 +501,7 @@ it.each(["credit", "reschedule"] as const)(
   "undoes a student %s absence through the review dialog",
   async (action) => {
     mockCurrentStaff = { id: "admin" };
-    render(<SessionDetailPage params={{ id: "session" }} />);
+    await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
     act(() =>
       mockDetailsProps.onUndoLogAbsenceStudent?.({
         studentId: "student",
@@ -532,7 +536,7 @@ it.each(["credit", "reschedule"] as const)(
 
 it("explains replacement removal when undoing a staff swap", async () => {
   mockCurrentStaff = { id: "admin" };
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   act(() =>
     mockDetailsProps.onUndoLogAbsenceStaff?.({
       staffId: "staff",
@@ -562,7 +566,7 @@ it("keeps a failed absence undo open and shows the error", async () => {
     error: "Already invoiced",
   });
   mockCurrentStaff = { id: "admin" };
-  render(<SessionDetailPage params={{ id: "session" }} />);
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   act(() =>
     mockDetailsProps.onUndoLogAbsenceStudent?.({
       studentId: "student",
@@ -584,27 +588,27 @@ it("keeps a failed absence undo open and shows the error", async () => {
   expect(mockRefresh).not.toHaveBeenCalled();
 });
 
-it("opens existing tutor logs and shows files only for meetings", () => {
+it("opens existing tutor logs and shows files only for meetings", async () => {
   mockHasTutorLog = true;
-  const { rerender } = render(<SessionDetailPage params={{ id: "session" }} />);
+  const { rerender } = await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   act(() => mockActionsProps.onEditTutorLog?.());
   expect(screen.getByText("Edit tutor log dialog")).toBeInTheDocument();
   expect(screen.queryByText("Meeting files")).not.toBeInTheDocument();
   mockType = "CHECK_IN";
-  rerender(<SessionDetailPage params={{ id: "meeting" }} />);
+  await act(async () => { rerender(<SessionDetailPage params={Promise.resolve({ id: "meeting" })} />); });
   expect(screen.getByText("Meeting files")).toBeInTheDocument();
   expect(screen.queryByText("Edit tutor log dialog")).not.toBeInTheDocument();
 });
 
-it("navigates to adjacent class session pages", () => {
-  render(<SessionDetailPage params={{ id: "session" }} />);
+it("navigates to adjacent class session pages", async () => {
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   // Buttons are mocked without DOM attributes; labels come from their dates.
   fireEvent.click(screen.getAllByRole("button")[0]);
   expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
 });
 
-it("renders previous/next navigation in the Day field and opens the selected sibling", () => {
-  render(<SessionDetailPage params={{ id: "session" }} />);
+it("renders previous/next navigation in the Day field and opens the selected sibling", async () => {
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
   const day = screen.getByTestId("day-field");
   const previous = screen.getByRole("button", {
     name: "Previous session in class",
@@ -615,5 +619,16 @@ it("renders previous/next navigation in the Day field and opens the selected sib
   fireEvent.click(previous);
   expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
   fireEvent.click(next);
+  expect(mockPush).toHaveBeenCalledWith("/sessions/next");
+});
+
+
+it("navigates to previous and next sessions in the linked admin shift", async () => {
+  mockType = "ADMIN_SHIFT";
+  mockAdminShiftId = "shift";
+  await renderSuspending(<SessionDetailPage params={Promise.resolve({ id: "session" })} />);
+  fireEvent.click(screen.getByRole("button", { name: "Previous session in admin shift" }));
+  expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
+  fireEvent.click(screen.getByRole("button", { name: "Next session in admin shift" }));
   expect(mockPush).toHaveBeenCalledWith("/sessions/next");
 });

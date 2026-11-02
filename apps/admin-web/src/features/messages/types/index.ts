@@ -87,6 +87,8 @@ export type AggregatedConversation = {
   latestMessageAt: string | null;
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
+  unreadConversationIds: string[];
+  assignedStaffId: string | null;
 };
 
 export type GroupConversation = {
@@ -99,6 +101,8 @@ export type GroupConversation = {
   latestMessageAt: string | null;
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
+  unreadConversationIds: string[];
+  assignedStaffId: string | null;
 };
 
 export type ContactConversationSelection = {

@@ -8,10 +8,8 @@ import {
   loadPublicBookingSession,
 } from '@/features/bookings/lib/public-booking-guards';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ sessionId: string }> }) {
+  const params = await props.params;
   try {
     const sessionId = params.sessionId;
 
@@ -82,6 +80,10 @@ export async function GET(
       booking_token: isValidUuid(sessionId) ? null : sessionId,
       start_at: sessionData.start_at,
       end_at: sessionData.end_at,
+      students: sessionData.students.map((student) => ({
+        first_name: student.first_name,
+        last_name: isTerminal ? '' : student.last_name,
+      })),
       student_first_name: studentData.first_name,
       student_last_name: isTerminal ? '' : studentData.last_name,
       student_email: isTerminal ? '' : (studentData.email || ''),

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { RecordActionsProvider } from '@/features/command-palette/RecordActionsContext';
 
 interface CommandPaletteContextType {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
 
   return (
     <CommandPaletteContext.Provider value={{ isOpen, toggle, close, open }}>
-      {children}
+      <RecordActionsProvider>{children}</RecordActionsProvider>
     </CommandPaletteContext.Provider>
   );
 }

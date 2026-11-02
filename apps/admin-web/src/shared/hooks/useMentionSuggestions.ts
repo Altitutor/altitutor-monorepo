@@ -20,6 +20,8 @@ interface UseMentionSuggestionsOptions {
  * MentionList fetches results via useEntitySearch and shows skeleton while loading.
  */
 const DEFAULT_MENTION_TYPES = [
+  "emails",
+  "messages",
   'students',
   'staff',
   'parents',

@@ -12,16 +12,12 @@ import {
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 
 export type AccessoryKind =
-  | "today"
-  | "tasks"
   | "task"
-  | "issues"
   | "issue"
-  | "projects"
   | "project"
-  | "documents"
   | "document"
-  | "messages";
+  | "messages"
+  | "email";
 export type AccessoryOwner = { kind: AccessoryKind; id: string; title: string };
 export type AccessoryDestination = {
   owner?: AccessoryOwner;
@@ -30,6 +26,8 @@ export type AccessoryDestination = {
   title: string;
   query?: string;
 };
+export type AccessoryFamily =
+  | "tasks" | "issues" | "projects" | "documents" | "messages" | "email";
 export const accessoryFamily = (kind: AccessoryKind) =>
   (
     ({
@@ -37,7 +35,7 @@ export const accessoryFamily = (kind: AccessoryKind) =>
       issue: "issues",
       project: "projects",
       document: "documents",
-    }) as Partial<Record<AccessoryKind, AccessoryKind>>
+    }) as Partial<Record<AccessoryKind, AccessoryFamily>>
   )[kind] ?? kind;
 
 function messagesConversationId(query: string, fallback?: string) {
@@ -50,8 +48,17 @@ function messagesConversationId(query: string, fallback?: string) {
   );
 }
 
-function isMessagesListTab(tab: Pick<AccessoryTab, "kind" | "id" | "query">) {
-  return tab.kind === "messages" && !messagesConversationId(tab.query, tab.id);
+function recordDestination<T extends AccessoryDestination>(value: T): T | null {
+  if (!kinds.includes(value.kind)) return null;
+  const id = value.kind === "messages"
+    ? messagesConversationId(value.query ?? "", value.id)
+    : value.id;
+  if (!id?.trim()) return null;
+  const query = new URLSearchParams(value.query ?? "");
+  if (value.kind === "messages" && !messagesConversationId(query.toString())) {
+    query.set("contact", id);
+  }
+  return { ...value, id, ...(value.query !== undefined || value.kind === "messages" ? { query: query.toString() } : {}) };
 }
 export type AccessoryTab = {
   owner?: AccessoryOwner;
@@ -77,16 +84,12 @@ const empty: Workspace = {
   width: 520,
 };
 const kinds: AccessoryKind[] = [
-  "today",
-  "tasks",
   "task",
-  "issues",
   "issue",
-  "projects",
   "project",
-  "documents",
   "document",
   "messages",
+  "email",
 ];
 type AccessoryPanel = Workspace & {
   openTab: (
@@ -124,30 +127,52 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
           "tabs" in saved &&
           Array.isArray(saved.tabs)
         ) {
-          const readTabs = (tabs: unknown[]) => tabs
-            .filter(
-              (tab): tab is AccessoryTab =>
-                !!tab && typeof tab === "object" &&
-                "key" in tab && "kind" in tab && "title" in tab && "query" in tab &&
-                typeof tab.key === "string" &&
-                kinds.includes(tab.kind as AccessoryKind) &&
-                typeof tab.title === "string" &&
-                typeof tab.query === "string" &&
-                (!("id" in tab) || tab.id === undefined || typeof tab.id === "string"),
-            )
-            .map((tab) =>
-              tab.kind === "messages"
-                ? {
-                    ...tab,
-                    id: messagesConversationId(tab.query, tab.id),
-                  }
-                : tab,
-            );
+          const readTabs = (tabs: unknown[]) =>
+            tabs
+              .filter(
+                (tab): tab is AccessoryTab =>
+                  !!tab &&
+                  typeof tab === "object" &&
+                  "key" in tab &&
+                  "kind" in tab &&
+                  "title" in tab &&
+                  "query" in tab &&
+                  typeof tab.key === "string" &&
+                  kinds.includes(tab.kind as AccessoryKind) &&
+                  typeof tab.title === "string" &&
+                  typeof tab.query === "string" &&
+                  (!("id" in tab) ||
+                    tab.id === undefined ||
+                    typeof tab.id === "string"),
+              )
+              .flatMap((tab) => {
+                const record = recordDestination(tab);
+                if (!record) return [];
+                return [
+                  {
+                    ...record,
+                    owner:
+                      (tab.owner && recordDestination(tab.owner)) || undefined,
+                    locations: tab.locations
+                      ? Object.fromEntries(
+                          Object.entries(tab.locations).flatMap(
+                            ([key, value]) => {
+                              const location = recordDestination(value);
+                              return location ? [[key, location]] : [];
+                            },
+                          ),
+                        )
+                      : undefined,
+                  },
+                ];
+              });
           const valid = readTabs(saved.tabs);
           const data = saved as Partial<Workspace>;
           next = {
             tabs: valid,
-            recentlyClosed: readTabs(Array.isArray(data.recentlyClosed) ? data.recentlyClosed : []).slice(0, 10),
+            recentlyClosed: readTabs(
+              Array.isArray(data.recentlyClosed) ? data.recentlyClosed : [],
+            ).slice(0, 10),
             activeKey: valid.some((t) => t.key === data.activeKey)
               ? data.activeKey!
               : (valid[0]?.key ?? null),
@@ -175,6 +200,9 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
   }, [storageKey, loadedKey, workspace]);
   const openTab = useCallback(
     (tab: Omit<AccessoryTab, "key" | "query"> & { query?: string }) => {
+      const record = recordDestination(tab);
+      if (!record) return;
+      tab = record;
       setWorkspace((current) => {
         const query = tab.query ?? "";
         const id =
@@ -183,14 +211,24 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
             : tab.id;
         const existing = current.tabs.find((t) => {
           if (t.kind !== tab.kind) return false;
-          if (tab.kind === "messages" && !id) return isMessagesListTab(t);
           return t.id === id;
         });
-        const recentlyClosed = current.recentlyClosed.filter((closed) =>
-          closed.kind !== tab.kind || closed.id !== id,
+        const recentlyClosed = current.recentlyClosed.filter(
+          (closed) => closed.kind !== tab.kind || closed.id !== id,
         );
         if (existing)
-          return { ...current, recentlyClosed, activeKey: existing.key, expanded: true };
+          return {
+            ...current,
+            tabs:
+              tab.query === undefined
+                ? current.tabs
+                : current.tabs.map((item) =>
+                    item.key === existing.key ? { ...item, query } : item,
+                  ),
+            recentlyClosed,
+            activeKey: existing.key,
+            expanded: true,
+          };
         const next = {
           ...tab,
           id,
@@ -210,6 +248,9 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
   );
   const navigateTab = useCallback(
     (key: string, destination: AccessoryDestination) => {
+      const record = recordDestination(destination);
+      if (!record) return;
+      destination = record;
       setWorkspace((current) => ({
         ...current,
         expanded: true,
@@ -256,9 +297,12 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
         return {
           ...current,
           tabs,
-          recentlyClosed: [closed, ...current.recentlyClosed.filter((tab) =>
-            tab.kind !== closed.kind || tab.id !== closed.id,
-          )].slice(0, 10),
+          recentlyClosed: [
+            closed,
+            ...current.recentlyClosed.filter(
+              (tab) => tab.kind !== closed.kind || tab.id !== closed.id,
+            ),
+          ].slice(0, 10),
           activeKey:
             current.activeKey === key
               ? (tabs[Math.min(index, tabs.length - 1)]?.key ?? null)
@@ -274,14 +318,7 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
         tabs: current.tabs.map((t) => {
           if (t.key !== key) return t;
           if (t.query === query) return t;
-          return {
-            ...t,
-            query,
-            id:
-              t.kind === "messages"
-                ? messagesConversationId(query)
-                : t.id,
-          };
+          return recordDestination({ ...t, query }) ?? t;
         }),
       })),
     [],
@@ -335,7 +372,10 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       toggle,
     ],
   );
-  const value = useMemo(() => ({ ...workspace, ...actions }), [workspace, actions]);
+  const value = useMemo(
+    () => ({ ...workspace, ...actions }),
+    [workspace, actions],
+  );
   return (
     <ActionsContext.Provider value={actions}>
       <Context.Provider value={value}>

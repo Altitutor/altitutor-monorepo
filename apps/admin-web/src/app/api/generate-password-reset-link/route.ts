@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -48,20 +48,14 @@ export async function POST(request: NextRequest) {
     const isDev = process.env.NODE_ENV === 'development';
     
     if (userType === 'student') {
-      const baseUrl = isDev 
-        ? 'http://localhost:3001'
-        : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+      const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || (isDev ? 'http://localhost:3001' : 'https://student.altitutor.com');
       redirectUrl = `${baseUrl}/auth/callback`;
     } else if (userType === 'tutor') {
-      const baseUrl = isDev
-        ? 'http://localhost:3002'
-        : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+      const baseUrl = process.env.NEXT_PUBLIC_TUTOR_URL || (isDev ? 'http://localhost:3002' : 'https://tutor.altitutor.com');
       redirectUrl = `${baseUrl}/auth/callback`;
     } else {
       // Admin/staff
-      const baseUrl = isDev
-        ? 'http://localhost:3000'
-        : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+      const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || (isDev ? 'http://localhost:3000' : 'https://admin.altitutor.com');
       redirectUrl = `${baseUrl}/auth/callback`;
     }
 

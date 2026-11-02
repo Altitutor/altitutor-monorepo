@@ -5,15 +5,13 @@ import Stripe from "stripe";
 import { stripeCreditNoteDetails } from "@/features/billing/utils/creditNoteDetails";
 import { getErrorMessage } from "@/shared/utils";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const invoiceId = params.id;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { session },
       error: authError,

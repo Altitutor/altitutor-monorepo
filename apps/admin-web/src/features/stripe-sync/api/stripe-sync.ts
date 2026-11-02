@@ -177,7 +177,7 @@ export const stripeSyncApi = {
           is_default
         )
       `)
-      .eq('status', 'ACTIVE')
+      .is('deleted_at', null).eq('status', 'ACTIVE')
       .order('first_name')
       .order('last_name');
 

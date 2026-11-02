@@ -1,3 +1,4 @@
+import { loadResponsePages } from '@/features/feedback/server/load-response-pages';
 import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import {
@@ -45,24 +46,29 @@ export async function GET(request: Request) {
     `)
     .is('deleted_at', null)
     .order('submitted_at', { ascending: false })
-    .limit(500);
+    .order('id', { ascending: false });
 
   if (formId) query = query.eq('form_id', formId);
   if (responseId) query = query.eq('id', responseId);
-  const { data, error } = await query;
-
-  if (error) {
-    captureApiError(error, "/api/forms/responses");
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const data = await loadResponsePages((from, to) => query.range(from, to));
+    const resolvedVersions = new Map<string, Promise<FormBlock[]>>();
+    const responses = await Promise.all(data.map(async (response) => {
+      const version = response.form_versions;
+      if (!version) return response;
+      let blocks = resolvedVersions.get(version.id);
+      if (!blocks) {
+        blocks = resolveFormBlocks(auth.admin, asBlocks(version.blocks));
+        resolvedVersions.set(version.id, blocks);
+      }
+      return { ...response, form_versions: { ...version, blocks: await blocks } };
+    }));
+    return NextResponse.json({ responses });
+  } catch (error) {
+    captureApiError(error, '/api/forms/responses');
+    return NextResponse.json({ error: 'Failed to load form responses.' }, { status: 500 });
   }
 
-  const responses = await Promise.all((data ?? []).map(async (response) => ({
-    ...response,
-    form_versions: response.form_versions
-      ? { ...response.form_versions, blocks: await resolveFormBlocks(auth.admin, asBlocks(response.form_versions.blocks)) }
-      : null,
-  })));
-  return NextResponse.json({ responses });
 }
 
 export async function PUT(request: Request) {

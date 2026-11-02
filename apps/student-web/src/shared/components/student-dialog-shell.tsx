@@ -53,6 +53,7 @@ export function StudentDialogShell({
                 variant="outline"
                 size="icon"
                 aria-label="Close"
+                title="Close dialog"
                 className={studentBtnIconOutline}
                 onClick={() => onOpenChange(false)}
               >

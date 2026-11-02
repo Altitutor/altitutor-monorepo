@@ -9,6 +9,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { IssueTag, IssueFormData } from '../../types';
 import { MessageCircle } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
+import { IssuePriorityField } from '../fields/IssuePriorityField';
 import { IssueStatusField } from '../fields/IssueStatusField';
 import { IssueDueDateField } from '../fields/IssueDueDateField';
 import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
@@ -113,12 +114,15 @@ export const IssueContentPanel = memo(function IssueContentPanel({ tags: propTag
   }, [contacts]);
 
   return (
-    <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden min-w-0 md:flex">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden min-w-0">
       <EntitySidebarCards defaultOpen={['properties', 'chat']}>
         <EntitySidebarCard value="properties" title="Properties">
           <div className="space-y-4">
             <PropertyRow label="Status">
               <IssueStatusField form={form} />
+            </PropertyRow>
+            <PropertyRow label="Priority">
+              <IssuePriorityField form={form} />
             </PropertyRow>
             <PropertyRow label="Due date">
               <IssueDueDateField form={form} />

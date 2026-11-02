@@ -6,6 +6,10 @@ import { KanbanBoard, type KanbanColumnDef } from '../kanban-board';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+beforeAll(() => {
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({ matches: false, media: query, addEventListener: jest.fn(), removeEventListener: jest.fn() }));
+});
+
 type DragCallbacks = {
   onDragStart?: (event: { active: { id: string } }) => void;
   onDragOver?: (event: {

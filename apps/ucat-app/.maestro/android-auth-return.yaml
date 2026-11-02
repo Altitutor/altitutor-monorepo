@@ -1,0 +1,40 @@
+appId: com.altitutor.ucat
+name: Android browser login returns to the native session
+---
+- runFlow:
+    when:
+      visible:
+        id: "com.android.chrome:id/close_button"
+    commands:
+      - tapOn:
+          id: "com.android.chrome:id/close_button"
+- assertVisible: "Continue securely in your browser, then return to the app."
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 60000
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Log in"
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      text: "Sign in"
+      enabled: true
+    timeout: 30000
+- tapOn: "Email address"
+- inputText: "${TEST_STUDENT_EMAIL}"
+- assertVisible: "${TEST_STUDENT_EMAIL}"
+- tapOn: "Password.*"
+- inputText: "${TEST_STUDENT_PASSWORD}"
+- scrollUntilVisible:
+    element:
+      text: "Sign in"
+    direction: DOWN
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    notVisible:
+      id: "com.android.chrome:id/close_button"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "Practice"
+    timeout: 60000

@@ -9,10 +9,11 @@ import { loadPreviewableAssignmentIds } from '@/features/sessions/server/invoice
  * GET /api/students/[id]/invoice-preview-assignments
  * Assignments the billing runner will invoice for this student.
  */
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const studentId = params.id;
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { session },
       error: authError,

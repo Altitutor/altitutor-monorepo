@@ -17,8 +17,10 @@ import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandl
 import { OfficePrintConfirmDialog } from '@/features/office-print';
 import type { Enums, Tables } from '@altitutor/shared';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
+import { RemoteFilePreview, type RemotePreviewFile } from './RemoteFilePreview';
 
 export interface FilePreviewModalProps {
+  source?: RemotePreviewFile;
   isOpen: boolean;
   fileId?: string | null;
   /**
@@ -50,7 +52,19 @@ export interface FilePreviewModalProps {
   }>;
 }
 
-export function FilePreviewModal({ 
+export function FilePreviewModal(props: FilePreviewModalProps) {
+  return props.source ? (
+    <RemoteFilePreview
+      source={props.source}
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+    />
+  ) : (
+    <StoredFilePreviewModal {...props} />
+  );
+}
+
+function StoredFilePreviewModal({
   isOpen, 
   fileId,
   topicFileId, // Deprecated but kept for backward compatibility

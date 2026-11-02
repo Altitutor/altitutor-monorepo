@@ -4,12 +4,14 @@ import { useRouter } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { Action, Failure, Loading, Screen } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
+import { useOnboardingAccess } from "@/features/auth/onboarding-access";
 import { completeBrowserAuth } from "@/features/auth/browser-auth";
 
 export default function AuthReturn() {
   const url = Linking.useLinkingURL();
   const router = useRouter();
   const { session, loading } = useAuth();
+  const access = useOnboardingAccess();
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
@@ -27,8 +29,10 @@ export default function AuthReturn() {
     };
   }, [url]);
   useEffect(() => {
-    if (completed && !loading && session) router.replace("/");
-  }, [completed, loading, session, router]);
+    if (!completed || loading || !session || access.isPending) return;
+    // The home route is protected until this same access check finishes.
+    router.replace(access.data?.completed && !access.error ? "/" : "/onboarding-required");
+  }, [access.data?.completed, access.error, access.isPending, completed, loading, session, router]);
   const failure =
     error ??
     (!url

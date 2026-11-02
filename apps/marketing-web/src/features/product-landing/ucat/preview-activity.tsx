@@ -13,7 +13,7 @@ import {
 const PreviewActivity = createContext(true);
 
 /** Stop demo work offscreen without unmounting or hiding its content. */
-export function usePreviewVisibility(ref: RefObject<HTMLElement>) {
+export function usePreviewVisibility(ref: RefObject<HTMLElement | null>) {
   const [active, setActive] = useState(false);
   useEffect(() => {
     const element = ref.current;

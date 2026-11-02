@@ -26,10 +26,8 @@ function toTiptapJson(val: string | Record<string, unknown>): Json {
  * - User must be an active tutor
  * - Session must be accessible by the tutor (checked via vtutor_sessions)
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ sessionId: string }> }) {
+  const params = await props.params;
   try {
     const body = await request.json();
     const { note } = body;
@@ -53,7 +51,7 @@ export async function POST(
     }
     
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

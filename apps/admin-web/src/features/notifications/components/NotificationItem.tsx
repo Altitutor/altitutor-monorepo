@@ -7,6 +7,7 @@ import { cn } from '@/shared/utils';
 import { formatRelativeDate } from '@/features/messages/utils/templateHelpers';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import type { Notification } from '../types';
+import { openPayTierPortal } from '../utils/openPayTierPortal';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -27,6 +28,11 @@ export function NotificationItem({
     onOpen();
 
     if (!notification.action_url) return;
+
+    if (notification.notification_type === 'PAY_TIER_ELIGIBLE') {
+      openPayTierPortal();
+      return;
+    }
 
     const sessionModalMatch = notification.action_url.match(/^modal:\/\/session\/([^/?#]+)$/);
     if (sessionModalMatch) {

@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import {
   Badge,
   Button,
@@ -148,7 +150,7 @@ export function StudentParentsEditor({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor={`student-parent-${index}-email`}>Email</Label>
-                            <Input
+                            <EmailInput
                               id={`student-parent-${index}-email`}
                               type="email"
                               value={draft.email}

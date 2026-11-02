@@ -144,7 +144,7 @@ export async function handleAuthRequest(request: NextRequest) {
           Object.assign(responseHeaders, updatedHeaders);
         },
       },
-      cookieOptions: { name: "tutor-auth" },
+      cookieOptions: { name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth" },
       global: { fetch: deadline.fetch },
     }),
   );

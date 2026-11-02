@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import { resolveSentryCollection } from "@altitutor/shared";
 import { filterExpectedTutorWebError } from "@/lib/sentry/before-send";
@@ -17,7 +18,7 @@ Sentry.init({
   dsn,
   enabled: collection.errors,
   environment: collection.environment,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSend: filterExpectedTutorWebError,
   tracesSampleRate: collection.errors ? 0.1 : 0,
 });

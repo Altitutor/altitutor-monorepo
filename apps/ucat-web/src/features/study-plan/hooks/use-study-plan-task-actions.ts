@@ -18,6 +18,12 @@ import type {
 } from "@/features/study-plan/model/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 
+import {
+  observeStudyPlanLaunch,
+  rememberStudyPlanLessonLaunch,
+} from "@/features/study-plan/lib/launch-diagnostics";
+import type { StudyPlanLaunchDiagnostics } from "@/features/study-plan/model/launch-diagnostics";
+
 type PendingAction = "start" | "skip" | "discard" | "unskip" | null;
 
 function practiceStartInput(task: StudyPlanTask) {
@@ -77,6 +83,7 @@ export function useStudyPlanTaskActions(
   task: StudyPlanTask | null,
   enabled = true,
   planOverride?: StudyPlanResponse | null,
+  control: StudyPlanLaunchDiagnostics["control"] = "task-list",
 ) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -87,11 +94,15 @@ export function useStudyPlanTaskActions(
   const [error, setError] = useState<string | null>(null);
   const [orderPromptOpen, setOrderPromptOpen] = useState(false);
 
-  const currentRecommendedTask = plan && task
-    ? selectRecommendedTaskBeforeStart(plan.tasks, plan.today, task)
-    : null;
+  const currentRecommendedTask =
+    plan && task
+      ? selectRecommendedTaskBeforeStart(plan.tasks, plan.today, task)
+      : null;
 
-  async function executeTask(taskToStart: StudyPlanTask) {
+  async function executeTask(
+    taskToStart: StudyPlanTask,
+    action: StudyPlanLaunchDiagnostics["launch_action"],
+  ) {
     if (!enabled) return;
     setPendingAction("start");
     setError(null);
@@ -108,12 +119,25 @@ export function useStudyPlanTaskActions(
       }
       const practiceInput = practiceStartInput(taskToStart);
       if (practiceInput) {
-        await createAndPersistPracticeSession(practiceInput);
+        await createAndPersistPracticeSession({
+          ...practiceInput,
+          studyPlanLaunch: observeStudyPlanLaunch(
+            taskToStart,
+            queryClient,
+            action,
+            control,
+          ),
+        });
         await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
         setPendingAction(null);
         router.push("/exam");
         return;
       }
+      if (taskToStart.taskType === "learn")
+        rememberStudyPlanLessonLaunch(
+          taskToStart.id,
+          observeStudyPlanLaunch(taskToStart, queryClient, action, control),
+        );
       const skillTrainerKey = taskToStart.launchConfig.skillTrainerKey;
       const launchPath =
         taskToStart.taskType === "skill_trainer" &&
@@ -152,19 +176,19 @@ export function useStudyPlanTaskActions(
       setOrderPromptOpen(true);
       return;
     }
-    await executeTask(task);
+    await executeTask(task, "start");
   }
 
   async function continueOutOfOrderTask() {
     if (!task) return;
     setOrderPromptOpen(false);
-    await executeTask(task);
+    await executeTask(task, "continue-out-of-order");
   }
 
   async function startCurrentRecommendedTask() {
     if (!currentRecommendedTask) return;
     setOrderPromptOpen(false);
-    await executeTask(currentRecommendedTask);
+    await executeTask(currentRecommendedTask, "start-recommended");
   }
 
   async function skipTask() {
@@ -192,7 +216,9 @@ export function useStudyPlanTaskActions(
       await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Could not discard this task.",
+        caught instanceof Error
+          ? caught.message
+          : "Could not discard this task.",
       );
     } finally {
       setPendingAction(null);

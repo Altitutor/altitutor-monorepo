@@ -17,7 +17,8 @@ function asJson(value: unknown): Json {
   return value as Json;
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 
@@ -35,7 +36,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   return NextResponse.json({ form, versions: versions ?? [], tokens: tokens ?? [] });
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 
@@ -130,7 +132,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ form: data, forkedQuestionIds });
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
 

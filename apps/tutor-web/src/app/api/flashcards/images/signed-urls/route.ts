@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isTutor, error: authError } = await userClient.rpc('is_tutor');
   if (authError) {
     return captureApiErrorResponse(

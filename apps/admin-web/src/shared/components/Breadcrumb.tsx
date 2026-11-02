@@ -12,9 +12,10 @@ export interface BreadcrumbItem {
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   className?: string;
+  primary?: boolean;
 }
 
-export function Breadcrumb({ items, className }: BreadcrumbProps) {
+export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
   if (items.length === 0) {
     return null;
   }
@@ -22,6 +23,7 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
     <nav
       aria-label="Breadcrumb"
+      data-primary-breadcrumb={primary || undefined}
       className={cn('flex items-center gap-2 text-sm text-muted-foreground mb-4', className)}
     >
       {items.map((item, index) => {

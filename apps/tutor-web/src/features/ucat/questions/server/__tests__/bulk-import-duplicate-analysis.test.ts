@@ -1,8 +1,11 @@
 import {
+  analyzeBulkImportDuplicatesFromCatalog,
   buildBulkImportDuplicateFindings,
   type BulkImportDuplicateCatalogStem,
   type BulkImportDuplicateDraft,
 } from '@/features/ucat/questions/server/bulk-import-duplicate-analysis'
+import type { Database } from '@altitutor/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const richText = (text: string) => ({
   type: 'doc',
@@ -48,6 +51,21 @@ function catalog(id: string, stemText: string): BulkImportDuplicateCatalogStem {
 }
 
 describe('bulk import duplicate finding hydration', () => {
+  it('retains matching failure while recording only the failed phase and draft count', async () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const client = {
+        rpc: jest.fn().mockResolvedValue({ data: null, error: { code: '57014', message: 'original timeout' } }),
+      } as unknown as SupabaseClient<Database>
+      await expect(analyzeBulkImportDuplicatesFromCatalog(client, [draft('private-id', 'private-content')])).rejects.toThrow('original timeout')
+      expect(log).toHaveBeenCalledWith('[DEBUG-ucat-rpc-v1]', expect.objectContaining({
+        operation: 'bulk_import_match', stems: 1, code: '57014', outcome: 'returned_error',
+      }))
+      expect(JSON.stringify(log.mock.calls)).not.toContain('private')
+    } finally {
+      log.mockRestore()
+    }
+  })
   it('hydrates a database stem-similarity match without classifying question content', () => {
     const imported = draft('draft-a', 'The imported stem')
     const saved = catalog('catalog-a', 'The saved stem')

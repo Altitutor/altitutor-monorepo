@@ -738,7 +738,12 @@ test.describe("personalised Study plan", () => {
     await task.getByRole("button", { name: /^(Start|Continue)$/ }).click();
     await page.waitForURL((url) => url.pathname.endsWith(`/${moduleId}`));
     await page.getByRole("button", { name: "Mark lesson complete" }).click();
-    await page.getByRole("button", { name: "Mark complete" }).click();
+    const completionDialog = page.getByRole("alertdialog", {
+      name: "Mark lesson complete?",
+    });
+    await completionDialog.getByRole("button", { name: "Mark complete" }).click();
+    // The percentage is optimistic; the dialog closes after the save succeeds.
+    await expect(completionDialog).toBeHidden();
     await expect(page.getByText("100% complete")).toBeVisible();
 
     await page.goto("/study-plan");

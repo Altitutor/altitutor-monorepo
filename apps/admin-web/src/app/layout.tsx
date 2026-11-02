@@ -40,13 +40,13 @@ export default function RootLayout({
       <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
         <ReactQueryProvider>
           <AuthProvider>
-            <AuthGuard>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <AuthGuard>
                 <HapticFeedbackProvider />
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
@@ -67,8 +67,8 @@ export default function RootLayout({
                     </CommandPaletteProvider>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>
-              </ThemeProvider>
-            </AuthGuard>
+              </AuthGuard>
+            </ThemeProvider>
           </AuthProvider>
         </ReactQueryProvider>
       </body>

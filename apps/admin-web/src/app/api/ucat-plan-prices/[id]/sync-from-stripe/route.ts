@@ -16,7 +16,7 @@ export async function POST(
   try {
     const { id } = await context.params;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { session },
       error: authError,

@@ -142,10 +142,13 @@ SELECT is(
   'the staff deletion fixture includes a cascading admin-shift assignment'
 );
 
-SELECT lives_ok(
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+SELECT throws_ok(
   $$DELETE FROM public.staff
     WHERE id = 'fc200000-0000-4000-8000-000000000001'$$,
-  'deleting assigned staff succeeds when activity events preserve deletion snapshots'
+  'P0001',
+  'Resolve Staff assignments and future bookings before deletion',
+  'assigned Staff must resolve services before retained deletion'
 );
 
 SELECT is(

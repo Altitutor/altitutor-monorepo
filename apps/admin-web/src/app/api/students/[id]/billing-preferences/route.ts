@@ -7,15 +7,13 @@ import type { Database } from '@altitutor/shared';
 
 type StudentsBillingUpdate = Database['public']['Tables']['students_billing']['Update'];
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const studentId = params.id;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {

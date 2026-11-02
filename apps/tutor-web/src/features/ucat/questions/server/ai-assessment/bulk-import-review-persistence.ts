@@ -23,20 +23,20 @@ import { syncUcatCatalogAiReviewStatusesBestEffort } from './persist-catalog-sta
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
   shared: z.string().min(1),
-  questions: z.record(z.string()),
+  questions: z.record(z.string(), z.string()),
 })
 
 const ReviewProvenanceSchema = z.object({
-  blindSolverModelProfileId: z.string().uuid().nullable(),
-  assessmentModelProfileId: z.string().uuid().nullable(),
-  blindProviderId: z.string().uuid().nullable(),
+  blindSolverModelProfileId: z.string().guid('Invalid uuid').nullable(),
+  assessmentModelProfileId: z.string().guid('Invalid uuid').nullable(),
+  blindProviderId: z.string().guid('Invalid uuid').nullable(),
   blindModel: z.string().nullable(),
-  assessmentProviderId: z.string().uuid().nullable(),
+  assessmentProviderId: z.string().guid('Invalid uuid').nullable(),
   assessmentModel: z.string().nullable(),
 })
 
 export const BulkImportAiReviewSubmissionSchema = z.object({
-  draftStemId: z.string().uuid(),
+  draftStemId: z.string().guid('Invalid uuid'),
   promptVersion: z.number().int(),
   fingerprints: FingerprintsSchema,
   assessment: UcatAssessmentResponseSchema,

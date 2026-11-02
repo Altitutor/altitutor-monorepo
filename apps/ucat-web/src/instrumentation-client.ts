@@ -1,3 +1,9 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
+import {
+  attachChunkDiagnostics,
+  attachChunkDiagnosticsToReplay,
+  forwardChunkDiagnosticBreadcrumbs,
+} from "@/features/auth/lib/chunk-diagnostics";
 import { resolveSentryCollection } from "@altitutor/shared";
 import {
   filterMobileAuthTelemetry,
@@ -7,7 +13,8 @@ import * as Sentry from "@sentry/nextjs";
 import { filterExpectedUcatWebError } from "@/lib/sentry/before-send";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
-const hostname = typeof window === "undefined" ? undefined : window.location.hostname;
+const hostname =
+  typeof window === "undefined" ? undefined : window.location.hostname;
 const collection = resolveSentryCollection({
   dsn,
   hostname,
@@ -26,25 +33,34 @@ Sentry.init({
   enabled: collection.feedback,
   environment: collection.environment,
   sendClientReports: collection.errors,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSend: (event, hint) => {
     if (!collection.errors && event.type !== "feedback") return null;
-    return filterExpectedUcatWebError(event, hint);
+    const filtered = filterExpectedUcatWebError(event, hint);
+    return filtered ? attachChunkDiagnostics(filtered) : null;
   },
   beforeSendTransaction: (event) =>
-    collection.errors
-      ? filterMobileAuthTelemetry(event)
-      : null,
+    collection.errors ? filterMobileAuthTelemetry(event) : null,
   beforeBreadcrumb: filterMobileAuthTelemetry,
   tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 1 : 0,
   integrations: (defaults) => [
-    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
+    ...defaults.filter(
+      (integration) =>
+        collection.errors || integration.name !== "BrowserSession",
+    ).map((integration) =>
+      integration.name === "BrowserSession"
+        ? Sentry.browserSessionIntegration({ lifecycle: "route" })
+        : integration,
+    ),
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({
-            beforeAddRecordingEvent: filterMobileAuthTelemetry,
+            beforeAddRecordingEvent: (event) => {
+              const filtered = filterMobileAuthTelemetry(event);
+              return filtered ? attachChunkDiagnosticsToReplay(filtered) : null;
+            },
             maskAllText: true,
             maskAllInputs: true,
             blockAllMedia: true,
@@ -68,5 +84,13 @@ Sentry.init({
     }),
   ],
 });
+
+if (
+  collection.errors &&
+  typeof window !== "undefined" &&
+  !isMobileAuthBrowserContext()
+) {
+  forwardChunkDiagnosticBreadcrumbs(Sentry.addBreadcrumb);
+}
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

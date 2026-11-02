@@ -19,6 +19,8 @@ export interface DataTableFilterDefinition<TValue = unknown> {
   /** When type is 'date-range', state keys for from and to date values */
   fromKey?: string;
   toKey?: string;
+  /** Enable any/all/none where the consumer implements those matching rules. */
+  choiceOperators?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
   filterable?: boolean;
@@ -44,6 +46,8 @@ export interface DataTableColumnDefinition {
 }
 
 export interface DataTableState {
+  view?: string;
+  columnsConfigured?: boolean;
   search: string;
   filters: Record<string, unknown[]>;
   sortBy: string | null;

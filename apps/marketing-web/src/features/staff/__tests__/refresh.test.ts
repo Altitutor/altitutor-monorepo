@@ -51,6 +51,6 @@ test("verified active admins invalidate both profile data and the about page", a
       )
     ).status,
   ).toBe(200);
-  expect(revalidateTag).toHaveBeenCalledWith("marketing-staff-profiles");
+  expect(revalidateTag).toHaveBeenCalledWith("marketing-staff-profiles", { expire: 0 });
   expect(revalidatePath).toHaveBeenCalledWith("/about/");
 });

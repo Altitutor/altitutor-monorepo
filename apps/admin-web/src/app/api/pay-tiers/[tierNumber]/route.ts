@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import type { TablesUpdate } from '@altitutor/shared';
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -41,10 +39,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ tierNumber: string }> }) {
+  const params = await props.params;
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);

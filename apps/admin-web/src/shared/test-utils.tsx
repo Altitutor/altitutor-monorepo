@@ -4,9 +4,18 @@
  */
 
 import React from 'react';
-import { render, type RenderOptions } from '@testing-library/react';
+import { act, render, type RenderOptions } from '@testing-library/react';
 import { renderHook, type RenderHookOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+/** Flush React's async route parameters without changing the caller's providers. */
+export async function renderSuspending(ui: React.ReactElement, options?: RenderOptions) {
+  let view!: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(ui, options);
+  });
+  return view;
+}
 
 // Mock ToastProvider component for tests
 // This provides a context that matches what useToast expects
@@ -15,7 +24,7 @@ const MockToastProvider = ({ children }: { children: React.ReactNode }) => {
   try {
     // Dynamic import would be async, so we use require for synchronous check
     // This is acceptable in test utilities where we need to conditionally load modules
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const uiModule = require('@altitutor/ui');
     const RealToastProvider = uiModule.ToastProvider;
     if (RealToastProvider && typeof RealToastProvider === 'function') {

@@ -2,13 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
-  Instagram,
-  Facebook,
-  Youtube,
-  Linkedin,
-  Twitter,
   Music2,
 } from "lucide-react";
+import { Instagram, Facebook, Youtube, Linkedin, Twitter } from "./social-icons";
 import { COURSE_LINKS, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { FindYourCourseDialog } from "./find-your-course-dialog";
 import { PageMotion } from "./page-motion";
@@ -17,6 +13,7 @@ import { Navigation } from "./navigation";
 import { SiteLogo } from "./site-logo";
 import { AnnouncementBanner } from "./announcement-banner";
 import styles from "../marketing.module.css";
+import type { PrimaryAction } from "../conversion-actions";
 
 const companyLinks = [
   ["/about/", "About us"],
@@ -34,11 +31,17 @@ const socialLinks = [
   ["Twitter", "https://twitter.com/Altitutor", Twitter],
 ] as const;
 
-export function SiteFrame({ children }: { children: ReactNode }) {
+export function SiteFrame({
+  children,
+  primaryAction,
+}: {
+  children: ReactNode;
+  primaryAction?: PrimaryAction;
+}) {
   return (
     <div className={styles.site}>
       <AnnouncementBanner />
-      <Navigation />
+      <Navigation primaryAction={primaryAction} />
       <PageMotion>{children}</PageMotion>
       <SectionNavigation />
       <FindYourCourseDialog />

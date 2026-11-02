@@ -88,7 +88,7 @@ describe('PATCH /api/students/[id]', () => {
       {
         json: async () => ({ account_class: 'internal_test' }),
       } as never,
-      { params: { id: 'student-1' } }
+      { params: Promise.resolve({ id: 'student-1' }) }
     );
 
     expect(response.status).toBe(200);
@@ -102,7 +102,7 @@ describe('PATCH /api/students/[id]', () => {
       {
         json: async () => ({ account_class: 'staff' }),
       } as never,
-      { params: { id: 'student-1' } }
+      { params: Promise.resolve({ id: 'student-1' }) }
     );
 
     expect(response.status).toBe(400);

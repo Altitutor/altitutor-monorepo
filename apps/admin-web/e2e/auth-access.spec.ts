@@ -23,7 +23,7 @@ test.describe('admin access', () => {
     await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, {
       timeout: 30_000,
     });
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Dashboard', {
       timeout: 30_000,
     });
   });

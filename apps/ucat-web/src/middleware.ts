@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/lib/supabase/auth-cookie";
 import { containsMobileAuthData } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -201,7 +202,7 @@ export async function handleAuthRequest(request: NextRequest) {
           Object.assign(responseHeaders, updatedHeaders);
         },
       },
-      cookieOptions: { name: "student-auth" },
+      cookieOptions: { name: getAuthCookieName() },
       global: { fetch: deadline.fetch },
     }) as unknown as SupabaseClient<Database>,
   );

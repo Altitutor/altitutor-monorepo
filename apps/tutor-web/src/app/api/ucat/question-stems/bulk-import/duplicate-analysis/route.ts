@@ -10,14 +10,14 @@ import {
 
 const OptionSchema = z.object({
   id: z.string().optional(),
-  answerText: z.unknown(),
+  answerText: z.unknown().optional(),
   answerExplanation: z.unknown().optional(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const QuestionSchema = z.object({
   id: z.string().optional(),
-  questionText: z.unknown(),
+  questionText: z.unknown().optional(),
   responseType: z.enum(['multiple_choice', 'drag_and_drop']),
   answerScheme: z.enum(['single_choice', 'situational_judgement_rating', 'decision_making_binary_placement', 'situational_judgement_most_least']),
   answerExplanation: z.unknown().optional(),
@@ -26,8 +26,8 @@ const QuestionSchema = z.object({
 
 const DraftSchema = z.object({
   id: z.string().min(1).max(200),
-  sectionId: z.string().uuid(),
-  stemText: z.unknown(),
+  sectionId: z.string().guid('Invalid uuid'),
+  stemText: z.unknown().optional(),
   questions: z.array(QuestionSchema).min(1).max(20),
 })
 

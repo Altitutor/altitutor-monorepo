@@ -1,3 +1,4 @@
+import { calendarDateBound } from '@altitutor/shared';
 import { deleteWorkItem } from '@/features/work-item-editing/api';
 import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
@@ -171,15 +172,15 @@ export const projectsApi = {
       if (dateRanges.length > 0) {
         const dr = dateRanges[0] as { operator?: 'gte' | 'lte'; start?: string; end?: string };
         if (dr.operator === 'gte' && dr.start) {
-          query = query.gte(column, dr.start);
+          query = query.gte(column, calendarDateBound(dr.start, 'start'));
         } else if (dr.operator === 'lte' && dr.end) {
-          query = query.lte(column, dr.end);
+          query = query.lte(column, calendarDateBound(dr.end, 'end'));
         } else if (dr.start && dr.end) {
-          query = query.gte(column, dr.start).lte(column, dr.end);
+          query = query.gte(column, calendarDateBound(dr.start, 'start')).lte(column, calendarDateBound(dr.end, 'end'));
         } else if (dr.start) {
-          query = query.gte(column, dr.start);
+          query = query.gte(column, calendarDateBound(dr.start, 'start'));
         } else if (dr.end) {
-          query = query.lte(column, dr.end);
+          query = query.lte(column, calendarDateBound(dr.end, 'end'));
         }
       }
     }

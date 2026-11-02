@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -31,10 +31,8 @@ async function requireAdmin() {
   return { supabase: supabaseAdmin };
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { key: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
@@ -56,10 +54,8 @@ export async function GET(
   return NextResponse.json(data);
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { key: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 

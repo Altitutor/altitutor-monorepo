@@ -7,7 +7,8 @@ function stripTrailingSlash(url: string): string {
 }
 
 const UCAT_APP_ORIGIN = stripTrailingSlash(
-  process.env.NEXT_PUBLIC_UCAT_APP_ORIGIN ??
+  process.env.NEXT_PUBLIC_UCAT_APP_ORIGIN ||
+    process.env.NEXT_PUBLIC_UCAT_URL ||
     (process.env.NODE_ENV === "development"
       ? "http://localhost:3004"
       : "https://ucat.altitutor.com"),

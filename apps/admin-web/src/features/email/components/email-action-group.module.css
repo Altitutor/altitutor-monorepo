@@ -1,0 +1,17 @@
+.group {
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+}
+.group > :not(:first-child) {
+  border-left: 1px solid hsl(var(--border));
+}
+.group button[data-button-variant] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.group button[data-button-variant]:hover {
+  background: hsl(var(--muted));
+}

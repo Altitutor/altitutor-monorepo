@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import type { DataTableState, QuickFilter } from '@altitutor/shared'
+import { applySavedViewToTableState, tutorDefaultDisplaySettings, type DataTableState, type QuickFilter } from '@altitutor/shared'
 import {
   clearUcatTableUrlParams,
   isUcatTableStateEqual,
@@ -189,11 +189,13 @@ export function useUcatTableUrlState(
       onVisibleColumnsChange: (columns: string[]) =>
         updateState((prev) => ({ ...prev, visibleColumns: columns })),
       onQuickFilterApply: (qf: QuickFilter) =>
-        updateState((prev) => ({
-          ...prev,
-          filters: qf.config as Record<string, unknown[]>,
-          page: 1,
-        })),
+        updateState((prev) =>
+          applySavedViewToTableState(
+            prev,
+            qf,
+            tutorDefaultDisplaySettings(initialVisibleColumns, { filters: defaultFilters }),
+          ),
+        ),
       onReset: () => {
         const resetState = buildDefaultState(initialVisibleColumns, defaultFilters, defaultPageSize)
         if (

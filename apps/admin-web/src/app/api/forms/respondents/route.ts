@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
   // Keep the caller's auth context: these search RPCs intentionally verify
   // is_adminstaff_active(), so the service-role client would return no rows.
-  const userClient = createClient() as unknown as SupabaseClient<Database>;
+  const userClient = await createClient() as unknown as SupabaseClient<Database>;
 
   if (type === 'student') {
     const { data, error } = await userClient.rpc('search_students_admin', {

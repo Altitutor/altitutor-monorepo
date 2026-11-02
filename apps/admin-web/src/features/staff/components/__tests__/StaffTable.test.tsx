@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { StaffTable } from '../StaffTable';
 import { useStaffMinimalPaginated, useCurrentStaff } from '../../hooks/useStaffQuery';
 import { renderWithProviders } from '@/shared/test-utils';
@@ -88,9 +89,10 @@ describe('StaffTable', () => {
     expect(screen.getByText('john.doe@altitutor.test · +61400000010')).toBeInTheDocument();
   });
 
-  it('searches name, email or phone by default', () => {
+  it('searches name, email or phone by default', async () => {
     renderWithProviders(<StaffTable />);
 
+    await userEvent.click(screen.getByRole('button',{name:'Search'}));
     expect(screen.getByPlaceholderText('Search name, email or phone...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /all fields/i })).toBeInTheDocument();
     expect(mockedUseStaffMinimalPaginated).toHaveBeenCalledWith(

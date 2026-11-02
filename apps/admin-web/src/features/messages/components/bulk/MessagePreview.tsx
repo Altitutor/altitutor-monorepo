@@ -65,8 +65,8 @@ export function MessagePreview({
         return;
       }
 
-      const senderName = currentStaff 
-        ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
+      const senderName = currentStaff
+        ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim()
         : null;
 
       let previewText = message;
@@ -75,7 +75,7 @@ export function MessagePreview({
         // For parents, we need to get the parent data and all their students
         const parentId = selectedRecipient.id.replace('parent-', '');
         const studentId = selectedRecipient.studentId;
-        
+
         if (!studentId) {
           setPreviewMessage(message);
           return;
@@ -91,9 +91,10 @@ export function MessagePreview({
         }
 
         const classes = studentClasses[studentId] || [];
-        
+
         // Create a mock parent object for preview (name from recipient)
         const mockParent: Tables<'parents'> = {
+    deleted_at: null, deleted_by: null,
           id: parentId,
           first_name: selectedRecipient.name.split(' ')[0] || '',
           last_name: selectedRecipient.name.split(' ').slice(1).join(' ') || '',
@@ -124,12 +125,12 @@ export function MessagePreview({
         const classes = studentClasses[student.id] || [];
         previewText = await replaceVariables(message, student, classes, senderName);
       }
-      
+
       // Add placeholder text for link variables in preview
       previewText = previewText.replace(/\{registration_link\}/gi, '[Registration Link]');
       previewText = previewText.replace(/\{invite_link\}/gi, '[Invite Link]');
       previewText = previewText.replace(/\{forgot_password_link\}/gi, '[Forgot Password Link]');
-      
+
       setPreviewMessage(previewText);
     };
 
@@ -195,7 +196,7 @@ export function MessagePreview({
                       {/* Sender badge */}
                       {selectedSender && (
                         <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                          From: {selectedSender.sender_type === 'ALPHANUMERIC' 
+                          From: {selectedSender.sender_type === 'ALPHANUMERIC'
                             ? (selectedSender.alphanumeric_sender_id || selectedSender.label || 'Unknown')
                             : (selectedSender.phone_e164 || selectedSender.label || 'Unknown')}
                         </Badge>

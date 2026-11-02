@@ -1,3 +1,4 @@
+import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { loadStudentPortalAccess } from "./portal-access";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
@@ -18,7 +19,10 @@ function json(body: unknown, status = 200) {
 
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  return origin !== null && origin === request.nextUrl.origin;
+  // Next's dev server normalizes nextUrl to localhost even for LAN requests.
+  // The browser's Host retains the actual destination, including its port.
+  const host = request.headers.get("host") ?? request.nextUrl.host;
+  return origin !== null && origin === `${request.nextUrl.protocol}//${host}`;
 }
 
 function config() {
@@ -60,7 +64,7 @@ export async function issueNativeHandoff(request: NextRequest) {
     if (!input || !isChallenge(input.challenge)) return reply({ error: "Invalid handoff request" }, 400);
     const { url, anon, secret } = config();
     const caller = createServerClient(url, anon, {
-      cookieOptions: { name: "student-auth" },
+      cookieOptions: { name: getAuthCookieName() },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (entries) => {

@@ -110,7 +110,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
  * Returns an object with backgroundColor style and appropriate text color class
  */
 export function getSubjectColorStyle(
-  subject: Tables<'subjects'> | null | undefined
+  subject: Pick<Tables<'subjects'>, 'color'> | null | undefined
 ): { style: React.CSSProperties; textColorClass: string } {
   const defaultStyle = { backgroundColor: undefined };
   const defaultTextClass = 'text-gray-800';

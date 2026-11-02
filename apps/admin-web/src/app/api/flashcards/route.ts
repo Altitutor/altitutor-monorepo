@@ -6,7 +6,7 @@ import { validateFlashcardContent, type Flashcard } from '@altitutor/shared';
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from './_lib';
 
 async function assertTopicAccess(topicId: string) {
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return false;
   const { data } = await userClient.from('topics').select('id').eq('id', topicId).maybeSingle();
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
   if (!topicId) return NextResponse.json({ error: 'topicId is required' }, { status: 400 });
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data, error } = await userClient
     .from('vstaff_flashcards')
     .select('*')

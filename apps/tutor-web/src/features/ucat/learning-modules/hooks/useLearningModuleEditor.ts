@@ -1,5 +1,7 @@
 'use client'
 
+import type { LearningModuleJourneyPlacement } from '@altitutor/shared'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '@altitutor/ui'
 import {
@@ -44,6 +46,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
   const [index, setIndex] = useState('0')
   const [accessScope, setAccessScope] = useState<UcatAccessScope>('public')
   const [status, setStatus] = useState<UcatContentStatus>('draft')
+  const [journeyPlacement, setJourneyPlacement] = useState<LearningModuleJourneyPlacement | null>(null)
   const [studyPlanPriority, setStudyPlanPriority] = useState<UcatLearningModuleStudyPlanPriority>('recommended')
   const [studyPlanCategoryIds, setStudyPlanCategoryIds] = useState<string[]>([])
   const [studyPlanTagIds, setStudyPlanTagIds] = useState<string[]>([])
@@ -71,6 +74,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setIndex(String(m.index))
     setAccessScope(m.access_scope)
     setStatus(m.status)
+    setJourneyPlacement(m.study_plan_journey_placement ?? (m.kind === 'lesson' && m.ucat_section_id ? 'section_learning' : null))
     setStudyPlanPriority(m.study_plan_priority)
     setStudyPlanCategoryIds(m.study_plan_category_ids)
     setStudyPlanTagIds(m.study_plan_tag_ids)
@@ -85,6 +89,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId: m.parent_ucat_learning_module_id,
         index: m.index,
         accessScope: m.access_scope,
+        journeyPlacement: m.study_plan_journey_placement ?? (m.kind === 'lesson' && m.ucat_section_id ? 'section_learning' : null),
         studyPlanPriority: m.study_plan_priority,
         studyPlanCategoryIds: m.study_plan_category_ids,
         studyPlanTagIds: m.study_plan_tag_ids,
@@ -126,12 +131,12 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       accessScope,
-      studyPlanPriority,
+      journeyPlacement, studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
     })
     return current !== settingsBaseline
-  }, [kind, title, description, iconKey, estimatedMinutes, sectionId, parentId, index, accessScope, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
+  }, [kind, title, description, iconKey, estimatedMinutes, sectionId, parentId, index, accessScope, journeyPlacement, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
 
   const blocksDirty = useMemo(
     () => JSON.stringify(toBlockPayload(draftBlocks)) !== blocksBaseline,
@@ -204,7 +209,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       parentId,
       index: Number(index) || 0,
       accessScope,
-      studyPlanPriority,
+      journeyPlacement, studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
     })
@@ -219,7 +224,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
         parentId,
         index: Number(index) || 0,
         accessScope,
-        studyPlanPriority,
+        journeyPlacement, studyPlanPriority,
         studyPlanCategoryIds,
         studyPlanTagIds,
       }),
@@ -236,7 +241,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     parentId,
     index,
     accessScope,
-    studyPlanPriority,
+    journeyPlacement, studyPlanPriority,
     studyPlanCategoryIds,
     studyPlanTagIds,
     upsert,
@@ -277,7 +282,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
             parentId,
             index: current.index,
             accessScope,
-            studyPlanPriority,
+            journeyPlacement, studyPlanPriority,
             studyPlanCategoryIds,
             studyPlanTagIds,
           }),
@@ -296,7 +301,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       sectionId,
       parentId,
       accessScope,
-      studyPlanPriority,
+      journeyPlacement, studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
       toast,
@@ -325,7 +330,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     estimatedMinutes,
     setEstimatedMinutes,
     sectionId,
-    setSectionId,
+    setSectionId: (value: string | null) => { if (value === sectionId) return; setSectionId(value); setJourneyPlacement(kind === 'lesson' && value ? 'section_learning' : null) },
     parentId,
     setParentId,
     index,
@@ -334,7 +339,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setAccessScope,
     status,
     setStatus,
-    studyPlanPriority,
+    journeyPlacement, studyPlanPriority,
+    setJourneyPlacement,
     setStudyPlanPriority,
     studyPlanCategoryIds,
     setStudyPlanCategoryIds,

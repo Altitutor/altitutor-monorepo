@@ -1,0 +1,25 @@
+begin;
+select plan(10);
+insert into auth.users(id) values ('fd277100-0000-4000-8000-000000000001');
+insert into public.staff(id,user_id,first_name,last_name,role,status)
+values ('fd277100-0000-4000-8000-000000000002','fd277100-0000-4000-8000-000000000001','Priority','Test','ADMINSTAFF','ACTIVE');
+select set_config('request.jwt.claims','{"sub":"fd277100-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+create temporary table item as select public.admin_work_item_change('issue',null,null,'priority-create','{"name":"Priority issue","priority":1}') as body;
+create temporary table target as select (body#>>'{record,id}')::uuid as id from item;
+select is((select body#>>'{record,priority}' from item),'1','Issue creation saves Urgent priority');
+select is(public.admin_work_item_change('issue',null,null,'priority-default','{"name":"Unprioritized"}')#>>'{record,priority}','0','Issues default to No priority');
+select is(public.admin_work_item_patch('issue',(select id from target),'{"priority":2}','{"priority":1}','priority-change')#>>'{record,priority}','2','priority autosaves through the established authenticated patch');
+select is(public.admin_work_item_read('issue',(select id from target))#>>'{record,priority}','2','reading an Issue returns saved priority');
+select is(public.admin_work_item_patch('issue',(select id from target),'{"priority":3}','{"priority":1}','stale-priority')->'conflicts','["priority"]'::jsonb,'stale priority edits cannot overwrite a later save');
+select throws_ok(format('select public.admin_work_item_patch(''issue'',%L,''{"priority":5}'',''{"priority":2}'',''invalid-high'')',(select id from target)),'23514',null,'out of range priority is rejected');
+select throws_ok(format('select public.admin_work_item_patch(''issue'',%L,''{"priority":null}'',''{"priority":2}'',''invalid-null'')',(select id from target)),'23502',null,'null priority is rejected');
+select is(public.admin_work_item_patch('issue',(select id from target),'{"priority":0}','{"priority":2}','clear-priority')#>>'{record,priority}','0','priority can be cleared without clearing the record');
+select ok(not has_function_privilege('authenticated','admin_operations.admin_work_item_change(text,uuid,bigint,text,jsonb)','execute'),'underlying mutation stays private');
+grant select on target to anon;
+reset role;
+select set_config('request.jwt.claims','{"role":"anon"}',true);
+set local role anon;
+select throws_ok(format('select public.admin_work_item_patch(''issue'',%L,''{"priority":1}'',''{"priority":0}'',''anonymous-priority'')',(select id from target)),'42501',null,'anonymous callers cannot change priority');
+select * from finish();
+rollback;

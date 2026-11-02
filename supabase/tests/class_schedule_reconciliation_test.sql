@@ -73,8 +73,8 @@ SELECT throws_ok(
 
 SELECT is(
   (public.preview_class_deletion('90000000-0000-0000-0000-000000000002')->>'protected_future_session_count')::INTEGER,
-  2,
-  'Class deletion preview exposes exceptional and enriched future Sessions as protected'
+  8,
+  'Class deletion preview protects every unresolved future Session'
 );
 
 CREATE TEMP TABLE changed_schedule AS

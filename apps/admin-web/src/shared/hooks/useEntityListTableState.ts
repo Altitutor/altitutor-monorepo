@@ -27,6 +27,7 @@ export function useEntityListTableState({
   const {
     state,
     setSearch,
+    setVisibleColumns,
     setFilters,
     setSort,
     setGroupBy,
@@ -49,14 +50,16 @@ export function useEntityListTableState({
   );
 
   return {
+    visiblePillKeys: state.columnsConfigured ? state.visibleColumns : undefined,
+    setVisiblePillKeys: setVisibleColumns,
     search: state.search,
     setSearch,
     filters: state.filters,
     setFilters,
-    groupBy: state.groupBy ?? defaultGroupBy,
+    groupBy: state.groupBy,
     setGroupBy,
-    sortBy: state.sortBy ?? defaultSort.field,
-    sortDirection: state.sortDirection,
+    sortBy: state.sortBy ?? 'name',
+    sortDirection: state.sortBy === null ? 'asc' : state.sortDirection,
     handleSortChange,
     applyQuickFilter,
     resetFilters,

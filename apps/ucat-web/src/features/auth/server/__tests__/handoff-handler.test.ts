@@ -391,4 +391,26 @@ describe("handoff exchange", () => {
     ).toEqual([]);
     expect(response.cookies.get("student-auth.0")?.value).toBe("");
   });
+
+  it.each([undefined, "isolated.project-student-auth"])(
+    "clears only the selected cookie namespace during browser exchange (%s)",
+    async (override) => {
+      const previous = process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+      try {
+        if (override === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+        else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = override;
+        const name = override || "student-auth";
+
+        const response = await exchangeHandoff(request({ ticket: ticket("browser"), confirmed: true }, { ...origin, cookie: `${name}.0=old-session; other-runtime-auth.0=keep` }), "browser");
+        expect(response.status).toBe(200);
+        expect(jest.mocked(createServerClient).mock.calls.at(-1)?.[2]?.cookieOptions?.name).toBe(name);
+        expect(response.cookies.get(`${name}.0`)?.value).toBe("");
+        expect(response.cookies.get("other-runtime-auth.0")).toBeUndefined();
+        if (override) expect(response.cookies.get("student-auth.0")).toBeUndefined();
+      } finally {
+        if (previous === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+        else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = previous;
+      }
+    },
+  );
 });

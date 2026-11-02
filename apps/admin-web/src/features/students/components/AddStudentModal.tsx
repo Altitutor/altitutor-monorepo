@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@altitutor/ui";
@@ -30,6 +32,7 @@ interface AddStudentModalProps {
   onStudentAdded: (person?: { id: string }) => void;
   initialPhone?: string | null;
   initialEmail?: string | null;
+  initialParentPhone?: string | null;
 }
 
 // Schema for form validation
@@ -76,7 +79,7 @@ const formSchema = z.object({
   availability_sunday_pm: z.boolean(),
   // Optional parents: link existing and/or add new
   parents: z.array(z.object({
-    existing_id: z.string().uuid().optional(),
+    existing_id: z.string().guid('Invalid uuid').optional(),
     first_name: z.string().optional().or(z.literal('')),
     last_name: z.string().optional().or(z.literal('')),
     email: z.string().email('Invalid email address').optional().or(z.literal('')),
@@ -104,7 +107,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone, initialEmail }: AddStudentModalProps) {
+export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone, initialEmail, initialParentPhone }: AddStudentModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -152,7 +155,8 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone,
     if (!isOpen) return;
     setValue('studentPhone', initialPhone || '');
     setValue('studentEmail', initialEmail || '');
-  }, [initialEmail, initialPhone, isOpen, setValue]);
+    if (initialParentPhone) setValue('parents', [{ first_name: '', last_name: '', phone: initialParentPhone }]);
+  }, [initialEmail, initialPhone, initialParentPhone, isOpen, setValue]);
 
   const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
     setIsSubmitting(true);
@@ -364,7 +368,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone,
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="studentEmail">Student Email</Label>
-              <Input 
+              <EmailInput
                 id="studentEmail" 
                 type="email" 
                 {...register('studentEmail')} 

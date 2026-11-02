@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { choiceFilterMatches } from '@altitutor/shared';
 import type { Tables, DataTableState } from '@altitutor/shared';
 import { useSessionsWithDetails } from './useSessionsQuery';
 import { useStudentSearchForFilter } from './useStudentSearchForFilter';
@@ -8,7 +9,6 @@ import {
   formatSessionTimeRange,
   getClassDisplay,
   getClassShortDisplay,
-  filterSessionsByStudents,
   filterSessionsByTutorLog,
   paginateSessions,
 } from '../utils/sessionsTableHelpers';
@@ -92,13 +92,13 @@ export function useSessionsTable({
 }: UseSessionsTableProps): UseSessionsTableReturn {
   // Use state from useDataTable if provided, otherwise default to empty/1
   const search = state?.search || '';
-  const filters = state?.filters || {};
+  const filters = useMemo(() => state?.filters ?? {}, [state?.filters]);
   const page = state?.page || 1;
   const pageSize = state?.pageSize || 50;
   const sortDirection = state?.sortDirection || 'desc';
 
   // Extract specific filters (wrapped in useMemo for stable refs in downstream useMemo)
-  const typeFilters = (filters.type as string[]) || [];
+  const typeFilters = useMemo(() => (filters.type as string[]) ?? [], [filters.type]);
   const subjectFilters = useMemo(
     () => (filters.subject as string[]) || [],
     [filters.subject]
@@ -113,9 +113,10 @@ export function useSessionsTable({
   const toFilters = (filters.to as string[]) || [];
   const effectiveRangeStart = rangeStart || fromFilters[0];
   const effectiveRangeEnd = rangeEnd || toFilters[0];
-  
-  const showLogged = tutorLogFilters.length === 0 || tutorLogFilters.includes('logged');
-  const showUnlogged = tutorLogFilters.length === 0 || tutorLogFilters.includes('unlogged');
+
+  const logMode = filters.tutor_log__operator?.[0];
+  const showLogged = choiceFilterMatches(tutorLogFilters,'logged',logMode);
+  const showUnlogged = choiceFilterMatches(tutorLogFilters,'unlogged',logMode);
 
   // Student search using RPC hook (for populating filter options)
   const { data: studentSearchData } = useStudentSearchForFilter(
@@ -136,8 +137,8 @@ export function useSessionsTable({
     ? initialStudentFilters
     : studentFilters;
   const apiStudentId =
-    studentId || (activeStudentFilters.length === 1 ? activeStudentFilters[0] : undefined);
-  const apiStaffId = staffId || (staffFilters.length === 1 ? staffFilters[0] : undefined);
+    studentId || (activeStudentFilters.length === 1 && filters.student__operator?.[0] !== 'none' ? activeStudentFilters[0] : undefined);
+  const apiStaffId = staffId || (staffFilters.length === 1 && filters.staff__operator?.[0] !== 'none' ? staffFilters[0] : undefined);
 
   // Fetch sessions data
   const {
@@ -156,10 +157,10 @@ export function useSessionsTable({
     parentId,
     classId,
     adminShiftId,
-    types: typeFilters.length > 0 ? typeFilters : undefined,
+    types: typeFilters.length > 0 && filters.type__operator?.[0] !== 'none' ? typeFilters : undefined,
     orderBy: 'start_at',
     ascending: sortDirection === 'asc',
-  });
+  }, {enabled:!(effectiveRangeStart && effectiveRangeEnd && effectiveRangeStart > effectiveRangeEnd)});
 
   // Extract data from response
   const allSessions = useMemo(() => data?.sessions || [], [data?.sessions]);
@@ -189,25 +190,19 @@ export function useSessionsTable({
 
     // Filter by subject (client-side)
     if (subjectFilters.length > 0) {
-      const subjectIdSet = new Set(subjectFilters);
-      result = result.filter((session) => {
-        const sid = getSessionSubjectId(session);
-        return sid !== null && subjectIdSet.has(sid);
-      });
+      result = result.filter(session => choiceFilterMatches(subjectFilters,getSessionSubjectId(session),filters.subject__operator?.[0]));
     }
 
     // Filter by multiple student IDs (if more than one selected and API didn't handle it)
-    if (activeStudentFilters.length > 1) {
-      result = filterSessionsByStudents(result, activeStudentFilters, sessionStudents);
+    if (activeStudentFilters.length) {
+      result = result.filter(session => choiceFilterMatches(activeStudentFilters,(sessionStudents[session.id] || []).map(student=>student.id),filters.student__operator?.[0]));
     }
 
     // Filter by multiple staff IDs (if more than one selected and API didn't handle it)
-    if (staffFilters.length > 1) {
-      result = result.filter((session) => {
-        const staffInSession = sessionStaff[session.id] || [];
-        return staffInSession.some((s) => staffFilters.includes(s.id));
-      });
+    if (staffFilters.length) {
+      result = result.filter(session => choiceFilterMatches(staffFilters,(sessionStaff[session.id] || []).map(staff=>staff.id),filters.staff__operator?.[0]));
     }
+    result = result.filter(session => choiceFilterMatches(typeFilters,session.type,filters.type__operator?.[0]));
 
     // Filter by tutor log status (client-side for now)
     result = filterSessionsByTutorLog(result, showLogged, showUnlogged, tutorLogs);
@@ -215,6 +210,8 @@ export function useSessionsTable({
     return result;
   }, [
     allSessions,
+    filters,
+    typeFilters,
     subjectFilters,
     getSessionSubjectId,
     activeStudentFilters,

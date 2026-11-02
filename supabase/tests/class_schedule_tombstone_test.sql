@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(2);
+SELECT plan(5);
 
 CREATE TEMP TABLE tombstone_proposal AS
 SELECT jsonb_build_object(
@@ -21,15 +21,22 @@ WHERE class_id = '90000000-0000-0000-0000-000000000005';
 SELECT is(
   public.purge_expired_class_session_tombstones(),
   1,
-  'expired pristine calendar tombstones are physically removed'
+  'expired pristine calendar tombstones are archived'
 );
 
 SELECT is(
-  (SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id = '90000000-0000-0000-0000-000000000005'),
+  (SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id = '90000000-0000-0000-0000-000000000005' AND deleted_at IS NULL),
   0,
-  'purge leaves no stale Session row after the cancellation window'
+  'maintenance leaves no live Session after the cancellation window'
 );
 
+SELECT is((SELECT COUNT(*)::INTEGER FROM public.sessions WHERE class_id='90000000-0000-0000-0000-000000000005' AND deleted_at IS NOT NULL),1,'the expired Session remains retained for history and recovery');
+
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.restore_business_record('session',(SELECT id FROM public.deleted_business_records() WHERE kind='session' AND name LIKE '%2027-01-05%' LIMIT 1))$$,'calendar-archived Session can be explicitly restored');
+SELECT is(public.purge_expired_class_session_tombstones(),0,'the restored inactive Session is not immediately archived again');
+RESET ROLE;
 SELECT * FROM finish();
 
 ROLLBACK;

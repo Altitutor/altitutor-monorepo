@@ -31,7 +31,7 @@ describe('display utilities', () => {
       // Note: If input is already uppercase, it stays uppercase
       const result1 = formatSessionType('UNKNOWN_TYPE');
       expect(result1).toBe('UNKNOWN TYPE'); // Underscores replaced with spaces
-      
+
       const result2 = formatSessionType('some_other_type');
       expect(result2).toBe('Some Other Type'); // Lowercase gets capitalized
     });
@@ -58,6 +58,7 @@ describe('display utilities', () => {
 
   describe('getSubjectColorStyle', () => {
     const mockSubject: Tables<'subjects'> = {
+    deleted_at: null, deleted_by: null,
       show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'Mathematics',
@@ -112,6 +113,7 @@ describe('display utilities', () => {
 
   describe('getSubjectColorHex', () => {
     const mockSubject: Tables<'subjects'> = {
+    deleted_at: null, deleted_by: null,
       show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'Mathematics',

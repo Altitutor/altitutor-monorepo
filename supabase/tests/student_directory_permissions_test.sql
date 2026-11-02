@@ -1,0 +1,11 @@
+BEGIN;
+SELECT plan(2);
+SET LOCAL ROLE anon;
+SELECT throws_ok($$SELECT public.search_student_directory_admin()$$, '42501', NULL, 'anonymous clients cannot call the directory RPC');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"fd282000-0000-4000-8000-000000000099","role":"authenticated"}',true);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.search_student_directory_admin()$$, '42501', 'Active AdminStaff access required', 'authentication without active AdminStaff access cannot read the directory');
+RESET ROLE;
+SELECT * FROM finish();
+ROLLBACK;

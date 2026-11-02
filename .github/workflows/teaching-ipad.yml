@@ -1,0 +1,39 @@
+name: Teaching iPad
+
+on:
+  pull_request:
+    paths:
+      - 'apps/teaching-ipad/**'
+      - '.github/workflows/teaching-ipad.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'apps/teaching-ipad/**'
+      - '.github/workflows/teaching-ipad.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: teaching-ipad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native lesson tests and simulator build
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: Tutor-scoped lesson store contracts
+        run: swift test --package-path apps/teaching-ipad --parallel
+      - name: Build the iPad app without signing or publishing
+        run: >-
+          xcodebuild -project apps/teaching-ipad/AltitutorTeaching.xcodeproj
+          -scheme AltitutorTeaching -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/teaching-ipad"
+          CODE_SIGNING_ALLOWED=NO build

@@ -1,20 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, SearchableSelect } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { User, Gauge, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import {
-  getPriorityIcon,
-  getPriorityLabel,
-  getPriorityIconColor,
   getEstimateLabel,
   getUserInitials,
   ESTIMATE_OPTIONS,
-  PRIORITY_OPTIONS,
 } from '../../utils/taskUtils';
-import type { TaskWithAssignee, TaskPriority } from '../../types';
+import type { TaskWithAssignee } from '../../types';
 
 const pillTriggerClass =
   'inline-flex h-8 items-center gap-1.5 rounded-full border bg-background group transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white';
@@ -58,6 +54,7 @@ export function TaskAssigneeEntityPill({
       emptyMessage="No staff found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -106,62 +103,7 @@ export function TaskAssigneeEntityPill({
   );
 }
 
-type PriorityOption = (typeof PRIORITY_OPTIONS)[number];
-
-export function TaskPriorityEntityPill({
-  value,
-  onChange,
-  collapsed,
-}: {
-  value: TaskPriority;
-  onChange: (v: TaskPriority) => void;
-  collapsed?: boolean;
-}) {
-  const label = getPriorityLabel(value);
-  const iconColor = getPriorityIconColor(value);
-  const Icon = getPriorityIcon(value);
-  const isEmpty = value === 0;
-  const selectedItem = PRIORITY_OPTIONS.find((o) => o.value === value) ?? PRIORITY_OPTIONS[0];
-
-  return (
-    <div onClick={(e) => e.stopPropagation()}>
-      <SearchableSelect<PriorityOption>
-        items={PRIORITY_OPTIONS}
-        value={selectedItem}
-        onValueChange={(item) => onChange(item ? (item.value as TaskPriority) : 0)}
-        getItemLabel={(o) => o.label}
-        getItemId={(o) => String(o.value)}
-        trigger={
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
-              collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
-            )}
-          >
-            <Icon
-              className={cn(
-                'h-3 w-3 flex-shrink-0',
-                isEmpty ? 'text-muted-foreground opacity-40 group-hover:opacity-100' : iconColor
-              )}
-            />
-            {!collapsed && (
-              <span
-                className={cn(
-                  'truncate',
-                  isEmpty && 'text-muted-foreground opacity-40 group-hover:opacity-100'
-                )}
-              >
-                {label}
-              </span>
-            )}
-          </Button>
-        }
-      />
-    </div>
-  );
-}
+export { PriorityEntityPill as TaskPriorityEntityPill } from '@/shared/components/PriorityEntityPill';
 
 const NONE_ESTIMATE = { value: null, label: 'None' } as const;
 type EstimateOption = { value: number | null; label: string };
@@ -193,6 +135,7 @@ export function TaskEstimateEntityPill({
         getItemId={(o) => (o.value == null ? 'none' : String(o.value))}
         trigger={
           <button
+          data-button-variant="outline"
             type="button"
             className={cn(
               pillTriggerClass,
@@ -237,6 +180,7 @@ export function TaskIssueEntityPill({
       emptyMessage="No issues found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -289,6 +233,7 @@ export function TaskProjectEntityPill({
       emptyMessage="No projects found"
       trigger={
         <button
+          data-button-variant="outline"
           type="button"
           className={cn(
             pillTriggerClass,
@@ -337,6 +282,7 @@ export function TaskLinkEntityPill({
 
   return (
     <button
+          data-button-variant="outline"
       type="button"
       className={cn(
         pillTriggerClass,

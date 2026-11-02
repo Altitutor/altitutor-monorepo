@@ -205,6 +205,7 @@ export async function GET(request: NextRequest) {
     topic_code: topic?.code ?? null,
     topic_name: topic?.name ?? null,
     subject_short_name: subjectSlug,
+    subject_id: topic?.subject_id ?? null,
     note_links: noteLinks,
     learn_ahead_minutes: version?.learn_ahead_minutes ?? 20,
     retrievability: row.state === 'Review'

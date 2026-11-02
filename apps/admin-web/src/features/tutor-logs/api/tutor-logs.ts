@@ -210,7 +210,7 @@ export const tutorLogsApi = {
 
       // Filter out sessions that already have logs
       const { data: existingLogs, error: logsError } = await supabase
-        .from('tutor_logs')
+        .from('vadmin_session_log_state')
         .select('session_id')
         .in('session_id', sessionIds);
 
@@ -426,7 +426,7 @@ export const tutorLogsApi = {
 
   /**
    * Delete a tutor log (admin only)
-   * This will cascade delete all related records
+   * Retains linked attendance/history; restoration is available in Deleted entities.
    */
   deleteTutorLog: async (id: string): Promise<void> => {
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)

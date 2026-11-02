@@ -23,8 +23,11 @@ parse_env_file() {
     while IFS='=' read -r key value; do
         # Skip empty lines and comments
         [[ -z "$key" || "$key" =~ ^#.*$ ]] && continue
-        # Remove leading/trailing whitespace and quotes
         key=$(echo "$key" | xargs)
+        # Email credentials use the literal-value runtime adapter, never generic
+        # shared/GitHub/EAS routing or xargs quote processing.
+        case "$key" in EMAIL_M365_*|EMAIL_ENVIRONMENT|EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS) continue ;; esac
+        # Remove leading/trailing whitespace and quotes
         value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
         echo "$key=$value"
     done < "$file"
@@ -359,3 +362,19 @@ ensure_env_secret() {
 }
 
 
+
+# Runtime credentials are validated and read directly from the selected env file.
+# The internal adapter preserves literal characters and never prints values.
+deploy_email_runtime() {
+    node --input-type=module - "$SCRIPT_DIR" "$SECRETS_DIR" "$1" "$2" <<'NODE'
+import { pathToFileURL } from 'node:url';
+const [scripts, directory, platform, environment] = process.argv.slice(2);
+try {
+  const {deployEmailEnvironment} = await import(pathToFileURL(`${scripts}/lib/runtime-secrets.mjs`));
+  await deployEmailEnvironment({directory, environment, platform});
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Runtime secret deployment failed.');
+  process.exitCode = 1;
+}
+NODE
+}

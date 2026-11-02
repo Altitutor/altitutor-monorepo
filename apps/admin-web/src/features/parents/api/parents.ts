@@ -31,7 +31,7 @@ export const parentsApi = {
     } = params || {};
 
     const trimmed = search.trim();
-    
+
     // Use RPC function for search
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_parents_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
@@ -58,7 +58,7 @@ export const parentsApi = {
       students?: RpcStudentPreview[];
     };
     const rpcData = rpcResult as { parents: RpcParentRow[]; total: number };
-    
+
     // Transform RPC response to match expected format
     const parents = (rpcData.parents || []).map((p: RpcParentRow) => ({
       id: p.id,
@@ -102,7 +102,7 @@ export const parentsApi = {
       .insert(data)
       .select()
       .single();
-    
+
     if (error) throw error;
     return created as Tables<'parents'>;
   },
@@ -117,7 +117,7 @@ export const parentsApi = {
       .select('*')
       .eq('id', id)
       .maybeSingle();
-    
+
     if (error) throw error;
     return data as Tables<'parents'> | null;
   },
@@ -133,7 +133,7 @@ export const parentsApi = {
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return updated as Tables<'parents'>;
   },
@@ -145,8 +145,7 @@ export const parentsApi = {
   delete: async (id: string): Promise<void> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     // Remove parents_students links first (no cascade in schema typically)
-    await supabase.from('parents_students').delete().eq('parent_id', id);
-    const { error } = await supabase.from('parents').delete().eq('id', id);
+    const { error } = await supabase.rpc('retire_business_record', { p_kind: 'parent', p_id: id });
     if (error) throw error;
   },
 };

@@ -61,9 +61,9 @@ export async function executeCreateNotification(
       const studentId = activityEvent.student_id || null;
       const staffId = activityEvent.staff_id || activityEvent.performed_by || null;
       
-      if (studentId) {
+      if (typeof studentId === 'string') {
         recipients = [{ student_id: studentId }];
-      } else if (staffId) {
+      } else if (typeof staffId === 'string') {
         recipients = [{ staff_id: staffId }];
       }
     }

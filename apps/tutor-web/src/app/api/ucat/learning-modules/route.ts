@@ -1,3 +1,4 @@
+import { isLearningModuleJourneyPlacement } from '@altitutor/shared'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
@@ -8,6 +9,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const client = access.userClient as unknown as UcatTutorSupabaseClient
+
+    const setPlacement = Object.prototype.hasOwnProperty.call(body, 'journeyPlacement')
+    if (setPlacement && body.journeyPlacement != null && (
+      !isLearningModuleJourneyPlacement(body.journeyPlacement) || body.kind !== 'lesson' ||
+      (body.journeyPlacement === 'section_learning') !== Boolean(body.ucatSectionId)
+    )) return NextResponse.json({ error: 'Invalid lesson journey placement for this section' }, { status: 400 })
 
     const isCreate = !body.moduleId
 
@@ -22,6 +29,8 @@ export async function POST(request: NextRequest) {
       p_access_scope: body.accessScope ?? 'public',
       p_icon_key: body.iconKey ?? 'book-open',
       p_estimated_minutes: body.estimatedMinutes ?? null,
+      p_journey_placement: body.journeyPlacement ?? null,
+      p_set_journey_placement: setPlacement,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

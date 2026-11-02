@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Input, Button, Label, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
-import { QuickFilter } from '@altitutor/shared';
+import { getViewSettings, type QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { SUPPORTED_ENTITIES, FilterField, type EntityConfig } from '../config/entities';
@@ -35,7 +35,7 @@ const PLACEHOLDERS = [
 export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickFiltersTableProps) {
   const [editingFilter, setEditingFilter] = useState<QuickFilter | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
+
   const [formData, setFormData] = useState<Partial<QuickFilter>>({
     name: '',
     target_entity: 'tasks',
@@ -52,7 +52,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
   const updateFilter = useUpdateQuickFilter();
   const deleteFilter = useDeleteQuickFilter();
 
-  const selectedEntity = useMemo(() => 
+  const selectedEntity = useMemo(() =>
     SUPPORTED_ENTITIES.find(e => e.id === formData.target_entity),
     [formData.target_entity]
   );
@@ -65,8 +65,8 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
   const handleSave = async () => {
     try {
       if (editingFilter) {
-        await updateFilter.mutateAsync({ 
-          id: editingFilter.id, 
+        await updateFilter.mutateAsync({
+          id: editingFilter.id,
           updates: formData
         });
         setEditingFilter(null);
@@ -82,7 +82,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this quick filter?')) {
+    if (confirm('Are you sure you want to delete this view?')) {
       try {
         await deleteFilter.mutateAsync(id);
         onUpdate();
@@ -101,7 +101,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
   const getEntityLabel = (entityId: string) =>
     SUPPORTED_ENTITIES.find((entity) => entity.id === entityId)?.label ?? entityId.replace('_', ' ');
 
-  const renderConfig = (filter: QuickFilter) => (
+  const renderConfig = (filter: QuickFilter) => getViewSettings(filter.config) ? <span className="text-sm text-muted-foreground">Full display view · double-click its pill on the {getEntityLabel(filter.target_entity)} page to edit</span> : (
     <div className="flex flex-wrap gap-1">
       {Object.entries(filter.config).map(([key, values]) => {
         const entityConfig = SUPPORTED_ENTITIES.find(e => e.id === filter.target_entity);
@@ -157,7 +157,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
     const fieldKey = field.key;
     const currentConfig = { ...(formData.config || {}) };
     const currentValues = currentConfig[fieldKey] || [];
-    
+
     let nextValues;
     if (field.type === 'date') {
       nextValues = currentValues.includes(value) ? [] : [value];
@@ -184,8 +184,8 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
         data={filters}
         columns={columns}
         getRowId={(filter) => filter.id}
-        emptyMessage="No quick filters configured"
-        searchPlaceholder="Search quick filters..."
+        emptyMessage="No views configured"
+        searchPlaceholder="Search views..."
         filterKeys={['entity']}
         filterDefinitions={[
           {
@@ -212,8 +212,8 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
       <AdminDialogShell
         open={!!editingFilter || isCreateDialogOpen}
         onClose={closeDialog}
-        title={editingFilter ? 'Edit Quick Filter' : 'Create Quick Filter'}
-        subtitle="Configure the quick filter settings. Multiple values for the same property are ORed, and different properties are ANDed."
+        title={editingFilter ? 'Edit View' : 'Create View'}
+        subtitle="Configure the view settings. Multiple values for the same property are ORed, and different properties are ANDed."
         contentClassName="md:max-w-3xl"
         footer={(
           <>
@@ -221,7 +221,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={!formData.name || !formData.target_entity}>
-              Save Filter
+              Save view
             </Button>
           </>
         )}
@@ -229,7 +229,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="filter-name">Filter Name</Label>
+                <Label htmlFor="filter-name">View name</Label>
                 <Input
                   id="filter-name"
                   value={formData.name}
@@ -283,7 +283,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
               </div>
             </div>
 
-            <div className="space-y-4">
+            {getViewSettings(formData.config ?? {}) ? <p className="text-sm text-muted-foreground">Edit layout, filters and properties by double-clicking this view on its page.</p> : <div className="space-y-4">
               <Label className="text-base">Filter Configuration</Label>
               <div className="space-y-6 border rounded-lg p-4 bg-muted/30">
                 {selectedEntity?.fields.map((field) => (
@@ -291,9 +291,9 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold">{field.label}</span>
                       {formData.config?.[field.key] && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-6 text-[10px]"
                           onClick={() => {
                             const newConfig = { ...formData.config };
@@ -305,7 +305,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
                         </Button>
                       )}
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-2">
                       {/* Standard Options */}
                       {field.options?.map((opt) => (
@@ -361,7 +361,7 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </div>
       </AdminDialogShell>
     </>

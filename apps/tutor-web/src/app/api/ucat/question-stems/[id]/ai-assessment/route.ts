@@ -67,7 +67,8 @@ function currentQuestionIds(run: RunRow, fingerprints: ReturnType<typeof fingerp
   )
 }
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
@@ -139,7 +140,8 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as { action?: string; runId?: string; force?: boolean } | null
@@ -193,7 +195,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as {

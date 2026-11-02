@@ -31,19 +31,21 @@ INSERT INTO public.invoices (
 SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '2000'
-      AND payload->>'amount_paid_from_card_cents' = '13000'
+      AND payload->>'amount_paid_by_customer_cents' = '15000'
+      AND payload->>'amount_paid_from_card_cents' = '15000'
       AND payload->>'amount_paid_cents' = '15000'
     FROM public.domain_events
     WHERE event_name = 'invoice.paid'
       AND subject_id = 'fe200000-0000-4000-8000-000000000001'
   ),
-  'paying an invoice records card vs credit-balance settlement in the paid event'
+  'paying an invoice records customer payment vs credit-balance settlement in the paid event'
 );
 
 SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '2000'
-      AND payload->>'amount_paid_from_card_cents' = '13000'
+      AND payload->>'amount_paid_by_customer_cents' = '15000'
+      AND payload->>'amount_paid_from_card_cents' = '15000'
     FROM public.domain_events
     WHERE event_name = 'invoice.issued'
       AND subject_id = 'fe200000-0000-4000-8000-000000000001'
@@ -80,15 +82,16 @@ SET
   status = 'paid',
   paid_at = TIMESTAMPTZ '2099-02-02 11:00:00+00',
   amount_due_cents = 0,
-  amount_paid_cents = 8000,
+  amount_paid_cents = 0,
   amount_paid_from_balance_cents = 8000
 WHERE id = 'fe200000-0000-4000-8000-000000000002';
 
 SELECT ok(
   (
     SELECT payload->>'amount_paid_from_balance_cents' = '8000'
+      AND payload->>'amount_paid_by_customer_cents' = '0'
       AND payload->>'amount_paid_from_card_cents' = '0'
-      AND payload->>'amount_paid_cents' = '8000'
+      AND payload->>'amount_paid_cents' = '0'
     FROM public.domain_events
     WHERE event_name = 'invoice.paid'
       AND subject_id = 'fe200000-0000-4000-8000-000000000002'
@@ -103,9 +106,9 @@ SELECT is(
     'amount_paid_from_balance_cents', 1500,
     'currency', 'AUD',
     'status', 'paid'
-  ))->>'amount_paid_from_card_cents',
-  '3500',
-  'the settlement helper derives the card portion from paid minus credit balance'
+  ))->>'amount_paid_by_customer_cents',
+  '5000',
+  'the settlement helper derives the customer payment without subtracting credit again'
 );
 
 SELECT * FROM finish();

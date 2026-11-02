@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@altitutor/ui';
 
 type Pdfjs = {
   GlobalWorkerOptions: { workerSrc: string };
@@ -11,12 +12,16 @@ type Pdfjs = {
     cMapPacked?: boolean;
     standardFontDataUrl?: string;
     wasmUrl?: string;
-  }) => { promise: Promise<PdfDocument> };
+  }) => PdfLoadingTask;
+};
+
+type PdfLoadingTask = {
+  promise: Promise<PdfDocument>;
+  destroy: () => Promise<void>;
 };
 
 type PdfDocument = {
   numPages: number;
-  destroy: () => Promise<void>;
   getPage: (pageNumber: number) => Promise<PdfPage>;
 };
 
@@ -37,7 +42,7 @@ function importPublicEsm(href: string): Promise<unknown> {
   // Next webpack wraps pdfjs-dist 5 ESM and throws
   // `Object.defineProperty called on non-object`. A Function-built import()
   // is invisible to the bundler and loads `/pdfjs` as a native module.
-  // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval -- hide from webpack
+
   const importer = new Function('href', 'return import(href)') as (
     url: string,
   ) => Promise<unknown>;
@@ -59,13 +64,22 @@ export function ResourcePdfPages({
   url,
   filename,
   className,
+  onReady,
+  onRetry,
+  isRetrying = false,
 }: {
   url: string;
   filename: string;
   className?: string;
+  onReady?: (loadedUrl: string) => void;
+  onRetry?: () => void;
+  isRetrying?: boolean;
 }) {
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading',
   );
@@ -76,7 +90,7 @@ export function ResourcePdfPages({
     if (!root || !pages) return undefined;
 
     let cancelled = false;
-    let doc: PdfDocument | null = null;
+    let loadingTask: PdfLoadingTask | null = null;
     setStatus('loading');
     pages.replaceChildren();
 
@@ -84,18 +98,16 @@ export function ResourcePdfPages({
       try {
         const pdfjs = await loadPdfjs();
         if (cancelled) return;
-        doc = await pdfjs.getDocument({
+        loadingTask = pdfjs.getDocument({
           url,
           withCredentials: false,
           cMapUrl: '/pdfjs/cmaps/',
           cMapPacked: true,
           standardFontDataUrl: '/pdfjs/standard_fonts/',
           wasmUrl: '/pdfjs/wasm/',
-        }).promise;
-        if (cancelled) {
-          await doc.destroy();
-          return;
-        }
+        });
+        const doc = await loadingTask.promise;
+        if (cancelled) return;
 
         const targetWidth = Math.max(root.clientWidth, 320);
         for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
@@ -119,7 +131,10 @@ export function ResourcePdfPages({
           if (cancelled) return;
           pages.appendChild(canvas);
         }
-        if (!cancelled) setStatus('ready');
+        if (!cancelled) {
+          setStatus('ready');
+          onReadyRef.current?.(url);
+        }
       } catch {
         if (!cancelled) setStatus('error');
       }
@@ -128,9 +143,10 @@ export function ResourcePdfPages({
     return () => {
       cancelled = true;
       pages.replaceChildren();
-      if (doc) void doc.destroy();
+      // PDF.js owns document/worker cleanup on the task, including pending loads.
+      if (loadingTask) void loadingTask.destroy().catch(() => undefined);
     };
-  }, [url]);
+  }, [url, retryAttempt]);
 
   return (
     <div
@@ -145,7 +161,13 @@ export function ResourcePdfPages({
         <p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>
       ) : null}
       {status === 'error' ? (
-        <p className="p-4 text-sm text-destructive">Couldn’t load this PDF.</p>
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-destructive">Couldn’t load this PDF.</p>
+          {onRetry ? <Button type="button" variant="outline" disabled={isRetrying}
+            onClick={() => { onRetry(); setRetryAttempt((attempt) => attempt + 1); }}>
+            {isRetrying ? 'Retrying…' : 'Retry PDF'}
+          </Button> : null}
+        </div>
       ) : null}
       <div ref={pagesRef} className="w-full" />
     </div>

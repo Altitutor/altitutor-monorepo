@@ -4,6 +4,7 @@ import { cn } from '@/shared/utils/index';
 import { formatTutorLogStaffAttendanceLabel } from '@altitutor/shared/pay-tiers';
 
 type AttendanceCellProps = {
+  compact?: boolean;
   status: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'swapped' | 'attending-trial' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' | 'unplanned';
   linkTo?: {
     type: 'session' | 'staff';
@@ -15,7 +16,7 @@ type AttendanceCellProps = {
   sessionType?: string | null;
 };
 
-export function AttendanceCell({ status, linkTo, linkText, staffType, sessionType }: AttendanceCellProps) {
+export function AttendanceCell({ compact = false, status, linkTo, linkText, staffType, sessionType }: AttendanceCellProps) {
   const getStatusConfig = () => {
     switch (status) {
       case 'attending':
@@ -84,7 +85,7 @@ export function AttendanceCell({ status, linkTo, linkText, staffType, sessionTyp
   const config = getStatusConfig();
   
   const content = (
-    <span className={cn('px-2 py-1 rounded-md text-sm inline-block', config.className)}>
+    <span className={cn('inline-block', compact ? 'px-1.5 py-0.5 rounded-full text-[10px]' : 'px-2 py-1 rounded-md text-sm', config.className)}>
       {config.text}
     </span>
   );

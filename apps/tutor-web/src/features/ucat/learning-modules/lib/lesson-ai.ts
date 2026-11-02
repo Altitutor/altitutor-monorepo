@@ -19,18 +19,18 @@ export const LessonAiBlockSchema = z.object({
   clientId: z.string(),
   block_type: z.enum(['text', 'video', 'file', 'question_stem', 'question', 'skill_trainer']),
   content: z.record(z.string(), z.unknown()).default({}),
-  question_stem_id: z.string().uuid().nullable().optional(),
-  question_id: z.string().uuid().nullable().optional(),
-  file_id: z.string().uuid().nullable().optional(),
-  skill_trainer_id: z.string().uuid().nullable().optional(),
-  skill_trainer_set_id: z.string().uuid().nullable().optional(),
+  question_stem_id: z.string().guid('Invalid uuid').nullable().optional(),
+  question_id: z.string().guid('Invalid uuid').nullable().optional(),
+  file_id: z.string().guid('Invalid uuid').nullable().optional(),
+  skill_trainer_id: z.string().guid('Invalid uuid').nullable().optional(),
+  skill_trainer_set_id: z.string().guid('Invalid uuid').nullable().optional(),
 })
 
 export const LessonAiModuleSchema = z.object({
-  moduleId: z.string().uuid().nullable().optional(),
+  moduleId: z.string().guid('Invalid uuid').nullable().optional(),
   title: z.string().trim().max(240).default(''),
   description: z.string().trim().max(2000).default(''),
-  sectionId: z.string().uuid().nullable().optional(),
+  sectionId: z.string().guid('Invalid uuid').nullable().optional(),
 })
 
 export const LessonAiTextBlockSchema = z.discriminatedUnion('type', [

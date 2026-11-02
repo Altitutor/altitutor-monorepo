@@ -87,14 +87,20 @@ serveWithSentry("ucat-transactional-email-dispatch", async (request, sentry) => 
         .maybeSingle();
       if (suppressionError) throw suppressionError;
 
-      if (suppression) {
+      const { data: student, error: studentError } = row.student_id
+        ? await supabase.from('students').select('id,deleted_at').eq('id', row.student_id).maybeSingle()
+        : { data: null, error: null };
+      if (studentError) throw studentError;
+      const studentUnavailable = row.student_id && (!student || student.deleted_at);
+
+      if (suppression || studentUnavailable) {
         const { error: updateError } = await supabase
           .from("ucat_transactional_email_outbox")
           .update({
             status: "suppressed",
             delivery_status: "suppressed",
             claimed_at: null,
-            last_error: `Suppressed after ${String(suppression.reason)}`.slice(
+            last_error: studentUnavailable ? 'Student deleted or unavailable' : `Suppressed after ${String(suppression?.reason)}`.slice(
               0,
               2000,
             ),

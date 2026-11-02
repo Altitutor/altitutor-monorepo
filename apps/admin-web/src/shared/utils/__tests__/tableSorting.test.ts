@@ -53,6 +53,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
     {
       id: 'student-2',
@@ -94,6 +96,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
     {
       id: 'student-3',
@@ -135,6 +139,8 @@ describe('sortStudentsByStatus', () => {
       birthday: null,
       ucat_initial_familiarity: null,
       account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
     },
   ];
 
@@ -177,6 +183,7 @@ describe('sortStudentsByStatus', () => {
 describe('filterClassesBySearch', () => {
   const mockClasses: Tables<'classes'>[] = [
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-1',
       subject_id: 'subject-1',
       day_of_week: 1,
@@ -207,6 +214,7 @@ describe('filterClassesBySearch', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-2',
       subject_id: 'subject-2',
       day_of_week: 2,
@@ -269,6 +277,7 @@ describe('filterClassesBySearch', () => {
 describe('filterClassesByDay', () => {
   const mockClasses: Tables<'classes'>[] = [
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-1',
       subject_id: 'subject-1',
       day_of_week: 1, // Monday
@@ -299,6 +308,7 @@ describe('filterClassesByDay', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-2',
       subject_id: 'subject-2',
       day_of_week: 2, // Tuesday
@@ -329,6 +339,7 @@ describe('filterClassesByDay', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-3',
       subject_id: 'subject-3',
       day_of_week: 1, // Monday
@@ -385,6 +396,7 @@ describe('filterClassesByDay', () => {
 describe('sortClassesByDayAndTime', () => {
   const mockClasses: Tables<'classes'>[] = [
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-1',
       subject_id: 'subject-1',
       day_of_week: 2, // Tuesday
@@ -415,6 +427,7 @@ describe('sortClassesByDayAndTime', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-2',
       subject_id: 'subject-2',
       day_of_week: 1, // Monday
@@ -445,6 +458,7 @@ describe('sortClassesByDayAndTime', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-3',
       subject_id: 'subject-3',
       day_of_week: 1, // Monday
@@ -475,6 +489,7 @@ describe('sortClassesByDayAndTime', () => {
       long_name: null,
     },
     {
+    deleted_at: null, deleted_by: null,
       id: 'class-4',
       subject_id: 'subject-4',
       day_of_week: 0, // Sunday (should be last)
@@ -534,6 +549,7 @@ describe('sortClassesByDayAndTime', () => {
   it('should handle classes with same day and time', () => {
     const duplicateClasses: Tables<'classes'>[] = [
       {
+    deleted_at: null, deleted_by: null,
         id: 'class-1',
         subject_id: 'subject-1',
         day_of_week: 1,
@@ -564,6 +580,7 @@ describe('sortClassesByDayAndTime', () => {
         long_name: null,
       },
       {
+    deleted_at: null, deleted_by: null,
         id: 'class-2',
         subject_id: 'subject-2',
         day_of_week: 1,

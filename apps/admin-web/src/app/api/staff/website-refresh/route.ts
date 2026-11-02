@@ -3,7 +3,7 @@ import { createClient } from "@/shared/lib/supabase/server-ssr";
 
 export async function POST() {
   try {
-    const client = createClient();
+    const client = await createClient();
     const {
       data: { user },
     } = await client.auth.getUser();
@@ -18,7 +18,8 @@ export async function POST() {
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const origin =
-      process.env.MARKETING_APP_ORIGIN ??
+      process.env.MARKETING_APP_ORIGIN ||
+      process.env.NEXT_PUBLIC_MARKETING_URL ||
       (process.env.NODE_ENV === "development"
         ? "http://localhost:3003"
         : process.env.VERCEL_ENV === "preview"

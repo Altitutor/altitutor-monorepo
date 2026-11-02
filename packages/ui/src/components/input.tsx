@@ -17,8 +17,7 @@ import {
   type NativeDateTimeInputType,
 } from "../lib/native-datetime-input"
 
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 function useTextDateTimeMode(type: string | undefined): boolean {
   const [useTextMode, setUseTextMode] = React.useState(false);

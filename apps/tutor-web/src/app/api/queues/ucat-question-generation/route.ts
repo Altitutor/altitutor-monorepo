@@ -5,7 +5,7 @@ import {
 } from '@/features/ucat/questions/server/run-background-generation'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
-export const maxDuration = 600
+export const maxDuration = 300
 
 const consumeGeneration = handleCallback<UcatQuestionGenerationQueueMessage>(
   async (message, metadata) => {

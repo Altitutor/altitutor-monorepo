@@ -8,7 +8,7 @@ import { useAdminShell } from "@/shared/contexts/AdminShellContext";
 import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
-import { matchShortcut, panelShortcuts, shortcuts } from "./registry";
+import { matchShortcut } from "./registry";
 import { AltHintsContext } from "./context";
 import { activeDialog, searchControl } from "./search";
 import { SearchHint } from "./SearchHint";
@@ -82,11 +82,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         if (window.matchMedia("(max-width: 767px)").matches) mobile.toggle();
         else shell.toggleSidebar();
       } else if (id === "right") panel?.toggle();
-      else if (panelShortcuts.some((kind) => kind === id))
-        panel?.openTab({
-          kind: id as (typeof panelShortcuts)[number],
-          title: shortcuts[id].title,
-        });
+
     };
     window.addEventListener("keydown", keydown, true);
     window.addEventListener("keyup", keyup, true);

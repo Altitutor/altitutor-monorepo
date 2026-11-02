@@ -6,6 +6,8 @@ import {
   useAccessoryPanel,
 } from "@/shared/contexts/AccessoryPanelContext";
 
+const push = jest.fn();
+jest.mock('next/navigation', () => ({useRouter: () => ({push}), usePathname: () => '/dashboard/2026-10-03'}));
 jest.mock("@/shared/lib/supabase/auth", () => ({
   useAuthStore: () => ({ user: { id: "calendar-test" } }),
 }));
@@ -23,6 +25,7 @@ const workspace = () =>
   JSON.parse(screen.getByTestId("workspace").textContent!);
 beforeEach(() => {
   localStorage.clear();
+  push.mockClear();
   jest.useFakeTimers().setSystemTime(new Date("2026-10-03T12:00:00"));
   Object.defineProperty(crypto, "randomUUID", {
     configurable: true,
@@ -56,30 +59,10 @@ test("the header calendar shows one month with numbered days and navigates whole
   await user.click(screen.getByRole("button", { name: "Next month" }));
   expect(screen.getByRole("group", { name: "October 2026" })).toBeVisible();
 });
-test("day selection opens and reuses Today, changes its date, and expands a collapsed panel", async () => {
+test("day selection navigates the main dashboard without creating an accessory view", async () => {
   const user = setup();
-  await user.click(screen.getByRole("button", { name: "Open calendar" }));
-  await user.click(
-    screen.getByRole("button", { name: "Monday, 5 October 2026" }),
-  );
-  expect(workspace()).toMatchObject({
-    expanded: true,
-    activeKey: "calendar-key",
-    tabs: [{ kind: "today", title: "5 Oct", query: "date=2026-10-05" }],
-  });
-  await user.click(screen.getByRole("button", { name: "Collapse panel" }));
-  await user.click(screen.getByRole("button", { name: "Open calendar" }));
-  await user.click(
-    screen.getByRole("button", { name: "Tuesday, 6 October 2026" }),
-  );
-  expect(workspace().tabs).toHaveLength(1);
-  expect(workspace()).toMatchObject({
-    expanded: true,
-    tabs: [{ key: "calendar-key", title: "6 Oct", query: "date=2026-10-06" }],
-  });
-  await user.click(screen.getByRole("button", { name: "Open calendar" }));
-  await user.click(
-    screen.getByRole("button", { name: "Saturday, 3 October 2026" }),
-  );
-  expect(workspace().tabs[0]).toMatchObject({ title: "Today", query: "" });
+  await user.click(screen.getByRole('button', {name: 'Open calendar'}));
+  await user.click(screen.getByRole('button', {name: 'Monday, 5 October 2026'}));
+  expect(push).toHaveBeenCalledWith('/dashboard/2026-10-05');
+  expect(workspace().tabs).toEqual([]);
 });

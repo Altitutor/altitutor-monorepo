@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 

@@ -12,7 +12,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentMethodCard, type PaymentMethodCardData } from '@altitutor/ui';
 import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
 import { StudentInvoicesTable } from './StudentInvoicesTable';
-import { CustomerBalanceSection } from './CustomerBalanceSection';
 import { BillingPreferencesSection } from './BillingPreferencesSection';
 import { StudentSubsidiesTable } from './StudentSubsidiesTable';
 import { AddSubsidyModal } from './AddSubsidyModal';
@@ -201,16 +200,12 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
 
 interface InvoicesTabProps {
   studentId: string;
-  studentName: string;
 }
 
-function InvoicesTab({ studentId, studentName }: InvoicesTabProps) {
+function InvoicesTab({ studentId }: InvoicesTabProps) {
   return (
-    <div className="space-y-6">
-      <CustomerBalanceSection studentId={studentId} studentName={studentName} />
-      <div className="space-y-4">
-        <StudentInvoicesTable studentId={studentId} />
-      </div>
+    <div className="space-y-4">
+      <StudentInvoicesTable studentId={studentId} />
     </div>
   );
 }
@@ -271,7 +266,6 @@ function SubsidiesTab({ studentId }: SubsidiesTabProps) {
 }
 
 export function StudentBillingTab({ student }: { student: Tables<'students'> }) {
-  const studentName = `${student.first_name} ${student.last_name}`;
   const [activeTab, setActiveTab] = useState('invoices');
 
   return (
@@ -288,7 +282,7 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
       ]}
     >
       <SegmentedTabPanelContent when="invoices" activeTab={activeTab} className="mt-6">
-        <InvoicesTab studentId={student.id} studentName={studentName} />
+        <InvoicesTab studentId={student.id} />
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="payment-methods" activeTab={activeTab} className="mt-6">

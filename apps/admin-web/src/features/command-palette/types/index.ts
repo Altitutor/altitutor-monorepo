@@ -6,7 +6,7 @@ import type { FilterType } from '../utils/filtering';
  */
 type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name'
+  | 'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -18,9 +18,14 @@ type MinimalClass = Pick<
  * Entity result type for command palette search
  * Represents a searchable entity (student, staff, parent, class, subject, topic, or file)
  */
-export type CommandPaletteEntityResult = 
+export type CommandPaletteEntityResult =
+  | { type: "email" | "message";
+      id: string;
+      data: { title: string; subtitle: string | null };
+    }
   | { type: 'student'; id: string; data: Tables<'students'> }
-  | { type: 'staff'; id: string; data: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'email' | 'phone_number'> }
+  | { type: 'staff'; id: string; data: Pick<Tables<'staff'>,
+        | 'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'email' | 'phone_number'> }
   | { type: 'parent'; id: string; data: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'> }
   | { type: 'class'; id: string; data: MinimalClass }
   | { type: 'subject'; id: string; data: Tables<'subjects'> }

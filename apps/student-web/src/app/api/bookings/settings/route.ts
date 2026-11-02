@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Require auth only for non-public keys
     if (!isPublicKey) {
-      const userClient = createServerClient();
+      const userClient = await createServerClient();
       const { data: { user }, error: authError } = await userClient.auth.getUser();
 
       if (authError || !user) {

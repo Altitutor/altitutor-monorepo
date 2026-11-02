@@ -19,6 +19,7 @@ import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { IN_PERSON_COURSES, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { SiteLogo } from "./site-logo";
 import styles from "../marketing.module.css";
+import type { PrimaryAction } from "../conversion-actions";
 
 const groups = [
   { href: "/classes/", label: "In person courses", items: IN_PERSON_COURSES },
@@ -60,8 +61,11 @@ const courseDetails = {
   },
 } as const;
 
-export function Navigation() {
+export function Navigation({
+  primaryAction,
+}: { primaryAction?: PrimaryAction } = {}) {
   const pathname = usePathname();
+  const [hydrated, setHydrated] = useState(false);
   const [dropdown, setDropdown] = useState<string | null>(null);
   const header = useRef<HTMLElement>(null);
   const [selectedGroup, setSelectedGroup] = useState(0);
@@ -69,6 +73,10 @@ export function Navigation() {
   const panel = useRef<HTMLDivElement>(null);
   const previousPanelHeight = useRef<number | null>(null);
   const desktopOpen = dropdown !== null;
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useLayoutEffect(() => {
     const element = panel.current;
@@ -191,22 +199,16 @@ export function Navigation() {
   }
 
   const logoVariant =
-    pathname === "/" &&
-    !scrolled &&
-    !menuOpen &&
-    !menuClosing &&
-    !dropdown
+    pathname === "/" && !scrolled && !menuOpen && !menuClosing && !dropdown
       ? "dark"
       : "light";
 
-  const isUcatLandingPage =
-    pathname === "/ucat" || pathname === "/ucat/";
-  const navCtaHref = isUcatLandingPage
-    ? PRODUCT_LINKS.ucatSignup
-    : PRODUCT_LINKS.trialBooking;
-  const navCtaLabel = isUcatLandingPage
-    ? "Start free"
-    : "Free trial";
+  const isUcatLandingPage = pathname === "/ucat" || pathname === "/ucat/";
+  const navCtaHref =
+    primaryAction?.href ??
+    (isUcatLandingPage ? PRODUCT_LINKS.ucatSignup : PRODUCT_LINKS.trialBooking);
+  const navCtaLabel =
+    primaryAction?.label ?? (isUcatLandingPage ? "Start free" : "Free trial");
 
   return (
     <>
@@ -342,6 +344,7 @@ export function Navigation() {
               aria-label={menuOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={menuOpen}
               aria-controls="mobile-navigation"
+              disabled={!hydrated}
               onClick={() => setMenuOpen(!menuOpen)}
               ref={trigger}
             >

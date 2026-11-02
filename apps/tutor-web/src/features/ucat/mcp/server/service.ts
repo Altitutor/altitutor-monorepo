@@ -12,6 +12,7 @@ import {
 } from '@altitutor/ucat-response-contract'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { normalizeSetTiming } from '@/features/ucat/sets/lib/set-timing-payload'
 import {
   isUcatVisibilityBlockedError,
   isUcatVisibilityBlockedMessage,
@@ -1337,9 +1338,7 @@ export async function createUcatMcpQuestionSet(
   const draft: QuestionSetDraft = {
     authoringNote: input.authoringNote ?? null,
     description: toRichTextJson(input.description) ?? {},
-    timingMode: input.timingMode,
-    paceMultiplier: input.paceMultiplier ?? null,
-    fixedTimeLimitSeconds: input.fixedTimeLimitSeconds ?? null,
+    ...normalizeSetTiming(input),
     setFormat: input.setFormat,
     accessScope: input.accessScope,
     sectionId: input.sectionId,
@@ -1377,14 +1376,15 @@ export async function updateUcatMcpQuestionSet(
 ): Promise<Record<string, unknown>> {
   const current = await getSet(client, id)
   const draft = applyQuestionSetOperations(questionSetDraftFromDetail(current), operations)
+  const timing = normalizeSetTiming(draft)
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
     p_set_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
     p_authoring_note: draft.authoringNote,
     p_description: draft.description,
-    p_timing_mode: draft.timingMode,
-    p_pace_multiplier: draft.paceMultiplier,
-    p_fixed_time_limit_seconds: draft.fixedTimeLimitSeconds,
+    p_timing_mode: timing.timingMode,
+    p_pace_multiplier: timing.paceMultiplier,
+    p_fixed_time_limit_seconds: timing.fixedTimeLimitSeconds,
     p_set_format: draft.setFormat,
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,

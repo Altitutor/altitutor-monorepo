@@ -38,7 +38,7 @@ const DISCIPLINE_OPTIONS = [
 
 const formSchema = z.object({
   name: z.string().min(1, 'Subject name is required'),
-  year_level: z.coerce.number().int().min(1).max(12).nullable(),
+  year_level: z.coerce.number<number>().int().min(1).max(12).nullable(),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE']).nullable(),
   discipline: z.enum(['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE']).nullable(),
   level: z.string().nullable(),

@@ -24,7 +24,7 @@ function parseCrop(value: FormDataEntryValue | null) {
 }
 
 async function tutorId() {
-  const client = createClient()
+  const client = await createClient()
   const [{ data: isTutor }, { data: id }] = await Promise.all([
     client.rpc('is_tutor'),
     client.rpc('current_tutor_id'),

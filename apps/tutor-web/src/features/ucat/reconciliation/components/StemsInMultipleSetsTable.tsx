@@ -1,9 +1,10 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Button,
-  DataTableToolbar,
   TableCell,
   TableRow,
   useToast,
@@ -148,7 +149,9 @@ export function StemsInMultipleSetsTable({
   )
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_multiple_sets'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

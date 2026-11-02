@@ -7,7 +7,7 @@ import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
   try {
-    const userClient = createUserClient();
+    const userClient = await createUserClient();
     const {
       data: { user },
       error: authError,
@@ -125,11 +125,13 @@ export async function POST(request: Request) {
     const studentAttendance = (data.studentAttendance || []).map((sa) => ({
       studentId: sa.studentId,
       attended: sa.attended,
+      sendAutomatedText: !(data.automatedTextSuppressedStudentIds ?? []).includes(sa.studentId),
     }));
 
     const parentAttendance = (data.parentAttendance || []).map((pa) => ({
       parentId: pa.parentId,
       attended: pa.attended,
+      sendAutomatedText: !(data.automatedTextSuppressedParentIds ?? []).includes(pa.parentId),
     }));
 
     const topics = (data.topics || []).map((t) => ({

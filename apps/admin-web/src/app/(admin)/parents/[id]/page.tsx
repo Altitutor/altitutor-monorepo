@@ -1,9 +1,11 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -38,7 +40,8 @@ import {
 } from '@/features/parents/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
 
-export default function ParentDetailPage({ params }: { params: { id: string } }) {
+export default function ParentDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -134,9 +137,9 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   const activityLayout = activeTab === 'activity';
 
   return (
-    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
+    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden px-4 pt-4' : 'p-4'}>
       {/* Header */}
-      <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
+      <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
         <NoteAlertPills entityType="parent" entityId={parent.id} />
 
@@ -169,7 +172,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className={activityLayout ? 'mt-3 flex min-h-0 flex-1 flex-col gap-3 px-4' : 'space-y-6'}
+        className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
           { value: 'details', label: 'Details' },
@@ -205,7 +208,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
               <Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 disabled={mutations.isUpdatingDetails}
                 onClick={() => {
                   const form = document.getElementById('parent-edit-form') as HTMLFormElement;
@@ -255,8 +258,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the parent
-              {parent ? ` ${parent.first_name} ${parent.last_name}` : ''} and all associated data from the database.
+              <RetainedDeletionMessage kind="Parent" name={parent ? `${parent.first_name} ${parent.last_name}` : undefined} />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

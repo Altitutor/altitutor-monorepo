@@ -67,6 +67,7 @@ const createWrapper = () => {
 };
 
 const mockParent: Tables<'parents'> = {
+    deleted_at: null, deleted_by: null,
   id: 'parent-1',
   first_name: 'John',
   last_name: 'Doe',
@@ -120,6 +121,8 @@ const mockStudents: Tables<'students'>[] = [
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   },
   {
     id: 'student-2',
@@ -161,13 +164,15 @@ const mockStudents: Tables<'students'>[] = [
     birthday: null,
     ucat_initial_familiarity: null,
     account_class: 'external',
+      deleted_at: null,
+      deleted_by: null,
   },
 ];
 
 describe('ParentDetailsTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockUseStudentSubjectsForIds.mockReturnValue({
       data: {
         'student-1': [{ id: 'subject-1', name: 'Math' }] as Tables<'subjects'>[],
@@ -384,12 +389,12 @@ describe('ParentDetailsTab', () => {
       // Find form by id
       const form = container.querySelector('form#parent-edit-form') as HTMLFormElement;
       expect(form).toBeInTheDocument();
-      
+
       // Update form field to ensure form has data
       const firstNameInput = screen.getByLabelText(/first name/i);
       await user.clear(firstNameInput);
       await user.type(firstNameInput, 'Jane');
-      
+
       // Submit form by directly calling the form's onSubmit handler
       // Since the form has an onSubmit handler, we can trigger it
       const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
@@ -438,7 +443,7 @@ describe('ParentDetailsTab', () => {
       );
 
       const removeButtons = screen.getAllByRole('button');
-      const removeButton = removeButtons.find(btn => 
+      const removeButton = removeButtons.find(btn =>
         btn.querySelector('svg') // X icon
       );
       expect(removeButton).toBeInTheDocument();
@@ -462,10 +467,10 @@ describe('ParentDetailsTab', () => {
       );
 
       const removeButtons = screen.getAllByRole('button');
-      const removeButton = removeButtons.find(btn => 
+      const removeButton = removeButtons.find(btn =>
         btn.querySelector('svg') // X icon
       );
-      
+
       if (removeButton) {
         await user.click(removeButton);
         expect(onRemoveStudent).toHaveBeenCalledWith('student-1');

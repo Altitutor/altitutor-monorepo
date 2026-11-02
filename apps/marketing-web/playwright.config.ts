@@ -1,7 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL =
-  process.env.MARKETING_E2E_BASE_URL ?? "http://127.0.0.1:3013";
+const baseURL = process.env.MARKETING_E2E_BASE_URL ?? "http://127.0.0.1:3013";
 const runFullBrowserMatrix =
   process.env.MARKETING_E2E_FULL_BROWSER_MATRIX === "true";
 
@@ -36,23 +35,26 @@ export default defineConfig({
         ]
       : []),
   ],
-  webServer: {
-    command: [
-      "pnpm --workspace-root exec turbo run build --filter=marketing-web^...",
-      "pnpm exec next build",
-      "pnpm exec next start -p 3013 -H 127.0.0.1",
-    ].join(" && "),
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 300_000,
-    env: {
-      SENTRY_DISABLED: "true",
-      NEXT_PUBLIC_SENTRY_DISABLED: "true",
-      SENTRY_TEST_OPT_IN: "false",
-      NEXT_PUBLIC_SENTRY_TEST_OPT_IN: "false",
-      SENTRY_DSN: "",
-      NEXT_PUBLIC_SENTRY_DSN: "",
-      NEXT_DIST_DIR: ".next-e2e",
-    },
-  },
+  webServer:
+    process.env.MARKETING_E2E_EXTERNAL_SERVER === "true"
+      ? undefined
+      : {
+          command: [
+            "pnpm --workspace-root exec turbo run build --filter=marketing-web^...",
+            "pnpm exec next build --webpack",
+            "pnpm exec next start -p 3013 -H 127.0.0.1",
+          ].join(" && "),
+          url: baseURL,
+          reuseExistingServer: false,
+          timeout: 300_000,
+          env: {
+            SENTRY_DISABLED: "true",
+            NEXT_PUBLIC_SENTRY_DISABLED: "true",
+            SENTRY_TEST_OPT_IN: "false",
+            NEXT_PUBLIC_SENTRY_TEST_OPT_IN: "false",
+            SENTRY_DSN: "",
+            NEXT_PUBLIC_SENTRY_DSN: "",
+            NEXT_DIST_DIR: ".next-e2e",
+          },
+        },
 });

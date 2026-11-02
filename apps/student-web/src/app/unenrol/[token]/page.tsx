@@ -19,8 +19,9 @@ function MessagePage({ message }: { message: string }) {
   );
 }
 
-export default async function UnenrolPage({ params }: { params: { token: string } }) {
-  const userClient = createUserClient();
+export default async function UnenrolPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
+  const userClient = await createUserClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/unenrol/${params.token}`)}`);
 

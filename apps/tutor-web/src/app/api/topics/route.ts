@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Get the authenticated user's supabase client
-    const userClient = createClient();
+    const userClient = await createClient();
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

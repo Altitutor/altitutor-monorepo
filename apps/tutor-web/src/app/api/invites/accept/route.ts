@@ -33,7 +33,7 @@ const acceptInviteSchema = z.object({
   first_name: z.string().trim().min(1).max(100),
   last_name: z.string().trim().min(1).max(100),
   phone_number: z.string().trim().min(1).max(32).nullable(),
-  subject_ids: z.array(z.string().uuid()).min(1),
+  subject_ids: z.array(z.string().guid('Invalid uuid')).min(1),
   availability: availabilitySchema,
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   child_safe_agreement_number: z.string().trim().min(1).max(100),

@@ -1,10 +1,11 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import { useMemo, useState } from 'react'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Badge,
-  DataTableToolbar,
   Table,
   TableBody,
   TableCell,
@@ -120,7 +121,9 @@ export function UcatAuditsPage() {
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Audits' }]}
       />
 
-      <DataTableToolbar
+      <TutorEntityToolbar
+        pageKey={'ucat_audits'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}

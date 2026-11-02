@@ -31,6 +31,26 @@ describe("student session middleware", () => {
     } as never);
   });
 
+  it.each([undefined, "isolated-project-app-auth"])(
+    "uses the configured cookie namespace (%s) for session verification",
+    async (override) => {
+      const previous = process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+      try {
+        if (override === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+        else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = override;
+        await middleware(request("/dashboard"));
+        expect(mockCreateServerClient).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.any(String),
+          expect.objectContaining({ cookieOptions: expect.objectContaining({ name: override || "student-auth" }) }),
+        );
+      } finally {
+        if (previous === undefined) delete process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME;
+        else process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME = previous;
+      }
+    },
+  );
+
   it("does no database work for protected navigation", async () => {
     const response = await middleware(request("/dashboard"));
     expect(response.status).toBe(200);

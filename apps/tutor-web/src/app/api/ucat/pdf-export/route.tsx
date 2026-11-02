@@ -30,13 +30,13 @@ const BodySchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('set'),
     title: z.string().trim().min(1).max(200),
-    stemIds: z.array(z.string().uuid()).min(1).max(500),
+    stemIds: z.array(z.string().guid('Invalid uuid')).min(1).max(500),
     options: OptionsSchema,
   }),
   z.object({
     kind: z.literal('mock'),
     title: z.string().trim().min(1).max(200),
-    setIds: z.array(z.string().uuid()).min(1).max(50),
+    setIds: z.array(z.string().guid('Invalid uuid')).min(1).max(50),
     options: OptionsSchema,
   }),
 ])

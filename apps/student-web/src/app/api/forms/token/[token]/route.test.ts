@@ -12,11 +12,14 @@ const sessions = [
   { id: 'inactive', class_id: 'class', start_at: '2026-01-02T02:00:00Z', status: 'INACTIVE', calendar_tombstone_until: null },
   { id: 'tombstone', class_id: 'class', start_at: '2026-01-02T03:00:00Z', status: 'ACTIVE', calendar_tombstone_until: '2026-03-01T00:00:00Z' },
 ];
+let retired = false;
+let targeted = false;
 const rpc = jest.fn().mockResolvedValue({ data: { success: true, scheduled: true }, error: null });
 
 beforeEach(() => {
   jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00Z'));
   rpc.mockClear();
+  retired = false; targeted = false;
   jest.mocked(createClient).mockReturnValue({
     auth: { getUser: async () => ({ data: { user: { id: 'user' } }, error: null }) },
   } as unknown as ReturnType<typeof createClient>);
@@ -24,8 +27,8 @@ beforeEach(() => {
     rpc,
     from: (table: string) => {
       const data: Record<string, Record<string, unknown>[]> = {
-        form_tokens: [{ id: 'token', access_type: 'authenticated', revoked_at: null, metadata: {}, forms: { id: 'form', name: 'Exit', purpose: 'exit', status: 'published' }, form_versions: { id: 'version', blocks: [], version_number: 1 } }],
-        students: [{ id: 'student', user_id: 'user' }],
+        form_tokens: [{ id: 'token', access_type: 'authenticated', revoked_at: null, metadata: targeted ? { context: 'check_in_session', session_id: 'session', respondent_id: 'student' } : {}, forms: { id: 'form', name: 'Exit', purpose: 'exit', status: 'published' }, form_versions: { id: 'version', blocks: [], version_number: 1 } }],
+        students: [{ id: 'student', user_id: 'user', deleted_at: retired ? '2026-01-01T00:00:00Z' : null }],
         student_exit_requests: [{ id: 'request', form_token_id: 'token', student_id: 'student', status: 'pending', workflow_key: 'student_unenrolment' }],
         student_exit_request_enrolments: [{ id: 'enrolment', student_exit_request_id: 'request', classes_students: { class_id: 'class', classes: { id: 'class' } } }],
         sessions,
@@ -52,7 +55,7 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 it('offers only active non-tombstoned final sessions', async () => {
-  const response = await GET(new Request('http://localhost/form/token'), { params: { token: 'token' } });
+  const response = await GET(new Request('http://localhost/form/token'), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(200);
   expect((await response.json()).exitRequest.sessions.map((row: { id: string }) => row.id)).toEqual(['active']);
 });
@@ -60,7 +63,7 @@ it('offers only active non-tombstoned final sessions', async () => {
 it.each(['inactive', 'tombstone'])('rejects a stale %s final-session selection without completing the request', async sessionId => {
   const response = await POST(new Request('http://localhost/form/token', {
     method: 'POST', body: JSON.stringify({ answers: {}, exitSelections: [{ requestEnrolmentId: 'enrolment', sessionId }] }),
-  }), { params: { token: 'token' } });
+  }), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(400);
   expect(rpc).not.toHaveBeenCalled();
 });
@@ -68,9 +71,17 @@ it.each(['inactive', 'tombstone'])('rejects a stale %s final-session selection w
 it('completes a valid active final-session selection', async () => {
   const response = await POST(new Request('http://localhost/form/token', {
     method: 'POST', body: JSON.stringify({ answers: {}, exitSelections: [{ requestEnrolmentId: 'enrolment', sessionId: 'active' }] }),
-  }), { params: { token: 'token' } });
+  }), { params: Promise.resolve({ token: 'token' }) });
   expect(response.status).toBe(200);
   expect(rpc).toHaveBeenCalledWith('complete_student_exit_request', expect.objectContaining({
     p_exit_selections: [{ requestEnrolmentId: 'enrolment', finalSessionAt: sessions[0].start_at }],
   }));
+});
+
+it.each(['GET', 'POST'])('rejects a deleted Student targeted form at %s', async method => {
+  retired = true; targeted = true;
+  const handler = method === 'GET' ? GET : POST;
+  const response = await handler(new Request('http://localhost/form/token', { method, ...(method === 'POST' ? { body: JSON.stringify({ answers: {} }) } : {}) }), { params: Promise.resolve({ token: 'token' }) });
+  expect(response.status).toBe(404);
+  expect(rpc).not.toHaveBeenCalled();
 });

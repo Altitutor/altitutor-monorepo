@@ -3,19 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
 import { getErrorMessage } from '@/shared/utils';
-import { sendEmail } from '@/shared/lib/email';
+import { sendOperationalEmail } from '@/features/email/server/operational';
 import { buildInvoiceNotificationEmail } from '@altitutor/email';
 import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const invoiceId = params.id;
 
     // Verify user is authenticated and has admin role
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     
     if (authError || !session) {
@@ -36,20 +34,13 @@ export async function POST(
     // Get invoice from database with student_id
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('stripe_invoice_id, collection_method, student_id')
+      .select('stripe_invoice_id, student_id')
       .eq('id', invoiceId)
       .is('deleted_at', null)
-      .single<{ stripe_invoice_id: string | null; collection_method: string | null; student_id: string }>();
+      .single<{ stripe_invoice_id: string | null; student_id: string }>();
 
     if (invoiceError || !invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-    }
-
-    if (invoice.collection_method !== 'send_invoice') {
-      return NextResponse.json(
-        { error: 'Invoice is not a send_invoice type. Use charge card instead.' },
-        { status: 400 }
-      );
     }
 
     if (!invoice.stripe_invoice_id) {
@@ -65,17 +56,10 @@ export async function POST(
       );
     }
 
-    // Check Resend API key
-    if (!process.env.RESEND_API_KEY) {
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
-    }
-
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
 
-    // Fetch invoice details from Stripe
+    // Send our notification with Stripe-hosted links for either collection method.
+    // This does not change automatic collection or retry settings.
     const stripeInvoice = await stripe.invoices.retrieve(invoice.stripe_invoice_id);
 
     // Get billing preferences
@@ -180,7 +164,10 @@ export async function POST(
 
     for (const recipient of recipients) {
       try {
-        await sendEmail({
+        await sendOperationalEmail({
+          actorStaffId: staffData.id,
+          idempotencyKey: request.headers.get("idempotency-key") ? `invoice/${invoiceId}/${recipient}/${request.headers.get("idempotency-key")}` : undefined,
+          links: [{ type: "student", id: invoice.student_id }, { type: "invoice", id: invoiceId }],
           to: recipient,
           email,
         });
@@ -203,6 +190,7 @@ export async function POST(
       studentId: invoice.student_id,
       eventName: 'invoice.notification_sent',
       actorStaffId: staffData.id,
+      idempotencyKey: request.headers.get("idempotency-key") ? `invoice-email/${invoiceId}/${request.headers.get("idempotency-key")}` : undefined,
       payload: {
         recipient_count: sent.length,
       },

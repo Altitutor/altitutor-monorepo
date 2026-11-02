@@ -11,7 +11,7 @@ describe('UCAT browser collection', () => {
   afterEach(() => { process.env = originalEnv; jest.clearAllMocks(); });
   function initialize(env: Record<string, string>) {
     process.env = { ...originalEnv, NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1', NEXT_PUBLIC_SENTRY_DISABLED: '', NEXT_PUBLIC_SENTRY_TEST_OPT_IN: '', ...env };
-    jest.isolateModules(() => require('@/instrumentation-client'));
+    jest.isolateModules(() => jest.requireActual('@/instrumentation-client'));
     return jest.mocked(Sentry.init).mock.calls.at(-1)?.[0] as (Parameters<typeof Sentry.init>[0] & { replaysSessionSampleRate?: number; replaysOnErrorSampleRate?: number }) | undefined;
   }
   it.each(['local', 'preview', 'development', 'production'])('does not report automatic localhost events even from a %s build', (deployment) => {

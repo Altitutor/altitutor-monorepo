@@ -1,0 +1,5 @@
+interface:
+  display_name: "Work on ticket"
+  short_description: "Deliver Linear tickets through isolated development"
+policy:
+  allow_implicit_invocation: false

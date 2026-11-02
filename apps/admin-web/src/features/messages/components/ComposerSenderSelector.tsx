@@ -44,7 +44,7 @@ export function ComposerSenderSelector({
   }, [imessageSenders, twilioSenders]);
 
   const trigger = canExpand ? (
-    <Button variant="outline" size="sm" disabled={disabled} type="button" className="h-10">
+    <Button data-composer-label={selectedSender ? getSenderDisplayName(selectedSender) : 'Phone'} variant="outline" size="sm" disabled={disabled} type="button" className="h-10">
       <Phone
         className={`h-4 w-4 mr-2 ${
           selectedSender?.provider === 'IMESSAGE'
@@ -64,6 +64,7 @@ export function ComposerSenderSelector({
       type="button"
       className="h-10"
       aria-label="Select sender"
+      data-composer-label={selectedSender ? getSenderDisplayName(selectedSender) : 'Phone'}
     >
       <Phone
         className={`h-4 w-4 ${

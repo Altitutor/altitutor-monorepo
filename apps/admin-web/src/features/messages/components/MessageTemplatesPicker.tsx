@@ -51,6 +51,8 @@ export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }:
             className="flex-shrink-0 h-10"
             disabled={disabled}
             type="button"
+            aria-label="Template"
+            data-composer-label="Template"
           >
             <FileText className="h-4 w-4 mr-2" />
             Template
@@ -62,6 +64,8 @@ export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }:
             className="flex-shrink-0"
             disabled={disabled}
             type="button"
+            aria-label="Template"
+            data-composer-label="Template"
           >
             <FileText className="h-4 w-4" />
           </Button>

@@ -32,6 +32,7 @@ export * from "./forms";
 export * from "./constants/online-products";
 export * from "./auth/verified-request";
 export * from "./auth/session-verification";
+export * from './auth/student-login';
 export * from "./observability/sentry-environment";
 export * from "./observability/sentry-collection";
 export * from "./session-billing/obligation";
@@ -41,3 +42,18 @@ export * from "./session-billing/future-invoices";
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
 export * from './ucat-founder-offers';
 export * from './tutor-log/attendance-form';
+
+export * from "./utils/saved-views";
+
+export * from "./utils/tutor-saved-views";
+
+export * from "./utils/filter-operators";
+export * from "./ucat/learning-module-placement";
+export * from './interviews';
+export * from './interviews/media';
+
+export * from "./observability/interview-call-reporting";
+
+export * from "./validation/iso-datetime";
+
+export * from "./observability/sentry-web-compatibility";

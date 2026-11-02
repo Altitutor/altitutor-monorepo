@@ -8,7 +8,7 @@ const VALID_PATH = /^[a-zA-Z0-9/_.-]+$/;
 const REFRESHED_URL_EXPIRY_SECONDS = 86400;
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(11);
 
 SELECT ok(
   (
@@ -110,6 +110,21 @@ SELECT is(
   ),
   2,
   'deleting a subtopic compacts the remaining sibling indices'
+);
+
+SELECT lives_ok(
+  $$INSERT INTO public.topics(id,name,subject_id,parent_id,index,code)
+    SELECT 'a1100000-0000-4000-8000-000000000004','New live sibling',subject_id,parent_id,3,'1.3'
+    FROM public.topics WHERE id='a1100000-0000-4000-8000-000000000003'$$,
+  'a new live Topic can reuse a position after retained deletion'
+);
+SELECT lives_ok(
+  $$SELECT public.restore_business_record('topic','a1100000-0000-4000-8000-000000000002')$$,
+  'the retained Topic can be restored after the hierarchy changes'
+);
+SELECT is(
+  (SELECT index FROM public.topics WHERE id='a1100000-0000-4000-8000-000000000002'),4,
+  'restoration appends to current siblings without taking an occupied position'
 );
 
 RESET ROLE;

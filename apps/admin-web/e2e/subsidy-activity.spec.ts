@@ -4,7 +4,7 @@ import type { Database } from '@altitutor/shared';
 import { expect, test as base } from '@playwright/test';
 
 const test = base.extend<{ subsidyStudentId: string }>({
-  subsidyStudentId: async ({ baseURL }, use) => {
+  subsidyStudentId: async ({ baseURL }, provideStudent) => {
     const url = process.env.ADMIN_E2E_SUPABASE_URL;
     const key = process.env.ADMIN_E2E_SERVICE_ROLE_KEY;
     if (!url || !key || !baseURL ||
@@ -21,12 +21,39 @@ const test = base.extend<{ subsidyStudentId: string }>({
     });
     if (error) throw new Error(error.message);
     try {
-      await use(id);
+      await provideStudent(id);
     } finally {
-      const { error: cleanupError } = await database.from('students').delete().eq('id', id);
+      // Student history is retained even in fixtures; the owned DB is disposable.
+      const { error: loginError } = await database.auth.signInWithPassword({
+        email: 'admin@altitutor.test', password: 'test-password',
+      });
+      if (loginError) throw new Error(loginError.message);
+      const { error: cleanupError } = await database.rpc('retire_student', { p_student_id: id });
       if (cleanupError) throw new Error(cleanupError.message);
     }
   },
+});
+
+test('subsidy student filter preserves selections across searches and reloads', async ({ page, baseURL }) => {
+  if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Owned local web server required');
+  const george = '10000000-0000-0000-0000-000000000007';
+  const alice = '10000000-0000-0000-0000-000000000001';
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('admin@altitutor.test');
+  await page.getByPlaceholder('Enter your password').fill('test-password');
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, { timeout: 30_000 });
+  await page.goto(`/subsidies?student=${george}`);
+  await page.getByRole('button', { name: 'Display options' }).click();
+  await expect(page.getByRole('button', { name: 'Change value for Student' })).toHaveText('George Clark');
+  await page.getByRole('button', { name: 'Change value for Student' }).click();
+  await page.getByPlaceholder('Search students…').fill('Alice');
+  await page.getByRole('option', { name: 'Alice Williams', exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get('student')?.split(',').sort()).toEqual([alice, george].sort());
+  await page.reload();
+  await page.getByRole('button', { name: 'Display options' }).click();
+  await expect(page.getByRole('button', { name: 'Change value for Student' })).toContainText('George Clark');
+  await expect(page.getByRole('button', { name: 'Change value for Student' })).toContainText('Alice Williams');
 });
 
 test('subsidy saves appear in Student activity once, with actor and old/new rates', async ({ page, subsidyStudentId }, testInfo) => {
@@ -65,6 +92,7 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
   await openSubsidies();
   const row = page.getByRole('row').filter({ hasText: '$12.34 AUD' });
   await row.getByRole('button').first().click();
+  await page.getByRole('menuitem', { name: 'Edit subsidy' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Edit Subsidy' });
   await editDialog.getByLabel('Subsidy price per hour (in dollars)').fill('10.50');
   await editDialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
@@ -77,6 +105,7 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
 
   await openSubsidies();
   await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button').first().click();
+  await page.getByRole('menuitem', { name: 'Edit subsidy' }).click();
   await editDialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
   await expect(editDialog).toBeHidden();
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
@@ -85,8 +114,9 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
   await page.screenshot({ path: testInfo.outputPath('subsidy-activity.png'), fullPage: true });
 
   await openSubsidies();
+  await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button', { name: 'Subsidy actions' }).click();
   page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('row').filter({ hasText: '$10.50 AUD' }).getByRole('button').last().click();
+  await page.getByRole('menuitem', { name: 'Delete subsidy' }).click();
   await expect(page.getByRole('row').filter({ hasText: '$10.50 AUD' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await expect(page.locator('.text-sm.leading-6').filter({ hasText: /removed a subsidy for Alice Williams/ })).toContainText('10.50 AUD/hour');

@@ -266,7 +266,7 @@ export function StaffModalSessionsTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => {
-                            window.location.href = `/sessions/${session.id}`;
+                            window.location.href = new URL(`/sessions/${session.id}`, window.location.origin).href;
                           }}>
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Open in page

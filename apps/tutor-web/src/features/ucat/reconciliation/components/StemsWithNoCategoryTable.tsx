@@ -1,4 +1,6 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useCallback, useState } from 'react'
 import {
@@ -6,7 +8,6 @@ import {
   TableCell,
   SearchableSelect,
   Button,
-  DataTableToolbar,
   useToast,
   AlertDialog,
   AlertDialogAction,
@@ -374,7 +375,9 @@ export function StemsWithNoCategoryTable({
   }, [bulkCategoryId, selectedStemIds, toast, queryClient])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={'ucat_reconciliation_no_category'}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/emilkowalski/skills",
+  "revision": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+  "installed": {
+    "animate-expo": "animate-expo",
+    "animate": "animate",
+    "animation-performance": "animation-performance",
+    "animation-vocabulary": "animation-vocabulary",
+    "apple-design": "apple-design",
+    "ask-sonner": "ask-sonner",
+    "break-ui": "break-ui",
+    "emil-design-eng": "emil-design-eng",
+    "find-animation-opportunities": "find-animation-opportunities",
+    "improve-animations": "improve-animations",
+    "mobile-native": "mobile-native",
+    "pick-ui-library": "pick-ui-library",
+    "prototype": "emil-prototype",
+    "remove-animations": "remove-animations",
+    "review-animations": "review-animations",
+    "write-swift": "write-swift"
+  },
+  "localChanges": {
+    "prototype": "Folder and frontmatter name changed to emil-prototype to preserve the existing repo skill."
+  },
+  "license": "emilkowalski.LICENSE.txt"
+}

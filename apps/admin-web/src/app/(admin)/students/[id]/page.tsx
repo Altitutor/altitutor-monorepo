@@ -4,12 +4,14 @@ import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTa
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState } from 'react';
+import { useEffect, useState, use } from 'react';
+import { StudentOnboardingSidebar } from '@/features/onboarding/components/StudentOnboardingSidebar';
+import { useOnboardingJourneys } from '@/features/onboarding/api/queries';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, PanelRight } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -64,9 +66,26 @@ import {
   invalidateStudentDetail,
 } from '@/shared/lib/query-invalidation';
 
-export default function StudentDetailPage({ params }: { params: { id: string } }) {
+export default function StudentDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
+  const [detailRoot, setDetailRoot] = useState<HTMLDivElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [narrow, setNarrow] = useState(false);
+  const { data: journeys = [] } = useOnboardingJourneys();
+  useEffect(() => {
+    if (!detailRoot) return;
+    let wasNarrow: boolean | undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = entry.contentRect.width < 1000;
+      setNarrow(next);
+      if (next !== wasNarrow) setSidebarOpen(!next);
+      wasNarrow = next;
+    });
+    observer.observe(detailRoot);
+    return () => observer.disconnect();
+  }, [detailRoot]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
@@ -113,6 +132,17 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const restoreStudent = async () => {
+    setIsRestoring(true);
+    try {
+      await studentsApi.restoreStudent(id);
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+      toast({ title: 'Student restored', description: 'Ended services and released contact details remain unchanged.' });
+    } catch (error) {
+      toast({ title: 'Unable to restore Student', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    } finally { setIsRestoring(false); }
+  };
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -242,27 +272,32 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   }
 
   const activityLayout = activeTab === 'activity';
+  const hasOnboarding = !student.deleted_at && (student.status === 'TRIAL' || journeys.some(journey => journey.student_id === id && !journey.closed_at));
 
   return (
-    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
+    <div ref={setDetailRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
-      <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
+      <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
+        {hasOnboarding && <Button variant="ghost" size="icon" aria-label="Toggle onboarding sidebar" aria-expanded={sidebarOpen} aria-controls="student-onboarding-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
         <NoteAlertPills entityType="student" entityId={student.id} />
 
-        <ActionsMenu
+        {!student.deleted_at && <ActionsMenu
           type="student"
           entityId={student.id}
           copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}
-        />
+        />}
+        {student.deleted_at && currentStaff?.role === 'ADMINSTAFF' && <Button onClick={() => void restoreStudent()} disabled={isRestoring}>{isRestoring ? 'Restoring…' : 'Restore Student'}</Button>}
       </div>
 
+      {student.deleted_at && <p role="status" className="my-4 rounded-md border p-4 text-sm">Deleted {new Date(student.deleted_at).toLocaleString()}. History is retained. Restore this Student before editing their details or starting new services. Their existing login can also restore the record; released contact details belong to their current owners.</p>}
       {/* Sections */}
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className={activityLayout ? 'mt-3 flex min-h-0 flex-1 flex-col gap-3 px-4' : 'space-y-6'}
+        className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
           { value: 'details', label: 'Details' },
@@ -428,8 +463,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the student
-                "{student.first_name} {student.last_name}" and all associated data from the database.
+                This will hide the Student
+                "{student.first_name} {student.last_name}" and block their access while retaining all history. Resolve active enrolments, future bookings, subscriptions and open checkouts first. Their existing login or an AdminStaff restore can make the record available again.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -544,6 +579,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           }}
         />
       )}
+    </div>
+    {hasOnboarding && sidebarOpen && <div id="student-onboarding-sidebar" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 shadow-xl' : 'h-full shrink-0'}><StudentOnboardingSidebar studentId={id} /></div>}
     </div>
   );
 }

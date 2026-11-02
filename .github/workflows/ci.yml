@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - name: Check production release gate
@@ -75,15 +75,15 @@ jobs:
 
       - name: List affected packages
         if: env.TURBO_FILTER != ''
-        run: pnpm turbo run lint --filter="${{ env.TURBO_FILTER }}" --dry-run
+        run: pnpm lint --filter="${{ env.TURBO_FILTER }}" --dry-run
 
       - name: Run linter
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run lint --filter="${{ env.TURBO_FILTER }}"
+            pnpm lint --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run lint
+            pnpm lint
           fi
 
       - name: Check formatting
@@ -111,7 +111,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -130,9 +130,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
+            pnpm typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run typecheck --concurrency=1
+            pnpm typecheck --concurrency=1
           fi
 
   test:
@@ -151,7 +151,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -168,9 +168,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run test --filter="${{ env.TURBO_FILTER }}"
+            pnpm turbo run test --concurrency=2 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run test
+            pnpm test
           fi
 
   ucat-contracts:
@@ -183,7 +183,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: denoland/setup-deno@v2
@@ -221,7 +221,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
 
       - name: Decide which browser and database tests are needed
         id: detect
@@ -242,24 +242,36 @@ jobs:
     name: Web Browser and Database
     needs: web-system-tests-needed
     if: needs.web-system-tests-needed.outputs.run == 'true'
-    # ubuntu-latest is 26.04, which Playwright 1.56 cannot install browsers on.
+    # Playwright 1.56 supports Ubuntu 24.04; latest can roll to an unsupported OS.
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
+      # This job runs web builds only. Supabase images, their cache archive,
+      # browsers and Next build artifacts otherwise exhaust the hosted disk.
+      - name: Reclaim unused native SDK space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: "pnpm"
 
       - uses: supabase/setup-cli@v2
         with:
           version: 2.107.0
+
+      - uses: denoland/setup-deno@v2
+        if: needs.web-system-tests-needed.outputs.database == 'true'
+        with:
+          deno-version: v2.x
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -313,6 +325,14 @@ jobs:
       - name: Test database contracts
         if: needs.web-system-tests-needed.outputs.database == 'true'
         run: supabase test db
+
+      - name: Test Student registration with real Auth
+        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.student == 'true'
+        run: python3 supabase/scripts/test-student-registration.py
+
+      - name: Test inbound iMessage identity and replay contracts
+        if: needs.web-system-tests-needed.outputs.database == 'true'
+        run: python3 scripts/owned_database.py run -- python3 scripts/test-imessage-inbound.py
 
       - name: Run admin browser journeys
         if: needs.web-system-tests-needed.outputs.admin == 'true'
@@ -399,7 +419,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: actions/cache@v4
@@ -418,7 +438,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run build --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
+            pnpm build --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run build --concurrency=1
+            pnpm build --concurrency=1
           fi

@@ -10,7 +10,7 @@ const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
   try {
-    const userClient = createClient();
+    const userClient = await createClient();
     const {
       data: { user },
       error: userError,

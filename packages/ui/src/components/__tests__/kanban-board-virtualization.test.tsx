@@ -10,6 +10,10 @@ import {
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+beforeAll(() => {
+  window.matchMedia = jest.fn().mockImplementation((query: string) => ({ matches: false, media: query, addEventListener: jest.fn(), removeEventListener: jest.fn() }));
+});
+
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: React.PropsWithChildren) => <>{children}</>,
   DragOverlay: ({ children }: React.PropsWithChildren) => <>{children}</>,

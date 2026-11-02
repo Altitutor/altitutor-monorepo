@@ -49,7 +49,7 @@ const GeneratedTableBlockSchema = z.preprocess((value) => {
   })
 }))
 
-const VegaLiteSpecSchema = z.record(z.unknown()).superRefine((spec, ctx) => {
+const VegaLiteSpecSchema = z.record(z.string(), z.unknown()).superRefine((spec, ctx) => {
   if (!hasInlineVegaData(spec)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -178,7 +178,7 @@ export const GeneratedContentBlockSchema = z.union([
     type: z.literal('image'),
     src: z.string().trim().min(1),
     altText: z.string().trim().optional().nullable(),
-    fileId: z.string().uuid().optional().nullable(),
+    fileId: z.string().guid('Invalid uuid').optional().nullable(),
   }),
 ])
 
@@ -210,9 +210,9 @@ const GeneratedQuestionBaseSchema = z.object({
   ),
   tagIds: z.preprocess(
     (value) => Array.isArray(value)
-      ? value.filter((item) => typeof item === 'string' && z.string().uuid().safeParse(item).success)
+      ? value.filter((item) => typeof item === 'string' && z.string().guid('Invalid uuid').safeParse(item).success)
       : [],
-    z.array(z.string().uuid())
+    z.array(z.string().guid('Invalid uuid'))
   ).default([]),
   options: z.array(GeneratedOptionSchema).min(1),
 })
@@ -221,7 +221,7 @@ export const GeneratedQuestionSchema = GeneratedQuestionBaseSchema
 
 export const GeneratedStemSchema = z.object({
   stemText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.string().guid('Invalid uuid').nullable().optional(),
   categoryName: z.string().trim().nullable().optional(),
   difficultyTarget: DifficultyTargetSchema.optional(),
   timeBurdenTarget: TimeBurdenTargetSchema.optional(),

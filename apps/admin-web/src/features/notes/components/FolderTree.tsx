@@ -182,7 +182,8 @@ export function FolderTree({
     return (
       <div className="text-center py-12 text-muted-foreground">
         <p className="text-lg font-medium mb-2">No folders or documents yet</p>
-        <p className="text-sm">Create a folder or document to get started</p>
+        <p className="text-sm mb-4">Create a folder or document to get started</p>
+        <FolderInlineCreateDocument folderId={null} indent={8} onCreated={handleNoteCreated} />
       </div>
     );
   }

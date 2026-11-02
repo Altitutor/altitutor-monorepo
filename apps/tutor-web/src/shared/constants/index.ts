@@ -30,11 +30,9 @@ export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme';
 
 const isDev = process.env.NODE_ENV === 'development';
 
-export const MARKETING_HOME_URL = isDev ? 'http://localhost:3003' : 'https://altitutor.com';
+export const MARKETING_HOME_URL = process.env.NEXT_PUBLIC_MARKETING_URL || (isDev ? 'http://localhost:3003' : 'https://altitutor.com');
 
-export const TUTOR_APPLY_URL = isDev
-  ? 'http://localhost:3003/about/apply/'
-  : 'https://altitutor.com/about/apply/';
+export const TUTOR_APPLY_URL = `${MARKETING_HOME_URL.replace(/\/$/, '')}/about/apply/`;
 
 // Venue information
 export const VENUE_ADDRESS = 'Level 1 / 17A Solomon St, Adelaide SA 5000, Australia';

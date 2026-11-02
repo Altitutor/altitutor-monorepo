@@ -1,3 +1,4 @@
+import { EntityChip } from '@altitutor/ui';
 import type {
   ActivityEntityReference,
   ActivityEventDisplay,
@@ -11,7 +12,8 @@ interface FormattedActivityMessageProps {
 }
 
 function cleanValue(value: string | undefined): string {
-  return renderTextWithTagsAsPlainText(value?.replace(/^["']|["']$/g, '') || '');
+  return renderTextWithTagsAsPlainText(value?.replace(/^["']|["']$/g, "") || "",
+  );
 }
 
 function renderFieldChange(field: ChangedField) {
@@ -40,7 +42,7 @@ function renderFieldChange(field: ChangedField) {
   return <span className="text-muted-foreground">{field.fieldLabel}</span>;
 }
 
-function formatInlineMessage(messageWithoutName: string): JSX.Element {
+function formatInlineMessage(messageWithoutName: string): React.JSX.Element {
   const fromToPattern = /^(\w+)\s+(.+?)\s+from\s+(.+?)\s+to\s+(.+?)$/i;
   const fromToMatch = messageWithoutName.match(fromToPattern);
   if (fromToMatch) {
@@ -48,8 +50,9 @@ function formatInlineMessage(messageWithoutName: string): JSX.Element {
     return (
       <>
         {actionVerb}{' '}
-        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> from{' '}
-        <span className="text-primary">{cleanValue(oldVal)}</span> to{' '}
+        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, "")}
+        </span>{" "}
+        from <span className="text-primary">{cleanValue(oldVal)}</span> to{' '}
         <span className="text-primary">{cleanValue(newVal)}</span>
       </>
     );
@@ -62,8 +65,9 @@ function formatInlineMessage(messageWithoutName: string): JSX.Element {
     return (
       <>
         {actionVerb}{' '}
-        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, '')}</span> to{' '}
-        <span className="text-primary">{cleanValue(value)}</span>
+        <span className="text-muted-foreground">{field.replace(/^["']|["']$/g, "")}
+        </span>{" "}
+        to <span className="text-primary">{cleanValue(value)}</span>
       </>
     );
   }
@@ -89,25 +93,26 @@ export function FormattedActivityMessage({
     return (
       <>
         {activity.messageParts.map((part, index) => part.kind === 'entity' ? (
-          <button
+          <EntityChip
+            entityType={part.entity.entityType}
+              entityId={part.entity.entityId}
+              label={part.text}
             key={`${part.entity.entityType}-${part.entity.entityId}-${index}`}
-            type="button"
-            className="font-medium underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => onEntityClick?.(part.entity)}
-            aria-label={`Open ${part.entity.entityType} ${part.text}`}
-          >
-            {part.text}
-          </button>
-        ) : (
-          <span key={`text-${index}`}>{part.text}</span>
-        ))}
+              type="button"
+              onClick={() => onEntityClick?.(part.entity)}
+              aria-label={`Open ${part.entity.entityType} ${part.text}`}
+            />
+          ) : (
+            <span key={`text-${index}`}>{part.text}</span>
+          ),
+        )}
       </>
     );
   }
 
-  const messageWithoutName = message.replace(performedByName, '').trim();
+  const messageWithoutName = message.replace(performedByName, "").trim();
   const actionMatch = messageWithoutName.match(/^(\w+)\s/);
-  const action = actionMatch ? actionMatch[1] : 'updated';
+  const action = actionMatch ? actionMatch[1] : "updated";
 
   if (activity.changedFields && activity.changedFields.length > 0) {
     if (activity.changedFields.length === 1) {
@@ -120,10 +125,10 @@ export function FormattedActivityMessage({
 
     return (
       <>
-        {action}{' '}
+        {action}{" "}
         {activity.changedFields.map((field, index) => (
           <span key={field.fieldName}>
-            {index > 0 ? ', ' : null}
+            {index > 0 ? ", " : null}
             {renderFieldChange(field)}
           </span>
         ))}
@@ -133,14 +138,17 @@ export function FormattedActivityMessage({
 
   const fieldName =
     activity.changedFieldLabel ||
-    (activity.changedFieldName ? activity.changedFieldName.replace(/_/g, ' ') : '');
+    (activity.changedFieldName
+      ? activity.changedFieldName.replace(/_/g, " ")
+      : "");
   const cleanOldValue = cleanValue(activity.oldValue);
   const cleanNewValue = cleanValue(activity.newValue);
 
   if (fieldName && (cleanOldValue || cleanNewValue)) {
     return (
       <>
-        {action} {renderFieldChange({
+        {action}{" "}
+        {renderFieldChange({
           fieldName: activity.changedFieldName ?? fieldName,
           fieldLabel: fieldName,
           oldValue: activity.oldValue,

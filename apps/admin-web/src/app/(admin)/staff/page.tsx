@@ -1,4 +1,5 @@
 'use client';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -38,26 +39,26 @@ export default function StaffPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Staff</h1>
+      <AdminPageActions>
+
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
           label="Add Staff"
           onClick={() => setIsAddModalOpen(true)}
         />
-      </div>
-      
+      </AdminPageActions>
+
       <Suspense fallback={null}>
         <StaffTable onRefresh={refreshCounter} />
       </Suspense>
-      
-      <AddStaffModal 
-        isOpen={isAddModalOpen} 
+
+      <AddStaffModal
+        isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onStaffAdded={handleStaffAdded}
       />
 
-      <ViewStaffModal 
+      <ViewStaffModal
         isOpen={isViewModalOpen}
         onClose={handleCloseViewModal}
         staffId={selectedStaffId}

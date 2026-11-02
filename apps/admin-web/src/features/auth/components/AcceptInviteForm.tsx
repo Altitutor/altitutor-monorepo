@@ -1,5 +1,7 @@
 'use client';
 
+import { EmailInput } from '@/shared/components/EmailInput';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -112,7 +114,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
 
           // Determine redirect based on role
           const redirectPath = inviteData?.data?.role === 'TUTOR' 
-            ? (process.env.NODE_ENV === 'production' ? 'https://tutor.altitutor.com' : 'http://localhost:3002')
+            ? (process.env.NEXT_PUBLIC_TUTOR_URL || (process.env.NODE_ENV === 'production' ? 'https://tutor.altitutor.com' : 'http://localhost:3002'))
             : '/dashboard';
 
           // Use full page redirect to ensure cookies are properly set on the server
@@ -241,7 +243,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
               <FormItem>
                 <FormLabel>Email Address</FormLabel>
                 <FormControl>
-                  <Input
+                  <EmailInput
                     type="email"
                     placeholder="Enter your email"
                     disabled={loading}

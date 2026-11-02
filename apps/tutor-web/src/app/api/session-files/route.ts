@@ -7,7 +7,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error'
 const BUCKET = 'session-files'
 
 async function tutorContext() {
-  const userClient = createClient()
+  const userClient = await createClient()
   const [{ data: isTutor }, { data: tutorId }] = await Promise.all([
     userClient.rpc('is_tutor'),
     userClient.rpc('current_tutor_id'),

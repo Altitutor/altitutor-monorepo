@@ -1,4 +1,4 @@
-import type { Json } from '@altitutor/shared'
+import type { LearningModuleJourneyPlacement, Json } from '@altitutor/shared'
 import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 
@@ -35,6 +35,7 @@ export type UcatLearningModuleRow = {
   created_by_first_name: string | null
   created_by_last_name: string | null
   deleted_at: string | null
+  study_plan_journey_placement: LearningModuleJourneyPlacement | null
   study_plan_priority: UcatLearningModuleStudyPlanPriority
   study_plan_category_ids: string[]
   study_plan_tag_ids: string[]
@@ -78,6 +79,7 @@ export type UcatLearningModuleUpsertPayload = {
   parentId?: string | null
   index?: number
   accessScope?: UcatAccessScope
+  journeyPlacement?: LearningModuleJourneyPlacement | null
   studyPlanPriority?: UcatLearningModuleStudyPlanPriority
   studyPlanCategoryIds?: string[]
   studyPlanTagIds?: string[]

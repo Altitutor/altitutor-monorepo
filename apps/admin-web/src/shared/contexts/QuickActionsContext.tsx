@@ -1,5 +1,6 @@
 'use client';
 
+import type { EntityReference } from "@/shared/utils/entityReference";
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 /** Minimal person fields for pre-filling the check-in booking modal */
@@ -11,7 +12,8 @@ export type CheckInModalPrefill = {
 
 export type CheckInSessionType = 'CHECK_IN' | 'ADMIN_MEETING';
 
-export type BookingSessionType = 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW';
+export type BookingSessionType =
+  | 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW';
 
 export type BookingModalPrefill = {
   initialStudentId?: string;
@@ -44,9 +46,11 @@ interface QuickActionsContextType {
   closeLogStaffAbsenceDialog: () => void;
   openAnnouncementsModal: () => void;
   closeAnnouncementsModal: () => void;
-  openCreateTaskDialog: () => void;
+  taskReference: EntityReference | null;
+  issueReference: EntityReference | null;
+  openCreateTaskDialog: (reference?: EntityReference) => void;
   closeCreateTaskDialog: () => void;
-  openCreateIssueDialog: () => void;
+  openCreateIssueDialog: (reference?: EntityReference) => void;
   closeCreateIssueDialog: () => void;
   openCreateProjectDialog: () => void;
   closeCreateProjectDialog: () => void;
@@ -60,6 +64,12 @@ interface QuickActionsContextType {
 export const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
 
 export function QuickActionsProvider({ children }: { children: React.ReactNode }) {
+  const [taskReference, setTaskReference] = useState<EntityReference | null>(
+    null,
+  );
+  const [issueReference, setIssueReference] = useState<EntityReference | null>(
+    null,
+  );
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
@@ -106,7 +116,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsAnnouncementsModalOpen(false);
   }, []);
 
-  const openCreateTaskDialog = useCallback(() => {
+  const openCreateTaskDialog = useCallback((reference?: EntityReference) => {
+    setTaskReference(reference ?? null);
     setIsCreateTaskDialogOpen(true);
   }, []);
 
@@ -114,7 +125,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsCreateTaskDialogOpen(false);
   }, []);
 
-  const openCreateIssueDialog = useCallback(() => {
+  const openCreateIssueDialog = useCallback((reference?: EntityReference) => {
+    setIssueReference(reference ?? null);
     setIsCreateIssueDialogOpen(true);
   }, []);
 
@@ -163,6 +175,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   return (
     <QuickActionsContext.Provider
       value={{
+        taskReference,
+        issueReference,
         isTutorLogModalOpen,
         isLogAbsenceDialogOpen,
         isLogStaffAbsenceDialogOpen,

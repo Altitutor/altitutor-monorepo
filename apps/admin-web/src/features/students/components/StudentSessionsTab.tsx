@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { SegmentedControl, useToast } from '@altitutor/ui';
-import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
+import { useToast } from '@altitutor/ui';
 import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useUndoAbsences } from '@/features/sessions/hooks/useAbsences';
@@ -89,31 +88,23 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
 
   return (
     <div className="h-full min-h-0 flex flex-col space-y-4">
-      <div className="flex items-center justify-between">
-        <SegmentedControl
-          value={viewMode}
-          onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}
-          options={[
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <SessionsTable
+          renderMode={viewMode}
+          toolbarView={{
+            value: viewMode,
+            options: [
             { value: 'table', label: 'Table' },
             { value: 'calendar', label: 'Calendar' },
-          ]}
-        />
-      </div>
-
-      {viewMode === 'calendar' && (
-        <div className="flex-1 min-h-0">
-          <StudentSessionsCalendarView
-            studentId={student.id}
-            onOpenSession={handleOpenSession}
-            classId={undefined}
-          />
-        </div>
-      )}
-
-      {viewMode === 'table' && (
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <SessionsTable
-            studentId={student.id}
+          ],
+            onChange: (next) => {
+              if (next === "table" || next === 'calendar') setViewMode(next)},
+            onPresetApply: (settings) => {
+              if (settings.layout === 'table' || settings.layout === "calendar")
+                setViewMode(settings.layout);
+            },
+          }}
+          studentId={student.id}
             onOpenSession={handleOpenSession}
             onOpenStaff={handleOpenStaff}
             hideStudentFilter={true}
@@ -124,7 +115,6 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
             onRemoveStudentFromSession={handleRemoveStudentFromSession}
           />
         </div>
-      )}
 
       {undoTarget && currentStaff && (
         <UndoLogAbsenceConfirmDialog
@@ -132,7 +122,8 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
           title="Undo logged absence?"
           description={`Mark ${undoTarget.studentName} as attending ${undoTarget.sessionShortName}?`}
           secondaryDescription={
-            undoTarget.action === 'reschedule' && undoTarget.rescheduledSessionTitle
+            undoTarget.action === "reschedule" &&
+            undoTarget.rescheduledSessionTitle
               ? `This will remove them from the rescheduled session ${undoTarget.rescheduledSessionTitle}.`
               : undefined
           }
@@ -146,31 +137,37 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
                 operations: [
                   {
                     student_id: undoTarget.studentId,
-                    original_sessions_students_id: undoTarget.sessionsStudentsId,
+                    original_sessions_students_id:
+                      undoTarget.sessionsStudentsId,
                     action: undoTarget.action,
                   },
                 ],
               });
               if (!result.success) {
                 toast({
-                  title: 'Error',
-                  description: result.error || 'Failed to undo absence',
-                  variant: 'destructive',
+                  title: "Error",
+                  description: result.error || "Failed to undo absence",
+                  variant: "destructive",
                 });
                 return;
               }
-              await queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+              await queryClient.invalidateQueries({
+                queryKey: sessionsKeys.all,
+              });
               setUndoTarget(null);
               toast({
-                title: 'Absence undone',
-                description: 'Attendance has been restored for this session.',
+                title: "Absence undone",
+                description: "Attendance has been restored for this session.",
               });
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to undo absence';
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to undo absence";
               toast({
-                title: 'Error',
+                title: "Error",
                 description: message,
-                variant: 'destructive',
+                variant: "destructive",
               });
             }
           }}
@@ -195,15 +192,18 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
               });
               setRemoveFromSessionTarget(null);
               toast({
-                title: 'Student removed',
+                title: "Student removed",
                 description: `${target.entityName} removed from session.`,
               });
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to remove student';
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to remove student";
               toast({
-                title: 'Error',
+                title: "Error",
                 description: message,
-                variant: 'destructive',
+                variant: "destructive",
               });
             }
           }}

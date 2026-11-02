@@ -25,6 +25,8 @@ type FlashcardTopicCountRow = {
   review_card_count: number | null;
 };
 
+export const RESOURCE_SIGNED_URL_LIFETIME_SECONDS = 60 * 60;
+
 function castAccessSource(value: string | null): ResourceAccessSource | null {
   if (value === 'class_enrollment' || value === 'subscription' || value === 'manual') return value;
   return null;
@@ -202,7 +204,7 @@ export const resourcesApi = {
     return mapTopicFile(data as StudentTopicFileRow);
   },
 
-  async getSignedFileUrl(file: ResourceFile, expiresIn = 3600): Promise<string | null> {
+  async getSignedFileUrl(file: ResourceFile, expiresIn = RESOURCE_SIGNED_URL_LIFETIME_SECONDS): Promise<string | null> {
     if (file.externalUrl) {
       return null;
     }

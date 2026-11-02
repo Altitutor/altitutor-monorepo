@@ -173,7 +173,7 @@ export async function fetchFamilyCheckInsData(): Promise<{
       const r = await supabase
         .from('students')
         .select('id, first_name, last_name, status')
-        .in('status', ['ACTIVE', 'TRIAL'])
+        .is('deleted_at', null).in('status', ['ACTIVE', 'TRIAL'])
         .order('last_name', { ascending: true })
         .order('first_name', { ascending: true })
         .range(from, to);

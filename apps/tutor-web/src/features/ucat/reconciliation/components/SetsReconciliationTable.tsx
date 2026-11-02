@@ -1,7 +1,9 @@
 'use client'
+import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
+import { tutorDefaultDisplaySettings } from '@altitutor/shared'
 
 import React, { useMemo, useState } from 'react'
-import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
+import { TableRow, TableCell, Button } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { ReconciliationTable } from './ReconciliationTable'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
@@ -85,7 +87,13 @@ export function SetsReconciliationTable({
   }, [items, tableState.state, accessors, searchScopes])
 
   const toolbar = (
-    <DataTableToolbar
+    <TutorEntityToolbar
+        pageKey={{
+          setsWithIncorrectQuestionCount: 'ucat_reconciliation_question_count',
+          setsWithIncorrectTiming: 'ucat_reconciliation_timing',
+          setsWithMultipleSections: 'ucat_reconciliation_multiple_sections',
+        }[dataKey]}
+        defaultSettings={tutorDefaultDisplaySettings(tableState.state.defaultVisibleColumns ?? [])}
       state={tableState.state}
       onSearchChange={tableState.actions.onSearchChange}
       onFiltersChange={tableState.actions.onFiltersChange}

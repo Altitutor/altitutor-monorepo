@@ -2,10 +2,11 @@
 
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
+import { Client } from '@modelcontextprotocol/client'
+import { InMemoryTransport } from '@modelcontextprotocol/server'
+import { McpServer } from '@modelcontextprotocol/server'
+import { CallToolResultSchema } from '@modelcontextprotocol/core'
+import { z } from 'zod'
 import { createUcatMcpSupabaseClient } from '@/features/ucat/mcp/server/auth'
 import { registerUcatMcpTools } from '@/features/ucat/mcp/server/register-tools'
 
@@ -13,6 +14,10 @@ jest.mock('server-only', () => ({}))
 jest.mock('@/features/ucat/mcp/server/auth', () => ({
   createUcatMcpSupabaseClient: jest.fn(),
 }))
+
+const StructuredToolResultSchema = CallToolResultSchema.extend({
+  structuredContent: z.record(z.string(), z.unknown()).optional(),
+})
 
 const STEM_ID = '60000000-0000-0000-0000-000000000001'
 const SECTION_ID = '60000000-0000-0000-0000-000000000002'
@@ -100,7 +105,7 @@ async function connect(client: SupabaseClient<Database>) {
   await caller.connect(clientTransport)
   return {
     call: async (name: string, args: Record<string, unknown>) => (
-      CallToolResultSchema.parse(await caller.callTool({ name, arguments: args }))
+      StructuredToolResultSchema.parse(await caller.callTool({ name, arguments: args }))
     ),
     close: async () => {
       await caller.close()

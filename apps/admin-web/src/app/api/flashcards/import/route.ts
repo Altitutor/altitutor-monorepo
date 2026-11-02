@@ -7,7 +7,7 @@ import { parseFlashcardCsv } from '@altitutor/shared';
 export async function POST(request: NextRequest) {
   if (!supabaseAdmin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
 
-  const userClient = createClient();
+  const userClient = await createClient();
   const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
   if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 

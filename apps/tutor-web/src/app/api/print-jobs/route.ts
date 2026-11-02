@@ -6,7 +6,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 
 const bodySchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.string().guid('Invalid uuid'),
   copies: z.number().int().min(1).max(20).default(1),
 });
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const userClient = createClient() as unknown as SupabaseClient<Database>;
+    const userClient = await createClient() as unknown as SupabaseClient<Database>;
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
     if (tutorCheckError) {
       captureApiError(tutorCheckError, '/api/print-jobs');

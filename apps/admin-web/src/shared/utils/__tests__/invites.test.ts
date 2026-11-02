@@ -11,6 +11,34 @@ import {
   getBookingConfirmationUrl,
 } from '../invites';
 
+describe('isolated development origins', () => {
+  const originalEnvironment = process.env;
+
+  afterEach(() => {
+    Object.defineProperty(process, 'env', { value: originalEnvironment, writable: true });
+  });
+
+  it('keeps invites and booking links inside the selected worktree', () => {
+    Object.defineProperty(process, 'env', {
+      value: {
+        ...originalEnvironment,
+        NODE_ENV: 'development',
+        NEXT_PUBLIC_ADMIN_URL: 'http://127.0.0.1:41000',
+        NEXT_PUBLIC_STUDENT_URL: 'http://127.0.0.1:41001',
+        NEXT_PUBLIC_TUTOR_URL: 'http://127.0.0.1:41002',
+      },
+      writable: true,
+    });
+
+    expect(buildInviteUrl('token', 'staff')).toBe('http://127.0.0.1:41000/invite/token');
+    expect(buildInviteUrl('token', 'student')).toBe('http://127.0.0.1:41001/invite/token');
+    expect(getInviteUrlForStaff('token', 'ADMINSTAFF')).toBe('http://127.0.0.1:41000/invite/token');
+    expect(getInviteUrlForStaff('token', 'TUTOR')).toBe('http://127.0.0.1:41002/invite/token');
+    expect(getInviteUrlForStudent('token', 'register')).toBe('http://127.0.0.1:41001/r/token');
+    expect(getBookingConfirmationUrl('token')).toBe('http://127.0.0.1:41001/b/token');
+  });
+});
+
 describe('generateSecureToken', () => {
   it('should generate a UUID v4 token', () => {
     const token = generateSecureToken();

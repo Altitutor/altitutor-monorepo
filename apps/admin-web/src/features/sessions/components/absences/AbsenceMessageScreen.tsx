@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { WorkflowEmail } from '@/features/email/components/WorkflowEmail';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
@@ -220,6 +221,7 @@ export function AbsenceMessageScreen({
         </div>
       )}
 
+      {selectedStudent && currentStaff && <WorkflowEmail student={selectedStudent} parents={parents} subject="Absence confirmation" sessionIds={selectedSessionsArray.map((session) => session.id)} buildBody={(recipientName) => getAbsenceNotificationMessageForClient({ recipientName, senderName: getSenderNameFromStaff(currentStaff), absenceDetails: buildAbsenceDetails(decisions, selectedSessionsArray, rescheduledSessionsMap, billingStatus) })} />}
       {/* Message Section */}
       {selectedRecipient && recipientOptions.length > 0 ? (
         <div className="flex-1 flex flex-col min-h-0 border rounded-md overflow-hidden">

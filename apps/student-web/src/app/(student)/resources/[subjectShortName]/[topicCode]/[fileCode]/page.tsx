@@ -39,7 +39,7 @@ export default function ResourceFileDetailPage() {
   const { data: file, isLoading: fileLoading } = useResourceTopicFile(topic?.id ?? null, fileCode);
   const { data: topicFiles } = useResourceTopicFiles(topic?.id ?? null);
   const { data: flashcardTopic } = useFlashcardTopic(topic?.id ?? null);
-  const { data: signedUrl } = useResourceSignedFileUrl(topic?.id ?? null, fileCode);
+  const { data: signedUrl, refetch: refreshSignedUrl, isFetching: isRefreshingSignedUrl } = useResourceSignedFileUrl(topic?.id ?? null, fileCode);
   const { data: accessBySubject } = useResourceAccessBySubject();
 
   const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
@@ -169,6 +169,8 @@ export default function ResourceFileDetailPage() {
               resourceType={file.type}
               externalUrl={file.externalUrl}
               signedUrl={signedUrl ?? null}
+              onRetry={() => { void refreshSignedUrl(); }}
+              isRetrying={isRefreshingSignedUrl}
             />
           ) : null}
         </div>

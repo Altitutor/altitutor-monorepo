@@ -9,7 +9,7 @@ export type UcatTutorSupabaseClient = {
 }
 
 export async function requireUcatTutor() {
-  const userClient = createClient()
+  const userClient = await createClient()
   const { data, error } = await (userClient as unknown as UcatTutorSupabaseClient).rpc('is_ucat_tutor')
 
   if (error) {

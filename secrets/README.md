@@ -79,12 +79,19 @@ Or individually:
 ./deploy-supabase.sh
 ```
 
-For a narrowly scoped UCAT cron-secret deployment, without touching any other
+For a narrowly scoped UCAT and interview cron-secret deployment, without touching any other
 Vercel variables:
 
 ```bash
-./deploy-vercel.sh --only CRON_SECRET
+./deploy-vercel.sh --only CRON_SECRET --environment development
+./deploy-vercel.sh --only DAILY_API_KEY --environment development
 ```
+
+The environment selector accepts `development` (Vercel Preview), `production`, or
+`all` (the backwards-compatible default). Only selected environment files are
+required or changed. Put `DAILY_API_KEY` in the matching gitignored
+`secrets/.env.development` / `.env.production` file; app `.env.local` files are
+not deployment inputs. Redeploy the affected apps after updating secrets.
 
 ### Print bridge (Mac Mini)
 
@@ -145,7 +152,7 @@ Environment-specific values such as:
 
 Typical values include `SUPABASE_PROJECT_ID`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_ACCESS_TOKEN` when it differs by environment. Branch mapping: `develop` → development, `main` → production.
 
-Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
+Vercel-only runtime secrets such as `OPENROUTER_API_KEY` and `DAILY_API_KEY` are skipped here. Daily is also excluded from repository secrets if placed in `.env.shared`.
 
 ### Vercel
 
@@ -153,6 +160,7 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 - Production: `NEXT_PUBLIC_*` from `.env.production`
 - `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT apps
 - `OPENROUTER_API_KEY` to `altitutor-tutor-web` only
+- `DAILY_API_KEY` only to `altitutor-tutor-web` and `altitutor-student-web`
 - `RESEND_API_KEY` to all web apps managed by the script
 - Per-app Sentry values are mapped to framework-standard target names:
   `{APP}_SENTRY_DSN` → `NEXT_PUBLIC_SENTRY_DSN` and
@@ -166,7 +174,7 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
   `altitutor-ucat-web`; provider credentials stay in GitHub Actions and are
   applied to hosted Supabase Auth by CI
 - `CRON_SECRET` is generated once when missing and sent only to
-  `altitutor-ucat-web` for authenticated Preview and Production cron routes
+  `altitutor-ucat-web` and `altitutor-tutor-web` for authenticated Preview and Production cron routes
 - `UCAT_LIFECYCLE_CRON_SECRET_KEY` is sent only to `altitutor-admin-web`,
   whose authenticated server routes proxy lifecycle previews and dry runs
 - `UCAT_WEB_URL` is expanded into the public aliases consumed by admin,
@@ -382,3 +390,40 @@ Production maps to Vercel Production; development maps to Vercel Preview. Empty 
 are skipped. Redeploy admin-web afterward. The normal all-secrets deployment includes
 this key too. Password provisioning and verification are described in
 [Admin MCP setup](../docs/admin-mcp.md). Never commit the populated connection string.
+
+## Microsoft admin email
+
+Use the normal `./secrets/scripts/deploy-all.sh` workflow for future rotations.
+Its existing Vercel and Supabase scripts include the matching environment's
+Microsoft email settings. There is no separate mailbox deployment command.
+
+Put these only in the matching gitignored `.env.development` / `.env.production`:
+
+- `EMAIL_M365_TENANT_ID`: tenant ID from the tracked example.
+- `EMAIL_M365_CLIENT_ID`: the environment-specific Application (client) ID.
+- `EMAIL_M365_CLIENT_SECRET`: Microsoft's **Value**, never the Secret ID.
+- Development: `EMAIL_DEVELOPMENT_ALLOWED_RECIPIENTS`, an explicit comma-separated
+  list of individual `@altitutor.com` test recipients (initially `matt@altitutor.com`).
+
+The tracked examples contain public IDs and blank secret placeholders. Never put
+secret Values in the examples or `.env.shared`. Secret ID is not used at runtime.
+
+```sh
+./secrets/scripts/deploy-all.sh
+# The normal individual platform entry points also include Microsoft settings:
+./secrets/scripts/deploy-vercel.sh
+./secrets/scripts/deploy-supabase.sh
+```
+
+Vercel receives the settings only for admin-web Preview/Production; Supabase
+receives them only in the corresponding project. `EMAIL_ENVIRONMENT` is derived
+and checked, development recipients are validated, and credentials are read
+literally from the selected environment file. Shared credentials are never used
+as a fallback or distributed to GitHub/EAS/other web apps. Missing configuration
+is skipped only when all three dedicated credential fields are absent/blank;
+a partial configuration fails rather than silently using another environment.
+
+These scripts update runtime settings. Redeploy admin-web to load new Vercel
+values; reviewed database migrations and Edge code still ship through CI/CD.
+For the completed Microsoft provisioning and live QA steps, see
+[the setup guide](../docs/agents/admin-mailbox-setup.md).

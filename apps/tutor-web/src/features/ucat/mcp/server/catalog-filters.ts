@@ -1,3 +1,4 @@
+import { ISO_DATETIME_OFFSET_PATTERN } from "@altitutor/shared";
 import { z } from 'zod'
 import { isValidAuditCatalogFilter } from '@/features/ucat/questions/lib/audit-catalog'
 import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
@@ -34,20 +35,20 @@ export const CatalogFilterClauseSchema = z.object({
     'Match any listed lifecycle status. Omit to include every status.',
   ),
   auditFilters: AuditCatalogFiltersSchema,
-  stemIds: z.array(z.string().uuid()).max(200).optional(),
-  sectionIds: z.array(z.string().uuid()).max(200).optional(),
-  categoryIds: z.array(z.string().uuid()).max(200).optional(),
+  stemIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
+  sectionIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
+  categoryIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
   includeNoCategory: z.boolean().optional(),
-  tagIds: z.array(z.string().uuid()).max(200).optional(),
+  tagIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
   accessScopes: z.array(z.enum(['public', 'private'])).max(2).optional(),
   practicePool: z.boolean().optional(),
-  setIds: z.array(z.string().uuid()).max(200).optional(),
+  setIds: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
   includeWithoutSet: z.boolean().optional(),
   sourceChannels: z.array(z.enum(['individual', 'bulk_import', 'ai_generation'])).max(3).optional(),
   aiReviewStatuses: z.array(z.enum(UCAT_DURABLE_AI_REVIEW_STATUSES)).max(20).optional(),
-  createdBy: z.array(z.string().uuid()).max(200).optional(),
-  createdFrom: z.string().datetime({ offset: true }).optional(),
-  createdTo: z.string().datetime({ offset: true }).optional(),
+  createdBy: z.array(z.string().guid('Invalid uuid')).max(200).optional(),
+  createdFrom: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
+  createdTo: z.stringFormat("date-time", ISO_DATETIME_OFFSET_PATTERN, "Invalid datetime").optional(),
   questionCountMin: z.number().int().min(0).optional(),
   questionCountMax: z.number().int().min(0).optional(),
 }).describe(
@@ -93,8 +94,8 @@ export const StemCatalogFilterSelectorSchema = QuestionCatalogFilterFieldsSchema
   accessScope: z.enum(['public', 'private']).optional().describe(
     'Single-scope alias for accessScopes: [accessScope].',
   ),
-  sectionId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
+  sectionId: z.string().guid('Invalid uuid').optional(),
+  categoryId: z.string().guid('Invalid uuid').optional(),
   query: z.string().trim().max(500).optional(),
 }).describe(
   'Server-side stem selection. status/statuses are optional; omit both to include every lifecycle. Use filter for explicit AND/OR trees.',

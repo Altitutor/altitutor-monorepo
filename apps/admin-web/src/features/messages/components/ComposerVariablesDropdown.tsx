@@ -35,6 +35,7 @@ export function ComposerVariablesDropdown({
         {canExpand ? (
           <Button
             type="button"
+            data-composer-label="Variables"
             variant="outline"
             size="sm"
             onMouseDown={(e) => e.preventDefault()}
@@ -47,6 +48,7 @@ export function ComposerVariablesDropdown({
         ) : (
           <Button
             type="button"
+            data-composer-label="Variables"
             variant="outline"
             size="icon"
             onMouseDown={(e) => e.preventDefault()}

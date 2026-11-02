@@ -1,4 +1,6 @@
 'use client';
+import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
+
 
 import React, { useState, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -50,7 +52,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('admin-shifts');
-  
+
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
   const defaultSort = useMemo(() => ({ field: 'day_of_week', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['day', 'time', 'status', 'staff'], []);
@@ -72,12 +74,12 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     filterKeys: ['day', 'status'],
   });
 
-  const { 
-    data, 
-    isLoading, 
-    error, 
+  const {
+    data,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useAdminShiftsMinimalPaginated({
     search: state.search,
     daysOfWeek: state.filters.day as number[],
@@ -129,7 +131,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     staff?: Tables<'staff'>[];
   })[] = (data?.adminShifts ?? []) as (Tables<'admin_shifts'> & { staff?: Tables<'staff'>[] })[];
   const total = data?.total ?? 0;
-  
+
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -156,7 +158,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   const getAdminShiftStaff = (shift: Tables<'admin_shifts'> & { staff?: Tables<'staff'>[] }): Tables<'staff'>[] => {
     return shift.staff ?? [];
   };
-  
+
   const handleAdminShiftClick = (shift: Tables<'admin_shifts'>) => {
     setSelectedAdminShift(shift);
     setIsDetailModalOpen(true);
@@ -204,13 +206,13 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="admin-shifts"
           searchPlaceholder="Search admin shifts..."
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading admin shifts...
         </div>
@@ -223,10 +225,10 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     return (
       <div className="text-red-500 p-4">
         Failed to load admin shifts. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -249,7 +251,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="admin-shifts"
         searchPlaceholder="Search admin shifts..."
         isLoading={isFetching}
       />
@@ -344,7 +346,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
             </TableBody>
           </Table>
         </div>
-      
+
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
@@ -367,14 +369,14 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
 
       {/* Admin Shift Detail Modal */}
       {selectedAdminShift && (
-        <ViewAdminShiftModal 
+        <ViewAdminShiftModal
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
           adminShiftId={selectedAdminShift.id}
           onAdminShiftUpdated={handleAdminShiftUpdated}
         />
       )}
-      
+
       {/* Staff Modal */}
       {selectedStaffId && (
         <ViewStaffModal
@@ -403,8 +405,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the admin shift
-              and all associated data from the database.
+              <RetainedDeletionMessage  />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

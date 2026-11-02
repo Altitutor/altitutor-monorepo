@@ -68,6 +68,7 @@ export type FlashcardReviewCard = {
   topic_code?: string | null;
   topic_name?: string | null;
   subject_short_name?: string | null;
+  subject_id?: string | null;
   note_links?: FlashcardNoteLink[];
 };
 

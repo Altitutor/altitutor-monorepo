@@ -1,0 +1,14 @@
+BEGIN;
+SELECT plan(4);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+INSERT INTO auth.users(id,email) VALUES('fd243000-0000-4000-8000-000000000071','primary-retired@example.test');
+INSERT INTO auth.identities(id,user_id,provider_id,provider,identity_data) VALUES('fd243000-0000-4000-8000-000000000072','fd243000-0000-4000-8000-000000000071','synthetic-old-provider-subject','google','{"sub":"synthetic-old-provider-subject","email":"secondary-retired@example.test"}');
+INSERT INTO public.students(id,user_id,first_name,last_name,email,status) VALUES('fd243000-0000-4000-8000-000000000073','fd243000-0000-4000-8000-000000000071','Retirement','OAuth','primary-retired@example.test',NULL);
+SELECT public.retire_student('fd243000-0000-4000-8000-000000000073');
+SELECT ok((SELECT 'secondary-retired@example.test'=ANY(login_emails) FROM public.student_retired_logins WHERE auth_user_id='fd243000-0000-4000-8000-000000000071'),'secondary identity email remains reserved only for credential recovery');
+UPDATE auth.identities SET identity_data='{"sub":"synthetic-old-provider-subject","email":"secondary-retired@example.test"}' WHERE id='fd243000-0000-4000-8000-000000000072';
+SELECT is((SELECT email FROM auth.identities WHERE id='fd243000-0000-4000-8000-000000000072'),(SELECT email FROM auth.users WHERE id='fd243000-0000-4000-8000-000000000071')::text,'old provider refresh cannot reclaim released identity email');
+SELECT is((SELECT provider_id FROM auth.identities WHERE id='fd243000-0000-4000-8000-000000000072'),'synthetic-old-provider-subject','provider subject remains the same');
+SELECT is((SELECT user_id FROM auth.identities WHERE id='fd243000-0000-4000-8000-000000000072'),'fd243000-0000-4000-8000-000000000071'::uuid,'provider subject continues to prove original Auth identity');
+SELECT * FROM finish();
+ROLLBACK;

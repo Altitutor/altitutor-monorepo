@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useId } from 'react';
-import { useConversationList } from '../api/queries';
+import { useActiveAdminStaff, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
@@ -13,12 +13,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useToast,
 } from '@altitutor/ui';
-import { Plus, Mail, Filter, Search, X, Check, AlertCircle } from 'lucide-react';
+import { Plus, Filter, Search, X, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
-import { useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
+import { useAssignConversations, useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
+import { UnreadConversationMenu } from './UnreadConversationMenu';
 import { useMessagingListFilters, type ConversationListFilter, type MessagingFilterScope } from '../state/messagingUiStore';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -57,10 +59,27 @@ export function ConversationList({
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const { data: adminStaff = [], isLoading: adminStaffLoading } = useActiveAdminStaff();
   const markUnreadMutation = useMarkUnread();
   const markReadMutation = useMarkRead();
   const markContactUnreadMutation = useMarkContactUnread();
   const markConversationReadMutation = useMarkConversationRead();
+  const assignConversations = useAssignConversations();
+  const assignUnread = (conversationIds: string[], staffId: string) => {
+    assignConversations.mutate(
+      { conversationIds, staffId },
+      {
+        onError: (error: Error) => {
+          toast({
+            title: 'Could not assign conversation',
+            description: error.message,
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const channelNonce = useId().replace(/:/g, '');
 
@@ -315,28 +334,22 @@ export function ConversationList({
                         <Badge variant="outline">Group</Badge>
                         <ListTimestamp iso={aggregated.latestMessageAt} />
                         {aggregated.latestMessage?.id && (
-                          <Button
-                            size="sm"
-                            variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
-                            className={cn(
-                              'h-6 w-6 p-0 transition-none',
-                              aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
-                            )}
-                            title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (aggregated.unreadCount > 0) {
-                                markConversationReadMutation.mutate({
-                                  conversationId: aggregated.conversationId,
-                                  lastMessageId: aggregated.latestMessage!.id,
-                                });
-                              } else {
-                                markUnreadMutation.mutate(aggregated.conversationId);
-                              }
+                          <UnreadConversationMenu
+                            unread={aggregated.unreadCount > 0}
+                            staff={adminStaff}
+                            staffLoading={adminStaffLoading}
+                            assigneeId={aggregated.assignedStaffId}
+                            onMarkRead={() => {
+                              const lastMessageId = aggregated.latestMessage?.id;
+                              if (!lastMessageId) return;
+                              markConversationReadMutation.mutate({
+                                conversationId: aggregated.conversationId,
+                                lastMessageId,
+                              });
                             }}
-                          >
-                            <Mail className="h-3 w-3" />
-                          </Button>
+                            onMarkUnread={() => markUnreadMutation.mutate(aggregated.conversationId)}
+                            onAssign={(staffId) => assignUnread(aggregated.unreadConversationIds, staffId)}
+                          />
                         )}
                       </div>
                     </div>
@@ -350,18 +363,6 @@ export function ConversationList({
             const title = formatContactName({ contacts: aggregated.contact });
             const isActive = activeSelection?.kind === 'contact' && aggregated.contactId === activeSelection.contactId;
             const isUnreadConv = isUnread(aggregated);
-
-            const handleToggleRead = (e: React.MouseEvent) => {
-              e.stopPropagation();
-              if (isUnreadConv) {
-                const lastMessageId = aggregated.latestMessage?.id;
-                if (lastMessageId) {
-                  markReadMutation.mutate({ contactId: aggregated.contactId, lastMessageId });
-                }
-              } else {
-                markContactUnreadMutation.mutate(aggregated.contactId);
-              }
-            };
 
             return (
               <div
@@ -386,18 +387,19 @@ export function ConversationList({
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <ListTimestamp iso={aggregated.latestMessageAt} />
-                      <Button
-                        size="sm"
-                        variant={isUnreadConv ? 'default' : 'outline'}
-                        className={cn(
-                          "h-6 w-6 p-0 shrink-0 transition-none",
-                          isUnreadConv && "bg-red-500 text-white hover:bg-red-600 border-transparent"
-                        )}
-                        onClick={handleToggleRead}
-                        title={isUnreadConv ? 'Mark as read' : 'Mark as unread'}
-                      >
-                        <Mail className="h-3 w-3" />
-                      </Button>
+                      <UnreadConversationMenu
+                        unread={isUnreadConv}
+                        staff={adminStaff}
+                        staffLoading={adminStaffLoading}
+                        assigneeId={aggregated.assignedStaffId}
+                        onMarkRead={() => {
+                          const lastMessageId = aggregated.latestMessage?.id;
+                          if (!lastMessageId) return;
+                          markReadMutation.mutate({ contactId: aggregated.contactId, lastMessageId });
+                        }}
+                        onMarkUnread={() => markContactUnreadMutation.mutate(aggregated.contactId)}
+                        onAssign={(staffId) => assignUnread(aggregated.unreadConversationIds, staffId)}
+                      />
                     </div>
                   </div>
                   <ConversationPreviewText preview={aggregated.latestMessage?.preview ?? null} />

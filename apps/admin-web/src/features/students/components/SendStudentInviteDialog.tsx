@@ -1,5 +1,7 @@
 'use client';
 
+import { requestOperationalEmail } from '@/features/email/api/operational';
+
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   DropdownMenu,
@@ -223,7 +225,7 @@ export function SendStudentInviteDialog({
         queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'invite') });
       } else {
         // Use registration API
-        const response = await fetch('/api/students/send-registration-invite', {
+        const response = await requestOperationalEmail('/api/students/send-registration-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ studentId: student.id }),
@@ -451,7 +453,7 @@ export function SendStudentInviteDialog({
             formData.append(`attachment-${index}`, file);
           });
           
-          const response = await fetch('/api/students/send-registration-invite', {
+          const response = await requestOperationalEmail('/api/students/send-registration-invite', {
             method: 'POST',
             body: formData,
           });
@@ -495,7 +497,7 @@ export function SendStudentInviteDialog({
             description: `An invite has been sent to ${selectedRecipient.value}`,
           });
         } else {
-          const response = await fetch('/api/students/send-registration-invite', {
+          const response = await requestOperationalEmail('/api/students/send-registration-invite', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

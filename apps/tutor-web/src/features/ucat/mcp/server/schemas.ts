@@ -11,8 +11,8 @@ export const UcatSetTimingModeSchema = z.enum(['pace', 'fixed', 'untimed'])
 export const UcatReadProjectionSchema = z.enum(['catalogue', 'composition', 'full'])
 export const UcatMcpAggregateTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
 export const UcatContentIdOrIdsSchema = z.union([
-  z.string().uuid(),
-  z.array(z.string().uuid()).min(1).max(25),
+  z.string().guid('Invalid uuid'),
+  z.array(z.string().guid('Invalid uuid')).min(1).max(25),
 ]).describe(
   'One aggregate ID, or an ordered batch of up to 25 IDs of the same contentType. Choose a batch size appropriate to the content size and calling harness.',
 )
@@ -28,7 +28,7 @@ const MarkdownRichTextSchema = z.object({
 export const RichTextSchema = z.union([
   z.string(),
   MarkdownRichTextSchema,
-  z.record(z.unknown()),
+  z.record(z.string(), z.unknown()),
 ]).describe(
   'Rich text. Model-authored strings are normalized as Markdown-compatible rich text, including inline LaTeX wrapped in \\(...\\) and display LaTeX wrapped in \\[...\\]. The explicit {"format":"markdown","value":"## Heading\\n\\n- Item"} form remains supported, or provide a native TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]} for exact control and embedded images.',
 )
@@ -64,7 +64,7 @@ export const QuestionInputSchema = z.object({
   timeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
     'Expected active working time in whole seconds to submit a fully correct first-exposure answer under realistic section timing and without assistance, with the question encountered in its authored stem position. Null means unknown.',
   ),
-  tagIds: z.array(z.string().uuid()).default([]),
+  tagIds: z.array(z.string().guid('Invalid uuid')).default([]),
   options: z.array(AnswerOptionInputSchema).default([]),
 })
 
@@ -88,7 +88,7 @@ const QuestionChangesSchema = z.object({
   timeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
     'Expected active working time in whole seconds to submit a fully correct first-exposure answer in authored stem order. Null means unknown.',
   ),
-  tagIds: z.array(z.string().uuid()).optional(),
+  tagIds: z.array(z.string().guid('Invalid uuid')).optional(),
 })
 
 const AnswerOptionChangesSchema = z.object({
@@ -102,8 +102,8 @@ const AnswerOptionChangesSchema = z.object({
 export const QuestionStemOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set_metadata'),
-    sectionId: z.string().uuid().optional(),
-    categoryId: z.string().uuid().nullable().optional(),
+    sectionId: z.string().guid('Invalid uuid').optional(),
+    categoryId: z.string().guid('Invalid uuid').nullable().optional(),
     stemText: RichTextSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
     tutorSourceNote: z.string().max(4000).nullable().optional(),
@@ -115,40 +115,40 @@ export const QuestionStemOperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('update_question'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
     changes: QuestionChangesSchema,
   }),
   z.object({
     type: z.literal('move_question'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema,
   }),
   z.object({
     type: z.literal('remove_question'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     type: z.literal('add_answer_option'),
-    questionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
     option: AnswerOptionInputSchema,
     toIndex: PositionSchema.optional(),
   }),
   z.object({
     type: z.literal('update_answer_option'),
-    questionId: z.string().uuid(),
-    optionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    optionId: z.string().guid('Invalid uuid'),
     changes: AnswerOptionChangesSchema,
   }),
   z.object({
     type: z.literal('move_answer_option'),
-    questionId: z.string().uuid(),
-    optionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    optionId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema,
   }),
   z.object({
     type: z.literal('remove_answer_option'),
-    questionId: z.string().uuid(),
-    optionId: z.string().uuid(),
+    questionId: z.string().guid('Invalid uuid'),
+    optionId: z.string().guid('Invalid uuid'),
   }),
 ])
 
@@ -162,34 +162,34 @@ export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
     fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
     setFormat: UcatSetFormatSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
-    sectionId: z.string().uuid().optional(),
-    referenceBlueprintId: z.string().uuid().optional(),
+    sectionId: z.string().guid('Invalid uuid').optional(),
+    referenceBlueprintId: z.string().guid('Invalid uuid').optional(),
   }),
   z.object({
     type: z.literal('add_stem'),
-    stemId: z.string().uuid(),
+    stemId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema.optional(),
   }),
   z.object({
     type: z.literal('move_stem'),
-    stemId: z.string().uuid(),
+    stemId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema,
   }),
   z.object({
     type: z.literal('remove_stem'),
-    stemId: z.string().uuid(),
+    stemId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     type: z.literal('replace_stems'),
-    stemIds: z.array(z.string().uuid()).max(500),
+    stemIds: z.array(z.string().guid('Invalid uuid')).max(500),
   }).describe(
     'Explicitly replace the complete ordered stem membership. Omission elsewhere never removes stems.',
   ),
 ])
 
 export const MockSectionSetSchema = z.object({
-  sectionId: z.string().uuid(),
-  setId: z.string().uuid(),
+  sectionId: z.string().guid('Invalid uuid'),
+  setId: z.string().guid('Invalid uuid'),
 })
 
 export const MockOperationSchema = z.discriminatedUnion('type', [
@@ -198,26 +198,26 @@ export const MockOperationSchema = z.discriminatedUnion('type', [
     authoringNote: z.string().trim().max(1000).nullable().optional(),
     instructionsText: NullableRichTextSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
-    blueprintId: z.string().uuid().optional(),
+    blueprintId: z.string().guid('Invalid uuid').optional(),
   }),
   z.object({
     type: z.literal('add_set'),
-    setId: z.string().uuid(),
+    setId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema.optional(),
   }),
   z.object({
     type: z.literal('move_set'),
-    setId: z.string().uuid(),
+    setId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema,
   }),
   z.object({
     type: z.literal('remove_set'),
-    setId: z.string().uuid(),
+    setId: z.string().guid('Invalid uuid'),
   }),
   z.object({
     type: z.literal('set_section_set'),
-    sectionId: z.string().uuid(),
-    setId: z.string().uuid().nullable(),
+    sectionId: z.string().guid('Invalid uuid'),
+    setId: z.string().guid('Invalid uuid').nullable(),
   }).describe(
     'Set or clear one blueprint section slot. The selected set must belong to that section.',
   ),
@@ -233,10 +233,10 @@ const LearningModuleBlockCommonShape = {
   requireCompletionBeforeNext: z.boolean().default(true).describe(
     'Whether the student must complete this block before advancing.',
   ),
-  questionStemId: z.string().uuid().nullable().optional(),
-  questionId: z.string().uuid().nullable().optional(),
-  fileId: z.string().uuid().nullable().optional(),
-  skillTrainerId: z.string().uuid().nullable().optional(),
+  questionStemId: z.string().guid('Invalid uuid').nullable().optional(),
+  questionId: z.string().guid('Invalid uuid').nullable().optional(),
+  fileId: z.string().guid('Invalid uuid').nullable().optional(),
+  skillTrainerId: z.string().guid('Invalid uuid').nullable().optional(),
 }
 
 const TextBlockContentSchema = z.object({
@@ -264,7 +264,7 @@ const FileBlockContentSchema = z.object({
   'File-block display metadata. The durable uploaded file reference belongs in fileId.',
 )
 
-const LinkedBlockContentSchema = z.record(z.unknown()).default({}).describe(
+const LinkedBlockContentSchema = z.record(z.string(), z.unknown()).default({}).describe(
   'Optional display or workflow metadata. Use an empty object for an ordinary linked resource.',
 )
 
@@ -282,25 +282,25 @@ export const LearningModuleBlockSchema = z.discriminatedUnion('blockType', [
   z.object({
     ...LearningModuleBlockCommonShape,
     blockType: z.literal('file'),
-    fileId: z.string().uuid().describe('ID of an uploaded file returned by an MCP file/image tool.'),
+    fileId: z.string().guid('Invalid uuid').describe('ID of an uploaded file returned by an MCP file/image tool.'),
     content: FileBlockContentSchema,
   }),
   z.object({
     ...LearningModuleBlockCommonShape,
     blockType: z.literal('question_stem'),
-    questionStemId: z.string().uuid().describe('Question-stem aggregate to embed.'),
+    questionStemId: z.string().guid('Invalid uuid').describe('Question-stem aggregate to embed.'),
     content: LinkedBlockContentSchema,
   }),
   z.object({
     ...LearningModuleBlockCommonShape,
     blockType: z.literal('question'),
-    questionId: z.string().uuid().describe('Individual question to embed.'),
+    questionId: z.string().guid('Invalid uuid').describe('Individual question to embed.'),
     content: LinkedBlockContentSchema,
   }),
   z.object({
     ...LearningModuleBlockCommonShape,
     blockType: z.literal('skill_trainer'),
-    skillTrainerId: z.string().uuid().describe('Skill trainer to embed.'),
+    skillTrainerId: z.string().guid('Invalid uuid').describe('Skill trainer to embed.'),
     content: LinkedBlockContentSchema,
   }),
 ]).describe(
@@ -310,27 +310,27 @@ export const LearningModuleBlockSchema = z.discriminatedUnion('blockType', [
 const LearningModuleBlockChangesSchema = z.object({
   blockType: z.enum(['text', 'video', 'file', 'question_stem', 'question', 'skill_trainer']).optional(),
   requireCompletionBeforeNext: z.boolean().optional(),
-  content: z.record(z.unknown()).optional().describe(
+  content: z.record(z.string(), z.unknown()).optional().describe(
     'Replacement payload for the resulting block type. For text use {"body":"plain text"}, {"body":{"format":"markdown","value":"## Heading\\n\\n- Item"}}, or a native TipTap/ProseMirror document in body; for video use {"url":"https://..."}.',
   ),
-  questionStemId: z.string().uuid().nullable().optional(),
-  questionId: z.string().uuid().nullable().optional(),
-  fileId: z.string().uuid().nullable().optional(),
-  skillTrainerId: z.string().uuid().nullable().optional(),
+  questionStemId: z.string().guid('Invalid uuid').nullable().optional(),
+  questionId: z.string().guid('Invalid uuid').nullable().optional(),
+  fileId: z.string().guid('Invalid uuid').nullable().optional(),
+  skillTrainerId: z.string().guid('Invalid uuid').nullable().optional(),
 })
 
 const LearningModuleMetadataSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   description: z.string().max(10_000).nullable().optional(),
-  sectionId: z.string().uuid().nullable().optional(),
-  parentId: z.string().uuid().nullable().optional(),
+  sectionId: z.string().guid('Invalid uuid').nullable().optional(),
+  parentId: z.string().guid('Invalid uuid').nullable().optional(),
   index: z.number().int().min(0).optional(),
   accessScope: UcatAccessScopeSchema.optional(),
   iconKey: z.string().trim().min(1).max(100).optional(),
   estimatedMinutes: z.number().int().min(1).max(600).nullable().optional(),
   studyPlanPriority: z.enum(['essential', 'recommended', 'optional', 'excluded']).optional(),
-  studyPlanCategoryIds: z.array(z.string().uuid()).optional(),
-  studyPlanTagIds: z.array(z.string().uuid()).optional(),
+  studyPlanCategoryIds: z.array(z.string().guid('Invalid uuid')).optional(),
+  studyPlanTagIds: z.array(z.string().guid('Invalid uuid')).optional(),
 })
 
 export const LearningModuleOperationSchema = z.discriminatedUnion('type', [
@@ -345,23 +345,23 @@ export const LearningModuleOperationSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('update_block'),
-    blockId: z.string().uuid(),
+    blockId: z.string().guid('Invalid uuid'),
     changes: LearningModuleBlockChangesSchema,
   }),
   z.object({
     type: z.literal('move_block'),
-    blockId: z.string().uuid(),
+    blockId: z.string().guid('Invalid uuid'),
     toIndex: PositionSchema,
   }),
   z.object({
     type: z.literal('remove_block'),
-    blockId: z.string().uuid(),
+    blockId: z.string().guid('Invalid uuid'),
   }),
 ])
 
 export const AuditTargetSchema = z.object({
   contentType: UcatMcpAggregateTypeSchema,
-  id: z.string().uuid(),
+  id: z.string().guid('Invalid uuid'),
 })
 
 const NonStemAuditFilterSelectorSchema = z.object({
@@ -369,8 +369,8 @@ const NonStemAuditFilterSelectorSchema = z.object({
   contentType: z.enum(['learning_module', 'set', 'mock']),
   status: UcatStatusSchema.optional(),
   accessScope: UcatAccessScopeSchema.optional(),
-  sectionId: z.string().uuid().optional(),
-  folderId: z.string().uuid().optional(),
+  sectionId: z.string().guid('Invalid uuid').optional(),
+  folderId: z.string().guid('Invalid uuid').optional(),
 }).describe(
   'Server-side target selection for learning modules, sets, or mocks. folderId applies to a learning-module subtree.',
 )
@@ -386,7 +386,7 @@ export const AuditSelectorSchema = z.union([
 ])
 
 export const AssessmentFindingRefSchema = z.object({
-  assessmentRunId: z.string().uuid(),
+  assessmentRunId: z.string().guid('Invalid uuid'),
   findingKey: z.string().trim().min(1).max(300),
   appliedExactSuggestion: z.boolean().default(false),
   reason: z.string().trim().max(4000).nullable().optional(),
@@ -397,7 +397,7 @@ export const ContentChangeMetadataSchema = {
     'Concise human-readable description of the intended published change.',
   ),
   rationale: z.string().trim().max(10_000).nullable().optional(),
-  auditRunId: z.string().uuid().nullable().optional().describe(
+  auditRunId: z.string().guid('Invalid uuid').nullable().optional().describe(
     'Active auto-applying audit run authorising an unattended published write. Omit for an interactive edit.',
   ),
   findingRefs: z.array(AssessmentFindingRefSchema).max(100).optional().describe(
@@ -413,18 +413,18 @@ const SetIntentShape = {
   fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
   setFormat: UcatSetFormatSchema,
   accessScope: UcatAccessScopeSchema.default('public'),
-  sectionId: z.string().uuid(),
-  referenceBlueprintId: z.string().uuid(),
+  sectionId: z.string().guid('Invalid uuid'),
+  referenceBlueprintId: z.string().guid('Invalid uuid'),
 }
 
 export const CreateQuestionSetInputSchema = z.object({
   idempotencyKey: IdempotencyKeySchema,
   ...SetIntentShape,
-  stemIds: z.array(z.string().uuid()).max(500).default([]),
+  stemIds: z.array(z.string().guid('Invalid uuid')).max(500).default([]),
 })
 
 export const ChangeQuestionSetInputSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid('Invalid uuid'),
   revision: z.string().min(1),
   operations: z.array(QuestionSetOperationSchema).min(1).max(100),
   ...ContentChangeMetadataSchema,
@@ -435,11 +435,11 @@ export const CreateMockInputSchema = z.object({
   authoringNote: z.string().trim().max(1000).nullable().optional(),
   instructionsText: NullableRichTextSchema.optional(),
   accessScope: UcatAccessScopeSchema.default('public'),
-  blueprintId: z.string().uuid(),
+  blueprintId: z.string().guid('Invalid uuid'),
 })
 
 export const ChangeMockInputSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid('Invalid uuid'),
   revision: z.string().min(1),
   operations: z.array(MockOperationSchema).min(1).max(100),
   ...ContentChangeMetadataSchema,
@@ -451,21 +451,21 @@ export const ListUcatBlueprintsInputSchema = z.object({
 })
 
 export const GetUcatBlueprintInputSchema = z.object({
-  blueprintId: z.string().uuid(),
+  blueprintId: z.string().guid('Invalid uuid'),
 })
 
 export const ValidateQuestionSetCompositionInputSchema = z.object({
-  sectionId: z.string().uuid(),
+  sectionId: z.string().guid('Invalid uuid'),
   setFormat: UcatSetFormatSchema,
-  referenceBlueprintId: z.string().uuid(),
+  referenceBlueprintId: z.string().guid('Invalid uuid'),
   timingMode: UcatSetTimingModeSchema.default('pace'),
   paceMultiplier: z.number().positive().max(10).nullable().optional(),
   fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
-  stemIds: z.array(z.string().uuid()).max(500),
+  stemIds: z.array(z.string().guid('Invalid uuid')).max(500),
 })
 
 export const ValidateMockCompositionInputSchema = z.object({
-  blueprintId: z.string().uuid(),
+  blueprintId: z.string().guid('Invalid uuid'),
   sectionSets: z.array(MockSectionSetSchema).max(4),
 })
 

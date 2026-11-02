@@ -29,7 +29,7 @@ export function filterStudents(
 }
 
 /**
- * Filter classes based on search query, day filters, and enrollment status
+ * Filter active classes based on search query, day filters, and enrollment status
  */
 export function filterClasses(
   classes: ClassWithExpandedSubject[],
@@ -37,6 +37,8 @@ export function filterClasses(
   enrolledClassIds: string[]
 ): ClassWithExpandedSubject[] {
   return classes.filter(c => {
+    if (c.status !== 'ACTIVE') return false;
+
     // Exclude already enrolled classes
     if (enrolledClassIds.includes(c.id)) return false;
     

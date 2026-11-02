@@ -228,6 +228,163 @@ describe("targeted browser auth diagnostics", () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
+  it("preserves a sampled cookie-gap summary after timeline rollover without claiming continuous absence", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValue(1000);
+    const documentState = {
+      cookie: `student-auth=${secret}`,
+      visibilityState: "visible",
+    };
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: documentState,
+    });
+    let failed = false;
+    const diagnostics = createBrowserAuthDiagnostics(
+      origin,
+      anonymousKey,
+      async () => response(failed ? 401 : 200),
+    );
+    try {
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      documentState.cookie = "";
+      now.mockReturnValue(1100);
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      now.mockReturnValue(1350);
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      documentState.cookie = `student-auth=${secret}`;
+      now.mockReturnValue(1400);
+      for (let index = 0; index < 25; index += 1)
+        await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      failed = true;
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      const event = await eventContext("auto.db.supabase.postgres");
+      expect(event?.contexts?.ucat_auth_boundary?.cookie_gap).toMatchObject({
+        sampling: "boundary-observations",
+        observed_span_ms: 250,
+        last_observed_age_ms: 50,
+        restored_observed: true,
+        window_truncated: false,
+      });
+      expect(event?.contexts?.ucat_auth_boundary?.history).toMatchObject({
+        max_entries: 20,
+        max_age_ms: 30000,
+        dropped_entries: expect.any(Number),
+      });
+      expect(
+        (
+          event?.contexts?.ucat_auth_boundary?.history as {
+            dropped_entries: number;
+          }
+        ).dropped_entries,
+      ).toBeGreaterThan(0);
+      expect(JSON.stringify(event)).not.toContain(secret);
+    } finally {
+      Reflect.deleteProperty(globalThis, "document");
+      now.mockRestore();
+    }
+  });
+
+  it("records a thrown session read without retaining its error or leaving a pending read", async () => {
+    let storageUnavailable = false;
+    const diagnostics = createBrowserAuthDiagnostics(
+      origin,
+      anonymousKey,
+      async () => response(401),
+    );
+    const client = diagnostics.observeClient(
+      createClient<Database>(origin, anonymousKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: false,
+          storage: {
+            getItem: () => {
+              if (storageUnavailable) throw new Error(secret);
+              return null;
+            },
+            setItem: () => {},
+            removeItem: () => {},
+          },
+        },
+        global: { fetch: diagnostics.fetch },
+      }),
+    );
+    await client.auth.getSession();
+    storageUnavailable = true;
+    await expect(client.auth.getSession()).rejects.toThrow(secret);
+    storageUnavailable = false;
+    await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+    const event = await eventContext("auto.db.supabase.postgres");
+    expect(event?.contexts?.ucat_auth_boundary?.pending_get_sessions).toBe(0);
+    expect(event?.contexts?.ucat_auth_boundary?.last_session).toMatchObject({
+      result: "threw",
+    });
+    expect(JSON.stringify(event)).not.toContain(secret);
+  });
+
+  it("expires prior session and refresh summaries and labels long cookie observation gaps as truncated", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValue(1000);
+    const documentState = { cookie: "", visibilityState: "visible" };
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: documentState,
+    });
+    const diagnostics = createBrowserAuthDiagnostics(
+      origin,
+      anonymousKey,
+      async () => response(401),
+    );
+    const client = diagnostics.observeClient(
+      createClient<Database>(origin, anonymousKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: diagnostics.fetch },
+      }),
+    );
+    try {
+      await client.auth.getSession();
+      await diagnostics.fetch(
+        `${origin}/auth/v1/token?grant_type=refresh_token`,
+        { method: "POST" },
+      );
+      diagnostics.observeRecovery({
+        phase: "end",
+        trigger: "missing-session",
+        attempt_count: 5,
+        elapsed_ms: 200,
+        outcome: "missing",
+      });
+      now.mockReturnValue(32001);
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      const event = await eventContext("auto.db.supabase.postgres");
+      expect(event?.contexts?.ucat_auth_boundary).toMatchObject({
+        snapshot_time_ms: 32001,
+        cookie_gap: {
+          window_truncated: true,
+          observed_span_ms: 0,
+          restored_observed: false,
+        },
+      });
+      for (const key of ["last_refresh", "last_session", "recovery"])
+        expect(event?.contexts?.ucat_auth_boundary).not.toHaveProperty(key);
+      expect(
+        (
+          event?.contexts?.ucat_auth_boundary?.history as {
+            expired_entries: number;
+          }
+        ).expired_entries,
+      ).toBeGreaterThan(0);
+      documentState.cookie = `student-auth=${secret}`;
+      now.mockReturnValue(64002);
+      await diagnostics.fetch(`${origin}/rest/v1/vstudent_profile`);
+      expect(
+        (await eventContext("auto.db.supabase.postgres"))?.contexts
+          ?.ucat_auth_boundary,
+      ).not.toHaveProperty("cookie_gap");
+    } finally {
+      Reflect.deleteProperty(globalThis, "document");
+      now.mockRestore();
+    }
+  });
+
   it("retains only exposed UUID provider correlation IDs from the strict header allowlist", async () => {
     const uuid = "01A11255-F395-7D24-8398-C18CB2E8D459";
     const fixtures: Record<string, string>[] = [

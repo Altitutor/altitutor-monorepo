@@ -1,21 +1,35 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, isSameDay, parse, isValid } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
+import { useInterviewRoundEvents } from '../hooks/useInterviewRoundEvents';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { SessionsCard } from './SessionsCard';
+import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
-import { Button, SegmentedControl } from "@altitutor/ui";
+import { Button } from "@altitutor/ui";
+import { utcToAdelaideDate } from '@/features/bookings/utils/dateTimeHelpers';
 
+type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
+  source?: CalendarSource;
+  expandToSessions?: boolean;
+  visibleProperties?: string[];
+  onRangeChange?: (from:string,to:string) => void;
   onOpenSession?: (id: string) => void;
   initialDate?: string;
   initialViewMode?: 'day' | 'week';
+  preview?: {
+    startAt: string;
+    endAt: string;
+    title: string;
+    description?: string;
+  };
 };
 
 function parseDateParam(value?: string): Date | null {
@@ -24,11 +38,13 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMode }: Props) {
+export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange, preview }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week'>(initialViewMode ?? 'week');
-  
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  useEffect(() => {if(parsedInitialDate) setAnchor(parsedInitialDate)},[parsedInitialDate]);
+  const viewMode = initialViewMode ?? 'week';
+
   // Calculate date range based on view mode
   const rangeStart = useMemo(() => {
     if (viewMode === 'day') {
@@ -36,22 +52,49 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
     }
     return startOfWeek(anchor, { weekStartsOn: 1 });
   }, [anchor, viewMode]);
-  
+
   const rangeEnd = useMemo(() => {
     if (viewMode === 'day') {
       return anchor;
     }
     return endOfWeek(anchor, { weekStartsOn: 1 });
   }, [anchor, viewMode]);
-  
-  const { data } = useSessionsWithDetails({ 
-    rangeStart: format(rangeStart, 'yyyy-MM-dd'), 
+
+  const { data:fetchedData } = useSessionsWithDetails({
+    rangeStart: format(rangeStart, 'yyyy-MM-dd'),
     rangeEnd: format(rangeEnd, 'yyyy-MM-dd'),
     includeInactive: false // Only show active sessions in calendar view
-  });
+  }, {enabled:!source});
+  const data = source ?? fetchedData;
+  const from = format(rangeStart,'yyyy-MM-dd');
+  const to = format(rangeEnd,'yyyy-MM-dd');
+  const { data: roundEvents = [] } = useInterviewRoundEvents(from, to);
+  const selectedRound = roundEvents.find((round) => round.id === selectedRoundId) ?? null;
+  useEffect(() => onRangeChange?.(from,to),[from,to,onRangeChange]);
+  const showProperty = (key:string) => !visibleProperties || visibleProperties.includes(key);
+
+  const days = useMemo(() => {
+    if (viewMode === 'day') return [anchor];
+    const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [anchor, viewMode]);
+  const previewStartDay = preview ? utcToAdelaideDate(preview.startAt) : '';
+  const previewEndDay = preview ? utcToAdelaideDate(preview.endAt) : '';
+  const previewSegments = new Map(days.flatMap((day) => {
+    const key = format(day, 'yyyy-MM-dd');
+    if (!preview || key < previewStartDay || key > previewEndDay) return [];
+    const startMinutes = key === previewStartDay ? adelaideTimeToMinutes(preview.startAt) : 0;
+    const endMinutes = key === previewEndDay ? adelaideTimeToMinutes(preview.endAt) : 1440;
+    return endMinutes > startMinutes ? [[key, { startMinutes, endMinutes }] as const] : [];
+  }));
 
   // Time grid similar to classes timetable
-  const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
+  const calendarSessions = data?.sessions ?? [];
+  const startMinutes = [...calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []), ...Array.from(previewSegments.values(), segment => segment.startMinutes)];
+  const endMinutes = [...calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []), ...Array.from(previewSegments.values(), segment => segment.endMinutes)];
+  const firstHour = expandToSessions ? Math.floor(Math.min(9 * 60, ...startMinutes) / 60) : 9;
+  const lastHour = expandToSessions ? Math.min(24, Math.ceil(Math.max(21 * 60, ...endMinutes) / 60)) : 21;
+  const slots = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
   const slotHeight = 75; // px per hour
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
@@ -60,62 +103,46 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
     return sessions as Tables<'sessions'>[];
   };
 
-  // Calculate days to display based on view mode
-  const days = useMemo(() => {
-    if (viewMode === 'day') {
-      return [anchor];
-    }
-    const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [anchor, viewMode]);
-
   // Helpers to compute block positions
   // Use Adelaide timezone for consistent calculations
   const minutesFromStart = (isoString: string) => {
     const minutes = adelaideTimeToMinutes(isoString);
-    return minutes - (9 * 60);
+    return minutes - (firstHour * 60);
   };
 
   // Current time indicator
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   // For current time indicator, use local time (user's current time)
-  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
+  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (firstHour * 60);
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   // Calculate navigation step based on view mode
   const navigationStep = viewMode === 'day' ? 1 : 7;
-  
+
   const handlePrevious = () => {
     setAnchor(addDays(anchor, -navigationStep));
   };
-  
+
   const handleNext = () => {
     setAnchor(addDays(anchor, navigationStep));
   };
-  
+
   const handleToday = () => {
     setAnchor(new Date());
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <SegmentedControl
-          value={viewMode}
-          onValueChange={(value) => setViewMode(value as 'day' | 'week')}
-          options={[
-            { value: 'day', label: '1 day' },
-            { value: 'week', label: '1 week' },
-          ]}
-        />
-        
+    <div className="flex flex-col gap-3" aria-label="Sessions calendar">
+      <div className="flex items-center justify-end">
+
+
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrevious}>
+          <Button variant="outline" aria-label={`Previous ${viewMode}`} onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" onClick={handleToday}>Today</Button>
-          <Button variant="outline" onClick={handleNext}>
+          <Button variant="outline" aria-label={`Next ${viewMode}`} onClick={handleNext}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -157,7 +184,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                       <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
                         {/* Today indicator line */}
                         {isToday && showTodayIndicator && (
-                          <div 
+                          <div
                             className="absolute left-0 right-0 z-30 pointer-events-none"
                             style={{ top: `${(currentMinutesFromStart / 60) * slotHeight}px` }}
                           >
@@ -180,7 +207,24 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                         // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
                         const adminShiftSessions = deduped.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
                         const regularSessions = deduped.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
-                        
+                        const dayRounds = roundEvents.filter((round) => isSameDay(new Date(round.scheduledAt), d));
+                        const dayPreview = previewSegments.get(format(d, 'yyyy-MM-dd'));
+                        const dayPlacements = new Map(
+                          layoutCalendarColumns([
+                            ...regularSessions.flatMap((session) => session.start_at && session.end_at ? [{
+                              id: session.id,
+                              startMinutes: adelaideTimeToMinutes(session.start_at),
+                              endMinutes: adelaideTimeToMinutes(session.end_at),
+                            }] : []),
+                            ...dayRounds.map((round) => ({
+                              id: `round:${round.id}`,
+                              startMinutes: adelaideTimeToMinutes(round.scheduledAt),
+                              endMinutes: adelaideTimeToMinutes(round.endAt),
+                            })),
+                            ...(dayPreview ? [{ id: 'meeting-preview', ...dayPreview }] : []),
+                          ]).map((placement) => [placement.id, placement]),
+                        );
+
                         // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                         // Fix: Check if session overlaps with ANY session in the group, not just the first one
                         const regularGroups: Tables<'sessions'>[][] = [];
@@ -189,7 +233,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                           if (processed.has(s.id)) return;
                           const group: Tables<'sessions'>[] = [s];
                           processed.add(s.id);
-                          
+
                           // Keep checking for new overlaps until no more sessions can be added
                           let foundNewOverlap = true;
                           while (foundNewOverlap) {
@@ -198,7 +242,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                               if (processed.has(o.id)) return;
                               const oStart = adelaideTimeToMinutes(o.start_at ?? '');
                               const oEnd = adelaideTimeToMinutes(o.end_at ?? '');
-                              
+
                               // Check if o overlaps with ANY session already in the group
                               const overlapsWithGroup = group.some((groupSession: Tables<'sessions'>) => {
                                 const gStart = adelaideTimeToMinutes(groupSession.start_at ?? '');
@@ -207,7 +251,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                                 // Use strict comparison: gStart < oEnd && gEnd > oStart
                                 return gStart < oEnd && gEnd > oStart;
                               });
-                              
+
                               if (overlapsWithGroup) {
                                 group.push(o);
                                 processed.add(o.id);
@@ -215,18 +259,44 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                               }
                             });
                           }
-                          
+
                           regularGroups.push(group);
                         });
-                        
+
                         // Create ADMIN_SHIFT groups (one session per group)
                         const adminShiftGroups: Tables<'sessions'>[][] = [];
                         adminShiftSessions.forEach((s: Tables<'sessions'>) => {
                           adminShiftGroups.push([s]);
                         });
-                        
-                        const blocks: JSX.Element[] = [];
-                        
+
+                        const blocks: React.JSX.Element[] = [];
+
+                        if (preview && dayPreview) {
+                          const placement = dayPlacements.get('meeting-preview');
+                          const width = 95 / (placement?.columnCount ?? 1);
+                          const timeLabel = (value: string) => new Intl.DateTimeFormat('en-AU', {
+                            timeZone: 'Australia/Adelaide', hour: 'numeric', minute: '2-digit', hour12: true,
+                          }).format(new Date(value));
+                          blocks.push(
+                            <div
+                              key="meeting-preview"
+                              role="note"
+                              aria-label={`Preview: ${preview.title}`}
+                              className="absolute z-10 overflow-hidden rounded-md border-2 border-dashed border-primary bg-background p-2 text-xs shadow-sm"
+                              style={{
+                                top: `${((dayPreview.startMinutes - firstHour * 60) / 60) * slotHeight}px`,
+                                height: `${Math.max(45, ((dayPreview.endMinutes - dayPreview.startMinutes) / 60) * slotHeight)}px`,
+                                left: `${(placement?.column ?? 0) * width + 2.5}%`,
+                                width: `${width}%`,
+                              }}
+                            >
+                              <p className="truncate font-semibold">Preview: {preview.title}</p>
+                              <p>{timeLabel(preview.startAt)} – {timeLabel(preview.endAt)}</p>
+                              {preview.description && <p className="truncate">{preview.description}</p>}
+                            </div>,
+                          );
+                        }
+
                         // Render ADMIN_SHIFT sessions FIRST (behind) with lower z-index
                         adminShiftGroups.forEach((group) => {
                           const total = group.length;
@@ -237,18 +307,19 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
-                            
+
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
-                            
+
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
                             // Estimate width: assume column is ~150-200px wide, calculate from percentage
                             const estimatedColumnWidth = 180; // Approximate column width for week view
                             const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
-                            
+
                             blocks.push(
                               <div
                                 key={`admin-${d.toISOString()}-${s.id}-${idx}`}
@@ -257,11 +328,13 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
+                                  details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
-                                  classData={cls}
-                                  subject={subj}
-                                  staff={sessionStaff}
-                                  students={sessionStudents}
+                                  classData={showProperty("class") ? cls : undefined}
+                                  subject={showProperty("class") ? subj : undefined}
+                                  staff={showProperty("staff") ? sessionStaff : []}
+                                  students={showProperty("students") ? sessionStudents : []}
                                   onClick={() => {}}
                                   isCalendarView={true}
                                   cardHeight={cardHeight}
@@ -271,18 +344,10 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             );
                           });
                         });
-                        
+
                         // Render regular sessions AFTER (on top) with higher z-index
                         regularGroups.forEach((group) => {
-                          const placements = new Map(
-                            layoutCalendarColumns(
-                              group.map((session) => ({
-                                id: session.id,
-                                startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
-                                endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
-                              })),
-                            ).map((placement) => [placement.id, placement]),
-                          );
+                          const placements = dayPlacements;
                           group.forEach((s: Tables<'sessions'>, idx: number) => {
                             const placement = placements.get(s.id);
                             const total = placement?.columnCount ?? 1;
@@ -293,18 +358,19 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = column * columnWidth + 2.5;
-                            
+
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
-                            
+
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
                             // Estimate width: assume column is ~150-200px wide, calculate from percentage
                             const estimatedColumnWidth = 180; // Approximate column width for week view
                             const cardWidth = (columnWidth / 100) * estimatedColumnWidth;
-                            
+
                             blocks.push(
                               <div
                                 key={`reg-${d.toISOString()}-${s.id}-${idx}`}
@@ -313,11 +379,13 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
+                                  details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
-                                  classData={cls}
-                                  subject={subj}
-                                  staff={sessionStaff}
-                                  students={sessionStudents}
+                                  classData={showProperty("class") ? cls : undefined}
+                                  subject={showProperty("class") ? subj : undefined}
+                                  staff={showProperty("staff") ? sessionStaff : []}
+                                  students={showProperty("students") ? sessionStudents : []}
                                   onClick={() => {}}
                                   isCalendarView={true}
                                   cardHeight={cardHeight}
@@ -326,6 +394,25 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                               </div>
                             );
                           });
+                        });
+                        dayRounds.forEach((round) => {
+                          const placement = dayPlacements.get(`round:${round.id}`);
+                          const total = placement?.columnCount ?? 1;
+                          const column = placement?.column ?? 0;
+                          const columnWidth = total > 1 ? 95 / total : 95;
+                          const startMinutes = adelaideTimeToMinutes(round.scheduledAt);
+                          const endMinutes = adelaideTimeToMinutes(round.endAt);
+                          const top = Math.max(0, (minutesFromStart(round.scheduledAt) / 60) * slotHeight);
+                          const height = Math.max(30, ((endMinutes - startMinutes) / 60) * slotHeight);
+                          blocks.push(
+                            <div
+                              key={round.id}
+                              className="absolute"
+                              style={{ top: `${top}px`, height: `${Math.max(height, 45)}px`, left: `${column * columnWidth + 2.5}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
+                            >
+                              <InterviewRoundCalendarCard round={round} onOpen={() => setSelectedRoundId(round.id)} />
+                            </div>
+                          );
                         });
                           return blocks;
                         })()}
@@ -338,6 +425,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
           ))}
         </div>
       </div>
+      <InterviewRoundInfoDialog round={selectedRound} onClose={() => setSelectedRoundId(null)} />
     </div>
   );
 }

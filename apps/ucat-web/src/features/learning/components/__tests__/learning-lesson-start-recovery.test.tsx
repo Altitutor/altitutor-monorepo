@@ -6,7 +6,7 @@ import { LearningLessonPage } from "../learning-lesson-page";
 const openQuotaLimit = jest.fn();
 const setActivityComplete = jest.fn();
 const reportActivityCompletion = jest.fn();
-// Jest's classic JSX transform needs React for the production module's JSX.
+// Jest's classic JSX transform needs React for the production module's React.JSX.
 const previousReact = Object.getOwnPropertyDescriptor(globalThis, "React");
 beforeAll(() =>
   Object.defineProperty(globalThis, "React", {

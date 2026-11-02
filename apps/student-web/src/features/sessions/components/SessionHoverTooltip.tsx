@@ -173,6 +173,8 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
   const absenceSession: AbsenceStudentSession | null = 
     session.session_student_id && session.session_id ? {
       id: session.session_id,
+      deleted_at: null,
+      deleted_by: null,
       start_at: session.start_at,
       end_at: session.end_at,
       class_id: session.class_id,

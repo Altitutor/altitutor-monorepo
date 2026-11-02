@@ -2,11 +2,12 @@ import { SkillTrainerDetailPage } from "@/features/skill-trainer/components/skil
 import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
 import { notFound } from "next/navigation";
 
-export default function SkillTrainerDetailRoute({
-  params,
-}: {
-  params: { key: string };
-}) {
+export default async function SkillTrainerDetailRoute(
+  props: {
+    params: Promise<{ key: string }>;
+  }
+) {
+  const params = await props.params;
   const trainerKey = trainerSlugToKey(params.key);
   if (!trainerKey || trainerKeyToSlug(trainerKey) !== params.key) notFound();
   return <SkillTrainerDetailPage trainerKey={trainerKey} />;

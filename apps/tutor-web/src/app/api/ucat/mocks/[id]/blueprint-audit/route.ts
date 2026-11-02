@@ -10,7 +10,8 @@ function blueprintAuditError(message: string) {
   return NextResponse.json({ error: message }, { status: 400 })
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as { blueprintId?: unknown } | null
@@ -24,7 +25,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   return NextResponse.json({ auditId: data })
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as { auditId?: unknown } | null

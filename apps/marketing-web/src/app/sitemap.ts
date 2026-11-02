@@ -1,3 +1,5 @@
+import { getArticles } from "@/features/blog/articles";
+import { articlePath } from "@/features/blog/catalogue";
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 import { getSitemapPages } from "@/lib/pages";
@@ -23,6 +25,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     ...legacyPages,
+    { url: `${SITE_URL}/blog/`, changeFrequency: "monthly" },
+    ...getArticles().map((article) => ({
+      url: `${SITE_URL}${articlePath(article.slug)}`,
+      lastModified: article.updatedAt ?? article.publishedAt,
+    })),
     ...[
       "/online-courses/",
       "/online-courses/sace-ib-resources/",

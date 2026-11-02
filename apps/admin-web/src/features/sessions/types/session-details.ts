@@ -24,6 +24,7 @@ export interface SessionDetailsSession extends SessionTimeInput {
   class_id?: string | null;
   /** When set, session is part of a recurring admin shift (same absence rules as class-linked sessions). */
   admin_shift_id?: string | null;
+  admin_shift?: Pick<Tables<'admin_shifts'>, 'id' | 'day_of_week' | 'start_time' | 'end_time'> | null;
   subject_id?: string | null;
   start_at?: string | null;
   end_at?: string | null;

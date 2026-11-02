@@ -14,6 +14,8 @@ type BaseMeetingEntitySearchAddProps = {
   placeholder: string;
   existingIds: string[];
   disabled?: boolean;
+  onCreate?: () => void;
+  includeInactive?: boolean;
 };
 
 export type MeetingEntitySearchAddProps =
@@ -53,12 +55,12 @@ export function MeetingEntitySearchAdd(props: MeetingEntitySearchAddProps) {
   }, [menuOpen]);
 
   const { data: rows = [], isFetching } = useQuery({
-    queryKey: ['meeting-entity-search', kind, debounced],
+    queryKey: ['meeting-entity-search', kind, debounced, props.includeInactive ?? false],
     queryFn: async () => {
       if (kind === 'student') {
         const { students } = await studentsApi.listMinimal({
           search: debounced,
-          statuses: ['ACTIVE', 'TRIAL'],
+          statuses: props.includeInactive ? [] : ['ACTIVE', 'TRIAL'],
           limit: 20,
           offset: 0,
           orderBy: 'first_name',
@@ -67,11 +69,9 @@ export function MeetingEntitySearchAdd(props: MeetingEntitySearchAddProps) {
         return students as Tables<'students'>[];
       }
       if (kind === 'staff') {
-        const { staff } = await staffApi.searchForAbsence({
-          search: debounced,
-          page: 0,
-          pageSize: 20,
-        });
+        const { staff } = props.includeInactive
+          ? await staffApi.listMinimal({ search: debounced, limit: 20, offset: 0 })
+          : await staffApi.searchForAbsence({ search: debounced, page: 0, pageSize: 20 });
         return staff as Tables<'staff'>[];
       }
       const { parents } = await parentsApi.list({
@@ -125,6 +125,7 @@ export function MeetingEntitySearchAdd(props: MeetingEntitySearchAddProps) {
             {ADD_LABEL[kind]}
           </Button>
         }
+        footer={props.onCreate ? <Button type="button" variant="ghost" className="w-full justify-start" onClick={() => { setMenuOpen(false); props.onCreate?.(); }}>Create new {kind}</Button> : undefined}
         className="w-[min(100%,280px)]"
       />
     </div>

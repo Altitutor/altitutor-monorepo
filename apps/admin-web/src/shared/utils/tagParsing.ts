@@ -4,7 +4,11 @@
  * Used for clipboard "Copy as mention" in session tables.
  */
 
-export type TagEntityType = 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'session' | 'topic' | 'file' | 'invoice' | 'task' | 'issue' | 'project';
+export type TagEntityType =
+  | "email"
+  | "message"
+  | "note"
+  | 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'session' | 'topic' | 'file' | 'invoice' | 'task' | 'issue' | 'project';
 
 /**
  * Create a tag marker string for clipboard copy

@@ -1,9 +1,10 @@
 import { SessionDetailPage } from "@/features/sessions";
 
-export default function SessionDetailRoute({
-  params,
-}: {
-  params: { sessionId: string };
-}) {
+export default async function SessionDetailRoute(
+  props: {
+    params: Promise<{ sessionId: string }>;
+  }
+) {
+  const params = await props.params;
   return <SessionDetailPage sessionId={params.sessionId} />;
 }

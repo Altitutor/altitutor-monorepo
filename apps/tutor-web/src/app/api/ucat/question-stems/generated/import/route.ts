@@ -5,14 +5,14 @@ import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questi
 
 const GeneratedOptionSchema = z.object({
   index: z.number().int().positive(),
-  answerText: z.unknown(),
+  answerText: z.unknown().optional(),
   answerExplanation: z.unknown().nullable().optional(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const GeneratedQuestionSchema = z.object({
   index: z.number().int().positive(),
-  questionText: z.unknown(),
+  questionText: z.unknown().optional(),
   answerExplanation: z.unknown().nullable().optional(),
   difficulty: z.number().min(0).max(1).nullable().optional(),
   timeBurdenSeconds: z.number().int().positive().nullable().optional(),
@@ -23,20 +23,20 @@ const GeneratedQuestionSchema = z.object({
     'decision_making_binary_placement',
     'situational_judgement_most_least',
   ]),
-  tagIds: z.array(z.string().uuid()).default([]),
+  tagIds: z.array(z.string().guid('Invalid uuid')).default([]),
   options: z.array(GeneratedOptionSchema).min(1),
 })
 
 const GeneratedStemSchema = z.object({
-  sectionId: z.string().uuid(),
-  categoryId: z.string().uuid().nullable().optional(),
-  stemText: z.unknown(),
+  sectionId: z.string().guid('Invalid uuid'),
+  categoryId: z.string().guid('Invalid uuid').nullable().optional(),
+  stemText: z.unknown().optional(),
   questions: z.array(GeneratedQuestionSchema).min(1),
   aiGenerationMetadata: z.unknown().nullable().optional(),
 })
 
 const ImportBodySchema = z.object({
-  sectionId: z.string().uuid(),
+  sectionId: z.string().guid('Invalid uuid'),
   stems: z.array(GeneratedStemSchema).min(1),
 })
 

@@ -10,6 +10,8 @@ import { setPracticeSession } from "@/features/practice/lib/session-storage";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 
+import type { StudyPlanLaunchDiagnostics } from "@/features/study-plan/model/launch-diagnostics";
+
 export type PracticeSessionStartInput = {
   payload: PracticeSelectionInput & {
     unlimited?: boolean;
@@ -18,6 +20,7 @@ export type PracticeSessionStartInput = {
   ucatSectionId: string;
   filterMeta?: PracticeSessionFilterMeta;
   studyPlan?: StudyPlanPracticeLink;
+  studyPlanLaunch?: StudyPlanLaunchDiagnostics;
 };
 
 export type CreatePracticeSessionResult =
@@ -65,6 +68,9 @@ export async function createPracticeSession(
         ucatSectionId: input.ucatSectionId,
         filtersSnapshot,
         unlimited: true,
+        ...(input.studyPlan && input.studyPlanLaunch
+          ? { studyPlanLaunch: input.studyPlanLaunch }
+          : {}),
       }),
     });
 
@@ -90,6 +96,9 @@ export async function createPracticeSession(
       ucatSectionId: input.ucatSectionId,
       filtersSnapshot,
       unlimited: false,
+      ...(input.studyPlan && input.studyPlanLaunch
+        ? { studyPlanLaunch: input.studyPlanLaunch }
+        : {}),
     }),
   });
 

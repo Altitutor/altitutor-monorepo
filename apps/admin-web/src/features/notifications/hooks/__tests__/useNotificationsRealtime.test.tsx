@@ -42,6 +42,7 @@ it('subscribes only to the current sender and shows a failure toast linking to t
 it('does not show failure toasts for unrelated notifications or updates', () => {
   renderHook(() => useNotificationsRealtime('sender-id'));
   mockChannel.on.mock.calls[0][2]({ new: { notification_type: 'TAG' } });
+  mockChannel.on.mock.calls[0][2]({ new: { notification_type: 'PAY_TIER_ELIGIBLE', action_url: '/pay-tier' } });
   mockChannel.on.mock.calls[1][2]({ new: { notification_type: 'MESSAGE_DELIVERY_FAILED' } });
   expect(mockToast).not.toHaveBeenCalled();
 });

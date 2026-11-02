@@ -43,10 +43,8 @@ function getTutorBaseUrl(request: NextRequest): string {
   );
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { token: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   if (!UUID_PATTERN.test(params.token)) {
     return new NextResponse("Calendar not found", { status: 404 });
   }

@@ -51,7 +51,7 @@ export function AdminDialogShell({
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -145,7 +145,9 @@ export function AdminDialogShell({
         </div>
 
         {footer ? (
-          <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end">{footer}</DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t bg-card px-6 py-4 sm:justify-end sm:space-x-0">
+            {footer}
+          </DialogFooter>
         ) : null}
         </AdminDialogExpandContext.Provider>
         </MediaQueryWidthProvider>
