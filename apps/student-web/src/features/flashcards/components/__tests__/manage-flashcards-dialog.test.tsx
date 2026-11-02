@@ -1,7 +1,16 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { FlashcardReviewCard } from '@altitutor/shared';
 import { ManageFlashcardsDialog } from '../manage-flashcards-dialog';
+
+jest.mock('@/features/resources/api/resources', () => ({
+  resourcesApi: { getMySubjects: jest.fn(async () => [
+    { id: 'subject-1', name: 'Biology', short_name: 'BIO', color: 'aabbcc' },
+    { id: 'subject-2', name: 'Chemistry', short_name: 'CHEM', color: 'ccbbaa' },
+    { id: 'subject-3', name: 'Physics', short_name: 'PHY', color: null },
+  ]) },
+}));
 
 const card: FlashcardReviewCard = {
   id: 'review-1', flashcard_id: 'flashcard-1', cloze_index: 1, topic_id: 'topic-1',
@@ -19,6 +28,7 @@ const fetchMock = jest.fn<Promise<Response>, Parameters<typeof fetch>>();
 
 beforeAll(() => {
   Object.assign(global, { React });
+  HTMLElement.prototype.scrollIntoView = jest.fn();
   window.matchMedia = jest.fn().mockImplementation((media: string) => ({
     matches: false, media, addEventListener() {}, removeEventListener() {},
   }));
@@ -60,7 +70,7 @@ it('shows a saved suspension and its history without downloading the catalog aga
 });
 
 it('keeps successful unbury results when another card fails and offers a targeted retry', async () => {
-  const first = { ...card, buried_until: '2026-10-30T00:00:00Z' };
+  const first = { ...card, buried_until: '2099-10-30T00:00:00Z' };
   const second = { ...first, id: 'review-2', flashcard_id: 'flashcard-2', cloze_text: 'Salt is {{c1::NaCl}}.' };
   const unburied: string[] = [];
   let failSecond = true;
@@ -109,4 +119,90 @@ it('retries a committed change with the original command ID when its state could
   fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
   await screen.findByRole('button', { name: 'Resume' });
   expect(requestIds).toEqual(['request-1', 'request-1']);
+});
+
+it('explains mixed sibling states and includes suspended and buried clozes in the row', async () => {
+  fetchMock.mockImplementation(async (url) => String(url).includes('/history') ? json([]) : json([
+    { ...card, suspended_at: '2026-10-29T00:00:00Z' },
+    { ...card, id: 'review-2', cloze_index: 2, state: 'Review', buried_until: '2099-01-01T00:00:00Z' },
+  ]));
+  render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
+  const row = await screen.findByRole('row', { name: /Water is H2O/ });
+  expect(within(row).getByText('Mixed')).toBeVisible();
+  expect(within(row).getByText('New 1 · Review 1')).toBeVisible();
+  expect(within(row).getByText('Suspended 1')).toBeVisible();
+  expect(within(row).getByText('Buried 1')).toBeVisible();
+  expect(within(row).getByText('Mixed')).toHaveClass('bg-muted/60');
+  expect(screen.getByText(/Each cloze has one study state/)).toBeVisible();
+});
+
+it('pages complete flashcard groups and applies fixed subject views across all pages', async () => {
+  const cards = Array.from({ length: 21 }, (_, index) => ({
+    ...card, id: `review-${index}`, flashcard_id: `flashcard-${index}`, flashcard_index: index,
+    cloze_text: `Question ${index}`, subject_id: index === 20 ? 'subject-2' : 'subject-1',
+    subject_short_name: index === 20 ? 'CHEM' : 'BIO',
+  }));
+  fetchMock.mockImplementation(async (url) => String(url).includes('/history') ? json([]) : json(cards));
+  render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
+  expect(await screen.findByRole('button', { name: 'All flashcards' })).toHaveAttribute('aria-pressed', 'true');
+  await screen.findByRole('row', { name: /Question 0/ });
+  expect(screen.getAllByRole('row')).toHaveLength(21); // Header + 20 flashcard groups.
+  expect(screen.queryByRole('row', { name: /Question 20/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  expect(await screen.findByRole('row', { name: /Question 20/ })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'BIO' }));
+  expect(await screen.findByRole('row', { name: /Question 0/ })).toBeVisible();
+  expect(screen.queryByRole('row', { name: /Question 20/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'CHEM' }));
+  expect(await screen.findByRole('row', { name: /Question 20/ })).toBeVisible();
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+  fireEvent.click(screen.getByRole('button', { name: 'PHY' }));
+  expect(screen.getByText('No flashcards match these filters.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'All flashcards' }));
+  expect(await screen.findByRole('row', { name: /Question 0/ })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /edit view|save view|add view/i })).not.toBeInTheDocument();
+});
+
+it('shows subject, topic, retention range and total reviews when their display properties are enabled', async () => {
+  fetchMock.mockImplementation(async (url) => String(url).includes('/history') ? json([]) : json([
+    { ...card, subject_id: 'subject-1', subject_short_name: 'BIO', topic_code: 'B1', topic_name: 'Cells', state: 'Review', retrievability: 0.85, reps: 4 },
+    { ...card, id: 'review-2', cloze_index: 2, subject_id: 'subject-1', subject_short_name: 'BIO', topic_code: 'B1', topic_name: 'Cells', state: 'Review', retrievability: 0.95, reps: 2 },
+  ]));
+  render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
+  await screen.findByRole('row', { name: /Water is H2O/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Display options' }));
+  const display = screen.getByRole('dialog', { name: 'Display options' });
+  for (const name of ['Subject', 'Topic', 'Retention', 'Number of reviews']) {
+    fireEvent.click(within(display).getByRole('button', { name }));
+  }
+  const row = screen.getByRole('row', { name: /Water is H2O/ });
+  expect(within(row).getByText('BIO')).toHaveStyle({ backgroundColor: '#aabbcc' });
+  expect(within(row).getByText('B1 · Cells')).toBeVisible();
+  expect(within(row).getByText('85–95%')).toBeVisible();
+  expect(within(row).getByText('6')).toBeVisible();
+});
+
+it('combines subject and topic filters across the complete collection', async () => {
+  const user = userEvent.setup();
+  fetchMock.mockImplementation(async (url) => String(url).includes('/history') ? json([]) : json([
+    { ...card, subject_id: 'subject-1', topic_code: 'B1', topic_name: 'Cells', cloze_text: 'Cells question' },
+    { ...card, id: 'review-2', flashcard_id: 'flashcard-2', topic_id: 'topic-2', subject_id: 'subject-1', topic_code: 'B2', topic_name: 'Genetics', cloze_text: 'Genetics question' },
+    { ...card, id: 'review-3', flashcard_id: 'flashcard-3', topic_id: 'topic-3', subject_id: 'subject-2', topic_code: 'C1', topic_name: 'Atoms', cloze_text: 'Atoms question' },
+  ]));
+  render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
+  await screen.findByRole('row', { name: /Cells question/ });
+  await user.click(screen.getByRole('button', { name: 'Display options' }));
+  await user.click(screen.getByRole('button', { name: 'Add filter' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Subject' }));
+  await user.click(await screen.findByRole('option', { name: 'Biology' }));
+  await user.keyboard('{Escape}{Escape}');
+  expect(screen.getAllByRole('row')).toHaveLength(3);
+  expect(screen.queryByRole('row', { name: /Atoms question/ })).not.toBeInTheDocument();
+  if (!screen.queryByRole('dialog', { name: 'Display options' })) await user.click(screen.getByRole('button', { name: 'Display options' }));
+  await user.click(screen.getByRole('button', { name: 'Add filter' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Topic' }));
+  await user.click(await screen.findByRole('option', { name: 'B2 · Genetics' }));
+  await user.keyboard('{Escape}{Escape}');
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+  expect(screen.getByRole('row', { name: /Genetics question/ })).toBeVisible();
 });

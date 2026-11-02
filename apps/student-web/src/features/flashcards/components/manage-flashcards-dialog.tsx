@@ -15,6 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TablePagination,
   Tabs,
   TabsContent,
   TabsList,
@@ -27,7 +28,9 @@ import {
 import { Loader2 } from 'lucide-react';
 import { StudentDialogShell } from '@/shared/components';
 import { studentCardCn, studentTableBodyRow, studentTableHeaderRow } from '@/shared/lib/student-visual';
-import { cn } from '@/shared/utils';
+import { cn, getSubjectColorStyle } from '@/shared/utils';
+import { resourcesApi } from '@/features/resources/api/resources';
+import type { ResourceSubject } from '@/features/resources/lib/types';
 import type { FlashcardHistoryEntry, FlashcardManagementAction, FlashcardManagementResult } from '../types/management';
 
 export type FlashcardManageFilter = 'all' | FlashcardReviewCard['state'];
@@ -59,7 +62,7 @@ function createTableState(filter: FlashcardManageFilter): DataTableState {
     sortDirection: 'asc',
     groupBy: null,
     page: 1,
-    pageSize: 100,
+    pageSize: 20,
     visibleColumns: defaultColumns,
     defaultVisibleColumns: defaultColumns,
   };
@@ -95,11 +98,41 @@ function stateRank(state: FlashcardReviewCard['state']): number {
   return ['New', 'Learning', 'Relearning', 'Review'].indexOf(state);
 }
 
-function stateBadgeVariant(state: FlashcardReviewCard['state']) {
-  if (state === 'Review') return 'success' as const;
-  if (state === 'Relearning') return 'destructive' as const;
-  if (state === 'Learning') return 'default' as const;
-  return 'secondary' as const;
+const stateBadgeClassName = 'whitespace-nowrap border-border/60 bg-muted/60 font-medium text-muted-foreground';
+
+function isBuried(card: FlashcardReviewCard) {
+  return Boolean(card.buried_until && new Date(card.buried_until) > new Date());
+}
+
+function GroupState({ group }: { group: FlashcardGroup }) {
+  const suspended = group.cards.filter((card) => card.suspended_at).length;
+  const buried = group.cards.filter(isBuried).length;
+  return (
+    <div className="min-w-36 space-y-1.5">
+      <Badge variant="secondary" className={stateBadgeClassName}>{group.states.length === 1 ? group.states[0] : 'Mixed'}</Badge>
+      {group.states.length > 1 ? <p className="text-xs text-muted-foreground">{group.states.map((state) => `${state} ${group.cards.filter((card) => card.state === state).length}`).join(' · ')}</p> : null}
+      {suspended || buried ? <div className="flex flex-wrap gap-1">
+        {suspended ? <Badge variant="outline" className={stateBadgeClassName}>Suspended {suspended}</Badge> : null}
+        {buried ? <Badge variant="outline" className={stateBadgeClassName}>Buried {buried}</Badge> : null}
+      </div> : null}
+    </div>
+  );
+}
+
+function GroupProperties({ group, subjects, visibleColumns }: { group: FlashcardGroup; subjects: ResourceSubject[]; visibleColumns: string[] }) {
+  const first = group.cards[0];
+  const subject = subjects.find((item) => item.id === first.subject_id);
+  const subjectColor = subject?.color ? getSubjectColorStyle(subject) : null;
+  const retention = group.cards.flatMap((card) => card.state === 'Review' && typeof card.retrievability === 'number' && Number.isFinite(card.retrievability) ? [Math.round(card.retrievability * 100)] : []);
+  const lowestRetention = Math.min(...retention);
+  const highestRetention = Math.max(...retention);
+  const retentionLabel = !retention.length ? '—' : lowestRetention === highestRetention ? `${lowestRetention}%` : `${lowestRetention}–${highestRetention}%`;
+  return <>
+    {visibleColumns.includes('subject') ? <TableCell><Badge variant="secondary" style={subjectColor?.style} className={subjectColor?.textColorClass}>{subject?.short_name ?? first.subject_short_name ?? subject?.name ?? '—'}</Badge></TableCell> : null}
+    {visibleColumns.includes('topic') ? <TableCell className="text-xs">{[first.topic_code, first.topic_name].filter(Boolean).join(' · ') || '—'}</TableCell> : null}
+    {visibleColumns.includes('retention') ? <TableCell className="text-xs text-muted-foreground"><span title="Current estimated recall for reviewed clozes; a range means the clozes differ.">{retentionLabel}</span></TableCell> : null}
+    {visibleColumns.includes('reviews') ? <TableCell>{group.cards.reduce((total, card) => total + card.reps, 0)}</TableCell> : null}
+  </>;
 }
 
 function formatDueDate(value: string): string {
@@ -172,6 +205,8 @@ export function ManageFlashcardsDialog({
   initialFilter?: FlashcardManageFilter;
 }) {
   const [cards, setCards] = useState<FlashcardReviewCard[]>([]);
+  const [subjects, setSubjects] = useState<ResourceSubject[]>([]);
+  const [activeView, setActiveView] = useState('all');
   const [history, setHistory] = useState<FlashcardHistoryEntry[]>([]);
   const [tableState, setTableState] = useState<DataTableState>(() => createTableState(initialFilter));
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -185,14 +220,16 @@ export function ManageFlashcardsDialog({
     setIsLoading(true);
     setError(null);
     try {
-      const [cardsResponse, historyResponse] = await Promise.all([
+      const [cardsResponse, historyResponse, enrolledSubjects] = await Promise.all([
         fetch('/api/flashcards/review-cards?mode=all', { cache: 'no-store' }),
         fetch('/api/flashcards/review-cards/history', { cache: 'no-store' }),
+        resourcesApi.getMySubjects(),
       ]);
       if (!cardsResponse.ok || !historyResponse.ok) throw new Error('Unable to load flashcards');
       const [cardsResult, historyResult] = await Promise.all([cardsResponse.json(), historyResponse.json()]);
       setCards(cardsResult.data ?? []);
       setHistory(historyResult.data ?? []);
+      setSubjects(enrolledSubjects);
       pendingRequestIds.current.clear();
     } catch (loadError) {
       console.error('Failed to load flashcard manager:', loadError);
@@ -205,6 +242,7 @@ export function ManageFlashcardsDialog({
   useEffect(() => {
     if (!open) return;
     setTableState(createTableState(initialFilter));
+    setActiveView('all');
     void load();
   }, [initialFilter, load, open]);
 
@@ -231,16 +269,22 @@ export function ManageFlashcardsDialog({
     const search = tableState.search.trim().toLowerCase();
     const selectedStates = (tableState.filters.state ?? []).map(String);
     const selectedFlags = (tableState.filters.flag ?? []).map(String);
+    const selectedSubjects = (tableState.filters.subject ?? []).map(String);
+    const selectedTopics = (tableState.filters.topic ?? []).map(String);
     const filtered = groups.filter((group) => {
       const searchable = [
         group.preview,
         ...group.cards.flatMap((card) => [card.topic_code ?? '', card.topic_name ?? '', card.subject_short_name ?? '']),
       ].join(' ').toLowerCase();
       if (search && !searchable.includes(search)) return false;
+      const subjectId = group.cards[0].subject_id;
+      if (activeView !== 'all' && subjectId !== activeView) return false;
+      if (selectedSubjects.length && !selectedSubjects.includes(subjectId ?? '')) return false;
+      if (selectedTopics.length && !selectedTopics.includes(group.cards[0].topic_id)) return false;
       if (selectedStates.length && !group.cards.some((card) => selectedStates.includes(card.state))) return false;
       if (selectedFlags.length && !group.cards.some((card) =>
         (selectedFlags.includes('suspended') && Boolean(card.suspended_at)) ||
-        (selectedFlags.includes('buried') && Boolean(card.buried_until)) ||
+        (selectedFlags.includes('buried') && isBuried(card)) ||
         (selectedFlags.includes('leech') && Boolean(card.leech_at))
       )) return false;
       return true;
@@ -252,12 +296,15 @@ export function ManageFlashcardsDialog({
       else comparison = a.cards[0].flashcard_index - b.cards[0].flashcard_index;
       return tableState.sortDirection === 'desc' ? -comparison : comparison;
     });
-  }, [groups, tableState]);
+  }, [activeView, groups, tableState]);
+
+  const currentPage = Math.min(tableState.page, Math.max(1, Math.ceil(filteredGroups.length / tableState.pageSize)));
+  const pageGroups = useMemo(() => filteredGroups.slice((currentPage - 1) * tableState.pageSize, currentPage * tableState.pageSize), [currentPage, filteredGroups, tableState.pageSize]);
 
   useEffect(() => {
-    if (filteredGroups.some((group) => group.id === selectedGroupId)) return;
-    setSelectedGroupId(filteredGroups[0]?.id ?? null);
-  }, [filteredGroups, selectedGroupId]);
+    if (pageGroups.some((group) => group.id === selectedGroupId)) return;
+    setSelectedGroupId(pageGroups[0]?.id ?? null);
+  }, [pageGroups, selectedGroupId]);
 
   const selectedGroup = filteredGroups.find((group) => group.id === selectedGroupId) ?? null;
 
@@ -306,7 +353,7 @@ export function ManageFlashcardsDialog({
   };
 
   const unburyAll = async () => {
-    const buriedCards = cards.filter((card) => card.buried_until);
+    const buriedCards = cards.filter(isBuried);
     setPendingCardId('all');
     setError(null);
     try {
@@ -330,7 +377,7 @@ export function ManageFlashcardsDialog({
         title="Manage flashcards"
         description="Search your cards, inspect each cloze, and manage its study state."
         contentClassName="sm:h-[min(92dvh,900px)] sm:max-h-[min(92dvh,900px)]"
-        headerActions={cards.some((card) => card.buried_until) ? (
+        headerActions={cards.some(isBuried) ? (
           <ManageButton help="Make every buried cloze available for study again. Suspended clozes stay suspended." variant="outline" size="sm" onClick={() => void unburyAll()} disabled={Boolean(pendingCardId)}>
             Unbury all
           </ManageButton>
@@ -339,17 +386,27 @@ export function ManageFlashcardsDialog({
         <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:grid-rows-[minmax(0,1fr)]">
           <section className="flex min-h-0 min-w-0 flex-col border-b border-border/60 lg:border-b-0 lg:border-r" aria-label="Flashcard list">
             <div className="shrink-0 space-y-3 border-b border-border/60 p-4">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Flashcard views">
+                {[{ id: 'all', label: 'All flashcards' }, ...subjects.flatMap((subject) => subject.id ? [{ id: subject.id, label: subject.short_name ?? subject.name ?? 'Subject' }] : [])].map((view) => (
+                  <Button key={view.id} variant={activeView === view.id ? 'secondary' : 'ghost'} size="sm" className="rounded-full" aria-pressed={activeView === view.id} onClick={() => {
+                    setActiveView(view.id);
+                    setTableState((current) => ({ ...current, filters: {}, search: '', page: 1 }));
+                  }}>{view.label}</Button>
+                ))}
+              </div>
               <DataTableToolbar
                 state={tableState}
                 onSearchChange={(search) => setTableState((current) => ({ ...current, search, page: 1 }))}
                 onFiltersChange={(filters) => setTableState((current) => ({ ...current, filters, page: 1 }))}
-                onSortChange={(sortBy, sortDirection) => setTableState((current) => ({ ...current, sortBy, sortDirection }))}
+                onSortChange={(sortBy, sortDirection) => setTableState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
                 onGroupByChange={() => undefined}
                 onVisibleColumnsChange={(visibleColumns) => setTableState((current) => ({ ...current, visibleColumns }))}
                 onQuickFilterApply={() => undefined}
-                onReset={() => setTableState(createTableState('all'))}
+                onReset={() => { setActiveView('all'); setTableState(createTableState('all')); }}
                 searchPlaceholder="Search flashcards…"
                 filterDefinitions={[
+                  { key: 'subject', label: 'Subject', searchable: true, options: subjects.flatMap((subject) => subject.id ? [{ value: subject.id, label: subject.long_name ?? subject.name ?? subject.short_name ?? 'Subject' }] : []) },
+                  { key: 'topic', label: 'Topic', searchable: true, options: [...new Map(cards.filter((card) => (activeView === 'all' || card.subject_id === activeView) && (!tableState.filters.subject?.length || tableState.filters.subject.includes(card.subject_id ?? ''))).map((card) => [card.topic_id, { value: card.topic_id, label: [card.topic_code, card.topic_name].filter(Boolean).join(' · ') || 'Topic' }])).values()] },
                   { key: 'state', label: 'Study state', options: ['New', 'Learning', 'Relearning', 'Review'].map((value) => ({ label: value, value })) },
                   { key: 'flag', label: 'Card status', options: [
                     { label: 'Suspended', value: 'suspended' },
@@ -367,12 +424,17 @@ export function ManageFlashcardsDialog({
                   { key: 'state', label: 'Study state', visibleByDefault: true },
                   { key: 'clozes', label: 'Clozes', visibleByDefault: true },
                   { key: 'due', label: 'Next due', visibleByDefault: true },
+                  { key: 'subject', label: 'Subject', visibleByDefault: false },
+                  { key: 'topic', label: 'Topic', visibleByDefault: false },
+                  { key: 'retention', label: 'Retention', visibleByDefault: false },
+                  { key: 'reviews', label: 'Number of reviews', visibleByDefault: false },
                 ]}
                 defaultVisibleColumns={defaultColumns}
                 compact
               />
               <p className="text-xs text-muted-foreground">{filteredGroups.length} of {groups.length} flashcards</p>
-              {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+              <p className="text-xs text-muted-foreground">Each cloze has one study state. Mixed means the clozes in a flashcard have different states.</p>
+              {error ? <div role="alert" className="text-sm text-destructive">{error}{!cards.length ? <Button variant="link" onClick={() => void load()}>Retry</Button> : null}</div> : null}
             </div>
 
             <ScrollArea className="h-0 min-h-0 flex-1">
@@ -388,10 +450,14 @@ export function ManageFlashcardsDialog({
                       {isColumnVisible('state') ? <TableHead>State</TableHead> : null}
                       {isColumnVisible('clozes') ? <TableHead className="w-20">Clozes</TableHead> : null}
                       {isColumnVisible('due') ? <TableHead>Next due</TableHead> : null}
+                      {isColumnVisible('subject') ? <TableHead>Subject</TableHead> : null}
+                      {isColumnVisible('topic') ? <TableHead>Topic</TableHead> : null}
+                      {isColumnVisible('retention') ? <TableHead>Retention</TableHead> : null}
+                      {isColumnVisible('reviews') ? <TableHead>Reviews</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredGroups.map((group) => (
+                    {pageGroups.map((group) => (
                       <TableRow
                         key={group.id}
                         role="row"
@@ -416,13 +482,12 @@ export function ManageFlashcardsDialog({
                         ) : null}
                         {isColumnVisible('state') ? (
                           <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {group.states.map((state) => <Badge key={state} variant={stateBadgeVariant(state)}>{state}</Badge>)}
-                            </div>
+                            <GroupState group={group} />
                           </TableCell>
                         ) : null}
                         {isColumnVisible('clozes') ? <TableCell>{group.cards.length}</TableCell> : null}
                         {isColumnVisible('due') ? <TableCell className="text-xs text-muted-foreground">{formatDueDate(group.nextDueAt)}</TableCell> : null}
+                        <GroupProperties group={group} subjects={subjects} visibleColumns={tableState.visibleColumns} />
                       </TableRow>
                     ))}
                   </TableBody>
@@ -431,6 +496,9 @@ export function ManageFlashcardsDialog({
                 <div className="p-8 text-center text-sm text-muted-foreground">No flashcards match these filters.</div>
               )}
             </ScrollArea>
+            <div className="shrink-0 border-t border-border/60 p-3">
+              <TablePagination page={currentPage} pageSize={tableState.pageSize} total={filteredGroups.length} isFetching={isLoading} onPageChange={(page) => setTableState((current) => ({ ...current, page }))} onPageSizeChange={(pageSize) => setTableState((current) => ({ ...current, pageSize, page: 1 }))} />
+            </div>
           </section>
 
           <section className="min-h-0 min-w-0 bg-muted/15" aria-label="Selected flashcard details">
@@ -450,7 +518,7 @@ export function ManageFlashcardsDialog({
                       ) : (
                         <ManageButton help="Pause this cloze indefinitely until you resume it. Its progress and history are kept." size="sm" variant="outline" onClick={() => void command(activeCard, 'suspend')} disabled={Boolean(pendingCardId)}>Suspend</ManageButton>
                       )}
-                      {activeCard.buried_until ? (
+                      {isBuried(activeCard) ? (
                         <ManageButton help="Make this cloze available before the next study day. Its schedule is kept." size="sm" onClick={() => void command(activeCard, 'unbury')} disabled={Boolean(pendingCardId)}>Unbury</ManageButton>
                       ) : (
                         <ManageButton help="Hide this cloze until your next study day, which starts at 4 am in your saved timezone." size="sm" variant="outline" onClick={() => void command(activeCard, 'bury')} disabled={Boolean(pendingCardId)}>Bury</ManageButton>
@@ -473,10 +541,10 @@ export function ManageFlashcardsDialog({
                     {selectedGroup.cards.map((reviewCard) => (
                       <TabsContent key={reviewCard.id} value={reviewCard.id} className="mt-4 space-y-4">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <Badge variant={stateBadgeVariant(reviewCard.state)}>{reviewCard.state}</Badge>
+                          <Badge variant="secondary" className={stateBadgeClassName}>{reviewCard.state}</Badge>
                           {reviewCard.suspended_at ? <Badge variant="outline">Suspended</Badge> : null}
-                          {reviewCard.buried_until ? <Badge variant="outline">Buried</Badge> : null}
-                          {reviewCard.leech_at ? <Badge variant="destructive">Leech suggested</Badge> : null}
+                          {isBuried(reviewCard) ? <Badge variant="outline">Buried</Badge> : null}
+                          {reviewCard.leech_at ? <Badge variant="outline" className={stateBadgeClassName}>Leech suggested</Badge> : null}
                           <span className="text-muted-foreground">{formatDueDate(reviewCard.due_at)}</span>
                         </div>
                         <FrontBackPreview card={reviewCard} />

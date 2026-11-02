@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -14,6 +15,7 @@ import {
   TableHeader,
   TablePagination,
   TableRow,
+  SearchableSelectInline,
 } from "@altitutor/ui";
 import type {
   DataTableColumnDefinition,
@@ -26,7 +28,13 @@ import { useCurrentStaff } from "@/shared/hooks";
 import { useBillingPricing } from "@/features/billing/hooks/useBillingPricing";
 import { useSubjects } from "@/features/subjects";
 import { formatDate, getSubjectColorStyle } from "@/shared/utils";
-import { fetchSubsidies, type SubsidyRow } from "../api/subsidies";
+import {
+  fetchSubsidies,
+  fetchSubsidyStudents,
+  type SubsidyRow,
+  type SubsidyStudentOption,
+} from "../api/subsidies";
+import { useStudentSearchForFilter } from "@/features/sessions/hooks/useStudentSearchForFilter";
 
 const defaultFilters = { status: ["active"] };
 const defaultSort = { field: "effective_from", direction: "desc" as const };
@@ -63,6 +71,8 @@ const defaultView = {
 };
 
 export function SubsidiesTable() {
+  const [studentSearch, setStudentSearch] = useState("");
+  const studentQuery = useStudentSearchForFilter(studentSearch, []);
   const {
     state,
     setSearch,
@@ -77,8 +87,22 @@ export function SubsidiesTable() {
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ["status", "subject"],
+    filterKeys: ["status", "subject", "student"],
   });
+  const selectedStudentIds = (state.filters.student ?? []).map(String);
+  const selectedStudents = useQuery({
+    queryKey: ["students", "subsidy-filter-selection", selectedStudentIds],
+    queryFn: () => fetchSubsidyStudents(selectedStudentIds),
+    enabled: selectedStudentIds.length > 0,
+  });
+  const students = [
+    ...new Map(
+      [
+        ...(selectedStudents.data ?? []),
+        ...(studentQuery.data?.students ?? []),
+      ].map((student) => [student.id, student]),
+    ).values(),
+  ];
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters("subsidies", defaultView);
   const { data: subjects = [] } = useSubjects();
@@ -98,6 +122,7 @@ export function SubsidiesTable() {
         search: state.search,
         statuses: state.filters.status as string[],
         subjectIds: state.filters.subject as string[],
+        studentIds: state.filters.student as string[],
         page: state.page,
         pageSize: state.pageSize,
         sortBy: state.sortBy,
@@ -107,6 +132,17 @@ export function SubsidiesTable() {
     refetchInterval: 30_000,
   });
   const filterDefinitions: DataTableFilterDefinition[] = [
+    {
+      key: "student",
+      label: "Student",
+      searchable: true,
+      options: students.map((student) => ({
+        value: student.id,
+        label:
+          [student.first_name, student.last_name].filter(Boolean).join(" ") ||
+          "Unnamed student",
+      })),
+    },
     {
       key: "status",
       label: "Status",
@@ -215,6 +251,38 @@ export function SubsidiesTable() {
         onQuickFilterApply={(view) => applyQuickFilter(view, currentStaff?.id)}
         onReset={resetFilters}
         filterDefinitions={filterDefinitions}
+        customFilterContent={{
+          student: (context) => (
+            <SearchableSelectInline<SubsidyStudentOption>
+              items={students}
+              value={students.filter((student) =>
+                context.filters.student?.includes(student.id),
+              )}
+              onValueChange={(items) => {
+                const filters = { ...context.filters };
+                const knownIds = new Set(students.map((student) => student.id));
+                const ids = [
+                  ...selectedStudentIds.filter((id) => !knownIds.has(id)),
+                  ...items.map((student) => student.id),
+                ];
+                if (ids.length) filters.student = ids;
+                else delete filters.student;
+                context.onChange(filters);
+              }}
+              getItemId={(student) => student.id}
+              getItemLabel={(student) =>
+                [student.first_name, student.last_name]
+                  .filter(Boolean)
+                  .join(" ") || "Unnamed student"
+              }
+              searchPlaceholder="Search students…"
+              emptyMessage="No students found"
+              multiSelect
+              loading={studentQuery.isFetching}
+              onSearchChange={setStudentSearch}
+            />
+          ),
+        }}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}

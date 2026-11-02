@@ -6,10 +6,29 @@ export type SubsidyRow = Tables<"student_subsidies"> & {
   subject: Tables<"subjects">;
 };
 
+export type SubsidyStudentOption = Pick<
+  Tables<"students">,
+  "id" | "first_name" | "last_name"
+>;
+
+export async function fetchSubsidyStudents(
+  ids: string[],
+): Promise<SubsidyStudentOption[]> {
+  if (!ids.length) return [];
+  const { data, error } = await getSupabaseClient()
+    .from("students")
+    .select("id, first_name, last_name")
+    .in("id", ids)
+    .is("deleted_at", null);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export interface SubsidiesQuery {
   search?: string;
   statuses?: string[];
   subjectIds?: string[];
+  studentIds?: string[];
   page: number;
   pageSize: number;
   sortBy?: string | null;
@@ -39,6 +58,8 @@ export async function fetchSubsidies(
   }
   if (options.subjectIds?.length)
     query = query.in("subject_id", options.subjectIds);
+  if (options.studentIds?.length)
+    query = query.in("student_id", options.studentIds);
 
   // Quote PostgREST values so punctuation cannot change the filter expression.
   for (const token of options.search?.trim().split(/\s+/).filter(Boolean) ??

@@ -37,14 +37,12 @@ localTest("subsidies list against the owned local database", () => {
     });
     if (login.error) throw login.error;
     studentId = randomUUID();
-    const student = await database
-      .from("students")
-      .insert({
-        id: studentId,
-        first_name: "List",
-        last_name: surname,
-        status: "ACTIVE",
-      });
+    const student = await database.from("students").insert({
+      id: studentId,
+      first_name: "List",
+      last_name: surname,
+      status: "ACTIVE",
+    });
     if (student.error) throw student.error;
     const subject = await database
       .from("subjects")
@@ -138,5 +136,23 @@ localTest("subsidies list against the owned local database", () => {
       pageSize: 20,
     });
     expect(result).toEqual({ subsidies: [], total: 0 });
+  });
+  it("combines the student filter with status, subject, search and pagination", async () => {
+    const options = {
+      search: surname,
+      statuses: ["active"],
+      subjectIds: [subjectId],
+      studentIds: [studentId],
+      page: 1,
+      pageSize: 1,
+    };
+    const matching = await fetchSubsidies(options);
+    expect(matching.total).toBe(1);
+    expect(matching.subsidies[0].student_id).toBe(studentId);
+    const excluded = await fetchSubsidies({
+      ...options,
+      studentIds: [randomUUID()],
+    });
+    expect(excluded).toEqual({ subsidies: [], total: 0 });
   });
 });
