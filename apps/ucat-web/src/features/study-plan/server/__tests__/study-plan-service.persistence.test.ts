@@ -59,7 +59,7 @@ type QueryChain = {
   is: jest.Mock<QueryChain, [string, unknown]>;
   lt: jest.Mock<QueryChain, [string, unknown]>;
   gte: jest.Mock<QueryChain, []>;
-  lte: jest.Mock<QueryChain, []>;
+  lte: jest.Mock<QueryChain, [string, unknown]>;
   in: jest.Mock<QueryChain, [string, unknown]>;
   not: jest.Mock<QueryChain, []>;
   neq: jest.Mock<QueryChain, []>;
@@ -125,6 +125,8 @@ function createDatabaseHarness(
     generalTaskHistory?: Array<{
       generation_id: string;
       learning_module_id: string;
+      scheduled_date: string;
+      status: "planned" | "partial" | "in_progress";
     }>;
     missedWorkCount?: number;
     studyPlanEnabled?: boolean;
@@ -226,8 +228,12 @@ function createDatabaseHarness(
       return {
         data: (options.generalTaskHistory ?? []).filter(
           (task) =>
-            !filters.has("generation_id") ||
-            task.generation_id === filters.get("generation_id"),
+            (!filters.has("generation_id") ||
+              task.generation_id === filters.get("generation_id")) &&
+            (!filters.has("scheduled_date") ||
+              task.scheduled_date === filters.get("scheduled_date")) &&
+            (!filters.has("scheduled_date:lte") ||
+              task.scheduled_date <= String(filters.get("scheduled_date:lte"))),
         ),
         error: null,
       };
@@ -332,7 +338,10 @@ function createDatabaseHarness(
         return chain;
       }),
       gte: jest.fn(() => chain),
-      lte: jest.fn(() => chain),
+      lte: jest.fn((column: string, value: unknown) => {
+        filters.set(`${column}:lte`, value);
+        return chain;
+      }),
       in: jest.fn((column: string, value: unknown) => {
         filters.set(`${column}:in`, value);
         return chain;
@@ -655,10 +664,14 @@ describe("Study plan persistence orchestration", () => {
         {
           generation_id: "superseded-generation",
           learning_module_id: "stale-general",
+          scheduled_date: "2026-08-11",
+          status: "planned",
         },
         {
           generation_id: "generation-old",
           learning_module_id: "current-general",
+          scheduled_date: "2026-08-11",
+          status: "planned",
         },
       ],
     });
@@ -667,6 +680,46 @@ describe("Study plan persistence orchestration", () => {
       expect.objectContaining({
         goal: expect.objectContaining({
           preservedGeneralLessonIds: ["current-general"],
+        }),
+      }),
+    );
+  });
+
+  it("reserves earlier active general work while allowing missed lessons to be prescribed again", async () => {
+    const { studentClient } = createDatabaseHarness({
+      completedMockCount: 1,
+      generalTaskHistory: [
+        {
+          generation_id: "generation-old",
+          learning_module_id: "active-general",
+          scheduled_date: "2026-08-10",
+          status: "in_progress",
+        },
+        {
+          generation_id: "generation-old",
+          learning_module_id: "missed-general",
+          scheduled_date: "2026-08-10",
+          status: "planned",
+        },
+        {
+          generation_id: "generation-old",
+          learning_module_id: "partial-general",
+          scheduled_date: "2026-08-10",
+          status: "partial",
+        },
+        {
+          generation_id: "generation-old",
+          learning_module_id: "future-general",
+          scheduled_date: "2026-08-12",
+          status: "in_progress",
+        },
+      ],
+    });
+    await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
+    expect(prepareStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: expect.objectContaining({
+          preservedGeneralLessonIds: ["active-general"],
         }),
       }),
     );

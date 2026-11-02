@@ -1794,23 +1794,27 @@ async function generateForProfile(
           .maybeSingle()
       : { data: null, error: null };
   if (activeGenerationError) throw activeGenerationError;
-  // Replacement retains today's tasks. Keep their general lessons reserved
-  // without pretending those lessons are complete.
+  // Replacement retains today's tasks and earlier active work. Reserve those
+  // general lessons without treating missed tasks or lessons as complete.
   const { data: preservedGeneralTasks, error: preservedGeneralTasksError } =
     preserveThrough && activeGeneration
       ? await requireAdmin()
           .from("ucat_student_study_plan_tasks")
-          .select("learning_module_id")
+          .select("learning_module_id, scheduled_date, status")
           .eq("student_id", studentId)
           .eq("generation_id", activeGeneration.id)
           .eq("task_type", "learn")
           .is("section_id", null)
           .in("status", ["planned", "partial", "in_progress"])
-          .eq("scheduled_date", preserveThrough)
+          .lte("scheduled_date", preserveThrough)
       : { data: [], error: null };
   if (preservedGeneralTasksError) throw preservedGeneralTasksError;
   const preservedGeneralLessonIds = (preservedGeneralTasks ?? []).flatMap(
-    (task) => (task.learning_module_id ? [task.learning_module_id] : []),
+    (task) =>
+      task.learning_module_id &&
+      (task.scheduled_date === preserveThrough || task.status === "in_progress")
+        ? [task.learning_module_id]
+        : [],
   );
   const generatedPreparation = await runCanonicalPreparation({
     supabase,
