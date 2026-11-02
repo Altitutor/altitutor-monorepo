@@ -31,9 +31,9 @@ test.beforeAll(async () => {
   if (closed.error) throw closed.error;
   const sender = await db.from('owned_numbers').upsert({ id: '28200000-0000-4000-8000-000000000003', phone_e164: '+61428200000', label: 'Browser iMessage', provider: 'IMESSAGE', sender_type: 'PHONE' });
   if (sender.error) throw sender.error;
-  const tasks = await db.from('tasks').upsert(Array.from({ length: 90 }, (_, index) => ({ id: `28200001-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Board drag check ${String(index + 1).padStart(3, '0')}`, status: ['backlog', 'todo', 'in_progress'][index % 3], priority: 1 })));
+  const tasks = await db.from('tasks').upsert(Array.from({ length: 105 }, (_, index) => ({ id: `28200001-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Board drag check ${String(index + 1).padStart(3, '0')}`, status: ['backlog', 'todo', 'in_progress'][index % 3], priority: 1 })));
   if (tasks.error) throw tasks.error;
-  const done = await db.from('tasks').upsert({ id: '28200001-0000-4000-8000-000000000091', title: 'Board edge done', status: 'done' });
+  const done = await db.from('tasks').upsert({ id: '28200001-0000-4000-8000-000000000106', title: 'Board edge done', status: 'done' });
   if (done.error) throw done.error;
 });
 
@@ -146,8 +146,8 @@ test('work-item boards align toolbars, span the page and scroll columns independ
     return { right: Math.round(main.x + main.width - button.x - button.width), top: Math.round(button.y - header.y - header.height) };
   };
   // Compare page insets, so the shell's width animation cannot skew the reference.
-  await expect.poll(toolbarInsets).toEqual({ right: 24, top: 26 });
-  const studentsToolbar = await toolbarInsets();
+  const studentsToolbar = { right: 24, top: 26 };
+  await expect.poll(toolbarInsets).toEqual(studentsToolbar);
   for (const path of ['/tasks', '/issues', '/projects']) {
     await page.locator(`nav a[href="${path}"]`).click();
     await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText(path.slice(1).replace(/^./, char => char.toUpperCase()));
@@ -196,7 +196,7 @@ test('conversation composer collapses controls to tooltip-equipped icons before 
 
 test('date and priority pills share their surface in board and detail views', async ({ page }) => {
   await signIn(page);
-  await page.goto('/tasks?search=Board%20drag%20check');
+  await page.goto('/tasks?search=Board%20drag%20check%20001');
   const card = page.getByRole('region', { name: 'Backlog column', exact: true }).getByRole('button', { name: /^Board drag check 001 / });
   const surface = (button: ReturnType<Page['getByRole']>) => button.evaluate(el => {
     const style = getComputedStyle(el);
@@ -306,7 +306,7 @@ test('board outer card edges align with the toolbar at both horizontal ends', as
 
 test('the accessory panel offers only individual records and recently closed', async ({ page }) => {
   await signIn(page);
-  await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+  await page.goto('/tasks?search=Board%20drag%20check%20001', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Expand accessory panel', exact: true }).click();
   const panel = page.locator('#admin-accessory-panel');
   await expect(panel.getByRole('button', { name: 'Tasks', exact: true })).toHaveCount(0);
@@ -368,7 +368,7 @@ test('Student presets share every column and clearing filters reveals every rela
 
 test('restored accessory state discards collection tabs and collection history', async ({ page }) => {
   await signIn(page);
-  await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+  await page.goto('/tasks?search=Board%20drag%20check%20001', { waitUntil: 'domcontentloaded' });
   await page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true }).click();
   const panel = page.locator('#admin-accessory-panel');
   await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();

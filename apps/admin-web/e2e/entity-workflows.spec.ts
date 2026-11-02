@@ -200,6 +200,8 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   await expect(
     task.locator(`[data-mention][data-type="email"][data-id="${id}"]`),
   ).toContainText("Segmented mail actions");
+  const title = `Email task ${randomUUID()}`;
+  await task.getByPlaceholder("Task title").fill(title);
   const editor = task.locator('[contenteditable="true"]').first();
   await editor.click();
   await editor.press("ControlOrMeta+End");
@@ -212,8 +214,7 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   await expect(
     task.locator(`[data-mention][data-type="email"][data-id="${id}"]`),
   ).toHaveCount(2);
-  const title = `Email task ${randomUUID()}`;
-  await task.getByPlaceholder("Task title").fill(title);
+  await expect(task.getByPlaceholder("Task title")).toHaveValue(title);
   await task.getByRole("button", { name: "Create Task", exact: true }).click();
   await expect(task).toBeHidden({ timeout: 15000 });
   const auth = await db.auth.signInWithPassword({
