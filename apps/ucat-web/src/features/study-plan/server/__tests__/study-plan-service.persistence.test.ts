@@ -122,6 +122,10 @@ const replacementGeneration = {
 function createDatabaseHarness(
   options: {
     currentPolicy?: boolean;
+    generalTaskHistory?: Array<{
+      generation_id: string;
+      learning_module_id: string;
+    }>;
     missedWorkCount?: number;
     studyPlanEnabled?: boolean;
     wasEnabled?: boolean;
@@ -212,6 +216,19 @@ function createDatabaseHarness(
           sort_order: 0,
           started_at: null,
         },
+        error: null,
+      };
+    }
+    if (
+      table === "ucat_student_study_plan_tasks" &&
+      filters.get("section_id") === null
+    ) {
+      return {
+        data: (options.generalTaskHistory ?? []).filter(
+          (task) =>
+            !filters.has("generation_id") ||
+            task.generation_id === filters.get("generation_id"),
+        ),
         error: null,
       };
     }
@@ -628,6 +645,30 @@ describe("Study plan persistence orchestration", () => {
     expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
       expect.anything(),
+    );
+  });
+
+  it("reserves general lessons only when their task belongs to the active generation", async () => {
+    const { studentClient } = createDatabaseHarness({
+      completedMockCount: 1,
+      generalTaskHistory: [
+        {
+          generation_id: "superseded-generation",
+          learning_module_id: "stale-general",
+        },
+        {
+          generation_id: "generation-old",
+          learning_module_id: "current-general",
+        },
+      ],
+    });
+    await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
+    expect(prepareStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: expect.objectContaining({
+          preservedGeneralLessonIds: ["current-general"],
+        }),
+      }),
     );
   });
 

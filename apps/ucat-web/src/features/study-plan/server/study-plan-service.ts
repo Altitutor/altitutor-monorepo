@@ -1784,14 +1784,25 @@ async function generateForProfile(
   if (studentError) throw studentError;
   const today = todayIso(now, student.timezone || "Australia/Adelaide");
   const preserveThrough = reason === "onboarding" ? null : today;
+  const { data: activeGeneration, error: activeGenerationError } =
+    preserveThrough
+      ? await requireAdmin()
+          .from("ucat_student_study_plan_generations")
+          .select("id")
+          .eq("student_id", studentId)
+          .is("superseded_at", null)
+          .maybeSingle()
+      : { data: null, error: null };
+  if (activeGenerationError) throw activeGenerationError;
   // Replacement retains today's tasks. Keep their general lessons reserved
   // without pretending those lessons are complete.
   const { data: preservedGeneralTasks, error: preservedGeneralTasksError } =
-    preserveThrough
+    preserveThrough && activeGeneration
       ? await requireAdmin()
           .from("ucat_student_study_plan_tasks")
           .select("learning_module_id")
           .eq("student_id", studentId)
+          .eq("generation_id", activeGeneration.id)
           .eq("task_type", "learn")
           .is("section_id", null)
           .in("status", ["planned", "partial", "in_progress"])
