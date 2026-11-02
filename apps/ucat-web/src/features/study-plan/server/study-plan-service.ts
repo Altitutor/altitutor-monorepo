@@ -1458,12 +1458,12 @@ async function persistGeneration(
   completedMockCount: number,
   signals: StudyPlanSectionSignal[],
   today: string,
+  preserveThrough: string | null,
   refreshRequestVersion?: number,
 ): Promise<void> {
   const admin = requireAdmin();
   const result = preparation.plan;
   const generatedAt = preparation.generatedAt;
-  const preserveThrough = reason === "onboarding" ? null : today;
   if (preserveThrough) {
     const { data: activeGeneration, error: generationError } = await admin
       .from("ucat_student_study_plan_generations")
@@ -1709,6 +1709,8 @@ type CanonicalPreparationInputs = {
 };
 
 async function runCanonicalPreparation(input: {
+  preservePlanThrough?: string | null;
+  preservedGeneralLessonIds?: string[];
   supabase: SupabaseClient<Database>;
   studentId: string;
   profile: StudyPlanProfileInput;
@@ -1731,7 +1733,12 @@ async function runCanonicalPreparation(input: {
     seed: input.seed,
     versions: CURRENT_PREPARATION_VERSIONS,
     timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: { planningDate: input.planningDate, profile: input.profile },
+    goal: {
+      planningDate: input.planningDate,
+      profile: input.profile,
+      preservePlanThrough: input.preservePlanThrough,
+      preservedGeneralLessonIds: input.preservedGeneralLessonIds,
+    },
     content: {
       sections: input.inputs.sections,
       categories: input.inputs.categories,
@@ -1776,9 +1783,44 @@ async function generateForProfile(
     .single();
   if (studentError) throw studentError;
   const today = todayIso(now, student.timezone || "Australia/Adelaide");
+  const preserveThrough = reason === "onboarding" ? null : today;
+  const { data: activeGeneration, error: activeGenerationError } =
+    preserveThrough
+      ? await requireAdmin()
+          .from("ucat_student_study_plan_generations")
+          .select("id")
+          .eq("student_id", studentId)
+          .is("superseded_at", null)
+          .maybeSingle()
+      : { data: null, error: null };
+  if (activeGenerationError) throw activeGenerationError;
+  // Replacement retains today's tasks and earlier active work. Reserve those
+  // general lessons without treating missed tasks or lessons as complete.
+  const { data: preservedGeneralTasks, error: preservedGeneralTasksError } =
+    preserveThrough && activeGeneration
+      ? await requireAdmin()
+          .from("ucat_student_study_plan_tasks")
+          .select("learning_module_id, scheduled_date, status")
+          .eq("student_id", studentId)
+          .eq("generation_id", activeGeneration.id)
+          .eq("task_type", "learn")
+          .is("section_id", null)
+          .in("status", ["planned", "partial", "in_progress"])
+          .lte("scheduled_date", preserveThrough)
+      : { data: [], error: null };
+  if (preservedGeneralTasksError) throw preservedGeneralTasksError;
+  const preservedGeneralLessonIds = (preservedGeneralTasks ?? []).flatMap(
+    (task) =>
+      task.learning_module_id &&
+      (task.scheduled_date === preserveThrough || task.status === "in_progress")
+        ? [task.learning_module_id]
+        : [],
+  );
   const generatedPreparation = await runCanonicalPreparation({
     supabase,
     studentId,
+    preservePlanThrough: preserveThrough,
+    preservedGeneralLessonIds,
     profile: { ...profileInput(profile), studyPlanEnabled: true },
     planningDate,
     inputs,
@@ -1812,6 +1854,7 @@ async function generateForProfile(
     inputs.completedMockCount,
     inputs.signals,
     today,
+    preserveThrough,
     refreshRequestVersion,
   );
 }
