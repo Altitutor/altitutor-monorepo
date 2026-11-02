@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import {
   attachChunkDiagnostics,
   attachChunkDiagnosticsToReplay,
@@ -32,7 +33,7 @@ Sentry.init({
   enabled: collection.feedback,
   environment: collection.environment,
   sendClientReports: collection.errors,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSend: (event, hint) => {
     if (!collection.errors && event.type !== "feedback") return null;
     const filtered = filterExpectedUcatWebError(event, hint);
@@ -48,6 +49,10 @@ Sentry.init({
     ...defaults.filter(
       (integration) =>
         collection.errors || integration.name !== "BrowserSession",
+    ).map((integration) =>
+      integration.name === "BrowserSession"
+        ? Sentry.browserSessionIntegration({ lifecycle: "route" })
+        : integration,
     ),
     ...(replayEnabled
       ? [

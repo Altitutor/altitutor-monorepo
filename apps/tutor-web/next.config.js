@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { withSentryConfig } = require("@sentry/nextjs");
+const { withSentryConfig } = require("@sentry/nextjs/config");
 
 const isSentrySourceMapUploadConfigured = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&

@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import * as Sentry from "@sentry/nextjs";
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { createBrowserAuthDiagnostics } from "../browser-auth-diagnostics";
@@ -20,7 +21,7 @@ beforeAll(() => {
   Sentry.init({
     dsn: "https://public@sentry.invalid/1",
     defaultIntegrations: false,
-    sendDefaultPii: false,
+    ...sentryWebCompatibilityOptions(),
     beforeSend: filterExpectedUcatWebError,
     transport: () => ({
       send: async (envelope: Envelope) => {

@@ -175,8 +175,9 @@ export function createAdminAuthDiagnostics(options: {
     }));
     const burst = bursts;
     try {
-      Sentry.withScope((scope) => {
-        scope.clear();
+      const diagnosticScope = new Sentry.Scope();
+      diagnosticScope.setClient(Sentry.getClient());
+      Sentry.withScope(diagnosticScope, (scope) => {
         // Allowlist the complete event to exclude inherited user, request URLs,
         // breadcrumbs and arbitrary contexts. Existing error reporting is separate.
         scope.addEventProcessor((event) => ({
