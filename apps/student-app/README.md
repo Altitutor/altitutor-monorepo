@@ -16,11 +16,14 @@ From the monorepo root:
 
 ```bash
 pnpm install
+pnpm dev --filter=@altitutor/student-app
+# or
 pnpm --filter @altitutor/student-app dev
 ```
 
-`start` is an alias for `dev`. Metro uses port **8082** (distinct from `ucat-app` on
-8081) so both native apps can run during root `pnpm dev`.
+Metro uses port **8082** (distinct from `ucat-app` on 8081). Both `dev` forms and
+the package `ios`/`android` commands start `student-web` on port 3001 for browser
+sign-in. Turbo stops the paired web server when the native dev session ends.
 
 Open the project in **Expo Go** on a device or simulator:
 

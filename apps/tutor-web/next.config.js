@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { withSentryConfig } = require("@sentry/nextjs");
+const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
 
 const isSentrySourceMapUploadConfigured = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&
@@ -30,6 +31,7 @@ copyPdfjsAssets();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: getLocalDevOrigins(),
   env: {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",

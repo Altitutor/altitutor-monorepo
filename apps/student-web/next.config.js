@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { withSentryConfig } = require("@sentry/nextjs");
+const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
 
 /**
  * Next's webpack cannot load pdfjs-dist 5 ESM (`Object.defineProperty` on a
@@ -30,6 +31,7 @@ const isSentrySourceMapUploadConfigured = Boolean(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: getLocalDevOrigins(),
   env: {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",

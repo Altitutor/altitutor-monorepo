@@ -70,6 +70,55 @@ the repo's merge method. Use normal protected-branch permissions; stop with the
 concrete missing review/check/permission if GitHub rejects the merge.
 
 Read the merged PR and issue states back. Publish merge SHA, exact checks,
-acceptance evidence and any remaining QA; reconcile In QA. Stop the owned local
-preview, then return the lease after the branch is safely pushed/merged. Report
-develop delivery separately from main, deployment and production verification.
+acceptance evidence and any remaining QA; reconcile In QA. Continue through
+cleanup before reporting delivery. Develop delivery remains separate from main,
+deployment and production verification.
+
+## Cleanup
+
+Run after verified delivery, including resuming this task's interrupted cleanup.
+For pending feedback, follow the retention rules in
+[local-preview.md](local-preview.md#prepare-each-human-checkpoint). Ownership
+comes from the workpad and runtime receipts; folder age or a matching name is
+insufficient. Use existing lifecycle tools during this ticket run.
+
+1. **Preserve evidence.** Publish required screenshots, reports and diagnostics
+   to Linear before deleting their local copies. Use the verified PR/base/head
+   and merge as proof the work landed on `develop`; a squash merge can have a
+   different SHA. Account for any later checkout changes and unique artifacts
+   separately. Keep unresolved diagnostic evidence and unmerged work.
+2. **Stop owned resources.** Follow the environment guide's stop/recovery path
+   for the recorded local runtime and DB. Close this task's browser sessions and
+   stop its tracked processes through their owning tools. Verify shutdown and
+   capture stopped status while the checkout still exists. Check for remaining
+   processes, open files and Docker bind mounts using it. A foreign or unproven
+   consumer blocks checkout removal; preserve its ownership evidence. Shared
+   browser instances and database resources stay outside this cleanup.
+3. **Reclaim the checkout.** Inspect tracked, untracked and ignored files against
+   the resource record; preserve unique work and delete only verified disposable
+   task artifacts. Release the lease only after the checkout is clean and its
+   commits are verified landed. Run lifecycle commands from a surviving directory.
+   For Treehouse, read the installed `status`, `return` and `destroy` help. Match
+   the exact path and lease to this task, then return only that lease using its
+   identity condition. Returning leaves a warm checkout on disk: inspect the
+   returned slot, dry-run its exact-path destruction and execute only a guarded
+   disposable result. If the slot was acquired or changed, leave it to its new
+   owner. For an ordinary Git worktree, use non-forced exact-path removal; use
+   the host's archive lifecycle for a host-managed checkout. Preserve branches
+   and commits. Bulk operations and overrides of unlanded, lease or in-use
+   protections are outside this workflow.
+4. **Remove remaining artifacts.** After preserving evidence and stopping its
+   consumers, remove the recorded disposable directories outside the checkout,
+   including logs and browser profiles. Retain runtime ownership proofs until
+   scoped shutdown is verified. A temporary pool's small state files may remain
+   if the installed tool has no safe removal operation. Global OS caches and
+   resources belonging to other tasks stay outside this cleanup.
+5. **Verify and record.** Read back worktree registration and pool state; verify
+   recorded resource paths/processes against the captured shutdown receipts.
+   Record stopped/removed resources and each retained path with its reason,
+   owner and next action in Linear; include the commands/results and
+   delivered PR/head/merge. Treat a guard refusal as a cleanup blocker, keeping
+   the resource and reporting cleanup pending alongside successful delivery.
+   The repository's Git default can be `main`: a pruning tool's refusal is not
+   permission to bypass its guards for work delivered to `develop`. Retry this
+   task's recorded incomplete cleanup on resume before allocating replacements.
