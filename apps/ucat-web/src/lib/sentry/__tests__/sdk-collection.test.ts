@@ -1,34 +1,70 @@
 /** @jest-environment node */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 const execute = promisify(execFile);
 
-async function collect(env: Record<string, string | undefined> = {}, app = "ucat-web") {
-  const { stdout } = await execute(
-    process.execPath,
-    [
-      "--import",
-      "tsx",
-      join(__dirname, "../test-fixtures/collection-child.ts"),
-    ],
-    {
-      cwd: join(process.cwd(), "..", app),
-      env: {
-        ...process.env,
-        NODE_ENV: "production",
-        VERCEL_ENV: "production",
-        VERCEL_TARGET_ENV: "",
-        CI: "",
-        SENTRY_DISABLED: "",
-        SENTRY_TEST_OPT_IN: "",
-        SENTRY_ENVIRONMENT: "",
-        ...env,
+async function collect(
+  env: Record<string, string | undefined> = {},
+  app = "ucat-web",
+) {
+  const appRoot = join(process.cwd(), "..", app);
+  const temporary = await mkdtemp(join(tmpdir(), "sentry-collection-"));
+  let stdout: string;
+  try {
+    const appConfig = JSON.parse(
+      await readFile(join(appRoot, "tsconfig.json"), "utf8"),
+    ) as {
+      compilerOptions: { paths: Record<string, string[]> };
+    };
+    const paths = Object.fromEntries(
+      Object.entries(appConfig.compilerOptions.paths).map(([name, targets]) => [
+        name,
+        targets.map((target) => resolve(appRoot, target)),
+      ]),
+    );
+    // Like Jest's workspace mapping, the child must work before any package build.
+    paths["@altitutor/ucat-response-contract"] = [
+      resolve(appRoot, "../../packages/ucat-response-contract/src/index.ts"),
+    ];
+    const config = join(temporary, "tsconfig.json");
+    await writeFile(
+      config,
+      JSON.stringify({
+        extends: join(appRoot, "tsconfig.json"),
+        compilerOptions: { paths },
+      }),
+    );
+    ({ stdout } = await execute(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        join(__dirname, "../test-fixtures/collection-child.ts"),
+      ],
+      {
+        cwd: appRoot,
+        env: {
+          ...process.env,
+          NODE_ENV: "production",
+          VERCEL_ENV: "production",
+          VERCEL_TARGET_ENV: "",
+          CI: "",
+          SENTRY_DISABLED: "",
+          SENTRY_TEST_OPT_IN: "",
+          SENTRY_ENVIRONMENT: "",
+          ...env,
+          TSX_TSCONFIG_PATH: config,
+        },
+        timeout: 15000,
       },
-      timeout: 15000,
-    },
-  );
+    ));
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
   const { reports } = JSON.parse(stdout.trim().split("\n").at(-1)!) as {
     reports: {
       type: string;
