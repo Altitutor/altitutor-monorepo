@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 
@@ -19,8 +20,8 @@ Sentry.init({
   enabled: collection.feedback,
   environment: collection.environment,
   sendClientReports: collection.errors,
-  integrations: (defaults) => defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
-  sendDefaultPii: false,
+  integrations: (defaults) => defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession").map((integration) => integration.name === "BrowserSession" ? Sentry.browserSessionIntegration({ lifecycle: "route" }) : integration),
+  ...sentryWebCompatibilityOptions(),
   beforeSend: (event) => collection.errors || event.type === "feedback" ? event : null,
   beforeSendTransaction: (event) => collection.errors ? event : null,
   tracesSampleRate: collection.errors ? 0.1 : 0,

@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { resolveSentryCollection } from "@altitutor/shared";
@@ -18,7 +19,7 @@ Sentry.init({
   dsn,
   enabled: collection.errors,
   environment: collection.environment,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSend: filterExpectedUcatWebError,
   beforeSendTransaction: filterMobileAuthTelemetry,
   beforeBreadcrumb: filterMobileAuthTelemetry,

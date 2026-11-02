@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { sanitizeInterviewCallEvent, resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import { filterExpectedTutorWebError } from "@/lib/sentry/before-send";
@@ -22,7 +23,7 @@ Sentry.init({
   enabled: collection.feedback,
   environment: collection.environment,
   sendClientReports: collection.errors,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   beforeSendTransaction: (event) => collection.errors ? event : null,
   beforeSend: (event, hint) => {
     if (!collection.errors && event.type !== "feedback") return null;
@@ -33,7 +34,7 @@ Sentry.init({
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
   integrations: (defaults) => [
-    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
+    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession").map((integration) => integration.name === "BrowserSession" ? Sentry.browserSessionIntegration({ lifecycle: "route" }) : integration),
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({

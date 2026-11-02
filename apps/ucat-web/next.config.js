@@ -1,5 +1,5 @@
 const path = require("path");
-const { withSentryConfig } = require("@sentry/nextjs");
+const { withSentryConfig } = require("@sentry/nextjs/config");
 const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
 
 const isSentrySourceMapUploadConfigured = Boolean(
