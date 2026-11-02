@@ -1,11 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-test("blog discovery, canonical and draft exclusion", async ({
+test("blog direct access, canonical and draft exclusion", async ({
   page,
   request,
 }) => {
   await page.goto("/blog/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Our blog.");
+  await expect(
+    page.locator("header").getByRole("link", { name: "Blog", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator("footer").getByRole("link", { name: "Blog", exact: true }),
+  ).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
     "https://altitutor.com/blog/",
@@ -23,7 +29,7 @@ test("blog discovery, canonical and draft exclusion", async ({
   expect(image.headers()["content-type"]).toContain("image/png");
 });
 
-test("blog is discoverable on mobile without horizontal overflow", async ({
+test("blog supports direct mobile access without navigation links or horizontal overflow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -34,10 +40,14 @@ test("blog is discoverable on mobile without horizontal overflow", async ({
     ),
   ).toBe(true);
   await page.getByRole("button", { name: "Open navigation" }).click();
+  const menu = page.locator("#mobile-navigation");
   await expect(
-    page
-      .locator("#mobile-navigation")
-      .getByRole("link", { name: "Blog", exact: true }),
+    menu.getByRole("link", { name: "Blog", exact: true }),
+  ).toHaveCount(0);
+  await menu.getByRole("link", { name: "About us", exact: true }).click();
+  await expect(page).toHaveURL(/\/about\/$/);
+  await expect(
+    page.getByRole("button", { name: "Open navigation" }),
   ).toBeVisible();
 });
 

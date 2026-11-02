@@ -16,7 +16,6 @@ import styles from "../marketing.module.css";
 import type { PrimaryAction } from "../conversion-actions";
 
 const companyLinks = [
-  ["/blog/", "Blog"],
   ["/about/", "About us"],
   ["/about/testimonials/", "Results & testimonials"],
   ["/about/subsidy/", "Tuition subsidy"],

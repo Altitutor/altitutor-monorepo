@@ -1,5 +1,6 @@
 const withMDX = require("@next/mdx")({ extension: /\.mdx$/ });
 const { withSentryConfig } = require("@sentry/nextjs/config");
+const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
 const staffImageOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL || require("./src/features/staff/preview.json").origin;
 const legacyRedirects = require("./src/lib/legacy-redirects.json");
 
@@ -11,6 +12,7 @@ const isSentrySourceMapUploadConfigured = Boolean(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: getLocalDevOrigins(),
   env: {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
