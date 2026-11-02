@@ -35,4 +35,6 @@ name: Android browser login returns to the native session
     notVisible:
       id: "com.android.chrome:id/close_button"
     timeout: 60000
-- assertVisible: "Practice"
+- extendedWaitUntil:
+    visible: "Practice"
+    timeout: 60000
