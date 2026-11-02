@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { withSentryConfig } = require("@sentry/nextjs");
+const { withSentryConfig } = require("@sentry/nextjs/config");
 
 /**
  * Next's webpack cannot load pdfjs-dist 5 ESM (`Object.defineProperty` on a
