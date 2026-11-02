@@ -61,11 +61,13 @@ function response(data: unknown, status = 200): Response {
 }
 
 it.each([
-  { study: 'study=all', entry: 'menu' },
-  { study: 'subject=subject-1', entry: 'menu' },
-  { study: 'study=all', entry: 'remount' },
-  { study: 'subject=subject-1', entry: 'remount' },
-])('waits for current cards when re-entering $study through $entry after an answer', async ({ study, entry }) => {
+  { study: 'study=all', entry: 'menu', pending: false },
+  { study: 'subject=subject-1', entry: 'menu', pending: false },
+  { study: 'study=all', entry: 'remount', pending: false },
+  { study: 'subject=subject-1', entry: 'remount', pending: false },
+  { study: 'study=all', entry: 'menu', pending: true },
+  { study: 'subject=subject-1', entry: 'menu', pending: true },
+])('waits for current cards when re-entering $study through $entry (answer pending: $pending)', async ({ study, entry, pending }) => {
   let requestNumber = 0;
   Object.defineProperty(global.crypto, 'randomUUID', { configurable: true, value: () => `00000000-0000-4000-8000-${String(++requestNumber).padStart(12, '0')}` });
   const first = reviewCard('first', 'First prompt');
@@ -73,12 +75,14 @@ it.each([
   let serverCards = [first, second];
   let answerSaved = false;
   let releaseSnapshot: (() => void) | undefined;
+  let releaseAnswer: (() => void) | undefined;
   const commands: RateFlashcardCommand[] = [];
   const originalFetch = global.fetch;
   global.fetch = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
     if (init?.method === 'POST') {
       const command = JSON.parse(String(init.body)) as RateFlashcardCommand;
       commands.push(command);
+      if (pending && !answerSaved) await new Promise<void>(resolve => { releaseAnswer = resolve; });
       const card = serverCards.find(card => card.id === command.reviewCardId);
       if (!card || command.expectedRevision !== card.revision) return response({ error: 'flashcard_stale_revision' }, 409);
       answerSaved = true;
@@ -97,16 +101,22 @@ it.each([
     await screen.findByText(/First prompt/);
     fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
     fireEvent.click(screen.getByRole('button', { name: /Good/ }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /Undo/ })).toBeEnabled());
+    if (pending) await waitFor(() => expect(releaseAnswer).toBeDefined());
+    else await waitFor(() => expect(screen.getByRole('button', { name: /Undo/ })).toBeEnabled());
     if (entry === 'menu') {
       mockSearchParams = '';
       view.rerender(<QueryClientProvider client={client}><DueFlashcardsPage /></QueryClientProvider>);
-      await waitFor(() => expect(releaseSnapshot).toBeDefined());
+      if (!pending) await waitFor(() => expect(releaseSnapshot).toBeDefined());
       mockSearchParams = study;
       view.rerender(<QueryClientProvider client={client}><DueFlashcardsPage /></QueryClientProvider>);
     } else {
       view.unmount();
       view = render(page);
+    }
+    if (pending) {
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.queryByText(/First prompt/)).not.toBeInTheDocument();
+      await act(async () => releaseAnswer?.());
     }
     await waitFor(() => expect(releaseSnapshot).toBeDefined());
     expect(screen.queryByText(/First prompt/)).not.toBeInTheDocument();
@@ -116,6 +126,24 @@ it.each([
     fireEvent.click(screen.getByRole('button', { name: /Good/ }));
     await waitFor(() => expect(commands.map(command => command.reviewCardId)).toEqual(['first', 'second']));
     expect(screen.queryByText(/Your answer was not saved/)).not.toBeInTheDocument();
+  } finally {
+    await act(async () => { releaseAnswer?.(); releaseSnapshot?.(); });
+    view.unmount();
+    client.clear();
+    global.fetch = originalFetch;
+  }
+});
+
+it.each(['study=all', 'subject=subject-1'])('can retry an uncached snapshot failure for %s', async (study) => {
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockResolvedValueOnce(response({ error: 'Temporary snapshot failure' }, 503)).mockResolvedValue(response(snapshot([reviewCard('first', 'First prompt')])));
+  const defaults = applicationQueryClient.getDefaultOptions();
+  const client = new QueryClient({ defaultOptions: { queries: { ...defaults.queries, retry: false } } });
+  mockSearchParams = study;
+  const view = render(<QueryClientProvider client={client}><DueFlashcardsPage /></QueryClientProvider>);
+  try {
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await screen.findByText(/First prompt/);
   } finally {
     view.unmount();
     client.clear();

@@ -167,10 +167,10 @@ export default function DueFlashcardsPage() {
     studyAll ? undefined : subjectId ? selectedSubject?.topicIds ?? null : null,
   );
   const snapshot = study.data;
-  const cardsError = study.error;
+  const cardsError = menu.error ?? study.error;
   // Start each study session only after its current authoritative snapshot arrives.
-  const cardsLoading = studying && (menu.isLoading || !menu.data || study.isLoading || study.isFetching);
-  const refetch = study.refetch;
+  const cardsLoading = studying && (menu.isLoading || study.isStartingSession || study.isLoading || study.isFetching);
+  const refetch = menu.error ? menu.refetch : study.refetch;
   const refetchMenu = menu.refetch;
   const wasStudyingRef = useRef(false);
   useEffect(() => {
