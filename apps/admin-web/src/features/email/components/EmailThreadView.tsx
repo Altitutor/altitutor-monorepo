@@ -1,4 +1,7 @@
 "use client";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
+import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
+import { CheckSquare, AlertTriangle } from "lucide-react";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import {
   useCallback,
@@ -89,6 +92,13 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
   };
 }
 export function EmailThreadView({ threadId }: { threadId: string }) {
+  const { searchParams } = usePaneNavigation();
+  const targetMessageId = searchParams.get("message");
+  const referenceFocus = searchParams.get("focus");
+  const targetKey = `${targetMessageId ?? ""}:${referenceFocus ?? ""}`;
+  const referenceRoot = useRef<HTMLDivElement>(null);
+  const revealedMessage = useRef<string | null>(null);
+  const quickActions = useQuickActions();
   const scope = useAccessoryTab();
   const panel = useAccessoryPanelActions();
   const creating = threadId.startsWith("compose:");
@@ -164,6 +174,25 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     (message) =>
       !message.draft || isEditableDraft(message, mailbox.data?.folders ?? []),
   );
+  useEffect(() => {
+    if (
+      !targetMessageId ||
+      revealedMessage.current === targetKey ||
+      !showMessages
+    )
+      return;
+    const card = referenceRoot.current?.querySelector<HTMLElement>(
+      `[data-email-message-id="${CSS.escape(targetMessageId)}"]`,
+    );
+    if (card) {
+      card.scrollIntoView({ block: "center", behavior: "instant" });
+      card.focus({ preventScroll: true });
+      revealedMessage.current = targetKey;
+    }
+  }, [targetMessageId, targetKey, thread.data, showMessages]);
+  useEffect(() => {
+    if (targetMessageId) setShowMessages(true);
+  }, [targetMessageId]);
   const liveDrafts = messages.filter(
     (message) =>
       isEditableDraft(message, mailbox.data?.folders ?? []) &&
@@ -366,6 +395,36 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     .map((message) => message.id);
   useRegisterRecordActions("email", threadId, subject, [
     {
+      id: "add-task",
+      title: "Add task",
+      icon: CheckSquare,
+      primaryOnly: true,
+      disabled: !latest,
+      action: () => {
+        if (latest)
+          quickActions.openCreateTaskDialog({
+            type: "email",
+            id: latest.id,
+            label: subject,
+          });
+      },
+    },
+    {
+      id: "add-issue",
+      title: "Add issue",
+      icon: AlertTriangle,
+      primaryOnly: true,
+      disabled: !latest,
+      action: () => {
+        if (latest)
+          quickActions.openCreateIssueDialog({
+            type: "email",
+            id: latest.id,
+            label: subject,
+          });
+      },
+    },
+    {
       id: "reply",
       title: "Reply to email",
       icon: Reply,
@@ -439,6 +498,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             at: message.sentAt ?? message.receivedAt ?? "",
             content: (
               <article
+                data-email-message-id={message.id}
                 data-email-shortcut-target
                 className="group relative m-4 rounded-2xl bg-muted/35 p-4"
                 onMouseEnter={() => setHoveredCard(message.id)}
@@ -471,6 +531,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                   </time>
                   <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
                     <EmailActions
+                      messageId={message.id}
+                      messageLabel={message.subject || "No subject"}
                       level="message"
                       ids={nonDraftIds}
                       threadId={threadId}
@@ -525,6 +587,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   return (
     <div
       className="flex h-full min-h-0 flex-col"
+      ref={referenceRoot}
       aria-label="Email conversation"
       inert={closingEditors}
       aria-busy={closingEditors}

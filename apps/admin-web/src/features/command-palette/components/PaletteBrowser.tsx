@@ -24,6 +24,7 @@ import type { CommandPalettePage } from "../config/commandPalette.config";
 import {
   paletteEntities,
   type EntityTarget,
+  type RecordTarget,
   type PaletteCommand,
   type PaletteEntity,
   type PaletteEntityType,
@@ -49,7 +50,7 @@ type Item = {
   title: string;
   icon: LucideIcon;
   parents?: string[];
-  target?: EntityTarget;
+  target?: RecordTarget;
   subtitle?: string;
   disabled?: boolean;
   destructive?: boolean;

@@ -1,3 +1,4 @@
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { renderSuspending } from "@/shared/test-utils";
 import { webcrypto } from 'node:crypto';
 import { TextEncoder } from 'node:util';
@@ -88,13 +89,13 @@ beforeEach(() => {
       stripe_customer_id: null,
       balance_cents: 0,
       currency: 'aud',
-    } : ({
+    } : {
       sent: ['student@example.test'],
       credit_notes: [],
       attempt_count: 0,
       next_payment_attempt: null,
       auto_retry_active: false,
-    }),
+    },
   }));
 });
 afterEach(() => {
@@ -110,7 +111,8 @@ async function renderSurface(surface: 'detail' | 'student') {
   });
   clients.push(client);
   return await renderSuspending(
-    <QueryClientProvider client={client}>
+    <QuickActionsProvider>
+      <QueryClientProvider client={client}>
       <ToastProvider>
         {surface === 'detail' ? (
           <><InvoiceDetailPage params={Promise.resolve({ id: 'invoice' })} /><OwingProbe /></>
@@ -118,13 +120,16 @@ async function renderSurface(surface: 'detail' | 'student') {
           <StudentInvoicesTable studentId="student" />
         )}
       </ToastProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </QuickActionsProvider>,
   );
 }
 
 function OwingProbe() {
   const owing = useStudentInvoiceOwing('student');
-  return <output aria-label="Owing probe">{owing.data?.[0]?.amountCents}</output>;
+  return (
+    <output aria-label="Owing probe">{owing.data?.[0]?.amountCents}</output>
+  );
 }
 
 async function openActions(surface: 'detail' | 'student') {
@@ -207,7 +212,7 @@ it('keeps the total independent of invoice search', async () => {
   await screen.findByText(/AUD\s*50\.00/);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Search' }));
-  const search = screen.getAllByRole('textbox').find(input => input.getAttribute('placeholder')?.toLowerCase().includes('search'));
+  const search = screen.getAllByRole('textbox').find((input) => input.getAttribute('placeholder')?.toLowerCase().includes('search'));
   expect(search).toBeDefined();
   await user.type(search!, 'different invoice');
   expect(screen.getByText(/AUD\s*50\.00/)).toBeInTheDocument();

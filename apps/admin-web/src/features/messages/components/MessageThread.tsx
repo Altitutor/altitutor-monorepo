@@ -11,7 +11,6 @@ import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { useIssues } from '@/features/issues/api/queries';
 import { issuesApi } from '@/features/issues/api/issues';
@@ -55,17 +54,19 @@ function getTagKey(tag: Partial<IssueTagInsert>) {
   return null;
 }
 
-function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[] {
+function issueDescriptionMentionsToDrafts(
+  issue: IssueWithTags,
+): IssueTagDraft[] {
   const description = issue.description as JSONContent | null;
   return extractMentions(description)
     .map((mention): IssueTagDraft | null => {
-      if (mention.type === 'student') return { student_id: mention.id };
-      if (mention.type === 'staff') return { staff_id: mention.id };
-      if (mention.type === 'parent') return { parent_id: mention.id };
-      if (mention.type === 'class') return { class_id: mention.id };
-      if (mention.type === 'session') return { session_id: mention.id };
-      if (mention.type === 'invoice') return { invoice_id: mention.id };
-      if (mention.type === 'subject') return { subject_id: mention.id };
+      if (mention.type === "student") return { student_id: mention.id };
+      if (mention.type === "staff") return { staff_id: mention.id };
+      if (mention.type === "parent") return { parent_id: mention.id };
+      if (mention.type === "class") return { class_id: mention.id };
+      if (mention.type === "session") return { session_id: mention.id };
+      if (mention.type === "invoice") return { invoice_id: mention.id };
+      if (mention.type === "subject") return { subject_id: mention.id };
       return null;
     })
     .filter((tag): tag is IssueTagDraft => !!tag);
@@ -74,8 +75,18 @@ function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[]
 export type ThreadFeedEntry = { id: string; at: string; content: ReactNode };
 interface Props {
   /** Supplied by a unified feed; transport/reaction rendering stays shared. */
-  feed?: { key: string; messages: ThreadMessage[]; entries: ThreadFeedEntry[]; hasMore: boolean; loadMore: () => void; labelForConversation?: (id: string) => string | undefined };
+  feed?: {
+    key: string;
+    messages: ThreadMessage[];
+    entries: ThreadFeedEntry[];
+    hasMore: boolean;
+    loadMore: () => void;
+    showConversationLabels?: boolean;
+    labelForConversation?: (id: string) => string | undefined;
+  };
 
+  referenceFocus?: string | null;
+  targetMessageId?: string | null;
   contactId?: string | null;
   conversationId?: string | null;
   ownedNumberId?: string | null;
@@ -88,8 +99,8 @@ interface Props {
 }
 
 interface AttachmentProps {
-  attachment: Tables<'message_attachments'>;
-  direction: 'INBOUND' | 'OUTBOUND';
+  attachment: Tables<"message_attachments">;
+  direction: "INBOUND" | "OUTBOUND";
 }
 
 export function MessageAttachment({ attachment }: AttachmentProps) {
@@ -99,43 +110,46 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  
+
   // Check if it's a PDF
-  const filenameLower = attachment.filename?.toLowerCase() || '';
-  const isPdf = attachment.mime_type === 'application/pdf' || filenameLower.endsWith('.pdf');
-  const isAudioByMime = attachment.mime_type?.startsWith('audio/');
-  const isAudioByExtension = filenameLower.endsWith('.mp3') ||
-                             filenameLower.endsWith('.wav') ||
-                             filenameLower.endsWith('.m4a') ||
-                             filenameLower.endsWith('.aac') ||
-                             filenameLower.endsWith('.aiff') ||
-                             filenameLower.endsWith('.caf') ||
-                             filenameLower.endsWith('.ogg') ||
-                             filenameLower.endsWith('.flac');
+  const filenameLower = attachment.filename?.toLowerCase() || "";
+  const isPdf =
+    attachment.mime_type === "application/pdf" ||
+    filenameLower.endsWith(".pdf");
+  const isAudioByMime = attachment.mime_type?.startsWith("audio/");
+  const isAudioByExtension =
+    filenameLower.endsWith(".mp3") ||
+    filenameLower.endsWith(".wav") ||
+    filenameLower.endsWith(".m4a") ||
+    filenameLower.endsWith(".aac") ||
+    filenameLower.endsWith(".aiff") ||
+    filenameLower.endsWith(".caf") ||
+    filenameLower.endsWith(".ogg") ||
+    filenameLower.endsWith(".flac");
   const isAudio = isAudioByMime || isAudioByExtension;
-  
+
   // Format time helper for audio player
   const formatTime = (seconds: number): string => {
-    if (isNaN(seconds) || !isFinite(seconds)) return '0:00';
+    if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-  
+
   // Handle audio time updates
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime);
     }
   };
-  
+
   // Handle audio metadata load
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
     }
   };
-  
+
   // Handle seekbar change
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
@@ -144,7 +158,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       setCurrentTime(newTime);
     }
   };
-  
+
   // Handle play/pause
   const handlePlayPause = () => {
     if (audioRef.current) {
@@ -157,7 +171,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       }
     }
   };
-  
+
   // Handle audio ended
   const handleEnded = () => {
     setIsPlaying(false);
@@ -166,103 +180,114 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 
   // Get file extension for display
   const getFileExtension = (filename: string | null | undefined): string => {
-    if (!filename) return '';
-    const parts = filename.split('.');
-    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
+    if (!filename) return "";
+    const parts = filename.split(".");
+    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "";
   };
 
   const formatFileSize = (bytes: number | null | undefined): string => {
-    if (!bytes) return '';
+    if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-  
+
   // Generate signed URL for private bucket
   useEffect(() => {
     const storageUrl = attachment.storage_url;
-    
+
     // Provider-owned attachment locators are not Supabase Storage object paths.
-    if (storageUrl && /^[a-z][a-z0-9+.-]*:/i.test(storageUrl) && !/^https?:/i.test(storageUrl)) {
+    if (
+      storageUrl &&
+      /^[a-z][a-z0-9+.-]*:/i.test(storageUrl) &&
+      !/^https?:/i.test(storageUrl)
+    ) {
       setUrlError(true);
       return;
     }
-    
+
     // If it's already a full URL, we still need to check if it's a signed URL or old public URL
-    if (storageUrl?.startsWith('http')) {
+    if (storageUrl?.startsWith("http")) {
       // If it's a signed URL, use it directly. Otherwise, extract path and regenerate
-      if (storageUrl.includes('/sign/')) {
+      if (storageUrl.includes("/sign/")) {
         setSignedUrl(storageUrl);
         return;
       }
       // Old public URL - extract path and regenerate as signed URL
-      const supabaseUrlMatch = storageUrl.match(/\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/);
+      const supabaseUrlMatch = storageUrl.match(
+        /\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/,
+      );
       if (supabaseUrlMatch) {
         const filePath = supabaseUrlMatch[1];
         const supabase = getSupabaseClient();
         supabase.storage
-          .from('messages-media')
+          .from("messages-media")
           .createSignedUrl(filePath, 3600)
           .then(({ data, error }) => {
             if (error) {
-              console.error('Failed to create signed URL:', error);
+              console.error("Failed to create signed URL:", error);
               setUrlError(true);
             } else {
               setSignedUrl(data.signedUrl);
             }
           })
           .catch((err) => {
-            console.error('Error creating signed URL:', err);
+            console.error("Error creating signed URL:", err);
             setUrlError(true);
           });
         return;
       }
     }
-    
+
     // Extract path from storage_url (could be full URL or just path)
     let filePath = storageUrl;
     if (!filePath) {
       setUrlError(true);
       return;
     }
-    
+
     // If it's a full Supabase URL, extract the path
-    const supabaseUrlMatch = filePath.match(/\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/);
+    const supabaseUrlMatch = filePath.match(
+      /\/storage\/v1\/object\/[^/]+\/messages-media\/(.+)$/,
+    );
     if (supabaseUrlMatch) {
       filePath = supabaseUrlMatch[1];
     }
-    
+
     // Generate signed URL (valid for 1 hour)
     const supabase = getSupabaseClient();
     supabase.storage
-      .from('messages-media')
+      .from("messages-media")
       .createSignedUrl(filePath, 3600)
       .then(({ data, error }) => {
         if (error) {
-          console.error('Failed to create signed URL:', error);
+          console.error("Failed to create signed URL:", error);
           setUrlError(true);
         } else {
           setSignedUrl(data.signedUrl);
         }
       })
       .catch((err) => {
-        console.error('Error creating signed URL:', err);
+        console.error("Error creating signed URL:", err);
         setUrlError(true);
-    });
+      });
   }, [attachment.storage_url]);
-  
+
   // Show error state if URL generation failed
   if (urlError) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-dashed max-w-[200px]">
         <File className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="text-xs text-muted-foreground truncate" title={attachment.filename || 'Attachment'}>
-          {attachment.filename || 'Attachment'} (not available)
+        <span
+          className="text-xs text-muted-foreground truncate"
+          title={attachment.filename || "Attachment"}
+        >
+          {attachment.filename || "Attachment"} (not available)
         </span>
       </div>
     );
   }
-  
+
   // Show loading state while generating signed URL
   if (!signedUrl) {
     return (
@@ -286,20 +311,20 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = attachment.filename || 'attachment';
+      a.download = attachment.filename || "attachment";
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error: unknown) {
-      console.error('Failed to download attachment:', error);
+      console.error("Failed to download attachment:", error);
       // Fallback: open in new tab
-      window.open(attachmentUrl!, '_blank');
+      window.open(attachmentUrl!, "_blank");
     }
   };
-  
+
   // For audio files: show inline audio player
   if (isAudio) {
     return (
@@ -307,7 +332,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
         <div className="flex items-center gap-2">
           <Music className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="text-xs truncate flex-1 min-w-0">
-            {attachment.filename || 'Audio'}
+            {attachment.filename || "Audio"}
           </span>
           <button
             onClick={handleDownload}
@@ -335,7 +360,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
           <button
             onClick={handlePlayPause}
             className="p-1.5 hover:bg-muted-foreground/20 rounded transition-colors shrink-0"
-            aria-label={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
               <Pause className="h-4 w-4" />
@@ -354,7 +379,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
               onChange={handleSeek}
               className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               style={{
-                background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) 100%)`
+                background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) ${duration ? (currentTime / duration) * 100 : 0}%, hsl(var(--muted)) 100%)`,
               }}
             />
             {/* Timestamps */}
@@ -367,7 +392,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       </div>
     );
   }
-  
+
   // For files (including HEIC and failed images): show file card
   const fileExtension = getFileExtension(attachment.filename);
   const fileSize = formatFileSize(attachment.size_bytes);
@@ -387,8 +412,11 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
           ) : (
             <File className="h-4 w-4 shrink-0" />
           )}
-          <span className="text-xs font-medium truncate" title={attachment.filename || 'Attachment'}>
-            {attachment.filename || 'Attachment'}
+          <span
+            className="text-xs font-medium truncate"
+            title={attachment.filename || "Attachment"}
+          >
+            {attachment.filename || "Attachment"}
           </span>
         </a>
         <button
@@ -401,8 +429,10 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
       </div>
       {hasFileInfo && (
         <div className="text-[10px] text-muted-foreground">
-          {fileExtension && <span className="font-medium">{fileExtension}</span>}
-          {fileExtension && fileSize && ' • '}
+          {fileExtension && (
+            <span className="font-medium">{fileExtension}</span>
+          )}
+          {fileExtension && fileSize && " • "}
           {fileSize}
         </div>
       )}
@@ -412,66 +442,76 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 
 function partyNameParts(name: string): { firstName: string; lastName: string } {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  const firstName = parts[0] ?? '';
-  const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+  const firstName = parts[0] ?? "";
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
   return { firstName, lastName };
 }
 
 export function MessageThread({
+  referenceFocus,
+  targetMessageId,
   feed,
   contactId,
   conversationId,
   ownedNumberId,
   isSearching = false,
-  searchTerm = '',
+  searchTerm = "",
   onSearchTermChange,
   onExitSearch,
   hideAddIssueHover = false,
   onResentViaSms,
 }: Props) {
-  const contactMessages = useMessagesForContact(contactId ?? null, ownedNumberId);
-  const conversationMessages = useMessages(conversationId ?? '');
-  const query = conversationId
-    ? conversationMessages
-    : contactMessages;
-  const data = useMemo(() => feed ? { pages: [{ items: feed.messages }] } : query.data, [feed, query.data]);
+  const contactMessages = useMessagesForContact(
+    contactId ?? null,
+    ownedNumberId,
+  );
+  const conversationMessages = useMessages(conversationId ?? "");
+  const query = conversationId ? conversationMessages : contactMessages;
+  const data = useMemo(
+    () => (feed ? { pages: [{ items: feed.messages }] } : query.data),
+    [feed, query.data],
+  );
   const fetchNextPage = feed?.loadMore ?? query.fetchNextPage;
   const hasNextPage = feed?.hasMore ?? query.hasNextPage;
   const qc = useQueryClient();
-  const channelNonce = useId().replace(/:/g, '');
+  const channelNonce = useId().replace(/:/g, "");
   const { data: availableSenders = [] } = useAvailableSenders();
   const sendMessage = useSendMessage();
   const smsSender = defaultPhoneSmsSender(availableSenders);
   const isGroupThread = Boolean(conversationId) && !contactId;
   const threadItems = data?.pages.flatMap((page) => page.items) ?? [];
   const resendSourceIds = threadItems
-    .filter((message) => message.status === 'FAILED' || message.status === 'AMBIGUOUS')
+    .filter(
+      (message) =>
+        message.status === "FAILED" || message.status === "AMBIGUOUS",
+    )
     .map((message) => message.id);
-  const resendSourceKey = [...resendSourceIds].sort().join(',');
+  const resendSourceKey = [...resendSourceIds].sort().join(",");
   const { data: linkedSmsResends = [] } = useQuery({
-    queryKey: ['messages', 'sms-resends', contactId, resendSourceKey],
+    queryKey: ["messages", "sms-resends", contactId, resendSourceKey],
     enabled: Boolean(contactId) && resendSourceIds.length > 0,
     queryFn: async () => {
       const supabase = getSupabaseClient();
       const { data: rows, error } = await supabase
-        .from('messages')
-        .select('resent_from_message_id, status')
-        .in('resent_from_message_id', resendSourceIds);
+        .from("messages")
+        .select("resent_from_message_id, status")
+        .in("resent_from_message_id", resendSourceIds);
       if (error) throw error;
       return rows ?? [];
     },
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
-  const selectionKey = feed?.key ?? (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`);
+  const selectionKey =
+    feed?.key ??
+    (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`);
   const lastRenderedContactIdRef = useRef<string | null>(null);
   const prevContactId = useRef(selectionKey);
-  
-  const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
+
   const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isIssueActionLoading, setIsIssueActionLoading] = useState(false);
-  
+
   // Reset initial load flag when contact changes
   useEffect(() => {
     if (prevContactId.current !== selectionKey) {
@@ -482,23 +522,29 @@ export function MessageThread({
 
   useEffect(() => {
     if (!contactId && !conversationId) return;
-    
+
     // Get all conversation IDs for this contact to subscribe to all of them
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
-    
+
     if (conversationId) {
       channel = supabase
         .channel(`messages-conversation-${conversationId}-${channelNonce}`)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        }, () => {
-          qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
-        })
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          () => {
+            qc.invalidateQueries({
+              queryKey: messagesKeys.messages(conversationId),
+            });
+          },
+        )
         .subscribe();
 
       return () => {
@@ -510,46 +556,68 @@ export function MessageThread({
 
     // Fetch conversation IDs for this contact
     supabase
-      .from('conversations')
-      .select('id')
-      .eq('contact_id', contactId)
-      .in('status', ['OPEN', 'SNOOZED'])
+      .from("conversations")
+      .select("id")
+      .eq("contact_id", contactId)
+      .in("status", ["OPEN", "SNOOZED"])
       .then(({ data: conversations }) => {
         if (cancelled) return;
         if (!conversations || conversations.length === 0) return;
-        
+
         const conversationIds = new Set(
-          conversations.map((c) => {
-            if (!c || typeof c !== 'object' || !('id' in c)) return '';
-            return String(c.id);
-          }).filter((id): id is string => id !== ''),
+          conversations
+            .map((c) => {
+              if (!c || typeof c !== "object" || !("id" in c)) return "";
+              return String(c.id);
+            })
+            .filter((id): id is string => id !== ""),
         );
 
         // Avoid conversation_id=in.(...) realtime filters — they are unreliable.
         // Filter client-side so device-sent outbound inserts still refresh the thread.
         channel = supabase
           .channel(`messages-contact-${contactId}-${channelNonce}`)
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'messages',
-          }, (payload) => {
-            const next = payload.new as { conversation_id?: string } | null;
-            const prev = payload.old as { conversation_id?: string } | null;
-            const conversationIdChanged =
-              (next?.conversation_id && conversationIds.has(next.conversation_id)) ||
-              (prev?.conversation_id && conversationIds.has(prev.conversation_id));
-            if (!conversationIdChanged) return;
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
-          })
-          .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'conversations',
-            filter: `contact_id=eq.${contactId}`
-          }, () => {
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
-          })
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "messages",
+            },
+            (payload) => {
+              const next = payload.new as { conversation_id?: string } | null;
+              const prev = payload.old as { conversation_id?: string } | null;
+              const conversationIdChanged =
+                (next?.conversation_id &&
+                  conversationIds.has(next.conversation_id)) ||
+                (prev?.conversation_id &&
+                  conversationIds.has(prev.conversation_id));
+              if (!conversationIdChanged) return;
+              qc.invalidateQueries({
+                queryKey: messagesKeys.messagesForContact(
+                  contactId,
+                  ownedNumberId,
+                ),
+              });
+            },
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "conversations",
+              filter: `contact_id=eq.${contactId}`,
+            },
+            () => {
+              qc.invalidateQueries({
+                queryKey: messagesKeys.messagesForContact(
+                  contactId,
+                  ownedNumberId,
+                ),
+              });
+            },
+          )
           .subscribe();
       });
 
@@ -564,41 +632,53 @@ export function MessageThread({
   // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
-    const items = data.pages.flatMap(p => p.items);
+    const items = data.pages.flatMap((p) => p.items);
     const reactionsByTarget = buildReactionsByTargetGuid(items);
-    const attachedReactionIds = collectAttachedReactionIds(items, reactionsByTarget);
+    const attachedReactionIds = collectAttachedReactionIds(
+      items,
+      reactionsByTarget,
+    );
 
-    type MessageItem = typeof items[number];
+    type MessageItem = (typeof items)[number];
     type ProcessedMessageItem =
       | (MessageItem & {
-          type: 'message';
+          type: "message";
           searchTerm?: string;
           reactions: MessageReaction[];
           orphanReactionEmoji?: string | null;
         })
-      | { type: 'separator'; count: number; id: string };
+      | { type: "separator"; count: number; id: string };
 
-    const withReactions = (message: MessageItem, search?: string): Extract<ProcessedMessageItem, { type: 'message' }> => {
+    const withReactions = (
+      message: MessageItem,
+      search?: string,
+    ): Extract<ProcessedMessageItem, { type: "message" }> => {
       const targetGuid = normalizeImessageGuid(message.imessage_guid);
-      const reactions = (!message.is_reaction && targetGuid
-        ? reactionsByTarget.get(targetGuid)
-        : undefined) ?? [];
+      const reactions =
+        (!message.is_reaction && targetGuid
+          ? reactionsByTarget.get(targetGuid)
+          : undefined) ?? [];
 
       return {
         ...message,
-        type: 'message' as const,
+        type: "message" as const,
         searchTerm: search,
         reactions,
-        orphanReactionEmoji: message.is_reaction && !attachedReactionIds.has(message.id)
-          ? reactionTypeToEmoji(message.reaction_type)
-          : null,
+        orphanReactionEmoji:
+          message.is_reaction && !attachedReactionIds.has(message.id)
+            ? reactionTypeToEmoji(message.reaction_type)
+            : null,
       };
     };
 
-    const visibleItems = items.filter((message) => !attachedReactionIds.has(message.id));
+    const visibleItems = items.filter(
+      (message) => !attachedReactionIds.has(message.id),
+    );
 
     if (!isSearching || !searchTerm.trim()) {
-      return visibleItems.map((message) => withReactions(message)) as ProcessedMessageItem[];
+      return visibleItems.map((message) =>
+        withReactions(message),
+      ) as ProcessedMessageItem[];
     }
 
     const search = searchTerm.toLowerCase();
@@ -610,7 +690,11 @@ export function MessageThread({
 
       if (matches) {
         if (hiddenCount > 0) {
-          filtered.push({ type: 'separator', count: hiddenCount, id: `sep-${index}` });
+          filtered.push({
+            type: "separator",
+            count: hiddenCount,
+            id: `sep-${index}`,
+          });
           hiddenCount = 0;
         }
         filtered.push(withReactions(message, searchTerm));
@@ -620,7 +704,7 @@ export function MessageThread({
     });
 
     if (hiddenCount > 0) {
-      filtered.push({ type: 'separator', count: hiddenCount, id: `sep-end` });
+      filtered.push({ type: "separator", count: hiddenCount, id: `sep-end` });
     }
 
     return filtered;
@@ -629,12 +713,47 @@ export function MessageThread({
   // Render oldest -> newest so native wheel direction behaves normally.
   const renderedMessages = useMemo(() => {
     if (!feed) return [...processedMessages].reverse();
-    const entries = feed.entries.map((entry) => ({ ...entry, type: 'feed' as const }));
+    const entries = feed.entries.map((entry) => ({
+      ...entry,
+      type: "feed" as const,
+    }));
     return [...processedMessages, ...entries].sort((a, b) => {
-      const dateOf = (item: typeof a) => item.type === 'feed' ? item.at : item.type === 'message' ? item.created_at ?? '' : '';
+      const dateOf = (item: typeof a) =>
+        item.type === "feed"
+          ? item.at
+          : item.type === "message"
+            ? (item.created_at ?? "")
+            : "";
       return dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
     });
   }, [processedMessages, feed]);
+
+  const revealedTarget = useRef<string | null>(null);
+  const targetKey = `${targetMessageId ?? ""}:${referenceFocus ?? ""}`;
+  useEffect(() => {
+    if (
+      !targetMessageId ||
+      !scrollRef.current ||
+      revealedTarget.current === targetKey
+    )
+      return;
+    shouldStickToBottomRef.current = false;
+    const target = scrollRef.current.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(targetMessageId)}"]`,
+    );
+    if (target) {
+      target.scrollIntoView({ block: "center", behavior: "instant" });
+      target.focus({ preventScroll: true });
+      revealedTarget.current = targetKey;
+    } else if (hasNextPage && !query.isFetchingNextPage) void fetchNextPage();
+  }, [
+    targetMessageId,
+    targetKey,
+    renderedMessages,
+    hasNextPage,
+    query.isFetchingNextPage,
+    fetchNextPage,
+  ]);
 
   // Keep viewport pinned to bottom on initial contact load and while user stays near bottom.
   useLayoutEffect(() => {
@@ -642,12 +761,15 @@ export function MessageThread({
     if (!el) return;
 
     const isContactSwitch = lastRenderedContactIdRef.current !== selectionKey;
-    if (isContactSwitch || shouldStickToBottomRef.current) {
+    if (
+      !targetMessageId &&
+      (isContactSwitch || shouldStickToBottomRef.current)
+    ) {
       el.scrollTop = el.scrollHeight;
     }
 
     lastRenderedContactIdRef.current = selectionKey;
-  }, [selectionKey, renderedMessages.length]);
+  }, [selectionKey, renderedMessages.length, targetMessageId]);
 
   // Keep pinned to bottom while dynamic content (attachments, images, etc.) settles.
   useEffect(() => {
@@ -663,29 +785,37 @@ export function MessageThread({
       });
     });
 
-    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     return () => observer.disconnect();
   }, [selectionKey]);
 
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
     if (!term) return text;
-    const parts = text.split(new RegExp(`(${term})`, 'gi'));
+    const parts = text.split(new RegExp(`(${term})`, "gi"));
     return (
       <>
         {parts.map((part, i) =>
           part.toLowerCase() === term.toLowerCase() ? (
-            <span key={i} className="bg-yellow-200 dark:bg-yellow-600">{part}</span>
+            <span key={i} className="bg-yellow-200 dark:bg-yellow-600">
+              {part}
+            </span>
           ) : (
             part
-          )
+          ),
         )}
       </>
     );
   };
 
   const { data: contact } = useContactHeader(contactId ?? null);
-  const { data: candidateIssues = [] } = useIssues({ status: ['open', 'awaiting_response'] });
+  const { data: candidateIssues = [] } = useIssues({
+    status: ["open", "awaiting_response"],
+  });
 
   const contactIssueTags = useMemo<IssueTagDraft[]>(() => {
     const tags: IssueTagDraft[] = [];
@@ -704,7 +834,7 @@ export function MessageThread({
 
   const matchedIssues = useMemo(() => {
     const wantedKeys = new Set(
-      contactIssueTags.map((tag) => getTagKey(tag)).filter(Boolean) as string[]
+      contactIssueTags.map((tag) => getTagKey(tag)).filter(Boolean) as string[],
     );
     if (wantedKeys.size === 0) return [] as IssueWithTags[];
 
@@ -712,26 +842,32 @@ export function MessageThread({
       issueDescriptionMentionsToDrafts(issue).some((tag) => {
         const key = getTagKey(tag);
         return !!key && wantedKeys.has(key);
-      })
+      }),
     );
   }, [candidateIssues, contactIssueTags]);
 
   const appendTagsToIssueDescription = async (issue: IssueWithTags) => {
     const existingIssueTags = issueDescriptionMentionsToDrafts(issue);
-    const allTags = [...existingIssueTags, ...contactIssueTags].filter((tag, index, arr) => {
-      const key = getTagKey(tag);
-      if (!key) return false;
-      return arr.findIndex((candidate) => getTagKey(candidate) === key) === index;
-    });
+    const allTags = [...existingIssueTags, ...contactIssueTags].filter(
+      (tag, index, arr) => {
+        const key = getTagKey(tag);
+        if (!key) return false;
+        return (
+          arr.findIndex((candidate) => getTagKey(candidate) === key) === index
+        );
+      },
+    );
 
     const currentDescription = issue.description as JSONContent | null;
     const currentDoc: JSONContent =
-      currentDescription && currentDescription.type === 'doc'
+      currentDescription && currentDescription.type === "doc"
         ? currentDescription
-        : { type: 'doc', content: [] };
+        : { type: "doc", content: [] };
 
     const existingMentionKeys = new Set(
-      extractMentions(currentDoc).map((mention) => `${mention.type}:${mention.id}`)
+      extractMentions(currentDoc).map(
+        (mention) => `${mention.type}:${mention.id}`,
+      ),
     );
 
     const mentionParagraphs: JSONContent[] = [];
@@ -745,17 +881,17 @@ export function MessageThread({
 
       existingMentionKeys.add(key);
       mentionParagraphs.push({
-        type: 'paragraph',
+        type: "paragraph",
         content: [
           {
-            type: 'mention',
+            type: "mention",
             attrs: {
               id: entity.id,
               type: entity.type,
               label: labels.get(key) || entity.id,
             },
           },
-          { type: 'text', text: ' ' },
+          { type: "text", text: " " },
         ],
       });
     });
@@ -767,11 +903,9 @@ export function MessageThread({
       content: [...(currentDoc.content || []), ...mentionParagraphs],
     };
 
-    await issuesApi.update(issue.id, { description: updatedDescription as IssueUpdate['description'] });
-  };
-
-  const handleCreateIssue = () => {
-    setIsCreateIssueOpen(true);
+    await issuesApi.update(issue.id, {
+      description: updatedDescription as IssueUpdate["description"],
+    });
   };
 
   const handleAddToIssue = async (issue: IssueWithTags) => {
@@ -781,13 +915,17 @@ export function MessageThread({
       setSelectedIssueId(issue.id);
       setIsEditIssueOpen(true);
     } catch (error) {
-      console.error('Failed to add to issue:', error);
+      console.error("Failed to add to issue:", error);
     } finally {
       setIsIssueActionLoading(false);
     }
   };
 
-  const handleResendViaSms = async (messageId: string, body: string, requireConfirm: boolean) => {
+  const handleResendViaSms = async (
+    messageId: string,
+    body: string,
+    requireConfirm: boolean,
+  ) => {
     if (!contactId || !smsSender) return;
     if (requireConfirm && !window.confirm(AMBIGUOUS_SMS_RESEND_CONFIRM)) return;
     await sendMessage.mutateAsync({
@@ -797,7 +935,7 @@ export function MessageThread({
       resentFromMessageId: messageId,
     });
     onResentViaSms?.(smsSender.id);
-    void qc.invalidateQueries({ queryKey: ['messages', 'sms-resends'] });
+    void qc.invalidateQueries({ queryKey: ["messages", "sms-resends"] });
   };
 
   return (
@@ -817,185 +955,270 @@ export function MessageThread({
           </Button>
         </div>
       )}
-      
-      <div 
+
+      <div
         ref={scrollRef}
         onScroll={(e) => {
           const el = e.currentTarget;
-          const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          const distanceFromBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight;
           shouldStickToBottomRef.current = distanceFromBottom < 48;
         }}
         className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
       >
         {hasNextPage && (
-          <button className="text-xs text-blue-600 hover:underline mb-2 py-2" onClick={() => fetchNextPage()}>
+          <button
+            className="text-xs text-blue-600 hover:underline mb-2 py-2"
+            onClick={() => fetchNextPage()}
+          >
             Load older messages
           </button>
         )}
         {renderedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
         ) : isSearching && renderedMessages.length === 0 ? (
-          <div className="text-xs text-muted-foreground">No messages found.</div>
+          <div className="text-xs text-muted-foreground">
+            No messages found.
+          </div>
         ) : (
-          renderedMessages
-            .map((item, index, arr) => {
-              if (item.type === 'feed') return <div key={item.id}>{item.content}</div>;
-              if (item.type === 'separator') {
-                return (
-                  <div key={item.id} className="text-center text-xs text-muted-foreground my-2 py-1">
-                    {item.count} message{item.count > 1 ? 's' : ''} hidden
-                  </div>
-                );
-              }
-              
-              // TypeScript now knows item.type === 'message'
-              const m = item as Extract<typeof item, { type: 'message' }>;
-              if (!m.created_at) return null; // Skip messages without created_at
-              
-              const prevItem = arr[index - 1];
-              const prevIsMessage = prevItem && 'type' in prevItem && prevItem.type === 'message';
-              const prevCreatedAt = prevIsMessage && (prevItem as Extract<typeof prevItem, { type: 'message' }>).created_at;
-              
-              // Show date separator at the first message of each day.
-              const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
-              
-              const direction = m.direction as 'INBOUND' | 'OUTBOUND';
-              const cleanedBody = m.body
-                ?.replace(/\uFFFC/g, '')
-                .replace(/OBJ/gi, '')
-                .trim() || '';
-              const isMacBridge = asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE';
-              const isSystemAuthor = direction === 'OUTBOUND' && Boolean(m.sender) && isSystemOutboundMessage(
-                m.staff,
-                {
-                  provider: m.sender?.provider,
-                  imessageTempGuid: m.imessage_temp_guid,
-                  status: m.status,
-                },
-              );
-              const showError = direction === 'OUTBOUND' &&
-                isMacBridge &&
-                (m.status === 'FAILED' || m.status === 'AMBIGUOUS') &&
-                Boolean(m.error_message);
-              
-              const partyLabel = feed?.labelForConversation?.(m.conversation_id);
-              const partyName = partyLabel ? partyNameParts(partyLabel) : null;
-
+          renderedMessages.map((item, index, arr) => {
+            if (item.type === "feed")
+              return <div key={item.id}>{item.content}</div>;
+            if (item.type === "separator") {
               return (
-                <div key={m.id}>
-                  {showDateSeparator && (
-                    <div className="text-center text-xs text-muted-foreground my-3">
-                      {formatDaySeparator(m.created_at)}
-                    </div>
+                <div
+                  key={item.id}
+                  className="text-center text-xs text-muted-foreground my-2 py-1"
+                >
+                  {item.count} message{item.count > 1 ? "s" : ""} hidden
+                </div>
+              );
+            }
+
+            // TypeScript now knows item.type === 'message'
+            const m = item as Extract<typeof item, { type: "message" }>;
+            if (!m.created_at) return null; // Skip messages without created_at
+
+            const prevItem = arr[index - 1];
+            const prevIsMessage =
+              prevItem && "type" in prevItem && prevItem.type === "message";
+            const prevCreatedAt =
+              prevIsMessage &&
+              (prevItem as Extract<typeof prevItem, { type: "message" }>)
+                .created_at;
+
+            // Show date separator at the first message of each day.
+            const showDateSeparator =
+              !isSearching &&
+              (index === 0 ||
+                (prevIsMessage &&
+                  prevCreatedAt &&
+                  isDifferentDay(m.created_at, prevCreatedAt)));
+
+            const direction = m.direction as "INBOUND" | "OUTBOUND";
+            const cleanedBody =
+              m.body
+                ?.replace(/\uFFFC/g, "")
+                .replace(/OBJ/gi, "")
+                .trim() || "";
+            const isMacBridge =
+              asOwnedNumberProvider(m.sender?.provider) === "IMESSAGE";
+            const isSystemAuthor =
+              direction === "OUTBOUND" &&
+              Boolean(m.sender) &&
+              isSystemOutboundMessage(m.staff, {
+                provider: m.sender?.provider,
+                imessageTempGuid: m.imessage_temp_guid,
+                status: m.status,
+              });
+            const showError =
+              direction === "OUTBOUND" &&
+              isMacBridge &&
+              (m.status === "FAILED" || m.status === "AMBIGUOUS") &&
+              Boolean(m.error_message);
+
+            const partyLabel = feed?.showConversationLabels
+              ? feed.labelForConversation?.(m.conversation_id)
+              : undefined;
+            const partyName = partyLabel ? partyNameParts(partyLabel) : null;
+
+            return (
+              <div
+                key={m.id}
+                data-message-id={m.id}
+                tabIndex={targetMessageId === m.id ? -1 : undefined}
+                className={
+                  targetMessageId === m.id
+                    ? "rounded-lg ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
+                    : undefined
+                }
+              >
+                {showDateSeparator && (
+                  <div className="text-center text-xs text-muted-foreground my-3">
+                    {formatDaySeparator(m.created_at)}
+                  </div>
+                )}
+                <div
+                  className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}
+                >
+                  {direction === "OUTBOUND" && m.staff && (
+                    <StaffAvatar
+                      staffId={m.staff.id}
+                      firstName={m.staff.first_name}
+                      lastName={m.staff.last_name}
+                    />
                   )}
-                  <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {direction === 'OUTBOUND' && m.staff && (
-                      <StaffAvatar
-                        staffId={m.staff.id}
-                        firstName={m.staff.first_name}
-                        lastName={m.staff.last_name}
-                      />
-                    )}
-                    {isSystemAuthor ? <SystemAvatar /> : null}
-                    {direction === 'INBOUND' && partyName && (
-                      <StaffAvatar
-                        staffId={m.conversation_id}
-                        firstName={partyName.firstName}
-                        lastName={partyName.lastName}
-                      />
-                    )}
-                    
-                    <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
-                      {partyLabel && (
-                        <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 max-w-full break-all">
-                            {direction === 'OUTBOUND' ? 'To' : 'From'}: {partyLabel}
-                          </Badge>
-                        </div>
-                      )}
-                      {direction === 'OUTBOUND' && m.sender && (
-                        <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 max-w-full break-all">
-                            From: {m.sender.sender_type === 'ALPHANUMERIC' 
-                              ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
-                              : (m.sender.phone_e164 || m.sender.label || 'Unknown')}
-                          </Badge>
-                        </div>
-                      )}
-                      {/* Attachments + body, with iMessage-style reaction badges */}
-                      {(() => {
-                        if (m.is_reaction) {
-                          const emoji = m.orphanReactionEmoji ?? reactionTypeToEmoji(m.reaction_type);
-                          if (!emoji) return null;
-                          return (
-                            <div
-                              className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border bg-background px-2 text-base shadow-sm"
-                              title={reactionTypeToLabel(m.reaction_type)}
-                            >
-                              {emoji}
-                            </div>
-                          );
-                        }
+                  {isSystemAuthor ? <SystemAvatar /> : null}
+                  {direction === "INBOUND" && partyName && (
+                    <StaffAvatar
+                      staffId={m.conversation_id}
+                      firstName={partyName.firstName}
+                      lastName={partyName.lastName}
+                    />
+                  )}
 
-                        // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
-                        // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
-                        const attachments = m.message_attachments ?? [];
-                        const hasAttachments = attachments.length > 0;
-                        if (!cleanedBody && !hasAttachments) return null;
-
+                  <div
+                    className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}
+                  >
+                    {partyLabel && (
+                      <div
+                        className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1.5 py-0 max-w-full break-all"
+                        >
+                          {direction === "OUTBOUND" ? "To" : "From"}:{" "}
+                          {partyLabel}
+                        </Badge>
+                      </div>
+                    )}
+                    {direction === "OUTBOUND" && m.sender && (
+                      <div
+                        className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1.5 py-0 max-w-full break-all"
+                        >
+                          From:{" "}
+                          {m.sender.sender_type === "ALPHANUMERIC"
+                            ? m.sender.alphanumeric_sender_id ||
+                              m.sender.label ||
+                              "Unknown"
+                            : m.sender.phone_e164 ||
+                              m.sender.label ||
+                              "Unknown"}
+                        </Badge>
+                      </div>
+                    )}
+                    {/* Attachments + body, with iMessage-style reaction badges */}
+                    {(() => {
+                      if (m.is_reaction) {
+                        const emoji =
+                          m.orphanReactionEmoji ??
+                          reactionTypeToEmoji(m.reaction_type);
+                        if (!emoji) return null;
                         return (
-                          <div className={cn('relative inline-block max-w-full', m.reactions.length > 0 && 'mb-2')}>
-                            {hasAttachments && (
-                              <div className={cn('flex flex-col gap-2', cleanedBody && 'mb-2', direction === 'OUTBOUND' ? 'items-end' : 'items-start')}>
-                                {attachments.map((attachment) => (
-                                  <MessageAttachment
-                                    key={attachment.id}
-                                    attachment={attachment as Tables<'message_attachments'>}
-                                    direction={direction}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {cleanedBody ? (
-                              <div className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                          <div
+                            className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border bg-background px-2 text-base shadow-sm"
+                            title={reactionTypeToLabel(m.reaction_type)}
+                          >
+                            {emoji}
+                          </div>
+                        );
+                      }
+
+                      // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
+                      // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
+                      const attachments = m.message_attachments ?? [];
+                      const hasAttachments = attachments.length > 0;
+                      if (!cleanedBody && !hasAttachments) return null;
+
+                      return (
+                        <div
+                          className={cn(
+                            "relative inline-block max-w-full",
+                            m.reactions.length > 0 && "mb-2",
+                          )}
+                        >
+                          {hasAttachments && (
+                            <div
+                              className={cn(
+                                "flex flex-col gap-2",
+                                cleanedBody && "mb-2",
+                                direction === "OUTBOUND"
+                                  ? "items-end"
+                                  : "items-start",
+                              )}
+                            >
+                              {attachments.map((attachment) => (
+                                <MessageAttachment
+                                  key={attachment.id}
+                                  attachment={
+                                    attachment as Tables<"message_attachments">
+                                  }
+                                  direction={direction}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {cleanedBody ? (
+                            <div
+                              className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
                                 messageBubbleClassName({
                                   direction,
                                   provider: asOwnedNumberProvider(m.sender?.provider),
                                   appleService: asAppleService(m.apple_service),
                                   isGroup: isGroupThread,
                                 })
-                              } break-words [overflow-wrap:anywhere] max-w-full`}>
-                                {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
-                              </div>
-                            ) : null}
-                            {m.reactions.length > 0 && (
-                              <div
-                                className={cn(
-                                  'absolute -bottom-2 z-10 flex items-center gap-0.5',
-                                  direction === 'OUTBOUND' ? 'left-1' : 'right-1'
-                                )}
-                              >
-                                {m.reactions.map((reaction) => (
-                                  <span
-                                    key={reaction.id}
-                                    title={reaction.label}
-                                    className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-black/5 bg-background px-1 text-[13px] shadow-sm dark:border-white/10"
-                                  >
-                                    {reaction.emoji}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      <div className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                        <div className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                              } break-words [overflow-wrap:anywhere] max-w-full`}
+                            >
+                              {isSearching && searchTerm
+                                ? highlightText(cleanedBody, searchTerm)
+                                : cleanedBody}
+                            </div>
+                          ) : null}
+                          {m.reactions.length > 0 && (
+                            <div
+                              className={cn(
+                                "absolute -bottom-2 z-10 flex items-center gap-0.5",
+                                direction === "OUTBOUND" ? "left-1" : "right-1",
+                              )}
+                            >
+                              {m.reactions.map((reaction) => (
+                                <span
+                                  key={reaction.id}
+                                  title={reaction.label}
+                                  className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-black/5 bg-background px-1 text-[13px] shadow-sm dark:border-white/10"
+                                >
+                                  {reaction.emoji}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div
+                      className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}
+                    >
+                      <div
+                        className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}
+                      >
                         <span>{formatMessageDate(m.created_at)}</span>
-                        {direction === 'OUTBOUND' && m.status && (
+                        {direction === "OUTBOUND" && m.status && (
                           <span
-                            className={outboundStatusClassName(m.status, asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE')}
-                            title={m.status === 'AMBIGUOUS' ? UNCONFIRMED_SEND_HINT : undefined}
+                            className={outboundStatusClassName(
+                              m.status,
+                              asOwnedNumberProvider(m.sender?.provider) ===
+                                "IMESSAGE",
+                            )}
+                            title={
+                              m.status === "AMBIGUOUS"
+                                ? UNCONFIRMED_SEND_HINT
+                                : undefined
+                            }
                           >
                             • {formatMessageStatus(m.status)}
                           </span>
@@ -1009,11 +1232,18 @@ export function MessageThread({
                             isGroup: isGroupThread,
                             spent: isResendViaSmsSpent(m.id, linkedSmsResends),
                           });
-                          if (resend === 'hidden') return null;
-                          if (resend === 'spent') {
-                            return <span className="text-[10px] text-muted-foreground">Resent via SMS</span>;
+                          if (resend === "hidden") return null;
+                          if (resend === "spent") {
+                            return (
+                              <span className="text-[10px] text-muted-foreground">
+                                Resent via SMS
+                              </span>
+                            );
                           }
-                          const disabled = resend === 'unavailable' || !smsSender || sendMessage.isPending;
+                          const disabled =
+                            resend === "unavailable" ||
+                            !smsSender ||
+                            sendMessage.isPending;
                           return (
                             <Button
                               type="button"
@@ -1021,7 +1251,13 @@ export function MessageThread({
                               size="sm"
                               className="h-6 px-1.5 text-[10px]"
                               disabled={disabled}
-                              onClick={() => void handleResendViaSms(m.id, cleanedBody, resend === 'confirm')}
+                              onClick={() =>
+                                void handleResendViaSms(
+                                  m.id,
+                                  cleanedBody,
+                                  resend === "confirm",
+                                )
+                              }
                             >
                               Resend via SMS
                             </Button>
@@ -1033,40 +1269,36 @@ export function MessageThread({
                             conversationId={m.conversation_id}
                             contactId={contactId}
                             imessageGuid={m.imessage_guid}
-                            body={(m.body ?? '')
-                              .replace(/\uFFFC/g, '')
-                              .replace(/OBJ/gi, '')
+                            body={(m.body ?? "")
+                              .replace(/\uFFFC/g, "")
+                              .replace(/OBJ/gi, "")
                               .trim()}
                             sentAt={m.sent_at}
                             createdAt={m.created_at}
-                            isOwnMessage={direction === 'OUTBOUND'}
+                            isOwnMessage={direction === "OUTBOUND"}
                             showCreateIssue={!hideAddIssueHover}
                             matchedIssues={matchedIssues}
                             issueActionLoading={isIssueActionLoading}
-                            onCreateIssue={handleCreateIssue}
                             onAddToIssue={handleAddToIssue}
                           />
                         )}
-                        </div>
-                        {showError ? (
-                          <div className={`max-w-full text-[11px] ${m.status === 'FAILED' ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}>
-                            {m.error_message}
-                          </div>
-                        ) : null}
                       </div>
+                      {showError ? (
+                        <div
+                          className={`max-w-full text-[11px] ${m.status === 'FAILED' ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}
+                        >
+                          {m.error_message}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
-              );
-            })
+              </div>
+            );
+          })
         )}
       </div>
 
-      <CreateIssueDialog
-        isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
-        initialTags={contactIssueTags}
-      />
       <EditIssueDialog
         isOpen={isEditIssueOpen}
         issueId={selectedIssueId}

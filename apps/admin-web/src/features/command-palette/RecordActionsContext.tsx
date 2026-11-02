@@ -13,15 +13,16 @@ import { usePathname } from "next/navigation";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import type { RecordMenuAction } from "@/shared/components/recordMenuActions";
 import {
-  paletteEntities,
-  type EntityTarget,
+  recordEntities,
+  type RecordTarget,
   type PaletteCommand,
 } from "./model";
 
 type Source = {
-  target?: EntityTarget;
+  target?: RecordTarget;
   key: string;
   active: boolean;
+  primary?: boolean;
   actions: RecordMenuAction[];
 };
 type Registry = {
@@ -43,12 +44,13 @@ export function RecordActionsProvider({ children }: { children: ReactNode }) {
       [...sources.current.values()].flatMap((get) => {
         const source = get();
         return source.active
-          ? source.actions.map((action) => ({
+          ? source.actions.filter((action) => !action.primaryOnly || source.primary)
+              .map((action) => ({
               ...action,
               id: `${source.target ? `${source.target.type}-${source.target.id}` : source.key}-${action.id}`,
-              target: source.target,
-              parents: action.group ? [action.group] : [],
-            }))
+                target: source.target,
+                parents: action.group ? [action.group] : [],
+              }))
           : [];
       }),
     [],
@@ -62,6 +64,9 @@ export function useRecordCommands() {
 }
 
 const routeNames: Record<string, string> = {
+  invoice: "invoices",
+  adminShift: "admin-shifts",
+  tutorLog: "tutor-logs",
   email: "email",
   student: "students",
   parent: "parents",
@@ -83,10 +88,11 @@ export function useRegisterRecordActions(
   actions: RecordMenuAction[],
 ) {
   const registry = useContext(Context);
+  const instance = useId();
   const pathname = usePathname();
   const accessory = useAccessoryTab();
   const entityType = type === "document" ? "note" : type;
-  const supported = entityType in paletteEntities;
+  const supported = entityType in recordEntities;
   const active =
     !!id &&
     (accessory
@@ -104,17 +110,18 @@ export function useRegisterRecordActions(
   latest.current = {
     key: `${type}:${id}`,
     target: {
-      type: supported ? (entityType as EntityTarget["type"]) : "student",
+      type: supported ? (entityType as RecordTarget["type"]) : "student",
       id: id ?? "",
       title: title?.trim() || id?.slice(0, 8) || "",
     },
     active: active && supported,
+    primary: !accessory,
     actions,
   };
   useEffect(() => {
     if (!registry || !supported || !id) return;
-    return registry.register(`${type}:${id}`, () => latest.current);
-  }, [registry, supported, type, id]);
+    return registry.register(`${type}:${id}:${instance}`, () => latest.current);
+  }, [registry, supported, type, id, instance]);
 }
 
 /** Page actions share the global registry without pretending to be a record. */

@@ -10,10 +10,6 @@
     visibility 0s;
 }
 
-.panel[data-docked="true"] {
-  width: var(--detail-width);
-}
-
 .panel[data-expanded="false"] {
   visibility: hidden;
   opacity: 0;

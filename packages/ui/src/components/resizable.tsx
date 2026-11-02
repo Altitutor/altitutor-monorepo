@@ -97,46 +97,67 @@ function ResponsiveResizablePanels({
   secondaryMaxSize,
   handleLabel,
 }: ResponsiveResizablePanelsProps) {
-  const isResizable = useMediaQuery(BREAKPOINT_QUERIES[breakpoint])
+  const isResizable = useMediaQuery(BREAKPOINT_QUERIES[breakpoint]);
 
-  if (!isResizable) {
+  const stacked = !isResizable && stackOnNarrow;
+  if (!isResizable && !stackOnNarrow) {
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
-        {stackOnNarrow ? <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-20" data-panel-scroll>
-          <div className="min-w-0 shrink-0 [&>.h-full]:h-auto [&>.h-full]:overflow-visible [&_.overscroll-contain]:overflow-visible [&_.overscroll-contain]:overscroll-auto">{primary}</div>
-          <div className="min-w-0 shrink-0">{secondary}</div>
-        </div> : mobilePanel === "primary" ? primary : secondary}
+        {mobilePanel === "primary" ? primary : secondary}
       </div>
     )
   }
 
+  // Keep editors mounted when a pane crosses the breakpoint. Replacing the whole
+  // layout tree rebuilds rich text and large linked-record lists during a drag.
+  const stackedPanel = stacked
+    ? "!flex-none !h-auto !min-h-0 !overflow-visible [&>.h-full]:h-auto [&>.h-full]:overflow-visible [&_.overscroll-contain]:overflow-visible [&_.overscroll-contain]:overscroll-auto"
+    : undefined;
+
   return (
-    <ResizablePanelGroup id={id} orientation="horizontal">
+    <ResizablePanelGroup id={id} orientation="horizontal"
+      disabled={stacked}
+      className={
+        stacked
+          ? "!flex-col !overflow-y-auto !overflow-x-hidden overscroll-contain pb-20"
+          : undefined
+      }
+    >
       <ResizablePanel
         id={`${id}-primary`}
         defaultSize={primaryDefaultSize}
-        minSize={primaryMinSize}
-        maxSize={primaryMaxSize}
-        className="min-w-0"
+        minSize={stacked ? 0 : primaryMinSize}
+        maxSize={stacked ? undefined : primaryMaxSize}
+        className={cn("min-w-0", stackedPanel)}
       >
         {primary}
       </ResizablePanel>
-      <ResizableHandle id={`${id}-handle`} aria-label={handleLabel} />
+      <ResizableHandle
+        id={`${id}-handle`}
+        aria-label={handleLabel}
+        disabled={stacked}
+        className={stacked ? "hidden" : undefined}
+      />
       <ResizablePanel
         id={`${id}-secondary`}
         defaultSize={secondaryDefaultSize}
-        minSize={secondaryMinSize}
-        maxSize={secondaryMaxSize}
-        className="min-w-0"
+        minSize={stacked ? 0 : secondaryMinSize}
+        maxSize={stacked ? undefined : secondaryMaxSize}
+        className={cn("min-w-0", stackedPanel)}
       >
         {secondary}
       </ResizablePanel>
     </ResizablePanelGroup>
-  )
+  );
 }
 
-export { ResponsiveResizablePanels, ResizableHandle, ResizablePanel, ResizablePanelGroup }
+export {
+  ResponsiveResizablePanels,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+};
 
-if (typeof window !== 'undefined') {
-  ensurePanelResizeGuardInstalled()
+if (typeof window !== "undefined") {
+  ensurePanelResizeGuardInstalled();
 }

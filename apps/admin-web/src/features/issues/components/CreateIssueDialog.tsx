@@ -66,29 +66,40 @@ async function buildDescriptionFromInitialTags(
   return { type: "doc", content };
 }
 
+import {
+  referenceDescription,
+  referenceKey,
+  type EntityReference,
+} from "@/shared/utils/entityReference";
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z
     .union([z.record(z.string(), z.unknown()), z.string(), z.null()])
     .optional(),
   status: z.enum(["open", "awaiting_response", "resolved"]),
+  priority: z.number().int().min(0).max(4).default(0),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
 interface CreateIssueDialogProps {
+  reference?: EntityReference | null;
   isOpen: boolean;
   onClose: () => void;
   onIssueCreated?: () => void;
   initialStatus?: IssueStatus;
+  initialPriority?: number;
   initialDueDate?: string | null;
   initialTags?: Omit<IssueTagInsert, "issue_id">[];
 }
 
 export function CreateIssueDialog({
+  reference,
   isOpen,
   onClose,
   onIssueCreated,
   initialStatus = "open",
+  initialPriority = 0,
   initialDueDate = null,
   initialTags,
 }: CreateIssueDialogProps) {
@@ -103,13 +114,14 @@ export function CreateIssueDialog({
       name: "",
       description: null,
       status: initialStatus,
+      priority: initialPriority,
       dueDate: initialDueDate
         ? new Date(initialDueDate).toISOString().split("T")[0]
         : null,
     },
   });
 
-  const draftKey = `issue:${JSON.stringify(initialTags?.map((tag) => Object.entries(tag).sort()).sort() ?? [])}`;
+  const draftKey = `issue:${referenceKey(reference)}:${JSON.stringify(initialTags?.map((tag) => Object.entries(tag).sort()).sort() ?? [])}`;
   const { readDraft, saveDraft, clearDraft, storageKey } = useCreateDialogDraft(
     form,
     isOpen,
@@ -134,12 +146,15 @@ export function CreateIssueDialog({
 
     let cancelled = false;
     (async () => {
-      const description = await buildDescriptionFromInitialTags(initialTags);
+      const description = reference
+        ? referenceDescription(reference)
+        : await buildDescriptionFromInitialTags(initialTags);
       if (cancelled || form.formState.isDirty) return;
       form.reset({
         name: "",
         description,
         status: initialStatus,
+        priority: initialPriority,
         dueDate: initialDueDate
           ? new Date(initialDueDate).toISOString().split("T")[0]
           : null,
@@ -153,8 +168,10 @@ export function CreateIssueDialog({
   }, [
     isOpen,
     initialStatus,
+    initialPriority,
     initialDueDate,
     initialTags,
+    reference,
     form,
     readDraft,
     storageKey,
@@ -173,6 +190,7 @@ export function CreateIssueDialog({
             name: data.name,
             description: data.description || null,
             status: data.status,
+            priority: data.priority,
             due_date: data.dueDate
               ? new Date(data.dueDate).toISOString()
               : null,

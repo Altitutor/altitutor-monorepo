@@ -1,19 +1,19 @@
 /**
  * Command Palette Configuration
- * 
+ *
  * This file defines all searchable commands, pages, and entity types for the Command Palette.
- * 
+ *
  * ## Adding New Pages
  * Pages added to `navItems` in `apps/admin-web/src/app/(admin)/layout.tsx` are automatically
  * searchable. No additional configuration needed.
- * 
+ *
  * For settings pages or other pages not in navItems, add them to the `additionalPages` array below.
- * 
+ *
  * ## Adding New Commands
  * 1. Add the command to `QUICK_ACTIONS` in `apps/admin-web/src/shared/constants/quickActions.ts`
  * 2. The action will be wired up automatically via `useCommandPaletteCommandActions` hook
  * 3. If the command needs custom handling, update `useCommandPaletteCommandActions` hook
- * 
+ *
  * ## Adding/Removing Entity Types
  * 1. Update the `entityTypes` object below
  * 2. Ensure the corresponding search RPC exists in the database (e.g., `search_students_admin`)
@@ -22,6 +22,8 @@
 
 import {
   CheckSquare,
+  Mail,
+  MessageSquare,
   AlertTriangle,
   GraduationCap,
   UserRound,
@@ -73,7 +75,7 @@ export interface EntityTypeConfig {
 /**
  * Commands that can be executed from the Command Palette
  * These trigger actions rather than navigation
- * 
+ *
  * Commands are derived from QUICK_ACTIONS to ensure consistency across
  * dashboard, floating menu, and command palette
  */
@@ -88,7 +90,7 @@ export const commands: CommandPaletteCommand[] = QUICK_ACTIONS.map((action) => (
 
 /**
  * Pages that can be navigated to from the Command Palette
- * 
+ *
  * NOTE: Pages are automatically extracted from navItems in layout.tsx
  * This array includes additional pages (like settings sub-pages) that aren't in the main nav
  */
@@ -194,6 +196,20 @@ export const additionalPages: CommandPalettePage[] = [
  * Each entity type uses its corresponding RPC function for search
  */
 export const entityTypes: Record<string, EntityTypeConfig> = {
+  emails: {
+    id: "emails",
+    label: "Emails",
+    icon: Mail,
+    limit: 20,
+    enabled: true,
+  },
+  messages: {
+    id: "messages",
+    label: "Messages",
+    icon: MessageSquare,
+    limit: 20,
+    enabled: true,
+  },
   students: {
     id: 'students',
     label: 'Students',
@@ -279,7 +295,7 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
  */
 export function extractPagesFromNavItems(navItems: Array<{ title: string; href: string; icon: LucideIcon }>): CommandPalettePage[] {
   return navItems
-    .filter((item): item is { title: string; href: string; icon: LucideIcon } => 
+    .filter((item): item is { title: string; href: string; icon: LucideIcon } =>
       'href' in item && 'icon' in item
     )
     .map((item) => ({

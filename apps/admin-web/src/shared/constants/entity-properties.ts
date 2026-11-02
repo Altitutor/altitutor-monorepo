@@ -11,7 +11,7 @@ import {
   Flag,
 } from 'lucide-react';
 
-// Shared priority scale used by tasks and projects
+// Shared priority scale used by tasks, issues and projects
 export type EntityPriority = 0 | 1 | 2 | 3 | 4;
 
 type PriorityMeta = {

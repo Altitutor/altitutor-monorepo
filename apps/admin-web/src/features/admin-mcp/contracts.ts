@@ -21,6 +21,7 @@ export const operationSchemas = {
       name: text,
       description: richText.optional(),
       status: z.enum(["open", "awaiting_response", "resolved"]).optional(),
+      priority: z.number().int().min(0).max(4).optional(),
       due_date: date.optional(),
     })
     .strict(),

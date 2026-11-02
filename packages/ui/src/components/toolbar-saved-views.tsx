@@ -27,7 +27,18 @@ import {
   toolbarControlUnselectedStyles,
 } from "../lib/toolbar-control-styles";
 
+export interface ToolbarViewDialogProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  busy: boolean;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}
+
 export interface ToolbarViewsService {
+  Dialog?: React.ComponentType<ToolbarViewDialogProps>;
   userId: string | null;
   shareLabel?: string;
   save: (
@@ -37,6 +48,36 @@ export interface ToolbarViewsService {
 }
 const ViewsContext = React.createContext<ToolbarViewsService | null>(null);
 export const ToolbarViewsProvider = ViewsContext.Provider;
+
+function DefaultToolbarViewDialog({
+  open,
+  onClose,
+  title,
+  description,
+  busy,
+  children,
+  footer,
+}: ToolbarViewDialogProps) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
+      }}
+    >
+      <DialogContent className="flex min-h-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[36rem]">
+        <DialogHeader className="shrink-0 px-6 pb-4 pt-6 pr-10">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {children}
+        <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
+          {footer}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function useMatchingView(
   views: SavedView[],
@@ -160,6 +201,7 @@ export function ToolbarSavedViews({
       setSaving(false);
     }
   };
+  const ViewDialog = service?.Dialog ?? DefaultToolbarViewDialog;
   if (!views.length && !(service && target)) return null;
   return (
     <>
@@ -223,22 +265,45 @@ export function ToolbarSavedViews({
           </Button>
         ) : null}
       </div>
-      <Dialog
+      <ViewDialog
         open={editing !== null}
-        onOpenChange={(open) => {
-          if (!open && !saving) setEditing(null);
+        onClose={() => {
+          if (!saving) setEditing(null);
         }}
+        title={editing === "new" ? "New view" : "Edit view"}
+        description="Save the layout, filters, sorting, grouping and visible properties for this view."
+        busy={saving}
+        footer={
+          <>
+            {editing !== "new" && service?.remove ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mr-auto"
+                disabled={saving}
+                onClick={() => void remove()}
+              >
+                Delete view
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => setEditing(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={saving || !name.trim()}
+              onClick={() => void save()}
+            >
+              {saving ? "Saving…" : "Save view"}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="flex min-h-0 max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[36rem]">
-          <DialogHeader className="shrink-0 px-6 pb-4 pt-6 pr-10">
-            <DialogTitle>
-              {editing === "new" ? "New view" : "Edit view"}
-            </DialogTitle>
-            <DialogDescription>
-              Save the layout, filters, sorting, grouping and visible properties
-              for this view.
-            </DialogDescription>
-          </DialogHeader>
           <div
             role="region"
             aria-label="View settings"
@@ -267,36 +332,7 @@ export function ToolbarSavedViews({
               </p>
             ) : null}
           </div>
-          <DialogFooter className="shrink-0 px-6 pb-6 pt-4">
-            {editing !== "new" && service?.remove ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="mr-auto"
-                disabled={saving}
-                onClick={() => void remove()}
-              >
-                Delete
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => setEditing(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={saving || !name.trim()}
-              onClick={() => void save()}
-            >
-              {saving ? "Saving…" : "Save view"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </ViewDialog>
     </>
   );
 }

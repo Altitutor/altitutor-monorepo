@@ -11,6 +11,7 @@ export const entityChipStyles = cn(
 
 /** Shared icon paths also render in serialized rich text, without a React-only node view. */
 const icons: Record<string, readonly string[]> = {
+  message: ["M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"],
   email: ['M3 5h18v14H3Z', 'm3 5 9 8 9-8'],
   student: ['m2 9 10-5 10 5-10 5Z', 'M6 11v6c4 3 8 3 12 0v-6', 'M22 9v7'],
   parent: ['M20 21a8 8 0 0 0-16 0', 'M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10'],
@@ -31,12 +32,24 @@ export function entityIconPaths(type: string): readonly string[] {
   return icons[singular === 'document' ? 'note' : singular] ?? icons.file!;
 }
 export function EntityChipIcon({entityType}: {entityType: string}) {
-  return <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    {entityIconPaths(entityType).map((d, index) => <path key={index} d={d} />)}
-  </svg>;
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+    {entityIconPaths(entityType).map((d, index) => (
+        <path key={index} d={d} />))}
+  </svg>
+  );
 }
-export function EntityChip({entityType, label, className, ...props}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {entityType: string; label: string}) {
-  return <button {...props} type="button" className={cn(entityChipStyles, 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}>
+export function EntityChip({entityType,
+  entityId, label, className, ...props}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {entityType: string;
+  entityId?: string;
+  label: string}) {
+  return (
+    <button {...props}
+      data-mention={entityId ? "true" : undefined}
+      data-type={entityType}
+      data-id={entityId}
+      data-label={label} type="button" className={cn(entityChipStyles, 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}>
     <EntityChipIcon entityType={entityType} /><span className="truncate">{label}</span>
-  </button>;
+  </button>
+  );
 }

@@ -139,9 +139,16 @@ function EntityCommunicationContent({
     : defaultCommunicationSources({ entityType, contacts }).filter(
         (source) => defaultShowActivity || source !== ACTIVITY_SOURCE_ID,
       );
-  const defaultSources = [...(defaultShowEmail ? [EMAIL_SOURCE_ID] : []), ...messageSources];
+  const defaultSources = [
+    ...(defaultShowEmail ? [EMAIL_SOURCE_ID] : []),
+    ...messageSources,
+  ];
   const sources = sourceOverride ?? defaultSources;
-  const emails = useEntityEmails(entityType, entityId, enabled && sources.includes(EMAIL_SOURCE_ID));
+  const emails = useEntityEmails(
+    entityType,
+    entityId,
+    enabled && sources.includes(EMAIL_SOURCE_ID),
+  );
   const showActivity = hasActivitySource(sources);
   const showOwnActivity = sources.includes(ACTIVITY_SOURCE_ID);
   const childrenActivity = useChildrenActivity(
@@ -270,7 +277,13 @@ function EntityCommunicationContent({
 
   const seenEvents = new Set(ownEntries.map((entry) => entry.id));
   const entries: ThreadFeedEntry[] = [...ownEntries];
-  if (sources.includes(EMAIL_SOURCE_ID)) for (const email of emails.data?.pages.flatMap((page) => page.items) ?? []) entries.push({ id: `email:${email.id}`, at: email.sentAt ?? email.receivedAt ?? "", content: <EmailCorrespondenceCard message={email} /> });
+  if (sources.includes(EMAIL_SOURCE_ID))
+    for (const email of emails.data?.pages.flatMap((page) => page.items) ?? [])
+      entries.push({
+        id: `email:${email.id}`,
+        at: email.sentAt ?? email.receivedAt ?? "",
+        content: <EmailCorrespondenceCard message={email} />,
+      });
   for (const { child, data } of childrenActivity.feeds) {
     for (const event of data.events) {
       const id = `event:${event.id}`;
@@ -476,7 +489,7 @@ function EntityCommunicationContent({
             entries,
             hasMore: Boolean(
               emails.hasNextPage ||
-              messages.hasNextPage ||
+                messages.hasNextPage ||
                 (showOwnActivity && activity.hasNextPage) ||
                 childrenActivity.hasMore,
             ),
@@ -487,6 +500,9 @@ function EntityCommunicationContent({
                 activity.fetchNextPage();
               if (childrenActivity.hasMore) childrenActivity.loadMore();
             },
+            showConversationLabels:
+              new Set(visible.map((message) => message.conversation_id)).size >
+              1,
             labelForConversation: (id) => {
               const conversation = conversations.find((item) => item.id === id);
               if (!conversation) return undefined;
@@ -540,7 +556,11 @@ function EntityCommunicationContent({
           groupChatId={group?.group_chat_id}
           preferredSenderId={preferredSenderId}
           initialSenderId={initialSenderId}
-          initialDestinationAddress={contact?.id === initialContactId ? initialDestinationAddress : undefined}
+          initialDestinationAddress={
+            contact?.id === initialContactId
+              ? initialDestinationAddress
+              : undefined
+          }
           draft={draft}
           onDraftChange={onDraftChange}
           onDraftClear={onDraftClear}

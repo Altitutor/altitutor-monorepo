@@ -1,3 +1,4 @@
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { StrictMode } from "react";
 import {
   act,
@@ -150,20 +151,22 @@ it("opens new composition inside the existing accessory workspace and preserves 
   });
   render(
     <StrictMode>
-      <QueryClientProvider
-        client={
-          new QueryClient({
-            defaultOptions: {
-              queries: { retry: false },
-              mutations: { retry: false },
-            },
-          })
-        }
-      >
-        <AccessoryPanelProvider>
-          <Workspace />
-        </AccessoryPanelProvider>
-      </QueryClientProvider>
+      <QuickActionsProvider>
+        <QueryClientProvider
+          client={
+            new QueryClient({
+              defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false },
+              },
+            })
+          }
+        >
+          <AccessoryPanelProvider>
+            <Workspace />
+          </AccessoryPanelProvider>
+        </QueryClientProvider>
+      </QuickActionsProvider>
     </StrictMode>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Compose" }));
@@ -269,18 +272,20 @@ function existingThread(
       }) as Response,
   );
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-          },
-        })
-      }
-    >
-      {workspace ?? <EmailThreadView threadId="thread-existing" />}
-    </QueryClientProvider>,
+    <QuickActionsProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false },
+              mutations: { retry: false },
+            },
+          })
+        }
+      >
+        {workspace ?? <EmailThreadView threadId="thread-existing" />}
+      </QueryClientProvider>
+    </QuickActionsProvider>,
   );
 }
 it("opens existing drafts as editable cards without an Edit step", async () => {

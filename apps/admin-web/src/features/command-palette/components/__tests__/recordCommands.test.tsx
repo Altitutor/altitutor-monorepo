@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommandPalette } from "../CommandPalette";
 import { CommandPaletteProvider } from "@/shared/contexts/CommandPaletteContext";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { ToastProvider } from "@altitutor/ui";
 
 jest.mock("next/navigation", () => ({
@@ -43,9 +44,11 @@ it("shares the current nested-topic menu actions with named palette targets", as
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ToastProvider>
-        <CommandPaletteProvider>
+        <QuickActionsProvider>
+          <CommandPaletteProvider>
           <Screen />
         </CommandPaletteProvider>
+        </QuickActionsProvider>
       </ToastProvider>
     </QueryClientProvider>,
   );

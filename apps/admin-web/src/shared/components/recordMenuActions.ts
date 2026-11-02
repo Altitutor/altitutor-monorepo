@@ -24,12 +24,14 @@ export type RecordMenuAction = {
   disabled?: boolean;
   destructive?: boolean;
   group?: string;
+  primaryOnly?: boolean;
 };
 type CommonActions = {
   copy?: () => void;
   message?: () => void;
   messageDisabled?: boolean;
   addIssue?: () => void;
+  addTask?: () => void;
 };
 
 /** One catalogue for record menus and palette commands. Callbacks retain page-owned guards/dialogs. */
@@ -51,6 +53,8 @@ export function recordMenuActions(
   add("message", "Message", MessageSquare, common.message, {
     disabled: common.messageDisabled,
   });
+  add("add-task", "Add task", Plus, common.addTask, { primaryOnly: true });
+  add("add-issue", "Add issue", Plus, common.addIssue, { primaryOnly: true });
   switch (props.type) {
     case "student":
       add("edit", "Edit details", Pencil, props.onEditDetails);
@@ -88,7 +92,6 @@ export function recordMenuActions(
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",
       });
-      add("issue", "Add issue", Plus, common.addIssue);
       add("re-enroll", "Re-enroll", UserCheck, props.onReEnroll);
       add(
         "discontinuation-link",
@@ -116,7 +119,6 @@ export function recordMenuActions(
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",
       });
-      add("issue", "Add issue", Plus, common.addIssue);
       add("delete", "Delete staff", Trash2, props.onDelete, {
         destructive: true,
       });
@@ -125,7 +127,6 @@ export function recordMenuActions(
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",
       });
-      add("issue", "Add issue", Plus, common.addIssue);
       add("delete", "Delete parent", Trash2, props.onDelete, {
         destructive: true,
       });
@@ -158,7 +159,6 @@ export function recordMenuActions(
       if (props.hasTutorLog)
         add("edit-log", "Edit tutor log", Pencil, props.onEditTutorLog);
       else add("log-session", "Log session", FileText, props.onLogSession);
-      add("issue", "Add issue", Plus, common.addIssue);
       break;
     }
     case "subject":
@@ -170,7 +170,6 @@ export function recordMenuActions(
       break;
     case "class":
     case "adminShift":
-      add("issue", "Add issue", Plus, common.addIssue);
       add(
         "delete",
         props.type === "class" ? "Delete class" : "Delete admin shift",
