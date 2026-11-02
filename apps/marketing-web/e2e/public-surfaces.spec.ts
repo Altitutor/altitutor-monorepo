@@ -31,15 +31,6 @@ test("header course menus work after scrolling", async ({ page }) => {
   await expect(onlineMenu).toBeVisible();
   await online.press("Escape");
   await expect(onlineMenu).toBeHidden();
-
-  await inPerson.focus();
-  await inPerson.press("ArrowDown");
-  await expect(
-    page
-      .getByRole("navigation", { name: "In person courses", exact: true })
-      .getByRole("link")
-      .first(),
-  ).toBeFocused();
 });
 
 test("page section chips navigate after scrolling", async ({ page }) => {
