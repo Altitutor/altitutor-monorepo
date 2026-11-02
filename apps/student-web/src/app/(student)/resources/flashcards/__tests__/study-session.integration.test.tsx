@@ -61,13 +61,15 @@ function response(data: unknown, status = 200): Response {
 }
 
 it.each([
-  { study: 'study=all', entry: 'menu', pending: false },
-  { study: 'subject=subject-1', entry: 'menu', pending: false },
-  { study: 'study=all', entry: 'remount', pending: false },
-  { study: 'subject=subject-1', entry: 'remount', pending: false },
-  { study: 'study=all', entry: 'menu', pending: true },
-  { study: 'subject=subject-1', entry: 'menu', pending: true },
-])('waits for current cards when re-entering $study through $entry (answer pending: $pending)', async ({ study, entry, pending }) => {
+  { study: 'study=all', entry: 'menu', pending: false, crossingSnapshot: false },
+  { study: 'subject=subject-1', entry: 'menu', pending: false, crossingSnapshot: false },
+  { study: 'study=all', entry: 'remount', pending: false, crossingSnapshot: false },
+  { study: 'subject=subject-1', entry: 'remount', pending: false, crossingSnapshot: false },
+  { study: 'study=all', entry: 'menu', pending: true, crossingSnapshot: false },
+  { study: 'subject=subject-1', entry: 'menu', pending: true, crossingSnapshot: false },
+  { study: 'study=all', entry: 'menu', pending: true, crossingSnapshot: true },
+  { study: 'subject=subject-1', entry: 'menu', pending: true, crossingSnapshot: true },
+])('waits for current cards when re-entering $study through $entry (answer pending: $pending, old GET pending: $crossingSnapshot)', async ({ study, entry, pending, crossingSnapshot }) => {
   let requestNumber = 0;
   Object.defineProperty(global.crypto, 'randomUUID', { configurable: true, value: () => `00000000-0000-4000-8000-${String(++requestNumber).padStart(12, '0')}` });
   const first = reviewCard('first', 'First prompt');
@@ -76,6 +78,7 @@ it.each([
   let answerSaved = false;
   let releaseSnapshot: (() => void) | undefined;
   let releaseAnswer: (() => void) | undefined;
+  let releasePreCommitSnapshot: (() => void) | undefined;
   const commands: RateFlashcardCommand[] = [];
   const originalFetch = global.fetch;
   global.fetch = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -88,6 +91,10 @@ it.each([
       answerSaved = true;
       serverCards = serverCards.filter(card => card.id !== command.reviewCardId);
       return response({ ...card, revision: 1, state: 'Review', due_at: '2100-01-01T00:00:00Z', answer_log_id: `answer-${commands.length}` });
+    }
+    if (crossingSnapshot && releaseAnswer && !answerSaved) {
+      const oldSnapshot = snapshot([...serverCards]);
+      return new Promise<Response>(resolve => { releasePreCommitSnapshot = () => resolve(response(oldSnapshot)); });
     }
     if (answerSaved) return new Promise<Response>((resolve) => { releaseSnapshot = () => resolve(response(snapshot(serverCards))); });
     return response(snapshot(serverCards));
@@ -118,6 +125,7 @@ it.each([
       expect(screen.queryByText(/First prompt/)).not.toBeInTheDocument();
       await act(async () => releaseAnswer?.());
     }
+    await act(async () => releasePreCommitSnapshot?.());
     await waitFor(() => expect(releaseSnapshot).toBeDefined());
     expect(screen.queryByText(/First prompt/)).not.toBeInTheDocument();
     await act(async () => releaseSnapshot?.());
@@ -127,7 +135,7 @@ it.each([
     await waitFor(() => expect(commands.map(command => command.reviewCardId)).toEqual(['first', 'second']));
     expect(screen.queryByText(/Your answer was not saved/)).not.toBeInTheDocument();
   } finally {
-    await act(async () => { releaseAnswer?.(); releaseSnapshot?.(); });
+    await act(async () => { releaseAnswer?.(); releasePreCommitSnapshot?.(); releaseSnapshot?.(); });
     view.unmount();
     client.clear();
     global.fetch = originalFetch;

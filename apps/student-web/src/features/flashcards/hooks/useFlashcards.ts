@@ -38,6 +38,7 @@ export function useDueFlashcardCount() {
 }
 
 const flashcardAnswerMutationKey = ['flashcards', 'answer'] as const;
+const dueFlashcardSnapshotQueryKey = ['flashcards', 'review-cards', 'due-all'] as const;
 
 export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
   const queryClient = useQueryClient();
@@ -48,8 +49,8 @@ export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
   const startingSession = enabled && startedTopicIdsKey !== topicIdsKey;
   const pendingAnswers = useIsMutating({ mutationKey: flashcardAnswerMutationKey });
   const query = useQuery({
-    queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
-    queryFn: () => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined),
+    queryKey: [...dueFlashcardSnapshotQueryKey, topicIdsKey],
+    queryFn: ({ signal }) => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined, signal),
     enabled: enabled && (!startingSession || pendingAnswers === 0),
     // A cached snapshot can contain revisions already answered in another session.
     staleTime: 0,
@@ -71,8 +72,11 @@ export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
 }
 
 export function useRateFlashcardReviewCard(_topicId: string, _mode: 'due' | 'all') {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: flashcardAnswerMutationKey,
     mutationFn: (command: RateFlashcardCommand) => flashcardsApi.rateReviewCard(command),
+    // Discard reads started before this answer settled before allowing a new session to fetch.
+    onSettled: () => queryClient.cancelQueries({ queryKey: dueFlashcardSnapshotQueryKey }),
   });
 }
