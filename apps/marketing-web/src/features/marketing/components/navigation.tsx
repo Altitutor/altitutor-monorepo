@@ -26,7 +26,6 @@ const groups = [
   { href: "/online-courses/", label: "Online courses", items: ONLINE_COURSES },
 ] as const;
 const links = [
-  ["/blog/", "Blog"],
   ["/about/", "About us"],
   ["/about/contact/", "Contact"],
 ] as const;

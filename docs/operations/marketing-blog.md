@@ -1,6 +1,6 @@
 # Marketing blog publishing
 
-One hub at `/blog/`, with stable `/blog/[slug]/` URLs and Guides / Product updates categories. There is no CMS, independent category archive or publication schedule.
+One hub at `/blog/`, with stable `/blog/[slug]/` URLs and Guides / Product updates categories. There is no CMS, independent category archive or publication schedule. Blog links are temporarily hidden from the header and footer at Matthew's request; use the direct URL for QA.
 
 ## Add an article
 
@@ -20,7 +20,13 @@ Keep a permanent course page authoritative for dates, enrolment and bookings. Up
 
 ## Design and metadata
 
-Both categories use the existing site frame and one article template. The hub groups articles by category with in-page navigation, avoiding announcements burying guides. Each published article has canonical/social metadata and BlogPosting JSON-LD. A shared generated social image is used initially. Blog discovery is included in desktop/mobile navigation and footer. Add a content service only if independent author workflows justify it.
+Both categories use the existing site frame and one article template. The hub groups articles by category with in-page navigation, avoiding announcements burying guides. Each published article has canonical/social metadata and BlogPosting JSON-LD. A shared generated social image is used initially. Restore desktop/mobile navigation and footer discovery only when Matthew requests it. Add a content service only if independent author workflows justify it.
+
+## Local regression checks
+
+Next.js development requests from this computer's private IPv4 addresses use the shared `getLocalDevOrigins` configuration. A rejected development websocket can prevent hydration: the server-rendered page remains visible while course menus, scroll styling and section chips do not initialize.
+
+To check the actual running local server, including its LAN origin, set `MARKETING_QA_URL` to its reported URL, then run `MARKETING_E2E_EXTERNAL_SERVER=true MARKETING_E2E_BASE_URL="$MARKETING_QA_URL" pnpm --filter marketing-web exec playwright test e2e/public-surfaces.spec.ts --project=desktop-chromium`. This mode does not start or stop the supplied server. Without the external-server flag, the suite builds and serves its own production test instance.
 
 ## Conversion destinations and attribution
 
