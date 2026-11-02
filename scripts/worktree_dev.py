@@ -266,9 +266,10 @@ def run(repository, apps, skip_install):
                 with ExitStack() as files:
                     for app, port in app_ports.items():
                         output = files.enter_context((temporary / (app + '.log')).open('w'))
+                        # Each owned stack has fresh inlined public URLs; discard older Metro transforms.
                         command = (['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', str(port)]
                                    if app in WEB_APPS else
-                                   ['pnpm', '--dir', 'apps/' + app, 'exec', 'expo', 'start', '--go', '--localhost', '--port', str(port)])
+                                   ['pnpm', '--dir', 'apps/' + app, 'exec', 'expo', 'start', '--go', '--clear', '--localhost', '--port', str(port)])
                         app_env = dict(environment, PORT=str(port),
                                        NEXT_DIST_DIR='.next-isolated',
                                        NEXT_PUBLIC_AUTH_COOKIE_NAME=project + '-' + app,

@@ -3,13 +3,13 @@ import { resolveServerUrl } from "@/lib/development-server-url";
 import { createApiClient } from "./api-client";
 export { ApiError } from "./api-client";
 
-/** Browser redirects and cookies must keep the configured web origin. */
+/** Keep emulator browser cookies on loopback while preserving physical-device LAN URLs. */
 export function browserWebUrl(path: string): string {
   const origin = process.env.EXPO_PUBLIC_UCAT_WEB_URL;
   if (!origin) throw new Error("The UCAT server is not configured.");
   if (!path.startsWith("/") || path.startsWith("//"))
     throw new Error("Invalid UCAT path.");
-  return new URL(path, origin).toString();
+  return resolveServerUrl(new URL(path, origin).toString(), "browser");
 }
 
 export function webUrl(path: string): string {
