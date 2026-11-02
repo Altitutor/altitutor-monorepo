@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RateFlashcardCommand } from '@altitutor/shared';
 import { flashcardsApi } from '../api/flashcards';
 
@@ -37,25 +37,46 @@ export function useDueFlashcardCount() {
   });
 }
 
+const flashcardAnswerMutationKey = ['flashcards', 'answer'] as const;
+const dueFlashcardSnapshotQueryKey = ['flashcards', 'review-cards', 'due-all'] as const;
+
 export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
   const queryClient = useQueryClient();
   const topicIdsKey = topicIds === undefined ? 'all' : topicIds === null ? 'idle' : topicIds.join(',');
+  const enabled = topicIds === undefined || (topicIds !== null && topicIds.length > 0);
+  const [startedTopicIdsKey, setStartedTopicIdsKey] = useState<string | null>(null);
+  // Wait for earlier answers at entry without interrupting an already-running session.
+  const startingSession = enabled && startedTopicIdsKey !== topicIdsKey;
+  const pendingAnswers = useIsMutating({ mutationKey: flashcardAnswerMutationKey });
   const query = useQuery({
-    queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
-    queryFn: () => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined),
-    enabled: topicIds === undefined || (topicIds !== null && topicIds.length > 0),
+    queryKey: [...dueFlashcardSnapshotQueryKey, topicIdsKey],
+    queryFn: ({ signal }) => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined, signal),
+    enabled: enabled && (!startingSession || pendingAnswers === 0),
+    // A cached snapshot can contain revisions already answered in another session.
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   });
+  useEffect(() => {
+    if (!enabled) setStartedTopicIdsKey(null);
+    else if (startingSession && pendingAnswers === 0 && query.isSuccess && !query.isFetching) {
+      setStartedTopicIdsKey(topicIdsKey);
+    }
+  }, [enabled, pendingAnswers, query.isFetching, query.isSuccess, startingSession, topicIdsKey]);
   useEffect(() => {
     if (topicIds === undefined && query.data) {
       queryClient.setQueryData(dueFlashcardCountQueryKey, query.data.counts.total);
     }
   }, [query.data, queryClient, topicIds]);
-  return query;
+  return { ...query, isStartingSession: startingSession && !query.isError };
 }
 
 export function useRateFlashcardReviewCard(_topicId: string, _mode: 'due' | 'all') {
+  const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: flashcardAnswerMutationKey,
     mutationFn: (command: RateFlashcardCommand) => flashcardsApi.rateReviewCard(command),
+    // Discard reads started before this answer settled before allowing a new session to fetch.
+    onSettled: () => queryClient.cancelQueries({ queryKey: dueFlashcardSnapshotQueryKey }),
   });
 }

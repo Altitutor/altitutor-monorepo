@@ -27,12 +27,12 @@ export const flashcardsApi = {
     return data.total;
   },
 
-  async listDueReviewCards(topicIds?: string[]): Promise<FlashcardStudySnapshot> {
+  async listDueReviewCards(topicIds?: string[], signal?: AbortSignal): Promise<FlashcardStudySnapshot> {
     const params = new URLSearchParams({ mode: 'due' });
     if (topicIds?.length) {
       params.set('topicIds', topicIds.join(','));
     }
-    const res = await fetch(`/api/flashcards/review-cards?${params.toString()}`);
+    const res = await fetch(`/api/flashcards/review-cards?${params.toString()}`, { signal });
     return readJson<FlashcardStudySnapshot>(res);
   },
 
