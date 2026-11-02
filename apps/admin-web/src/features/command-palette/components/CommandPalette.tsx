@@ -67,7 +67,13 @@ export function CommandPalette({
   const { commandsWithActions } = useCommandPaletteCommands({ commandActions });
   const recordCommands = useRecordCommands();
   const commands = [
-    ...(commandActions ? commandsWithActions : []),
+    ...(commandActions ? commandsWithActions.filter(
+          (command) =>
+            !recordCommands.some((record) =>
+              record.id.endsWith(`-${command.id}`),
+            ),
+        )
+      : []),
     {
       id: "create-document",
       title: "Document",

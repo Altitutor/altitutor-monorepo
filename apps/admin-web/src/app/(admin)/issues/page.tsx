@@ -11,8 +11,8 @@ export default function IssuesPage() {
   const [view, setView] = useAdminPageViewParam(["list", "board"] as const, "board");
   const { openCreateIssueDialog } = useQuickActions();
   return (
-    <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: next => { if (next === "list" || next === "board") setView(next); } }}>
-      <AdminPageActions><Button onClick={openCreateIssueDialog}><Plus />Add issue</Button></AdminPageActions>
+    <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: (next) => { if (next === "list" || next === "board") setView(next); } }}>
+      <AdminPageActions><Button onClick={() => openCreateIssueDialog()}><Plus />Add issue</Button></AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><IssuesCollection mode={view} /></div>
     </ToolbarViewProvider>
   );

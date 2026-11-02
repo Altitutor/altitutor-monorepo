@@ -8355,6 +8355,19 @@
         "nullable": true,
         "meaning": "Staff who resolved the issue. Set by application when status changes to resolved.",
         "nullMeaning": "Not recorded or not applicable; inspect the source context before distinguishing those cases."
+      },
+      "priority": {
+        "type": "integer",
+        "nullable": false,
+        "meaning": "Work priority: 0 No priority, 1 Urgent, 2 High, 3 Medium, 4 Low. Same scale as tasks and projects.",
+        "nullMeaning": "Required by the source schema.",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4"
+        ]
       }
     },
     "relationships": [
@@ -8385,7 +8398,8 @@
       "SELECT count(*) AS recorded_rows FROM admin_reporting.issues"
     ],
     "constraints": [
-      "CHECK ((status = ANY (ARRAY['open'::text, 'awaiting_response'::text, 'resolved'::text])))"
+      "CHECK ((status = ANY (ARRAY['open'::text, 'awaiting_response'::text, 'resolved'::text])))",
+      "CHECK (((priority >= 0) AND (priority <= 4)))"
     ]
   },
   {

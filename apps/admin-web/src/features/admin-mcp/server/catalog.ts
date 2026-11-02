@@ -1,6 +1,6 @@
 import registry from "../catalog.json";
 
-export const catalogVersion = "2026-09-13.1";
+export const catalogVersion = "2026-11-02.1";
 export type ReportingDataset = {
   name: string;
   area: string;

@@ -6212,6 +6212,7 @@ export type Database = {
           due_date: string | null
           id: string
           name: string
+          priority: number
           resolved_at: string | null
           resolved_by: string | null
           search_vector: unknown
@@ -6228,6 +6229,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name: string
+          priority?: number
           resolved_at?: string | null
           resolved_by?: string | null
           search_vector?: unknown
@@ -6244,6 +6246,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name?: string
+          priority?: number
           resolved_at?: string | null
           resolved_by?: string | null
           search_vector?: unknown

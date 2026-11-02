@@ -12,6 +12,8 @@ export function isActiveEntityForSearch(result: CommandPaletteEntityResult): boo
       return result.data.status !== 'resolved';
     case 'project':
       return result.data.status !== 'completed';
+    case "email":
+    case "message":
     case 'student':
     case 'staff':
     case 'parent':

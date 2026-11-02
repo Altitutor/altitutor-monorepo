@@ -119,6 +119,7 @@ export function EmailParticipant({
     return (
       <EntityChip
         entityType={target.type}
+        entityId={target.id}
         label={target.label}
         title={email}
         onClick={() => navigation.openEntity(target.type, target.id)}

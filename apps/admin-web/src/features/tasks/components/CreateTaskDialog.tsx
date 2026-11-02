@@ -28,6 +28,12 @@ import { useCreateDialogDraft } from "@/shared/hooks/useCreateDialogDraft";
 import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
 import type { Resolver } from "react-hook-form";
 
+import {
+  referenceDescription,
+  referenceKey,
+  type EntityReference,
+} from "@/shared/utils/entityReference";
+
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z
@@ -72,6 +78,7 @@ const formSchema = z.object({
 });
 
 interface CreateTaskDialogProps {
+  reference?: EntityReference | null;
   isOpen: boolean;
   onClose: () => void;
   onTaskCreated?: () => void;
@@ -82,6 +89,7 @@ interface CreateTaskDialogProps {
 }
 
 export function CreateTaskDialog({
+  reference,
   isOpen,
   onClose,
   onTaskCreated,
@@ -120,8 +128,10 @@ export function CreateTaskDialog({
   const form = useForm<TaskFormData, unknown, TaskFormData>({
     resolver: zodResolver(formSchema) as Resolver<TaskFormData>,
     defaultValues: {
-      title: "",
-      description: null,
+      title: defaultValues?.title ?? "",
+      description: reference
+        ? referenceDescription(reference)
+        : (defaultValues?.description ?? null),
       status: defaultStatus || defaultValues?.status || "todo",
       priority: defaultValues?.priority ?? 0,
       assignedTo: defaultValues?.assignedTo ?? currentStaff?.id ?? null,
@@ -132,7 +142,7 @@ export function CreateTaskDialog({
     },
   });
 
-  const draftKey = `task:${defaultValues?.issueId ?? issue?.id ?? ""}:${defaultValues?.projectId ?? project?.id ?? ""}`;
+  const draftKey = `task:${referenceKey(reference)}:${defaultValues?.issueId ?? issue?.id ?? ""}:${defaultValues?.projectId ?? project?.id ?? ""}`;
   const { readDraft, saveDraft, clearDraft, storageKey } = useCreateDialogDraft(
     form,
     isOpen,
@@ -154,8 +164,10 @@ export function CreateTaskDialog({
         defaultValues?.assignedTo ?? currentStaff?.id ?? null;
 
       form.reset({
-        title: "",
-        description: null,
+        title: defaultValues?.title ?? "",
+        description: reference
+          ? referenceDescription(reference)
+          : (defaultValues?.description ?? null),
         status: defaultStatus || defaultValues?.status || "todo",
         priority: defaultValues?.priority ?? 0,
         assignedTo: resolvedAssignedTo,
@@ -180,6 +192,7 @@ export function CreateTaskDialog({
     isOpen,
     defaultStatus,
     defaultValues,
+    reference,
     form,
     issue,
     project,

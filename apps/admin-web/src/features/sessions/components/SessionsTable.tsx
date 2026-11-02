@@ -167,16 +167,25 @@ export function SessionsTable({
       visibleColumns: defaultVisibleColumns,
     };
     const builtIn = (id: string, name: string, config: DisplaySettings): QuickFilter => ({
-      id: `builtin:sessions:${id}`, name, target_entity: 'sessions', user_id: null,
-      created_at: '', updated_at: '', config: encodeViewConfig(config),
+      id: `builtin:sessions:${id}`,
+      name,
+      target_entity: "sessions",
+      user_id: null,
+      created_at: "",
+      updated_at: "",
+      config: encodeViewConfig(config),
     });
     const today = new Date();
     return [
-      builtIn('calendar', 'Calendar', settings),
-      builtIn('this-week', 'This week', {...settings, layout: 'table', filters: {
-        from: [format(startOfWeek(today, {weekStartsOn: 1}), 'yyyy-MM-dd')],
-        to: [format(endOfWeek(today, {weekStartsOn: 1}), 'yyyy-MM-dd')],
-      }}),
+      builtIn("calendar", "Calendar", settings),
+      builtIn("this-week", "This week", {
+        ...settings,
+        layout: "table",
+        filters: {
+          from: [format(startOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd")],
+          to: [format(endOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd")],
+        },
+      }),
       ...savedViews,
     ];
   }, [savedViews, toolbarView, defaultSort, defaultVisibleColumns]);
@@ -195,14 +204,28 @@ export function SessionsTable({
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['type', 'subject', 'student', 'staff', 'tutor_log', 'from', 'to'],
+    filterKeys: [
+      "type",
+      "subject",
+      "student",
+      "staff",
+      "tutor_log",
+      "from",
+      "to",
+    ],
     skipUrlSync,
   });
 
-  const calendarFrom = String(state.filters.from?.[0] ?? '');
-  const calendarTo = String(state.filters.to?.[0] ?? '');
-  const queryRangeStart = renderMode === 'calendar' ? [calendarRange.from,calendarFrom].filter(Boolean).sort().at(-1) : rangeStart;
-  const queryRangeEnd = renderMode === 'calendar' ? [calendarRange.to,calendarTo].filter(Boolean).sort()[0] : rangeEnd;
+  const calendarFrom = String(state.filters.from?.[0] ?? "");
+  const calendarTo = String(state.filters.to?.[0] ?? "");
+  const queryRangeStart =
+    renderMode === "calendar"
+      ? [calendarRange.from, calendarFrom].filter(Boolean).sort().at(-1)
+      : rangeStart;
+  const queryRangeEnd =
+    renderMode === "calendar"
+      ? [calendarRange.to, calendarTo].filter(Boolean).sort()[0]
+      : rangeEnd;
   // Use the main hook for all business logic
   const {
     // Data
@@ -244,13 +267,14 @@ export function SessionsTable({
 
   const modals = useSessionsTableModals(refetch);
 
-  const { invoiceDetailsById, previewsBySessionId } = useStudentSessionBillingDetails({
-    enabled: isStudentAttendanceView,
-    studentId,
-    sessions: allSessions,
-    classesById,
-    sessionStudents,
-  });
+  const { invoiceDetailsById, previewsBySessionId } =
+    useStudentSessionBillingDetails({
+      enabled: isStudentAttendanceView,
+      studentId,
+      sessions: allSessions,
+      classesById,
+      sessionStudents,
+    });
 
   const { data: uninvoicedSessions = [] } = useUninvoicedSessions();
   const uninvoicedSessionsStudentsIds = useMemo(() => {
@@ -258,7 +282,7 @@ export function SessionsTable({
     return new Set(
       uninvoicedSessions
         .filter((s) => s.student_id === studentId)
-        .map((s) => s.sessions_students_id)
+        .map((s) => s.sessions_students_id),
     );
   }, [uninvoicedSessions, studentId]);
 
@@ -267,99 +291,134 @@ export function SessionsTable({
     const q = subjectFilterSearch.trim().toLowerCase();
     const filtered = q
       ? list.filter((s) => {
-          const longName = (s.long_name ?? '').toLowerCase();
-          const shortName = (s.short_name ?? '').toLowerCase();
-          const name = (s.name ?? '').toLowerCase();
-          return longName.includes(q) || shortName.includes(q) || name.includes(q);
+          const longName = (s.long_name ?? "").toLowerCase();
+          const shortName = (s.short_name ?? "").toLowerCase();
+          const name = (s.name ?? "").toLowerCase();
+          return (
+            longName.includes(q) || shortName.includes(q) || name.includes(q)
+          );
         })
       : list;
     return filtered
-      .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
-      .map((s) => ({ label: s.long_name ?? '', value: s.id }));
+      .sort((a, b) => (a.long_name ?? "").localeCompare(b.long_name ?? ""))
+      .map((s) => ({ label: s.long_name ?? "", value: s.id }));
   }, [subjectsById, subjectFilterSearch]);
 
-  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
-    ...(hideTypeFilter ? [] : [{
-      key: 'type',
-      choiceOperators: true,
-      label: 'Session Type',
-      options: SESSION_TYPES.map(t => ({ label: formatSessionType(t), value: t })),
-    }]),
-    {
-      key: 'subject',
-      choiceOperators: true,
-      label: 'Subject',
-      options: subjectFilterOptions,
-      searchable: true,
-      searchPlaceholder: 'Search subjects...',
-    },
-    ...(hideStudentFilter ? [] : [{
-      key: 'student',
-      choiceOperators: true,
-      label: 'Student',
-      options: filteredStudents.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
-      searchable: true,
-      searchPlaceholder: 'Search students...',
-    }]),
-    ...[{
-      key: 'staff',
-      choiceOperators: true,
-      label: 'Staff',
-      options: filteredStaff.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
-      searchable: true,
-      searchPlaceholder: 'Search staff...',
-    }],
-    ...(hideTutorLogFilter ? [] : [{
-      key: 'tutor_log',
-      choiceOperators: true,
-      label: 'Tutor Log',
-      options: [
-        { label: 'Logged', value: 'logged' },
-        { label: 'Unlogged', value: 'unlogged' },
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(
+    () => [
+      ...(hideTypeFilter
+        ? []
+        : [
+            {
+              key: "type",
+              choiceOperators: true,
+              label: "Session Type",
+              options: SESSION_TYPES.map((t) => ({
+                label: formatSessionType(t),
+                value: t,
+              })),
+            },
+          ]),
+      {
+        key: "subject",
+        choiceOperators: true,
+        label: "Subject",
+        options: subjectFilterOptions,
+        searchable: true,
+        searchPlaceholder: "Search subjects...",
+      },
+      ...(hideStudentFilter
+        ? []
+        : [
+            {
+              key: "student",
+              choiceOperators: true,
+              label: "Student",
+              options: filteredStudents.map((s) => ({
+                label: `${s.first_name} ${s.last_name}`,
+                value: s.id,
+              })),
+              searchable: true,
+              searchPlaceholder: "Search students...",
+            },
+          ]),
+      ...[
+        {
+          key: "staff",
+          choiceOperators: true,
+          label: "Staff",
+          options: filteredStaff.map((s) => ({
+            label: `${s.first_name} ${s.last_name}`,
+            value: s.id,
+          })),
+          searchable: true,
+          searchPlaceholder: "Search staff...",
+        },
       ],
-    }]),
-    {
-      key: 'date',
-      label: 'Date',
-      type: 'date-range',
-      fromKey: 'from',
-      toKey: 'to',
-    },
-  ], [filteredStaff, filteredStudents, hideStudentFilter, hideTutorLogFilter, hideTypeFilter, subjectFilterOptions]);
+      ...(hideTutorLogFilter
+        ? []
+        : [
+            {
+              key: "tutor_log",
+              choiceOperators: true,
+              label: "Tutor Log",
+              options: [
+                { label: "Logged", value: "logged" },
+                { label: "Unlogged", value: "unlogged" },
+              ],
+            },
+          ]),
+      {
+        key: "date",
+        label: "Date",
+        type: "date-range",
+        fromKey: "from",
+        toKey: "to",
+      },
+    ],
+    [
+      filteredStaff,
+      filteredStudents,
+      hideStudentFilter,
+      hideTutorLogFilter,
+      hideTypeFilter,
+      subjectFilterOptions,
+    ],
+  );
 
   const sortOptions: DataTableSortOption[] = [
-    { key: 'start_at', label: 'Date' },
+    { key: "start_at", label: "Date" },
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = useMemo(() => {
     if (isStudentAttendanceView) {
       return [
-        { key: 'date', label: 'Date' },
-        { key: 'time', label: 'Time' },
-        { key: 'class', label: 'Subject' },
-        { key: 'planned_attendance', label: 'Planned Attendance' },
-        { key: 'actual_attendance', label: 'Actual Attendance' },
-        { key: 'absence_treatment', label: 'Absence Treatment' },
-        { key: 'invoice', label: 'Invoice' },
+        { key: "date", label: "Date" },
+        { key: "time", label: "Time" },
+        { key: "class", label: "Subject" },
+        { key: "planned_attendance", label: "Planned Attendance" },
+        { key: "actual_attendance", label: "Actual Attendance" },
+        { key: "absence_treatment", label: "Absence Treatment" },
+        { key: "invoice", label: "Invoice" },
       ];
     }
     if (isStaffAttendanceView) {
       return [
-        { key: 'date', label: 'Date' },
-        { key: 'time', label: 'Time' },
-        { key: 'class', label: 'Subject' },
-        { key: 'planned_attendance', label: 'Planned Attendance' },
-        { key: 'actual_attendance', label: 'Actual Attendance' },
-        { key: 'tutor_log', label: 'Tutor Log' },
+        { key: "date", label: "Date" },
+        { key: "time", label: "Time" },
+        { key: "class", label: "Subject" },
+        { key: "planned_attendance", label: "Planned Attendance" },
+        { key: "actual_attendance", label: "Actual Attendance" },
+        { key: "tutor_log", label: "Tutor Log" },
       ];
     }
     return [
-      { key: 'date', label: 'Date' },
-      { key: 'time', label: 'Time' },
-      { key: 'class', label: 'Subject' },
-      { key: 'staff', label: 'Staff' },
-      { key: 'students', label: 'Students' },
-      { key: 'tutor_log', label: 'Tutor Log' },
+      { key: "date", label: "Date" },
+      { key: "time", label: "Time" },
+      { key: "class", label: "Subject" },
+      { key: "staff", label: "Staff" },
+      { key: "students", label: "Students" },
+      { key: "tutor_log", label: "Tutor Log" },
     ];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
 
@@ -372,7 +431,7 @@ export function SessionsTable({
     (id: string) => {
       onOpenSession?.(id);
     },
-    [onOpenSession]
+    [onOpenSession],
   );
 
   const handleClassClick = useCallback(
@@ -380,20 +439,26 @@ export function SessionsTable({
       e.stopPropagation();
       modals.openClassModal(classId);
     },
-    [modals]
+    [modals],
   );
 
   const displaySessions = hidePagination ? filteredSessions : paginatedSessions;
   const showTableChrome = !limit && !hideToolbar;
   const showPagination = !limit && !hidePagination;
 
-  const handleCopySessionId = useCallback(async (id: string, displayText: string) => {
-    const sanitizedDisplay = displayText.replace(/\]/g, '');
-    await navigator.clipboard.writeText(`@[session:${id}:${sanitizedDisplay}]`);
-  }, []);
+  const handleCopySessionId = useCallback(
+    async (id: string, displayText: string) => {
+      const sanitizedDisplay = displayText.replace(/\]/g, "");
+      await navigator.clipboard.writeText(
+        `@[session:${id}:${sanitizedDisplay}]`,
+      );
+    },
+    [],
+  );
 
   // Loading state
-  if (isLoading && allSessions.length === 0) {
+  // Keep Display mounted while switching layouts or calendar ranges.
+  if (isLoading && allSessions.length === 0 && !toolbarView) {
     return (
       <div className="space-y-4">
         {!limit && !hideToolbar && (
@@ -411,9 +476,7 @@ export function SessionsTable({
 
         <SkeletonTable rows={limit || 8} columns={6} />
 
-        <div className="text-sm text-muted-foreground">
-          Loading sessions...
-        </div>
+        <div className="text-sm text-muted-foreground">Loading sessions...</div>
       </div>
     );
   }
@@ -437,14 +500,19 @@ export function SessionsTable({
     <div
       className={cn(
         fillHeight
-          ? cn('flex h-full min-h-0 flex-col', (showTableChrome || showPagination) && 'gap-4')
+          ? cn(
+              "flex h-full min-h-0 flex-col",
+              (showTableChrome || showPagination) && "gap-4",
+            )
           : showTableChrome || showPagination
-            ? 'space-y-4'
+            ? "space-y-4"
             : undefined,
       )}
     >
       {showTableChrome && (
-        <div className={cn('flex flex-col gap-2', fillHeight && 'shrink-0 pt-1.5')}>
+        <div
+          className={cn("flex flex-col gap-2", fillHeight && "shrink-0 pt-1.5")}
+        >
           <DataTableToolbar
             state={state}
             view={toolbarView}
@@ -457,8 +525,15 @@ export function SessionsTable({
             onReset={resetFilters}
             filterDefinitions={filterDefinitions}
             sortOptions={sortOptions}
-            columnDefinitions={renderMode === "calendar" ? columnDefinitions.filter((column) => ["class","staff","students"].includes(column.key)) : columnDefinitions}
-            quickFilters={quickFilters} viewTarget="sessions"
+            columnDefinitions={
+              renderMode === "calendar"
+                ? columnDefinitions.filter((column) =>
+                    ["class", "staff", "students"].includes(column.key),
+                  )
+                : columnDefinitions
+            }
+            quickFilters={quickFilters}
+            viewTarget="sessions"
             hideSearch={_hideSearch}
             filterSearchValues={{
               student: studentFilterSearch,
@@ -466,9 +541,9 @@ export function SessionsTable({
               subject: subjectFilterSearch,
             }}
             onFilterSearchChange={(filterKey, value) => {
-              if (filterKey === 'student') setStudentFilterSearch(value);
-              if (filterKey === 'staff') setStaffFilterSearch(value);
-              if (filterKey === 'subject') setSubjectFilterSearch(value);
+              if (filterKey === "student") setStudentFilterSearch(value);
+              if (filterKey === "staff") setStaffFilterSearch(value);
+              if (filterKey === "subject") setSubjectFilterSearch(value);
             }}
             searchPlaceholder="Search sessions..."
             isLoading={isFetching}
@@ -476,116 +551,171 @@ export function SessionsTable({
         </div>
       )}
 
-      {renderMode === 'calendar' ? <SessionsCalendarView onOpenSession={onOpenSession} initialDate={calendarFrom || calendarTo || initialCalendarDate} initialViewMode={initialCalendarMode} onRangeChange={changeCalendarRange} visibleProperties={state.visibleColumns} source={{sessions:filteredSessions,classesById,subjectsById,sessionStudents,sessionStaff,tutorLogs}} /> : <>
-      <div
-        className={cn(
-          'rounded-md border overflow-hidden',
-          fillHeight && 'min-h-0 flex-1 overflow-auto [&>div]:overflow-visible',
-        )}
-      >
-        <Table>
-          <TableHeader
+      {renderMode === "calendar" ? (
+        <SessionsCalendarView
+          onOpenSession={onOpenSession}
+          initialDate={calendarFrom || calendarTo || initialCalendarDate}
+          initialViewMode={initialCalendarMode}
+          onRangeChange={changeCalendarRange}
+          visibleProperties={state.visibleColumns}
+          source={{
+            sessions: filteredSessions,
+            classesById,
+            subjectsById,
+            sessionStudents,
+            sessionStaff,
+            tutorLogs,
+          }}
+        />
+      ) : (
+        <>
+          <div
             className={cn(
+              "rounded-md border overflow-hidden",
               fillHeight &&
-                '[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card',
+                "min-h-0 flex-1 overflow-auto [&>div]:overflow-visible",
             )}
           >
-            <TableRow>
-              {state.visibleColumns.includes('date') && (
-                <TableHead className="cursor-pointer" onClick={() => setSort('start_at', state.sortBy === 'start_at' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
-                  Date
-                  <ArrowUpDown className={cn(
-                    "ml-2 h-4 w-4 inline",
-                    state.sortBy === 'start_at' ? "opacity-100" : "opacity-40"
-                  )} />
-                </TableHead>
-              )}
-              {state.visibleColumns.includes('time') && <TableHead>Time</TableHead>}
-              {state.visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn && (
-                <TableHead>Subject</TableHead>
-              )}
-              {state.visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView && <TableHead>Staff</TableHead>}
-              {state.visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView && (
-                <TableHead>Students</TableHead>
-              )}
-              {state.visibleColumns.includes('planned_attendance') && <TableHead>Planned Attendance</TableHead>}
-              {state.visibleColumns.includes('actual_attendance') && <TableHead>Actual Attendance</TableHead>}
-              {isStudentAttendanceView && state.visibleColumns.includes('absence_treatment') && <TableHead>Absence Treatment</TableHead>}
-              {state.visibleColumns.includes('invoice') && <TableHead>Invoice</TableHead>}
-              {state.visibleColumns.includes('tutor_log') && <TableHead>Tutor Log</TableHead>}
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {displaySessions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
-                  {state.search || Object.keys(state.filters).length > 0
-                    ? "No sessions match your filters"
-                    : "No sessions found"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              displaySessions.map((session) => (
-                <SessionsTableRow
-                  key={session.id}
-                  session={session}
-                  visibleColumns={state.visibleColumns}
-                  classId={classId}
-                  hideClassColumn={hideClassColumn}
-                  hideTypeColumn={hideTypeColumn}
-                  hideStudentsColumn={hideStudentsColumn}
-                  hideBilling={hideBilling}
-                  isStudentAttendanceView={isStudentAttendanceView}
-                  isStaffAttendanceView={isStaffAttendanceView}
-                  studentId={studentId}
-                  staffId={staffId}
-                  classesById={classesById}
-                  subjectsById={subjectsById}
-                  sessionStudents={sessionStudents}
-                  sessionStaff={sessionStaff}
-                  tutorLogs={tutorLogs}
-                  allSessions={allSessions}
-                  formatDate={formatDate}
-                  getTimeRange={getTimeRange}
-                  getClassDisplayName={getClassDisplayName}
-                  getClassShortDisplayName={getClassShortDisplayName}
-                  onOpenSession={onOpenSession}
-                  onOpenStudent={onOpenStudent}
-                  onOpenStaff={onOpenStaff}
-                  onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
-                  onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
-                  onRemoveStudentFromSession={onRemoveStudentFromSession}
-                  onRemoveStaffFromSession={onRemoveStaffFromSession}
-                  onRemoveParentFromSession={onRemoveParentFromSession}
-                  modals={modals}
-                  currentStaff={currentStaff}
-                  onSessionClick={handleSessionClick}
-                  onClassClick={handleClassClick}
-                  onCopySessionId={handleCopySessionId}
-                  router={router}
-                  uninvoicedSessionsStudentsIds={uninvoicedSessionsStudentsIds}
-                  invoiceDetailsById={invoiceDetailsById}
-                  invoicePreviewsBySessionId={previewsBySessionId}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            <Table>
+              <TableHeader
+                className={cn(
+                  fillHeight &&
+                    "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card",
+                )}
+              >
+                <TableRow>
+                  {state.visibleColumns.includes("date") && (
+                    <TableHead
+                      className="cursor-pointer"
+                      onClick={() =>
+                        setSort(
+                          "start_at",
+                          state.sortBy === "start_at" &&
+                            state.sortDirection === "asc"
+                            ? "desc"
+                            : "asc",
+                        )
+                      }
+                    >
+                      Date
+                      <ArrowUpDown
+                        className={cn(
+                          "ml-2 h-4 w-4 inline",
+                          state.sortBy === "start_at"
+                            ? "opacity-100"
+                            : "opacity-40",
+                        )}
+                      />
+                    </TableHead>
+                  )}
+                  {state.visibleColumns.includes("time") && (
+                    <TableHead>Time</TableHead>
+                  )}
+                  {state.visibleColumns.includes("class") &&
+                    !classId &&
+                    !hideClassColumn &&
+                    !hideTypeColumn && <TableHead>Subject</TableHead>}
+                  {state.visibleColumns.includes("staff") &&
+                    !isStudentAttendanceView &&
+                    !isStaffAttendanceView && <TableHead>Staff</TableHead>}
+                  {state.visibleColumns.includes("students") &&
+                    !hideStudentsColumn &&
+                    !isStudentAttendanceView &&
+                    !isStaffAttendanceView && <TableHead>Students</TableHead>}
+                  {state.visibleColumns.includes("planned_attendance") && (
+                    <TableHead>Planned Attendance</TableHead>
+                  )}
+                  {state.visibleColumns.includes("actual_attendance") && (
+                    <TableHead>Actual Attendance</TableHead>
+                  )}
+                  {isStudentAttendanceView &&
+                    state.visibleColumns.includes("absence_treatment") && (
+                      <TableHead>Absence Treatment</TableHead>
+                    )}
+                  {state.visibleColumns.includes("invoice") && (
+                    <TableHead>Invoice</TableHead>
+                  )}
+                  {state.visibleColumns.includes("tutor_log") && (
+                    <TableHead>Tutor Log</TableHead>
+                  )}
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displaySessions.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={state.visibleColumns.length + 1}
+                      className="text-center h-24"
+                    >
+                      {state.search || Object.keys(state.filters).length > 0
+                        ? "No sessions match your filters"
+                        : "No sessions found"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  displaySessions.map((session) => (
+                    <SessionsTableRow
+                      key={session.id}
+                      session={session}
+                      visibleColumns={state.visibleColumns}
+                      classId={classId}
+                      hideClassColumn={hideClassColumn}
+                      hideTypeColumn={hideTypeColumn}
+                      hideStudentsColumn={hideStudentsColumn}
+                      hideBilling={hideBilling}
+                      isStudentAttendanceView={isStudentAttendanceView}
+                      isStaffAttendanceView={isStaffAttendanceView}
+                      studentId={studentId}
+                      staffId={staffId}
+                      classesById={classesById}
+                      subjectsById={subjectsById}
+                      sessionStudents={sessionStudents}
+                      sessionStaff={sessionStaff}
+                      tutorLogs={tutorLogs}
+                      allSessions={allSessions}
+                      formatDate={formatDate}
+                      getTimeRange={getTimeRange}
+                      getClassDisplayName={getClassDisplayName}
+                      getClassShortDisplayName={getClassShortDisplayName}
+                      onOpenSession={onOpenSession}
+                      onOpenStudent={onOpenStudent}
+                      onOpenStaff={onOpenStaff}
+                      onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
+                      onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
+                      onRemoveStudentFromSession={onRemoveStudentFromSession}
+                      onRemoveStaffFromSession={onRemoveStaffFromSession}
+                      onRemoveParentFromSession={onRemoveParentFromSession}
+                      modals={modals}
+                      currentStaff={currentStaff}
+                      onSessionClick={handleSessionClick}
+                      onClassClick={handleClassClick}
+                      onCopySessionId={handleCopySessionId}
+                      router={router}
+                      uninvoicedSessionsStudentsIds={
+                        uninvoicedSessionsStudentsIds
+                      }
+                      invoiceDetailsById={invoiceDetailsById}
+                      invoicePreviewsBySessionId={previewsBySessionId}
+                    />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      {showPagination && (
-        <TablePagination
-          page={state.page}
-          pageSize={state.pageSize}
-          total={filteredSessions.length}
-          isFetching={isFetching}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+          {showPagination && (
+            <TablePagination
+              page={state.page}
+              pageSize={state.pageSize}
+              total={filteredSessions.length}
+              isFetching={isFetching}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
+        </>
       )}
-
-      </>}
 
       {/* Class Modal */}
       {modals.selectedClassId && (

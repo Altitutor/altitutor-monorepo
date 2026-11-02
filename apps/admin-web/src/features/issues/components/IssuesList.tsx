@@ -1,5 +1,7 @@
 "use client";
 import type { IssueUpdate } from "../types";
+import { PriorityEntityPill } from "@/shared/components/PriorityEntityPill";
+import { PRIORITY_OPTIONS, getPriorityLabel } from "@/shared/constants";
 import { IssueCard } from "./IssueCard";
 import { CreateIssueDialog } from "./CreateIssueDialog";
 
@@ -30,7 +32,7 @@ import {
 } from "../utils/issueUtils";
 import { useEntityListTableState } from "@/shared/hooks/useEntityListTableState";
 
-const ISSUE_FILTER_KEYS = ["status", "due_date"] as const;
+const ISSUE_FILTER_KEYS = ["status", "due_date", "priority"] as const;
 
 export interface IssuesListProps {
   layout?: "list" | "board";
@@ -113,6 +115,7 @@ export function IssuesList({
           description: (data.description ??
             null) as import("../types").IssueInsert["description"],
           status: (data.status as IssueStatus) ?? "open",
+          priority: Number(data.priority ?? 0),
           due_date:
             data.due_date != null && data.due_date !== ""
               ? new Date(data.due_date as string).toISOString()
@@ -161,6 +164,29 @@ export function IssuesList({
   const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
     () => [
       {
+        key: "priority",
+        label: "Priority",
+        visibleByDefault: true,
+        getValue: (issue) => issue.priority,
+        defaultValue: 0,
+        filterOptions: PRIORITY_OPTIONS,
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        alwaysAtBottom: [0],
+        compare: (a, b) => (Number(a) || 5) - (Number(b) || 5),
+        renderPill: (item, onChange, collapsed) => (
+          <PriorityEntityPill
+            value={item.priority}
+            collapsed={collapsed}
+            onChange={(priority) => {
+              updateIssue.mutate({ id: item.id, updates: { priority } });
+              onChange(priority);
+            }}
+          />
+        ),
+      },
+      {
         key: "due_date",
         label: "Due date",
         visibleByDefault: true,
@@ -203,6 +229,7 @@ export function IssuesList({
   const groupByOptions = useMemo(
     () => [
       { key: "status", label: "Status" },
+      { key: "priority", label: "Priority" },
       { key: "due_date", label: "Due date" },
     ],
     [],
@@ -211,11 +238,13 @@ export function IssuesList({
   const sortByOptions = useMemo(
     () => [
       { key: "status", label: "Status" },
+      { key: "priority", label: "Priority" },
       { key: "due_date", label: "Due date" },
     ],
     [],
   );
 
+  const [createDefaultPriority, setCreateDefaultPriority] = useState(0);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createColumnValue, setCreateColumnValue] =
     useState<IssueStatus>("open");
@@ -251,6 +280,13 @@ export function IssuesList({
   const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(
     () => [
       {
+        key: "priority",
+        label: "Priority",
+        getValue: (i) => i.priority,
+        options: PRIORITY_OPTIONS,
+        onValueChange: (i, v) => handleBoardUpdate(i, { priority: Number(v) }),
+      },
+      {
         key: "status",
         label: "Status",
         getValue: (i) => i.status,
@@ -281,6 +317,11 @@ export function IssuesList({
       : "status";
   const handleBoardAdd = useCallback(
     (columnValue: unknown) => {
+      setCreateDefaultPriority(
+        activeColumnKey === "priority" ? Number(columnValue) : 0,
+      );
+      setCreateColumnValue("open");
+      setCreateDefaultDueDate(null);
       if (activeColumnKey === "status") {
         setCreateColumnValue(columnValue as IssueStatus);
         setCreateDefaultDueDate(null);
@@ -336,6 +377,7 @@ export function IssuesList({
           if (columnKey === "status") {
             return getIssueStatusOrder(valueKey);
           }
+          if (columnKey === "priority") return Number(valueKey) || 5;
           return 0;
         }}
         getGroupLabel={(columnKey, valueKey) => {
@@ -343,6 +385,13 @@ export function IssuesList({
             if (valueKey === "__null__") return "No status";
             return getIssueStatusLabel(valueKey as IssueStatus);
           }
+          if (columnKey === "priority")
+            return getPriorityLabel(
+              (
+                PRIORITY_OPTIONS.find((o) => o.value === Number(valueKey)) ??
+                PRIORITY_OPTIONS[0]
+              ).value,
+            );
           if (columnKey === "due_date") {
             if (valueKey === "__null__") return "No due date";
             return formatIssueDueDate(valueKey);
@@ -406,6 +455,7 @@ export function IssuesList({
         onClose={() => setIsCreateDialogOpen(false)}
         initialStatus={createColumnValue}
         initialDueDate={createDefaultDueDate}
+        initialPriority={createDefaultPriority}
       />
     </>
   );

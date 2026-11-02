@@ -97,6 +97,7 @@ const formSchema = z.object({
     .union([z.record(z.string(), z.unknown()), z.string(), z.null()])
     .optional(),
   status: z.enum(["open", "awaiting_response", "resolved"]),
+  priority: z.number().int().min(0).max(4).default(0),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -138,6 +139,7 @@ export function IssueDetailView({
       name: "",
       description: null,
       status: "open",
+      priority: 0,
       dueDate: null,
     },
   });

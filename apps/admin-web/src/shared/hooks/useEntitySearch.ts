@@ -1,18 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { useDebounce } from './useDebounce';
-import { studentsApi } from '@/features/students/api/students';
-import { staffApi } from '@/features/staff/api/staff';
-import { parentsApi } from '@/features/parents/api/parents';
-import { classesApi } from '@/features/classes/api/classes';
-import { subjectsApi } from '@/features/subjects/api/subjects';
-import { topicsApi } from '@/features/topics/api/topics';
-import { topicsFilesApi } from '@/features/topics/api/topics-files';
-import { tasksApi } from '@/features/tasks/api/tasks';
-import { issuesApi } from '@/features/issues/api/issues';
-import { projectsApi } from '@/features/projects/api/projects';
-import { notesApi } from '@/features/notes/api/notes';
-import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
-import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
+import { useQuery } from "@tanstack/react-query";
+import { useDebounce } from "./useDebounce";
+import { studentsApi } from "@/features/students/api/students";
+import { staffApi } from "@/features/staff/api/staff";
+import { parentsApi } from "@/features/parents/api/parents";
+import { classesApi } from "@/features/classes/api/classes";
+import { subjectsApi } from "@/features/subjects/api/subjects";
+import { topicsApi } from "@/features/topics/api/topics";
+import { topicsFilesApi } from "@/features/topics/api/topics-files";
+import { tasksApi } from "@/features/tasks/api/tasks";
+import { issuesApi } from "@/features/issues/api/issues";
+import { projectsApi } from "@/features/projects/api/projects";
+import { notesApi } from "@/features/notes/api/notes";
+import { entityTypes } from "@/features/command-palette/config/commandPalette.config";
+import type { CommandPaletteEntityResult } from "@/features/command-palette/types";
 
 export type EntitySearchResult = CommandPaletteEntityResult;
 
@@ -28,46 +28,84 @@ export interface UseEntitySearchOptions {
  * Reusable hook for searching across multiple entities.
  * Can be used by Command Palette or Tiptap Mention extension.
  */
-export function useEntitySearch({ 
-  search, 
-  enabled = true, 
+export function useEntitySearch({
+  search,
+  enabled = true,
   debounceMs = 250,
   excludeCompleted = false,
-  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes']
+  types = [
+    "students",
+    "staff",
+    "parents",
+    "classes",
+    "subjects",
+    "tasks",
+    "issues",
+    "projects",
+    "topics",
+    "files",
+    "notes",
+  ],
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
   const shouldSearch = enabled && trimmedSearch.length >= 2;
 
+  const communicationQuery = useQuery({
+    queryKey: [
+      "entity-search-communication",
+      trimmedSearch,
+      types
+        .filter((type) => type === "emails" || type === "messages")
+        .join(","),
+    ],
+    queryFn: async (): Promise<CommandPaletteEntityResult[]> => {
+      const results = await Promise.all(
+        (["email", "message"] as const)
+          .filter((type) => types.includes(`${type}s`))
+          .map(async (type) => {
+            const response = await fetch(
+              `/api/entity-references?type=${type}&search=${encodeURIComponent(trimmedSearch)}`,
+            );
+            if (!response.ok) throw new Error("Reference search unavailable");
+            return response.json() as Promise<CommandPaletteEntityResult[]>;
+          }),
+      );
+      return results.flat();
+    },
+    enabled:
+      shouldSearch && (types.includes("emails") || types.includes("messages")),
+    staleTime: 30000,
+  });
   const studentsQuery = useQuery({
-    queryKey: ['entity-search-students', trimmedSearch],
+    queryKey: ["entity-search-students", trimmedSearch],
     queryFn: async () => {
       const results = await studentsApi.searchAllStudents(
         trimmedSearch,
         entityTypes.students.limit,
       );
       return results.slice(0, entityTypes.students.limit).map((student) => ({
-        type: 'student' as const,
+        type: "student" as const,
         id: student.id,
         data: student,
       }));
     },
-    enabled: shouldSearch && types.includes('students'),
+    enabled: shouldSearch && types.includes("students"),
     staleTime: 30000,
   });
 
   const staffQuery = useQuery({
-    queryKey: ['entity-search-staff', trimmedSearch],
+    queryKey: ["entity-search-staff", trimmedSearch],
     queryFn: async () => {
       const result = await staffApi.listMinimal({
         search: trimmedSearch,
-        statuses: ['ACTIVE', 'TRIAL'],
+        statuses: ["ACTIVE", "TRIAL"],
         limit: entityTypes.staff.limit,
         offset: 0,
         excludeClassSearch: true,
       });
       return result.staff.map((staff) => ({
-        type: 'staff' as const,
+        type: "staff" as const,
         id: staff.id,
         data: {
           id: staff.id,
@@ -80,36 +118,38 @@ export function useEntitySearch({
         },
       }));
     },
-    enabled: shouldSearch && types.includes('staff'),
+    enabled: shouldSearch && types.includes("staff"),
     staleTime: 30000,
   });
 
   const parentsQuery = useQuery({
-    queryKey: ['entity-search-parents', trimmedSearch],
+    queryKey: ["entity-search-parents", trimmedSearch],
     queryFn: async () => {
       const result = await parentsApi.list({
         search: trimmedSearch,
         limit: entityTypes.parents.limit,
         offset: 0,
       });
-      return result.parents.slice(0, entityTypes.parents.limit).map((parent) => ({
-        type: 'parent' as const,
-        id: parent.id,
-        data: {
+      return result.parents
+        .slice(0, entityTypes.parents.limit)
+        .map((parent) => ({
+          type: "parent" as const,
           id: parent.id,
-          first_name: parent.first_name,
-          last_name: parent.last_name,
-          email: parent.email,
-          phone: parent.phone,
-        },
-      }));
+          data: {
+            id: parent.id,
+            first_name: parent.first_name,
+            last_name: parent.last_name,
+            email: parent.email,
+            phone: parent.phone,
+          },
+        }));
     },
-    enabled: shouldSearch && types.includes('parents'),
+    enabled: shouldSearch && types.includes("parents"),
     staleTime: 30000,
   });
 
   const classesQuery = useQuery({
-    queryKey: ['entity-search-classes', trimmedSearch],
+    queryKey: ["entity-search-classes", trimmedSearch],
     queryFn: async () => {
       const result = await classesApi.listMinimal({
         search: trimmedSearch,
@@ -119,117 +159,131 @@ export function useEntitySearch({
         excludeStaffSearch: true,
       });
       return result.classes.slice(0, entityTypes.classes.limit).map((cls) => ({
-        type: 'class' as const,
+        type: "class" as const,
         id: cls.id,
         data: cls,
       }));
     },
-    enabled: shouldSearch && types.includes('classes'),
+    enabled: shouldSearch && types.includes("classes"),
     staleTime: 30000,
   });
 
   const subjectsQuery = useQuery({
-    queryKey: ['entity-search-subjects', trimmedSearch],
+    queryKey: ["entity-search-subjects", trimmedSearch],
     queryFn: async () => {
       const result = await subjectsApi.list({
         search: trimmedSearch,
         limit: entityTypes.subjects.limit,
         offset: 0,
       });
-      return result.subjects.slice(0, entityTypes.subjects.limit).map((subject) => ({
-        type: 'subject' as const,
-        id: subject.id,
-        data: subject,
-      }));
+      return result.subjects
+        .slice(0, entityTypes.subjects.limit)
+        .map((subject) => ({
+          type: "subject" as const,
+          id: subject.id,
+          data: subject,
+        }));
     },
-    enabled: shouldSearch && types.includes('subjects'),
+    enabled: shouldSearch && types.includes("subjects"),
     staleTime: 30000,
   });
 
   const topicsQuery = useQuery({
-    queryKey: ['entity-search-topics', trimmedSearch],
+    queryKey: ["entity-search-topics", trimmedSearch],
     queryFn: async () => {
       const topics = await topicsApi.searchForCommandPalette(
         trimmedSearch,
         entityTypes.topics.limit,
       );
       return topics.map((topic) => ({
-        type: 'topic' as const,
+        type: "topic" as const,
         id: topic.id,
         data: topic,
       }));
     },
-    enabled: shouldSearch && types.includes('topics'),
+    enabled: shouldSearch && types.includes("topics"),
     staleTime: 30000,
   });
 
   const tasksQuery = useQuery({
-    queryKey: ['entity-search-tasks', trimmedSearch, excludeCompleted],
+    queryKey: ["entity-search-tasks", trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await tasksApi.search(trimmedSearch, entityTypes.tasks.limit, { excludeCompleted });
+      const result = await tasksApi.search(
+        trimmedSearch,
+        entityTypes.tasks.limit,
+        { excludeCompleted },
+      );
       return result.map((task) => ({
-        type: 'task' as const,
+        type: "task" as const,
         id: task.id,
         data: task,
       }));
     },
-    enabled: shouldSearch && types.includes('tasks'),
+    enabled: shouldSearch && types.includes("tasks"),
     staleTime: 30000,
   });
 
   const issuesQuery = useQuery({
-    queryKey: ['entity-search-issues', trimmedSearch, excludeCompleted],
+    queryKey: ["entity-search-issues", trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await issuesApi.search(trimmedSearch, entityTypes.issues.limit, { excludeCompleted });
+      const result = await issuesApi.search(
+        trimmedSearch,
+        entityTypes.issues.limit,
+        { excludeCompleted },
+      );
       return result.map((issue) => ({
-        type: 'issue' as const,
+        type: "issue" as const,
         id: issue.id,
         data: issue,
       }));
     },
-    enabled: shouldSearch && types.includes('issues'),
+    enabled: shouldSearch && types.includes("issues"),
     staleTime: 30000,
   });
 
   const projectsQuery = useQuery({
-    queryKey: ['entity-search-projects', trimmedSearch, excludeCompleted],
+    queryKey: ["entity-search-projects", trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await projectsApi.search(trimmedSearch, entityTypes.projects.limit, { excludeCompleted });
+      const result = await projectsApi.search(
+        trimmedSearch,
+        entityTypes.projects.limit,
+        { excludeCompleted },
+      );
       return result.map((project) => ({
-        type: 'project' as const,
+        type: "project" as const,
         id: project.id,
         data: project,
       }));
     },
-    enabled: shouldSearch && types.includes('projects'),
+    enabled: shouldSearch && types.includes("projects"),
     staleTime: 30000,
   });
 
   const notesQuery = useQuery({
-    queryKey: ['entity-search-notes', trimmedSearch],
+    queryKey: ["entity-search-notes", trimmedSearch],
     queryFn: async () => {
       const result = await notesApi.list({
         search: trimmedSearch,
       });
       return result.slice(0, entityTypes.notes.limit).map((note) => ({
-        type: 'note' as const,
+        type: "note" as const,
         id: note.id,
         data: note,
       }));
     },
-    enabled: shouldSearch && types.includes('notes'),
+    enabled: shouldSearch && types.includes("notes"),
     staleTime: 30000,
   });
 
   const filesQuery = useQuery({
-    queryKey: ['entity-search-files', trimmedSearch],
+    queryKey: ["entity-search-files", trimmedSearch],
     queryFn: async () => {
       const result = await topicsFilesApi.searchForCommandPalette(
         trimmedSearch,
         entityTypes.files.limit,
       );
       return result.files.map((file) => ({
-        type: 'file' as const,
+        type: "file" as const,
         id: file.id,
         data: {
           id: file.id,
@@ -251,11 +305,12 @@ export function useEntitySearch({
         },
       }));
     },
-    enabled: shouldSearch && types.includes('files'),
+    enabled: shouldSearch && types.includes("files"),
     staleTime: 30000,
   });
 
   const allResults: CommandPaletteEntityResult[] = [
+    ...(communicationQuery.data || []),
     ...(studentsQuery.data || []),
     ...(staffQuery.data || []),
     ...(parentsQuery.data || []),
@@ -270,30 +325,34 @@ export function useEntitySearch({
   ];
 
   const isLoading =
-    (shouldSearch && types.includes('students') && studentsQuery.isFetching) ||
-    (shouldSearch && types.includes('staff') && staffQuery.isFetching) ||
-    (shouldSearch && types.includes('parents') && parentsQuery.isFetching) ||
-    (shouldSearch && types.includes('classes') && classesQuery.isFetching) ||
-    (shouldSearch && types.includes('subjects') && subjectsQuery.isFetching) ||
-    (shouldSearch && types.includes('tasks') && tasksQuery.isFetching) ||
-    (shouldSearch && types.includes('issues') && issuesQuery.isFetching) ||
-    (shouldSearch && types.includes('projects') && projectsQuery.isFetching) ||
-    (shouldSearch && types.includes('topics') && topicsQuery.isFetching) ||
-    (shouldSearch && types.includes('files') && filesQuery.isFetching) ||
-    (shouldSearch && types.includes('notes') && notesQuery.isFetching);
+    (shouldSearch &&
+      (types.includes("emails") || types.includes("messages")) &&
+      communicationQuery.isFetching) ||
+    (shouldSearch && types.includes("students") && studentsQuery.isFetching) ||
+    (shouldSearch && types.includes("staff") && staffQuery.isFetching) ||
+    (shouldSearch && types.includes("parents") && parentsQuery.isFetching) ||
+    (shouldSearch && types.includes("classes") && classesQuery.isFetching) ||
+    (shouldSearch && types.includes("subjects") && subjectsQuery.isFetching) ||
+    (shouldSearch && types.includes("tasks") && tasksQuery.isFetching) ||
+    (shouldSearch && types.includes("issues") && issuesQuery.isFetching) ||
+    (shouldSearch && types.includes("projects") && projectsQuery.isFetching) ||
+    (shouldSearch && types.includes("topics") && topicsQuery.isFetching) ||
+    (shouldSearch && types.includes("files") && filesQuery.isFetching) ||
+    (shouldSearch && types.includes("notes") && notesQuery.isFetching);
 
-  const hasError = 
-    (types.includes('students') && studentsQuery.isError) ||
-    (types.includes('staff') && staffQuery.isError) ||
-    (types.includes('parents') && parentsQuery.isError) ||
-    (types.includes('classes') && classesQuery.isError) ||
-    (types.includes('subjects') && subjectsQuery.isError) ||
-    (types.includes('tasks') && tasksQuery.isError) ||
-    (types.includes('issues') && issuesQuery.isError) ||
-    (types.includes('projects') && projectsQuery.isError) ||
-    (types.includes('topics') && topicsQuery.isError) ||
-    (types.includes('files') && filesQuery.isError) ||
-    (types.includes('notes') && notesQuery.isError);
+  const hasError =
+    communicationQuery.isError ||
+    (types.includes("students") && studentsQuery.isError) ||
+    (types.includes("staff") && staffQuery.isError) ||
+    (types.includes("parents") && parentsQuery.isError) ||
+    (types.includes("classes") && classesQuery.isError) ||
+    (types.includes("subjects") && subjectsQuery.isError) ||
+    (types.includes("tasks") && tasksQuery.isError) ||
+    (types.includes("issues") && issuesQuery.isError) ||
+    (types.includes("projects") && projectsQuery.isError) ||
+    (types.includes("topics") && topicsQuery.isError) ||
+    (types.includes("files") && filesQuery.isError) ||
+    (types.includes("notes") && notesQuery.isError);
 
   return {
     results: allResults,

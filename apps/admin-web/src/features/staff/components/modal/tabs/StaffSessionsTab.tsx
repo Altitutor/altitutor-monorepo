@@ -2,9 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { SegmentedControl, useToast } from '@altitutor/ui';
+import { useToast } from '@altitutor/ui';
 import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
-import { StaffSessionsCalendarView } from './StaffSessionsCalendarView';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useUndoStaffAbsences } from '@/features/sessions/hooks/useStaffAbsences';
 import { useRemoveStaffFromSession } from '@/features/sessions/hooks/useSessionsQuery';
@@ -89,31 +88,23 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
 
   return (
     <div className="h-full min-h-0 flex flex-col space-y-4">
-      <div className="flex items-center justify-between">
-        <SegmentedControl
-          value={viewMode}
-          onValueChange={(v) => setViewMode(v as 'table' | 'calendar')}
-          options={[
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <SessionsTable
+          renderMode={viewMode}
+          toolbarView={{
+            value: viewMode,
+            options: [
             { value: 'table', label: 'Table' },
             { value: 'calendar', label: 'Calendar' },
-          ]}
-        />
-      </div>
-
-      {viewMode === 'calendar' && (
-        <div className="flex-1 min-h-0">
-          <StaffSessionsCalendarView
-            staffId={staff.id}
-            onOpenSession={handleOpenSession}
-            classId={undefined}
-          />
-        </div>
-      )}
-
-      {viewMode === 'table' && (
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <SessionsTable
-            staffId={staff.id}
+          ],
+            onChange: (next) => {
+              if (next === "table" || next === 'calendar') setViewMode(next)},
+            onPresetApply: (settings) => {
+              if (settings.layout === 'table' || settings.layout === "calendar")
+                setViewMode(settings.layout);
+            },
+          }}
+          staffId={staff.id}
             onOpenSession={handleOpenSession}
             onOpenStudent={handleOpenStudent}
             skipUrlSync={true}
@@ -123,7 +114,6 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
             onRemoveStaffFromSession={handleRemoveStaffFromSession}
           />
         </div>
-      )}
 
       {undoTarget && currentStaff && (
         <UndoLogAbsenceConfirmDialog
@@ -131,7 +121,7 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
           title="Undo logged absence?"
           description={`Mark ${undoTarget.staffName} as attending ${undoTarget.sessionShortName}?`}
           secondaryDescription={
-            undoTarget.action === 'swap' && undoTarget.swappedStaffName
+            undoTarget.action === "swap" && undoTarget.swappedStaffName
               ? `This will remove replacement staff ${undoTarget.swappedStaffName} from this session.`
               : undefined
           }
@@ -152,24 +142,29 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
               });
               if (!result.success) {
                 toast({
-                  title: 'Error',
-                  description: result.error || 'Failed to undo staff absence',
-                  variant: 'destructive',
+                  title: "Error",
+                  description: result.error || "Failed to undo staff absence",
+                  variant: "destructive",
                 });
                 return;
               }
-              await queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+              await queryClient.invalidateQueries({
+                queryKey: sessionsKeys.all,
+              });
               setUndoTarget(null);
               toast({
-                title: 'Absence undone',
-                description: 'Attendance has been restored for this session.',
+                title: "Absence undone",
+                description: "Attendance has been restored for this session.",
               });
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to undo staff absence';
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to undo staff absence";
               toast({
-                title: 'Error',
+                title: "Error",
                 description: message,
-                variant: 'destructive',
+                variant: "destructive",
               });
             }
           }}
@@ -194,15 +189,18 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
               });
               setRemoveFromSessionTarget(null);
               toast({
-                title: 'Staff removed',
+                title: "Staff removed",
                 description: `${target.entityName} removed from session.`,
               });
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to remove staff';
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to remove staff";
               toast({
-                title: 'Error',
+                title: "Error",
                 description: message,
-                variant: 'destructive',
+                variant: "destructive",
               });
             }
           }}

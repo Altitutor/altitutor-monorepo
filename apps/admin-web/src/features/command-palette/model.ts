@@ -32,10 +32,19 @@ export const paletteEntities = {
 } satisfies Record<string, { label: string; icon: LucideIcon }>;
 
 export type PaletteEntityType = keyof typeof paletteEntities;
+export const recordEntities = {
+  ...paletteEntities,
+  invoice: { label: "Invoices", icon: FileText },
+  adminShift: { label: "Admin shifts", icon: Calendar },
+  tutorLog: { label: "Tutor logs", icon: ClipboardList },
+};
 export type EntityTarget = {
   type: PaletteEntityType;
   id: string;
   title: string;
+};
+export type RecordTarget = Omit<EntityTarget, "type"> & {
+  type: keyof typeof recordEntities;
 };
 export type PaletteEntity = EntityTarget & {
   subtitle?: string;
@@ -62,7 +71,7 @@ export type PaletteCommand = {
   icon: LucideIcon;
   action: () => void;
   keywords?: string[];
-  target?: EntityTarget;
+  target?: RecordTarget;
   parents?: string[];
   disabled?: boolean;
   destructive?: boolean;

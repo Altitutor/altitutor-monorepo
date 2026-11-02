@@ -704,7 +704,7 @@ function KanbanColumn<TItem>({
                   key={String(row.key)}
                   data-index={row.index}
                   ref={row.measureRef}
-                  className={virtualize ? 'absolute left-0 right-0 px-0 pb-2' : 'pb-2'}
+                  className={virtualize ? 'absolute left-2 right-2 pb-2' : 'pb-2'}
                   style={
                     virtualize && row.start != null
                       ? { transform: `translateY(${row.start}px)` }

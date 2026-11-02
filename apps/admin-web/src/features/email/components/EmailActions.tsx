@@ -9,12 +9,15 @@ import {
   Reply,
   ReplyAll,
   Forward,
+  CheckSquare,
 } from "lucide-react";
+import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { SearchableSelect } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { EmailIconButton } from "./EmailIconButton";
+import styles from "./email-action-group.module.css";
 
 // Deliberately session-only; all selectors share the latest successful moves.
 let recentFolders: string[] = [];
@@ -35,7 +38,7 @@ export function EmailActionGroup({
     <div
       role="group"
       aria-label={label}
-      className="inline-flex shrink-0 items-center rounded-full border bg-muted/25 p-0.5 [&_button]:rounded-full [&_button]:border-0 [&_button]:bg-transparent [&_button]:shadow-none"
+      className={`admin-action-group shrink-0 ${styles.group}`}
     >
       {children}
     </div>
@@ -43,6 +46,8 @@ export function EmailActionGroup({
 }
 export function EmailActions({
   ids,
+  messageId,
+  messageLabel,
   threadId,
   read,
   assignedStaffId,
@@ -55,6 +60,8 @@ export function EmailActions({
   hideAssignee = false,
 }: {
   ids: string[];
+  messageId?: string;
+  messageLabel?: string;
   threadId: string;
   read: boolean;
   assignedStaffId: string | null;
@@ -67,6 +74,8 @@ export function EmailActions({
   compact?: boolean;
   hideAssignee?: boolean;
 }) {
+  const quickActions = useQuickActions();
+  const taskMessageId = messageId ?? ids[0];
   const command = useEmailCommand();
   const scope = useAccessoryTab();
   const root = useRef<HTMLDivElement>(null);
@@ -211,6 +220,20 @@ export function EmailActions({
       onClick={(event) => event.stopPropagation()}
     >
       <EmailActionGroup label="Email actions">
+        {taskMessageId && (
+          <EmailIconButton
+            label="Create task"
+            onClick={() =>
+              quickActions.openCreateTaskDialog({
+                type: "email",
+                id: taskMessageId,
+                label: messageLabel || "Email",
+              })
+            }
+          >
+            <CheckSquare className="h-4 w-4" />
+          </EmailIconButton>
+        )}
         {level === "message" && onReply && (
           <EmailIconButton
             label="Reply"
