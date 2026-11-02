@@ -19,7 +19,10 @@ function json(body: unknown, status = 200) {
 
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  return origin !== null && origin === request.nextUrl.origin;
+  // Next's dev server normalizes nextUrl to localhost even for LAN requests.
+  // The browser's Host retains the actual destination, including its port.
+  const host = request.headers.get("host") ?? request.nextUrl.host;
+  return origin !== null && origin === `${request.nextUrl.protocol}//${host}`;
 }
 
 function config() {
