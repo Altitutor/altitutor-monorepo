@@ -266,14 +266,18 @@ def run(repository, apps, skip_install):
                 with ExitStack() as files:
                     for app, port in app_ports.items():
                         output = files.enter_context((temporary / (app + '.log')).open('w'))
+                        # Each owned stack has fresh inlined public URLs; discard older Metro transforms.
                         command = (['pnpm', '--dir', 'apps/' + app, 'exec', 'next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', str(port)]
                                    if app in WEB_APPS else
-                                   ['pnpm', '--dir', 'apps/' + app, 'exec', 'expo', 'start', '--go', '--localhost', '--port', str(port)])
+                                   ['pnpm', '--dir', 'apps/' + app, 'exec', 'expo', 'start', '--go', '--clear', '--localhost', '--port', str(port)])
                         app_env = dict(environment, PORT=str(port),
                                        NEXT_DIST_DIR='.next-isolated',
                                        NEXT_PUBLIC_AUTH_COOKIE_NAME=project + '-' + app,
                                        NEXT_PUBLIC_APP_ORIGIN=data['apps'][app],
                                        NEXT_PUBLIC_SITE_URL=data['apps'][app], NEXT_PUBLIC_APP_URL=data['apps'][app])
+                        if app in NATIVE_APPS:
+                            # Metro's localhost listener must match our IPv4 port leases/URLs.
+                            app_env['NODE_OPTIONS'] = '--dns-result-order=ipv4first'
                         child = subprocess.Popen(command, cwd=repository, env=app_env,
                                                  stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
                         children.append(child)
