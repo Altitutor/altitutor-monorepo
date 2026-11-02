@@ -3,12 +3,17 @@ import { resolveServerUrl } from "@/lib/development-server-url";
 import { createApiClient } from "./api-client";
 export { ApiError } from "./api-client";
 
-export function webUrl(path: string): string {
+/** Browser redirects and cookies must keep the configured web origin. */
+export function browserWebUrl(path: string): string {
   const origin = process.env.EXPO_PUBLIC_UCAT_WEB_URL;
   if (!origin) throw new Error("The UCAT server is not configured.");
   if (!path.startsWith("/") || path.startsWith("//"))
     throw new Error("Invalid UCAT path.");
-  return new URL(path, resolveServerUrl(origin)).toString();
+  return new URL(path, origin).toString();
+}
+
+export function webUrl(path: string): string {
+  return resolveServerUrl(browserWebUrl(path));
 }
 
 export const api = createApiClient(supabase.auth, webUrl);

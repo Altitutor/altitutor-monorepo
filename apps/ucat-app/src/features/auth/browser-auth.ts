@@ -2,7 +2,7 @@ import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import { openAuthSessionAsync } from "expo-web-browser";
-import { webUrl } from "@/lib/api";
+import { browserWebUrl, webUrl } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
   createAuthReturnHandler,
@@ -85,11 +85,11 @@ export async function signInWithBrowser(mode: "login" | "signup") {
     );
     const callback = Linking.createURL("auth-return");
     await store.write({ verifier, state, callback, createdAt: Date.now() });
-    const handoff = new URL(webUrl("/mobile-auth"));
+    const handoff = new URL(browserWebUrl("/mobile-auth"));
     handoff.searchParams.set("challenge", challenge);
     handoff.searchParams.set("state", state);
     handoff.searchParams.set("callback", callback);
-    const url = mode === "login" ? handoff : new URL(webUrl("/signup"));
+    const url = mode === "login" ? handoff : new URL(browserWebUrl("/signup"));
     if (mode === "signup")
       url.searchParams.set("redirect", handoff.pathname + handoff.search);
     const result = await openAuthSessionAsync(url.toString(), callback);

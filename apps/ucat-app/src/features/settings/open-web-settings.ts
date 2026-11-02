@@ -1,6 +1,6 @@
 import { Alert } from "react-native";
 import { openBrowserAsync } from "expo-web-browser";
-import { webUrl } from "@/lib/api";
+import { browserWebUrl, webUrl } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
 const allowedPaths = new Set([
@@ -36,7 +36,7 @@ export async function openWebSettings(path: string) {
     )
       throw new Error("Unable to open your account. Please try again.");
     await openBrowserAsync(
-      `${webUrl("/mobile-browser")}#ticket=${encodeURIComponent(body.ticket)}`,
+      `${browserWebUrl("/mobile-browser")}#ticket=${encodeURIComponent(body.ticket)}`,
     );
   } catch (error) {
     Alert.alert(
