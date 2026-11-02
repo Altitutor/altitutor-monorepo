@@ -35,6 +35,66 @@
       "cache": false,
       "persistent": true
     },
+    "@altitutor/student-app#dev": {
+      "dependsOn": ["^build"],
+      "with": ["student-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/student-app#start": {
+      "dependsOn": ["^build"],
+      "with": ["student-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/student-app#native:dev": {
+      "dependsOn": ["^build"],
+      "with": ["student-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/student-app#native:ios": {
+      "dependsOn": ["^build"],
+      "with": ["student-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/student-app#native:android": {
+      "dependsOn": ["^build"],
+      "with": ["student-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-app#dev": {
+      "dependsOn": ["^build"],
+      "with": ["ucat-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-app#start": {
+      "dependsOn": ["^build"],
+      "with": ["ucat-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-app#native:dev": {
+      "dependsOn": ["^build"],
+      "with": ["ucat-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-app#native:ios": {
+      "dependsOn": ["^build"],
+      "with": ["ucat-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/ucat-app#native:android": {
+      "dependsOn": ["^build"],
+      "with": ["ucat-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
     "@altitutor/ucat-percentiles#dev": {
       "dependsOn": ["build"],
       "cache": false,

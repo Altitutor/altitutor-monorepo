@@ -1,12 +1,6 @@
 "use client";
 import {
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,7 +20,7 @@ export type MeetingPerson = {
   receiver?: boolean;
   locked?: boolean;
 };
-export function MeetingPeopleTable({
+export function MeetingPeopleList({
   title,
   people,
   addControl,
@@ -49,29 +43,28 @@ export function MeetingPeopleTable({
         </h3>
         {addControl}
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            {onRoleChange && <TableHead>Role</TableHead>}
-            <TableHead className="w-12">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      {people.length ? (
+        <ul aria-label={title} className="space-y-0.5">
           {people.map((person) => (
-            <TableRow key={person.id}>
-              <TableCell>{person.label}</TableCell>
+            <li
+              key={person.id}
+              className="flex min-w-0 items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/60"
+            >
+              <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                {person.label}
+              </span>
               {onRoleChange && (
-                <TableCell>
+                <div className="w-44 shrink-0">
                   <Select
                     value={person.receiver ? "receiver" : "host"}
                     onValueChange={(value) =>
                       onRoleChange(person.id, value === "receiver")
                     }
                   >
-                    <SelectTrigger aria-label={`Role for ${person.label}`}>
+                    <SelectTrigger
+                      className="h-8"
+                      aria-label={`Role for ${person.label}`}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -79,9 +72,9 @@ export function MeetingPeopleTable({
                       <SelectItem value="receiver">{receiverLabel}</SelectItem>
                     </SelectContent>
                   </Select>
-                </TableCell>
+                </div>
               )}
-              <TableCell>
+              <div className="flex w-8 shrink-0 justify-end">
                 {!person.locked && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -101,21 +94,15 @@ export function MeetingPeopleTable({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-              </TableCell>
-            </TableRow>
+              </div>
+            </li>
           ))}
-          {!people.length && (
-            <TableRow>
-              <TableCell
-                colSpan={onRoleChange ? 3 : 2}
-                className="text-muted-foreground"
-              >
-                No people added
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+        </ul>
+      ) : (
+        <p className="px-2 py-2 text-sm text-muted-foreground">
+          No people added
+        </p>
+      )}
     </section>
   );
 }

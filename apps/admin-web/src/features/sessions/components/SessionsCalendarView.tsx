@@ -13,6 +13,7 @@ import { SessionsCard } from './SessionsCard';
 import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button } from "@altitutor/ui";
+import { utcToAdelaideDate } from '@/features/bookings/utils/dateTimeHelpers';
 
 type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
@@ -23,6 +24,12 @@ type Props = {
   onOpenSession?: (id: string) => void;
   initialDate?: string;
   initialViewMode?: 'day' | 'week';
+  preview?: {
+    startAt: string;
+    endAt: string;
+    title: string;
+    description?: string;
+  };
 };
 
 function parseDateParam(value?: string): Date | null {
@@ -31,7 +38,7 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange }: Props) {
+export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange, preview }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
@@ -66,10 +73,25 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
   useEffect(() => onRangeChange?.(from,to),[from,to,onRangeChange]);
   const showProperty = (key:string) => !visibleProperties || visibleProperties.includes(key);
 
+  const days = useMemo(() => {
+    if (viewMode === 'day') return [anchor];
+    const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [anchor, viewMode]);
+  const previewStartDay = preview ? utcToAdelaideDate(preview.startAt) : '';
+  const previewEndDay = preview ? utcToAdelaideDate(preview.endAt) : '';
+  const previewSegments = new Map(days.flatMap((day) => {
+    const key = format(day, 'yyyy-MM-dd');
+    if (!preview || key < previewStartDay || key > previewEndDay) return [];
+    const startMinutes = key === previewStartDay ? adelaideTimeToMinutes(preview.startAt) : 0;
+    const endMinutes = key === previewEndDay ? adelaideTimeToMinutes(preview.endAt) : 1440;
+    return endMinutes > startMinutes ? [[key, { startMinutes, endMinutes }] as const] : [];
+  }));
+
   // Time grid similar to classes timetable
   const calendarSessions = data?.sessions ?? [];
-  const startMinutes = calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []);
-  const endMinutes = calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []);
+  const startMinutes = [...calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []), ...Array.from(previewSegments.values(), segment => segment.startMinutes)];
+  const endMinutes = [...calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []), ...Array.from(previewSegments.values(), segment => segment.endMinutes)];
   const firstHour = expandToSessions ? Math.floor(Math.min(9 * 60, ...startMinutes) / 60) : 9;
   const lastHour = expandToSessions ? Math.min(24, Math.ceil(Math.max(21 * 60, ...endMinutes) / 60)) : 21;
   const slots = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
@@ -80,15 +102,6 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
       .filter((s: Tables<'sessions'>) => s.start_at && isSameDay(new Date(s.start_at), d));
     return sessions as Tables<'sessions'>[];
   };
-
-  // Calculate days to display based on view mode
-  const days = useMemo(() => {
-    if (viewMode === 'day') {
-      return [anchor];
-    }
-    const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [anchor, viewMode]);
 
   // Helpers to compute block positions
   // Use Adelaide timezone for consistent calculations
@@ -195,6 +208,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                         const adminShiftSessions = deduped.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
                         const regularSessions = deduped.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
                         const dayRounds = roundEvents.filter((round) => isSameDay(new Date(round.scheduledAt), d));
+                        const dayPreview = previewSegments.get(format(d, 'yyyy-MM-dd'));
                         const dayPlacements = new Map(
                           layoutCalendarColumns([
                             ...regularSessions.flatMap((session) => session.start_at && session.end_at ? [{
@@ -207,6 +221,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                               startMinutes: adelaideTimeToMinutes(round.scheduledAt),
                               endMinutes: adelaideTimeToMinutes(round.endAt),
                             })),
+                            ...(dayPreview ? [{ id: 'meeting-preview', ...dayPreview }] : []),
                           ]).map((placement) => [placement.id, placement]),
                         );
 
@@ -255,6 +270,32 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                         });
 
                         const blocks: React.JSX.Element[] = [];
+
+                        if (preview && dayPreview) {
+                          const placement = dayPlacements.get('meeting-preview');
+                          const width = 95 / (placement?.columnCount ?? 1);
+                          const timeLabel = (value: string) => new Intl.DateTimeFormat('en-AU', {
+                            timeZone: 'Australia/Adelaide', hour: 'numeric', minute: '2-digit', hour12: true,
+                          }).format(new Date(value));
+                          blocks.push(
+                            <div
+                              key="meeting-preview"
+                              role="note"
+                              aria-label={`Preview: ${preview.title}`}
+                              className="absolute z-10 overflow-hidden rounded-md border-2 border-dashed border-primary bg-background p-2 text-xs shadow-sm"
+                              style={{
+                                top: `${((dayPreview.startMinutes - firstHour * 60) / 60) * slotHeight}px`,
+                                height: `${Math.max(45, ((dayPreview.endMinutes - dayPreview.startMinutes) / 60) * slotHeight)}px`,
+                                left: `${(placement?.column ?? 0) * width + 2.5}%`,
+                                width: `${width}%`,
+                              }}
+                            >
+                              <p className="truncate font-semibold">Preview: {preview.title}</p>
+                              <p>{timeLabel(preview.startAt)} – {timeLabel(preview.endAt)}</p>
+                              {preview.description && <p className="truncate">{preview.description}</p>}
+                            </div>,
+                          );
+                        }
 
                         // Render ADMIN_SHIFT sessions FIRST (behind) with lower z-index
                         adminShiftGroups.forEach((group) => {

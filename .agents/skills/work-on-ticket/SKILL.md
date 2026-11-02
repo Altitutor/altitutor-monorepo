@@ -11,9 +11,10 @@ for example `$work-on-ticket DEV-123 DEV-124`.
 
 Invocation authorizes work on those tickets: local worktree/branch creation,
 owned local database fixtures, commits, pushes, PR publication, Linear updates,
-and a `develop` merge after the gates below. It authorizes following the routed
-skills, including user-invoked `grill-with-docs` and `implement`. This is a manual
-workflow; keep it separate from Symphony enrollment and unattended pickup.
+ticket-owned cleanup, and a `develop` merge after the gates below. It authorizes
+following the routed skills, including user-invoked `grill-with-docs` and
+`implement`. This is a manual workflow; keep it separate from Symphony
+enrollment and unattended pickup.
 
 On resume, reread the tickets and continue the recorded checkout/checkpoint;
 retain its lease and restart an expired preview rather than acquiring a new one.
@@ -100,8 +101,16 @@ merging the selected PR into `develop`. Use `gh-axi` for GitHub operations and
 `chrome-devtools-axi` for real-browser verification, reading their installed
 skills and current CLI help when first used.
 
-**Done:** the exact reviewed head is merged, merge SHA and acceptance/check
-evidence are in Linear, tickets reflect develop delivery (`In QA`), and owned
-preview resources are stopped before returning the worktree lease. Report the
-PR, result and any remaining QA. Main inclusion and production release remain
-separate events.
+**Ready:** the exact reviewed head is merged, merge SHA and acceptance/check
+evidence are in Linear, and tickets reflect develop delivery (`In QA`). Main
+inclusion and production release remain separate events.
+
+## 7. Clean up and report
+
+Follow [Cleanup](references/delivery.md#cleanup) before the final delivery report,
+or when resuming this task's incomplete cleanup.
+
+**Done:** every recorded resource has a verified cleanup result or an explicit
+retention reason and next action in Linear. Report the PR, delivery result,
+remaining QA and cleanup outcome; identify any retained resources as cleanup
+pending.

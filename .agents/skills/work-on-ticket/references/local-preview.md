@@ -4,19 +4,29 @@
 
 Inspect the current repository and worktrees; preserve existing changes and
 claims. Fetch `origin/develop`. Read `treehouse get --help` for the installed
-version. For an agent, use a durable noninteractive lease, not a subshell whose
-exit would return the worktree:
+version. Reuse the repository's existing durable pool. If access or isolation
+requires another pool, choose a permitted durable location and record its root
+and reason in Linear. Keep source checkouts outside OS temporary directories;
+resume an existing checkout in place rather than moving it or replacing its
+lease. Use a durable noninteractive lease with this chat's identity:
 
 ```sh
-treehouse get --lease --json --base origin/develop -b codex/dev-123-short-topic
+treehouse get --lease --json --base develop -b codex/dev-123-short-topic --lease-holder "<chat-id>:DEV-123"
 ```
 
 For a coherent group, include each ID in the branch, for example
-`codex/dev-123-dev-124-short-topic`. Parse the returned checkout path/lease and
-record it in Linear. Verify its top level, checked-out branch and base SHA before
+`codex/dev-123-dev-124-short-topic`. Record the pool root, checkout path, branch,
+lease ID and holder in the Linear workpad. Verify its top level, checked-out
+branch and base SHA against freshly fetched `origin/develop` before
 editing. Run all further tools with that working directory: a `cd` in one shell
 call does not move later tool calls. If Treehouse is unavailable, create an
 ordinary local Git worktree on that base and record its lifecycle instead.
+
+As resources are created, extend that workpad with their ownership references:
+runtime/control/log paths, tracked process sessions, agent-owned browser
+sessions/profiles, and temporary artifact directories. Use the existing runtime
+manifests as proof; keep credentials out of the workpad. Group ad-hoc artifacts
+in one task-owned directory and record test-generated directories separately.
 
 Read `docs/agents/worktree-development.md` **in the new checkout**, check that
 `dev:isolated` exists in its `package.json`, and follow that guide. If absent,
@@ -66,6 +76,6 @@ source changes, follow the guide's snapshot restart procedure.
 
 Keep the server/DB running while the user is reviewing when the harness supports
 it. Verify the supervisor again on resume and recreate the fixture/preview if it
-expired. Stop owned apps/DB with the documented `dev:isolated stop` command before
-`treehouse return` (or ordinary Git worktree removal). Preserve logs and commits
-for unresolved failures; use the owned recovery procedure after interruption.
+expired. Awaiting Input retains the checkout, lease and review evidence. After
+interruption, reconcile the recorded resources and use the environment guide's
+owned recovery procedure. On completion, follow [Cleanup](delivery.md#cleanup).
