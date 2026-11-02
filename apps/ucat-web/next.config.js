@@ -16,6 +16,10 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
   reactStrictMode: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Owned Android previews reach this loopback server through the emulator alias.
+  allowedDevOrigins: process.env.ALTITUTOR_WORKTREE_DEV_MANIFEST
+    ? ["10.0.2.2"]
+    : undefined,
   transpilePackages: ["@altitutor/email"],
   images: {
     remotePatterns: [
