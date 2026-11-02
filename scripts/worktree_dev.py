@@ -274,6 +274,9 @@ def run(repository, apps, skip_install):
                                        NEXT_PUBLIC_AUTH_COOKIE_NAME=project + '-' + app,
                                        NEXT_PUBLIC_APP_ORIGIN=data['apps'][app],
                                        NEXT_PUBLIC_SITE_URL=data['apps'][app], NEXT_PUBLIC_APP_URL=data['apps'][app])
+                        if app in NATIVE_APPS:
+                            # Metro's localhost listener must match our IPv4 port leases/URLs.
+                            app_env['NODE_OPTIONS'] = '--dns-result-order=ipv4first'
                         child = subprocess.Popen(command, cwd=repository, env=app_env,
                                                  stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
                         children.append(child)
