@@ -44,6 +44,9 @@ export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
     queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
     queryFn: () => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined),
     enabled: topicIds === undefined || (topicIds !== null && topicIds.length > 0),
+    // A cached snapshot can contain revisions already answered in another session.
+    staleTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   });
   useEffect(() => {
