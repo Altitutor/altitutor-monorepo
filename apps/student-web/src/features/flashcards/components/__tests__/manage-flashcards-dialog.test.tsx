@@ -144,22 +144,23 @@ it('pages complete flashcard groups and applies fixed subject views across all p
   }));
   fetchMock.mockImplementation(async (url) => String(url).includes('/history') ? json([]) : json(cards));
   render(<ManageFlashcardsDialog open onOpenChange={() => undefined} />);
-  expect(await screen.findByRole('button', { name: 'All flashcards' })).toHaveAttribute('aria-pressed', 'true');
-  await screen.findByRole('row', { name: /Question 0/ });
-  expect(screen.getAllByRole('row')).toHaveLength(21); // Header + 20 flashcard groups.
-  expect(screen.queryByRole('row', { name: /Question 20/ })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-  expect(await screen.findByRole('row', { name: /Question 20/ })).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'BIO' }));
-  expect(await screen.findByRole('row', { name: /Question 0/ })).toBeVisible();
-  expect(screen.queryByRole('row', { name: /Question 20/ })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'CHEM' }));
-  expect(await screen.findByRole('row', { name: /Question 20/ })).toBeVisible();
-  expect(screen.getAllByRole('row')).toHaveLength(2);
-  fireEvent.click(screen.getByRole('button', { name: 'PHY' }));
-  expect(screen.getByText('No flashcards match these filters.')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'All flashcards' }));
-  expect(await screen.findByRole('row', { name: /Question 0/ })).toBeVisible();
+  const list = within(screen.getByRole('region', { name: 'Flashcard list' }));
+  expect(await list.findByRole('button', { name: 'All flashcards' })).toHaveAttribute('aria-pressed', 'true');
+  await list.findByText('Question 0');
+  expect(list.getAllByRole('row')).toHaveLength(21); // Header + 20 flashcard groups.
+  expect(list.queryByText('Question 20')).not.toBeInTheDocument();
+  fireEvent.click(list.getByRole('button', { name: 'Next page' }));
+  expect(await list.findByText('Question 20')).toBeVisible();
+  fireEvent.click(list.getByRole('button', { name: 'BIO' }));
+  expect(await list.findByText('Question 0')).toBeVisible();
+  expect(list.queryByText('Question 20')).not.toBeInTheDocument();
+  fireEvent.click(list.getByRole('button', { name: 'CHEM' }));
+  expect(await list.findByText('Question 20')).toBeVisible();
+  expect(list.getAllByRole('row')).toHaveLength(2);
+  fireEvent.click(list.getByRole('button', { name: 'PHY' }));
+  expect(list.getByText('No flashcards match these filters.')).toBeVisible();
+  fireEvent.click(list.getByRole('button', { name: 'All flashcards' }));
+  expect(await list.findByText('Question 0')).toBeVisible();
   expect(screen.queryByRole('button', { name: /edit view|save view|add view/i })).not.toBeInTheDocument();
 });
 
