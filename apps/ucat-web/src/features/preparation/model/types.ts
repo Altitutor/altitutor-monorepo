@@ -66,6 +66,8 @@ export type PreparationEngineInput = {
   timingProfile: PreparationTimingProfile;
   goal: {
     planningDate: string;
+    preservePlanThrough?: string | null;
+    preservedGeneralLessonIds?: string[];
     profile: StudyPlanProfileInput;
   };
   content: {

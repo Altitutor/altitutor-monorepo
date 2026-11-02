@@ -57,6 +57,8 @@ import {
 
 type GenerateStudyPlanInput = {
   today: string;
+  preserveThrough?: string | null;
+  preservedGeneralLessonIds?: string[];
   planningDate: string;
   profile: StudyPlanProfileInput;
   sections: StudyPlanSection[];
@@ -805,7 +807,11 @@ export function generateStudyPlan(
     input.planningDate < input.today ? input.today : input.planningDate;
   const horizonEnd = addDays(input.today, STUDY_PLAN_DETAILED_HORIZON_DAYS - 1);
   const endsOn = examEnd < horizonEnd ? examEnd : horizonEnd;
-  const dates = selectedDates(input.today, endsOn, input.profile);
+  // Allocate only replaceable days, so one-off lessons and section rotation
+  // are not consumed by work that persistence must discard.
+  const dates = selectedDates(input.today, endsOn, input.profile).filter(
+    (date) => !input.preserveThrough || date > input.preserveThrough,
+  );
   const readiness = input.readiness ?? buildReadinessSnapshot(input);
   const sectionTargets =
     input.sectionTargets ??
@@ -839,9 +845,16 @@ export function generateStudyPlan(
       sjtPreference: input.profile.sjtPreference,
       lastCompletedMockDate: input.lastCompletedMockDate,
     });
+  const preservedGeneralLessonIds = new Set(input.preservedGeneralLessonIds);
   const plannedActivities = selectActivityCandidates(rankedActivities, {
     experience: "plan",
-  });
+  }).filter(
+    (activity) =>
+      activity.kind !== "instruction" ||
+      activity.sectionId != null ||
+      !activity.learningModuleId ||
+      !preservedGeneralLessonIds.has(activity.learningModuleId),
+  );
   const sectionById = new Map(
     input.sections.map((section) => [section.id, section]),
   );

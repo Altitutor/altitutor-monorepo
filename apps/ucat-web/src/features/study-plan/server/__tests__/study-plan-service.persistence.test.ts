@@ -641,6 +641,7 @@ describe("Study plan persistence orchestration", () => {
 
     expect(prepareStudent).toHaveBeenCalledWith(
       expect.objectContaining({
+        goal: expect.objectContaining({ preservePlanThrough: "2026-08-11" }),
         evidence: expect.objectContaining({ completedMockCount: 1 }),
       }),
     );

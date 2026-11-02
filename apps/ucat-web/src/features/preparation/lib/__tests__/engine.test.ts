@@ -1,3 +1,4 @@
+import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
 import {
   CURRENT_PREPARATION_VERSIONS,
   prepareStudent,
@@ -494,6 +495,77 @@ describe("prepareStudent", () => {
       ).toBe(0);
     },
   );
+
+  it.each([
+    ["available current day", "2026-01-05", "2026-01-07"],
+    ["unavailable current day", "2026-01-06", "2026-01-07"],
+    ["onboarding", null, "2026-01-05"],
+  ])(
+    "keeps beginner orientation in the saved horizon for %s",
+    (_case, preserveThrough, expectedDate) => {
+      const fixture = input();
+      if (preserveThrough === "2026-01-06") {
+        fixture.clock = {
+          now: "2026-01-06T00:00:00.000Z",
+          today: "2026-01-06",
+        };
+      }
+      fixture.goal.preservePlanThrough = preserveThrough;
+      fixture.content.learningModules.push({
+        id: "general-intro",
+        title: "General introduction",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        journeyPlacement: "orientation",
+        estimatedMinutes: 18,
+        completionPercent: 0,
+        relevanceScore: 1,
+      });
+      const result = prepareStudent(fixture);
+      const persisted = prepareStudyPlanTasks(
+        result.plan.tasks,
+        preserveThrough,
+        () => "task-id",
+      );
+      expect(
+        persisted.filter((task) => task.learningModuleId === "general-intro"),
+      ).toEqual([
+        expect.objectContaining({
+          scheduledDate: expectedDate,
+          taskType: "learn",
+          sectionId: null,
+        }),
+      ]);
+    },
+  );
+
+  it("does not prescribe a general lesson again when its existing task is preserved", () => {
+    const fixture = input();
+    fixture.goal = {
+      ...fixture.goal,
+      preservePlanThrough: fixture.clock.today,
+      ...{ preservedGeneralLessonIds: ["general-intro"] },
+    };
+    fixture.content.learningModules.push({
+      id: "general-intro",
+      title: "General introduction",
+      sectionId: null,
+      sectionNumber: null,
+      priority: "essential",
+      journeyPlacement: "orientation",
+      estimatedMinutes: 18,
+      completionPercent: 0,
+      relevanceScore: 1,
+    });
+    const result = prepareStudent(fixture);
+    expect(
+      result.plan.tasks.some(
+        (task) => task.learningModuleId === "general-intro",
+      ),
+    ).toBe(false);
+    expect(fixture.content.learningModules.at(-1)?.completionPercent).toBe(0);
+  });
 
   it("schedules beginner orientation first in the calendar and rolling guidance without section practice", () => {
     const fixture = input();

@@ -305,6 +305,8 @@ export function prepareStudent(
   });
   const plan = generateStudyPlan({
     today: input.clock.today,
+    preserveThrough: input.goal.preservePlanThrough,
+    preservedGeneralLessonIds: input.goal.preservedGeneralLessonIds,
     planningDate: input.goal.planningDate,
     profile: input.goal.profile,
     sections: input.content.sections,
