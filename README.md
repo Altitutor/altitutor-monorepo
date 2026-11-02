@@ -86,9 +86,9 @@ pnpm dev-web
 pnpm dev --filter=admin-web
 ```
 
-The root dev commands above build shared-package prerequisites automatically.
-Direct app entrypoints bypass that step; build the packages first in a fresh
-checkout:
+The root dev commands and paired native app commands build workspace-package
+prerequisites automatically. Direct web app entrypoints bypass that step; build
+the packages first in a fresh checkout:
 
 ```bash
 pnpm build --filter='./packages/*'
@@ -98,9 +98,18 @@ pnpm --filter student-web dev
 pnpm --filter tutor-web dev
 pnpm --filter marketing-web dev
 pnpm --filter ucat-web dev
+pnpm dev --filter=@altitutor/student-app
 pnpm --filter @altitutor/student-app dev
+pnpm dev --filter=@altitutor/ucat-app
 pnpm --filter @altitutor/ucat-app dev
+pnpm --filter @altitutor/student-app ios
+pnpm --filter @altitutor/ucat-app ios
 ```
+
+Root filtered and package `dev`/`start` commands, plus package `ios`/`android`,
+start the matching web sign-in server as a paired Turbo task: `student-app` with
+`student-web`, and `ucat-app` with `ucat-web`. Use the scoped package names shown
+above in root Turbo filters.
 
 Existing-environment web defaults are Admin3000, Student3001, Tutor3002,
 Marketing3003 and UCAT3004. External provider features need their relevant local

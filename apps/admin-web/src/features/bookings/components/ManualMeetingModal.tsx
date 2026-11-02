@@ -39,7 +39,7 @@ import {
   type ManualMeetingInput,
 } from "../api/admin-meetings";
 import { getMeetingFamilySuggestions } from "../api/meeting-family";
-import { MeetingPeopleTable, type MeetingPerson } from "./MeetingPeopleTable";
+import { MeetingPeopleList, type MeetingPerson } from "./MeetingPeopleList";
 import {
   BookingNotifyMessageScreen,
   type NotifyRecipient,
@@ -74,6 +74,27 @@ const pick = (person: {
 }): MeetingPerson => ({ id: person.id, label: personName(person) });
 const append = (people: MeetingPerson[], person: MeetingPerson) =>
   people.some((row) => row.id === person.id) ? people : [...people, person];
+const formatMeetingStart = (value: string) => {
+  const date = new Date(value);
+  const time = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Adelaide",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(date)
+    .replace(/\s/g, "")
+    .toLowerCase();
+  const day = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Australia/Adelaide",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  })
+    .format(date)
+    .replace(",", "");
+  return `${time}, ${day}`;
+};
 
 export function ManualMeetingModal(props: ManualMeetingModalProps) {
   const {
@@ -85,6 +106,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     originalSessionId,
     originalSubjectId,
   } = props;
+  const includesFamily = sessionType !== "STAFF_INTERVIEW";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
@@ -137,7 +159,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     setStudents((initialPrefill?.students ?? []).map(pick));
     setParents((initialPrefill?.parents ?? []).map(pick));
     setStaff((initialPrefill?.staff ?? []).map(pick));
-    setAddStudentOpen(Boolean(props.initialCreateStudent));
+    setAddStudentOpen(includesFamily && Boolean(props.initialCreateStudent));
     setAddStaffOpen(Boolean(props.initialStaffPhone));
   }, [
     isOpen,
@@ -145,6 +167,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     defaultDuration,
     props.initialCreateStudent,
     props.initialStaffPhone,
+    includesFamily,
   ]);
   useEffect(() => {
     if (
@@ -208,19 +231,19 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
   const initialStudent = useQuery({
     queryKey: ["students", initialStudentId],
     queryFn: () => studentsApi.getStudent(initialStudentId!),
-    enabled: isOpen && !!initialStudentId,
+    enabled: isOpen && includesFamily && !!initialStudentId,
   });
   useEffect(() => {
-    if (isOpen && initialStudent.data)
+    if (isOpen && includesFamily && initialStudent.data)
       setStudents((rows) => append(rows, pick(initialStudent.data!)));
-  }, [isOpen, initialStudent.data]);
-  const studentIds = students.map((row) => row.id);
-  const parentIds = parents.map((row) => row.id);
+  }, [isOpen, includesFamily, initialStudent.data]);
+  const studentIds = includesFamily ? students.map((row) => row.id) : [];
+  const parentIds = includesFamily ? parents.map((row) => row.id) : [];
   const staffIds = staff.map((row) => row.id);
   const family = useQuery({
     queryKey: ["meeting-family", studentIds, parentIds],
     queryFn: () => getMeetingFamilySuggestions(studentIds, parentIds),
-    enabled: isOpen && !createdId,
+    enabled: isOpen && includesFamily && !createdId,
   });
   let input: ManualMeetingInput | null = null;
   try {
@@ -255,15 +278,21 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
   const title = formatSessionType(sessionType);
   const recipients: NotifyRecipient[] = useMemo(
     () => [
-      ...students.map((row) => ({ ...row, type: "student" as const })),
-      ...(family.data?.parents ?? []).map((row) => ({
+      ...(includesFamily ? students : []).map((row) => ({
+        ...row,
+        type: "student" as const,
+      })),
+      ...(includesFamily ? (family.data?.parents ?? []) : []).map((row) => ({
         ...pick(row),
         type: "parent" as const,
       })),
-      ...parents.map((row) => ({ ...row, type: "parent" as const })),
+      ...(includesFamily ? parents : []).map((row) => ({
+        ...row,
+        type: "parent" as const,
+      })),
       ...staff.map((row) => ({ ...row, type: "staff" as const })),
     ],
-    [students, parents, staff, family.data?.parents],
+    [students, parents, staff, family.data?.parents, includesFamily],
   );
   const originalReady =
     !originalSessionId ||
@@ -310,6 +339,34 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
       }
     />
   );
+  const availabilityNotice = warnings.isError ? (
+    <p role="status" className="rounded-md border border-amber-300 p-3 text-sm">
+      Availability could not be checked. You can still proceed.
+    </p>
+  ) : warnings.isPending ? (
+    <p role="status" className="text-sm text-muted-foreground">
+      Checking staff availability…
+    </p>
+  ) : warnings.data?.length ? (
+    <div
+      role="status"
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+    >
+      <p className="flex items-center gap-2 font-medium">
+        <AlertTriangle className="h-4 w-4" />
+        Staff may be unavailable. You can still proceed.
+      </p>
+      <ul className="mt-2 list-disc pl-5">
+        {warnings.data.map((warning, index) => (
+          <li key={index}>
+            {staff.find((row) => row.id === warning.staff_id)?.label ??
+              "Staff member"}
+            : {warning.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
   return (
     <>
       <AdminDialogShell
@@ -394,54 +451,58 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                 )}
               </p>
             )}
-            {originalSessionId && (
+            {originalSessionId && includesFamily && (
               <p className="text-sm text-muted-foreground">
                 Remove existing students through Log absence on the session,
                 where you can choose their billing treatment.
               </p>
             )}
-            <MeetingPeopleTable
-              title="Students"
-              people={students}
-              onRemove={(id) =>
-                setStudents((rows) => rows.filter((row) => row.id !== id))
-              }
-              addControl={
-                <MeetingEntitySearchAdd
-                  includeInactive
-                  kind="student"
-                  placeholder="Search students…"
-                  existingIds={studentIds}
-                  onPick={async (row) =>
-                    setStudents((rows) => append(rows, pick(row)))
+            {includesFamily && (
+              <>
+                <MeetingPeopleList
+                  title="Students"
+                  people={students}
+                  onRemove={(id) =>
+                    setStudents((rows) => rows.filter((row) => row.id !== id))
                   }
-                  onCreate={
-                    sessionType === "TRIAL_SESSION"
-                      ? () => setAddStudentOpen(true)
-                      : undefined
-                  }
-                />
-              }
-            />
-            <MeetingPeopleTable
-              title="Parents"
-              people={parents}
-              onRemove={(id) =>
-                setParents((rows) => rows.filter((row) => row.id !== id))
-              }
-              addControl={
-                <MeetingEntitySearchAdd
-                  includeInactive
-                  kind="parent"
-                  placeholder="Search parents…"
-                  existingIds={parentIds}
-                  onPick={async (row) =>
-                    setParents((rows) => append(rows, pick(row)))
+                  addControl={
+                    <MeetingEntitySearchAdd
+                      includeInactive
+                      kind="student"
+                      placeholder="Search students…"
+                      existingIds={studentIds}
+                      onPick={async (row) =>
+                        setStudents((rows) => append(rows, pick(row)))
+                      }
+                      onCreate={
+                        sessionType === "TRIAL_SESSION"
+                          ? () => setAddStudentOpen(true)
+                          : undefined
+                      }
+                    />
                   }
                 />
-              }
-            />
-            <MeetingPeopleTable
+                <MeetingPeopleList
+                  title="Parents"
+                  people={parents}
+                  onRemove={(id) =>
+                    setParents((rows) => rows.filter((row) => row.id !== id))
+                  }
+                  addControl={
+                    <MeetingEntitySearchAdd
+                      includeInactive
+                      kind="parent"
+                      placeholder="Search parents…"
+                      existingIds={parentIds}
+                      onPick={async (row) =>
+                        setParents((rows) => append(rows, pick(row)))
+                      }
+                    />
+                  }
+                />
+              </>
+            )}
+            <MeetingPeopleList
               title="Staff"
               people={staff}
               onRemove={(id) =>
@@ -464,43 +525,44 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                   : "Receiving"
               }
             />
-            {family.isError && (
+            {includesFamily && family.isError && (
               <p role="status" className="text-sm text-muted-foreground">
                 Family suggestions could not be loaded. You can still add people
                 manually.
               </p>
             )}
-            {!!(
-              family.data?.parents.length || family.data?.students.length
-            ) && (
-              <section className="space-y-2">
-                <h3 className="font-semibold">Suggested family members</h3>
-                <div className="flex flex-wrap gap-2">
-                  {family.data?.parents.map((row) => (
-                    <Button
-                      key={`parent-${row.id}`}
-                      variant="outline"
-                      onClick={() =>
-                        setParents((rows) => append(rows, pick(row)))
-                      }
-                    >
-                      Add parent {personName(row)}
-                    </Button>
-                  ))}
-                  {family.data?.students.map((row) => (
-                    <Button
-                      key={`student-${row.id}`}
-                      variant="outline"
-                      onClick={() =>
-                        setStudents((rows) => append(rows, pick(row)))
-                      }
-                    >
-                      Add student {personName(row)}
-                    </Button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {includesFamily &&
+              !!(
+                family.data?.parents.length || family.data?.students.length
+              ) && (
+                <section className="space-y-2">
+                  <h3 className="font-semibold">Suggested family members</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {family.data?.parents.map((row) => (
+                      <Button
+                        key={`parent-${row.id}`}
+                        variant="outline"
+                        onClick={() =>
+                          setParents((rows) => append(rows, pick(row)))
+                        }
+                      >
+                        Add parent {personName(row)}
+                      </Button>
+                    ))}
+                    {family.data?.students.map((row) => (
+                      <Button
+                        key={`student-${row.id}`}
+                        variant="outline"
+                        onClick={() =>
+                          setStudents((rows) => append(rows, pick(row)))
+                        }
+                      >
+                        Add student {personName(row)}
+                      </Button>
+                    ))}
+                  </div>
+                </section>
+              )}
           </div>
         ) : step === 1 ? (
           <div className="space-y-5">
@@ -544,66 +606,61 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
               Selected staff:{" "}
               {staff.map((row) => row.label).join(", ") || "None"}
             </p>
-            {warnings.isError ? (
-              <p
-                role="status"
-                className="rounded-md border border-amber-300 p-3 text-sm"
-              >
-                Availability could not be checked. You can still proceed.
-              </p>
-            ) : warnings.data?.length ? (
-              <div
-                role="status"
-                className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
-              >
-                <p className="flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4" />
-                  Staff may be unavailable. You can still proceed.
-                </p>
-                <ul className="mt-2 list-disc pl-5">
-                  {warnings.data.map((warning, index) => (
-                    <li key={index}>
-                      {staff.find((row) => row.id === warning.staff_id)?.label}:{" "}
-                      {warning.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            {availabilityNotice}
             <SessionsCalendarView
               initialDate={date}
               initialViewMode="week"
               expandToSessions
+              preview={
+                input
+                  ? {
+                      startAt: input.startAt,
+                      endAt: input.endAt,
+                      title,
+                      description: staff.map((row) => row.label).join(", "),
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : (
           <div className="space-y-4">
-            <h3 className="font-semibold">{title}</h3>
-            <p>
-              {date} at {time} (Adelaide) · {duration} minutes
-            </p>
-            {subject && <p>Subject: {subject.long_name}</p>}
-            <p>
-              Students: {students.map((row) => row.label).join(", ") || "None"}
-            </p>
-            <p>
-              Parents: {parents.map((row) => row.label).join(", ") || "None"}
-            </p>
-            <p>
-              Staff:{" "}
-              {staff
-                .map(
-                  (row) =>
-                    `${row.label}${row.receiver ? (sessionType === "STAFF_INTERVIEW" ? " (candidate)" : " (receiving)") : ""}`,
-                )
-                .join(", ") || "None"}
-            </p>
-            {!!warnings.data?.length && (
-              <p className="text-amber-700">
-                Availability warnings remain. Confirming will book this meeting
-                anyway.
-              </p>
-            )}
+            <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-4 gap-y-3 text-sm [&>dt]:font-medium [&>dt]:text-muted-foreground [&>dd]:min-w-0 [&>dd]:break-words">
+              <dt>Type</dt>
+              <dd>{title}</dd>
+              <dt>Time (Adelaide)</dt>
+              <dd>{input ? formatMeetingStart(input.startAt) : "—"}</dd>
+              <dt>Duration</dt>
+              <dd>{duration} minutes</dd>
+              {subject && (
+                <>
+                  <dt>Subject</dt>
+                  <dd>{subject.long_name}</dd>
+                </>
+              )}
+              {includesFamily && (
+                <>
+                  <dt>Students</dt>
+                  <dd>
+                    {students.map((row) => row.label).join(", ") || "None"}
+                  </dd>
+                  <dt>Parents</dt>
+                  <dd>
+                    {parents.map((row) => row.label).join(", ") || "None"}
+                  </dd>
+                </>
+              )}
+              <dt>Staff</dt>
+              <dd>
+                {staff
+                  .map(
+                    (row) =>
+                      `${row.label}${row.receiver ? (sessionType === "STAFF_INTERVIEW" ? " (candidate)" : " (receiving)") : ""}`,
+                  )
+                  .join(", ") || "None"}
+              </dd>
+            </dl>
+            {availabilityNotice}
           </div>
         )}
       </AdminDialogShell>

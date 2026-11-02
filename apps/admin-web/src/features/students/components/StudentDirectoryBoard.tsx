@@ -4,6 +4,7 @@ import { Badge, ScrollArea } from "@altitutor/ui";
 import { stages } from "@/features/onboarding/lib/model";
 import { ActionBadges } from "@/features/onboarding/components/JourneyDetail";
 import { InPersonStatusBadge } from "./InPersonStatusBadge";
+import { clickableCardInteractiveCn, cn } from "@/shared/utils";
 import type { StudentDirectoryEntry } from "../types/directory";
 
 export const studentGroupOptions = [
@@ -79,7 +80,10 @@ export function StudentDirectoryBoard({
                       key={entry.id}
                       type="button"
                       onClick={() => open(entry)}
-                      className="flex w-full flex-col gap-2 rounded-lg border bg-card p-3 text-left hover:bg-accent/50"
+                      className={cn(
+                        "flex w-full flex-col gap-2 rounded-lg border bg-card p-3 text-left",
+                        clickableCardInteractiveCn,
+                      )}
                     >
                       <h3 className="line-clamp-2 break-words text-sm font-medium">
                         {entry.label}

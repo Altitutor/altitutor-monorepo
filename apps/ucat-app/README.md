@@ -10,11 +10,14 @@ From the monorepo root:
 
 ```sh
 pnpm install
+pnpm dev --filter=@altitutor/ucat-app
+# or
 pnpm --filter @altitutor/ucat-app dev
 ```
 
-`start` is an alias for `dev`. Metro uses port **8081** (distinct from
-`student-app`).
+Metro uses port **8081** (distinct from `student-app`). Both `dev` forms and the
+package `ios`/`android` commands start `ucat-web` on port 3004 for browser
+sign-in. Turbo stops the paired web server when the native dev session ends.
 
 Copy `.env.example` to `.env.local` in this directory and configure the public
 Supabase URL/key, the UCAT web origin, and `EXPO_PUBLIC_SENTRY_DSN`. The app
@@ -33,6 +36,9 @@ pnpm --filter @altitutor/ucat-app android
 
 `api:local` reads `supabase status` and explicitly uses the local database. It
 runs `ucat-web` on port 3016 with an isolated `.next-ucat-native` build directory.
+Both `dev` forms and the package `ios`/`android` commands also start the standard
+`ucat-web` on port 3004; set `EXPO_PUBLIC_UCAT_WEB_URL` to 3016 when using the
+local API server.
 Get the local public key from `supabase status` for the Expo environment file.
 On Android, forward ports with `adb reverse tcp:54321 tcp:54321` and
 `adb reverse tcp:3016 tcp:3016`.

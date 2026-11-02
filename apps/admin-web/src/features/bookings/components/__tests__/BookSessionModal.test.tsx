@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "@/shared/test-utils";
 import { ManualMeetingModal } from "../ManualMeetingModal";
 
@@ -69,6 +69,7 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = jest.fn();
 });
 beforeEach(() => {
+  mockOriginalSession.mockReset();
   mockDurationSetting.mockResolvedValue(60);
   global.fetch = jest.fn(async (_url: string, init?: RequestInit) => ({
     ok: true,
@@ -84,7 +85,16 @@ beforeEach(() => {
   })) as jest.Mock;
 });
 
-it("keeps flexible participant tables and makes family suggestions optional", async () => {
+it("shows the proposed meeting in the schedule calendar before booking", async () => {
+  renderWithProviders(
+    <ManualMeetingModal isOpen onClose={jest.fn()} sessionType="CHECK_IN" />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  const calendar = await screen.findByLabelText("Sessions calendar");
+  expect(within(calendar).getByText("Preview: Check-in")).toBeVisible();
+});
+
+it("keeps flexible participant lists and makes family suggestions optional", async () => {
   renderWithProviders(
     <ManualMeetingModal
       isOpen
@@ -107,6 +117,8 @@ it("keeps flexible participant tables and makes family suggestions optional", as
     />,
   );
   expect(screen.getByText("Students (2)")).toBeVisible();
+  expect(screen.getByRole("list", { name: "Students" })).toBeVisible();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
   expect(screen.getByText("Parents (0)")).toBeVisible();
   fireEvent.click(
     await screen.findByRole("button", { name: "Add parent Suggested Parent" }),
@@ -141,6 +153,9 @@ it("allows confirmation despite an availability warning and keeps messaging opti
     await screen.findByText(/Busy Staff: Staff has a blockout/),
   ).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(
+    await screen.findByText(/Busy Staff: Staff has a blockout/),
+  ).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Confirm booking" }));
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
@@ -157,6 +172,51 @@ it("allows confirmation despite an availability warning and keeps messaging opti
   expect(onCreated).toHaveBeenCalledWith("created-meeting", [
     "00000000-0000-4000-8000-000000000004",
   ]);
+});
+
+it("only shows staff participant controls when booking a staff interview", () => {
+  renderWithProviders(
+    <ManualMeetingModal
+      isOpen
+      onClose={jest.fn()}
+      sessionType="STAFF_INTERVIEW"
+    />,
+  );
+  expect(screen.getByRole("heading", { name: "Staff (0)" })).toBeVisible();
+  expect(
+    screen.queryByRole("heading", { name: /^Students/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: /^Parents/ }),
+  ).not.toBeInTheDocument();
+});
+
+it("previews the Adelaide start time and duration as separate properties", async () => {
+  mockOriginalSession.mockResolvedValue({
+    session: {
+      start_at: "2026-11-02T05:00:00Z",
+      end_at: "2026-11-02T06:00:00Z",
+      subject: null,
+    },
+    sessionsStudents: [],
+    sessionsParents: [],
+    sessionsStaff: [],
+  });
+  renderWithProviders(
+    <ManualMeetingModal
+      isOpen
+      onClose={jest.fn()}
+      sessionType="ADMIN_MEETING"
+      originalSessionId="00000000-0000-4000-8000-000000000009"
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByText("3:30pm, Mon 2 Nov")).toBeVisible();
+  expect(screen.getByText("60 minutes")).toBeVisible();
 });
 
 it("waits for existing meeting hydration before allowing a reschedule", () => {

@@ -58,3 +58,44 @@ it("shows a colored subject for a session without a class and omits day/week con
   });
   client.clear();
 });
+
+it("updates an unsaved meeting preview across midnight and calendar navigation", async () => {
+  const client = new QueryClient();
+  const source = {
+    sessions: [],
+    classesById: {},
+    subjectsById: {},
+    sessionStudents: {},
+    sessionStaff: {},
+    tutorLogs: {},
+  };
+  const view = (startAt: string, endAt: string) => (
+    <QueryClientProvider client={client}>
+      <SessionsCalendarView
+        initialDate="2026-11-02"
+        source={source}
+        expandToSessions
+        preview={{ title: "Check-in", startAt, endAt }}
+      />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(
+    view("2026-11-01T22:30:00Z", "2026-11-01T23:30:00Z"),
+  );
+  expect(
+    screen.getByRole("note", { name: "Preview: Check-in" }),
+  ).toHaveTextContent("9:00 am – 10:00 am");
+  rerender(view("2026-11-02T13:00:00Z", "2026-11-02T14:00:00Z"));
+  expect(
+    screen.getAllByRole("note", { name: "Preview: Check-in" }),
+  ).toHaveLength(2);
+  await userEvent.click(screen.getByRole("button", { name: "Next week" }));
+  expect(
+    screen.queryByRole("note", { name: "Preview: Check-in" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Previous week" }));
+  expect(
+    screen.getAllByRole("note", { name: "Preview: Check-in" }),
+  ).toHaveLength(2);
+  client.clear();
+});
