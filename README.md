@@ -51,6 +51,16 @@ opt-out that retains prior campaign attribution. Revisit this compatibility
 exception through [DEV-296](https://linear.app/altitutor/issue/DEV-296/upgrade-web-posthog-sdks-while-preserving-analytics-collection)
 before raising the pin; the server SDK can be upgraded independently.
 
+Web Sentry 11 retains the previous restrictive collection and transaction model
+through `sentryWebCompatibilityOptions`. Keep its static trace lifecycle until
+native-auth transaction filtering is migrated and verified for streamed spans.
+Automatic IP/body/AI/MCP/database-result/queue-payload collection stays off;
+explicit user IDs, existing filters, replay masks and production gates remain.
+Browser sessions retain the route lifecycle. Sentry 11 reports unhandled browser
+sessions differently from version 10; validate release-health dashboards before
+release. The native Sentry SDK and CLI are a separate upgrade stage. See
+[DEV-305](https://linear.app/altitutor/issue/DEV-305).
+
 2. For an isolated local web environment, start Docker and run:
 
 ```bash

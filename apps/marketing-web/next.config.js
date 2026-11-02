@@ -1,5 +1,5 @@
 const withMDX = require("@next/mdx")({ extension: /\.mdx$/ });
-const { withSentryConfig } = require("@sentry/nextjs");
+const { withSentryConfig } = require("@sentry/nextjs/config");
 const staffImageOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL || require("./src/features/staff/preview.json").origin;
 const legacyRedirects = require("./src/lib/legacy-redirects.json");
 

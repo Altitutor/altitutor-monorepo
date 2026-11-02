@@ -55,3 +55,5 @@ export * from './interviews/media';
 export * from "./observability/interview-call-reporting";
 
 export * from "./validation/iso-datetime";
+
+export * from "./observability/sentry-web-compatibility";

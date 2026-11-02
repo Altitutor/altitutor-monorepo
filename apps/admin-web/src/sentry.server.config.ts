@@ -1,3 +1,4 @@
+import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import { resolveSentryCollection } from "@altitutor/shared";
 
@@ -16,6 +17,6 @@ Sentry.init({
   dsn,
   enabled: collection.errors,
   environment: collection.environment,
-  sendDefaultPii: false,
+  ...sentryWebCompatibilityOptions(),
   tracesSampleRate: collection.errors ? 0.1 : 0,
 });
