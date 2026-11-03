@@ -6,7 +6,7 @@ import styles from "@/features/marketing/marketing.module.css";
 
 export const metadata: Metadata = {
   title: "Mobile app privacy | Altitutor",
-  description: "How Altitutor handles information in its student and UCAT mobile apps.",
+  description: "How Altitutor handles information in its Student, UCAT and Teaching apps.",
 };
 
 export default function MobilePrivacyPage() {
@@ -16,13 +16,52 @@ export default function MobilePrivacyPage() {
         <p className={styles.eyebrow}>Altitutor</p>
         <h1>Mobile app privacy</h1>
         <div className={styles.copy}>
-          <p>Last updated: 29 September 2026</p>
+          <p>Last updated: 3 November 2026</p>
           <p>
-            This notice applies to the Altitutor Student and Altitutor UCAT mobile apps,
+            This notice applies to the Altitutor Student, Altitutor UCAT and Altitutor Teaching apps,
             including the account pages they open in a browser. It supplements our{" "}
             <Link href="/privacy-policy/">general privacy policy</Link>. Altitutor Pty Ltd
             is responsible for these services. Contact us at{" "}
             <a href="mailto:admin@altitutor.com">admin@altitutor.com</a>.
+          </p>
+
+          <h2 id="teaching">Altitutor Teaching for iPad</h2>
+          <p>
+            Teaching is a workspace for authorized Altitutor staff. It uses your staff
+            account, assigned sessions, student rosters and lesson resources to provide
+            its teaching features. Sign-in details are sent securely to our Tutor portal
+            to authenticate you. The app does not store your password. Session tokens and
+            the staff sign-in directory are stored in device-only Keychain storage. The
+            directory contains active staff names, account identifiers and login emails;
+            retaining it after sign-out lets staff select their name on a shared office
+            iPad, but does not grant access without signing in.
+          </p>
+          <p>
+            Downloaded worksheets and solutions, PDF annotations, cached session details
+            and unfinished lesson logs are stored on the iPad with file protection,
+            separated by tutor, session and backend. These local lesson files are excluded
+            from device backup. Signing out clears the active session and classroom
+            display while retaining your local lessons for your next sign-in. Uninstalling
+            the app or erasing the iPad removes these local files and annotations.
+          </p>
+          <p>
+            Confirming a lesson log sends the recorded lesson activity, student and
+            resource selections, notes and tutor account identifier to the Tutor portal.
+            It does not upload your annotated PDFs. Printing sends the selected resource
+            and print settings to the office print service. Sharing exports a PDF through
+            the system share sheet to the destination you choose; temporary exported files
+            are cleaned up after sharing or on the next launch. Classroom presentation
+            displays the worksheet and annotations on the connected display while keeping
+            the app's solutions pane private.
+          </p>
+          <p>
+            Our hosting, authentication, storage and diagnostic providers process data
+            needed to operate the Tutor portal and its APIs. Teaching does not include
+            advertising or a native cross-app tracking SDK. For access, corrections,
+            withdrawal of account access or deletion requests, contact{" "}
+            <a href="mailto:admin@altitutor.com">admin@altitutor.com</a>. Local annotations
+            remain on the iPad unless removed there; retained business and lesson records
+            follow the retention rules below.
           </p>
 
           <h2>Information we use</h2>

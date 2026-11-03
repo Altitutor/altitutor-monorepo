@@ -24,6 +24,7 @@ struct TeachingNavigation: View {
             SessionDayView(model: model)
                 .navigationTitle("Your teaching day").navigationBarTitleDisplayMode(.large)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) { TeachingPrivacyLink() }
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
                 }
                 .navigationDestination(for: TeachingRoute.self) { route in
