@@ -146,8 +146,8 @@ export async function runRelease(plan, checkBuild) {
     run('security', ['set-key-partition-list', '-S', 'apple-tool:,apple:', '-s', '-k', keychainPassword, keychain]);
     run('security', ['list-keychains', '-d', 'user', '-s', keychain, ...originalSearch]);
     const identities = run('security', ['find-identity', '-v', '-p', 'codesigning', keychain]);
-    const identity = identities.match(/([A-F0-9]{40}) "Apple Distribution: Altitutor Pty Ltd \(V2A5FZKMZ7\)"/)?.[1];
-    if (!identity) throw new Error('Expected Altitutor Apple Distribution identity is missing or invalid');
+    const identity = identities.match(/([A-F0-9]{40}) "(?:Apple|iPhone) Distribution: Altitutor Pty Ltd \(V2A5FZKMZ7\)"/)?.[1];
+    if (!identity) throw new Error('Expected Altitutor Apple/iOS Distribution identity is missing or invalid');
     const archive = join(output, 'AltitutorTeaching.xcarchive');
     run('xcodebuild', ['-project', join(source, 'apps/teaching-ipad/AltitutorTeaching.xcodeproj'), '-scheme', 'AltitutorTeaching',
       '-configuration', 'Release', '-destination', 'generic/platform=iOS', '-archivePath', archive,
