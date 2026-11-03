@@ -13,8 +13,10 @@ Invocation authorizes work on those tickets: local worktree/branch creation,
 owned local database fixtures, commits, pushes, PR publication, Linear updates,
 ticket-owned cleanup, and a `develop` merge after the gates below. It authorizes
 following the routed skills, including user-invoked `grill-with-docs` and
-`implement`. This is a manual workflow; keep it separate from Symphony
-enrollment and unattended pickup.
+`implement`. This is a manual workflow by default. The explicitly authorized
+scheduled bug worker may select an eligible issue under
+[`scheduled-bug-work.md`](../../../docs/agents/scheduled-bug-work.md) and invoke
+this skill with that ID; its narrower scheduled merge policy takes precedence.
 
 On resume, reread the tickets and continue the recorded checkout/checkpoint;
 retain its lease and restart an expired preview rather than acquiring a new one.
