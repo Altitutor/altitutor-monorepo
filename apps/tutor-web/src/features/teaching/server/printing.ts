@@ -1,11 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { z } from 'zod';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { TeachingError } from './auth';
 import { requireUUID } from './validation';
 
 type Client = SupabaseClient<Database>;
-const schema = z.object({ resourceID: z.string().guid('Invalid uuid').transform(id => id.toLowerCase()), copies: z.number().int().min(1).max(20) }).strict();
+const printID = z.string().guid('Invalid uuid').transform(id => id.toLowerCase());
+const copies = z.number().int().min(1).max(20);
+const schema = z.union([
+  z.object({ resourceID: printID, copies }).strict(),
+  z.object({ artifactID: printID, copies }).strict(),
+]);
 
 export async function teachingPrintOptions(client: Client) {
   const [online, window, settings, permission] = await Promise.all([
@@ -20,16 +26,32 @@ export async function teachingPrintOptions(client: Client) {
 export async function enqueueTeachingPrint(client: Client, body: unknown) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) throw new TeachingError(400, 'Choose a PDF and between 1 and 20 copies.');
-  const resource = await client.from('vtutor_topics_files').select('file_id,filename,mimetype,external_url')
-    .eq('id', parsed.data.resourceID).is('deleted_at', null).maybeSingle();
-  if (resource.error) throw new TeachingError(503, 'Could not verify this print resource.', resource.error);
-  if (!resource.data?.file_id) throw new TeachingError(403, 'This resource is not available to print.');
-  if (resource.data.external_url || !(resource.data.mimetype === 'application/pdf' || resource.data.filename?.toLowerCase().endsWith('.pdf'))) {
-    throw new TeachingError(400, 'Only stored PDF files can be office-printed.');
+  let fileID: string;
+  if ('artifactID' in parsed.data) {
+    const owned = await client.from('vtutor_teaching_uploads').select('id,owner_staff_id,purpose,state')
+      .eq('id', parsed.data.artifactID).maybeSingle();
+    if (owned.error) throw new TeachingError(503, 'Could not verify the private print.', owned.error);
+    if (!owned.data?.owner_staff_id || owned.data.purpose !== 'print' || owned.data.state !== 'ready') {
+      throw new TeachingError(403, 'This private PDF is not available to print.');
+    }
+    const prepared = await getServiceRoleClient().rpc('prepare_teaching_print', {
+      p_artifact_id: parsed.data.artifactID, p_owner_staff_id: owned.data.owner_staff_id,
+    });
+    if (prepared.error) throw new TeachingError(prepared.error.code === '42501' ? 403 : 503, 'This private PDF is not available to print.', prepared.error);
+    fileID = prepared.data;
+  } else {
+    const resource = await client.from('vtutor_topics_files').select('file_id,filename,mimetype,external_url')
+      .eq('id', parsed.data.resourceID).is('deleted_at', null).maybeSingle();
+    if (resource.error) throw new TeachingError(503, 'Could not verify this print resource.', resource.error);
+    if (!resource.data?.file_id) throw new TeachingError(403, 'This resource is not available to print.');
+    if (resource.data.external_url || !(resource.data.mimetype === 'application/pdf' || resource.data.filename?.toLowerCase().endsWith('.pdf'))) {
+      throw new TeachingError(400, 'Only stored PDF files can be office-printed.');
+    }
+    fileID = resource.data.file_id;
   }
   // The existing RPC is authoritative for active staff, office access/window,
   // connector health, resource entitlement, copy bounds and duplicate suppression.
-  const result = await client.rpc('enqueue_print_job', { p_file_id: resource.data.file_id, p_copies: parsed.data.copies });
+  const result = await client.rpc('enqueue_print_job', { p_file_id: fileID, p_copies: parsed.data.copies });
   if (result.error) {
     const messages = ['Office printer offline', 'Office print is turned off for tutors', 'Office print is only available during an admin shift', 'A print job for this file is already in progress'];
     if (messages.includes(result.error.message)) throw new TeachingError(400, result.error.message);

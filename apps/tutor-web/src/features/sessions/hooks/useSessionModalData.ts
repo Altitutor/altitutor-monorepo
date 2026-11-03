@@ -54,6 +54,7 @@ interface TutorLog {
   files?: Array<{
     id: string;
     topic_id: string;
+    canonicalResourceID?: string;
     code?: string;
     filename?: string;
   }>;
@@ -187,6 +188,7 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
           | Array<{
               id: string;
               topic_id: string;
+              canonicalResourceID?: string;
               code?: string;
               filename?: string;
             }>
@@ -195,6 +197,7 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
           const result: Array<{
             id: string;
             topic_id: string;
+            canonicalResourceID?: string;
             code?: string;
             filename?: string;
           }> = [];
@@ -203,6 +206,7 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
               result.push({
                 id: String(item.id),
                 topic_id: String(item.topic_id),
+                canonicalResourceID: 'topics_files_id' in item && typeof item.topics_files_id === 'string' ? item.topics_files_id : undefined,
                 code: 'code' in item && typeof item.code === 'string' ? item.code : undefined,
                 filename: 'filename' in item && typeof item.filename === 'string' ? item.filename : undefined,
               });

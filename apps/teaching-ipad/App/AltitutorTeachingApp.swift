@@ -22,7 +22,7 @@ struct TeachingRootView: View {
             if model.profile == nil { SignInView(model: model) }
             else { TeachingNavigation(model: model) }
         }
-        .tint(TeachingColors.navy)
+        .tint(TeachingColors.accent)
         .task { await model.start() }
         .alert("Teaching", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
@@ -46,7 +46,7 @@ struct SignInView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text("Altitutor Teaching").font(.system(size: 34, weight: .bold))
-                .foregroundStyle(TeachingColors.navy).multilineTextAlignment(.center)
+                .foregroundStyle(TeachingColors.accent).multilineTextAlignment(.center)
             VStack(spacing: 16) {
                 Group {
                     if needsSetup {
@@ -118,6 +118,13 @@ struct TeachingPrivacyLink: View {
 
 enum TeachingColors {
     static let navy = Color(red: 0.02, green: 0.14, blue: 0.26)
-    static let teal = Color(red: 0.25, green: 0.46, blue: 0.59)
+    // Shared brand light blue (#92b9c6), also used by TutorWeb's dark theme.
+    static let lightBlue = UIColor(red: 146 / 255, green: 185 / 255, blue: 198 / 255, alpha: 1)
+    static let accent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? lightBlue : UIColor(red: 0.02, green: 0.14, blue: 0.26, alpha: 1)
+    })
+    static let teal = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? lightBlue : UIColor(red: 0.25, green: 0.46, blue: 0.59, alpha: 1)
+    })
     static let background = Color(uiColor: .systemGroupedBackground)
 }

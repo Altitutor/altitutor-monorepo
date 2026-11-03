@@ -134,6 +134,13 @@ jobs:
           migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
           PGPASSWORD="$SUPABASE_DB_PASSWORD" supabase db push --db-url "$migration_db_url" --include-all
 
+      - name: Install private Teaching Storage guard
+        run: |
+          migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+            "$migration_db_url" --set=ON_ERROR_STOP=1 \
+            --file=supabase/scripts/teaching-private-storage.sql
+
       - name: Synchronize mobile push dispatcher secret
         run: |
           supabase secrets set \

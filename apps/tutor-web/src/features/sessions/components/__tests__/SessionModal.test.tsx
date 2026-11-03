@@ -12,6 +12,10 @@ jest.mock('../../hooks/useSessionModalData', () => ({
   useSessionModalData: (...args: unknown[]) => mockUseSessionModalData(...args),
 }));
 
+jest.mock('../../hooks/useSharedLessonDocuments', () => ({
+  useSharedLessonDocuments: () => ({ data: [], error: null }),
+}));
+
 jest.mock('../../hooks/useSessionNotes', () => ({
   useSessionNotes: () => ({ data: [] }),
 }));

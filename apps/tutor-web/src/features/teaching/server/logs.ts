@@ -54,7 +54,7 @@ export async function submitTeachingLog(request: Request, client: SupabaseClient
   }
   const response = await submitTutorLog(new NextRequest(request.url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
-  }), client);
+  }), client, input.submissionID ? { submissionID: input.submissionID, annotatedFiles: input.annotatedFiles } : undefined);
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }

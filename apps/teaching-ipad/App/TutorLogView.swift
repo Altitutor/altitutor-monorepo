@@ -11,7 +11,7 @@ struct TutorLogView: View {
     @State private var addStudent = false
     private var draft: LessonDraft { model.lesson?.draft ?? LessonDraft() }
     private var maySubmit: Bool {
-        guard model.profile?.canSubmitLogs == true, session.startAt <= Date(), !model.offline else { return false }
+        guard model.profile?.canSubmitLogs == true, session.startAt <= Date(), !model.offline, model.annotationsReady else { return false }
         if session.kind == "CHECK_IN" {
             let type = session.staff.first { $0.id == model.profile?.id }?.type ?? ""
             return ["CHECK_IN_HOST", "SECONDARY_TUTOR", "TRIAL_TUTOR"].contains(type)
@@ -55,12 +55,12 @@ struct TutorLogView: View {
                         }
                     }
                     Section("Lesson resources and topics") {
-                        if model.lesson?.resources.isEmpty != false { Text("No resource suggestions. You can log attendance and notes without choosing a topic.").foregroundStyle(.secondary) }
-                        ForEach(model.lesson?.resources ?? []) { item in
+                        if model.lesson?.resources.contains(where: { $0.resource != nil }) != true { Text("No resource suggestions. You can log attendance and notes without choosing a topic.").foregroundStyle(.secondary) }
+                        ForEach(model.lesson?.resources.filter { $0.resource != nil } ?? []) { item in
                             VStack(alignment: .leading, spacing: 14) {
                                 Toggle(isOn: Binding(get: { !draft.excludedResources.contains(item.id) }, set: { included in
-                                    update { if included { $0.excludedResources.remove(item.id) } else { $0.excludedResources.insert(item.id) } }
-                                })) { VStack(alignment: .leading) { Text(item.resource.worksheet.title); Text(item.resource.topicName).font(.caption).foregroundStyle(.secondary) } }
+                                    update { $0.setResourceIncluded(item.id, included: included) }
+                                })) { VStack(alignment: .leading) { Text(item.worksheet.source.title); Text(item.resource?.topicName ?? "").font(.caption).foregroundStyle(.secondary) } }
                                 if !draft.excludedResources.contains(item.id) {
                                     let attending = session.students.filter { draft.studentAttendance[$0.id] == true }
                                     if attending.isEmpty { Text("Select attending students above to assign this resource.").font(.caption).foregroundStyle(.secondary) }
@@ -78,22 +78,51 @@ struct TutorLogView: View {
                             }.padding(.vertical, 7)
                         }
                     }
+                    Section("Annotated files and lesson PDFs") {
+                        Text("Selected PDFs are shared with the assigned students and session tutors when you submit. Available for one year; solutions stay private.").font(.caption).foregroundStyle(.secondary)
+                        if model.annotationCandidates.isEmpty { Text("No marked-up worksheets or local PDFs with visible content.").foregroundStyle(.secondary) }
+                        ForEach(model.annotationCandidates) { candidate in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Toggle(isOn: Binding(get: { !draft.excludedAnnotations.contains(candidate.id) }, set: { included in
+                                    update { $0.setAnnotationIncluded(candidate.id, included: included) }
+                                })) { Text(candidate.item.worksheet.source.title) }
+                                if let failure = candidate.failure { Text(failure).font(.caption).foregroundStyle(.red) }
+                                if candidate.item.resource != nil {
+                                    Text("Sharing this PDF also includes its canonical worksheet and uses that worksheet's student assignments above.").font(.caption).foregroundStyle(.secondary)
+                                } else if !draft.excludedAnnotations.contains(candidate.id) {
+                                    let attending = session.students.filter { draft.studentAttendance[$0.id] == true }
+                                    ForEach(attending) { person in
+                                        let assigned = draft.studentAssignments[candidate.id] ?? attending.map(\.id)
+                                        Toggle(person.name, isOn: Binding(get: { assigned.contains(person.id) }, set: { included in
+                                            update { value in
+                                                var ids = value.studentAssignments[candidate.id] ?? attending.map(\.id)
+                                                if included { if !ids.contains(person.id) { ids.append(person.id) } } else { ids.removeAll { $0 == person.id } }
+                                                value.studentAssignments[candidate.id] = ids
+                                            }
+                                        })).font(.subheadline)
+                                    }
+                                    if attending.isEmpty { Text("Select attending students to assign this PDF.").font(.caption).foregroundStyle(.secondary) }
+                                }
+                            }.padding(.vertical, 7)
+                        }
+                    }
                     Section("Session notes") {
                         TextEditor(text: Binding(get: { draft.notes }, set: { text in update { $0.notes = text } })).frame(minHeight: 130)
                     }
                     Section {
                         Button("Submit tutor log") { confirm = true }.disabled(!maySubmit || model.busy).accessibilityIdentifier("teaching-submit-log")
                         if !maySubmit { Text("Submission needs a connection, an active staff account and a started session. Check-ins can be logged by conducting staff.").font(.caption).foregroundStyle(.secondary) }
-                        Text("Annotations remain on this iPad. Submitting a log does not upload or share your marked-up PDFs.").font(.caption).foregroundStyle(.secondary)
+                        Text("Only the PDFs selected above are uploaded and shared. Your editable originals remain on this iPad.").font(.caption).foregroundStyle(.secondary)
                     }
-                }.confirmationDialog("Submit the confirmed lesson log?", isPresented: $confirm) {
+                }.disabled(model.busy).confirmationDialog("Submit the confirmed lesson log?", isPresented: $confirm) {
                     Button("Submit log") { Task { if await model.submitLog() { dismiss() } } }
-                } message: { Text("After submission, corrections follow the existing administrator workflow.") }
+                } message: { Text("Selected lesson PDFs will be shared for one year. After submission, corrections follow the existing administrator workflow.") }
             }
             }
             .sheet(isPresented: $addStudent) { DropInStudentView(model: model, sessionID: session.id) }
+        .task(id: session.id) { model.prepareAnnotations() }
         .navigationTitle(session.logged ? "Tutor log" : "Review lesson log")
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.disabled(model.busy) } }
         }
     }
 }
@@ -106,7 +135,7 @@ struct AttendanceRow: View {
         HStack {
             Text(name); Spacer()
             Button("Present") { select(true) }.tint(attended == true ? TeachingColors.teal : .gray).buttonStyle(.borderedProminent)
-            Button("Absent") { select(false) }.tint(attended == false ? TeachingColors.navy : .gray).buttonStyle(.borderedProminent)
+            Button("Absent") { select(false) }.tint(attended == false ? TeachingColors.accent : .gray).buttonStyle(.borderedProminent)
         }.accessibilityElement(children: .contain)
     }
 }

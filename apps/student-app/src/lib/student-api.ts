@@ -1,4 +1,4 @@
-import type { Database, ResourceFile } from '@altitutor/shared';
+import type { Database, ResourceFile, SharedLessonDocument } from '@altitutor/shared';
 import { displayResourceFilename, formatResourceTypeLabel, mapTopicFile } from '@altitutor/shared';
 
 import { startOfAdelaideDay } from '@/features/dashboard/timetable';
@@ -109,7 +109,37 @@ async function recentResourcesFromTutorLogs(): Promise<RecentResource[]> {
   });
 }
 
+async function lessonDocumentRequest<T>(path: string): Promise<T> {
+  const auth = await supabase.auth.getSession();
+  if (auth.error) throw auth.error;
+  if (!auth.data.session) throw new Error('Please sign in to open lesson PDFs.');
+  const response = await fetch(studentWebUrl('/api/lesson-documents' + path), {
+    headers: { Authorization: `Bearer ${auth.data.session.access_token}` }, signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) {
+    const failure = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(typeof failure?.error === 'string' ? failure.error : 'Could not open this lesson PDF.');
+  }
+  return await response.json() as T;
+}
+
 export const studentApi = {
+  async getLessonDocument(documentID: string): Promise<{ url: string }> {
+    return lessonDocumentRequest('/' + encodeURIComponent(documentID));
+  },
+  async getSessionLogResources(sessionID: string): Promise<{ hasLog: boolean; files: ResourceFile[]; documents: SharedLessonDocument[] }> {
+    const [log, documents] = await Promise.all([
+      supabase.from('vstudent_tutor_log').select('files').eq('session_id', sessionID).maybeSingle(),
+      lessonDocumentRequest<SharedLessonDocument[]>('?sessionID=' + encodeURIComponent(sessionID)),
+    ]);
+    throwIfError(log.error);
+    const ids = [...new Set(tutorLogFileIds(log.data?.files ?? null))];
+    const resources = ids.length ? await supabase.from('vstudent_topics_files').select('*').in('id', ids) : { data: [], error: null };
+    throwIfError(resources.error);
+    const files = (resources.data ?? []).flatMap(row => { const file = mapTopicFile(row); return file ? [file] : []; });
+    return { hasLog: Boolean(log.data), files, documents };
+  },
+
   async listUpcomingSessions(): Promise<StudentSession[]> {
     const now = new Date().toISOString();
     const { data, error } = await supabase

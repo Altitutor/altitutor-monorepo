@@ -37,6 +37,9 @@ struct PDFDocumentSurface: UIViewRepresentable {
         var canvases: [Int: PKCanvasView] = [:]
         private let toolPicker = PKToolPicker()
         private var timer: Timer?
+        private weak var scrollingView: UIScrollView?
+        private var toolPresentation = 0
+        private var toolsPaused = false
         private var dirty = Set<Int>()
         private var lastSaved = DocumentViewport()
         private var rotation = 0
@@ -52,6 +55,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private var flushObserver: NSObjectProtocol?
         private var closeObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
+        private var resumeObserver: NSObjectProtocol?
         init(_ parent: PDFDocumentSurface) { self.parent = parent }
         func attach(_ view: PDFView) {
             self.view = view
@@ -73,7 +77,16 @@ struct PDFDocumentSurface: UIViewRepresentable {
                     }
                 }
                 pauseObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingPausePDF"), object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.persist(); self?.hideTools() }
+                    MainActor.assumeIsolated { self?.persist(); self?.toolsPaused = true; self?.hideTools() }
+                }
+                resumeObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingResumePDF"), object: nil, queue: .main) { [weak self] event in
+                    let documentID = event.object as? UUID
+                    MainActor.assumeIsolated {
+                        guard let self, self.active, documentID == self.parent.document.id else { return }
+                        self.toolsPaused = false
+                        if let pdf = self.view?.document, let page = self.view?.currentPage,
+                           let canvas = self.canvases[pdf.index(for: page)] { self.showTools(for: canvas) }
+                    }
                 }
                 closeObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingClosePDF"), object: nil, queue: .main) { [weak self] event in
                     let ids = event.object as? [UUID] ?? []
@@ -106,6 +119,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         }
         private func tick() {
             guard active, let view, view.bounds.width > 0, view.bounds.height > 0, view.document != nil else { return }
+            observeScrolling()
             if !restored {
                 restore(lastSaved); lastSize = view.bounds.size; restored = true; lastVisible = current()
                 parent.navigation.thumbnailVersion += 1
@@ -148,6 +162,29 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 }
             }
         }
+        private func observeScrolling() {
+            guard scrollingView == nil, let view else { return }
+            var candidates = view.subviews
+            while !candidates.isEmpty {
+                let candidate = candidates.removeFirst()
+                if candidate is PKCanvasView { continue }
+                if let scroll = candidate as? UIScrollView {
+                    scrollingView = scroll
+                    scroll.panGestureRecognizer.addTarget(self, action: #selector(scrollGesture(_:)))
+                    return
+                }
+                candidates.append(contentsOf: candidate.subviews)
+            }
+        }
+        @objc private func scrollGesture(_ gesture: UIPanGestureRecognizer) {
+            guard active, let view, let pdf = view.document else { return }
+            let page = view.currentPage.map { pdf.index(for: $0) } ?? parent.navigation.page
+            switch gesture.state {
+            case .began, .changed: parent.navigation.scrolling(true, page: page, count: pdf.pageCount)
+            case .ended, .cancelled, .failed: parent.navigation.scrolling(false, page: page, count: pdf.pageCount)
+            default: break
+            }
+        }
         @discardableResult func persist() -> Bool {
             guard restored, active else { return true }
             do {
@@ -167,16 +204,19 @@ struct PDFDocumentSurface: UIViewRepresentable {
             guard active else { return }
             if persistChanges { persist() }
             active = false; timer?.invalidate(); timer = nil
+            scrollingView?.panGestureRecognizer.removeTarget(self, action: #selector(scrollGesture(_:))); scrollingView = nil
             parent.navigation.stop()
             if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
             if let flushObserver { NotificationCenter.default.removeObserver(flushObserver) }
             if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
             if let pauseObserver { NotificationCenter.default.removeObserver(pauseObserver) }
+            if let resumeObserver { NotificationCenter.default.removeObserver(resumeObserver) }
             hideTools()
             for canvas in canvases.values { toolPicker.removeObserver(canvas) }
             view?.pageOverlayViewProvider = nil
         }
         private func hideTools() {
+            toolPresentation += 1
             for canvas in canvases.values { toolPicker.setVisible(false, forFirstResponder: canvas); canvas.resignFirstResponder() }
         }
         func jump(to index: Int) {
@@ -249,7 +289,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
             guard let pdf = view.document else { return nil }
             let index = pdf.index(for: page)
             if let canvas = canvases[index] { return canvas }
-            let canvas = PKCanvasView(frame: page.bounds(for: .cropBox))
+            let canvas = TeachingCanvasView(frame: page.bounds(for: .cropBox))
             canvas.isOpaque = false; canvas.backgroundColor = .clear; canvas.isScrollEnabled = false
             canvas.drawingPolicy = parent.fingerDrawing ? .anyInput : .pencilOnly
             canvas.tool = PKInkingTool(.pen, color: .systemBlue, width: 2)
@@ -260,9 +300,21 @@ struct PDFDocumentSurface: UIViewRepresentable {
             return canvas
         }
         func pdfView(_ pdfView: PDFView, willDisplayOverlayView overlayView: UIView, for page: PDFPage) {
-            guard let canvas = overlayView as? PKCanvasView else { return }
-            toolPicker.addObserver(canvas); toolPicker.setVisible(true, forFirstResponder: canvas)
-            if parent.isWorksheet { canvas.becomeFirstResponder() }
+            guard let canvas = overlayView as? TeachingCanvasView else { return }
+            toolPicker.addObserver(canvas)
+            canvas.didAttachToWindow = { [weak self] canvas in self?.showTools(for: canvas) }
+            showTools(for: canvas)
+        }
+        private func showTools(for canvas: PKCanvasView) {
+            guard active, !toolsPaused, canvas.window != nil else { return }
+            // Finish PDFKit's attachment callback before presenting scene-owned tools.
+            let presentation = toolPresentation
+            Task { @MainActor [weak self, weak canvas] in
+                guard let self, self.active, !self.toolsPaused, self.toolPresentation == presentation,
+                      let canvas, canvas.window != nil else { return }
+                if self.parent.isWorksheet { canvas.becomeFirstResponder() }
+                self.toolPicker.setVisible(true, forFirstResponder: canvas)
+            }
         }
         func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) { persist() }
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -271,6 +323,15 @@ struct PDFDocumentSurface: UIViewRepresentable {
         func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
             toolPicker.setVisible(true, forFirstResponder: canvasView); canvasView.becomeFirstResponder()
         }
+    }
+}
+
+/// PDFKit can announce a blank page's overlay before it joins the window.
+@MainActor private final class TeachingCanvasView: PKCanvasView {
+    var didAttachToWindow: ((PKCanvasView) -> Void)?
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { didAttachToWindow?(self) }
     }
 }
 
@@ -313,13 +374,13 @@ struct PDFDocumentSurface: UIViewRepresentable {
 
 /// Draw in canonical PDF page coordinates; the caller supplies crop/rotation/viewport transforms.
 @MainActor enum TeachingPageRenderer {
-    static func draw(_ page: PDFPage, ink: PKDrawing?, in graphics: CGContext) {
+    static func draw(_ page: PDFPage, ink: PKDrawing?, includeAnnotations: Bool = true, in graphics: CGContext) {
         guard let reference = page.pageRef else { return }
         graphics.saveGState()
         graphics.setFillColor(UIColor.white.cgColor); graphics.fill(reference.getBoxRect(.cropBox))
         graphics.drawPDFPage(reference)
         // PDFAnnotation applies its page rotation internally. The caller already supplies that transform.
-        do {
+        if includeAnnotations {
             let rotation = page.rotation
             page.rotation = 0
             defer { page.rotation = rotation }
@@ -328,7 +389,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
             for annotation in page.annotations where annotation.shouldDisplay { annotation.draw(with: .mediaBox, in: graphics) }
             graphics.restoreGState()
         }
-        if let ink {
+        if includeAnnotations, let ink {
             let crop = reference.getBoxRect(.cropBox)
             graphics.saveGState()
             graphics.translateBy(x: crop.minX, y: crop.maxY); graphics.scaleBy(x: 1, y: -1)

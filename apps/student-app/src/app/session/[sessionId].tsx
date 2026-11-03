@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { Card, EmptyBlock, ErrorBlock, formatDateTime, Label, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
 import { sessionDisplayTitle, sessionTypeLabel } from '@/features/sessions/session-display';
 import { useSessionDetail } from '@/hooks/use-student-data';
+import { SessionLogFiles } from '@/features/sessions/session-log-files';
 import { useTheme } from '@/hooks/use-theme';
 
 type Person = { first_name?: string; last_name?: string; name?: string };
@@ -75,6 +76,7 @@ export default function SessionModalScreen() {
                 </>
               ) : null}
             </Card>
+            <SessionLogFiles sessionID={sessionId} />
           </>
         ) : null}
       </StudentScreen>
