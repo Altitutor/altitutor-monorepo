@@ -91,6 +91,7 @@ struct SignInView: View {
                     setup.toggle(); password = ""; email = ""; passwordFocused = false
                 }.font(.subheadline).disabled(model.busy)
             }
+            TeachingPrivacyLink().font(.footnote)
         }.padding(36).frame(maxWidth: 470).frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(TeachingColors.background)
             .onDisappear { password = "" }
@@ -103,6 +104,15 @@ struct SignInView: View {
             await model.signIn(email: loginEmail, password: loginPassword)
             password = ""
         }
+    }
+}
+
+struct TeachingPrivacyLink: View {
+    // A fixed HTTPS URL shared by the sign-in screen and teaching-day toolbar.
+    private let policyURL = URL(string: "https://altitutor.com/mobile-privacy/#teaching")!
+    var body: some View {
+        Link("Privacy policy", destination: policyURL)
+            .accessibilityIdentifier("teaching-privacy")
     }
 }
 
