@@ -20,7 +20,9 @@ import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server
  * - User must be an active tutor (checked via is_tutor())
  * - Session must be accessible by the tutor (checked via vtutor_sessions view)
  */
-export async function submitTutorLog(request: NextRequest, userClient: SupabaseClient<Database>) {
+export async function submitTutorLog(request: NextRequest, userClient: SupabaseClient<Database>, teaching?: {
+  submissionID: string; annotatedFiles: Array<{ artifactID: string; studentIds: string[] }>;
+}) {
   try {
     const body: TutorLogFormData = await request.json();
 
@@ -126,7 +128,7 @@ export async function submitTutorLog(request: NextRequest, userClient: SupabaseC
       );
     }
 
-    if (existingLog) {
+    if (existingLog && !teaching) {
       return NextResponse.json(
         { error: 'A tutor log already exists for this session' },
         { status: 409 }
@@ -224,9 +226,16 @@ export async function submitTutorLog(request: NextRequest, userClient: SupabaseC
     };
 
     // Call the RPC function
-    const { data: result, error } = await supabase.rpc('create_tutor_log', rpcParams);
+    const { data: result, error } = teaching
+      ? await supabase.rpc('create_teaching_tutor_log', {
+        p_submission_id: teaching.submissionID, p_input: rpcParams, p_annotations: teaching.annotatedFiles,
+      })
+      : await supabase.rpc('create_tutor_log', rpcParams);
 
     if (error) {
+      if (teaching && ['23505', '22023', '42501'].includes(error.code)) {
+        return NextResponse.json({ error: error.message }, { status: error.code === '23505' ? 409 : error.code === '42501' ? 403 : 400 });
+      }
       console.error('Error calling create_tutor_log RPC:', error);
       captureApiError(error, "/api/tutor-logs");
       return NextResponse.json(

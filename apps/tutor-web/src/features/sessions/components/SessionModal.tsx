@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSharedLessonDocuments } from '../hooks/useSharedLessonDocuments';
 import {
   Sheet,
+  SharedLessonDocumentLinks,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -90,6 +92,7 @@ export function SessionModal({
   currentStaffIdForNotes,
   refreshTrigger,
 }: SessionModalProps) {
+  const sharedDocuments = useSharedLessonDocuments(sessionId, isOpen);
   const { data: notesData } = useSessionNotes(sessionId || '');
 
   const { session, tutorLog, allTopics, studentsData, staffData, parentsData, subject, isLoading, refresh } =
@@ -346,6 +349,7 @@ export function SessionModal({
                                   {topicFiles.map((fileData) => (
                                     <div key={fileData.id} className="text-sm text-muted-foreground">
                                       {fileData.code || fileData.filename || ''}
+                                      <SharedLessonDocumentLinks documents={(sharedDocuments.data ?? []).filter(document => document.canonicalResourceID === fileData.canonicalResourceID)} />
                                     </div>
                                   ))}
                                 </div>
@@ -357,6 +361,9 @@ export function SessionModal({
                     </div>
                   )}
 
+                  {hasTutorLog && sharedDocuments.isError ? <p role="alert" className="text-sm text-destructive">{sharedDocuments.error.message}</p> : null}
+                  {hasTutorLog ? <SharedLessonDocumentLinks documents={(sharedDocuments.data ?? []).filter(document =>
+                    !document.canonicalResourceID || !(tutorLog.files ?? []).some(file => file.canonicalResourceID === document.canonicalResourceID && tutorLog.topics?.some(topic => topic.id === file.topic_id)))} /> : null}
                   {!hasTutorLog && (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       {canAddTutorLog

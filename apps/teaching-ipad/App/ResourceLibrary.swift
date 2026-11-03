@@ -99,7 +99,7 @@ struct ResourceLibrary: View {
                             if model.libraryBusy { ProgressView().frame(maxWidth: .infinity) }
                             if query.isEmpty && model.libraryTopics.isEmpty && !model.libraryBusy { Text("No accessible topics.").foregroundStyle(.secondary) }
                         }.padding(.bottom, 20)
-                    }
+                    }.refreshable { await model.search(query); await model.loadSuggestions() }
                 }.padding(20)
         }
         .task(id: String(isPresented) + suggestionKey) { if isPresented { await model.loadSuggestions() } }
@@ -116,10 +116,10 @@ struct ResourceLibrary: View {
     }
 
     private var suggested: [TeachingResource] {
-        model.suggestions.filter { candidate in candidate.subjectID == model.librarySubjectID && model.lesson?.resources.contains { $0.resource.id == candidate.id } != true }
+        model.suggestions.filter { candidate in candidate.subjectID == model.librarySubjectID && model.lesson?.resources.contains { $0.resource?.id == candidate.id } != true }
     }
     private var suggestionKey: String {
-        (model.lesson?.resources.map { $0.resource.id.uuidString }.joined(separator: ",") ?? "") + (model.activeResourceID?.uuidString ?? "")
+        (model.lesson?.resources.compactMap { $0.resource?.id.uuidString }.joined(separator: ",") ?? "") + (model.activeResourceID?.uuidString ?? "")
     }
     private var subjectIDs: [UUID] {
         let topics = model.libraryTopics.sorted { $0.subjectName.localizedStandardCompare($1.subjectName) == .orderedAscending }
@@ -197,7 +197,7 @@ private struct TopicFolder: View {
             }.padding(.leading, 10).padding(.vertical, 8)
         } label: {
             Label(node.name, systemImage: expanded ? "folder.fill" : "folder").font(.subheadline.weight(.semibold)).padding(.vertical, 7)
-        }.tint(TeachingColors.navy).animation(TeachingMotion.folder(reduceMotion: reduceMotion), value: expanded)
+        }.tint(TeachingColors.accent).animation(TeachingMotion.folder(reduceMotion: reduceMotion), value: expanded)
     }
 }
 
@@ -222,7 +222,7 @@ private struct LibraryFile: View {
 private struct AddToLessonButton: View {
     @ObservedObject var model: TeachingModel
     let resource: TeachingResource
-    private var added: Bool { model.lesson?.resources.contains { $0.resource.id == resource.id } == true }
+    private var added: Bool { model.lesson?.resources.contains { $0.resource?.id == resource.id } == true }
     var body: some View {
         Button(added ? "Added to lesson" : "Add to lesson", systemImage: added ? "checkmark" : "plus") {
             Task { await model.add(resource) }
@@ -255,9 +255,9 @@ struct LibraryPreview: View {
                     Button("Add to lesson") {
                         Task {
                             await model.add(resource)
-                            if model.lesson?.resources.contains(where: { $0.resource.id == resource.id }) == true { close() }
+                            if model.lesson?.resources.contains(where: { $0.resource?.id == resource.id }) == true { close() }
                         }
-                    }.disabled(model.busy || model.offline || model.lesson?.resources.contains(where: { $0.resource.id == resource.id }) == true)
+                    }.disabled(model.busy || model.offline || model.lesson?.resources.contains(where: { $0.resource?.id == resource.id }) == true)
                 }
             }
         }

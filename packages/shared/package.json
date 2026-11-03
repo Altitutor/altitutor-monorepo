@@ -28,6 +28,10 @@
     "./hooks": {
       "types": "./dist/hooks/index.d.ts",
       "default": "./dist/hooks/index.js"
+    },
+    "./teaching/server": {
+      "types": "./dist/teaching/server/index.d.ts",
+      "default": "./dist/teaching/server/index.js"
     }
   },
   "sideEffects": false,
