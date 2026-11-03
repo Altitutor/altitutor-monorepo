@@ -47,8 +47,15 @@ export default function MobilePrivacyPage() {
           <p>
             Confirming a lesson log sends the recorded lesson activity, student and
             resource selections, notes and tutor account identifier to the Tutor portal.
-            It does not upload your annotated PDFs. Printing sends the selected resource
-            and print settings to the office print service. Sharing exports a PDF through
+            Selected annotated worksheets and imported lesson PDFs are uploaded privately
+            and become available to the confirmed student recipients and authorized session
+            tutors when the log is submitted. These shared PDF snapshots expire one year
+            after submission; general resource catalog permissions do not change. Solutions
+            are not included in this lesson sharing. Printing uploads a separate copy of the
+            previewed PDF to the office print service. That copy is deleted 24 hours after
+            the print job reaches a final result; queued and in-progress jobs retain their
+            copy. Unsubmitted uploads expire after 24 hours. Print audit records and expired
+            lesson-file references may remain in the lesson history. Sharing exports a PDF through
             the system share sheet to the destination you choose; temporary exported files
             are cleaned up after sharing or on the next launch. Classroom presentation
             displays the worksheet and annotations on the connected display while keeping

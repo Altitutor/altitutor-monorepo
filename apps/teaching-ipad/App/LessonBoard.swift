@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct LessonBoard: View {
     @ObservedObject var model: TeachingModel
+    let addResource: () -> Void
     @State private var dragging: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -14,19 +15,26 @@ struct LessonBoard: View {
                     Button { model.open(item) } label: {
                         VStack(alignment: .leading, spacing: 12) {
                             LessonThumbnail(model: model, item: item).frame(height: 180)
-                            Text(item.resource.worksheet.title).font(.headline).lineLimit(2)
+                            Text(item.worksheet.source.title).font(.headline).lineLimit(2)
                                 .frame(height: 44, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
                         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 20))
                     }.buttonStyle(.plain)
                         .contextMenu { LessonResourceActions(model: model, item: item) }
                         .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
                 }
+                Menu {
+                    Button("Blank landscape PDF", systemImage: "rectangle") { model.addBlankDocument(landscape: true) }
+                    Button("Blank portrait PDF", systemImage: "rectangle.portrait") { model.addBlankDocument(landscape: false) }
+                    Button("Add resource", systemImage: "books.vertical") { addResource() }
+                } label: {
+                    Label("Add document", systemImage: "plus")
+                        .font(.headline).frame(maxWidth: .infinity).frame(height: 236)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                        .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])) }
+                }.buttonStyle(.plain).accessibilityIdentifier("teaching-add-document")
             }.padding(28)
-            if model.lesson?.resources.isEmpty != false {
-                ContentUnavailableView("No lesson files", systemImage: "doc.badge.plus")
-            }
         }.background(TeachingColors.background)
-            .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+            .onDrop(of: [LessonReorder.type, .pdf], delegate: LessonReorder(model: model, target: nil, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
             .onDisappear { dragging = nil }
     }
 }
@@ -61,24 +69,38 @@ struct LessonReorder: DropDelegate {
     let target: UUID?
     let animation: Animation
     @Binding var dragging: UUID?
-    func validateDrop(info: DropInfo) -> Bool { dragging != nil && info.hasItemsConforming(to: [Self.type]) }
+    func validateDrop(info: DropInfo) -> Bool {
+        (dragging != nil && info.hasItemsConforming(to: [Self.type])) || (target == nil && info.hasItemsConforming(to: [.pdf]))
+    }
     func dropEntered(info: DropInfo) {
         guard let target, let dragging, dragging != target, let item = model.lesson?.resources.first(where: { $0.id == dragging }) else { return }
         withAnimation(animation) { model.move(item, to: target) }
     }
-    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
-    func performDrop(info: DropInfo) -> Bool { dragging = nil; return true }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: dragging == nil ? .copy : .move) }
+    func performDrop(info: DropInfo) -> Bool {
+        if dragging != nil { dragging = nil; return true }
+        guard target == nil else { return false }
+        return model.importDroppedPDFs(info.itemProviders(for: [.pdf]))
+    }
 }
 
 struct LessonResourceActions: View {
     @ObservedObject var model: TeachingModel
     let item: LessonResource
     var body: some View {
+        Button("Print to office", systemImage: "printer") { model.presentPrint(item.worksheet) }
+            .disabled(model.offline || item.worksheet.source.externalURL != nil || !item.worksheet.source.isPDF)
         Button("Share worksheet", systemImage: "square.and.arrow.up") { model.share(item.worksheet) }
         if let solutions = item.solutions {
             Button("Share solutions", systemImage: "square.and.arrow.up") { model.share(solutions) }
         }
-        Button("Download fresh copy", systemImage: "arrow.down.doc") { Task { await model.add(item.resource, freshCopy: true) } }.disabled(model.offline || model.busy)
+        if let resource = item.resource {
+            Button("Download fresh copy", systemImage: "arrow.down.doc") { Task { await model.add(resource, freshCopy: true) } }.disabled(model.offline || model.busy)
+        }
+        Button("Move before previous file", systemImage: "arrow.left") { model.move(item, by: -1) }
+            .disabled(model.lesson?.resources.first?.id == item.id)
+        Button("Move after next file", systemImage: "arrow.right") { model.move(item, by: 1) }
+            .disabled(model.lesson?.resources.last?.id == item.id)
         Divider()
         Button("Remove from lesson", systemImage: "trash", role: .destructive) { model.remove(item) }
     }
@@ -91,13 +113,13 @@ private struct LessonThumbnail: View {
     var body: some View {
         Group {
             if let image { Image(uiImage: image).resizable().scaledToFit() }
-            else { Image(systemName: item.resource.worksheet.externalURL == nil ? "doc" : "link").font(.largeTitle).foregroundStyle(.secondary) }
+            else { Image(systemName: item.worksheet.source.externalURL == nil ? "doc" : "link").font(.largeTitle).foregroundStyle(.secondary) }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
             .task(id: item.worksheet.id.uuidString + model.documentRevision.uuidString) {
                 guard let store = model.store, let session = model.session,
                       let url = try? store.documentURL(sessionID: session.id, document: item.worksheet) else { return }
-                if item.resource.worksheet.isPDF {
+                if item.worksheet.source.isPDF {
                     image = PDFDocument(url: url)?.page(at: 0)?.thumbnail(of: CGSize(width: 440, height: 360), for: .cropBox)
                 } else { image = UIImage(contentsOfFile: url.path) }
             }.accessibilityHidden(true)

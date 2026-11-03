@@ -18,8 +18,8 @@ public final class LessonStore {
     @discardableResult
     public func add(_ resource: TeachingResource, to sessionID: UUID, worksheet: Data, solutions: Data?, freshCopy: Bool = false) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
-        if !freshCopy && record.resources.contains(where: { $0.resource.id == resource.id }) { return record }
-        if !freshCopy, let index = record.archivedResources.lastIndex(where: { $0.resource.id == resource.id }) {
+        if !freshCopy && record.resources.contains(where: { $0.resource?.id == resource.id }) { return record }
+        if !freshCopy, let index = record.archivedResources.lastIndex(where: { $0.resource?.id == resource.id }) {
             record.resources.append(record.archivedResources.remove(at: index))
             try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
             return record
@@ -35,12 +35,36 @@ public final class LessonStore {
         return record
     }
 
+    /// A local document shares the lesson's storage/annotation boundary, but has no catalog or log identity.
+    @discardableResult
+    public func addLocalDocument(title: String, to sessionID: UUID, pdf: Data) throws -> LessonRecord {
+        guard !pdf.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+        var record = try lesson(sessionID: sessionID)
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = TeachingDocument(id: UUID(), title: name.isEmpty ? "Imported.pdf" : name,
+                                      mimeType: "application/pdf", externalURL: nil)
+        let document = CachedDocument(id: UUID(), source: source)
+        let target = folder(sessionID)
+        try files.createDirectory(at: target, withIntermediateDirectories: true)
+        let url = target.appendingPathComponent(document.id.uuidString + ".pdf")
+        do {
+            try write(pdf, to: url)
+            record.resources.append(LessonResource(id: UUID(), resource: nil, worksheet: document, solutions: nil))
+            try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
+            return record
+        } catch {
+            try? files.removeItem(at: url)
+            throw error
+        }
+    }
+
     @discardableResult
     public func remove(_ resourceID: UUID, from sessionID: UUID) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
         guard let index = record.resources.firstIndex(where: { $0.id == resourceID }) else { throw CocoaError(.fileReadNoPermission) }
         record.archivedResources.append(record.resources.remove(at: index))
         record.draft.excludedResources.remove(resourceID)
+        record.draft.excludedAnnotations.remove(resourceID)
         record.draft.studentAssignments.removeValue(forKey: resourceID)
         try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
         return record
@@ -65,6 +89,11 @@ public final class LessonStore {
         let url = try documentFolder(sessionID: sessionID, document: document).appendingPathComponent(document.id.uuidString + ".pdf")
         guard files.fileExists(atPath: url.path) else { throw CocoaError(.fileNoSuchFile) }
         return url
+    }
+
+    public func hasPageEdits(sessionID: UUID, document: CachedDocument) throws -> Bool {
+        _ = try documentURL(sessionID: sessionID, document: document)
+        return try documentFolder(sessionID: sessionID, document: document) != folder(sessionID)
     }
 
     public func saveDrawing(_ data: Data, sessionID: UUID, document: CachedDocument, page: Int) throws {
@@ -156,11 +185,12 @@ public final class LessonStore {
         var topicStudents: [UUID: Set<UUID>] = [:]
         var selectedFiles: [UUID: FileSelection] = [:]
         for item in record.resources where !record.draft.excludedResources.contains(item.id) {
+            guard let resource = item.resource else { continue }
             let assigned = Set(record.draft.studentAssignments[item.id] ?? attendingStudents).intersection(attending)
-            topicStudents[item.resource.topicID, default: []].formUnion(assigned)
-            let fileStudents = assigned.union(selectedFiles[item.resource.id]?.studentIds ?? [])
-            selectedFiles[item.resource.id] = FileSelection(topicsFilesId: item.resource.worksheet.id,
-                topicId: item.resource.topicID, studentIds: fileStudents.sorted { $0.uuidString < $1.uuidString })
+            topicStudents[resource.topicID, default: []].formUnion(assigned)
+            let fileStudents = assigned.union(selectedFiles[resource.id]?.studentIds ?? [])
+            selectedFiles[resource.id] = FileSelection(topicsFilesId: resource.worksheet.id,
+                topicId: resource.topicID, studentIds: fileStudents.sorted { $0.uuidString < $1.uuidString })
         }
         return LogSuggestions(topics: topicStudents.map { TopicSelection(topicId: $0.key,
             studentIds: $0.value.sorted { $0.uuidString < $1.uuidString }) }.sorted { $0.topicId.uuidString < $1.topicId.uuidString },

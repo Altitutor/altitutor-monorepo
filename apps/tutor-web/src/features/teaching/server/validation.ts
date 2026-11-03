@@ -5,6 +5,8 @@ const id = z.string().guid('Invalid uuid').transform(value => value.toLowerCase(
 const students = z.array(id).max(500);
 export const teachingLogSchema = z.object({
   sessionId: id,
+  submissionID: id.optional(),
+  annotatedFiles: z.array(z.object({ artifactID: id, studentIds: students }).strict()).max(50).default([]),
   staffAttendance: z.array(z.object({ staffId: id, attended: z.boolean(),
     type: z.enum(['MAIN_TUTOR', 'SECONDARY_TUTOR', 'TRIAL_TUTOR', 'CHECK_IN_HOST', 'CHECK_IN_RECEIVER']),
   }).strict()).max(100),
@@ -13,7 +15,7 @@ export const teachingLogSchema = z.object({
   topics: z.array(z.object({ topicId: id, studentIds: students }).strict()).max(500),
   topicFiles: z.array(z.object({ topicsFilesId: id, topicId: id, studentIds: students }).strict()).max(500),
   notes: z.array(z.string().trim().min(1).max(10000)).max(25),
-}).strict();
+}).strict().refine(input => input.annotatedFiles.length === 0 || input.submissionID !== undefined, 'A submission identifier is required.');
 export type TeachingLogInput = z.infer<typeof teachingLogSchema>;
 
 export const teachingStudentSchema = z.object({ sessionId: id, studentId: id }).strict();

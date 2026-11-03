@@ -57,3 +57,5 @@ export * from "./observability/interview-call-reporting";
 export * from "./validation/iso-datetime";
 
 export * from "./observability/sentry-web-compatibility";
+
+export type { SharedLessonDocument } from './teaching/types';

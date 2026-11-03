@@ -9,18 +9,24 @@ import TeachingCore
     @Published var indicatorVisible = false
     weak var editor: PDFDocumentSurface.Coordinator?
     private var indicatorTask: Task<Void, Never>?
+    private var scrolling = false
 
     func activity(page: Int, count: Int) {
         if self.page != page { self.page = page }
         if self.count != count { self.count = count }
         indicatorVisible = true
         indicatorTask?.cancel()
+        guard !scrolling else { return }
         indicatorTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
             self?.indicatorVisible = false
         }
     }
-    func stop() { indicatorTask?.cancel(); indicatorTask = nil; editor = nil }
+    func scrolling(_ active: Bool, page: Int, count: Int) {
+        scrolling = active
+        activity(page: page, count: count)
+    }
+    func stop() { indicatorTask?.cancel(); indicatorTask = nil; scrolling = false; indicatorVisible = false; editor = nil }
 }
 
 struct PDFEditorView: View {
@@ -60,7 +66,7 @@ struct PDFEditorView: View {
                             Button { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { sidebar.toggle() }; navigation.activity(page: navigation.page, count: navigation.count) } label: {
                                 Label("\(navigation.page + 1) of \(navigation.count)", systemImage: "sidebar.left")
                                     .font(.subheadline.weight(.medium)).monospacedDigit().padding(.horizontal, 12).padding(.vertical, 9)
-                            }.buttonStyle(.glass).padding(16)
+                            }.buttonStyle(.glass).padding(16).padding(.top, 56)
                                 .opacity(navigation.indicatorVisible ? 1 : 0)
                                 .allowsHitTesting(navigation.indicatorVisible).accessibilityHidden(!navigation.indicatorVisible)
                                 .accessibilityLabel("Toggle page sidebar, page \(navigation.page + 1) of \(navigation.count)")

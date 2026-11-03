@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useSharedLessonDocuments } from '../hooks/useSharedLessonDocuments';
 import {
   Button,
+  SharedLessonDocumentLinks,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -135,6 +137,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const { data: currentStudentId } = useCurrentStudentId();
   const { data, isLoading } = useSessionWithDetails(sessionId, isOpen && !!sessionId);
   const sessionRowForLog = data ? (data as unknown as FlattenedSessionDetail) : null;
+  const sharedDocuments = useSharedLessonDocuments(sessionId, isOpen);
   const { data: tutorLogResources } = useSessionTutorLogResources(
     sessionId,
     sessionRowForLog,
@@ -292,6 +295,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               )}
             </div>
 
+            {sharedDocuments.isError ? <p role="alert" className="text-sm text-destructive">{sharedDocuments.error.message}</p> : null}
+            <SharedLessonDocumentLinks documents={(sharedDocuments.data ?? []).filter(document => !document.canonicalResourceID ||
+              !tutorLogResources?.topicSections.some(section => section.files.some(file => file.id === document.canonicalResourceID)))} />
             {tutorLogResources ? (
               <>
                 <div className={cn(studentModalHairline, 'my-6')} />
@@ -335,6 +341,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                             <TopicFilesList
                               files={section.files}
                               getFileHref={getFileHref}
+                              renderAfterFile={file => <SharedLessonDocumentLinks documents={(sharedDocuments.data ?? []).filter(document => document.canonicalResourceID === file.id)} />}
                               fileTypeHeadingClassName="mb-2 text-base font-semibold text-foreground"
                             />
                           </div>

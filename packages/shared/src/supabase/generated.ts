@@ -16731,6 +16731,539 @@ export type Database = {
           },
         ]
       }
+      teaching_document_students: {
+        Row: {
+          document_id: string
+          student_id: string
+        }
+        Insert: {
+          document_id: string
+          student_id: string
+        }
+        Update: {
+          document_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_document_students_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "teaching_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_teaching_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_document_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      teaching_documents: {
+        Row: {
+          bucket: string
+          canonical_topics_file_id: string | null
+          cleanup_attempts: number
+          cleanup_claimed_at: string | null
+          cleanup_next_attempt_at: string
+          created_at: string
+          deleted_at: string | null
+          document_id: string
+          expires_at: string
+          file_id: string | null
+          filename: string
+          id: string
+          owner_staff_id: string
+          published_at: string | null
+          purpose: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+          state: string
+          storage_path: string
+          tutor_log_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          bucket: string
+          canonical_topics_file_id?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_next_attempt_at?: string
+          created_at?: string
+          deleted_at?: string | null
+          document_id: string
+          expires_at?: string
+          file_id?: string | null
+          filename: string
+          id?: string
+          owner_staff_id: string
+          published_at?: string | null
+          purpose: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+          state?: string
+          storage_path: string
+          tutor_log_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          bucket?: string
+          canonical_topics_file_id?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_next_attempt_at?: string
+          created_at?: string
+          deleted_at?: string | null
+          document_id?: string
+          expires_at?: string
+          file_id?: string | null
+          filename?: string
+          id?: string
+          owner_staff_id?: string
+          published_at?: string | null
+          purpose?: string
+          session_id?: string
+          sha256?: string
+          size_bytes?: number
+          state?: string
+          storage_path?: string
+          tutor_log_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+        ]
+      }
+      teaching_log_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          owner_staff_id: string
+          payload_hash: string
+          session_id: string
+          tutor_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          owner_staff_id: string
+          payload_hash: string
+          session_id: string
+          tutor_log_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_staff_id?: string
+          payload_hash?: string
+          session_id?: string
+          tutor_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_log_submissions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_log_submissions_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           code: string
@@ -28658,6 +29191,160 @@ export type Database = {
           },
         ]
       }
+      vstudent_lesson_documents: {
+        Row: {
+          available: boolean | null
+          canonical_topics_file_id: string | null
+          expires_at: string | null
+          filename: string | null
+          id: string | null
+          published_at: string | null
+          session_id: string | null
+          tutor_log_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+        ]
+      }
       vstudent_my_subject_access: {
         Row: {
           access_source: string | null
@@ -35618,6 +36305,160 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_lesson_documents: {
+        Row: {
+          available: boolean | null
+          canonical_topics_file_id: string | null
+          expires_at: string | null
+          filename: string | null
+          id: string | null
+          published_at: string | null
+          session_id: string | null
+          tutor_log_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_log_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+        ]
+      }
       vtutor_notes: {
         Row: {
           created_at: string | null
@@ -37799,6 +38640,220 @@ export type Database = {
           year_level: number | null
         }
         Relationships: []
+      }
+      vtutor_teaching_uploads: {
+        Row: {
+          canonical_topics_file_id: string | null
+          document_id: string | null
+          expires_at: string | null
+          file_id: string | null
+          filename: string | null
+          id: string | null
+          owner_staff_id: string | null
+          purpose: string | null
+          session_id: string | null
+          sha256: string | null
+          size_bytes: number | null
+          state: string | null
+        }
+        Insert: {
+          canonical_topics_file_id?: string | null
+          document_id?: string | null
+          expires_at?: string | null
+          file_id?: string | null
+          filename?: string | null
+          id?: string | null
+          owner_staff_id?: string | null
+          purpose?: string | null
+          session_id?: string | null
+          sha256?: string | null
+          size_bytes?: number | null
+          state?: string | null
+        }
+        Update: {
+          canonical_topics_file_id?: string | null
+          document_id?: string | null
+          expires_at?: string | null
+          file_id?: string | null
+          filename?: string | null
+          id?: string | null
+          owner_staff_id?: string | null
+          purpose?: string | null
+          session_id?: string | null
+          sha256?: string | null
+          size_bytes?: number | null
+          state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_canonical_topics_file_id_fkey"
+            columns: ["canonical_topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
       }
       vtutor_topics: {
         Row: {
@@ -44132,6 +45187,39 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_teaching_document_expiry: {
+        Args: { p_limit?: number }
+        Returns: {
+          bucket: string
+          canonical_topics_file_id: string | null
+          cleanup_attempts: number
+          cleanup_claimed_at: string | null
+          cleanup_next_attempt_at: string
+          created_at: string
+          deleted_at: string | null
+          document_id: string
+          expires_at: string
+          file_id: string | null
+          filename: string
+          id: string
+          owner_staff_id: string
+          published_at: string | null
+          purpose: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+          state: string
+          storage_path: string
+          tutor_log_id: string | null
+          verified_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "teaching_documents"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_ucat_founder_offer: {
         Args: {
           p_billing_interval?: string
@@ -44487,6 +45575,10 @@ export type Database = {
           p_subject_ids?: string[]
           p_year_level?: number
         }
+        Returns: Json
+      }
+      create_teaching_tutor_log: {
+        Args: { p_annotations: Json; p_input: Json; p_submission_id: string }
         Returns: Json
       }
       create_tutor_log: {
@@ -44977,6 +46069,10 @@ export type Database = {
       }
       fail_session_billing_adjustment: {
         Args: { p_adjustment_id: string; p_error: string }
+        Returns: undefined
+      }
+      finish_teaching_document_expiry: {
+        Args: { p_artifact_id: string }
         Returns: undefined
       }
       flashcard_optimizer_candidates: {
@@ -45692,6 +46788,10 @@ export type Database = {
         }
         Returns: number
       }
+      prepare_teaching_print: {
+        Args: { p_artifact_id: string; p_owner_staff_id: string }
+        Returns: string
+      }
       preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
       preview_student_merge: {
@@ -46282,6 +47382,39 @@ export type Database = {
         Args: { p_attendance_type: string; p_session_type: string }
         Returns: string
       }
+      stage_teaching_document: {
+        Args: { p_input: Json; p_owner_staff_id: string }
+        Returns: {
+          bucket: string
+          canonical_topics_file_id: string | null
+          cleanup_attempts: number
+          cleanup_claimed_at: string | null
+          cleanup_next_attempt_at: string
+          created_at: string
+          deleted_at: string | null
+          document_id: string
+          expires_at: string
+          file_id: string | null
+          filename: string
+          id: string
+          owner_staff_id: string
+          published_at: string | null
+          purpose: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+          state: string
+          storage_path: string
+          tutor_log_id: string | null
+          verified_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teaching_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
       start_ucat_learning_module: {
@@ -46373,6 +47506,7 @@ export type Database = {
         }
         Returns: Json
       }
+      teaching_private_storage_ready: { Args: never; Returns: boolean }
       try_acquire_billing_runner_lock: {
         Args: {
           p_lock_name?: string

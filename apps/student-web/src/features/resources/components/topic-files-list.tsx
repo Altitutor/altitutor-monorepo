@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import {
   formatResourceFileLabel,
   formatResourceTypeLabel,
@@ -23,8 +24,10 @@ export function TopicFilesList({
   getFileHref,
   fileTypeHeadingClassName = 'mb-4 text-2xl font-semibold',
   staticDisplay = false,
+  renderAfterFile,
 }: {
   files: ResourceFile[];
+  renderAfterFile?: (file: ResourceFile) => ReactNode;
   getFileHref?: (fileCode: string) => string;
   /** Override for denser layouts (e.g. session sheet). */
   fileTypeHeadingClassName?: string;
@@ -60,12 +63,10 @@ export function TopicFilesList({
                     solution ? 'md:grid-cols-2' : undefined,
                   )}
                 >
-                  <TopicFileCard
-                    file={primary}
-                    icon={Icon}
-                    getFileHref={getFileHref}
-                    staticDisplay={staticDisplay}
-                  />
+                  <div className="space-y-2">
+                    <TopicFileCard file={primary} icon={Icon} getFileHref={getFileHref} staticDisplay={staticDisplay} />
+                    {renderAfterFile?.(primary)}
+                  </div>
                   {solution ? (
                     <TopicFileCard
                       file={solution}

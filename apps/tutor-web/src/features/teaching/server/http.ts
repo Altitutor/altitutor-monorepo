@@ -1,7 +1,10 @@
+import { listLessonDocuments, lessonDocumentURL, LessonDocumentError } from '@altitutor/shared/teaching/server';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import * as Sentry from '@sentry/nextjs';
 import { authenticateTeaching, teachingClient, TeachingError } from './auth';
 import { authSchema, readTeachingBody, teachingLogSchema, teachingStudentSchema } from './validation';
 import { teachingPrintOptions, enqueueTeachingPrint, teachingPrintJob } from './printing';
+import { completeTeachingUpload, stageTeachingUpload } from './uploads';
 import { teachingStaffDirectory } from './staff-directory';
 import { teachingSuggestions } from './suggestions';
 import { teachingStudents, addTeachingStudent } from './students';
@@ -50,11 +53,21 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
       }
       if (path === '/print-options') return teachingJSON(await teachingPrintOptions(client));
       if (/^\/prints\/[^/]+$/.test(path)) return teachingJSON(await teachingPrintJob(client, path.split('/')[2]));
+      if (path === '/lesson-documents') return teachingJSON(await listLessonDocuments(client, url.searchParams.get('sessionID') ?? '', 'tutor'));
+      if (/^\/lesson-documents\/[^/]+$/.test(path)) return teachingJSON(await lessonDocumentURL(client, getServiceRoleClient(), path.split('/')[2], 'tutor'));
       if (path === '/profile') return teachingJSON(profile);
       if (path === '/sessions') return teachingJSON(await teachingSessions(client, url.searchParams.get('day') ?? ''));
       if (path === '/resources') return teachingJSON(await teachingResources(client, url.searchParams));
       if (/^\/documents\/[^/]+$/.test(path)) return teachingJSON(await teachingDocumentURL(client, path.split('/')[2]));
       if (/^\/logs\/[^/]+$/.test(path)) return teachingJSON(await teachingLog(client, path.split('/')[2]));
+    }
+    if (request.method === 'POST' && /^\/uploads\/[^/]+\/complete$/.test(path)) {
+      if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may upload lesson PDFs.');
+      return teachingJSON(await completeTeachingUpload(client, path.split('/')[2]));
+    }
+    if (request.method === 'POST' && path === '/uploads') {
+      if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may upload lesson PDFs.');
+      return teachingJSON(await stageTeachingUpload(client, profile.id, await readTeachingBody(request)), 201);
     }
     if (request.method === 'POST' && path === '/prints') return teachingJSON(await enqueueTeachingPrint(client, await readTeachingBody(request)), 201);
     if (request.method === 'POST' && path === '/suggestions') return teachingJSON(await teachingSuggestions(client, await readTeachingBody(request)));
@@ -74,6 +87,7 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
     }
     return teachingJSON({ error: 'Unknown teaching endpoint.' }, 404);
   } catch (error) {
+    if (error instanceof LessonDocumentError) return teachingJSON({ error: error.message }, error.status);
     if (!(error instanceof TeachingError) || error.status >= 500) {
       const cause = error instanceof TeachingError ? error.dependency : error;
       const fields = cause && typeof cause === 'object' ? cause as Record<string, unknown> : {};

@@ -127,3 +127,5 @@ export * from './components/entity-chip';
 export * from './extensions/entity-mention';
 
 export * from "./components/keyboard-shortcut";
+
+export * from './components/shared-lesson-document-links';

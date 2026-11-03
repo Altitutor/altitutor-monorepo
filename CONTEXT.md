@@ -354,8 +354,14 @@
 - **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
   _Avoid_: Taught Topic, submitted Tutor log entry
 
+- **Local lesson document** — A PDF imported or created blank in a Teaching workspace for that Tutor and Session. It may be annotated and explicitly office-printed. It has no catalog or taught-Topic identity; submitting it in a Tutor log creates a separately shared lesson snapshot.
+  _Avoid_: Uploaded resource, Student attachment
+
 - **Teaching annotation** — A Tutor's markings on a Lesson resource's worksheet or solutions for one Session, retained on the teaching iPad and accessible to that Tutor after sign-in. Another Tutor or Session has its own markings.
   _Avoid_: Shared resource edit, Student annotation
+
+- **Shared lesson snapshot** — An immutable PDF confirmed with a submitted Tutor log, pairing with its canonical worksheet where one exists. Assigned Students retain access for one year independently of general catalog entitlement; solutions remain private.
+  _Avoid_: Live annotation sync, catalog resource grant
 
 - **Classroom display** — The audience-facing presentation of the active worksheet and its live Teaching annotations, following the Tutor's worksheet position and zoom. It presents lesson information outside the resource viewer while keeping the Tutor's solutions private.
   _Avoid_: iPad screen mirror, solutions display
