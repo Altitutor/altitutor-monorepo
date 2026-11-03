@@ -31,6 +31,42 @@ test("explicit closing and reference links survive; incidental mentions never cl
   assert.match(result, /incidental.*DEV-4/);
 });
 
+test("release PR271 rollback plan preserves its explicit completion and relation links", () => {
+  const data = snapshot("Fixes DEV-311");
+  data.sources = [{
+    number: 271,
+    title: "chore: patch MCP and HTTP dependency security (DEV-275)",
+    body: "Rollback is this coherent PR and lockfile revert. No remote DB, main, deployment or live-provider operations.\n\nCloses DEV-275\nRelated to DEV-11",
+  }];
+  const result = renderReleaseLinks(data);
+  assert.match(result, /^Fixes DEV-275$/m);
+  assert.match(result, /^Fixes DEV-311$/m);
+  assert.match(result, /^Related to DEV-11$/m);
+  assert.doesNotMatch(result, /revert\/cherry-pick evidence/u);
+});
+
+test("rollback instructions in commit and source bodies are plans, while actual rewrite metadata blocks", () => {
+  for (const plan of [
+    "Rollback: revert this PR.",
+    "Revert this PR to roll back.",
+    "Rollback requires a coordinated revert and reconciliation of queued sends.",
+    "Reverting the application commit restores UI behavior.",
+  ]) {
+    const result = renderReleaseLinks(snapshot(`Fixes DEV-1\n\n${plan}`));
+    assert.match(result, /^Fixes DEV-1$/m);
+  }
+  for (const actual of [
+    'Revert "old change"\nFixes DEV-1',
+    'fix: remove regression\n\nThis reverts commit 0123456789abcdef.\nFixes DEV-1',
+    'fix: recover behavior\n\n(cherry picked from commit 0123456789abcdef)\nFixes DEV-1',
+    'Reverts #123\nFixes DEV-1',
+  ]) {
+    const result = renderReleaseLinks(snapshot(actual));
+    assert.doesNotMatch(result, /^Fixes DEV-1$/m);
+    assert.match(result, /revert\/cherry-pick evidence/u);
+  }
+});
+
 test("replacing the generated section preserves exact surrounding human text", () => {
   const section = renderReleaseLinks(snapshot("Fixes DEV-1"));
   const body = `Human introduction\n\n${section}\n\nHuman footer  `;

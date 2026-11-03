@@ -8,7 +8,11 @@ Include every selected issue's canonical reference in commits and the PR using
 the repository's existing Linear/GitHub convention. Verify each native issue/PR
 link through the connectors; preserve existing associations. Follow repo-specific
 diagnostic-only linkage rules when applicable rather than accidentally closing
-an unresolved incident.
+an unresolved incident. For fully delivered ticket scope, put each closing intent
+on its own standalone line in the source PR body, for example `Fixes DEV-123`.
+Keep relation-only diagnostic references on separate lines. Check the release
+link audit before claiming automatic completion; source PR links are not
+inherited by a develop-to-main release.
 
 Inspect available integration evidence and read each issue after lifecycle
 events. Rely on native progression only for transitions it actually performed;
