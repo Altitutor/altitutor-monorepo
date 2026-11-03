@@ -2,8 +2,8 @@
 
 Coding, lint, builds and unit tests can run concurrently in separate clones.
 Database operations use ordinary Docker/Supabase and per-runtime kernel locks in
-`scripts/owned_database.py` (Python 3.9+ standard library). No coordinator, daemon,
-Symphony fork or Docker/network customization is required.
+`scripts/owned_database.py` (Python 3.9+ standard library). No coordinator, daemon or
+Docker/network customization is required.
 
 ## Ordinary entrypoints
 
@@ -93,7 +93,8 @@ or automatic deletion of an existing project is installed.
 ## Review evidence and optional local development
 
 A custom Tailscale preview, shared port slot or timed hosting window is no longer
-a Symphony completion gate. Retain functional tests, inspected candidate evidence
+a scheduled-work completion gate. Retain functional tests, inspected candidate
+evidence
 where relevant, honest fixture/device limits and meaningful human review. Missing
 or expired remote hosting alone is not a product question or reason to park work.
 
