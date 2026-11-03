@@ -158,11 +158,15 @@ There is no paid third-party distribution dependency. See Apple’s
 [unlisted distribution](https://developer.apple.com/support/unlisted-app-distribution/)
 guidance.
 
-The repository intentionally has no development team, provisioning profile or
-App Store Connect credential. A release owner must configure the new app record,
-signing and distribution; this workflow neither uploads nor publishes an app.
-Deploy the matching TutorWeb API before a production pilot. The simulator build
-and CI do not establish device signing or authorize an App Store release.
+The regular native validation workflow does not sign or publish. The separate,
+manual-only [Teaching release workflow](../../.github/workflows/teaching-release.yml)
+can archive/export and, only when explicitly selected, upload for TestFlight
+processing. It requires a protected owner-reviewed environment and exact matching
+source/backend deployment. Signing credentials remain outside Git. See the
+[release-owner runbook](../../docs/agents/teaching-releases.md) for prerequisites,
+dispatch, retry/cleanup rules and the distinction between processing, tester
+availability and an App Store release. No main merge silently submits Teaching
+for App Review or releases an App Store version.
 
 ### Office iPad QA installation
 
