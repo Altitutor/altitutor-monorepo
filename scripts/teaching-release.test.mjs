@@ -23,9 +23,9 @@ function fixture(overrides = {}) {
   return {
     sourceSHA, workflowRef: 'refs/heads/main', backend: 'production',
     branchSHA: sourceSHA, runNumber: 41, runAttempt: 1, upload: false,
-    ci: 'success', deployment: { sha: sourceSHA, status: 'success' },
-    api: { sha: sourceSHA, contract: 1, authStatus: 401 },
-    environment: { reviewers: [155211953], branches: ['main', 'develop'], canAdminsBypass: false },
+    ciJobs: ['Lint', 'Type Check', 'Test', 'UCAT Contracts', 'Build', 'Web Browser and Database'].map((name) => ({ name: `Verify release commit / ${name}`, conclusion: 'success' })), deployment: { sha: sourceSHA, status: 'success' },
+    api: { sha: sourceSHA, contract: 1, authStatus: 401, ready: true },
+    environment: { reviewers: [{ type: 'User', id: 155211953 }], branches: ['main', 'develop'], canAdminsBypass: false },
     ...overrides,
   };
 }
@@ -49,10 +49,10 @@ test('release planning accepts only a pinned source and trusted dispatch branch'
 test('production planning requires matching successful CI, deployment and live API', () => {
   for (const overrides of [
     { backend: 'local' }, { backend: 'production', workflowRef: 'refs/heads/develop' },
-    { ci: 'failure' }, { deployment: { sha: sourceSHA, status: 'in_progress' } },
+    { ciJobs: [] }, { deployment: { sha: sourceSHA, status: 'in_progress' } },
     { deployment: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', status: 'success' } },
-    { api: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', contract: 1, authStatus: 401 } },
-    { api: { sha: sourceSHA, contract: 1, authStatus: 200 } },
+    { api: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', contract: 1, authStatus: 401, ready: true } },
+    { api: { sha: sourceSHA, contract: 1, authStatus: 200, ready: true } },
   ]) {
     const result = invoke('plan', fixture(overrides));
     assert.notEqual(result.status, 0);
@@ -87,8 +87,8 @@ test('every retry gets a monotonic bounded build identity and upload remains opt
 test('signing plan refuses an unprotected or broadly deployable environment', () => {
   for (const environment of [null, {},
     { reviewers: [], branches: ['main', 'develop'], canAdminsBypass: false },
-    { reviewers: [155211953], branches: ['*'], canAdminsBypass: false },
-    { reviewers: [155211953], branches: ['main', 'develop'], canAdminsBypass: true },
+    { reviewers: [{ type: 'User', id: 155211953 }], branches: ['*'], canAdminsBypass: false },
+    { reviewers: [{ type: 'User', id: 155211953 }], branches: ['main', 'develop'], canAdminsBypass: true },
   ]) {
     const result = invoke('plan', fixture({ environment }));
     assert.notEqual(result.status, 0);
@@ -104,4 +104,33 @@ test('an upload cannot reuse or go behind an Apple build, including ambiguous re
   }
   const retry = invoke('check-build', { buildNumber: '1041.2.0', existing: ['1', '2', '1041.1.0'] });
   assert.equal(retry.status, 0, retry.stderr);
+});
+
+test('the protected signing approver must be Matthew alone', () => {
+  for (const reviewers of [
+    [{ type: 'User', id: 155211953 }, { type: 'User', id: 42 }],
+    [{ type: 'User', id: 155211953 }, { type: 'Team', id: 42 }],
+    [{ type: 'Team', id: 155211953 }],
+    [{ type: 'User', id: 42 }],
+  ]) {
+    const result = invoke('plan', fixture({ environment: { reviewers, branches: ['main', 'develop'], canAdminsBypass: false } }));
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Protected Teaching environment/);
+  }
+});
+
+test('release CI evidence is the exact deployment run verification, not a separate PR run', () => {
+  const missing = invoke('plan', fixture({ ciJobs: [] }));
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /CI/);
+  const skippedBrowser = fixture().ciJobs.map((job) => ({ ...job,
+    conclusion: job.name.endsWith('Web Browser and Database') ? 'skipped' : job.conclusion }));
+  assert.notEqual(invoke('plan', fixture({ ciJobs: skippedBrowser })).status, 0);
+  assert.equal(invoke('plan', fixture({ backend: 'qa', workflowRef: 'refs/heads/develop', ciJobs: skippedBrowser })).status, 0);
+});
+
+test('matching source does not approve a Tutor API with unavailable dependencies', () => {
+  const result = invoke('plan', fixture({ api: { sha: sourceSHA, contract: 1, authStatus: 401, ready: false } }));
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Tutor API/);
 });

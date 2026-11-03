@@ -21,13 +21,16 @@ async function verify() {
   if (!Object.hasOwn(origins, env.TEACHING_BACKEND)) throw new Error('Backend is invalid');
   if (!env.GH_TOKEN) throw new Error('Read-only GitHub evidence token is missing');
   const github = (path) => jsonRequest(`https://api.github.com/repos/${repository}/${path}`, env.GH_TOKEN);
-  const [branch, ci, deploy, environment, branchRules] = await Promise.all([
+  const [branch, deploy, environment, branchRules] = await Promise.all([
     github(`branches/${env.TEACHING_BACKEND === 'production' ? 'main' : 'develop'}`),
-    github(`actions/workflows/ci.yml/runs?head_sha=${env.TEACHING_SOURCE_SHA}&per_page=1`),
     github(`actions/workflows/supabase-deploy.yml/runs?head_sha=${env.TEACHING_SOURCE_SHA}&per_page=1`),
     github(`environments/${environmentName}`),
     github(`environments/${environmentName}/deployment-branch-policies?per_page=100`),
   ]);
+  const deployment = deploy.workflow_runs?.[0];
+  if (!deployment?.id || deployment.head_sha !== env.TEACHING_SOURCE_SHA || deployment.conclusion !== 'success') throw new Error('Deployment must succeed for the pinned source');
+  const jobs = await github(`actions/runs/${deployment.id}/jobs?per_page=100`);
+  if (jobs.total_count > 100) throw new Error('CI evidence exceeds the bounded job inventory');
   const apiURL = origins[env.TEACHING_BACKEND];
   const [api, auth] = await Promise.all([
     jsonRequest(`${apiURL}/api/teaching/release`),
@@ -39,13 +42,13 @@ async function verify() {
     sourceSHA: env.TEACHING_SOURCE_SHA, workflowRef: env.GITHUB_REF,
     backend: env.TEACHING_BACKEND, branchSHA: branch.commit?.sha,
     runNumber: Number(env.GITHUB_RUN_NUMBER), runAttempt: Number(env.GITHUB_RUN_ATTEMPT),
-    upload: env.TEACHING_UPLOAD === 'true', ci: ci.workflow_runs?.[0]?.conclusion,
+    upload: env.TEACHING_UPLOAD === 'true', ciJobs: jobs.jobs,
     deployment: { sha: deploy.workflow_runs?.[0]?.head_sha, status: deploy.workflow_runs?.[0]?.conclusion },
     api: { ...api, authStatus: auth.status },
     environment: {
-      reviewers: reviewers.filter((reviewer) => reviewer.type === 'User').map((reviewer) => reviewer.reviewer?.id),
+      reviewers: reviewers.map((reviewer) => ({ type: reviewer.type, id: reviewer.reviewer?.id })),
       canAdminsBypass: environment.can_admins_bypass,
-      branches: environment.deployment_branch_policy?.custom_branch_policies === true && rules.every((rule) => rule.type === 'branch')
+      branches: environment.deployment_branch_policy?.custom_branch_policies === true && branchRules.total_count === 2 && rules.every((rule) => rule.type === 'branch')
         ? rules.map((rule) => rule.name) : [],
     },
   };
@@ -78,14 +81,18 @@ function plan(input) {
   if (input.sourceSHA !== input.branchSHA) throw new Error('Current release branch does not match the pinned source');
   const branches = { production: 'refs/heads/main', qa: 'refs/heads/develop' };
   if (!Object.hasOwn(branches, input.backend) || input.workflowRef !== branches[input.backend]) throw new Error('Backend must match its trusted dispatch branch');
-  if (input.ci !== 'success') throw new Error('CI must pass for the pinned source');
+  const requiredCI = ['Lint', 'Type Check', 'Test', 'UCAT Contracts', 'Build'];
+  if (input.backend === 'production') requiredCI.push('Web Browser and Database');
+  if (!Array.isArray(input.ciJobs) || !requiredCI.every((name) => input.ciJobs.some((job) =>
+    job.name === `Verify release commit / ${name}` && job.conclusion === 'success'))) throw new Error('CI verification inside the exact deployment must pass');
   if (input.deployment?.sha !== input.sourceSHA || input.deployment?.status !== 'success') throw new Error('Deployment must succeed for the pinned source');
-  if (input.api?.sha !== input.sourceSHA || input.api?.contract !== 1 || input.api?.authStatus !== 401) throw new Error('Tutor API identity or authentication boundary does not match');
+  if (input.api?.sha !== input.sourceSHA || input.api?.contract !== 1 || input.api?.ready !== true || input.api?.authStatus !== 401) throw new Error('Tutor API identity or authentication boundary does not match');
   if (!Number.isInteger(input.runNumber) || input.runNumber < 1 || input.runNumber > 8999 ||
       !Number.isInteger(input.runAttempt) || input.runAttempt < 1 || input.runAttempt > 99) throw new Error('Build identity exceeds its supported run/attempt bounds');
   if (typeof input.upload !== 'boolean') throw new Error('Upload must be an explicit boolean');
   const environment = input.environment;
-  if (!environment?.reviewers?.includes(155211953) || environment.canAdminsBypass !== false ||
+  if (!Array.isArray(environment?.reviewers) || environment.reviewers.length !== 1 ||
+      environment.reviewers[0]?.type !== 'User' || environment.reviewers[0]?.id !== 155211953 || environment.canAdminsBypass !== false ||
       !Array.isArray(environment.branches) || environment.branches.length !== 2 ||
       !['main', 'develop'].every((branch) => environment.branches.includes(branch))) throw new Error('Protected Teaching environment must require the owner and only main/develop without bypass');
   return { sourceSHA: input.sourceSHA, backend: input.backend,

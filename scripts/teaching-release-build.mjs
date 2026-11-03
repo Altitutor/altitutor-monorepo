@@ -13,7 +13,7 @@ const issuer = '78aab419-6d0d-4cbb-a296-73a1fbffec6f';
 // Subprocess output can contain signing diagnostics. Keep it off logs/artifacts.
 function run(command, args, options = {}) {
   try {
-    return execFileSync(command, args, { encoding: 'utf8', timeout: 1_200_000, maxBuffer: 64 * 1024 * 1024, ...options }).trim();
+    return execFileSync(command, args, { encoding: 'utf8', stdio: 'pipe', timeout: 1_200_000, maxBuffer: 64 * 1024 * 1024, ...options }).trim();
   } catch {
     throw new Error(`${command.split('/').at(-1)} failed; raw signing output was withheld`);
   }
@@ -87,7 +87,8 @@ export async function runRelease(plan, checkBuild) {
   const privateKey = createPrivateKey(env.TEACHING_ASC_PRIVATE_KEY);
   if (privateKey.asymmetricKeyType !== 'ec' || privateKey.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new Error('Apple API key must be an ES256 P8 key');
   const source = resolve('release-source');
-  if (run('git', ['-C', source, 'rev-parse', 'HEAD']) !== plan.sourceSHA) throw new Error('Archive source differs from verified commit');
+  if (run('git', ['-C', source, 'rev-parse', 'HEAD']) !== plan.sourceSHA ||
+      run('git', ['-C', source, 'status', '--porcelain']) !== '') throw new Error('Archive source differs from the clean verified commit');
   const toolchain = run('xcodebuild', ['-version']);
   if (toolchain !== 'Xcode 26.5\nBuild version 17F42') throw new Error('Expected pinned Xcode 26.5 / 17F42');
   const app = await apple(`/v1/apps/${appID}`, env);

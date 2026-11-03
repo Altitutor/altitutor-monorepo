@@ -9,14 +9,14 @@ unsigned Simulator validation. A main merge does not submit Teaching to Apple.
 The owner is Matthew. Use existing Apple team `V2A5FZKMZ7`, bundle
 `com.altitutor.teaching`, and App Store Connect app `6829958017`.
 
-The proposed `Teaching release` workflow is **manual only**. It must run its
+The `Teaching release` workflow is **manual only**. It must run its
 trusted workflow code from `main` or `develop` and build an exact source SHA.
 Production uses `https://tutor.altitutor.com`; QA uses
 `https://tutor.development.altitutor.com`. Backend namespaces keep QA ink separate
 from production ink. A QA build is not a production release candidate.
 
 Before enabling signing, create a dedicated `teaching-release` GitHub environment
-with Matthew (`matthewchua423`) as required reviewer and selected deployment
+with Matthew (`matthewchua423`) as the sole required reviewer and selected deployment
 branches `main` and `develop`. Disable administrator bypass for its protection
 rules. A workflow reference alone can auto-create an unprotected environment:
 preflight must verify protection instead of assuming the name is sufficient.
@@ -59,7 +59,10 @@ dedicated API key, preserving other apps' signing dependencies.
    rehearsal. Review the exact workflow SHA, source SHA, backend and version.
 3. Preflight must verify the selected source, protected environment and deployed
    Tutor API identity. A healthy login page alone cannot prove the backend matches
-   the app. Missing identity or failed/mismatched deployment must fail closed.
+   the app. Readiness also checks Supabase Auth with the configured anonymous key
+   and performs a bounded zero-row read of a scoped view with the system service
+   client. No lesson/account data is returned. Missing identity, unavailable
+   dependencies or failed/mismatched deployment must fail closed.
 4. Matthew reviews the protected job. The runner selects Xcode 26.5 (17F42) on
    macOS 26 and fails if that pinned toolchain is unavailable. Signing uses a
    temporary runner keychain and profile, with cleanup on success/failure.
