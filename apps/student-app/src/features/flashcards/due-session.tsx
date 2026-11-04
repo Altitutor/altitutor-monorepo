@@ -44,6 +44,11 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
   const [checkingNext, setCheckingNext] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<'neutral' | 'danger'>('danger');
+  function showNotice(text: string, tone: 'neutral' | 'danger') {
+    setMessageTone(tone);
+    setMessage(text);
+  }
   const [answerLogId, setAnswerLogId] = useState<string | null>(null);
   const [lastAnsweredCardId, setLastAnsweredCardId] = useState<string | null>(null);
   const shownAt = useRef(0);
@@ -80,7 +85,7 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
       setNeedsRefresh(false);
       setMessage(null);
     } catch {
-      setMessage('Could not refresh your study queue. Check your connection and try again.');
+      showNotice('Could not refresh your study queue. Check your connection and try again.', 'danger');
     } finally {
       setPending(false);
     }
@@ -123,12 +128,12 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
         setNeedsRefresh(false);
       }).catch(() => {
         setNeedsRefresh(true);
-        setMessage('Your answer was saved, but the next card could not load. Refresh to continue.');
+        showNotice('Your answer was saved, but the next card could not load. Refresh to continue.', 'danger');
       }).finally(() => setCheckingNext(false));
       if (result.leech_suggested) {
         Alert.alert('Difficult card', 'This card has been repeatedly difficult. Suspend it for now?', [
           { text: 'Keep studying', style: 'cancel' },
-          { text: 'Suspend', onPress: () => { void flashcardApi.manage(card.id, 'suspend', randomUUID()).then(onRefresh).catch(() => setMessage('Could not suspend this card. Please try in Manage.')); } },
+          { text: 'Suspend', onPress: () => { void flashcardApi.manage(card.id, 'suspend', randomUUID()).then(onRefresh).catch(() => showNotice('Could not suspend this card. Please try in Manage.', 'danger')); } },
         ]);
       }
     } catch (error) {
@@ -136,11 +141,11 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
       if (error instanceof FlashcardApiError && error.status === 409) {
         failedCommand.current = null;
         setRevealedCardId(null);
-        setMessage('That answer could not be applied because the card’s schedule changed or it is no longer due. The latest queue has been loaded.');
+        showNotice('That answer could not be applied because the card’s schedule changed or it is no longer due. The latest queue has been loaded.', 'neutral');
         try { await onRefresh(); } catch { setNeedsRefresh(true); }
       } else {
         failedCommand.current = command;
-        setMessage('Your answer was not confirmed. Retry the same rating when connected.');
+        showNotice('Your answer was not confirmed. Retry the same rating when connected.', 'danger');
       }
     } finally {
       setPendingCardId(null);
@@ -174,15 +179,15 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
       setNeedsRefresh(true);
       await onRefresh();
       setNeedsRefresh(false);
-      setMessage('Your last answer was undone.');
+      showNotice('Your last answer was undone.', 'neutral');
     } catch (error) {
       if (error instanceof FlashcardApiError && error.status === 409) {
         setAnswerLogId(null);
         undoCommand.current = null;
-        setMessage('That answer can no longer be undone because the card changed.');
+        showNotice('That answer can no longer be undone because the card changed.', 'neutral');
         await onRefresh().catch(() => setNeedsRefresh(true));
       } else {
-        setMessage('Could not confirm the undo. Please retry.');
+        showNotice('Could not confirm the undo. Please retry.', 'danger');
       }
     } finally {
       setPending(false);
@@ -199,7 +204,7 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
       await onRefresh();
       setNeedsRefresh(false);
     } catch {
-      setMessage('Could not confirm that this card was buried. Refresh before continuing.');
+      showNotice('Could not confirm that this card was buried. Refresh before continuing.', 'danger');
       setNeedsRefresh(true);
     } finally {
       setPending(false);
@@ -231,7 +236,7 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
         canBury={Boolean(card) && !needsRefresh && connected}
         disabled={pending || !connected}
       />
-      <StudySurface feedback={feedback} notice={message ?? (!connected ? 'A connection is required to study flashcards. Reconnect and refresh to continue.' : null)} noticeTone={message === 'Your last answer was undone.' ? 'neutral' : 'danger'} footer={
+      <StudySurface feedback={feedback} notice={message ?? (!connected ? 'A connection is required to study flashcards. Reconnect and refresh to continue.' : null)} noticeTone={message ? messageTone : 'danger'} footer={
         <View style={{ gap: 8 }}>
           <Text selectable style={{ color: theme.textSecondary, fontVariant: ['tabular-nums'], textAlign: 'center' }}>
             {visibleCounts.new} new · {visibleCounts.learning} learning · {visibleCounts.review} review

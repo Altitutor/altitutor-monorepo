@@ -78,7 +78,7 @@ export default function ClassesScreen() {
         </View>
       ) : null}
       {classes.data?.length === 0 ? <Text selectable style={{ color: theme.textSecondary, padding: 20 }}>You are not enrolled in a class yet.</Text> : null}
-      {mode === 1 ? <WeekStrip anchor={anchor} onSelect={setAnchor} /> : null}
+      {mode === 'list' ? null : <WeekStrip anchor={anchor} onSelect={setAnchor} />}
       {mode === 'list'
         ? <SessionList items={items} onOpen={(id) => router.push({ pathname: '/session/[sessionId]', params: { sessionId: id } })} />
         : (

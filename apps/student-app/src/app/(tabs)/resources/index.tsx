@@ -56,7 +56,7 @@ export default function ResourcesScreen() {
                   <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '700' }}>{title.slice(0, 1)}</Text>
                 </View>
               )}
-              <Text numberOfLines={2} style={{ color: theme.text, fontSize: 16, fontWeight: '600', padding: 12 }}>{title}</Text>
+              <Text selectable numberOfLines={2} style={{ color: theme.text, fontSize: 16, fontWeight: '600', padding: 12 }}>{title}</Text>
             </Pressable>
           );
         })}

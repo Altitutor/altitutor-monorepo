@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from 'react-native';
 
 import { NativeAction } from '@/components/native-action';
@@ -12,8 +12,6 @@ export default function FreeStudyInfoScreen() {
   const name = topicName?.trim() || 'this topic';
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Free study' }} />
       <StudentScreen title="Free study" largeTitle={false} contentPaddingBottom={32}>
         <Text selectable style={{ color: theme.text, fontSize: 17, lineHeight: 24 }}>
           {`This is free study, so every flashcard from ${name} is shown. Answers here do not change which cards are due.`}
@@ -27,6 +25,5 @@ export default function FreeStudyInfoScreen() {
           }}
         />
       </StudentScreen>
-    </>
   );
 }

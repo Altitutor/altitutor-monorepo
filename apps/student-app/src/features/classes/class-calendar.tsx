@@ -282,7 +282,7 @@ export function SessionList({ items, onOpen }: { items: CalendarItem[]; onOpen: 
       {groups.map(([key, dayItems]) => (
         <View key={key} onLayout={(event) => offsets.current.set(key, event.nativeEvent.layout.y)}>
           <Text style={{ color: key === today ? theme.primary : theme.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 8 }}>
-            {new Date(`${key}T12:00:00+09:30`).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Adelaide' })}
+            {new Date(`${key}T12:00:00+10:30`).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Adelaide' })}
           </Text>
           {dayItems.map((item) => (
             <Pressable key={item.id} accessibilityRole="button" onPressIn={() => haptic()} onPress={() => onOpen(item.id)} style={{ flexDirection: 'row', gap: 10, minHeight: 52, alignItems: 'center', opacity: item.cancelled ? 0.45 : 1 }}>
