@@ -1,10 +1,11 @@
 import { randomUUID } from 'expo-crypto';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Text, View } from 'react-native';
 
-import { Card, ErrorBlock, LoadingBlock, StudentScreen } from '@/components/student-ui';
+import { FilterPills } from '@/components/filter-pills';
+import { ErrorBlock, LoadingBlock, StudentScreen } from '@/components/student-ui';
 import { type FlashcardManageAction } from '@/features/flashcards/flashcard-api';
 import { FlashcardContent } from '@/features/flashcards/flashcard-content';
 import { FlashcardButton } from '@/features/flashcards/flashcard-controls';
@@ -17,15 +18,12 @@ export default function ManageFlashcardDetailScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const cards = useManageFlashcards();
-  const refetch = cards.refetch;
   const action = useManageFlashcardAction();
   const group = useMemo(() => groupFlashcards(cards.data ?? []).find((entry) => entry.id === flashcardId) ?? null, [cards.data, flashcardId]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const active = group?.cards.find((card) => card.id === selectedId) ?? group?.cards[0] ?? null;
-
-  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
 
   async function run(actionName: FlashcardManageAction) {
     if (!active || pending) return;
@@ -53,7 +51,7 @@ export default function ManageFlashcardDetailScreen() {
   }
 
   return (
-    <StudentScreen title="Review card" largeTitle={false} refreshing={cards.isRefetching} onRefresh={() => { void cards.refetch(); }}>
+    <StudentScreen title="Review card" largeTitle={false}>
       {cards.isPending ? <LoadingBlock label="Loading review card…" /> : null}
       {cards.isError ? <ErrorBlock message="Could not load this flashcard." /> : null}
       {!active && !cards.isPending ? <ErrorBlock message="This flashcard is no longer available." /> : null}
@@ -62,25 +60,19 @@ export default function ManageFlashcardDetailScreen() {
           <Text selectable style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>
             {[active.subject_short_name, active.topic_code, active.topic_name].filter(Boolean).join(' · ')}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {group.cards.map((reviewCard) => (
-              <Pressable key={reviewCard.id} onPress={() => setSelectedId(reviewCard.id)} style={{ borderRadius: 20, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: reviewCard.id === active.id ? theme.primary : theme.backgroundElement }}>
-                <Text style={{ color: reviewCard.id === active.id ? theme.backgroundElement : theme.text }}>Cloze {reviewCard.cloze_index}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <FilterPills
+            choices={group.cards.map((reviewCard) => ({ id: reviewCard.id, label: `Cloze ${reviewCard.cloze_index}` }))}
+            selected={active.id}
+            onSelect={setSelectedId}
+          />
           <Text selectable style={{ color: theme.textSecondary }}>
             {active.state} · {active.suspended_at ? 'Suspended' : active.buried_until ? 'Buried' : new Date(active.due_at) <= new Date() ? 'Due now' : `Due ${new Date(active.due_at).toLocaleString()}`}
             {active.leech_at ? ' · Leech suggested' : ''}
           </Text>
-          <Card>
-            <Text selectable style={{ color: theme.textSecondary, fontWeight: '700' }}>FRONT</Text>
-            <FlashcardContent card={active} showAnswer={false} />
-          </Card>
-          <Card>
-            <Text selectable style={{ color: theme.textSecondary, fontWeight: '700' }}>ANSWER</Text>
-            <FlashcardContent card={active} showAnswer />
-          </Card>
+          <Text selectable style={{ color: theme.textSecondary, fontWeight: '700' }}>Front</Text>
+          <FlashcardContent card={active} showAnswer={false} />
+          <Text selectable style={{ color: theme.textSecondary, fontWeight: '700' }}>Answer</Text>
+          <FlashcardContent card={active} showAnswer />
           {message ? <Text selectable style={{ color: theme.textSecondary }}>{message}</Text> : null}
           <FlashcardButton tone={active.suspended_at ? 'primary' : 'default'} onPress={() => { void run(active.suspended_at ? 'resume' : 'suspend'); }} disabled={pending}>
             {active.suspended_at ? 'Resume' : 'Suspend'}

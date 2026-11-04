@@ -30,4 +30,6 @@ test('homework help replaces the tutoring session title', () => {
   assert.equal(sessionDisplayTitle({ session_type: 'HOMEWORK_HELP', subject_name: 'Maths' }), 'Homework help');
   assert.equal(sessionDisplayTitle({ subject_year_level: 10, subject_name: 'Maths' }), 'Year 10 Maths');
   assert.equal(sessionTypeLabel('HOMEWORK_HELP'), 'Homework help');
+  assert.equal(sessionDisplayTitle({ session_type: 'CHECK_IN', subject_name: '' }), 'Check-in');
+  assert.equal(sessionDisplayTitle({ session_type: 'CLASS', subject_name: '   ' }), 'Class');
 });

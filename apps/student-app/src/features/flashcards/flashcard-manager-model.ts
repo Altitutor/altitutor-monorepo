@@ -14,7 +14,17 @@ export type FlashcardManageFilters = {
   state: FlashcardReviewCard['state'] | 'all';
   flag: 'all' | 'suspended' | 'buried' | 'leech';
   sort: 'order' | 'due' | 'state';
+  subjectId?: string | 'all';
+  topicIds?: string[];
 };
+
+export const MANAGE_PAGE_SIZE = 40;
+
+export function pageOf<T>(items: T[], page: number, pageSize = MANAGE_PAGE_SIZE) {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const index = Math.min(Math.max(0, page), pageCount - 1);
+  return { index, pageCount, items: items.slice(index * pageSize, (index + 1) * pageSize) };
+}
 
 const stateOrder: Record<FlashcardReviewCard['state'], number> = {
   New: 0, Learning: 1, Relearning: 2, Review: 3,
@@ -48,6 +58,8 @@ export function filterFlashcardGroups(groups: FlashcardGroup[], filters: Flashca
       filters.flag === 'buried' ? Boolean(card.buried_until)
         : filters.flag === 'suspended' ? Boolean(card.suspended_at)
           : Boolean(card.leech_at))) return false;
+    if (filters.subjectId && filters.subjectId !== 'all' && !group.cards.some((card) => card.subject_id === filters.subjectId)) return false;
+    if (filters.topicIds && filters.topicIds.length > 0 && !group.cards.some((card) => filters.topicIds?.includes(card.topic_id))) return false;
     return true;
   }).sort((a, b) => {
     if (filters.sort === 'due') return a.dueAt.localeCompare(b.dueAt);

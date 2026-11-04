@@ -6,7 +6,9 @@ import { studentWebUrl } from '@/lib/student-web';
 import { supabase } from '@/lib/supabase';
 export { readPaymentMethod, type PaymentMethod } from '@/lib/payment-method';
 
-export type StudentSession = Database['public']['Views']['vstudent_operational_session_base']['Row'];
+export type StudentSession = Database['public']['Views']['vstudent_operational_session_base']['Row'] & {
+  tutor_log_marked_absent?: boolean | null;
+};
 export type StudentClass = Database['public']['Views']['vstudent_classes']['Row'];
 export type StudentClassDetail = Database['public']['Views']['vstudent_class_detail']['Row'];
 export type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
@@ -127,7 +129,12 @@ export const studentApi = {
   async getLessonDocument(documentID: string): Promise<{ url: string }> {
     return lessonDocumentRequest('/' + encodeURIComponent(documentID));
   },
-  async getSessionLogResources(sessionID: string): Promise<{ hasLog: boolean; files: ResourceFile[]; documents: SharedLessonDocument[] }> {
+  async getSessionLogResources(sessionID: string): Promise<{
+    hasLog: boolean;
+    files: ResourceFile[];
+    documents: SharedLessonDocument[];
+    topics: { id: string; code: string; name: string; subjectId: string; subjectName: string }[];
+  }> {
     const [log, documents] = await Promise.all([
       supabase.from('vstudent_tutor_log').select('files').eq('session_id', sessionID).maybeSingle(),
       lessonDocumentRequest<SharedLessonDocument[]>('?sessionID=' + encodeURIComponent(sessionID)),
@@ -137,7 +144,72 @@ export const studentApi = {
     const resources = ids.length ? await supabase.from('vstudent_topics_files').select('*').in('id', ids) : { data: [], error: null };
     throwIfError(resources.error);
     const files = (resources.data ?? []).flatMap(row => { const file = mapTopicFile(row); return file ? [file] : []; });
-    return { hasLog: Boolean(log.data), files, documents };
+    const topicIds = [...new Set(files.map((file) => file.topicId))];
+    const topicRows = topicIds.length
+      ? await supabase.from('vstudent_topics').select('id, code, name, subject_id').in('id', topicIds)
+      : { data: [], error: null };
+    throwIfError(topicRows.error);
+    const subjectIds = [...new Set((topicRows.data ?? []).flatMap((topic) => topic.subject_id ? [topic.subject_id] : []))];
+    const [online, inPerson] = subjectIds.length
+      ? await Promise.all([
+        supabase.from('vstudent_online_subjects').select('id, name, short_name').in('id', subjectIds),
+        supabase.from('vstudent_in_person_subjects').select('id, name, short_name').in('id', subjectIds),
+      ])
+      : [{ data: [], error: null }, { data: [], error: null }];
+    throwIfError(online.error);
+    throwIfError(inPerson.error);
+    const subjectNames = new Map<string, string>();
+    for (const subject of [...(inPerson.data ?? []), ...(online.data ?? [])]) {
+      if (subject.id) subjectNames.set(subject.id, subject.short_name?.trim() || subject.name?.trim() || 'Subject');
+    }
+    const topics = (topicRows.data ?? []).flatMap((topic) => topic.id ? [{
+      id: topic.id,
+      code: topic.code ?? '',
+      name: topic.name ?? topic.code ?? 'Topic',
+      subjectId: topic.subject_id ?? '',
+      subjectName: subjectNames.get(topic.subject_id ?? '') ?? 'Subject',
+    }] : []);
+    return { hasLog: Boolean(log.data), files, documents, topics };
+  },
+
+  async listCalendarSessions(fromIso: string, toIso: string): Promise<StudentSession[]> {
+    const [base, attendance] = await Promise.all([
+      supabase.from('vstudent_operational_session_base').select('*').gte('start_at', fromIso).lt('start_at', toIso).order('start_at', { ascending: true }),
+      supabase.from('vstudent_operational_sessions').select('session_id, tutor_log_marked_absent').gte('start_at', fromIso).lt('start_at', toIso),
+    ]);
+    throwIfError(base.error);
+    throwIfError(attendance.error);
+    const absent = new Map((attendance.data ?? []).flatMap((row) => row.session_id ? [[row.session_id, row.tutor_log_marked_absent] as const] : []));
+    return (base.data ?? []).map((session) => ({
+      ...session,
+      tutor_log_marked_absent: session.session_id ? absent.get(session.session_id) ?? null : null,
+    }));
+  },
+
+  async getSessionAttendance(sessionId: string): Promise<boolean | null> {
+    const { data, error } = await supabase
+      .from('vstudent_operational_sessions')
+      .select('tutor_log_marked_absent')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    throwIfError(error);
+    return data?.tutor_log_marked_absent ?? null;
+  },
+
+  async listSubjectCovers(subjectIds: string[]): Promise<{ subjectId: string; url: string }[]> {
+    if (subjectIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from('vstudent_subject_images')
+      .select('subject_id, bucket, storage_path')
+      .in('subject_id', subjectIds);
+    throwIfError(error);
+    const covers = await Promise.all((data ?? []).map(async (row) => {
+      if (!row.subject_id || !row.bucket || !row.storage_path) return null;
+      const signed = await supabase.storage.from(row.bucket).createSignedUrl(row.storage_path, 60 * 60);
+      if (signed.error || !signed.data?.signedUrl) return null;
+      return { subjectId: row.subject_id, url: signed.data.signedUrl };
+    }));
+    return covers.filter((cover): cover is { subjectId: string; url: string } => cover !== null);
   },
 
   async listUpcomingSessions(): Promise<StudentSession[]> {

@@ -1,10 +1,10 @@
+import { Image } from 'expo-image';
 import type { FlashcardReviewCard } from '@altitutor/shared';
-import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { Card } from '@/components/student-ui';
 import { useTheme } from '@/hooks/use-theme';
+import { haptic } from '@/lib/haptics';
 
 import { FlashcardContent } from './flashcard-content';
 import { StudyFlashcardButton } from './study-buttons';
@@ -12,7 +12,12 @@ import { useStudyFeedback } from './study-feedback';
 import { StudySurface } from './study-surface';
 import { useStudyConnectivity } from './study-connectivity';
 
-export function FreeFlashcardSession({ cards, resetKey, header }: { cards: FlashcardReviewCard[]; resetKey: number; header?: ReactNode }) {
+export function FreeFlashcardSession({ cards, resetKey, onInfo, onStudyDue }: {
+  cards: FlashcardReviewCard[];
+  resetKey: number;
+  onInfo: () => void;
+  onStudyDue: () => void;
+}) {
   const theme = useTheme();
   const connected = useStudyConnectivity();
   const { feedback, showFeedback, clearFeedback } = useStudyFeedback();
@@ -43,8 +48,10 @@ export function FreeFlashcardSession({ cards, resetKey, header }: { cards: Flash
     setShowAnswer(false);
   }
 
+  const completed = Math.max(0, cards.length - queue.length);
+  const progress = cards.length === 0 ? 0 : completed / cards.length;
   return (
-    <StudySurface feedback={feedback} footer={connected && card
+    <StudySurface feedback={feedback} notice={connected ? null : 'A connection is required to study flashcards. Reconnect and reload this topic.'} noticeTone="danger" footer={connected && card
       ? !showAnswer
         ? <StudyFlashcardButton tone="primary" onPress={() => setShowAnswer(true)} disabled={card.card_type === 'image_occlusion' && !imageReady}>Show answer</StudyFlashcardButton>
         : <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -53,19 +60,21 @@ export function FreeFlashcardSession({ cards, resetKey, header }: { cards: Flash
         </View>
       : <StudyFlashcardButton onPress={() => { setQueue(cards); setShowAnswer(false); }} disabled={!connected || cards.length === 0}>Study again</StudyFlashcardButton>
     }>
-      {header}
-      <Text selectable style={{ color: theme.textSecondary, fontVariant: ['tabular-nums'] }}>
-        {queue.length} remaining · Free study does not change due dates
-      </Text>
-      {!connected ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger }}>A connection is required to study flashcards. Reconnect and reload this topic.</Text> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flex: 1, height: 6, borderRadius: 999, backgroundColor: theme.backgroundSelected, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.round(progress * 100)}%`, height: 6, backgroundColor: theme.primary }} />
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="About free study" onPressIn={() => haptic()} onPress={onInfo} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <Image source="sf:info.circle" tintColor={theme.primary} style={{ width: 22, height: 22 }} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Study due cards" onPressIn={() => haptic()} onPress={onStudyDue} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <Image source="sf:calendar" tintColor={theme.primary} style={{ width: 22, height: 22 }} />
+        </Pressable>
+      </View>
       {connected && card ? (
-        <Card>
-          <FlashcardContent card={card} showAnswer={showAnswer} onReadyChange={setImageReady} />
-        </Card>
+        <FlashcardContent card={card} showAnswer={showAnswer} onReadyChange={setImageReady} />
       ) : connected ? (
-        <Card>
-          <Text selectable style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>{cards.length ? 'Free study complete' : 'No flashcards in this topic'}</Text>
-        </Card>
+        <Text selectable style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>{cards.length ? 'Free study complete' : 'No flashcards in this topic'}</Text>
       ) : null}
     </StudySurface>
   );

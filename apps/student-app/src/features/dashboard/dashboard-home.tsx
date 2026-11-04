@@ -74,7 +74,7 @@ export function DashboardHome({
       </DashboardCard>
 
       <Animated.View entering={FadeIn.duration(220)}>
-        <Link href="/(tabs)/flashcards" asChild>
+        <Link href="/flashcards/study" asChild>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Flashcards, ${dueLabel(dueCount)}`}
