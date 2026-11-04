@@ -622,7 +622,9 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
               assignedStaffId={data?.assignedStaffId ?? null}
               mailbox={mailbox.data}
               hovered={toolbarHovered && !hoveredCard}
+              captureWhenIdle
               onReply={!draft ? () => start("reply") : undefined}
+              onReplyAll={!draft ? () => start("replyAll") : undefined}
               onForward={!draft ? () => start("forward") : undefined}
             />
             <DropdownMenu>

@@ -58,6 +58,7 @@ export function EmailActions({
   onReplyAll,
   level = "thread",
   hideAssignee = false,
+  captureWhenIdle = false,
 }: {
   ids: string[];
   messageId?: string;
@@ -73,6 +74,8 @@ export function EmailActions({
   level?: "thread" | "message";
   compact?: boolean;
   hideAssignee?: boolean;
+  /** Handles R, Shift+R, and F for the latest message when no message is hovered or focused. */
+  captureWhenIdle?: boolean;
 }) {
   const quickActions = useQuickActions();
   const taskMessageId = messageId ?? ids[0];
@@ -85,6 +88,7 @@ export function EmailActions({
     ids,
     read,
     hovered: hovered && scope?.active !== false,
+    captureWhenIdle,
     onReply,
     onReplyAll,
     onForward,
@@ -94,6 +98,7 @@ export function EmailActions({
     ids,
     read,
     hovered: hovered && scope?.active !== false,
+    captureWhenIdle,
     onReply,
     onReplyAll,
     onForward,
@@ -107,10 +112,15 @@ export function EmailActions({
       const hoveredOwner = document.querySelector(
         "[data-email-shortcut-target]:hover",
       );
+      const focusedOwner = document.activeElement?.closest(
+        "[data-email-shortcut-target]",
+      );
       const ownsInput = owner
         ? hoveredOwner
           ? owner === hoveredOwner
-          : owner.contains(document.activeElement)
+          : focusedOwner
+            ? owner === focusedOwner
+            : state.captureWhenIdle || state.hovered
         : state.hovered;
       if (
         !ownsInput ||
