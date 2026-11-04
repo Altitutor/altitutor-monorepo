@@ -1,0 +1,100 @@
+name: Teaching release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact current main (production) or develop (QA) source SHA
+        type: string
+        required: true
+      backend:
+        description: Tutor API environment
+        type: choice
+        options: [qa, production]
+        default: qa
+      upload:
+        description: Upload the signed build to App Store Connect for TestFlight processing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+# One signing/upload at a time, across both backends. Never interrupt an upload.
+concurrency:
+  group: teaching-release
+  cancel-in-progress: false
+
+env:
+  TEACHING_SOURCE_SHA: ${{ inputs.source_sha }}
+  TEACHING_BACKEND: ${{ inputs.backend }}
+  TEACHING_UPLOAD: ${{ inputs.upload }}
+
+jobs:
+  preflight:
+    name: Verify source, deployment and protected environment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      source_sha: ${{ steps.verify.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.2
+      - name: Test release command without account writes
+        run: node --test scripts/teaching-release.test.mjs
+      - name: Require current source, matching API and owner-reviewed environment
+        id: verify
+        run: node scripts/teaching-release.mjs verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  release:
+    name: Archive ${{ inputs.backend }} / upload ${{ inputs.upload }}
+    needs: preflight
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: teaching-release
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+    steps:
+      # Keep the release tooling on the trusted dispatch branch. The app itself
+      # is checked out separately at the exact verified commit, with no token.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          path: release-source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.2
+      - name: Validate native contracts before signing
+        run: swift test --package-path release-source/apps/teaching-ipad --parallel
+      - name: Reverify, sign, export and optionally upload
+        run: node scripts/teaching-release.mjs release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEACHING_DISTRIBUTION_P12_BASE64: ${{ secrets.TEACHING_DISTRIBUTION_P12_BASE64 }}
+          TEACHING_DISTRIBUTION_P12_PASSWORD: ${{ secrets.TEACHING_DISTRIBUTION_P12_PASSWORD }}
+          TEACHING_PROFILE_BASE64: ${{ secrets.TEACHING_PROFILE_BASE64 }}
+          TEACHING_ASC_PRIVATE_KEY: ${{ secrets.TEACHING_ASC_PRIVATE_KEY }}
+          TEACHING_ASC_KEY_ID: ${{ secrets.TEACHING_ASC_KEY_ID }}
+          TEACHING_ASC_ISSUER_ID: ${{ secrets.TEACHING_ASC_ISSUER_ID }}
+      - name: Remove only this run's temporary signing material
+        if: always()
+        run: node scripts/teaching-release.mjs cleanup
+      - name: Preserve only archive, IPA and sanitized receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teaching-${{ github.run_number }}-${{ github.run_attempt }}-${{ inputs.backend }}
+          path: ${{ runner.temp }}/teaching-release-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

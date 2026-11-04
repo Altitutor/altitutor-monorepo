@@ -290,10 +290,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          release_identity=()
+          if [ "${{ matrix.app }}" = "tutor-web" ]; then
+            release_identity+=(--build-env "TEACHING_RELEASE_SHA=$GITHUB_SHA" --env "TEACHING_RELEASE_SHA=$GITHUB_SHA")
+          fi
           deployment_url="$(pnpm dlx vercel@48.9.0 deploy \
             --prod \
             --yes \
             --archive=tgz \
+            "${release_identity[@]}" \
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
 

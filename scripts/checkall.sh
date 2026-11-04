@@ -18,6 +18,7 @@ section() {
 if [ "${1:-}" != "--database-only" ] && [ "${1:-}" != "--owned-only" ]; then
 section "Release-gate contracts"
 node --test \
+  scripts/teaching-release.test.mjs \
   scripts/production-release-gate.test.mjs \
   scripts/production-web-smoke.test.mjs \
   scripts/start-local-supabase.test.mjs \
