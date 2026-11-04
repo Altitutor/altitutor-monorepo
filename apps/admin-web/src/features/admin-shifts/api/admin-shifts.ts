@@ -68,17 +68,29 @@ async function overlayInForceSchedules<T extends {
   });
 }
 
+async function loadLiveScheduleRevisions(): Promise<ScheduleRevisionRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const pageSize = 1000;
+  const rows: ScheduleRevisionRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('admin_shift_schedule_revisions')
+      .select('id, admin_shift_id, day_of_week, start_time, end_time, status, effective_from, effective_to, superseded_at')
+      .is('superseded_at', null)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as ScheduleRevisionRow[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
 async function shiftIdsForDisplayedSchedule(days: number[], statuses: string[]): Promise<string[] | null> {
   if (days.length === 0 && statuses.length === 0) return null;
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
-  const { data, error } = await supabase
-    .from('admin_shift_schedule_revisions')
-    .select('id, admin_shift_id, day_of_week, start_time, end_time, status, effective_from, effective_to, superseded_at')
-    .is('superseded_at', null);
-  if (error) throw error;
   const today = adelaideCalendarDate();
   const byShift = new Map<string, ScheduleRevisionRow[]>();
-  for (const revision of (data ?? []) as ScheduleRevisionRow[]) {
+  for (const revision of await loadLiveScheduleRevisions()) {
     const group = byShift.get(revision.admin_shift_id) ?? [];
     group.push(revision);
     byShift.set(revision.admin_shift_id, group);

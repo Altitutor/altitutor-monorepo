@@ -404,6 +404,10 @@ export function AdminShiftInfoTab({
               title="Sessions removed"
               rows={plan.removals.filter((removal) => removal.action === 'CANCEL')}
             />
+            <SessionChangeList
+              title="Sessions kept"
+              rows={plan.removals.filter((removal) => removal.action === 'PROTECTED')}
+            />
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div>
               <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div>

@@ -62,7 +62,12 @@ describe('AdminShiftInfoTab', () => {
         end_at: '2099-06-01T01:30:00.000Z',
         action: 'CREATE',
       }],
-      removals: [],
+      removals: [{
+        session_id: 'kept-session',
+        start_at: '2099-06-07T00:30:00.000Z',
+        end_at: '2099-06-07T01:30:00.000Z',
+        action: 'PROTECTED',
+      }],
       conflicts: [],
     });
   });
@@ -115,5 +120,7 @@ describe('AdminShiftInfoTab', () => {
     expect(screen.getByText('Tuesday 10:00 AM–11:00 AM')).toBeInTheDocument();
     expect(screen.getByText('Sessions from this date')).toBeInTheDocument();
     expect(screen.getByText('Mon, 1 June 2099, 10:00 am')).toBeInTheDocument();
+    expect(screen.getByText('Sessions kept')).toBeInTheDocument();
+    expect(screen.getByText('Sun, 7 June 2099, 10:00 am')).toBeInTheDocument();
   });
 });
