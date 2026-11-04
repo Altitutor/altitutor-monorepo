@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
-import { Pressable, Text } from 'react-native';
+import { Linking, Pressable, Text } from 'react-native';
 
-import { Card, ErrorBlock, Label, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
+import { NativeAction } from '@/components/native-action';
+import { Card, ErrorBlock, KeyValueRow, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
 import { openWebProfile } from '@/features/settings/open-web-profile';
 import { useProfile } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
@@ -39,20 +40,18 @@ export default function ProfileScreen() {
         {profile.isPending ? <LoadingBlock /> : null}
         {profile.isError ? <ErrorBlock message={profile.error.message} /> : null}
         {profile.data ? (
+          <>
           <Card>
-            <Label>Name</Label>
-            <Value>{[profile.data.first_name, profile.data.last_name].filter(Boolean).join(' ') || 'Not provided'}</Value>
-            <Label>Email</Label>
-            <Value>{profile.data.email ?? 'Not provided'}</Value>
-            <Label>Phone</Label>
-            <Value>{profile.data.phone ?? 'Not provided'}</Value>
-            <Label>School</Label>
-            <Value>{profile.data.school ?? 'Not provided'}</Value>
-            <Label>Year level</Label>
-            <Value>{profile.data.year_level ? `Year ${profile.data.year_level}` : 'Not provided'}</Value>
-            <Label>Curriculum</Label>
-            <Value>{profile.data.curriculum ?? 'Not provided'}</Value>
+            <KeyValueRow label="Name"><Value align="right">{[profile.data.first_name, profile.data.last_name].filter(Boolean).join(' ') || 'Not provided'}</Value></KeyValueRow>
+            <KeyValueRow label="Email"><Value align="right">{profile.data.email ?? 'Not provided'}</Value></KeyValueRow>
+            <KeyValueRow label="Phone"><Value align="right">{profile.data.phone ?? 'Not provided'}</Value></KeyValueRow>
+            <KeyValueRow label="School"><Value align="right">{profile.data.school ?? 'Not provided'}</Value></KeyValueRow>
+            <KeyValueRow label="Year level"><Value align="right">{profile.data.year_level ? `Year ${profile.data.year_level}` : 'Not provided'}</Value></KeyValueRow>
+            <KeyValueRow label="Curriculum"><Value align="right">{profile.data.curriculum ?? 'Not provided'}</Value></KeyValueRow>
           </Card>
+          <NativeAction label="Privacy policy" secondary block onPress={() => void Linking.openURL('https://altitutor.com/mobile-privacy/')} />
+          <NativeAction label="Request account deletion" secondary block onPress={() => void Linking.openURL('https://altitutor.com/mobile-account-deletion/')} />
+          </>
         ) : null}
       </StudentScreen>
     </>

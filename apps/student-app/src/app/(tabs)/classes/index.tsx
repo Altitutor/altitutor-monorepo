@@ -1,115 +1,95 @@
-import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { expandProjectedClassScheduleRows } from '@altitutor/shared';
+import { Stack, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
 
-import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SectionTitle, StudentScreen, TappableRow } from '@/components/student-ui';
+import { FilterPills } from '@/components/filter-pills';
+import { HeaderActions } from '@/components/header-actions';
+import { ErrorBlock, LoadingBlock } from '@/components/student-ui';
+import { DayBoard, SessionList, WeekStrip, type CalendarItem } from '@/features/classes/class-calendar';
+import { addAdelaideDays, sessionIsCancelled, type CalendarSpan } from '@/features/classes/calendar-model';
+import { adelaideDateKey } from '@/features/dashboard/timetable';
 import { sessionDisplayTitle } from '@/features/sessions/session-display';
-import { useStudentClasses } from '@/hooks/use-student-data';
+import { useCalendarSessions, useStudentClasses } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
 
-const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const timetableDays = [1, 2, 3, 4, 5, 6, 0];
+type CalendarMode = CalendarSpan | 'list';
 
-function formatTime(value: string | null) {
-  if (!value) return '--:--';
-  const [hours, minutes] = value.split(':');
-  const hour = Number(hours);
-  if (!Number.isFinite(hour)) return value;
-  return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
-}
+const modes: { id: CalendarMode; label: string }[] = [
+  { id: 1, label: '1 day' },
+  { id: 3, label: '3 days' },
+  { id: 7, label: '7 days' },
+  { id: 'list', label: 'List' },
+];
 
 export default function ClassesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const classes = useStudentClasses();
-  const timetableEntries = useMemo(
-    () => expandProjectedClassScheduleRows(classes.data ?? []),
-    [classes.data],
-  );
-  const byDay = useMemo(
-    () => timetableDays.map((day) => ({
-      day,
-      entries: timetableEntries.filter((row) => row.day_of_week === day),
-    })),
-    [timetableEntries],
-  );
+  const [mode, setMode] = useState<CalendarMode>(1);
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [hiddenClassIds, setHiddenClassIds] = useState<string[]>([]);
+  const anchorKey = adelaideDateKey(anchor);
+  const range = useMemo(() => {
+    const day = new Date(`${anchorKey}T12:00:00+10:30`);
+    return {
+      from: addAdelaideDays(day, -21).toISOString(),
+      to: addAdelaideDays(day, 35).toISOString(),
+    };
+  }, [anchorKey]);
+  const sessions = useCalendarSessions(range.from, range.to);
+  const items = useMemo<CalendarItem[]>(() => (sessions.data ?? []).flatMap((session) => {
+    if (!session.session_id || !session.start_at) return [];
+    if (session.class_id && hiddenClassIds.includes(session.class_id)) return [];
+    return [{
+      id: session.session_id,
+      title: sessionDisplayTitle(session),
+      start: session.start_at,
+      end: session.end_at,
+      color: session.subject_color,
+      cancelled: sessionIsCancelled(session),
+      classId: session.class_id,
+    }];
+  }), [sessions.data, hiddenClassIds]);
+  const pills = useMemo(() => (classes.data ?? []).flatMap((row) => row.class_id ? [{
+    id: row.class_id,
+    label: sessionDisplayTitle(row),
+    color: row.subject_color,
+  }] : []), [classes.data]);
+  const selectedClassIds = pills.map((pill) => pill.id).filter((id) => !hiddenClassIds.includes(id));
+
+  function toggleClass(classId: string) {
+    setHiddenClassIds((current) => current.includes(classId) ? current.filter((id) => id !== classId) : [...current, classId]);
+  }
 
   return (
-    <StudentScreen
-      title="Classes"
-      showHeaderActions
-      refreshing={classes.isRefetching}
-      onRefresh={() => classes.refetch()}>
-      {classes.isPending ? <LoadingBlock label="Loading classes..." /> : null}
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <Stack.Screen options={{ title: 'Classes', headerLargeTitleEnabled: false }} />
+      <HeaderActions viewMenu={modes.map((item) => ({
+        label: item.label,
+        selected: item.id === mode,
+        onPress: () => setMode(item.id),
+      }))} />
+      {classes.isPending || sessions.isPending ? <LoadingBlock label="Loading classes..." /> : null}
       {classes.isError ? <ErrorBlock message={classes.error.message} /> : null}
-      {classes.data?.length === 0 ? <EmptyBlock>You are not enrolled in a class yet.</EmptyBlock> : null}
-      <SectionTitle>My classes</SectionTitle>
-      {classes.data?.map((row) => (
-        <Card key={row.class_id}>
-          <TappableRow
-            title={sessionDisplayTitle(row)}
-            detail={row.schedule_summary_long ?? `${days[row.day_of_week ?? 0]} · ${row.start_time ?? '--:--'} - ${row.end_time ?? '--:--'}`}
-            accent={row.subject_color}
-            onPress={row.class_id ? () => router.push({ pathname: '/(tabs)/classes/[classId]', params: { classId: row.class_id! } }) : undefined}
-          />
-        </Card>
-      ))}
-      {classes.data?.length ? <SectionTitle>Session timetable</SectionTitle> : null}
-      {classes.data?.length ? (
-        <View style={[styles.timetable, { backgroundColor: theme.backgroundElement, shadowColor: theme.shadow }]}>
-          {byDay.map(({ day, entries }) => (
-            <View key={day} style={[styles.dayRow, { borderBottomColor: theme.border }]}>
-              <View style={styles.dayLabel}>
-                <Text style={[styles.dayShort, { color: theme.textSecondary }]}>{days[day].slice(0, 3).toUpperCase()}</Text>
-              </View>
-              <View style={styles.dayEvents}>
-                {entries.length === 0 ? (
-                  <Text style={[styles.emptyDay, { color: theme.textSecondary }]}>No sessions</Text>
-                ) : entries.map((row) => (
-                  <Pressable
-                    key={`timetable-${row.class_id}-${row.schedule_row_id}`}
-                    onPress={row.class_id ? () => router.push({ pathname: '/(tabs)/classes/[classId]', params: { classId: row.class_id! } }) : undefined}
-                    style={[styles.event, { backgroundColor: theme.backgroundSelected, borderLeftColor: row.subject_color ?? theme.accent }]}>
-                    <Text style={[styles.eventTime, { color: theme.textSecondary }]}>
-                      {formatTime(row.start_time)} - {formatTime(row.end_time)}
-                    </Text>
-                    <Text style={[styles.eventTitle, { color: theme.text }]} numberOfLines={1}>
-                      {sessionDisplayTitle({
-                        session_type: row.session_type,
-                        subject_year_level: row.subject_year_level,
-                        subject_name: row.subject_name,
-                      })}
-                    </Text>
-                    {row.room ? <Text style={[styles.eventRoom, { color: theme.textSecondary }]}>{row.room}</Text> : null}
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ))}
+      {sessions.isError ? <ErrorBlock message={sessions.error.message} /> : null}
+      {pills.length ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          <FilterPills choices={pills} selected={selectedClassIds} onSelect={toggleClass} />
         </View>
       ) : null}
-    </StudentScreen>
+      {classes.data?.length === 0 ? <Text selectable style={{ color: theme.textSecondary, padding: 20 }}>You are not enrolled in a class yet.</Text> : null}
+      {mode === 'list' ? null : <WeekStrip anchor={anchor} onSelect={setAnchor} />}
+      {mode === 'list'
+        ? <SessionList items={items} onOpen={(id) => router.push({ pathname: '/session/[sessionId]', params: { sessionId: id } })} />
+        : (
+          <DayBoard
+            anchor={anchor}
+            span={mode}
+            items={items}
+            onOpen={(id) => router.push({ pathname: '/session/[sessionId]', params: { sessionId: id } })}
+            onShift={(days) => setAnchor((current) => addAdelaideDays(current, days))}
+          />
+        )}
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  timetable: {
-    borderRadius: 22,
-    overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingTop: 4,
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-  },
-  dayRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, minHeight: 54 },
-  dayLabel: { width: 48, paddingTop: 10 },
-  dayShort: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
-  dayEvents: { flex: 1, gap: 8 },
-  emptyDay: { fontSize: 13, paddingVertical: 10 },
-  event: { borderRadius: 12, borderLeftWidth: 4, paddingHorizontal: 10, paddingVertical: 8 },
-  eventTime: { fontSize: 12, fontWeight: '600' },
-  eventTitle: { fontSize: 15, fontWeight: '600', marginTop: 2 },
-  eventRoom: { fontSize: 12, marginTop: 2 },
-});

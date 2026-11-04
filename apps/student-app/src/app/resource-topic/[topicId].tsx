@@ -15,6 +15,7 @@ import { Card, EmptyBlock, ErrorBlock, LoadingBlock, StudentScreen, TappableRow 
 import { useFlashcardTopic } from '@/features/flashcards/flashcard-hooks';
 import { setRouteParams, useTopicNavigation } from '@/features/resources/resource-navigation';
 import { TopicFileCard } from '@/features/resources/topic-file-card';
+import { resourceTypeSymbol, topicBreadcrumb } from '@/features/resources/topic-path';
 import { ResourceToolbar } from '@/features/resources/resource-toolbar';
 import { useResourceFiles, useResourceTopics } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,6 +35,7 @@ export default function ResourceTopicScreen() {
   const index = topicOrder.findIndex((topic) => topic.id === topicId);
   const previousTopic = index > 0 ? topicOrder[index - 1] : null;
   const nextTopic = index >= 0 ? topicOrder[index + 1] ?? null : null;
+  const breadcrumb = useMemo(() => topicBreadcrumb(tree, topicId), [tree, topicId]);
   const grouped = useMemo(
     () => Object.entries(groupFilesByType(files.data ?? [])).map(([type, entries]) => ({
       type,
@@ -75,6 +77,11 @@ export default function ResourceTopicScreen() {
         {files.isPending ? <LoadingBlock label="Loading files..." /> : null}
         {files.isError ? <ErrorBlock message={files.error.message} /> : null}
         {topics.isError ? <ErrorBlock message={topics.error.message} /> : null}
+        {breadcrumb.length > 1 ? (
+          <Text selectable style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 20 }}>
+            {breadcrumb.map((topic) => `${topic.code} ${topic.name}`).join('  ›  ')}
+          </Text>
+        ) : null}
         {flashcards.data && (flashcards.data.review_card_count ?? 0) > 0 ? (
           <Card>
             <TappableRow
@@ -90,11 +97,12 @@ export default function ResourceTopicScreen() {
             <Text style={[styles.groupTitle, { color: theme.textSecondary }]}>{formatResourceTypeLabel(group.type)}</Text>
             {group.pairs.map(({ primary, solution }) => (
               <View key={primary.id} style={styles.pair}>
-                <TopicFileCard title={formatResourceFileLabel(primary)} onPress={() => openFile(primary)} />
+                <TopicFileCard title={formatResourceFileLabel(primary)} icon={resourceTypeSymbol(primary.type)} onPress={() => openFile(primary)} />
                 {solution ? (
                   <TopicFileCard
                     title={formatResourceFileLabel(solution)}
                     eyebrow="Solution"
+                    icon="checkmark.seal"
                     onPress={() => openFile(solution)}
                   />
                 ) : null}

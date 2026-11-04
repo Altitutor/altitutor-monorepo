@@ -13,6 +13,7 @@ type ResourceToolbarProps = {
   nextDisabled?: boolean;
   onNavigator: () => void;
   onSolutions?: () => void;
+  onReturnToFile?: () => void;
   previousLabel: string;
   nextLabel: string;
   navigatorLabel: string;
@@ -26,6 +27,7 @@ export function ResourceToolbar({
   nextDisabled,
   onNavigator,
   onSolutions,
+  onReturnToFile,
   previousLabel,
   nextLabel,
   navigatorLabel,
@@ -49,6 +51,11 @@ export function ResourceToolbar({
         {onSolutions ? (
           <Stack.Toolbar.Button icon="doc.text" accessibilityLabel={solutionsLabel} onPress={withHaptic(onSolutions)}>
             Solutions
+          </Stack.Toolbar.Button>
+        ) : null}
+        {onReturnToFile ? (
+          <Stack.Toolbar.Button icon="arrow.uturn.backward" accessibilityLabel="Back to file" onPress={withHaptic(onReturnToFile)}>
+            File
           </Stack.Toolbar.Button>
         ) : null}
         <Stack.Toolbar.Button
@@ -101,6 +108,11 @@ export function ResourceToolbar({
       {onSolutions ? (
         <Pressable accessibilityRole="button" accessibilityLabel={solutionsLabel} onPress={withHaptic(onSolutions)} style={{ padding: 12 }}>
           <Text style={{ color: theme.primary, fontSize: 15, fontWeight: '600' }}>Solutions</Text>
+        </Pressable>
+      ) : null}
+      {onReturnToFile ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Back to file" onPress={withHaptic(onReturnToFile)} style={{ padding: 12 }}>
+          <Text style={{ color: theme.primary, fontSize: 15, fontWeight: '600' }}>File</Text>
         </Pressable>
       ) : null}
       <Pressable accessibilityRole="button" accessibilityLabel={navigatorLabel} onPress={withHaptic(onNavigator)} style={{ padding: 12 }}>
