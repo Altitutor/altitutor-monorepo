@@ -333,6 +333,84 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_shift_schedule_revisions: {
+        Row: {
+          admin_shift_id: string
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          effective_from: string
+          effective_to: string
+          end_time: string
+          id: string
+          start_time: string
+          status: string
+          superseded_at: string | null
+        }
+        Insert: {
+          admin_shift_id: string
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          effective_from: string
+          effective_to: string
+          end_time: string
+          id?: string
+          start_time: string
+          status: string
+          superseded_at?: string | null
+        }
+        Update: {
+          admin_shift_id?: string
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          effective_from?: string
+          effective_to?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          status?: string
+          superseded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_admin_shift_id_fkey"
+            columns: ["admin_shift_id"]
+            isOneToOne: false
+            referencedRelation: "admin_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_shifts: {
         Row: {
           created_at: string
@@ -44939,6 +45017,10 @@ export type Database = {
         Args: { p_id: string; p_kind: string }
         Returns: Json
       }
+      apply_admin_shift_schedule: {
+        Args: { p_expected_proposal_hash: string; p_proposal: Json }
+        Returns: Json
+      }
       apply_class_schedule: {
         Args: { p_expected_proposal_hash: string; p_proposal: Json }
         Returns: Json
@@ -46643,6 +46725,10 @@ export type Database = {
         Args: { p_stale_after?: string }
         Returns: boolean
       }
+      is_pristine_generated_admin_shift_session: {
+        Args: { p_session_id: string }
+        Returns: boolean
+      }
       is_pristine_generated_class_session: {
         Args: { p_session_id: string }
         Returns: boolean
@@ -46792,11 +46878,19 @@ export type Database = {
         Args: { p_artifact_id: string; p_owner_staff_id: string }
         Returns: string
       }
+      preview_admin_shift_schedule: {
+        Args: { p_proposal: Json }
+        Returns: Json
+      }
       preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
       preview_student_merge: {
         Args: { p_retained: string; p_source: string }
         Returns: Json
+      }
+      purge_expired_admin_shift_session_tombstones: {
+        Args: never
+        Returns: number
       }
       purge_expired_class_session_tombstones: { Args: never; Returns: number }
       qualify_ucat_paid_referral: {
@@ -46915,6 +47009,10 @@ export type Database = {
       redrive_ucat_preparation_refresh: {
         Args: { p_student_id: string }
         Returns: boolean
+      }
+      refresh_admin_shift_schedule_projection: {
+        Args: { p_admin_shift_id: string }
+        Returns: undefined
       }
       refresh_class_schedule_projection: {
         Args: { p_class_id: string }

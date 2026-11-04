@@ -1,6 +1,123 @@
-import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
+import type { Json, Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { adelaideCalendarDate, clockTime } from '../utils/adminShiftSchedule';
+import type {
+  AdminShiftSchedulePlan,
+  AdminShiftScheduleProposal,
+  StoredAdminShiftSchedule,
+} from '../types/schedule';
+
+type ScheduleRevisionRow = {
+  id: string;
+  admin_shift_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  status: string;
+  effective_from: string;
+  effective_to: string;
+  superseded_at: string | null;
+};
+
+async function loadScheduleRevisions(adminShiftIds: string[]): Promise<ScheduleRevisionRow[]> {
+  if (adminShiftIds.length === 0) return [];
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { data, error } = await supabase
+    .from('admin_shift_schedule_revisions')
+    .select('id, admin_shift_id, day_of_week, start_time, end_time, status, effective_from, effective_to, superseded_at')
+    .in('admin_shift_id', adminShiftIds)
+    .is('superseded_at', null);
+  if (error) throw error;
+  return (data ?? []) as ScheduleRevisionRow[];
+}
+
+function revisionInForce(revisions: ScheduleRevisionRow[], today: string): ScheduleRevisionRow | undefined {
+  return revisions.find((revision) => revision.effective_from <= today && revision.effective_to >= today)
+    ?? revisions
+      .filter((revision) => revision.effective_from > today)
+      .sort((left, right) => left.effective_from.localeCompare(right.effective_from))[0]
+    ?? [...revisions].sort((left, right) =>
+      right.effective_to.localeCompare(left.effective_to)
+      || right.effective_from.localeCompare(left.effective_from)
+    )[0];
+}
+
+async function overlayInForceSchedules<T extends {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  status: string;
+}>(shifts: T[]): Promise<T[]> {
+  const revisions = await loadScheduleRevisions(shifts.map((shift) => shift.id));
+  const today = adelaideCalendarDate();
+  return shifts.map((shift) => {
+    const current = revisionInForce(
+      revisions.filter((revision) => revision.admin_shift_id === shift.id),
+      today
+    );
+    if (!current) return shift;
+    return {
+      ...shift,
+      day_of_week: current.day_of_week,
+      start_time: clockTime(current.start_time),
+      end_time: clockTime(current.end_time),
+      status: current.status,
+    };
+  });
+}
+
+async function loadLiveScheduleRevisions(): Promise<ScheduleRevisionRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const pageSize = 1000;
+  const rows: ScheduleRevisionRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('admin_shift_schedule_revisions')
+      .select('id, admin_shift_id, day_of_week, start_time, end_time, status, effective_from, effective_to, superseded_at')
+      .is('superseded_at', null)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as ScheduleRevisionRow[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function shiftIdsForDisplayedSchedule(days: number[], statuses: string[]): Promise<string[] | null> {
+  if (days.length === 0 && statuses.length === 0) return null;
+  const today = adelaideCalendarDate();
+  const byShift = new Map<string, ScheduleRevisionRow[]>();
+  for (const revision of await loadLiveScheduleRevisions()) {
+    const group = byShift.get(revision.admin_shift_id) ?? [];
+    group.push(revision);
+    byShift.set(revision.admin_shift_id, group);
+  }
+  const ids: string[] = [];
+  for (const [adminShiftId, revisions] of byShift) {
+    const current = revisionInForce(revisions, today);
+    if (!current) continue;
+    if (days.length > 0 && !days.includes(current.day_of_week)) continue;
+    if (statuses.length > 0 && !statuses.includes(current.status)) continue;
+    ids.push(adminShiftId);
+  }
+  return ids;
+}
+
+function mapStoredSchedule(revision: ScheduleRevisionRow): StoredAdminShiftSchedule {
+  const status = revision.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  return {
+    id: revision.id,
+    dayOfWeek: revision.day_of_week,
+    startTime: clockTime(revision.start_time),
+    endTime: clockTime(revision.end_time),
+    status,
+    effectiveFrom: revision.effective_from,
+    effectiveTo: revision.effective_to,
+  };
+}
 
 type MinimalAdminShift = Pick<
   Tables<'admin_shifts'>,
@@ -24,7 +141,7 @@ export const adminShiftsApi = {
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true });
     if (error) throw error;
-    return (data ?? []) as Tables<'admin_shifts'>[];
+    return overlayInForceSchedules((data ?? []) as Tables<'admin_shifts'>[]);
   },
 
   /**
@@ -71,12 +188,10 @@ export const adminShiftsApi = {
       .from('admin_shifts')
       .select('*', { count: 'exact' });
 
-    // Apply filters
-    if (dayFilters.length > 0) {
-      query = query.in('day_of_week', dayFilters);
-    }
-    if (statuses.length > 0) {
-      query = query.in('status', statuses);
+    const displayedShiftIds = await shiftIdsForDisplayedSchedule(dayFilters, statuses);
+    if (displayedShiftIds?.length === 0) return { adminShifts: [], total: 0 };
+    if (displayedShiftIds) {
+      query = query.in('id', displayedShiftIds);
     }
 
     if (trimmed.length > 0) {
@@ -118,7 +233,7 @@ export const adminShiftsApi = {
     });
 
     // Transform to MinimalAdminShift format
-    const adminShifts: MinimalAdminShift[] = data.map((shift) => ({
+    const adminShifts = await overlayInForceSchedules(data.map((shift) => ({
       id: shift.id,
       day_of_week: shift.day_of_week,
       start_time: shift.start_time,
@@ -127,7 +242,7 @@ export const adminShiftsApi = {
       session_start_date: shift.session_start_date,
       session_end_date: shift.session_end_date,
       staff: staffByShift[shift.id] || [],
-    }));
+    })));
 
     return {
       adminShifts,
@@ -155,7 +270,7 @@ export const adminShiftsApi = {
       if (shiftsError) throw shiftsError;
       if (!shiftsData) return { adminShifts: [], adminShiftStaff: {} };
 
-      const adminShifts = shiftsData as Tables<'admin_shifts'>[];
+      const adminShifts = await overlayInForceSchedules(shiftsData as Tables<'admin_shifts'>[]);
       const adminShiftIds = adminShifts.map((shift) => shift.id);
 
       // Get staff assignments
@@ -211,7 +326,7 @@ export const adminShiftsApi = {
       if (shiftError) throw shiftError;
       if (!shiftData) throw new Error('Admin shift not found');
 
-      const adminShift = shiftData as Tables<'admin_shifts'>;
+      const adminShift = (await overlayInForceSchedules([shiftData as Tables<'admin_shifts'>]))[0] ?? shiftData;
 
       // Get staff assignments with IDs
       const { data: staffData, error: staffError } = await supabase
@@ -339,5 +454,34 @@ export const adminShiftsApi = {
       .eq('id', adminShiftStaffId);
 
     if (error) throw error;
+  },
+
+  listSchedule: async (adminShiftId: string): Promise<StoredAdminShiftSchedule[]> => {
+    const revisions = await loadScheduleRevisions([adminShiftId]);
+    return revisions
+      .map(mapStoredSchedule)
+      .sort((left, right) => left.effectiveFrom.localeCompare(right.effectiveFrom));
+  },
+
+  previewSchedule: async (proposal: AdminShiftScheduleProposal): Promise<AdminShiftSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_admin_shift_schedule', {
+      p_proposal: proposal as unknown as Json,
+    });
+    if (error) throw error;
+    return data as unknown as AdminShiftSchedulePlan;
+  },
+
+  applySchedule: async (
+    proposal: AdminShiftScheduleProposal,
+    expectedProposalHash: string
+  ): Promise<AdminShiftSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('apply_admin_shift_schedule', {
+      p_proposal: proposal as unknown as Json,
+      p_expected_proposal_hash: expectedProposalHash,
+    });
+    if (error) throw error;
+    return data as unknown as AdminShiftSchedulePlan;
   },
 };
