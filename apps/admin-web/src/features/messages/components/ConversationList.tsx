@@ -1,27 +1,29 @@
 'use client';
 
-import { useEffect, useState, useMemo, useId } from 'react';
-import { useActiveAdminStaff, useConversationList } from '../api/queries';
+import { useEffect, useState, useMemo, useId, type ReactNode } from 'react';
+import { useActiveAdminStaff, useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import {
   Button,
-  Badge,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DataTableToolbar,
   useToast,
 } from '@altitutor/ui';
-import { Plus, Filter, Search, X, Check, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
 import { useAssignConversations, useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
-import { UnreadConversationMenu } from './UnreadConversationMenu';
-import { useMessagingListFilters, type ConversationListFilter, type MessagingFilterScope } from '../state/messagingUiStore';
+import { ConversationRowActions } from './ConversationRowActions';
+import { useMessagingListFilters, type MessagingFilterScope } from '../state/messagingUiStore';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
+import { matchesConversationListQuery } from '../utils/conversationListQuery';
+import { CONVERSATION_LIST_COLUMNS, conversationListViews } from '../utils/conversationListViews';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -31,33 +33,41 @@ import type {
   ConversationSelection,
 } from '../types';
 
-type FilterOption = ConversationListFilter;
-const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'unread', label: 'Unread' },
-  { value: 'unreplied', label: 'Unreplied' },
-  { value: 'to_follow_up', label: 'To follow up' },
-];
-
 interface Props {
   activeSelection?: ConversationSelection | null;
   onSelect: (selection: ConversationSelection) => void;
   filterScope: MessagingFilterScope;
+  /** The messages page puts compose in the breadcrumb header. Other surfaces keep it beside the list. */
+  composePlacement?: 'header' | 'list';
 }
 
 export function ConversationList({
   activeSelection,
   onSelect,
   filterScope,
+  composePlacement = 'list',
 }: Props) {
+  const { ownedNumberFilter: selectedOwnedNumberId } = useMessagingListFilters(filterScope);
+  const { data: currentStaff } = useCurrentStaff();
+  const quickActions = useQuickActions();
+  const { data: senders = [] } = useAvailableSenders();
   const {
-    listFilter: activeFilter,
-    ownedNumberFilter: selectedOwnedNumberId,
-    setListFilter: setActiveFilter,
-  } = useMessagingListFilters(filterScope);
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters: {},
+    defaultSort: { field: 'latest', direction: 'desc' },
+    defaultVisibleColumns: [...CONVERSATION_LIST_COLUMNS],
+    filterKeys: ['read', 'reply', 'followUp', 'assignee', 'recipient', 'from'],
+    skipUrlSync: true,
+  });
   const { data } = useConversationList(selectedOwnedNumberId);
   const qc = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const { toast } = useToast();
   const { data: adminStaff = [], isLoading: adminStaffLoading } = useActiveAdminStaff();
@@ -66,7 +76,7 @@ export function ConversationList({
   const markContactUnreadMutation = useMarkContactUnread();
   const markConversationReadMutation = useMarkConversationRead();
   const assignConversations = useAssignConversations();
-  const assignUnread = (conversationIds: string[], staffId: string) => {
+  const assignUnread = (conversationIds: string[], staffId: string | null) => {
     assignConversations.mutate(
       { conversationIds, staffId },
       {
@@ -80,7 +90,6 @@ export function ConversationList({
       },
     );
   };
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const channelNonce = useId().replace(/:/g, '');
 
   useEffect(() => {
@@ -117,98 +126,40 @@ export function ConversationList({
     return aggregated.conversations.some((c) => c.needs_follow_up);
   };
 
-  // Normalize Australian phone numbers for search comparison
-  // Converts +61478778288 and 0478778288 to the same format for matching
-  const normalizePhoneForSearch = (phone: string): string => {
-    if (!phone) return '';
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    // Convert +61 or 61 prefix to 0 prefix (Australian format)
-    if (digits.startsWith('61') && digits.length >= 10) {
-      // +61478778288 (11 digits) -> 0478778288
-      // Also handle partial matches like 6147877 (7 digits starting with 61)
-      return '0' + digits.substring(2);
-    }
-    // If it's 9 digits without leading 0, assume it's missing the 0
-    if (digits.length === 9 && !digits.startsWith('0')) {
-      return '0' + digits;
-    }
-    return digits;
-  };
-
-  // Filter conversations by contact name/phone or filter pills
   const filteredItems = useMemo(() => {
     const items: ConversationListItem[] = data || [];
-    let filtered = items;
-
-    if (selectedOwnedNumberId) {
-      filtered = filtered.filter((conversation) =>
-        conversation.kind === 'group'
+    return items.filter((conversation) => {
+      if (selectedOwnedNumberId) {
+        const matchesNumber = conversation.kind === 'group'
           ? conversation.ownedNumberId === selectedOwnedNumberId
-          : conversation.conversations.some((c) => c.owned_number_id === selectedOwnedNumberId)
-      );
-    }
-    
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const search = searchTerm.toLowerCase();
-      const normalizedSearch = normalizePhoneForSearch(searchTerm);
-      filtered = filtered.filter((c) => {
-        if (c.kind === 'group') {
-          return (
-            (c.groupName ?? 'Group chat').toLowerCase().includes(search) ||
-            c.participantNames.some((participant) => participant.toLowerCase().includes(search))
-          );
-        }
-        const contactName = formatContactName({ contacts: c.contact });
-        const phoneNumber = c.contact?.phone_e164 || '';
-        const normalizedPhone = normalizePhoneForSearch(phoneNumber);
-        
-        // Match by name (case-insensitive)
-        if (contactName.toLowerCase().includes(search)) {
-          return true;
-        }
-        
-        // Match by phone number (original format)
-        if (phoneNumber.toLowerCase().includes(search)) {
-          return true;
-        }
-        
-        // Match by normalized phone number (handles +61 vs 0 format differences)
-        if (normalizedSearch && normalizedPhone && normalizedPhone.includes(normalizedSearch)) {
-          return true;
-        }
-        
-        return false;
-      });
-    } else {
-      // Only apply filter pills when not searching
-      if (activeFilter === 'unread') {
-        filtered = filtered.filter((c) => c.kind === 'group' ? c.unreadCount > 0 : isUnread(c));
-      } else if (activeFilter === 'unreplied') {
-        filtered = filtered.filter((c) => isUnreplied(c));
-      } else if (activeFilter === 'to_follow_up') {
-        filtered = filtered.filter((c) => c.kind === 'contact' && isToFollowUp(c));
+          : conversation.conversations.some((item) => item.owned_number_id === selectedOwnedNumberId);
+        if (!matchesNumber) return false;
       }
-    }
-    
-    return filtered;
-  }, [data, searchTerm, activeFilter, selectedOwnedNumberId]);
-
-  const activeFilterLabel = useMemo(() => {
-    switch (activeFilter) {
-      case 'unread':
-        return 'Unread';
-      case 'unreplied':
-        return 'Unreplied';
-      case 'to_follow_up':
-        return 'To follow up';
-      default:
-        return 'All';
-    }
-  }, [activeFilter]);
-
-  const hasAnyFiltersApplied = activeFilter !== 'all';
+      if (conversation.kind === 'group') {
+        return matchesConversationListQuery({
+          names: [conversation.groupName ?? 'Group chat', ...conversation.participantNames],
+          phones: [],
+          unread: conversation.unreadCount > 0,
+          unreplied: isUnreplied(conversation),
+          followUp: false,
+          assignedStaffId: conversation.assignedStaffId,
+          recipientType: null,
+          ownedNumberIds: [conversation.ownedNumberId],
+        }, { search: state.search, filters: state.filters, staffId: currentStaff?.id ?? null });
+      }
+      const latestOwnedNumberId = [...conversation.conversations].sort((a, b) => (b.last_message_at ?? '').localeCompare(a.last_message_at ?? ''))[0]?.owned_number_id;
+      return matchesConversationListQuery({
+        names: [formatContactName({ contacts: conversation.contact })],
+        phones: [conversation.contact?.phone_e164 ?? ''],
+        unread: isUnread(conversation),
+        unreplied: isUnreplied(conversation),
+        followUp: isToFollowUp(conversation),
+        assignedStaffId: conversation.assignedStaffId,
+        recipientType: conversation.contact?.contact_type ?? null,
+        ownedNumberIds: latestOwnedNumberId ? [latestOwnedNumberId] : conversation.conversations.map((item) => item.owned_number_id),
+      }, { search: state.search, filters: state.filters, staffId: currentStaff?.id ?? null });
+    });
+  }, [data, selectedOwnedNumberId, state.search, state.filters, currentStaff?.id]);
 
   const handleNewConversation = async (conversationId: string, destinationAddress?: string, senderId?: string) => {
     // Get contactId from conversation
@@ -229,76 +180,68 @@ export function ConversationList({
     qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
   };
 
+  const show = (column: (typeof CONVERSATION_LIST_COLUMNS)[number]) => state.visibleColumns.includes(column);
+  const openTask = (messageId: string | undefined, label: string) => {
+    if (!messageId) return;
+    quickActions.openCreateTaskDialog({ type: 'message', id: messageId, label });
+  };
+  const composeButton = (
+    <Button onClick={() => setIsNewConversationDialogOpen(true)} size="sm" variant="default">
+      <Plus className="mr-2 h-4 w-4" />
+      New conversation
+    </Button>
+  );
+
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
-      <div data-pane-toolbar className="p-3 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          {/* Search bar - styled like searchable-select-inline */}
-          <div className="flex flex-1 min-w-0 items-center rounded-md border px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <input
-              className="flex h-10 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Search conversations"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <DropdownMenu open={isFilterMenuOpen} onOpenChange={setIsFilterMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-10 px-2 flex-shrink-0 gap-1"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="text-xs">{activeFilterLabel}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
-              {FILTER_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  className="flex items-center justify-between"
-                  onClick={() => {
-                    setActiveFilter(option.value);
-                    setIsFilterMenuOpen(false);
-                  }}
-                >
-                  <span>{option.label}</span>
-                  {activeFilter === option.value ? (
-                    <Check className="ml-2 h-4 w-4 shrink-0" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {hasAnyFiltersApplied && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-9 w-9 flex-shrink-0"
-              title="Clear filters"
-              onClick={() => setActiveFilter('all')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            onClick={() => setIsNewConversationDialogOpen(true)}
-            size="icon"
-            variant="default"
-            className="h-9 w-9 flex-shrink-0"
-            title="New Conversation"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
+      {composePlacement === 'header' ? <AdminPageActions>{composeButton}</AdminPageActions> : null}
+      <div data-pane-toolbar className="flex items-center gap-2 px-3 pt-3">
+        <DataTableToolbar
+          className="min-w-0 flex-1"
+          compact={composePlacement === 'list'}
+          viewTarget="messages"
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(filter) => applyQuickFilter(filter, currentStaff?.id)}
+          onReset={resetFilters}
+          quickFilters={conversationListViews}
+          filterDefinitions={[
+            { key: 'recipient', label: 'Recipient', options: [
+              { label: 'Student', value: 'STUDENT' },
+              { label: 'Parent', value: 'PARENT' },
+              { label: 'Staff', value: 'STAFF' },
+            ] },
+            { key: 'read', label: 'Read', options: [
+              { label: 'Unread', value: 'unread' },
+              { label: 'Read', value: 'read' },
+            ] },
+            { key: 'reply', label: 'Reply', options: [
+              { label: 'Unreplied', value: 'unreplied' },
+              { label: 'Replied', value: 'replied' },
+            ] },
+            { key: 'from', label: 'From number', options: senders.map((sender) => ({
+              label: sender.label || sender.phone_e164 || sender.alphanumeric_sender_id || 'Number',
+              value: sender.id,
+            })) },
+          ]}
+          columnDefinitions={CONVERSATION_LIST_COLUMNS.map((key) => ({
+            key,
+            label: key === 'timestamp' ? 'Time' : key[0].toUpperCase() + key.slice(1),
+            visibleByDefault: true,
+          }))}
+          searchPlaceholder="Search conversations"
+        />
+        {composePlacement === 'list' ? composeButton : null}
       </div>
       
       <div className="flex-1 overflow-y-auto divide-y dark:divide-brand-dark-border">
         {filteredItems.length === 0 ? (
           <div className="p-3 text-sm text-muted-foreground">
-            {searchTerm ? 'No conversations found.' : 'No conversations yet.'}
+            {state.search ? 'No conversations found.' : 'No conversations yet.'}
           </div>
         ) : (
           filteredItems.map((aggregated) => {
@@ -314,7 +257,8 @@ export function ConversationList({
               return (
                 <div
                   key={aggregated.conversationId}
-                  className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
+                  data-conversation-row
+                  className={`group relative w-full ${isActive ? 'md:bg-muted' : ''}`}
                 >
                   <div
                     role="button"
@@ -328,33 +272,33 @@ export function ConversationList({
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="truncate text-sm font-medium min-w-0">{title}</div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline">Group</Badge>
-                        <ListTimestamp iso={aggregated.latestMessageAt} />
-                        {aggregated.latestMessage?.id && (
-                          <UnreadConversationMenu
-                            unread={aggregated.unreadCount > 0}
-                            staff={adminStaff}
-                            staffLoading={adminStaffLoading}
-                            assigneeId={aggregated.assignedStaffId}
-                            onMarkRead={() => {
-                              const lastMessageId = aggregated.latestMessage?.id;
-                              if (!lastMessageId) return;
-                              markConversationReadMutation.mutate({
-                                conversationId: aggregated.conversationId,
-                                lastMessageId,
-                              });
-                            }}
-                            onMarkUnread={() => markUnreadMutation.mutate(aggregated.conversationId)}
-                            onAssign={(staffId) => assignUnread(aggregated.unreadConversationIds, staffId)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">{participants}</div>
-                    <ConversationPreviewText preview={aggregated.latestMessage?.preview ?? null} />
+                    <ConversationRow
+                      title={title}
+                      subtitle={participants}
+                      sender={senderLabel(senders, [aggregated.ownedNumberId])}
+                      preview={aggregated.latestMessage?.preview ?? null}
+                      at={aggregated.latestMessageAt}
+                      show={show}
+                      actions={
+                        <ConversationRowActions
+                          unread={aggregated.unreadCount > 0}
+                          staff={adminStaff}
+                          staffLoading={adminStaffLoading}
+                          assigneeId={aggregated.assignedStaffId}
+                          onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
+                          onMarkRead={() => {
+                            const lastMessageId = aggregated.latestMessage?.id;
+                            if (!lastMessageId) return;
+                            markConversationReadMutation.mutate({
+                              conversationId: aggregated.conversationId,
+                              lastMessageId,
+                            });
+                          }}
+                          onMarkUnread={() => markUnreadMutation.mutate(aggregated.conversationId)}
+                          onAssign={(staffId) => assignUnread(aggregated.conversationIds, staffId)}
+                        />
+                      }
+                    />
                   </div>
                 </div>
               );
@@ -364,10 +308,12 @@ export function ConversationList({
             const isActive = activeSelection?.kind === 'contact' && aggregated.contactId === activeSelection.contactId;
             const isUnreadConv = isUnread(aggregated);
 
+            const latestConversation = [...aggregated.conversations].sort((a, b) => (b.last_message_at ?? '').localeCompare(a.last_message_at ?? ''))[0];
             return (
               <div
                 key={aggregated.contactId}
-                className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
+                data-conversation-row
+                className={`group relative w-full ${isActive ? 'md:bg-muted' : ''}`}
               >
                 <div
                   role="button"
@@ -381,28 +327,29 @@ export function ConversationList({
                     }
                   }}
                 >
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{title}</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <ListTimestamp iso={aggregated.latestMessageAt} />
-                      <UnreadConversationMenu
+                  <ConversationRow
+                    title={title}
+                    sender={senderLabel(senders, latestConversation ? [latestConversation.owned_number_id] : [])}
+                    preview={aggregated.latestMessage?.preview ?? null}
+                    at={aggregated.latestMessageAt}
+                    show={show}
+                    actions={
+                      <ConversationRowActions
                         unread={isUnreadConv}
                         staff={adminStaff}
                         staffLoading={adminStaffLoading}
                         assigneeId={aggregated.assignedStaffId}
+                        onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
                         onMarkRead={() => {
                           const lastMessageId = aggregated.latestMessage?.id;
                           if (!lastMessageId) return;
                           markReadMutation.mutate({ contactId: aggregated.contactId, lastMessageId });
                         }}
                         onMarkUnread={() => markContactUnreadMutation.mutate(aggregated.contactId)}
-                        onAssign={(staffId) => assignUnread(aggregated.unreadConversationIds, staffId)}
+                        onAssign={(staffId) => assignUnread(aggregated.conversationIds, staffId)}
                       />
-                    </div>
-                  </div>
-                  <ConversationPreviewText preview={aggregated.latestMessage?.preview ?? null} />
+                    }
+                  />
                 </div>
               </div>
             );
@@ -416,6 +363,57 @@ export function ConversationList({
         onConversationSelected={handleNewConversation}
         ownedNumberId={selectedOwnedNumberId}
       />
+    </div>
+  );
+}
+
+function senderLabel(senders: Array<{ id: string; label: string | null; phone_e164: string | null; alphanumeric_sender_id: string | null }>, ids: string[]): string {
+  const sender = senders.find((item) => ids.includes(item.id));
+  return sender?.label || sender?.phone_e164 || sender?.alphanumeric_sender_id || '';
+}
+
+function initials(name: string): string {
+  return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('');
+}
+
+function ConversationRow({
+  title,
+  subtitle,
+  sender,
+  preview,
+  at,
+  show,
+  actions,
+}: {
+  title: string;
+  subtitle?: string;
+  sender: string;
+  preview: ConversationMessagePreview | null;
+  at: string | null;
+  show: (column: (typeof CONVERSATION_LIST_COLUMNS)[number]) => boolean;
+  actions: ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      {show('avatar') ? (
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+          {initials(title) || '?'}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {show('name') ? <div className="truncate text-sm font-medium">{title}</div> : null}
+            {subtitle ? <div className="truncate text-xs text-muted-foreground">{subtitle}</div> : null}
+            {show('sender') && sender ? <div className="truncate text-xs text-muted-foreground">{sender}</div> : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {show('timestamp') ? <ListTimestamp iso={at} /> : null}
+            {actions}
+          </div>
+        </div>
+        {show('preview') ? <ConversationPreviewText preview={preview} /> : null}
+      </div>
     </div>
   );
 }

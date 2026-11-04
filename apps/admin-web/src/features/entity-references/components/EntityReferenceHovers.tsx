@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import tippy from "tippy.js";
 import { Badge, Skeleton } from "@altitutor/ui";
+import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import type { ReferenceDetails } from "../types";
 
 function ReferencePreview({ target }: { target: HTMLElement }) {
@@ -41,8 +42,8 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
           {query.data?.title || target.dataset.label || "Preview"}
         </h3>
         {query.data?.status && (
-          <Badge variant="outline" className="shrink-0">
-            {query.data.status.replaceAll("_", " ")}
+          <Badge className={`shrink-0 border-transparent ${statusToneClass(query.data.status)}`}>
+            {statusLabel(query.data.status)}
           </Badge>
         )}
       </div>

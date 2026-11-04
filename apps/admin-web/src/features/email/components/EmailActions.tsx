@@ -268,6 +268,7 @@ export function EmailActions({
           <EmailIconButton
             label={read ? "Mark unread" : "Mark read"}
             shortcut="U"
+            data-unread={read ? undefined : "true"}
             disabled={!ids.length || command.isPending}
             onClick={() => command.mutate({ action: "read", ids, read: !read })}
           >

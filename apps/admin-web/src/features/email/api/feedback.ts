@@ -29,14 +29,21 @@ export function emailCommandFeedback(
       new Date(result.scheduledAt).getTime() - Date.now(),
     );
     let cancelled = false;
+    let countdown: ReturnType<typeof setInterval> | undefined;
     // Fast path while this client is open. The durable cron worker is the fallback.
     const timer =
       result.state === "queued"
         ? setTimeout(() => {
             if (!cancelled)
               void execute({ action: "dispatchQueued", id })
-                .then(refresh)
+                .then(() => {
+                  if (countdown) clearInterval(countdown);
+                  toast.dismiss(id);
+                  refresh();
+                })
                 .catch(() => {
+                  if (countdown) clearInterval(countdown);
+                  toast.dismiss(id);
                   toast.message("Email remains queued", {
                     description:
                       "The background worker will reconcile delivery. Check the conversation before sending another copy.",
@@ -44,20 +51,17 @@ export function emailCommandFeedback(
                 });
           }, remaining + 100)
         : undefined;
-    toast.success(
-      result.state === "queued" ? "Sending in 10 seconds" : "Email scheduled",
-      {
-        description:
-          result.state === "scheduled"
-            ? new Date(result.scheduledAt).toLocaleString("en-AU")
-            : undefined,
-        duration: result.state === "queued" ? remaining : 10_000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            cancelled = true;
-            if (timer) clearTimeout(timer);
-            void execute({ action: "cancelSchedule", id })
+    const stopCountdown = () => {
+      if (countdown) clearInterval(countdown);
+    };
+    const undo = {
+      label: "Undo",
+      onClick: () => {
+        cancelled = true;
+        stopCountdown();
+        if (timer) clearTimeout(timer);
+        toast.dismiss(id);
+        void execute({ action: "cancelSchedule", id })
               .then(() => {
                 refresh();
                 toast.success("Email returned to Drafts");
@@ -71,9 +75,40 @@ export function emailCommandFeedback(
                 );
               });
           },
-        },
+        };
+    const toastId = toast.success(
+      result.state === "queued"
+        ? `Sending in ${Math.max(1, Math.ceil(remaining / 1000))} seconds`
+        : "Email scheduled",
+      {
+        id,
+        description:
+          result.state === "scheduled"
+            ? new Date(result.scheduledAt).toLocaleString("en-AU")
+            : undefined,
+        duration: result.state === "queued" ? Infinity : 10_000,
+        onDismiss: stopCountdown,
+        action: undo,
       },
     );
+    if (result.state === "queued") {
+      countdown = setInterval(() => {
+        const seconds = Math.ceil(
+          (new Date(result.scheduledAt!).getTime() - Date.now()) / 1000,
+        );
+        if (seconds <= 0) {
+          stopCountdown();
+          toast.dismiss(toastId);
+          return;
+        }
+        toast.success(`Sending in ${seconds} second${seconds === 1 ? "" : "s"}`, {
+          id: toastId,
+          duration: Infinity,
+          onDismiss: stopCountdown,
+          action: undo,
+        });
+      }, 1000);
+    }
     return;
   }
   const labels: Partial<Record<EmailCommand["action"], string>> = {

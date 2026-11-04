@@ -14,6 +14,11 @@ import {
 } from "@altitutor/ui";
 import { getSubjectColorStyle, formatSessionType, cn } from "@/shared/utils";
 import {
+  plannedAttendanceClass,
+  plannedAttendanceTone,
+  statusToneClass,
+} from "@/shared/utils/statusTone";
+import {
   deriveStudentAttendanceStatus,
   deriveStaffAttendanceStatus,
   type StudentAttendanceInput,
@@ -136,7 +141,13 @@ export function CalendarDetailsTooltip({
             >
               <Link
                 href={`/${kind}/${person.id}`}
-                className="text-xs hover:underline focus-visible:underline"
+                className={cn(
+                  "text-xs hover:underline focus-visible:underline",
+                  attendance &&
+                    plannedAttendanceClass(
+                      plannedAttendanceTone(derived.plannedStatus),
+                    ),
+                )}
               >
                 {person.first_name} {person.last_name}
               </Link>
@@ -250,7 +261,14 @@ export function CalendarDetailsTooltip({
       >
         <div className="space-y-3">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold">{title}</h3>
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold">{title}</h3>
+              {status ? (
+                <Badge className={`shrink-0 border-transparent text-[10px] ${statusToneClass(status)}`}>
+                  {label(status)}
+                </Badge>
+              ) : null}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {subject ? (
                 <Badge
@@ -274,11 +292,6 @@ export function CalendarDetailsTooltip({
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {subtitle}
-              {status ? (
-                <Badge variant="outline" className="text-[10px]">
-                  {label(status)}
-                </Badge>
-              ) : null}
             </div>
           </div>
           {students ? people(students, "students") : null}
