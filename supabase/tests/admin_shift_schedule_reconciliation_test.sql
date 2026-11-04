@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(13);
+SELECT plan(14);
 
 INSERT INTO public.admin_shifts (
   id,
@@ -192,6 +192,33 @@ SELECT results_eq(
       (DATE '2027-01-04', DATE '2027-01-11', 1::SMALLINT),
       (DATE '2027-01-12', DATE '2027-01-31', 2::SMALLINT)$$,
   'the previous timetable ends the day before the effective date'
+);
+
+DELETE FROM public.sessions_staff
+WHERE session_id IN (
+  SELECT session.id
+  FROM public.sessions session
+  WHERE session.admin_shift_id = 'a3020000-0000-4000-8000-000000000001'
+    AND (session.start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2027-01-04'
+);
+
+SELECT public.precreate_admin_shift_sessions(
+  DATE '2027-01-04',
+  DATE '2027-01-31',
+  NULL,
+  'a3020000-0000-4000-8000-000000000001'
+);
+
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.sessions_staff assignment
+    JOIN public.sessions session ON session.id = assignment.session_id
+    WHERE session.admin_shift_id = 'a3020000-0000-4000-8000-000000000001'
+      AND (session.start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2027-01-04'
+  ),
+  0,
+  'filling later sessions does not restore staffing removed before the effective date'
 );
 
 SELECT * FROM finish();

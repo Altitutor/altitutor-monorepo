@@ -57,7 +57,11 @@ describe('AdminShiftInfoTab', () => {
     mockPreviewSchedule.mockResolvedValue({
       proposal_hash: 'hash',
       counts: { create: 1, cancel: 0, preserve: 0, protected: 0 },
-      occurrences: [],
+      occurrences: [{
+        start_at: '2099-06-01T00:30:00.000Z',
+        end_at: '2099-06-01T01:30:00.000Z',
+        action: 'CREATE',
+      }],
       removals: [],
       conflicts: [],
     });
@@ -108,5 +112,8 @@ describe('AdminShiftInfoTab', () => {
       start_date: '2020-01-01',
       end_date: '2099-12-31',
     })));
+    expect(screen.getByText('Tuesday 10:00 AM–11:00 AM')).toBeInTheDocument();
+    expect(screen.getByText('Sessions from this date')).toBeInTheDocument();
+    expect(screen.getByText('Mon, 1 June 2099, 10:00 am')).toBeInTheDocument();
   });
 });

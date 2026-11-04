@@ -70,6 +70,38 @@ interface AdminShiftInfoTabProps {
   onReviewStateChange?: (state: { label: string; busy: boolean }) => void;
 }
 
+function adelaideSessionLabel(iso: string): string {
+  return new Date(iso).toLocaleString('en-AU', {
+    timeZone: 'Australia/Adelaide',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function SessionChangeList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ start_at: string; end_at: string }>;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">{title}</h4>
+      <ul className="max-h-48 space-y-1 overflow-auto rounded-md border p-3 text-sm">
+        {rows.map((row) => (
+          <li key={`${row.start_at}-${row.end_at}`}>{adelaideSessionLabel(row.start_at)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ScheduleCard({ title, revision }: { title: string; revision: StoredAdminShiftSchedule }) {
   return (
     <div className="rounded-md border p-4">
@@ -357,10 +389,21 @@ export function AdminShiftInfoTab({
           <div className="space-y-4">
             <div>
               <h3 className="font-medium">Review shift changes</h3>
+              <p className="text-sm">
+                {getDayOfWeek(form.getValues('dayOfWeek'))} {formatTime(form.getValues('startTime'))}–{formatTime(form.getValues('endTime'))}
+              </p>
               <p className="text-sm text-muted-foreground">
                 From {format(new Date(`${effectiveFrom}T12:00:00Z`), 'MMM d, yyyy')}, confirm the session changes before they are applied.
               </p>
             </div>
+            <SessionChangeList
+              title="Sessions from this date"
+              rows={plan.occurrences.filter((occurrence) => occurrence.action === 'CREATE' || occurrence.action === 'PRESERVE')}
+            />
+            <SessionChangeList
+              title="Sessions removed"
+              rows={plan.removals.filter((removal) => removal.action === 'CANCEL')}
+            />
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div>
               <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div>

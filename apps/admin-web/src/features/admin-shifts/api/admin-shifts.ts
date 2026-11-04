@@ -68,6 +68,32 @@ async function overlayInForceSchedules<T extends {
   });
 }
 
+async function shiftIdsForDisplayedSchedule(days: number[], statuses: string[]): Promise<string[] | null> {
+  if (days.length === 0 && statuses.length === 0) return null;
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { data, error } = await supabase
+    .from('admin_shift_schedule_revisions')
+    .select('id, admin_shift_id, day_of_week, start_time, end_time, status, effective_from, effective_to, superseded_at')
+    .is('superseded_at', null);
+  if (error) throw error;
+  const today = adelaideCalendarDate();
+  const byShift = new Map<string, ScheduleRevisionRow[]>();
+  for (const revision of (data ?? []) as ScheduleRevisionRow[]) {
+    const group = byShift.get(revision.admin_shift_id) ?? [];
+    group.push(revision);
+    byShift.set(revision.admin_shift_id, group);
+  }
+  const ids: string[] = [];
+  for (const [adminShiftId, revisions] of byShift) {
+    const current = revisionInForce(revisions, today);
+    if (!current) continue;
+    if (days.length > 0 && !days.includes(current.day_of_week)) continue;
+    if (statuses.length > 0 && !statuses.includes(current.status)) continue;
+    ids.push(adminShiftId);
+  }
+  return ids;
+}
+
 function mapStoredSchedule(revision: ScheduleRevisionRow): StoredAdminShiftSchedule {
   const status = revision.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
   return {
@@ -150,12 +176,10 @@ export const adminShiftsApi = {
       .from('admin_shifts')
       .select('*', { count: 'exact' });
 
-    // Apply filters
-    if (dayFilters.length > 0) {
-      query = query.in('day_of_week', dayFilters);
-    }
-    if (statuses.length > 0) {
-      query = query.in('status', statuses);
+    const displayedShiftIds = await shiftIdsForDisplayedSchedule(dayFilters, statuses);
+    if (displayedShiftIds?.length === 0) return { adminShifts: [], total: 0 };
+    if (displayedShiftIds) {
+      query = query.in('id', displayedShiftIds);
     }
 
     if (trimmed.length > 0) {

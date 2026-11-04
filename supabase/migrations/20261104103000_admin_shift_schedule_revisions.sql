@@ -303,26 +303,20 @@ BEGIN
           )
           RETURNING id INTO new_session_id;
           inserted_count := inserted_count + 1;
-        END IF;
 
-        INSERT INTO public.sessions_staff (id, session_id, staff_id, type, created_by)
-        SELECT
-          pg_catalog.gen_random_uuid(),
-          new_session_id,
-          assignment.staff_id,
-          'MAIN_TUTOR',
-          p_created_by
-        FROM public.admin_shifts_staff assignment
-        WHERE assignment.admin_shift_id = a.admin_shift_id
-          AND assignment.assigned_at <= s_at
-          AND (assignment.unassigned_at IS NULL OR assignment.unassigned_at > s_at)
-          AND NOT EXISTS (
-            SELECT 1
-            FROM public.sessions_staff existing
-            WHERE existing.session_id = new_session_id
-              AND existing.staff_id = assignment.staff_id
-          )
-        ON CONFLICT (session_id, staff_id) DO NOTHING;
+          INSERT INTO public.sessions_staff (id, session_id, staff_id, type, created_by)
+          SELECT
+            pg_catalog.gen_random_uuid(),
+            new_session_id,
+            assignment.staff_id,
+            'MAIN_TUTOR',
+            p_created_by
+          FROM public.admin_shifts_staff assignment
+          WHERE assignment.admin_shift_id = a.admin_shift_id
+            AND assignment.assigned_at <= s_at
+            AND (assignment.unassigned_at IS NULL OR assignment.unassigned_at > s_at)
+          ON CONFLICT (session_id, staff_id) DO NOTHING;
+        END IF;
       END IF;
       d := d + 1;
     END LOOP;
@@ -994,7 +988,7 @@ GRANT SELECT ON admin_reporting.admin_shift_schedule_revisions TO admin_reportin
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = 'pg_cron') THEN
-    RAISE NOTICE 'pg_cron extension not available. Skipping weekly-admin-shift-session-creation.';
+    RAISE NOTICE 'pg_cron extension not available. Skipping daily-admin-shift-session-creation.';
     RETURN;
   END IF;
 
@@ -1004,19 +998,27 @@ BEGIN
     PERFORM cron.unschedule('weekly-admin-shift-session-creation');
   END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM cron.job WHERE jobname = 'daily-admin-shift-session-creation'
+  ) THEN
+    PERFORM cron.unschedule('daily-admin-shift-session-creation');
+  END IF;
+
+  -- 15:00 UTC is after midnight in Australia/Adelaide in both standard and daylight time,
+  -- so the in-force timetable is copied onto the shift row on the morning it starts.
   PERFORM cron.schedule(
-    'weekly-admin-shift-session-creation',
-    '0 0 * * 0',
+    'daily-admin-shift-session-creation',
+    '0 15 * * *',
     $cron$
     SELECT public.precreate_admin_shift_sessions(
-      CURRENT_DATE,
-      (CURRENT_DATE + INTERVAL '8 weeks')::DATE,
+      (pg_catalog.now() AT TIME ZONE 'Australia/Adelaide')::DATE,
+      ((pg_catalog.now() AT TIME ZONE 'Australia/Adelaide')::DATE + INTERVAL '8 weeks')::DATE,
       NULL,
       NULL
     );
     $cron$
   );
 EXCEPTION WHEN OTHERS THEN
-  RAISE WARNING 'Failed to schedule weekly-admin-shift-session-creation: %', SQLERRM;
+  RAISE WARNING 'Failed to schedule daily-admin-shift-session-creation: %', SQLERRM;
 END;
 $$;
