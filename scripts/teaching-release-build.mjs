@@ -9,6 +9,7 @@ const team = 'V2A5FZKMZ7';
 const bundle = 'com.altitutor.teaching';
 const appID = '6829958017';
 const issuer = '78aab419-6d0d-4cbb-a296-73a1fbffec6f';
+const provisioningProfilesDirectory = join(homedir(), 'Library/Developer/Xcode/UserData/Provisioning Profiles');
 
 // Subprocess output can contain signing diagnostics. Keep it off logs/artifacts.
 function run(command, args, options = {}) {
@@ -62,7 +63,7 @@ export async function cleanupRelease() {
   let state;
   try { state = JSON.parse(await readFile(receiptPath, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return; throw new Error('Cannot read signing cleanup receipt'); }
-  const profileRoot = join(homedir(), 'Library/MobileDevice/Provisioning Profiles') + sep;
+  const profileRoot = provisioningProfilesDirectory + sep;
   if (typeof state.temporary !== 'string' || !resolve(state.temporary).startsWith(resolve(root) + sep + 'teaching-signing-') ||
       state.keychain !== join(state.temporary, 'signing.keychain-db') || !Array.isArray(state.originalSearch) ||
       !state.originalSearch.every((path) => typeof path === 'string' && path.startsWith('/')) ||
@@ -131,9 +132,8 @@ export async function runRelease(plan, checkBuild) {
     if (decodedProfile.includes('<key>ProvisionedDevices</key>') || decodedProfile.includes('<key>ProvisionsAllDevices</key>')) throw new Error('Use an App Store profile, not development/ad-hoc/enterprise');
     const expiry = decodedProfile.match(/<key>ExpirationDate<\/key>\s*<date>([^<]+)<\/date>/)?.[1];
     if (!expiry || Date.parse(expiry) <= Date.now()) throw new Error('Provisioning profile has expired');
-    const profileDirectory = join(homedir(), 'Library/MobileDevice/Provisioning Profiles');
-    await mkdir(profileDirectory, { recursive: true, mode: 0o700 });
-    const destination = join(profileDirectory, `${uuid}.mobileprovision`);
+    await mkdir(provisioningProfilesDirectory, { recursive: true, mode: 0o700 });
+    const destination = join(provisioningProfilesDirectory, `${uuid}.mobileprovision`);
     try { await access(destination); throw new Error('Runner already has this provisioning profile; refusing to overwrite'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     signingState.profile = destination;
