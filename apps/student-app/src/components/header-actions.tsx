@@ -1,19 +1,37 @@
 import { Image } from 'expo-image';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 import { withHaptic } from '@/lib/haptics';
 
-export function HeaderActions() {
+export function HeaderActions({ viewMenu }: {
+  viewMenu?: { label: string; selected: boolean; onPress: () => void }[];
+} = {}) {
   const router = useRouter();
   const theme = useTheme();
   const notifications = () => router.push('/notifications');
   const menu = () => router.push('/settings');
+  const chooseView = () => {
+    if (!viewMenu) return;
+    Alert.alert('Calendar view', undefined, [
+      ...viewMenu.map((item) => ({ text: item.selected ? `${item.label} ✓` : item.label, onPress: item.onPress })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
 
   if (process.env.EXPO_OS === 'ios') {
     return (
       <Stack.Toolbar placement="right">
+        {viewMenu ? (
+          <Stack.Toolbar.Menu icon="calendar" accessibilityLabel="Calendar view">
+            {viewMenu.map((item) => (
+              <Stack.Toolbar.MenuAction key={item.label} isOn={item.selected} onPress={withHaptic(item.onPress)}>
+                {item.label}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+        ) : null}
         <Stack.Toolbar.Button icon="bell" accessibilityLabel="Notifications" onPress={withHaptic(notifications)} />
         <Stack.Toolbar.Button icon="line.3.horizontal" accessibilityLabel="Menu" onPress={withHaptic(menu)}>
           Menu
@@ -22,12 +40,12 @@ export function HeaderActions() {
     );
   }
 
-  const icon = (label: string, symbol: 'bell' | 'menu', action: () => void) => (
+  const icon = (label: string, symbol: 'bell' | 'menu' | 'calendar', action: () => void) => (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={withHaptic(action)} style={{ padding: 12 }}>
       <Image
         accessibilityIgnoresInvertColors
         source={{
-          uri: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${theme.primary}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${symbol === 'menu' ? '<path d="M4 6h16M4 12h16M4 18h16"/>' : '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>'}</svg>`)}`,
+          uri: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${theme.primary}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${symbol === 'menu' ? '<path d="M4 6h16M4 12h16M4 18h16"/>' : symbol === 'calendar' ? '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' : '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>'}</svg>`)}`,
         }}
         style={{ width: 24, height: 24 }}
       />
@@ -39,6 +57,7 @@ export function HeaderActions() {
       options={{
         headerRight: () => (
           <View style={{ flexDirection: 'row' }}>
+            {viewMenu ? icon('Calendar view', 'calendar', chooseView) : null}
             {icon('Notifications', 'bell', notifications)}
             {icon('Menu', 'menu', menu)}
           </View>

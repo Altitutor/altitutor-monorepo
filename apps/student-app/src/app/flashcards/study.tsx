@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect } from 'react';
 
 import { ErrorBlock, LoadingBlock, StudentScreen } from '@/components/student-ui';
@@ -13,16 +13,8 @@ export default function DueFlashcardsScreen() {
   const filtered = useFlashcardSnapshot(topicIds);
   const active = topicIds === undefined ? menu : filtered;
   const title = topicId ? 'Topic review' : selectedSubject?.name ?? 'Study all';
-  const refetchMenu = menu.refetch;
-  const refetchFiltered = filtered.refetch;
-  const hasFilteredTopics = Boolean(topicIds?.length);
   const refetchActive = active.refetch;
   const nextDueAt = active.data?.nextDueAt;
-
-  useFocusEffect(useCallback(() => {
-    void refetchMenu();
-    if (hasFilteredTopics) void refetchFiltered();
-  }, [refetchMenu, refetchFiltered, hasFilteredTopics]));
 
   useEffect(() => {
     if (!nextDueAt) return;
@@ -46,7 +38,7 @@ export default function DueFlashcardsScreen() {
   }
 
   return (
-    <StudentScreen title={title} largeTitle={false} refreshing={active.isRefetching} onRefresh={() => { void refresh().catch(() => undefined); }}>
+    <StudentScreen title={title} largeTitle={false}>
       <Stack.Screen options={{ title }} />
       {subjectId && menu.data && !selectedSubject ? <ErrorBlock message="This subject has no accessible flashcards." /> : null}
       {active.isPending ? <LoadingBlock label="Loading due cards…" /> : null}

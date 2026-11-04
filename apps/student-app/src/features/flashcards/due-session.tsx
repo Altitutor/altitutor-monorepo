@@ -3,7 +3,6 @@ import { randomUUID } from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
-import { Card } from '@/components/student-ui';
 import { useTheme } from '@/hooks/use-theme';
 
 import { flashcardApi, FlashcardApiError } from './flashcard-api';
@@ -232,7 +231,7 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
         canBury={Boolean(card) && !needsRefresh && connected}
         disabled={pending || !connected}
       />
-      <StudySurface feedback={feedback} footer={
+      <StudySurface feedback={feedback} notice={message ?? (!connected ? 'A connection is required to study flashcards. Reconnect and refresh to continue.' : null)} noticeTone={message === 'Your last answer was undone.' ? 'neutral' : 'danger'} footer={
         <View style={{ gap: 8 }}>
           <Text selectable style={{ color: theme.textSecondary, fontVariant: ['tabular-nums'], textAlign: 'center' }}>
             {visibleCounts.new} new · {visibleCounts.learning} learning · {visibleCounts.review} review
@@ -255,24 +254,22 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
               : null}
         </View>
       }>
-      {message ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger }}>{message}</Text> : null}
-      {!connected ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger }}>A connection is required to study flashcards. Reconnect and refresh to continue.</Text> : null}
       {connected && card && !needsRefresh ? (
-        <Card>
+        <View style={{ gap: 12 }}>
           <Text selectable style={{ color: theme.textSecondary, fontSize: 13 }}>
             {[card.subject_short_name, card.topic_code, card.topic_name].filter(Boolean).join(' · ')}
           </Text>
           <FlashcardContent card={card} showAnswer={showAnswer} onReadyChange={setImageReady} />
-        </Card>
+        </View>
       ) : connected && !needsRefresh ? (
-        <Card>
+        <View style={{ gap: 8 }}>
           <Text selectable style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>{pending || checkingNext ? 'Loading next card…' : nextHeldDue ? 'You’re caught up for now' : 'No cards due'}</Text>
           {nextHeldDue ? <Text selectable style={{ color: theme.textSecondary }}>Next scheduled card: {new Date(nextHeldDue).toLocaleTimeString()}.</Text> : null}
           {held.newLimit > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.newLimit} new cards are held by today’s limit.</Text> : null}
           {held.reviewLimit > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.reviewLimit} reviews are held by today’s limit.</Text> : null}
           {held.newBlockedByReviews > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.newBlockedByReviews} new cards wait for overdue reviews.</Text> : null}
           {held.futureLearning > 0 && snapshot.nextDueAt ? <Text selectable style={{ color: theme.textSecondary }}>Next learning card: {new Date(snapshot.nextDueAt).toLocaleTimeString()}.</Text> : null}
-        </Card>
+        </View>
       ) : null}
       {pending ? <Text selectable style={{ color: theme.textSecondary, textAlign: 'center' }}>Saving…</Text> : null}
       </StudySurface>

@@ -7,8 +7,6 @@ export default function FlashcardsLayout() {
   return (
     <Stack screenOptions={options}>
       <Stack.Screen name="index" options={{ title: 'Flashcards' }} />
-      <Stack.Screen name="manage/index" options={{ title: 'Manage flashcards', headerLargeTitleEnabled: false }} />
-      <Stack.Screen name="manage/[flashcardId]" options={{ title: 'Review card', headerLargeTitleEnabled: false }} />
     </Stack>
   );
 }

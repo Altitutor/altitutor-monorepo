@@ -1,37 +1,55 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLayoutEffect } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Card, EmptyBlock, ErrorBlock, formatDateTime, Label, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
+import { Card, EmptyBlock, ErrorBlock, KeyValueRow, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
 import { sessionDisplayTitle, sessionTypeLabel } from '@/features/sessions/session-display';
-import { useSessionDetail } from '@/hooks/use-student-data';
 import { SessionLogFiles } from '@/features/sessions/session-log-files';
+import { useProfile, useSessionAttendance, useSessionDetail } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
 
-type Person = { first_name?: string; last_name?: string; name?: string };
+type Person = { id?: string; first_name?: string; last_name?: string; name?: string };
 
-function peopleLabel(value: unknown) {
-  if (!Array.isArray(value)) return 'Not listed';
-  const labels = value.map((person) => {
-    const record = person as Person;
-    return record.name ?? [record.first_name, record.last_name].filter(Boolean).join(' ');
-  }).filter(Boolean);
-  return labels.join(', ') || 'Not listed';
+function people(value: unknown): Person[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((person) => {
+    if (!person || typeof person !== 'object') return [];
+    return [person as Person];
+  });
+}
+
+function personName(person: Person) {
+  return person.name?.trim() || [person.first_name, person.last_name].filter(Boolean).join(' ') || 'Unnamed';
+}
+
+function attendanceLabel(plannedAbsence: boolean | null, markedAbsent: boolean | null | undefined) {
+  if (markedAbsent === true) return 'Absent';
+  if (markedAbsent === false) return 'Attended';
+  if (plannedAbsence) return 'Not attending';
+  return 'Planning to attend';
 }
 
 export default function SessionModalScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const session = useSessionDetail(sessionId);
+  const attendance = useSessionAttendance(sessionId);
+  const profile = useProfile();
   const detail = session.data;
   const subject = detail ? sessionDisplayTitle(detail) : 'Session';
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: subject || 'Session', headerShown: true });
+  }, [navigation, subject]);
 
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: subject,
+          title: subject || 'Session',
           headerLargeTitleEnabled: false,
           headerTintColor: theme.primary,
           ...(Platform.OS === 'android'
@@ -50,37 +68,45 @@ export default function SessionModalScreen() {
           <Stack.Toolbar.Button accessibilityLabel="Close session" icon="xmark" onPress={() => router.back()} />
         </Stack.Toolbar>
       ) : null}
-      <StudentScreen title={subject}>
+      <StudentScreen title={subject || 'Session'}>
         {session.isPending ? <LoadingBlock label="Loading session..." /> : null}
         {session.isError ? <ErrorBlock message={session.error.message} /> : null}
         {!session.isPending && !detail ? <EmptyBlock>Session not found.</EmptyBlock> : null}
         {detail ? (
           <>
             <Card>
-              <Label>Date and time</Label>
-              <Value>{formatDateTime(detail.start_at)}</Value>
-              <Label>Room</Label>
-              <Value>{detail.room ?? 'To be confirmed'}</Value>
-              <Label>Type</Label>
-              <Value>{sessionTypeLabel(detail.session_type)}</Value>
+              <KeyValueRow label="When"><Value align="right">{detail.start_at ? new Date(detail.start_at).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Australia/Adelaide' }) : 'Time to be confirmed'}</Value></KeyValueRow>
+              <KeyValueRow label="Room"><Value align="right">{detail.room ?? 'To be confirmed'}</Value></KeyValueRow>
+              <KeyValueRow label="Type"><Value align="right">{sessionTypeLabel(detail.session_type)}</Value></KeyValueRow>
+              <KeyValueRow label="Attendance"><Value align="right">{attendanceLabel(detail.planned_absence, attendance.data)}</Value></KeyValueRow>
             </Card>
             <Card>
-              <Label>Tutors</Label>
-              <Value>{peopleLabel(detail.staff)}</Value>
-              <Label>Students</Label>
-              <Value>{peopleLabel(detail.students)}</Value>
-              {detail.planned_absence ? (
-                <>
-                  <Label>Attendance</Label>
-                  <Value>Planned absence recorded</Value>
-                </>
-              ) : null}
+              <PeopleRow label="Tutors" people={people(detail.staff)} currentStudentId={null} />
+              <PeopleRow label="Students" people={people(detail.students)} currentStudentId={profile.data?.id ?? null} />
             </Card>
             <SessionLogFiles sessionID={sessionId} />
           </>
         ) : null}
       </StudentScreen>
     </>
+  );
+}
+
+function PeopleRow({ label, people: persons, currentStudentId }: { label: string; people: Person[]; currentStudentId: string | null }) {
+  const theme = useTheme();
+  return (
+    <KeyValueRow label={label}>
+      {persons.length === 0 ? <Value align="right">Not listed</Value> : persons.map((person) => (
+        <View key={person.id ?? personName(person)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text selectable style={{ color: theme.text, fontSize: 16, fontWeight: '500', textAlign: 'right' }}>{personName(person)}</Text>
+          {currentStudentId && person.id === currentStudentId ? (
+            <View style={{ backgroundColor: theme.backgroundSelected, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>You</Text>
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </KeyValueRow>
   );
 }
 

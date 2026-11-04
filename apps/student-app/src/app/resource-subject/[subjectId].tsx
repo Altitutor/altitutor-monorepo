@@ -1,5 +1,5 @@
 import { buildTopicTree } from '@altitutor/shared';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 
 import { EmptyBlock, ErrorBlock, LoadingBlock, StudentScreen } from '@/components/student-ui';
@@ -17,20 +17,24 @@ export default function TopicsScreen() {
     for (const file of files.data ?? []) counts.set(file.topicId, (counts.get(file.topicId) ?? 0) + 1);
     return counts;
   }, [files.data]);
+  const heading = title ?? 'Topics';
 
   return (
-    <StudentScreen title={title ?? 'Topics'} showHeaderActions>
-      {topics.isPending ? <LoadingBlock label="Loading topics..." /> : null}
-      {topics.isError ? <ErrorBlock message={topics.error.message} /> : null}
-      {topics.data?.length === 0 ? <EmptyBlock>No topics published yet.</EmptyBlock> : null}
-      <TopicTree
-        tree={tree}
-        fileCounts={fileCounts}
-        onOpen={(topic) => router.push({
-          pathname: '/resource-topic/[topicId]',
-          params: { topicId: topic.id, subjectId, title: topic.name },
-        })}
-      />
-    </StudentScreen>
+    <>
+      <Stack.Screen options={{ title: heading }} />
+      <StudentScreen title={heading} largeTitle={false}>
+        {topics.isPending ? <LoadingBlock label="Loading topics..." /> : null}
+        {topics.isError ? <ErrorBlock message={topics.error.message} /> : null}
+        {topics.data?.length === 0 ? <EmptyBlock>No topics published yet.</EmptyBlock> : null}
+        <TopicTree
+          tree={tree}
+          fileCounts={fileCounts}
+          onOpen={(topic) => router.push({
+            pathname: '/resource-topic/[topicId]',
+            params: { topicId: topic.id, subjectId, title: topic.name },
+          })}
+        />
+      </StudentScreen>
+    </>
   );
 }

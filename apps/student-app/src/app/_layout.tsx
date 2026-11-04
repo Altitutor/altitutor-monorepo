@@ -50,6 +50,7 @@ function AppNavigation() {
           headerShown: false,
           headerTintColor: theme.primary,
           headerShadowVisible: false,
+          headerStyle: { backgroundColor: theme.background },
           headerBackButtonDisplayMode: 'minimal',
           contentStyle: { backgroundColor: theme.background },
         }}
@@ -58,10 +59,14 @@ function AppNavigation() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="auth-return" options={{ headerShown: false, title: 'Signing in' }} />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="flashcards/study" options={{ headerShown: true, title: 'Study', headerLargeTitleEnabled: false }} />
+        <Stack.Screen name="flashcards/study" options={{ headerShown: true, title: 'Study', headerLargeTitleEnabled: false, headerStyle: { backgroundColor: theme.background }, contentStyle: { backgroundColor: theme.background } }} />
+        <Stack.Screen name="flashcards/manage/index" options={{ headerShown: true, title: 'Manage flashcards', headerLargeTitleEnabled: false }} />
+        <Stack.Screen name="flashcards/manage/[flashcardId]" options={{ headerShown: true, title: 'Review card', headerLargeTitleEnabled: false }} />
+        <Stack.Screen name="free-study-info" options={{ ...sheet, title: 'Free study' }} />
+        <Stack.Screen name="resource-subject/[subjectId]" options={{ headerShown: true, title: 'Topics', headerLargeTitleEnabled: false }} />
         <Stack.Screen
           name="session/[sessionId]"
-          options={{ presentation: 'formSheet', sheetAllowedDetents: [0.5, 0.9], sheetInitialDetentIndex: 0, sheetGrabberVisible: true }}
+          options={{ presentation: 'formSheet', sheetAllowedDetents: [0.5, 0.9], sheetInitialDetentIndex: 0, sheetGrabberVisible: true, headerShown: true, title: 'Session' }}
         />
         <Stack.Screen name="billing-management" options={{ presentation: 'formSheet', title: 'Manage billing' }} />
         <Stack.Screen name="invoice-viewer" options={{ presentation: 'formSheet', title: 'Invoice' }} />

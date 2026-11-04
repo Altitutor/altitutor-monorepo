@@ -30,7 +30,6 @@ export function useFlashcardSnapshot(topicIds?: string[]) {
     queryKey: [...flashcardKeys.snapshot(topicIds), session?.user.id],
     queryFn: () => flashcardApi.dueSnapshot(topicIds),
     enabled: Boolean(session) && (topicIds === undefined || topicIds.length > 0),
-    refetchOnMount: 'always',
   });
 }
 
@@ -49,7 +48,6 @@ export function useTopicFlashcardCards(topicId: string) {
     queryKey: [...flashcardKeys.topicCards(topicId), session?.user.id],
     queryFn: () => flashcardApi.topicCards(topicId),
     enabled: Boolean(session) && Boolean(topicId),
-    refetchOnMount: 'always',
   });
 }
 
@@ -59,7 +57,6 @@ export function useManageFlashcards() {
     queryKey: [...flashcardKeys.manage, session?.user.id],
     queryFn: flashcardApi.allCards,
     enabled: Boolean(session),
-    refetchOnMount: 'always',
   });
 }
 

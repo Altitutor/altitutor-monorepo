@@ -28,6 +28,7 @@ export default function ResourceFileScreen() {
   const previous = index > 0 ? ordered[index - 1] : null;
   const next = index >= 0 && index < ordered.length - 1 ? ordered[index + 1] : null;
   const solutionId = file && !file.isSolutions ? ordered.find((entry) => entry.isSolutionsOfId === file.id)?.id ?? null : null;
+  const primaryId = file?.isSolutions ? file.isSolutionsOfId : null;
   const [resolved, setResolved] = useState<{ id: string; url: string | null; error: string | null } | null>(null);
   const url = resolved && resolved.id === file?.id ? resolved.url : null;
   const error = resolved && resolved.id === file?.id ? resolved.error : null;
@@ -86,6 +87,7 @@ export default function ResourceFileScreen() {
         nextDisabled={!next}
         onNavigator={() => router.push('/file-navigator')}
         onSolutions={solutionId ? () => openFile(solutionId) : undefined}
+        onReturnToFile={primaryId ? () => openFile(primaryId) : undefined}
         previousLabel="Previous file"
         nextLabel="Next file"
         navigatorLabel="File navigator"
