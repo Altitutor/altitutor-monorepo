@@ -42,6 +42,12 @@ with access to Teaching where Apple's key type supports app restrictions. Manual
 provisioning avoids CI creating/revoking certificates or profiles. The owner must
 accept Apple agreements personally and keep the profile/certificate current.
 
+The pinned Xcode 26 toolchain discovers provisioning profiles in
+`~/Library/Developer/Xcode/UserData/Provisioning Profiles`, the location used by
+Xcode 16 and later. Installation and owned-profile cleanup share that directory;
+the older `~/Library/MobileDevice/Provisioning Profiles` is not the CI install
+target. See [Apple's provisioning action](https://github.com/Apple-Actions/download-provisioning-profiles#install-location).
+
 Rotate by replacing protected secrets, validating an archive without upload,
 then performing an explicitly authorized upload. Revoke the old API key only
 after its consumers are identified and the replacement works. Do not revoke a
