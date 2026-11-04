@@ -72,6 +72,9 @@ BEFORE INSERT ON public.admin_shifts
 FOR EACH ROW
 EXECUTE FUNCTION public.normalize_admin_shift_bounds();
 
+REVOKE ALL ON FUNCTION public.normalize_admin_shift_bounds()
+  FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.is_pristine_generated_admin_shift_session(p_session_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
