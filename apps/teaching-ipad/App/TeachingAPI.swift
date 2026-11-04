@@ -162,9 +162,14 @@ struct TeachingKeychain {
         var request = URLRequest(url: url)
         request.setValue("Bearer " + credential.accessToken, forHTTPHeaderField: "Authorization")
         if let body { request.httpMethod = "POST"; request.httpBody = body; request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
-        let result: T = try await send(request)
-        guard generation == epoch else { throw CancellationError() }
-        return result
+        do {
+            let result: T = try await send(request)
+            guard generation == epoch else { throw CancellationError() }
+            return result
+        } catch {
+            guard generation == epoch else { throw CancellationError() }
+            throw error
+        }
     }
     private struct Failure: Decodable { let error: String; let code: String? }
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
@@ -178,6 +183,42 @@ struct TeachingKeychain {
             throw APIError(status: http.statusCode, message: (try? JSONDecoder().decode(Failure.self, from: data).error) ?? "Teaching services are temporarily unavailable.")
         }
         return try Self.decoder.decode(T.self, from: data)
+    }
+    func upload(_ snapshot: TeachingPDFSnapshot, sessionID: UUID, document: CachedDocument,
+                purpose: String, canonicalResourceID: UUID?) async throws -> UUID {
+        struct Input: Encodable {
+            let sessionID: UUID; let documentID: UUID; let purpose: String; let canonicalResourceID: UUID?
+            let filename: String; let sizeBytes: Int; let sha256: String
+        }
+        struct Staged: Decodable { let id: UUID; let uploadURL: URL? }
+        struct Complete: Decodable { let id: UUID; let state: String }
+        let epoch = generation
+        let title = URL(fileURLWithPath: document.source.title).deletingPathExtension().lastPathComponent
+        let input = Input(sessionID: sessionID, documentID: document.id, purpose: purpose,
+                          canonicalResourceID: canonicalResourceID, filename: String(decoding: title.utf16.prefix(140), as: UTF16.self) + " — lesson.pdf",
+                          sizeBytes: snapshot.sizeBytes, sha256: snapshot.sha256)
+        let staged: Staged = try await request("uploads", body: JSONEncoder().encode(input))
+        guard epoch == generation else { throw CancellationError() }
+        if let url = staged.uploadURL {
+            guard url.scheme == "https" || url.host == "127.0.0.1" || url.host == "localhost" else {
+                throw APIError(status: 0, message: "The upload requires a secure connection.")
+            }
+            var upload = URLRequest(url: url); upload.httpMethod = "PUT"; upload.timeoutInterval = 120
+            upload.setValue("application/pdf", forHTTPHeaderField: "Content-Type")
+            upload.setValue("false", forHTTPHeaderField: "x-upsert")
+            // This signed URL authorizes only its immutable private object. Never forward our bearer token.
+            do {
+                _ = try await URLSession.shared.upload(for: upload, fromFile: snapshot.url)
+            } catch {
+                guard epoch == generation else { throw CancellationError() }
+                // A response can be lost after Storage accepted immutable bytes.
+                // Completion below verifies the exact hash before anything can use them.
+            }
+            guard epoch == generation else { throw CancellationError() }
+        }
+        let completed: Complete = try await request("uploads/" + staged.id.uuidString + "/complete", body: Data("{}".utf8))
+        guard epoch == generation else { throw CancellationError() }
+        return completed.id
     }
     func download(_ source: TeachingDocument) async throws -> Data {
         if source.externalURL != nil { return Data() }

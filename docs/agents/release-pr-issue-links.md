@@ -32,7 +32,7 @@ Use standalone lines such as:
 ```text
 Fixes DEV-198
 Refs DEV-181, DEV-193
-Related to DEV-186
+Related to DEV-123
 ```
 
 The documented closing/non-closing/relation keywords are supported, including
@@ -45,9 +45,9 @@ Correct unclear source metadata and rerun; the action never guesses mappings.
 Diverged history, absent source merge anchors, ambiguous source PR associations,
 or revert/cherry-pick evidence withhold all generated closing links and emit
 review warnings. Explicit reference/relation links retain their original intent.
-Commit/PR text lacking DEV metadata is flagged. Reverts and cherry-picks are
-detected from metadata, not semantic patch analysis: unmarked rewritten commits
-cannot be reliably resolved. History warnings must be reviewed before release.
+Commit/PR text lacking DEV metadata is flagged. Reverts and cherry-picks are detected from explicit rewrite subjects and Git
+trailers, not ordinary rollback plans or semantic patch analysis: unmarked
+rewritten commits cannot be reliably resolved. History warnings must be reviewed before release.
 Prefer merge commits for releases from long-lived branches and back-merges of
 `main` into `develop`; the action never changes history or merge settings.
 

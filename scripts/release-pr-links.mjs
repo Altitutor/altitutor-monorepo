@@ -4,7 +4,9 @@ const START = "<!-- altitutor-release-links:start -->";
 const END = "<!-- altitutor-release-links:end -->";
 const REPOSITORY = "Altitutor/altitutor-monorepo";
 const ISSUE = /\bDEV-[1-9]\d*\b/giu;
-const REWRITE = /\brevert(?:s|ed|ing)?\b|\bcherry[ -]pick(?:s|ed|ing)?\b/iu;
+// Rewrite subjects and Git trailers describe history; rollback prose describes a plan.
+const REWRITE_SUBJECT = /^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?(?:revert(?:s|ed|ing)?|cherry[ -]pick(?:s|ed|ing)?)\b/iu;
+const REWRITE_TRAILER = /^(?:This reverts commit [a-f\d]{7,40}\b|\(cherry picked from commit [a-f\d]{7,40}\b)/imu;
 const KEYWORDS = {
   close: "close",
   closes: "close",
@@ -150,7 +152,10 @@ export function renderReleaseLinks(snapshot) {
       "History is diverged or incompatible with main; reconcile using merge commits and rerun. Closing links withheld.",
     );
   for (const { label, text } of texts) {
-    if (REWRITE.test(text)) {
+    if (
+      REWRITE_SUBJECT.test(text.split(/\r?\n/u)[0]) ||
+      REWRITE_TRAILER.test(text)
+    ) {
       closingBlocked = true;
       warnings.add(
         `${label}: revert/cherry-pick evidence requires review; all closing links withheld.`,

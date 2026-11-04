@@ -1,6 +1,14 @@
 import SwiftUI
 import TeachingCore
 import PDFKit
+import UniformTypeIdentifiers
+
+struct LessonAnnotationCandidate: Identifiable {
+    let item: LessonResource
+    let snapshot: TeachingPDFSnapshot?
+    let failure: String?
+    var id: UUID { item.id }
+}
 
 enum TeachingRoute: Hashable { case lesson(UUID), document }
 
@@ -27,6 +35,9 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     @Published var librarySubjectID: UUID?
     @Published var resourceCodes: [UUID: String] = [:]
     @Published var printNotice: String?
+    @Published var printRequest: TeachingPrintRequest?
+    @Published var annotationCandidates: [LessonAnnotationCandidate] = []
+    @Published var annotationsReady = false
     private var printTasks: [UUID: Task<Void, Never>] = [:]
     private var libraryRequest = UUID()
     @Published var libraryTopics: [LibraryTopic] = []
@@ -77,7 +88,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         do {
             try api.signOut(); epoch += 1
             for task in printTasks.values { task.cancel() }; printTasks = [:]
-            route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil
+            route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil; printRequest = nil; annotationCandidates = []
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
             activeResourceID = nil; store = nil; suggestions = []; catalog = []; libraryTopics = []; sharedURL = nil; viewer = false; solutions = false; pageSidebar = false; offline = false
         } catch { self.error = error.localizedDescription }
@@ -113,6 +124,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         do {
             guard let store else { return }
             selectedSessionID = session.id; lesson = try store.lesson(sessionID: session.id)
+            annotationCandidates = []; annotationsReady = false
             activeResourceID = lesson?.resources.first?.id; viewer = false; solutions = false; suggestions = []
             librarySubjectID = session.subjectID; route = [.lesson(session.id)]
             showLessonInformation(); allowActiveWorksheet()
@@ -124,10 +136,11 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         guard let session, let profile else { ClassroomState.shared.clear(); return }
         ClassroomState.shared.showLesson(title: session.classroomTitle, time: "\(Self.time(session.startAt))–\(Self.time(session.endAt))", room: session.room ?? "", tutor: profile.name)
     }
-    func leaveLesson() { route = []; selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
+    func leaveLesson() { annotationCandidates = []; annotationsReady = false; printRequest = nil; route = []; selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
     func allowActiveWorksheet() {
-        if viewer, let item = activeResource, item.resource.worksheet.isPDF, item.resource.worksheet.externalURL == nil {
+        if viewer, let item = activeResource, item.worksheet.source.isPDF, item.worksheet.source.externalURL == nil {
             ClassroomState.shared.allowWorksheet(item.worksheet.id)
+            NotificationCenter.default.post(name: Notification.Name("TeachingResumePDF"), object: item.worksheet.id)
         }
     }
     func open(_ item: LessonResource) {
@@ -144,7 +157,11 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     }
     func refreshResourceCodes() async {
         guard !offline else { return }
-        let ids = lesson?.resources.filter { $0.resource.worksheet.code == nil && resourceCodes[$0.resource.worksheet.id] == nil }.map { $0.resource.id } ?? []
+        let ids = lesson?.resources.compactMap { item -> UUID? in
+            guard let resource = item.resource, item.worksheet.source.code == nil,
+                  resourceCodes[item.worksheet.source.id] == nil else { return nil }
+            return resource.id
+        } ?? []
         let version = epoch, sessionID = selectedSessionID
         for start in stride(from: 0, to: ids.count, by: 50) {
             do {
@@ -180,7 +197,12 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
                 try Task.checkCancellation()
                 guard version == epoch, selectedSessionID == sessionID, librarySubjectID == subjectID, libraryRequest == requestID else { return }
                 librarySubjects = page.subjects; rememberCodes(page.resources)
-                if librarySubjectID == nil, let first = page.subjects.first { librarySubjectID = first.id; return }
+                if !page.subjects.contains(where: { $0.id == librarySubjectID }) {
+                    libraryTopics = []
+                    librarySubjectID = page.subjects.first { $0.id == session.subjectID }?.id ?? page.subjects.first?.id
+                    // Changing the selection starts a new guarded library task.
+                    return
+                }
                 catalog.append(contentsOf: page.resources); libraryTopics = page.topics
                 guard let next = page.nextOffset else { return }
                 guard next > offset else { throw APIError(status: 503, message: "Could not finish loading the resource library. Please try again.") }
@@ -190,7 +212,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     }
     func add(_ resource: TeachingResource, freshCopy: Bool = false) async {
         guard let store, let session else { return }
-        if !freshCopy, let existing = lesson?.resources.first(where: { $0.resource.id == resource.id }) { open(existing); return }
+        if !freshCopy, let existing = lesson?.resources.first(where: { $0.resource?.id == resource.id }) { open(existing); return }
         let version = epoch
         busy = true; defer { if version == epoch { busy = false } }
         do {
@@ -207,6 +229,64 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             if resource.worksheet.isPDF, resource.worksheet.externalURL == nil, PDFDocument(data: primary) == nil { throw APIError(status: 0, message: "This resource is not a readable PDF.") }
             lesson = try store.add(resource, to: session.id, worksheet: primary, solutions: answers, freshCopy: freshCopy)
             if activeResourceID == nil || freshCopy { activeResourceID = lesson?.resources.last?.id; allowActiveWorksheet() }
+        } catch { report(error) }
+    }
+    func importDroppedPDFs(_ providers: [NSItemProvider]) -> Bool {
+        let pdfs = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) }
+        guard !pdfs.isEmpty, profile != nil, let sessionID = selectedSessionID else { return false }
+        let version = epoch
+        Task {
+            for provider in pdfs {
+                do {
+                    let (data, title) = try await droppedPDF(provider)
+                    guard version == epoch, selectedSessionID == sessionID else { return }
+                    try importDocument(data, title: title)
+                } catch { if version == epoch, selectedSessionID == sessionID { report(error) } }
+            }
+        }
+        return true
+    }
+    private func droppedPDF(_ provider: NSItemProvider) async throws -> (Data, String) {
+        let suggestedName = provider.suggestedName
+        return try await withCheckedThrowingContinuation { continuation in
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, error in
+                do {
+                    if let error { throw error }
+                    guard let url else { throw APIError(status: 0, message: "This drop did not contain a readable PDF.") }
+                    let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                    guard size <= 50 * 1024 * 1024 else { throw APIError(status: 0, message: "Choose a PDF smaller than 50 MB.") }
+                    // Provider URLs expire when this callback returns; copy bytes before resuming.
+                    let bytes = try Data(contentsOf: url)
+                    continuation.resume(returning: (bytes, suggestedName ?? url.lastPathComponent))
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+    func importDocuments(_ urls: [URL]) {
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard size <= 50 * 1024 * 1024 else { throw APIError(status: 0, message: "Choose a PDF smaller than 50 MB.") }
+                try importDocument(Data(contentsOf: url), title: url.lastPathComponent)
+            } catch { report(error) }
+        }
+    }
+    func importDocument(_ bytes: Data, title: String) throws {
+        guard let store, let session else { throw APIError(status: 0, message: "Open a lesson before importing a PDF.") }
+        guard !bytes.isEmpty, bytes.count <= 50 * 1024 * 1024,
+              let pdf = PDFDocument(data: bytes), !pdf.isLocked, pdf.pageCount > 0 else {
+            throw APIError(status: 0, message: "Choose a readable, unlocked PDF smaller than 50 MB.")
+        }
+        lesson = try store.addLocalDocument(title: title, to: session.id, pdf: bytes)
+    }
+    func addBlankDocument(landscape: Bool) {
+        do {
+            let size = landscape ? CGSize(width: 842, height: 595) : CGSize(width: 595, height: 842)
+            let bytes = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: size)).pdfData { $0.beginPage() }
+            try importDocument(bytes, title: landscape ? "Blank landscape.pdf" : "Blank portrait.pdf")
+            if let added = lesson?.resources.last { open(added) }
         } catch { report(error) }
     }
     func remove(_ item: LessonResource) {
@@ -242,12 +322,12 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         struct Input: Encodable { let sessionID: UUID; let resourceIDs: [UUID]; let activeResourceID: UUID? }
         struct Result: Decodable { let resources: [TeachingResource] }
         do {
-            let input = Input(sessionID: sessionID, resourceIDs: lesson?.resources.map { $0.resource.id } ?? [], activeResourceID: activeResource?.resource.id)
+            let input = Input(sessionID: sessionID, resourceIDs: lesson?.resources.compactMap { $0.resource?.id } ?? [], activeResourceID: activeResource?.resource?.id)
             let result: Result = try await api.request("suggestions", body: JSONEncoder().encode(input))
             try Task.checkCancellation()
             guard epoch == version, selectedSessionID == sessionID,
-                  input.resourceIDs == (lesson?.resources.map { $0.resource.id } ?? []),
-                  input.activeResourceID == activeResource?.resource.id else { return }
+                  input.resourceIDs == (lesson?.resources.compactMap { $0.resource?.id } ?? []),
+                  input.activeResourceID == activeResource?.resource?.id else { return }
             suggestions = result.resources
         } catch { if !Task.isCancelled { suggestions = [] } }
     }
@@ -266,13 +346,46 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         do { try store.saveDraft(draft, sessionID: session.id); lesson = try store.lesson(sessionID: session.id) }
         catch { report(error) }
     }
+    func prepareAnnotations() {
+        annotationCandidates = []; annotationsReady = false
+        guard let session, let store, let tutor = profile, !session.logged else { return }
+        let save = PDFSaveRequest()
+        NotificationCenter.default.post(name: Notification.Name("TeachingFlushPDF"), object: save)
+        guard !save.failed else { return }
+        for item in lesson?.resources ?? [] where item.worksheet.source.isPDF && item.worksheet.source.externalURL == nil {
+            do {
+                guard try item.resource == nil || TeachingPDFSnapshots.hasLocalEdits(item.worksheet, sessionID: session.id, store: store) else { continue }
+                let snapshot = try TeachingPDFSnapshots.prepare(item.worksheet, sessionID: session.id, store: store,
+                    namespace: api.namespace, tutorID: tutor.id, annotations: true, blankPages: true)
+                if snapshot.visiblePageCount > 0 { annotationCandidates.append(LessonAnnotationCandidate(item: item, snapshot: snapshot, failure: nil)) }
+            } catch {
+                annotationCandidates.append(LessonAnnotationCandidate(item: item, snapshot: nil, failure: error.localizedDescription))
+            }
+        }
+        annotationsReady = true
+    }
     func submitLog() async -> Bool {
-        guard let session, let profile, let store, let draft = lesson?.draft, profile.canSubmitLogs else { return false }
+        guard let session, let profile, let store, let draft = lesson?.draft, profile.canSubmitLogs, annotationsReady else { return false }
         guard session.students.allSatisfy({ draft.studentAttendance[$0.id] != nil }), session.staff.allSatisfy({ draft.staffAttendance[$0.id] != nil }),
               session.parents.allSatisfy({ draft.parentAttendance[$0.id] != nil }) else { error = "Confirm attendance for every participant."; return false }
         let version = epoch
         busy = true; defer { if version == epoch { busy = false } }
         do {
+            // Persist the retry identity before any network work, including legacy lesson drafts.
+            try store.saveDraft(draft, sessionID: session.id)
+            let attending = session.students.filter { draft.studentAttendance[$0.id] == true }.map(\.id)
+            struct Annotation: Encodable { let artifactID: UUID; let studentIds: [UUID] }
+            var annotations: [Annotation] = []
+            let selectedAnnotations = annotationCandidates.filter { !draft.excludedAnnotations.contains($0.id) }
+            guard selectedAnnotations.count <= 50 else { throw APIError(status: 0, message: "Share up to 50 lesson PDFs per log. Turn off extra files before submitting.") }
+            for candidate in selectedAnnotations {
+                guard let snapshot = candidate.snapshot else { throw APIError(status: 0, message: "A shared PDF could not be prepared. Turn it off or reimport it before submitting.") }
+                let artifactID = try await api.upload(snapshot, sessionID: session.id, document: candidate.item.worksheet,
+                    purpose: "lesson", canonicalResourceID: candidate.item.resource?.id)
+                guard epoch == version, selectedSessionID == session.id else { throw CancellationError() }
+                let assigned = Set(draft.studentAssignments[candidate.id] ?? attending).intersection(attending)
+                annotations.append(Annotation(artifactID: artifactID, studentIds: assigned.sorted { $0.uuidString < $1.uuidString }))
+            }
             let suggestions = try store.logSuggestions(sessionID: session.id, attendingStudents: session.students.filter { draft.studentAttendance[$0.id] == true }.map(\.id))
             struct StaffAttendance: Encodable { let staffId: UUID; let attended: Bool; let type: String }
             struct StudentAttendance: Encodable { let studentId: UUID; let attended: Bool }
@@ -280,18 +393,27 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             struct Input: Encodable {
                 let sessionId: UUID; let staffAttendance: [StaffAttendance]; let studentAttendance: [StudentAttendance]
                 let parentAttendance: [ParentAttendance]; let topics: [TopicSelection]; let topicFiles: [FileSelection]; let notes: [String]
+                let submissionID: UUID; let annotatedFiles: [Annotation]
             }
             let input = Input(sessionId: session.id,
                 staffAttendance: session.staff.map { StaffAttendance(staffId: $0.id, attended: draft.staffAttendance[$0.id] == true, type: $0.type) },
                 studentAttendance: session.students.map { StudentAttendance(studentId: $0.id, attended: draft.studentAttendance[$0.id] == true) },
                 parentAttendance: session.parents.map { ParentAttendance(parentId: $0.id, attended: draft.parentAttendance[$0.id] == true) },
-                topics: suggestions.topics, topicFiles: suggestions.topicFiles, notes: draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : [draft.notes])
+                topics: suggestions.topics, topicFiles: suggestions.topicFiles, notes: draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : [draft.notes],
+                submissionID: draft.submissionID, annotatedFiles: annotations)
             struct Result: Decodable { let success: Bool }
             let result: Result = try await api.request("logs", body: JSONEncoder().encode(input))
             guard version == epoch else { return false }
             if result.success { await loadSessions(); return true }
             return false
         } catch { report(error); return false }
+    }
+    func presentPrint(_ document: CachedDocument) {
+        guard let sessionID = selectedSessionID, let tutorID = profile?.id else { return }
+        let save = PDFSaveRequest()
+        NotificationCenter.default.post(name: Notification.Name("TeachingFlushPDF"), object: save)
+        guard !save.failed else { return }
+        showLessonInformation(); printRequest = TeachingPrintRequest(document: document, sessionID: sessionID, tutorID: tutorID)
     }
     func watchPrint(_ job: OfficePrintJob) {
         printNotice = "Queued for office printer: \(job.filename) · \(job.copies) \(job.copies == 1 ? "copy" : "copies")."

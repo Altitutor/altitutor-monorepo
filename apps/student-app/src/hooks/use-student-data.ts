@@ -101,3 +101,7 @@ export function useUpdateNotifications() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: notificationKey }),
   });
 }
+
+export function useSessionLogResources(sessionID: string) {
+  return useQuery({ queryKey: ['student', 'session-log-resources', sessionID], queryFn: () => studentApi.getSessionLogResources(sessionID), enabled: Boolean(sessionID) });
+}

@@ -134,6 +134,13 @@ jobs:
           migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
           PGPASSWORD="$SUPABASE_DB_PASSWORD" supabase db push --db-url "$migration_db_url" --include-all
 
+      - name: Install private Teaching Storage guard
+        run: |
+          migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+            "$migration_db_url" --set=ON_ERROR_STOP=1 \
+            --file=supabase/scripts/teaching-private-storage.sql
+
       - name: Synchronize mobile push dispatcher secret
         run: |
           supabase secrets set \
@@ -283,10 +290,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          release_identity=()
+          if [ "${{ matrix.app }}" = "tutor-web" ]; then
+            release_identity+=(--build-env "TEACHING_RELEASE_SHA=$GITHUB_SHA" --env "TEACHING_RELEASE_SHA=$GITHUB_SHA")
+          fi
           deployment_url="$(pnpm dlx vercel@48.9.0 deploy \
             --prod \
             --yes \
             --archive=tgz \
+            "${release_identity[@]}" \
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
 

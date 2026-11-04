@@ -40,7 +40,7 @@ codes before filenames; selected glass tabs use semantic text contrast. Drag
 the divider to resize the two panes; ink and viewports remain
 independent. Native PDF scrolling and pinch zoom replace the former toolbar.
 
-Use the left Pages button or swipe inward from the left edge to open page
+Use the temporary page indicator or swipe inward from the left edge to open page
 thumbnails. Tap a thumbnail to jump; its ellipsis menu inserts a matching blank
 page before/after or deletes that page (the last remaining page cannot be
 deleted). A page indicator appears during scrolling/jumps and for two seconds
@@ -48,8 +48,7 @@ afterward; its sidebar button also toggles thumbnails. Worksheet and solutions
 keep independent page sequences. Page edits atomically save the local PDF,
 rebased ink and position together; the pinned original remains intact. Disk
 retention keeps the current and immediately previous revision. Sharing and the
-classroom display follow the edited worksheet; office printing still uses the
-original server resource.
+classroom display and office-print previews follow the edited worksheet.
 
 The detached Resources control toggles a floating rounded drawer on the right.
 Swipe inward from the right edge to open it; swipe it right or tap outside to
@@ -61,7 +60,8 @@ flat relevance-ranked results. Exact codes rank first, then exact names,
 prefixes and substring/token matches. The app automatically fetches every API page
 for the selected subject or search; there is no manual Load more step. PDF bytes
 are downloaded only for preview or adding, not while browsing the catalog.
-The header menu groups accessible subjects by ascending year level, with
+Pull to refresh reloads accessible subjects, current resources and suggestions. The
+lesson subject is selected on entry when accessible. The header menu groups accessible subjects by ascending year level, with
 alphabetically sorted short names in each submenu; subjects without a year
 appear under Other. Suggested files
 appear first: unused files from the active topic,
@@ -101,13 +101,52 @@ a connection. Submission validates the current assigned roster and accessible
 resources on the server and uses TutorWeb's existing submitter/permission rules.
 Saved logs are read-only; corrections remain an administrator workflow.
 
+Use **Import PDF** on the lesson board, or drop PDFs onto it, to copy documents
+into that tutor's local lesson. The next card's **+** menu creates a blank
+portrait/landscape PDF or opens Resources. Local documents have no catalog/topic
+identity. Importing alone never publishes them or adds taught topics.
+
 The document toolbar groups Share and Review log, with Print to office beside
 them. Sharing exports the annotated worksheet; solution sharing remains a
-separate menu action. Print to office sends the original server resource through
-TutorWeb’s existing enqueue RPC, with 1–20 copies, black-and-white A4 duplex and
-a top-left staple. Connector health, office access/window, duplicate protection
+separate menu action. Board-card menus also offer Print. Every PDF uses the office
+queue, including imported and blank documents. Preview the exact flattened PDF
+before sending it; **Include annotations** and **Include blank pages** default off.
+Blankness is judged from visible output, including scans and selected handwriting.
+The queue keeps 1–20 copies, black-and-white A4 duplex and a top-left staple. Connector health, office access/window, duplicate protection
 and caller-private status are enforced by the existing server contracts. The app
 polls status for up to two minutes and warns before retrying an ambiguous job.
+
+## Shared lesson PDFs and private storage
+
+Log review has a separate, default-on sharing section for marked-up worksheets
+and nonempty local PDFs. Selecting a worksheet annotation also selects its
+canonical file; deselecting the canonical file deselects its annotation. Solutions
+remain private. Confirm attendance and each PDF's student assignments before
+submission. Verified snapshots publish atomically with the log; retries keep the
+same immutable snapshot and submission identity.
+
+Tutors use existing log access. Assigned students retain the submitted snapshot
+for one year independently of general catalog entitlement. The session dialogs
+in TutorWeb, StudentWeb and Student app pair annotations with catalog files where
+available, with local/fallback links and expired stubs. Current log retirement and
+canonical assignment corrections still control access. Download URLs are signed
+only after role-scoped authorization and last at most 60 seconds.
+
+The private `teaching-print` / `teaching-lessons` buckets are server-only. CI runs
+`supabase/scripts/teaching-private-storage.sql` after migrations/Storage
+initialization and fails deployment if it cannot install the restrictive policy.
+The upload API refuses to issue URLs until that guard exists. The owned API
+fixture mirrors this deployment step because fresh CLI stacks initialize Storage
+after application migrations. Never apply this script manually to a remote DB.
+
+TutorWeb's authenticated `/api/cron/teaching-documents` maintenance runs every ten
+minutes using the existing `CRON_SECRET`. It claims rows before deleting bytes
+through the Storage API, retries failures with backoff, and preserves metadata.
+Unsubmitted uploads expire after 24 hours. Published lesson bytes expire after one
+year. Print bytes expire 24 hours after all jobs reach a terminal result; queued
+or claimed jobs never expire. Cleanup and enqueue lock the same snapshot row.
+Local originals and editable ink remain on the iPad; protected snapshot caches are
+purgeable and contain no signed URLs or session credentials.
 
 ## Verification
 
@@ -133,6 +172,14 @@ polls status for up to two minutes and warns before retrying an ambiguous job.
   and its synthetic job cancelled. It never talks to the real office printer.
   It writes temporary preview credentials to a mode-0600 file, never stdout.
   Stop the owned runtime to dispose of all fixture data. It rejects remote targets.
+- After the owned fixture, run `Verification/documents-api.mjs`,
+  `document-retention-api.mjs`, `document-access-api.mjs`, and
+  `private-storage-api.mjs` through `pnpm dev:isolated exec`, passing the protected
+  fixture receipt path. These exercise actual upload/completion, queue, atomic
+  log/retry, role download, assignment correction, supported retirement and
+  cleanup APIs with fictional PDFs only. They also prove a permissive legacy
+  Storage policy cannot grant direct reads/writes and missing guard configuration
+  fails closed. No physical print connector is used.
 
 Real-device pilot checks remain necessary: Apple Pencil pressure/palm rejection,
 AirPlay/cable behavior on the fleet's oldest Pro and current Airs, rotation and
@@ -143,8 +190,7 @@ For a richer fictional library on an existing owned preview, run
 `pnpm dev:isolated exec -- node apps/teaching-ipad/Verification/expand-preview-library.mjs /path/to/owned-api-receipt.json`.
 It verifies the runtime/receipt and synthetic tutor/file ownership before adding
 nested folders, multiple worksheets and paired solutions, plus five subjects
-across Years 9, 10 and 12 for reviewing the nested menu. Node 22.13+ is needed
-for this checkout's pinned pnpm 11; Node 22.22 is installed on the development Mac.
+across Years 9, 10 and 12 for reviewing the nested menu. Use the Node version pinned in the repository's `.nvmrc`.
 
 ## Installation
 
@@ -158,11 +204,15 @@ There is no paid third-party distribution dependency. See Apple’s
 [unlisted distribution](https://developer.apple.com/support/unlisted-app-distribution/)
 guidance.
 
-The repository intentionally has no development team, provisioning profile or
-App Store Connect credential. A release owner must configure the new app record,
-signing and distribution; this workflow neither uploads nor publishes an app.
-Deploy the matching TutorWeb API before a production pilot. The simulator build
-and CI do not establish device signing or authorize an App Store release.
+The regular native validation workflow does not sign or publish. The separate,
+manual-only [Teaching release workflow](../../.github/workflows/teaching-release.yml)
+can archive/export and, only when explicitly selected, upload for TestFlight
+processing. It requires a protected owner-reviewed environment and exact matching
+source/backend deployment. Signing credentials remain outside Git. See the
+[release-owner runbook](../../docs/agents/teaching-releases.md) for prerequisites,
+dispatch, retry/cleanup rules and the distinction between processing, tester
+availability and an App Store release. No main merge silently submits Teaching
+for App Review or releases an App Store version.
 
 ### Office iPad QA installation
 

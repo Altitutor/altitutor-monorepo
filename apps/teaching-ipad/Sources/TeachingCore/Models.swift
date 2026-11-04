@@ -35,7 +35,8 @@ public struct CachedDocument: Codable, Identifiable, Equatable, Sendable {
 
 public struct LessonResource: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
-    public let resource: TeachingResource
+    /// Absent for imported and blank local documents; never invent catalog identity.
+    public let resource: TeachingResource?
     public let worksheet: CachedDocument
     public let solutions: CachedDocument?
 }
@@ -73,13 +74,37 @@ public enum DocumentPageEdit: Sendable {
 }
 
 public struct LessonDraft: Codable, Sendable {
+    public var submissionID = UUID()
     public var excludedResources: Set<UUID> = []
+    public var excludedAnnotations: Set<UUID> = []
     public var studentAssignments: [UUID: [UUID]] = [:]
     public var studentAttendance: [UUID: Bool] = [:]
     public var staffAttendance: [UUID: Bool] = [:]
     public var parentAttendance: [UUID: Bool] = [:]
     public var notes: String = ""
     public init() {}
+    public mutating func setResourceIncluded(_ id: UUID, included: Bool) {
+        if included { excludedResources.remove(id) }
+        else { excludedResources.insert(id); excludedAnnotations.insert(id) }
+    }
+    public mutating func setAnnotationIncluded(_ id: UUID, included: Bool) {
+        if included { excludedAnnotations.remove(id); excludedResources.remove(id) }
+        else { excludedAnnotations.insert(id) }
+    }
+    private enum CodingKeys: String, CodingKey {
+        case submissionID, excludedResources, excludedAnnotations, studentAssignments, studentAttendance, staffAttendance, parentAttendance, notes
+    }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        submissionID = try values.decodeIfPresent(UUID.self, forKey: .submissionID) ?? UUID()
+        excludedResources = try values.decodeIfPresent(Set<UUID>.self, forKey: .excludedResources) ?? []
+        excludedAnnotations = (try values.decodeIfPresent(Set<UUID>.self, forKey: .excludedAnnotations) ?? []).union(excludedResources)
+        studentAssignments = try values.decodeIfPresent([UUID: [UUID]].self, forKey: .studentAssignments) ?? [:]
+        studentAttendance = try values.decodeIfPresent([UUID: Bool].self, forKey: .studentAttendance) ?? [:]
+        staffAttendance = try values.decodeIfPresent([UUID: Bool].self, forKey: .staffAttendance) ?? [:]
+        parentAttendance = try values.decodeIfPresent([UUID: Bool].self, forKey: .parentAttendance) ?? [:]
+        notes = try values.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
 }
 
 public struct TopicSelection: Codable, Sendable {

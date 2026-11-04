@@ -1,5 +1,6 @@
 import SwiftUI
 import TeachingCore
+import UniformTypeIdentifiers
 
 
 enum TeachingMotion {
@@ -15,7 +16,7 @@ struct TeachingNavigation: View {
     @ObservedObject var model: TeachingModel
     @State private var library = false
     @State private var log = false
-    @State private var printing = false
+    @State private var importing = false
     @State private var preview: TeachingResource?
     @State private var signingOut = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -24,12 +25,13 @@ struct TeachingNavigation: View {
             SessionDayView(model: model)
                 .navigationTitle("Your teaching day").navigationBarTitleDisplayMode(.large)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) { TeachingPrivacyLink() }
                     ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
                 }
                 .navigationDestination(for: TeachingRoute.self) { route in
                     Group {
                         switch route {
-                        case .lesson: surface { LessonBoard(model: model) }
+                        case .lesson: surface { LessonBoard(model: model) { library = true } }
                         case .document: surface { LessonWorkspace(model: model) }
                         }
                     }.navigationTitle(model.session?.title ?? "Lesson").navigationBarTitleDisplayMode(.inline)
@@ -37,9 +39,15 @@ struct TeachingNavigation: View {
                         .onDisappear { if case .lesson = route, model.route.isEmpty { model.leaveLesson() } }
                 }
         }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls): model.importDocuments(urls)
+            case .failure(let error): model.report(error)
+            }
+        }
         .onChange(of: model.route) { _, _ in library = false; model.navigationChanged() }
-        .sheet(isPresented: $printing, onDismiss: { model.allowActiveWorksheet() }) {
-            if let item = model.activeResource { OfficePrintView(model: model, document: item.resource.worksheet) }
+        .sheet(item: $model.printRequest, onDismiss: { model.allowActiveWorksheet() }) { request in
+            OfficePrintView(model: model, request: request)
         }
         .overlay(alignment: .bottom) {
             if let notice = model.printNotice {
@@ -64,19 +72,17 @@ struct TeachingNavigation: View {
     }
     @ToolbarContentBuilder private var lessonControls: some ToolbarContent {
         if let session = model.session {
-            if model.viewer, model.activeResource?.resource.worksheet.isPDF == true, model.activeResource?.resource.worksheet.externalURL == nil {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { model.pageSidebar.toggle() } } label: { Label("Pages", systemImage: "sidebar.left") }
-                        .accessibilityIdentifier("teaching-pages")
-                }
-            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.viewer, let item = model.activeResource {
-                    Button { library = false; model.showLessonInformation(); printing = true } label: { Label("Print to office", systemImage: "printer") }
-                        .disabled(model.offline || item.resource.worksheet.externalURL != nil || !item.resource.worksheet.isPDF)
+                    Button { library = false; model.presentPrint(item.worksheet) } label: { Label("Print to office", systemImage: "printer") }
+                        .disabled(model.offline || item.worksheet.source.externalURL != nil || !item.worksheet.source.isPDF)
                 }
                 if model.viewer, let item = model.activeResource {
                     Button { library = false; model.share(item.worksheet) } label: { Label("Share worksheet", systemImage: "square.and.arrow.up") }
+                }
+                if !model.viewer {
+                    Button { library = false; model.showLessonInformation(); importing = true } label: { Label("Import PDF", systemImage: "square.and.arrow.down") }
+                        .disabled(model.busy).accessibilityIdentifier("teaching-import")
                 }
                 Button { library = false; model.showLessonInformation(); log = true } label: { Label(session.logged ? "View log" : "Review log", systemImage: "checklist") }
                     .keyboardShortcut("l", modifiers: .command).accessibilityIdentifier("teaching-log")
@@ -150,26 +156,38 @@ struct LessonWorkspace: View {
     @State private var dragging: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                GlassEffectContainer(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ForEach(model.lesson?.resources ?? []) { item in tab(item) }
-                    }.padding(.leading, 16).padding(.trailing, 190).padding(.vertical, 8)
-                }
-            }
-            .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil,
-                animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
-            .overlay(alignment: .trailing) {
-                Button { model.solutions.toggle() } label: {
-                    Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
-                        .font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
-                }.buttonStyle(.glass).padding(.trailing, 16)
-                    .disabled(model.activeResource?.solutions == nil).accessibilityIdentifier("teaching-solutions")
-            }
+        ZStack(alignment: .top) {
             if let item = model.activeResource, let store = model.store, let session = model.session {
                 PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
             }
+            HStack(spacing: 8) {
+                ScrollViewReader { reader in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        GlassEffectContainer(spacing: 8) {
+                            HStack(spacing: 8) {
+                                ForEach(model.lesson?.resources ?? []) { item in tab(item).id(item.id) }
+                            }.padding(.leading, 16).padding(.vertical, 8)
+                        }
+                    }
+                    .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil,
+                        animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
+                    .onAppear { if let id = model.activeResourceID { reader.scrollTo(id, anchor: .trailing) } }
+                    .onChange(of: model.activeResourceID) { _, id in if let id { reader.scrollTo(id, anchor: .trailing) } }
+                }
+                Group {
+                    if model.activeResource?.solutions == nil {
+                        Label("Solutions not available", systemImage: "rectangle.righthalf.inset.filled")
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12).padding(.vertical, 8).glassEffect(.regular, in: .capsule)
+                    } else {
+                        Button { model.solutions.toggle() } label: {
+                            Label(model.solutions ? "Hide solutions" : "Show solutions", systemImage: "rectangle.righthalf.inset.filled")
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                        }.buttonStyle(.glass)
+                    }
+                }.font(.subheadline.weight(.semibold)).fixedSize().padding(.trailing, 16)
+                    .accessibilityIdentifier("teaching-solutions")
+            }.frame(height: 60)
         }.background(TeachingColors.background)
             .onDisappear { dragging = nil }
     }
@@ -177,7 +195,7 @@ struct LessonWorkspace: View {
         Menu {
             LessonResourceActions(model: model, item: item)
         } label: {
-            Label(model.title(item.resource.worksheet), systemImage: "doc").font(.subheadline.weight(.semibold))
+            Label(model.title(item.worksheet.source), systemImage: "doc").font(.subheadline.weight(.semibold))
                 .lineLimit(1).padding(.horizontal, 16).padding(.vertical, 12)
         } primaryAction: { model.open(item) }
             .buttonStyle(.plain)
@@ -223,10 +241,6 @@ struct PDFWorkspace: View {
                 }
             }.coordinateSpace(name: "lesson-documents").clipped()
                 .animation(TeachingMotion.panel(reduceMotion: reduceMotion), value: model.solutions)
-                .overlay(alignment: .bottomLeading) {
-                    Toggle(isOn: $model.fingerDrawing) { Label("Finger ink", systemImage: "hand.draw") }
-                        .toggleStyle(.button).font(.caption).padding(10).background(.regularMaterial, in: Capsule()).padding(14)
-                }
         }
     }
 }

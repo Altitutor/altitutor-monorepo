@@ -31,8 +31,10 @@
     {
       "path": "/api/cron/interview-media",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/teaching-documents",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
-
-

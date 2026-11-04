@@ -33,6 +33,13 @@ END $fixture$;`], { encoding: 'utf8', env: { ...process.env, PGHOST: database.ho
   PGDATABASE: database.pathname.slice(1), PGUSER: database.username, PGPASSWORD: decodeURIComponent(database.password) } });
 assert.equal(policy.status, 0, 'Could not prepare owned storage fixture: ' + policy.stderr);
 
+// Match the post-migration deployment step after local Storage initialization.
+const teachingPolicy = spawnSync('psql', ['-XAt', '-v', 'ON_ERROR_STOP=1', '-f', 'supabase/scripts/teaching-private-storage.sql'], {
+  encoding: 'utf8', env: { ...process.env, PGHOST: database.hostname, PGPORT: database.port,
+    PGDATABASE: database.pathname.slice(1), PGUSER: database.username, PGPASSWORD: decodeURIComponent(database.password) },
+});
+assert.equal(teachingPolicy.status, 0, 'Could not install private Teaching Storage guard: ' + teachingPolicy.stderr);
+
 function data(result, label) {
   if (result.error) throw new Error(label + ': ' + result.error.message);
   return result.data;
