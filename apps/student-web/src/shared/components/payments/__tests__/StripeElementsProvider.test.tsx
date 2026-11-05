@@ -60,4 +60,51 @@ describe("StripeElementsProvider", () => {
     await waitFor(() => expect(loadStripeMock).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("Card fields")).toBeInTheDocument();
   });
+
+  it("times out a stalled SDK and lets the user retry without accepting its late result", async () => {
+    jest.useFakeTimers();
+    try {
+      const stripe = { elements: jest.fn() } as never;
+      let resolveFirstAttempt: (value: typeof stripe) => void = () => undefined;
+      const firstAttempt = new Promise<typeof stripe>((resolve) => {
+        resolveFirstAttempt = resolve;
+      });
+      loadStripeMock
+        .mockReturnValueOnce(firstAttempt)
+        .mockResolvedValueOnce(stripe);
+      render(
+        <StripeElementsProvider options={{ clientSecret: "seti_secret" }}>
+          <div>Card fields</div>
+        </StripeElementsProvider>,
+      );
+      await waitFor(() => expect(loadStripeMock).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        jest.advanceTimersByTime(15_000);
+      });
+      expect(
+        screen.getByRole("alert", { name: "Payment form unavailable" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Card fields")).not.toBeInTheDocument();
+
+      await act(async () => {
+        resolveFirstAttempt(stripe);
+        await firstAttempt;
+      });
+      expect(
+        screen.getByRole("alert", { name: "Payment form unavailable" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Card fields")).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      });
+      expect(screen.getByText("Card fields")).toBeInTheDocument();
+      await act(async () => {
+        jest.advanceTimersByTime(15_000);
+      });
+      expect(screen.getByText("Card fields")).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
