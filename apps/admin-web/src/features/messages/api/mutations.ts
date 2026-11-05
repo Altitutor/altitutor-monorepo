@@ -113,6 +113,16 @@ export function useSendMessage() {
         .select('id')
         .single();
       if (insertErr) throw insertErr;
+      if (staffRow?.id) {
+        const { error: unassignError } = await supabase
+          .from('conversations')
+          .update({ assigned_staff_id: null })
+          .eq('id', conversationId)
+          .eq('assigned_staff_id', staffRow.id);
+        // The message already exists. Assignment cleanup must not stop dispatch
+        // or make the composer retry an already queued message.
+        if (unassignError) console.warn('[useSendMessage] Could not clear assignment', unassignError);
+      }
 
       // Create message_attachments records if attachments provided
       if (args.attachments && args.attachments.length > 0) {
@@ -200,6 +210,12 @@ export function useMarkRead() {
         const failed = results.find((result) => result.error);
         if (failed?.error) throw failed.error;
       }
+      const { error: unassignError } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: null })
+        .eq('contact_id', args.contactId)
+        .eq('assigned_staff_id', staff.id);
+      if (unassignError) throw unassignError;
     },
     onMutate: (args) => applyOptimisticUnread(qc, { contactId: args.contactId }, false),
     onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
@@ -252,7 +268,7 @@ export function useMarkContactUnread() {
 export function useAssignConversations() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { conversationIds: string[]; staffId: string }) => {
+    mutationFn: async (args: { conversationIds: string[]; staffId: string | null }) => {
       if (args.conversationIds.length === 0) return;
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const { error } = await supabase
@@ -291,6 +307,12 @@ export function useMarkConversationRead() {
           last_read_at: new Date().toISOString(),
         }, { onConflict: 'conversation_id,staff_id' });
       if (error) throw error;
+      const { error: unassignError } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: null })
+        .eq('id', args.conversationId)
+        .eq('assigned_staff_id', staff.id);
+      if (unassignError) throw unassignError;
     },
     onMutate: (args) => applyOptimisticUnread(qc, { conversationId: args.conversationId }, false),
     onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),

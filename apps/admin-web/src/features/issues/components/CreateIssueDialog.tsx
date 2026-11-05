@@ -279,6 +279,7 @@ export function CreateIssueDialog({
           >
             <EntityResizablePanels
               id="create-issue-panels"
+              inDialog
               primaryMinSize={320}
               secondaryMinSize={240}
               main={

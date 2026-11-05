@@ -1,0 +1,5 @@
+.drawer[data-motion="true"][data-state="open"] { animation: enter 200ms cubic-bezier(0.32, 0.72, 0, 1); }
+.drawer[data-motion="true"][data-state="closed"] { animation: exit 200ms cubic-bezier(0.32, 0.72, 0, 1); }
+@keyframes enter { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes exit { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .drawer { animation: none !important; } }

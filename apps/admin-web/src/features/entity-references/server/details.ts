@@ -5,6 +5,10 @@ import type { Database } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emailMessageSchema } from "@/features/email/types";
 import type { ReferenceDetails } from "../types";
+import {
+  deriveStaffAttendanceStatus,
+  deriveStudentAttendanceStatus,
+} from "@/features/sessions/utils/attendanceDerivation";
 
 async function read<T>(
   query: PromiseLike<{ data: T; error: { message: string } | null }>,
@@ -170,20 +174,86 @@ export async function referenceDetails(
           .maybeSingle(),
       );
       if (!row) return null;
-      const [students, staff] = await Promise.all([
+      const [students, staff, log] = await Promise.all([
         read(
           db
             .from("sessions_students")
-            .select("students(first_name,last_name)")
+            .select("id,student_id,planned_absence,is_rescheduled,is_credited,credited_at,was_trial,students(id,first_name,last_name)")
             .eq("session_id", id),
         ),
         read(
           db
             .from("sessions_staff")
-            .select("staff!sessions_staff_staff_id_fkey(first_name,last_name)")
+            .select("id,staff_id,planned_absence,is_swapped,was_trial,swapped_sessions_staff_id,staff!sessions_staff_staff_id_fkey(id,first_name,last_name)")
             .eq("session_id", id),
         ),
+        read(
+          db
+            .from("tutor_logs")
+            .select("id")
+            .eq("session_id", id)
+            .is("deleted_at", null)
+            .maybeSingle(),
+        ),
       ]);
+      const swapIds = (staff ?? []).flatMap((member) => member.swapped_sessions_staff_id ? [member.swapped_sessions_staff_id] : []);
+      const swaps = swapIds.length ? await read(db.from("sessions_staff").select("id,staff!sessions_staff_staff_id_fkey(id,first_name,last_name)").in("id", swapIds)) : [];
+      const logged = Boolean(log?.id);
+      const [studentAttendance, staffAttendance] = logged && log
+        ? await Promise.all([
+            read(db.from("tutor_logs_student_attendance").select("student_id,attended").eq("tutor_log_id", log.id)),
+            read(db.from("tutor_logs_staff_attendance").select("staff_id,attended").eq("tutor_log_id", log.id)),
+          ])
+        : [[], []];
+      const plannedStudentIds = new Set((students ?? []).map((row) => row.student_id));
+      const context = { hasTutorLog: logged, plannedStudentIds };
+      const people = [
+        ...(students ?? []).flatMap((row) => {
+          if (!row.students) return [];
+          const actual = (studentAttendance ?? []).find((item) => item.student_id === row.student_id);
+          const derived = deriveStudentAttendanceStatus(
+            {
+              student_id: row.student_id,
+              sessions_students_id: row.id,
+              planned_absence: row.planned_absence,
+              is_rescheduled: row.is_rescheduled,
+              is_credited: row.is_credited,
+              credited_at: row.credited_at,
+              was_trial: row.was_trial,
+              actual_attended: actual?.attended ?? null,
+            },
+            context,
+          );
+          return [{
+            role: "Student" as const,
+            id: row.students.id,
+            name: person(row.students),
+            plannedStatus: derived.plannedStatus,
+            actualAttended: actual?.attended ?? null,
+          }];
+        }),
+        ...(staff ?? []).flatMap((row) => {
+          if (!row.staff) return [];
+          const actual = (staffAttendance ?? []).find((item) => item.staff_id === row.staff_id);
+          const derived = deriveStaffAttendanceStatus(
+            {
+              planned_absence: row.planned_absence,
+              is_swapped: row.is_swapped,
+              swapped_staff: swaps?.find((swap) => swap.id === row.swapped_sessions_staff_id)?.staff ?? null,
+              was_trial: row.was_trial,
+              actual_attended: actual?.attended ?? null,
+            },
+            context,
+          );
+          return [{
+            role: "Staff" as const,
+            id: row.staff.id,
+            name: person(row.staff),
+            plannedStatus: derived.plannedStatus,
+            actualAttended: actual?.attended ?? null,
+          }];
+        }),
+      ];
       const time = (value: string | null) =>
         value
           ? new Date(value).toLocaleTimeString("en-AU", {
@@ -209,12 +279,10 @@ export async function referenceDetails(
               : null,
           ),
           field("Time", `${time(row.start_at)} – ${time(row.end_at)}`),
-          field(
-            "Students",
-            list((students ?? []).map((link) => person(link.students))),
-          ),
-          field("Staff", list((staff ?? []).map((link) => person(link.staff)))),
+
         ],
+        people,
+        logged,
       };
     }
     case "task": {

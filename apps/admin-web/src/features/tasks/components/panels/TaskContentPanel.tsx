@@ -4,7 +4,6 @@ import { Separator } from "@altitutor/ui";
 import { UseFormReturn } from "react-hook-form";
 import { useCallback, useRef, useEffect } from "react";
 import { TaskTitleField, TaskDescriptionField } from "../fields";
-import { TaskPropertyPills } from "../fields/TaskPropertyPills";
 import { TaskActivityTab } from "@/features/activity/components/tabs/TaskActivityTab";
 import type { RichTextEditorRef } from "@altitutor/ui";
 import type { TaskFormData, TaskStatus } from "../../types";
@@ -36,10 +35,10 @@ export function TaskContentPanel({
   notes,
   isOpen,
   showActivity = true,
-  selectedAssignee,
-  onAssigneeChange,
-  taskStatus,
-  enabled = true,
+  selectedAssignee: _selectedAssignee,
+  onAssigneeChange: _onAssigneeChange,
+  taskStatus: _taskStatus,
+  enabled: _enabled = true,
   autoFocusTitle = false,
   descriptionRef: descriptionRefProp,
 }: TaskContentPanelProps) {
@@ -103,19 +102,6 @@ export function TaskContentPanel({
         className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6"
         data-rich-text-toolbar-container
       >
-        {/* Property Pills - Mobile Only */}
-        {selectedAssignee !== undefined && onAssigneeChange && (
-          <div className="md:hidden -mt-2">
-            <TaskPropertyPills
-              form={form}
-              selectedAssignee={selectedAssignee || null}
-              onAssigneeChange={onAssigneeChange}
-              taskStatus={taskStatus}
-              enabled={enabled}
-            />
-          </div>
-        )}
-
         {/* Title */}
         <div className="space-y-2">
           <TaskTitleField

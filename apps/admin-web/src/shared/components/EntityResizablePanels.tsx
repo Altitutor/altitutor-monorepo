@@ -1,7 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ResponsiveResizablePanels } from "@altitutor/ui";
+import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import {
+  EntityPropertiesLayout,
+  EntityPropertiesToggle,
+} from "./EntityPropertiesLayout";
 
 interface EntityResizablePanelsProps {
   id: string;
@@ -9,25 +13,41 @@ interface EntityResizablePanelsProps {
   sidebar: ReactNode;
   primaryMinSize?: number;
   secondaryMinSize?: number;
+  inDialog?: boolean;
 }
 
 export function EntityResizablePanels({
   id,
   main,
   sidebar,
-  primaryMinSize = 480,
-  secondaryMinSize = 280,
+  primaryMinSize,
+  secondaryMinSize,
+  inDialog = false,
 }: EntityResizablePanelsProps) {
   return (
-    <ResponsiveResizablePanels
-      id={id}
-      stackOnNarrow
-      primary={main}
-      secondary={sidebar}
+    <EntityPropertiesLayout
+      id={`${id}-properties-sidebar`}
+      sidebar={sidebar}
+      resizable
+      narrowAt={inDialog ? 768 : undefined}
       primaryMinSize={primaryMinSize}
       secondaryMinSize={secondaryMinSize}
-      secondaryMaxSize={520}
-      handleLabel="Resize details sidebar"
-    />
+    >
+      {inDialog ? (
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex shrink-0 justify-end px-3 pt-3 empty:hidden">
+            <EntityPropertiesToggle />
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">{main}</div>
+        </div>
+      ) : (
+        <>
+          <AdminPageActions priority="secondary">
+            <EntityPropertiesToggle />
+          </AdminPageActions>
+          {main}
+        </>
+      )}
+    </EntityPropertiesLayout>
   );
 }

@@ -4,11 +4,11 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import tippy from "tippy.js";
 import { Badge, Skeleton } from "@altitutor/ui";
+import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
+import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 
-function ReferencePreview({ target }: { target: HTMLElement }) {
-  const type = target.dataset.type ?? "";
-  const id = target.dataset.id ?? "";
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -34,15 +34,15 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
     <div
       role="dialog"
       aria-label={`${label} preview`}
-      className="max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"
+      className={embedded ? "text-sm" : "max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className="min-w-0 break-words font-semibold">
-          {query.data?.title || target.dataset.label || "Preview"}
+          {query.data?.title || fallbackTitle || "Preview"}
         </h3>
         {query.data?.status && (
-          <Badge variant="outline" className="shrink-0">
-            {query.data.status.replaceAll("_", " ")}
+          <Badge className={`shrink-0 border-transparent ${statusToneClass(query.data.status)}`}>
+            {statusLabel(query.data.status)}
           </Badge>
         )}
       </div>
@@ -51,6 +51,7 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
       ) : query.isError ? (
         <p className="text-muted-foreground">Preview unavailable</p>
       ) : (
+        <>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
           {query.data.fields.map(({ label, value }) => (
             <div key={label} className="contents">
@@ -61,6 +62,29 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
             </div>
           ))}
         </dl>
+        {query.data.people?.length ? (
+          <div className="mt-3 space-y-3">
+            {(["Student", "Staff"] as const).map((role) => {
+              const members = query.data.people?.filter((person) => person.role === role) ?? [];
+              if (!members.length) return null;
+              return (
+                <section key={role} className="space-y-1.5">
+                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? "Students" : "Staff"}</h4>
+                  {members.map((person) => (
+                    <AttendancePersonRow
+                      key={`${person.role}:${person.id}`}
+                      href={`/${person.role === "Student" ? "students" : "staff"}/${person.id}`}
+                      name={person.name}
+                      plannedStatus={person.plannedStatus}
+                      actualAttended={query.data.logged ? person.actualAttended : null}
+                    />
+                  ))}
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
+        </>
       )}
     </div>
   );
@@ -142,6 +166,6 @@ export function EntityReferenceHovers() {
     return () => instance.destroy();
   }, [target, content]);
   return target && content
-    ? createPortal(<ReferencePreview target={target} />, content)
+    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} />, content)
     : null;
 }

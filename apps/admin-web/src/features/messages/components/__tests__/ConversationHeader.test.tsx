@@ -1,8 +1,14 @@
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConversationHeader } from "../ConversationHeader";
 import { useParentDetails } from "@/features/parents/hooks/useParentsQuery";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/messages",
+  useSearchParams: () => new URLSearchParams(),
+}));
 jest.mock("@/shared/hooks", () => ({
   useCurrentStaff: () => ({ data: { id: "admin" } }),
 }));
@@ -48,23 +54,25 @@ test("a single-student parent opens their absence dialog directly from Actions",
   mockStudents(1);
   const user = userEvent.setup();
   render(
+    <QuickActionsProvider>
     <ConversationHeader
       compactActions
       contact={parent}
       onSearchToggle={jest.fn()}
       onToggleRead={jest.fn()}
       isUnread={false}
-    />,
+    />
+    </QuickActionsProvider>,
   );
-  await user.click(screen.getByRole("button", { name: "Actions" }));
+  await user.click(screen.getByRole("button", { name: "More" }));
   await user.click(screen.getByRole("menuitem", { name: "Log absence" }));
   expect(screen.getByRole("dialog")).toHaveTextContent("Absence for alice");
 });
 test("a parent with multiple students chooses the student before logging an absence", async () => {
   mockStudents(2);
   const user = userEvent.setup();
-  render(<ConversationHeader compactActions contact={parent} />);
-  await user.click(screen.getByRole("button", { name: "Actions" }));
+  render(<QuickActionsProvider><ConversationHeader compactActions contact={parent} /></QuickActionsProvider>);
+  await user.click(screen.getByRole("button", { name: "More" }));
   const item = screen.getByRole("menuitem", { name: "Log absence" });
   item.focus();
   fireEvent.keyDown(item, { key: "ArrowRight" });

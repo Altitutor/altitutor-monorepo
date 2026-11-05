@@ -1,11 +1,12 @@
 'use client';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState, use } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -44,6 +45,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { openCheckInModal } = useQuickActions();
 
@@ -70,7 +72,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const modals = useParentModals();
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'sessions', 'activity'] as const, 'details', 'tab');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'sessions'] as const, 'activity', 'tab');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -137,10 +139,34 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const activityLayout = activeTab === 'activity';
 
   return (
-    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden px-4 pt-4' : 'p-4'}>
+    <EntityPropertiesLayout id="parent-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{parent.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4" ref={sidebarForm}>
+        <ParentDetailsTab
+          parent={parent}
+          studentIds={students.map(s => s.id)}
+          students={students}
+          onViewStudent={modals.openStudentModal}
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          parentStudents={editFlow.isEditing ? editFlow.tempParentStudents : students}
+          onRemoveStudent={editFlow.removeStudent}
+          addStudentButton={editFlow.isEditing ? <StudentSearchPopover allStudents={allStudents} selectedStudents={editFlow.tempParentStudents} onSelectStudent={editFlow.assignStudent} /> : undefined}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
+      </div>
+</>}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
+        <EntityPropertiesToggle />
         <NoteAlertPills entityType="parent" entityId={parent.id} />
 
         <ActionsMenu
@@ -175,55 +201,10 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
-          { value: 'details', label: 'Details' },
-          { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
+          { value: 'sessions', label: 'Sessions' },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
-          <ParentDetailsTab
-            parent={parent}
-            studentIds={students.map(s => s.id)}
-            students={students}
-            onViewStudent={modals.openStudentModal}
-            isEditing={editFlow.isEditing}
-            isLoading={mutations.isUpdatingDetails}
-            onEdit={editFlow.startEdit}
-            onCancelEdit={editFlow.cancelEdit}
-            onSubmit={handleDetailsSubmit}
-            parentStudents={editFlow.isEditing ? editFlow.tempParentStudents : students}
-            onRemoveStudent={editFlow.removeStudent}
-            addStudentButton={
-              editFlow.isEditing ? (
-                <StudentSearchPopover
-                  allStudents={allStudents}
-                  selectedStudents={editFlow.tempParentStudents}
-                  onSelectStudent={editFlow.assignStudent}
-                />
-              ) : undefined
-            }
-          />
-          {editFlow.isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
-                Cancel
-              </Button>
-              <Button
-                disabled={mutations.isUpdatingDetails}
-                onClick={() => {
-                  const form = document.getElementById('parent-edit-form') as HTMLFormElement;
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-              >
-                {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
@@ -299,5 +280,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         </AlertDialogContent>
       </AlertDialog>
     </div>
+
+    </EntityPropertiesLayout>
   );
 }
