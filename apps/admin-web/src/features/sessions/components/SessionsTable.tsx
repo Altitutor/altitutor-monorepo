@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   type ToolbarView,
   Table,
@@ -421,11 +421,6 @@ export function SessionsTable({
       { key: "tutor_log", label: "Tutor Log" },
     ];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
-
-  // Reset to page 1 when search term or filters change
-  useEffect(() => {
-    setPage(1);
-  }, [state.search, state.filters, setPage]);
 
   const handleSessionClick = useCallback(
     (id: string) => {
