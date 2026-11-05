@@ -75,26 +75,26 @@ test('Student views share one directory and open the Student page', async ({ pag
   await expect(views.getByRole('button', { name: 'Trial', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Student onboarding stays accessible in a responsive collapsible sidebar', async ({ page }) => {
+test('Student properties and onboarding stay in the responsive sidebar', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   await page.goto(`/students/${studentId}`);
-  const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
+  const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await expect(properties).toBeVisible();
+  await expect(properties.getByText('Account', { exact: true })).toBeVisible();
   await expect(sidebar).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Next actions' })).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Milestones' })).toBeVisible();
-  await expect(sidebar.getByText('Enquiry', { exact: true })).toBeVisible();
-  await toggle.click();
-  await expect(sidebar).toBeHidden();
-  await toggle.click();
-  await expect(sidebar).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Right sidebar', exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 850, height: 900 });
-  await expect(sidebar).toBeHidden();
+  await expect(properties).toBeHidden();
+  const toggle = page.getByRole('button', { name: 'Right sidebar', exact: true });
   await toggle.click();
+  await expect(properties).toBeVisible();
   await expect(sidebar).toBeVisible();
   await toggle.click();
-  await expect(sidebar).toBeHidden();
+  await expect(properties).toBeHidden();
 });
 
 test('closing onboarding refreshes the Student page without reloading', async ({ page }) => {
@@ -109,17 +109,16 @@ test('closing onboarding refreshes the Student page without reloading', async ({
   await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
   await page.goto(`/students/${id}`, { waitUntil: 'domcontentloaded' });
-  const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await expect(properties).toBeVisible();
   await expect(sidebar).toBeVisible();
   await sidebar.getByText('Close journey', { exact: true }).click();
   await sidebar.getByLabel('Closure reason').selectOption('withdrawn');
   await sidebar.getByLabel('Closure detail').fill('Local browser regression: explicit withdrawal');
   await sidebar.getByRole('button', { name: 'Close and discontinue', exact: true }).click();
-  await expect(toggle).toBeHidden();
   await expect(sidebar).toBeHidden();
+  await expect(properties).toBeVisible();
 });
 
 test('individual conversations start with Emails hidden and allow opting in', async ({ page }) => {

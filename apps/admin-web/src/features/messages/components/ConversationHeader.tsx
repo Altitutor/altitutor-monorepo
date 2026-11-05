@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -19,6 +20,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  EntityChip,
+  SearchableSelect,
   SearchableSelectInline,
   Tooltip,
   TooltipContent,
@@ -46,6 +49,7 @@ import { LogAbsenceDialog } from "@/features/sessions/components/absences/LogAbs
 import { LogStaffAbsenceDialog } from "@/features/sessions/components/absences/LogStaffAbsenceDialog";
 import { BookMeetingMenu } from "./BookMeetingMenu";
 import { getBookMeetingOptions } from "../utils/getBookMeetingOptions";
+import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 
 interface EntityOption {
   id: string;
@@ -108,6 +112,10 @@ interface Props {
   titleSlot?: ReactNode;
   filterControl?: ReactNode;
   backButtonClassName?: string;
+  messageId?: string | null;
+  assigneeId?: string | null;
+  staffOptions?: Array<{ id: string; first_name: string | null; last_name: string | null }>;
+  onAssign?: (staffId: string | null) => void;
 }
 
 const TITLE_MIN_WIDTH = 128;
@@ -173,6 +181,10 @@ export function ConversationHeader({
   titleSlot,
   filterControl,
   backButtonClassName,
+  messageId,
+  assigneeId = null,
+  staffOptions = [],
+  onAssign,
 }: Props) {
   const [isLinkMenuOpen, setIsLinkMenuOpen] = useState(false);
   const [isFromNumberMenuOpen, setIsFromNumberMenuOpen] = useState(false);
@@ -186,6 +198,7 @@ export function ConversationHeader({
   const [showLabels, setShowLabels] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const { data: currentStaff } = useCurrentStaff();
+  const quickActions = useQuickActions();
   const { data: parent, isLoading: parentLoading } = useParentDetails(
     contact?.parents?.id ?? null,
     !!contact?.parents?.id,
@@ -222,6 +235,32 @@ export function ConversationHeader({
   const fromNumberLabel = selectedFromNumber
     ? `From: ${selectedFromNumber.label}`
     : "From number";
+  const person = contact?.students
+    ? { type: "student", id: contact.students.id }
+    : contact?.parents
+      ? { type: "parent", id: contact.parents.id }
+      : contact?.staff
+        ? { type: "staff", id: contact.staff.id }
+        : null;
+  const openReferenced = (kind: "task" | "issue") => {
+    if (!messageId) return;
+    const reference = { type: "message", id: messageId, label: title || "Message" };
+    if (kind === "task") quickActions.openCreateTaskDialog(reference);
+    else quickActions.openCreateIssueDialog(reference);
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if ((key !== "t" && key !== "i") || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+      if (document.querySelector("[data-conversation-row]:hover")) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("input,textarea,select,[contenteditable=true],[role=combobox],[role=dialog],[role=menu]")) return;
+      event.preventDefault();
+      openReferenced(key === "t" ? "task" : "issue");
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
 
   const labeledToolbarWidth = useMemo(() => {
     const widths: number[] = [];
@@ -244,14 +283,6 @@ export function ConversationHeader({
     onSearchToggle,
     canShowLinkActions,
   ]);
-
-  const hasOverflowActions = Boolean(
-    onSearchToggle ||
-      extraMenuItems ||
-      hasBookMeeting ||
-      canShowLinkActions ||
-      canLogAbsence,
-  );
 
   useLayoutEffect(() => {
     if (compactActions) {
@@ -471,6 +502,19 @@ export function ConversationHeader({
               </div>
             )}
           </div>
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            {person ? (
+              <EntityChip
+                entityType={person.type}
+                entityId={person.id}
+                label={title || "Conversation"}
+                onClick={onTitleClick}
+              />
+            ) : (
+              <EntityChip entityType="message" label={title || "Conversation"} onClick={onTitleClick} />
+            )}
+            <div className="flex min-w-0 items-center justify-end gap-1">
           {!compactActions && onFromNumberChange && (
             <ActionLabel expanded={showLabels} label={fromNumberLabel}>
               <DropdownMenu
@@ -540,7 +584,7 @@ export function ConversationHeader({
           {!compactActions && hasBookMeeting && (
             <BookMeetingMenu contact={contact} expanded={showLabels} />
           )}
-          {!compactActions && onSearchToggle && (
+          {onSearchToggle && (
             <ActionLabel expanded={showLabels} label="Search">
               <Button
                 variant="outline"
@@ -578,24 +622,41 @@ export function ConversationHeader({
               </DropdownMenu>
             </ActionLabel>
           )}
+          {onAssign ? (
+            <SearchableSelect
+              items={staffOptions}
+              value={staffOptions.find((member) => member.id === assigneeId) ?? null}
+              onValueChange={(member) => onAssign(member?.id ?? null)}
+              getItemId={(member) => member.id}
+              getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
+              allowClear
+              clearLabel="Unassigned"
+              searchPlaceholder="Search admin staff..."
+              trigger={
+                <Button variant="outline" size="sm" className="h-8 max-w-40 rounded-full px-2" aria-label="Assign conversation">
+                  <User className="mr-1 h-4 w-4" />
+                  <span className="truncate">{staffOptions.find((member) => member.id === assigneeId) ? `${staffOptions.find((member) => member.id === assigneeId)?.first_name ?? ""} ${staffOptions.find((member) => member.id === assigneeId)?.last_name ?? ""}`.trim() : "Unassigned"}</span>
+                </Button>
+              }
+            />
+          ) : null}
           {filterControl ? (
             <ActionLabel expanded={false} label="Filter">
               {filterControl}
             </ActionLabel>
           ) : null}
-          {compactActions && hasOverflowActions && (
-            <DropdownMenu
+          <DropdownMenu
               modal={false}
               open={isOverflowOpen}
               onOpenChange={setIsOverflowOpen}
             >
-              <ActionLabel expanded={false} label="Actions">
+              <ActionLabel expanded={false} label="More">
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="icon"
                     className="flex-shrink-0"
-                    aria-label="Actions"
+                    aria-label="More"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
@@ -606,6 +667,14 @@ export function ConversationHeader({
                 align="end"
                 className="w-64 data-[state=closed]:hidden"
               >
+                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("task")}>
+                  Create task
+                  <span className="ml-auto text-xs text-muted-foreground">T</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("issue")}>
+                  Create issue
+                  <span className="ml-auto text-xs text-muted-foreground">I</span>
+                </DropdownMenuItem>
                 {onSearchToggle && (
                   <DropdownMenuItem
                     onSelect={() => {
@@ -682,9 +751,9 @@ export function ConversationHeader({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
+            </div>
         </div>
-        {/* Row 2: issue pills - inline, max width, truncate with full name on hover */}
+        {/* Issue pills stay under the conversation actions. */}
         {!paneHeader && issuePillProps && (
           <div className="flex items-center gap-2 min-w-0 max-w-full">
             <IssuePill

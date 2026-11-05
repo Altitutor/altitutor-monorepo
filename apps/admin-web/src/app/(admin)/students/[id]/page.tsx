@@ -123,7 +123,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const { data: studentClasses = [] } = useStudentClasses(id);
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'online', 'classes', 'activity', 'sessions', 'files', 'billing'] as const, 'details', 'tab');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'activity', 'tab');
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isHomeworkHelpOpen, setIsHomeworkHelpOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -223,7 +223,6 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     studentId: id,
     student,
     onEditDetails: () => {
-      setActiveTab('details');
       editFlow.startEdit();
     },
     onLogAbsence: modals.openLogAbsence,
@@ -280,7 +279,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
-        {hasOnboarding && <Button variant="ghost" size="icon" aria-label="Toggle onboarding sidebar" aria-expanded={sidebarOpen} aria-controls="student-onboarding-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
+        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="student-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
         <NoteAlertPills entityType="student" entityId={student.id} />
 
         {!student.deleted_at && <ActionsMenu
@@ -300,67 +299,14 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
-          { value: 'details', label: 'Details' },
+          { value: 'activity', label: 'Activity' },
           ...((studentDetails?.onlineRelationships?.length ?? 0) > 0 ? [{ value: 'online' as const, label: 'Online' }] : []),
           { value: 'classes', label: 'Classes' },
-          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
           { value: 'billing', label: 'Billing' },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
-          <DetailsTab
-            student={student}
-            isEditing={editFlow.isEditing}
-            isLoading={mutations.isUpdatingDetails}
-            onEdit={editFlow.startEdit}
-            onCancelEdit={editFlow.cancelEdit}
-            onSubmit={handleDetailsSubmit}
-            onDelete={undefined}
-            isDeleting={mutations.isDeleting}
-            studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
-            loadingSubjects={false}
-            onRemoveSubject={undefined}
-            onViewSubject={entityModals.openSubject}
-            addSubjectButton={undefined}
-            parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
-            onViewParent={(parentId) => {
-              entityModals.openParent(parentId, { defaultTab: 'messages' });
-            }}
-            onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
-            addParentButton={
-              editFlow.isEditing ? (
-                <ParentSearchPopover
-                  allParents={allParents}
-                  selectedParents={editFlow.tempStudentParents}
-                  onSelectParent={editFlow.assignParent}
-                  onCreateNewParent={() => setIsAddParentModalOpen(true)}
-                />
-              ) : undefined
-            }
-          />
-          {editFlow.isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
-                Cancel
-              </Button>
-              <Button 
-                disabled={mutations.isUpdatingDetails}
-                onClick={() => {
-                  const form = document.getElementById('student-edit-form') as HTMLFormElement;
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-              >
-                {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="online" activeTab={activeTab} className="space-y-6"><StudentOnlineTab student={student} /></SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
@@ -580,7 +526,30 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         />
       )}
     </div>
-    {hasOnboarding && sidebarOpen && <div id="student-onboarding-sidebar" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 shadow-xl' : 'h-full shrink-0'}><StudentOnboardingSidebar studentId={id} /></div>}
+    {sidebarOpen && <aside id="student-properties-sidebar" aria-label="Properties" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 w-[min(100%,24rem)] overflow-y-auto border-l bg-background shadow-xl' : 'h-full w-96 shrink-0 overflow-y-auto border-l'}>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{student.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4">
+        <DetailsTab
+          student={student}
+          hideAccount
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
+          parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
+          onViewParent={(parentId) => entityModals.openParent(parentId, { defaultTab: 'messages' })}
+          onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
+          addParentButton={editFlow.isEditing ? <ParentSearchPopover allParents={allParents} selectedParents={editFlow.tempStudentParents} onSelectParent={editFlow.assignParent} onCreateNewParent={() => setIsAddParentModalOpen(true)} /> : undefined}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => (document.getElementById('student-edit-form') as HTMLFormElement | null)?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
+      </div>
+      {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
+    </aside>}
     </div>
   );
 }

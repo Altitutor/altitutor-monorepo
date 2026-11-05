@@ -30,6 +30,7 @@ import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/compon
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useOpenPersonMessages } from "@/features/messages/hooks/useOpenPersonMessages";
+import { EmailActionGroup } from "@/features/email/components/EmailActions";
 
 interface BaseActionsMenuProps {
   onOpenInPage?: () => void;
@@ -410,7 +411,17 @@ export function ActionsMenu(props: ActionsMenuProps) {
     ),
   ];
   return (
-    <>
+    <div className="flex items-center gap-2">
+      {actions.some((action) => action.primaryOnly) ? (
+        <EmailActionGroup label="Common record actions">
+          {actions.filter((action) => action.primaryOnly).map((action) => (
+            <Button key={action.id} type="button" variant="outline" size="sm" className="h-8" aria-label={action.title} onClick={action.action}>
+              <action.icon className="mr-1.5 h-4 w-4" />
+              {action.title}
+            </Button>
+          ))}
+        </EmailActionGroup>
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -424,7 +435,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {actions
-            .filter((action) => !action.group && !action.destructive)
+            .filter((action) => !action.group && !action.destructive && action.id !== "edit")
             .map(renderAction)}
           {"richTextTemplateConfig" in props &&
             props.richTextTemplateConfig && (
@@ -449,6 +460,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {actions.filter((action) => action.destructive).map(renderAction)}
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+    </div>
   );
 }
