@@ -349,6 +349,9 @@
 
 ## Core tutoring sessions and billing
 
+- **Session lesson plan** — An optional selection of Topics and catalog resources prepared for one future teaching Session and shared by its assigned Tutors. It describes intended teaching, independently of each Tutor's local Teaching workspace and the confirmed Tutor log.
+  _Avoid_: Submitted lesson, required Tutor log, tutor-private plan
+
 - **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
 
 - **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.

@@ -28,6 +28,26 @@ public struct TeachingResource: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// Shared preparation intent; each Tutor imports it into their own local lesson.
+public struct SessionPlanTopic: Codable, Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let name: String
+    public let code: String?
+    public init(id: UUID, name: String, code: String? = nil) {
+        self.id = id; self.name = name; self.code = code
+    }
+}
+
+public struct SessionLessonPlan: Codable, Sendable {
+    public let sessionID: UUID
+    public let revision: Int
+    public let topics: [SessionPlanTopic]
+    public let resources: [TeachingResource]
+    public init(sessionID: UUID, revision: Int, topics: [SessionPlanTopic], resources: [TeachingResource]) {
+        self.sessionID = sessionID; self.revision = revision; self.topics = topics; self.resources = resources
+    }
+}
+
 public struct CachedDocument: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public let source: TeachingDocument
@@ -46,14 +66,20 @@ public struct LessonRecord: Codable, Sendable {
     public var resources: [LessonResource] = []
     public var draft: LessonDraft = LessonDraft()
     public var archivedResources: [LessonResource] = []
+    public var plannedTopics: [SessionPlanTopic] = []
+    public var plannedRevision: Int = 0
+    public var importedPlanResourceIDs: Set<UUID> = []
     public init(sessionID: UUID) { self.sessionID = sessionID }
-    private enum CodingKeys: String, CodingKey { case sessionID, resources, draft, archivedResources }
+    private enum CodingKeys: String, CodingKey { case sessionID, resources, draft, archivedResources, plannedTopics, plannedRevision, importedPlanResourceIDs }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         sessionID = try values.decode(UUID.self, forKey: .sessionID)
         resources = try values.decode([LessonResource].self, forKey: .resources)
         draft = try values.decode(LessonDraft.self, forKey: .draft)
         archivedResources = try values.decodeIfPresent([LessonResource].self, forKey: .archivedResources) ?? []
+        plannedTopics = try values.decodeIfPresent([SessionPlanTopic].self, forKey: .plannedTopics) ?? []
+        plannedRevision = try values.decodeIfPresent(Int.self, forKey: .plannedRevision) ?? 0
+        importedPlanResourceIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .importedPlanResourceIDs) ?? []
     }
 }
 

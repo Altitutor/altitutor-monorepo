@@ -35,6 +35,37 @@ public final class LessonStore {
         return record
     }
 
+    /// Reopening imports additions, while local removals, draft choices and pinned ink remain authoritative.
+    @MainActor @discardableResult
+    public func importPlan(_ plan: SessionLessonPlan,
+                           download: @MainActor (TeachingDocument) async throws -> Data) async throws -> LessonRecord {
+        try Task.checkCancellation()
+        var record = try lesson(sessionID: plan.sessionID)
+        guard plan.revision >= record.plannedRevision else { return record }
+        record.plannedTopics = plan.topics
+        record.plannedRevision = plan.revision
+        record.importedPlanResourceIDs.formUnion((record.resources + record.archivedResources).compactMap { $0.resource?.id })
+        try files.createDirectory(at: folder(plan.sessionID), withIntermediateDirectories: true)
+        try write(JSONEncoder().encode(record), to: folder(plan.sessionID).appendingPathComponent("lesson.json"))
+        for resource in plan.resources where !record.importedPlanResourceIDs.contains(resource.id) {
+            try Task.checkCancellation()
+            let worksheet = try await download(resource.worksheet)
+            let solutions: Data?
+            if let source = resource.solutions { solutions = try await download(source) }
+            else { solutions = nil }
+            try Task.checkCancellation()
+            record = try lesson(sessionID: plan.sessionID)
+            guard plan.revision >= record.plannedRevision else { return record }
+            // A Tutor may have removed this resource while its download was suspended.
+            if !record.archivedResources.contains(where: { $0.resource?.id == resource.id }) {
+                record = try add(resource, to: plan.sessionID, worksheet: worksheet, solutions: solutions)
+            }
+            record.importedPlanResourceIDs.insert(resource.id)
+            try write(JSONEncoder().encode(record), to: folder(plan.sessionID).appendingPathComponent("lesson.json"))
+        }
+        return record
+    }
+
     /// A local document shares the lesson's storage/annotation boundary, but has no catalog or log identity.
     @discardableResult
     public func addLocalDocument(title: String, to sessionID: UUID, pdf: Data) throws -> LessonRecord {
