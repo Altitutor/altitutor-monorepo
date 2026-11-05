@@ -1,22 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SearchableSelect } from "@altitutor/ui";
-import { DurationPicker, TimePicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from "@altitutor/ui";
-import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import { SmartDatePickerField } from "@altitutor/ui";
-import { Pencil, AlertTriangle } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Badge } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
+import { DurationPicker, TimePicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
+import { Alert, AlertDescription, AlertTitle } from '@altitutor/ui';
+import { SmartDatePickerField } from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Pencil, AlertTriangle, Loader2 } from 'lucide-react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
-import { sessionsApi } from '@/features/sessions/api/sessions';
-import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import {
+  useAdminShiftSchedule,
+  useApplyAdminShiftSchedule,
+  usePreviewAdminShiftSchedule,
+} from '../../../hooks/useAdminShiftsQuery';
+import type { AdminShiftSchedulePlan, AdminShiftScheduleProposal, StoredAdminShiftSchedule } from '../../../types/schedule';
+import {
+  adelaideCalendarDate,
+  buildAdminShiftScheduleProposal,
+  partitionAdminShiftScheduleTimeline,
+  resolveAdminShiftBounds,
+  resolveAdminShiftEffectiveFrom,
+  validateAdminShiftSchedule,
+} from '../../../utils/adminShiftSchedule';
 
-// Form schema for admin shift details
 const STATUS_OPTIONS = [
   { value: 'ACTIVE' as const, label: 'Active' },
   { value: 'INACTIVE' as const, label: 'Inactive' },
@@ -37,29 +48,17 @@ const adminShiftInfoSchema = z.object({
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'Duration is required'),
   status: z.enum(['ACTIVE', 'INACTIVE']),
-  sessionStartDate: z.string().optional().nullable(),
-  sessionEndDate: z.string().optional().nullable(),
-}).refine((data) => {
-  // Validate that end date is after start date if both are provided
-  if (data.sessionStartDate && data.sessionEndDate) {
-    return new Date(data.sessionStartDate) <= new Date(data.sessionEndDate);
-  }
-  return true;
-}, {
+  sessionStartDate: z.string().min(1, 'Session start date is required'),
+  sessionEndDate: z.string().min(1, 'Session end date is required'),
+}).refine((data) => data.sessionEndDate >= data.sessionStartDate, {
   message: 'Session end date must be after or equal to start date',
   path: ['sessionEndDate'],
-}).refine((data) => {
-  // Validate that end time is after start time
-  if (data.startTime && data.endTime) {
-    return data.endTime > data.startTime;
-  }
-  return true;
-}, {
+}).refine((data) => !data.startTime || !data.endTime || data.endTime > data.startTime, {
   message: 'Duration must finish after the start time',
   path: ['endTime'],
 });
 
-export type AdminShiftInfoFormData = z.infer<typeof adminShiftInfoSchema>;
+type AdminShiftInfoFormData = z.infer<typeof adminShiftInfoSchema>;
 
 interface AdminShiftInfoTabProps {
   adminShiftData: Tables<'admin_shifts'>;
@@ -67,7 +66,59 @@ interface AdminShiftInfoTabProps {
   isLoading: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSubmit: (data: AdminShiftInfoFormData) => Promise<void>;
+  onSaved: () => void;
+  onReviewStateChange?: (state: { label: string; busy: boolean }) => void;
+}
+
+function adelaideSessionLabel(iso: string): string {
+  return new Date(iso).toLocaleString('en-AU', {
+    timeZone: 'Australia/Adelaide',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function SessionChangeList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ start_at: string; end_at: string }>;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">{title}</h4>
+      <ul className="max-h-48 space-y-1 overflow-auto rounded-md border p-3 text-sm">
+        {rows.map((row) => (
+          <li key={`${row.start_at}-${row.end_at}`}>{adelaideSessionLabel(row.start_at)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ScheduleCard({ title, revision }: { title: string; revision: StoredAdminShiftSchedule }) {
+  return (
+    <div className="rounded-md border p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h4 className="font-medium">{title}</h4>
+        <Badge className={revision.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+          {revision.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+        </Badge>
+      </div>
+      <p className="text-sm">{getDayOfWeek(revision.dayOfWeek)} {formatTime(revision.startTime)}–{formatTime(revision.endTime)}</p>
+      <p className="text-sm text-muted-foreground">
+        {format(new Date(`${revision.effectiveFrom}T12:00:00Z`), 'MMM d, yyyy')}
+        {' – '}
+        {format(new Date(`${revision.effectiveTo}T12:00:00Z`), 'MMM d, yyyy')}
+      </p>
+    </div>
+  );
 }
 
 export function AdminShiftInfoTab({
@@ -76,137 +127,166 @@ export function AdminShiftInfoTab({
   isLoading,
   onEdit,
   onCancelEdit: _onCancelEdit,
-  onSubmit,
+  onSaved,
+  onReviewStateChange,
 }: AdminShiftInfoTabProps) {
+  const { data: scheduleTimeline, isLoading: isScheduleLoading } = useAdminShiftSchedule(adminShiftData.id, true);
+  const previewMutation = usePreviewAdminShiftSchedule();
+  const applyMutation = useApplyAdminShiftSchedule();
+  const [effectiveFrom, setEffectiveFrom] = useState(adelaideCalendarDate());
+  const [proposal, setProposal] = useState<AdminShiftScheduleProposal | null>(null);
+  const [plan, setPlan] = useState<AdminShiftSchedulePlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const form = useForm<AdminShiftInfoFormData>({
     resolver: zodResolver(adminShiftInfoSchema),
     defaultValues: {
       dayOfWeek: 1,
       startTime: '',
       endTime: '',
-      status: 'ACTIVE' as const,
-      sessionStartDate: null,
-      sessionEndDate: null,
+      status: 'ACTIVE',
+      sessionStartDate: '',
+      sessionEndDate: '',
     },
   });
 
-  const hasResetRef = useRef(false);
-  const [editKey, setEditKey] = useState(0);
-
-  // Fetch future sessions for this admin shift when editing
-  const { data: futureSessionsData } = useQuery({
-    queryKey: ['adminShiftFutureSessions', adminShiftData.id, isEditing],
-    queryFn: async () => {
-      const now = new Date();
-      const endOfYear = new Date(now.getFullYear(), 11, 31);
-      const result = await sessionsApi.getAllSessionsWithDetails({
-        rangeStart: now.toISOString().split('T')[0],
-        rangeEnd: endOfYear.toISOString().split('T')[0],
-      });
-      // Filter to only sessions for this admin shift
-      return result.sessions.filter(session => session.admin_shift_id === adminShiftData.id);
-    },
-    enabled: isEditing && !!adminShiftData.id,
-    staleTime: 1000 * 60 * 2,
-  });
-
-  const futureSessions = futureSessionsData || [];
-
-  // Reset form values when entering edit mode
   useEffect(() => {
-    if (isEditing && !hasResetRef.current && adminShiftData) {
-      const dayValue = adminShiftData.day_of_week != null ? adminShiftData.day_of_week : 1;
-      form.reset({
-        dayOfWeek: dayValue,
-        startTime: adminShiftData.start_time || '',
-        endTime: adminShiftData.end_time || '',
-        status: adminShiftData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
-        sessionStartDate: adminShiftData.session_start_date || null,
-        sessionEndDate: adminShiftData.session_end_date || null,
-      }, {
-        keepDefaultValues: false
-      });
-      form.setValue('dayOfWeek', dayValue, { shouldValidate: false });
-      hasResetRef.current = true;
-      setEditKey(prev => prev + 1);
-    } else if (!isEditing) {
-      hasResetRef.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, adminShiftData?.id]);
+    if (!isEditing || isScheduleLoading || scheduleTimeline === undefined) return;
+    const bounds = resolveAdminShiftBounds(adminShiftData);
+    const latest = scheduleTimeline[scheduleTimeline.length - 1];
+    form.reset({
+      dayOfWeek: latest?.dayOfWeek ?? adminShiftData.day_of_week ?? 1,
+      startTime: latest?.startTime ?? adminShiftData.start_time ?? '',
+      endTime: latest?.endTime ?? adminShiftData.end_time ?? '',
+      status: latest?.status ?? (adminShiftData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'),
+      sessionStartDate: bounds.startDate,
+      sessionEndDate: bounds.endDate,
+    });
+    setEffectiveFrom(resolveAdminShiftEffectiveFrom(bounds.startDate, latest?.effectiveFrom));
+    setProposal(null);
+    setPlan(null);
+    setError(null);
+  }, [adminShiftData, form, isEditing, isScheduleLoading, scheduleTimeline]);
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'INACTIVE':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  useEffect(() => {
+    onReviewStateChange?.({
+      label: plan ? 'Apply schedule changes' : 'Review changes',
+      busy: previewMutation.isPending || applyMutation.isPending,
+    });
+  }, [applyMutation.isPending, onReviewStateChange, plan, previewMutation.isPending]);
+
+  const markChanged = () => {
+    setProposal(null);
+    setPlan(null);
+    setError(null);
+  };
+
+  const preview = async (data: AdminShiftInfoFormData) => {
+    const validationError = validateAdminShiftSchedule({
+      startTime: data.startTime,
+      endTime: data.endTime,
+      startDate: data.sessionStartDate,
+      endDate: data.sessionEndDate,
+      effectiveFrom,
+    });
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    const nextProposal = buildAdminShiftScheduleProposal({
+      adminShiftId: adminShiftData.id,
+      dayOfWeek: data.dayOfWeek,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      status: data.status,
+      startDate: data.sessionStartDate,
+      endDate: data.sessionEndDate,
+      effectiveFrom,
+    });
+    try {
+      setPlan(await previewMutation.mutateAsync(nextProposal));
+      setProposal(nextProposal);
+      setError(null);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : 'Unable to preview these changes.');
     }
   };
 
-  return isEditing ? (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto">
-        <form 
-          id="admin-shift-edit-form" 
-          onSubmit={form.handleSubmit(onSubmit)} 
-          className="space-y-6"
-        >
+  const apply = async () => {
+    if (!proposal || !plan) return;
+    try {
+      await applyMutation.mutateAsync({ proposal, expectedProposalHash: plan.proposal_hash });
+      onSaved();
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : 'Unable to update this admin shift.');
+    }
+  };
+
+  const busy = isLoading || isScheduleLoading || previewMutation.isPending || applyMutation.isPending;
+  const today = adelaideCalendarDate();
+  const { current: currentSchedule, upcoming: upcomingSchedules } = partitionAdminShiftScheduleTimeline(
+    scheduleTimeline,
+    today
+  );
+
+  if (isEditing) {
+    return (
+      <form
+        id="admin-shift-edit-form"
+        className="space-y-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (plan) {
+            void apply();
+            return;
+          }
+          void form.handleSubmit(preview)();
+        }}
+      >
+        {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+        {isScheduleLoading ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? (
           <PropertyForm>
             <PropertyFormRow label="Status" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="status"
-                render={({ field }) => {
-                  const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
-                  return (
-                    <SearchableSelect<typeof STATUS_OPTIONS[number]>
-                      items={[...STATUS_OPTIONS]}
-                      value={selected}
-                      onValueChange={(item) => field.onChange(item?.value)}
-                      getItemLabel={(o) => o.label}
-                      getItemId={(o) => o.value}
-                      placeholder="Select status"
-                      disabled={isLoading}
-                      ariaLabel="Status"
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <SearchableSelect<(typeof STATUS_OPTIONS)[number]>
+                    items={[...STATUS_OPTIONS]}
+                    value={STATUS_OPTIONS.find((option) => option.value === field.value) ?? null}
+                    onValueChange={(item) => {
+                      field.onChange(item?.value);
+                      markChanged();
+                    }}
+                    getItemLabel={(option) => option.label}
+                    getItemId={(option) => option.value}
+                    placeholder="Select status"
+                    disabled={busy}
+                    ariaLabel="Status"
+                  />
+                )}
               />
-              {form.formState.errors.status && (
-                <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
-              )}
             </PropertyFormRow>
-
             <PropertyFormRow label="Day of week" valueClassName="space-y-1">
               <Controller
-                key={`dayOfWeek-${editKey}`}
                 control={form.control}
                 name="dayOfWeek"
-                render={({ field }) => {
-                  const fieldValue = field.value != null ? field.value : (adminShiftData?.day_of_week != null ? adminShiftData.day_of_week : 1);
-                  const selected = DAY_OPTIONS.find((o) => o.value === fieldValue) ?? DAY_OPTIONS[1];
-                  return (
-                    <SearchableSelect<typeof DAY_OPTIONS[number]>
-                      items={[...DAY_OPTIONS]}
-                      value={selected}
-                      onValueChange={(item) => field.onChange(item?.value ?? 1)}
-                      getItemLabel={(o) => o.label}
-                      getItemId={(o) => String(o.value)}
-                      placeholder="Select day"
-                      disabled={isLoading}
-                      ariaLabel="Day of week"
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <SearchableSelect<(typeof DAY_OPTIONS)[number]>
+                    items={[...DAY_OPTIONS]}
+                    value={DAY_OPTIONS.find((option) => option.value === field.value) ?? DAY_OPTIONS[1]}
+                    onValueChange={(item) => {
+                      field.onChange(item?.value ?? 1);
+                      markChanged();
+                    }}
+                    getItemLabel={(option) => option.label}
+                    getItemId={(option) => String(option.value)}
+                    placeholder="Select day"
+                    disabled={busy}
+                    ariaLabel="Day of week"
+                  />
+                )}
               />
-              {form.formState.errors.dayOfWeek && (
-                <p className="text-sm text-red-500">{form.formState.errors.dayOfWeek.message}</p>
-              )}
             </PropertyFormRow>
-
             <PropertyFormRow label="Start time *" htmlFor="startTime" valueClassName="space-y-1">
               <Controller
                 control={form.control}
@@ -216,6 +296,7 @@ export function AdminShiftInfoTab({
                     id="startTime"
                     aria-label="Start time"
                     value={field.value}
+                    disabled={busy}
                     onChange={(nextStart) => {
                       const next = shiftStartKeepingDuration(field.value, form.getValues('endTime'), nextStart);
                       if (!next) {
@@ -225,8 +306,8 @@ export function AdminShiftInfoTab({
                       form.clearErrors('endTime');
                       field.onChange(next.startTime);
                       form.setValue('endTime', next.endTime, { shouldValidate: true });
+                      markChanged();
                     }}
-                    disabled={isLoading}
                   />
                 )}
               />
@@ -234,7 +315,6 @@ export function AdminShiftInfoTab({
                 <p className="text-sm text-red-500">{form.formState.errors.startTime.message}</p>
               )}
             </PropertyFormRow>
-
             <PropertyFormRow label="Duration *" htmlFor="endTime" valueClassName="space-y-1">
               <Controller
                 control={form.control}
@@ -244,6 +324,7 @@ export function AdminShiftInfoTab({
                     id="endTime"
                     aria-label="Duration"
                     value={durationMinutesBetween(form.watch('startTime'), field.value)}
+                    disabled={busy}
                     onChange={(minutes) => {
                       const endTime = addMinutesToTime(form.getValues('startTime'), minutes);
                       if (!endTime) {
@@ -252,8 +333,8 @@ export function AdminShiftInfoTab({
                       }
                       form.clearErrors('endTime');
                       field.onChange(endTime);
+                      markChanged();
                     }}
-                    disabled={isLoading}
                   />
                 )}
               />
@@ -261,60 +342,101 @@ export function AdminShiftInfoTab({
                 <p className="text-sm text-red-500">{form.formState.errors.endTime.message}</p>
               )}
             </PropertyFormRow>
-
             <PropertyFormRow label="Session start date" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="sessionStartDate"
                 render={({ field }) => (
                   <SmartDatePickerField
-                    value={field.value || ''}
-                    onChange={(value) => field.onChange(value)}
-                    onBlur={field.onBlur}
-                    className={isLoading ? 'pointer-events-none opacity-50' : undefined}
+                    value={field.value}
+                    onChange={(value) => {
+                      field.onChange(value ?? '');
+                      markChanged();
+                    }}
                   />
                 )}
               />
-              {form.formState.errors.sessionStartDate && (
-                <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
-              )}
             </PropertyFormRow>
-
             <PropertyFormRow label="Session end date" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="sessionEndDate"
                 render={({ field }) => (
                   <SmartDatePickerField
-                    value={field.value || ''}
-                    onChange={(value) => field.onChange(value)}
-                    onBlur={field.onBlur}
+                    value={field.value}
                     minDate={form.watch('sessionStartDate') || undefined}
-                    className={isLoading ? 'pointer-events-none opacity-50' : undefined}
+                    onChange={(value) => {
+                      field.onChange(value ?? '');
+                      markChanged();
+                    }}
                   />
                 )}
               />
-              {form.formState.errors.sessionEndDate && (
-                <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
-              )}
+            </PropertyFormRow>
+            <PropertyFormRow label="Changes effective from" valueClassName="space-y-1">
+              <SmartDatePickerField
+                value={effectiveFrom}
+                minDate={today}
+                onChange={(value) => {
+                  setEffectiveFrom(value ?? '');
+                  markChanged();
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Sessions before this date stay as they are.</p>
             </PropertyFormRow>
           </PropertyForm>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium">Review shift changes</h3>
+              <p className="text-sm">
+                {getDayOfWeek(form.getValues('dayOfWeek'))} {formatTime(form.getValues('startTime'))}–{formatTime(form.getValues('endTime'))}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                From {format(new Date(`${effectiveFrom}T12:00:00Z`), 'MMM d, yyyy')}, confirm the session changes before they are applied.
+              </p>
+            </div>
+            <SessionChangeList
+              title="Sessions from this date"
+              rows={plan.occurrences.filter((occurrence) => occurrence.action === 'CREATE' || occurrence.action === 'PRESERVE')}
+            />
+            <SessionChangeList
+              title="Sessions removed"
+              rows={plan.removals.filter((removal) => removal.action === 'CANCEL')}
+            />
+            <SessionChangeList
+              title="Sessions kept"
+              rows={plan.removals.filter((removal) => removal.action === 'PROTECTED')}
+            />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div>
+              <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div>
+              <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.protected}</strong><span className="text-sm text-muted-foreground">protected</span></div>
+            </div>
+            {plan.counts.protected > 0 && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Protected sessions</AlertTitle>
+                <AlertDescription>Appointments and sessions that already have operational history stay unchanged.</AlertDescription>
+              </Alert>
+            )}
+            {plan.conflicts.length > 0 && (
+              <div className="rounded-md border border-amber-300 p-3 text-sm">
+                <div className="font-medium">Warnings</div>
+                {plan.conflicts.map((conflict) => <p key={conflict.message}>{conflict.message}</p>)}
+              </div>
+            )}
+            <Button type="button" variant="outline" disabled={busy} onClick={() => { setPlan(null); setProposal(null); }}>
+              Back to editing
+            </Button>
+          </div>
+        )}
+      </form>
+    );
+  }
 
-          {futureSessions.length > 0 && (
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Future Sessions</AlertTitle>
-              <AlertDescription>
-                There are {futureSessions.length} future sessions for this admin shift. 
-                Changing the day, time, or dates will affect these sessions.
-              </AlertDescription>
-            </Alert>
-          )}
-        </form>
-      </div>
-    </div>
-  ) : (
-    // View mode - format like ClassInfoTab
+  const bounds = resolveAdminShiftBounds(adminShiftData);
+  return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Admin Shift Information</h3>
@@ -323,36 +445,50 @@ export function AdminShiftInfoTab({
           Edit
         </Button>
       </div>
-
       <PropertyForm>
-        <PropertyFormRow label="Day">
-          {getDayOfWeek(adminShiftData.day_of_week)}
-        </PropertyFormRow>
-        <PropertyFormRow label="Time">
-          {formatTime(adminShiftData.start_time)} - {formatTime(adminShiftData.end_time)}
-        </PropertyFormRow>
         <PropertyFormRow label="Status">
-          <div>
-            <Badge className={getStatusBadgeColor(adminShiftData.status)}>
-              {adminShiftData.status}
-            </Badge>
-          </div>
+          <Badge className={adminShiftData.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+            {adminShiftData.status}
+          </Badge>
         </PropertyFormRow>
         <PropertyFormRow label="Session start date">
-          {adminShiftData.session_start_date
-            ? format(new Date(adminShiftData.session_start_date), 'MMM d, yyyy')
-            : adminShiftData.created_at
-              ? format(new Date(adminShiftData.created_at), 'MMM d, yyyy')
-              : 'Not set'}
+          {format(new Date(`${bounds.startDate}T12:00:00Z`), 'MMM d, yyyy')}
         </PropertyFormRow>
         <PropertyFormRow label="Session end date">
-          {adminShiftData.session_end_date
-            ? format(new Date(adminShiftData.session_end_date), 'MMM d, yyyy')
-            : adminShiftData.created_at
-              ? `Dec 31, ${new Date(adminShiftData.created_at).getFullYear()}`
-              : 'Not set'}
+          {format(new Date(`${bounds.endDate}T12:00:00Z`), 'MMM d, yyyy')}
         </PropertyFormRow>
       </PropertyForm>
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold">Schedule</h3>
+        {isScheduleLoading ? (
+          <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : (
+          <>
+            {currentSchedule ? <ScheduleCard title="Current schedule" revision={currentSchedule} /> : null}
+            {upcomingSchedules.map((revision) => (
+              <ScheduleCard
+                key={revision.id}
+                title={`${currentSchedule ? 'From' : 'Starts'} ${format(new Date(`${revision.effectiveFrom}T12:00:00Z`), 'MMM d, yyyy')}`}
+                revision={revision}
+              />
+            ))}
+            {!currentSchedule && upcomingSchedules.length === 0 ? (
+              <ScheduleCard
+                title="Schedule"
+                revision={{
+                  id: adminShiftData.id,
+                  dayOfWeek: adminShiftData.day_of_week,
+                  startTime: adminShiftData.start_time,
+                  endTime: adminShiftData.end_time,
+                  status: adminShiftData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+                  effectiveFrom: bounds.startDate,
+                  effectiveTo: bounds.endDate,
+                }}
+              />
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

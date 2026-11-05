@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { adminShiftsApi } from '../api/admin-shifts';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { AdminShiftScheduleProposal } from '../types/schedule';
 
 // Query Keys
 export const adminShiftsKeys = {
@@ -11,6 +12,7 @@ export const adminShiftsKeys = {
   details: () => [...adminShiftsKeys.all, 'detail'] as const,
   detail: (id: string) => [...adminShiftsKeys.details(), id] as const,
   detailFull: (id: string) => [...adminShiftsKeys.detail(id), 'details'] as const,
+  schedule: (id: string) => [...adminShiftsKeys.detail(id), 'schedule'] as const,
   withDetails: () => [...adminShiftsKeys.all, 'withDetails'] as const,
 };
 
@@ -79,6 +81,41 @@ export function useAdminShiftsWithDetails() {
 }
 
 // Get single admin shift with details
+export function useAdminShiftSchedule(adminShiftId: string, enabled = true) {
+  return useQuery({
+    queryKey: adminShiftsKeys.schedule(adminShiftId),
+    queryFn: () => adminShiftsApi.listSchedule(adminShiftId),
+    enabled: enabled && !!adminShiftId,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+export function usePreviewAdminShiftSchedule() {
+  return useMutation({ mutationFn: adminShiftsApi.previewSchedule });
+}
+
+export function useApplyAdminShiftSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      proposal,
+      expectedProposalHash,
+    }: {
+      proposal: AdminShiftScheduleProposal;
+      expectedProposalHash: string;
+    }) => adminShiftsApi.applySchedule(proposal, expectedProposalHash),
+    onSuccess: (_, { proposal }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-shifts', 'minimal'] });
+      queryClient.invalidateQueries({ queryKey: adminShiftsKeys.withDetails() });
+      queryClient.invalidateQueries({ queryKey: adminShiftsKeys.detailFull(proposal.admin_shift_id) });
+      queryClient.invalidateQueries({ queryKey: adminShiftsKeys.schedule(proposal.admin_shift_id) });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
 export function useAdminShiftDetails(adminShiftId: string, enabled = true) {
   return useQuery({
     queryKey: adminShiftsKeys.detailFull(adminShiftId),

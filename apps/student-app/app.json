@@ -2,7 +2,7 @@
   "expo": {
     "name": "Altitutor Student",
     "slug": "student-app",
-    "version": "1.6.5",
+    "version": "1.6.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "altitutor-student",
@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.altitutor.altitutorstudent",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["altitutor-ucat"]
       }
     },
     "android": {

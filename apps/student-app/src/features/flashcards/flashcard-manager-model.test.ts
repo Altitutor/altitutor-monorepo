@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FlashcardReviewCard } from '@altitutor/shared';
 
-import { filterFlashcardGroups, groupFlashcards } from './flashcard-manager-model';
+import { filterFlashcardGroups, groupFlashcards, pageOf } from './flashcard-manager-model';
 
 function card(id: string, clozeIndex: number, state: FlashcardReviewCard['state'], extra: Partial<FlashcardReviewCard> = {}): FlashcardReviewCard {
   return {
@@ -48,6 +48,16 @@ test('manager groups sibling clozes but filters on each review card state and fl
   assert.deepEqual(groups[0].cards.map((item) => item.id), ['first', 'second']);
   assert.equal(filterFlashcardGroups(groups, { search: 'nucleus', state: 'Review', flag: 'buried', sort: 'order' }).length, 1);
   assert.equal(filterFlashcardGroups(groups, { search: '', state: 'New', flag: 'suspended', sort: 'order' }).length, 0);
+});
+
+test('manager filters by subject and one or more topics, and pages the result', () => {
+  const maths = card('maths', 1, 'New', { flashcard_id: 'maths-card', subject_id: 'maths', topic_id: 'algebra' });
+  const english = card('english', 1, 'Review', { flashcard_id: 'english-card', subject_id: 'english', topic_id: 'poetry', flashcard_index: 1 });
+  const groups = groupFlashcards([maths, english]);
+  assert.equal(filterFlashcardGroups(groups, { search: '', state: 'all', flag: 'all', sort: 'order', subjectId: 'maths' }).length, 1);
+  assert.equal(filterFlashcardGroups(groups, { search: '', state: 'all', flag: 'all', sort: 'order', subjectId: 'english', topicIds: ['poetry', 'prose'] }).length, 1);
+  assert.equal(filterFlashcardGroups(groups, { search: '', state: 'all', flag: 'all', sort: 'order', subjectId: 'english', topicIds: ['prose'] }).length, 0);
+  assert.deepEqual(pageOf([1, 2, 3], 1, 2), { index: 1, pageCount: 2, items: [3] });
 });
 
 test('manager works on runtimes without Array.toSorted', () => {

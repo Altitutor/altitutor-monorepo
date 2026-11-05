@@ -17,7 +17,7 @@ export default function ResourcesPage() {
       {isLoading ? (
         <div
           id="tour-resources-subjects"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-2 gap-4 xl:grid-cols-3"
         >
           {Array.from({ length: 6 }).map((_, idx) => (
             <div
@@ -29,7 +29,7 @@ export default function ResourcesPage() {
       ) : (
         <div
           id="tour-resources-subjects"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-2 gap-4 xl:grid-cols-3"
         >
           {(subjects ?? []).map((subject) => {
             const isUcat = isUcatSubject(subject);

@@ -4,14 +4,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
 
+import { NoticeBanner } from '@/components/notice-banner';
+
 import { StudyFeedback, type StudyFeedbackState } from './study-feedback';
 
-export function StudySurface({ children, footer, feedback = null }: { children: ReactNode; footer: ReactNode; feedback?: StudyFeedbackState | null }) {
+export function StudySurface({ children, footer, feedback = null, notice = null, noticeTone = 'neutral' }: {
+  children: ReactNode;
+  footer: ReactNode;
+  feedback?: StudyFeedbackState | null;
+  notice?: string | null;
+  noticeTone?: 'neutral' | 'danger';
+}) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <NoticeBanner message={notice} tone={noticeTone} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"

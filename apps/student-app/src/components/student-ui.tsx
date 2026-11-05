@@ -23,6 +23,7 @@ export function StudentScreen({
   showHeaderActions = false,
   largeTitle = true,
   contentPaddingBottom = 100,
+  headerSearch,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -31,13 +32,24 @@ export function StudentScreen({
   showHeaderActions?: boolean;
   largeTitle?: boolean;
   contentPaddingBottom?: number;
+  headerSearch?: { placeholder: string; onChangeText: (text: string) => void };
 }>) {
   const theme = useTheme();
   return (
     <>
       {showHeaderActions ? <HeaderActions /> : null}
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
-        <Stack.Screen options={{ title, ...(largeTitle ? {} : { headerLargeTitleEnabled: false }) }} />
+        <Stack.Screen options={{
+          title,
+          ...(largeTitle ? {} : { headerLargeTitleEnabled: false }),
+          ...(headerSearch && process.env.EXPO_OS === 'ios' ? {
+            headerSearchBarOptions: {
+              placeholder: headerSearch.placeholder,
+              hideWhenScrolling: false,
+              onChangeText: (event) => headerSearch.onChangeText(event.nativeEvent.text),
+            },
+          } : {}),
+        }} />
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
@@ -77,9 +89,19 @@ export function Label({ children }: PropsWithChildren) {
   return <Text style={[styles.label, { color: theme.textSecondary }]}>{children}</Text>;
 }
 
-export function Value({ children }: PropsWithChildren) {
+export function Value({ children, align = 'left' }: PropsWithChildren<{ align?: 'left' | 'right' }>) {
   const theme = useTheme();
-  return <Text selectable style={[styles.value, { color: theme.text }]}>{children}</Text>;
+  return <Text selectable style={[styles.value, { color: theme.text, textAlign: align }]}>{children}</Text>;
+}
+
+export function KeyValueRow({ label, children }: PropsWithChildren<{ label: string }>) {
+  const theme = useTheme();
+  return (
+    <View style={styles.keyValue}>
+      <Text style={[styles.key, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={styles.keyValueBody}>{children}</View>
+    </View>
+  );
 }
 
 export function TappableRow({ title, detail, onPress, accent }: { title: string; detail?: string; onPress?: () => void; accent?: string | null }) {
@@ -165,6 +187,9 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 14, lineHeight: 20 },
   value: { fontSize: 16, lineHeight: 23, fontWeight: '500' },
+  keyValue: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, minHeight: 28 },
+  key: { fontSize: 15, lineHeight: 21, width: 108 },
+  keyValueBody: { alignItems: 'flex-end', flex: 1, gap: 4 },
   dividedCard: { gap: 0, paddingVertical: 4 },
   divider: { height: 0.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingVertical: 4 },
