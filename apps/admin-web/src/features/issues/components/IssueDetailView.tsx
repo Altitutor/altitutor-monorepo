@@ -116,8 +116,11 @@ export function IssueDetailView({
   onIssueUpdated: _onIssueUpdated,
   variant,
 }: IssueDetailViewProps) {
-  const { data: issue, isLoading } = useIssue(issueId, enabled);
-  useAccessoryTitle(issue?.name);
+  const { data: queriedIssue, isLoading } = useIssue(issueId, enabled);
+  const [loadedIssue, setLoadedIssue] = useState<IssueWithTags | null>(null);
+  if (loadedIssue && loadedIssue.id !== issueId) setLoadedIssue(null);
+  if (queriedIssue?.id === issueId && queriedIssue !== loadedIssue)
+    setLoadedIssue(queriedIssue);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
@@ -154,6 +157,17 @@ export function IssueDetailView({
     onClose,
   });
 
+  const hasCurrentSession = editor.session?.record.id === issueId;
+  // Retirement refetches return null. Keep the loaded editor's metadata so
+  // its unsaved form remains visible for copying, without crossing records.
+  const issue =
+    queriedIssue?.id === issueId
+      ? queriedIssue
+      : hasCurrentSession && loadedIssue?.id === issueId
+        ? loadedIssue
+        : null;
+  useAccessoryTitle(issue?.name);
+
   return (
     <>
       <WorkItemEditableContext.Provider value={editor.editable}>
@@ -171,7 +185,9 @@ export function IssueDetailView({
                         type="issue"
                         entityId={issueId}
                         copyTagDisplayText={
-                          form.watch("name") || issue?.name || "Untitled issue"
+                          hasCurrentSession
+                            ? form.watch("name") || issue?.name || "Untitled issue"
+                            : issue?.name || "Untitled issue"
                         }
                         onDelete={() => {
                           if (editor.editable) setIsDeleteDialogOpen(true);
@@ -195,7 +211,7 @@ export function IssueDetailView({
 
             <EditorNotices editor={editor} />
             <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-              {isLoading || !editor.session ? (
+              {isLoading || (!hasCurrentSession && !editor.unavailable) ? (
                 <div className="p-6">Loading issue data...</div>
               ) : !issue ? (
                 <div className="p-6">Issue not found</div>
