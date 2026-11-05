@@ -4,6 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { ConversationHeader } from "../ConversationHeader";
 import { useParentDetails } from "@/features/parents/hooks/useParentsQuery";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/messages",
+  useSearchParams: () => new URLSearchParams(),
+}));
 jest.mock("@/shared/hooks", () => ({
   useCurrentStaff: () => ({ data: { id: "admin" } }),
 }));

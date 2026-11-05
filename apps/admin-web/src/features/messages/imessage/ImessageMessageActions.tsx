@@ -132,9 +132,7 @@ export function ImessageMessageActions({
           className={`absolute -top-4 z-20 inline-flex items-center rounded-full border bg-background p-0.5 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 ${isOwnMessage ? "right-0" : "left-0"}`}
         >
           {hasImessageActions &&
-            TAPBACKS.filter(([reaction]) =>
-              ["love", "like", "laugh"].includes(reaction),
-            ).map(([reaction, emoji]) => (
+            TAPBACKS.map(([reaction, emoji]) => (
               <Tooltip key={reaction}>
                 <TooltipTrigger asChild>
                   <Button

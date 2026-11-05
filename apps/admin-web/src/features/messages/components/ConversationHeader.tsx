@@ -2,13 +2,8 @@
 
 import {
   useEffect,
-  useLayoutEffect,
-  useMemo,
   useRef,
   useState,
-  cloneElement,
-  isValidElement,
-  type ReactElement,
   type ReactNode,
 } from "react";
 import {
@@ -32,23 +27,18 @@ import {
   Search,
   ArrowLeft,
   Mail,
-  Plus,
-  Filter,
   MoreHorizontal,
-  Calendar,
-  CalendarOff,
   Link2,
   User,
   UserPlus,
 } from "lucide-react";
+import { EmailActionGroup } from "@/features/email/components/EmailActions";
+import { EmailIconButton } from "@/features/email/components/EmailIconButton";
+import { StudentContextChips } from "@/features/parents/components/StudentContextChips";
+import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { cn } from "@/shared/utils";
 import { IssuePill } from "@/features/issues";
-import { useCurrentStaff } from "@/shared/hooks";
-import { useParentDetails } from "@/features/parents/hooks/useParentsQuery";
-import { LogAbsenceDialog } from "@/features/sessions/components/absences/LogAbsenceDialog";
-import { LogStaffAbsenceDialog } from "@/features/sessions/components/absences/LogStaffAbsenceDialog";
-import { BookMeetingMenu } from "./BookMeetingMenu";
-import { getBookMeetingOptions } from "../utils/getBookMeetingOptions";
+import { useConversationMeetingActions } from "../hooks/useConversationMeetingActions";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 
 interface EntityOption {
@@ -120,16 +110,6 @@ interface Props {
 
 const TITLE_MIN_WIDTH = 128;
 const PANE_TITLE_MIN_WIDTH = 180;
-const ICON_ACTION_WIDTH = 36;
-const ACTION_GAP = 8;
-const LABELED_WIDTHS = {
-  fromNumber: 168,
-  read: 152,
-  extra: 100,
-  bookMeeting: 132,
-  search: 92,
-  link: 128,
-} as const;
 
 function ActionLabel({
   expanded,
@@ -176,7 +156,7 @@ export function ConversationHeader({
   onFromNumberChange,
   extraActions,
   extraMenuItems,
-  compactActions = false,
+  compactActions: _compactActions = false,
   paneHeader = false,
   titleSlot,
   filterControl,
@@ -186,8 +166,6 @@ export function ConversationHeader({
   staffOptions = [],
   onAssign,
 }: Props) {
-  const [isLinkMenuOpen, setIsLinkMenuOpen] = useState(false);
-  const [isFromNumberMenuOpen, setIsFromNumberMenuOpen] = useState(false);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [selectedStudentOption, setSelectedStudentOption] =
     useState<EntityOption | null>(null);
@@ -195,22 +173,10 @@ export function ConversationHeader({
     useState<EntityOption | null>(null);
   const [selectedStaffOption, setSelectedStaffOption] =
     useState<EntityOption | null>(null);
-  const [showLabels, setShowLabels] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
-  const { data: currentStaff } = useCurrentStaff();
   const quickActions = useQuickActions();
-  const { data: parent, isLoading: parentLoading } = useParentDetails(
-    contact?.parents?.id ?? null,
-    !!contact?.parents?.id,
-  );
-  const [absenceStudentId, setAbsenceStudentId] = useState<string | null>(null);
-  const [absenceStaffId, setAbsenceStaffId] = useState<string | null>(null);
-  const absenceStudents = contact?.students
-    ? [contact.students]
-    : (parent?.students ?? []);
-  const canLogAbsence =
-    !!currentStaff?.id &&
-    (!!contact?.students || !!contact?.parents || !!contact?.staff);
+  const tabScope = useAccessoryTab();
+  const meetings = useConversationMeetingActions(contact, () => setIsOverflowOpen(false));
 
   const getIssuePillProps = () => {
     if (!contact) return null;
@@ -230,11 +196,7 @@ export function ConversationHeader({
   const issuePillProps = getIssuePillProps();
   const hasUnknownPhone = Boolean(contact?.phone_e164 || contact?.email);
   const canShowLinkActions = showUnknownNumberActions && hasUnknownPhone;
-  const hasBookMeeting = getBookMeetingOptions(contact).length > 0;
   const readLabel = isUnread ? "Mark as read" : "Mark as unread";
-  const fromNumberLabel = selectedFromNumber
-    ? `From: ${selectedFromNumber.label}`
-    : "From number";
   const person = contact?.students
     ? { type: "student", id: contact.students.id }
     : contact?.parents
@@ -250,6 +212,7 @@ export function ConversationHeader({
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (tabScope?.active === false || event.isComposing || rowRef.current?.closest('[hidden],[inert]')) return;
       const key = event.key.toLowerCase();
       if ((key !== "t" && key !== "i") || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
       if (document.querySelector("[data-conversation-row]:hover")) return;
@@ -262,55 +225,11 @@ export function ConversationHeader({
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  const labeledToolbarWidth = useMemo(() => {
-    const widths: number[] = [];
-    if (onFromNumberChange) widths.push(LABELED_WIDTHS.fromNumber);
-    if (onToggleRead) widths.push(LABELED_WIDTHS.read);
-    if (extraActions) widths.push(LABELED_WIDTHS.extra);
-    if (hasBookMeeting) widths.push(LABELED_WIDTHS.bookMeeting);
-    if (onSearchToggle) widths.push(LABELED_WIDTHS.search);
-    if (canShowLinkActions) widths.push(LABELED_WIDTHS.link);
-    if (widths.length === 0) return 0;
-    return (
-      widths.reduce((sum, width) => sum + width, 0) +
-      (widths.length - 1) * ACTION_GAP
-    );
-  }, [
-    onFromNumberChange,
-    onToggleRead,
-    extraActions,
-    hasBookMeeting,
-    onSearchToggle,
-    canShowLinkActions,
-  ]);
-
-  useLayoutEffect(() => {
-    if (compactActions) {
-      setShowLabels(false);
-      return;
-    }
-    const row = rowRef.current;
-    if (!row) return;
-
-    const update = () => {
-      const reserved =
-        TITLE_MIN_WIDTH + (showBackButton ? ICON_ACTION_WIDTH + ACTION_GAP : 0);
-      const available = row.clientWidth - reserved;
-      setShowLabels(available >= labeledToolbarWidth);
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(row);
-    return () => observer.disconnect();
-  }, [compactActions, showBackButton, labeledToolbarWidth]);
-
   const handleAssignStudent = async (option: EntityOption | null) => {
     setSelectedStudentOption(option);
     if (!option || !onAssignStudent) return;
     await onAssignStudent(option.id);
     setSelectedStudentOption(null);
-    setIsLinkMenuOpen(false);
     setIsOverflowOpen(false);
   };
 
@@ -319,7 +238,6 @@ export function ConversationHeader({
     if (!option || !onAssignParent) return;
     await onAssignParent(option.id);
     setSelectedParentOption(null);
-    setIsLinkMenuOpen(false);
     setIsOverflowOpen(false);
   };
 
@@ -328,7 +246,6 @@ export function ConversationHeader({
     if (!option || !onAssignStaff) return;
     await onAssignStaff(option.id);
     setSelectedStaffOption(null);
-    setIsLinkMenuOpen(false);
     setIsOverflowOpen(false);
   };
 
@@ -338,8 +255,7 @@ export function ConversationHeader({
       value={selectedFromNumber}
       onValueChange={(option) => {
         onFromNumberChange(option);
-        setIsFromNumberMenuOpen(false);
-        setIsOverflowOpen(false);
+            setIsOverflowOpen(false);
       }}
       getItemId={(item) => item.id}
       getItemLabel={(item) => item.label}
@@ -357,8 +273,7 @@ export function ConversationHeader({
         onSelect={(event) => {
           event.preventDefault();
           onCreateStudent?.();
-          setIsLinkMenuOpen(false);
-          setIsOverflowOpen(false);
+                setIsOverflowOpen(false);
         }}
       >
         <UserPlus className="mr-2 h-4 w-4" />
@@ -369,8 +284,7 @@ export function ConversationHeader({
         onSelect={(event) => {
           event.preventDefault();
           onCreateParent?.();
-          setIsLinkMenuOpen(false);
-          setIsOverflowOpen(false);
+                setIsOverflowOpen(false);
         }}
       >
         <UserPlus className="mr-2 h-4 w-4" />
@@ -381,8 +295,7 @@ export function ConversationHeader({
         onSelect={(event) => {
           event.preventDefault();
           onCreateStaff?.();
-          setIsLinkMenuOpen(false);
-          setIsOverflowOpen(false);
+                setIsOverflowOpen(false);
         }}
       >
         <UserPlus className="mr-2 h-4 w-4" />
@@ -442,13 +355,6 @@ export function ConversationHeader({
     </>
   );
 
-  const labeledActions = showLabels && !compactActions;
-  const actionButtonClass = (active?: boolean) =>
-    cn(
-      "flex-shrink-0",
-      labeledActions && "gap-1.5",
-      active && "border-primary text-primary",
-    );
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -504,6 +410,7 @@ export function ConversationHeader({
           </div>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             {person ? (
               <EntityChip
                 entityType={person.type}
@@ -514,137 +421,12 @@ export function ConversationHeader({
             ) : (
               <EntityChip entityType="message" label={title || "Conversation"} onClick={onTitleClick} />
             )}
-            <div className="flex min-w-0 items-center justify-end gap-1">
-          {!compactActions && onFromNumberChange && (
-            <ActionLabel expanded={showLabels} label={fromNumberLabel}>
-              <DropdownMenu
-                open={isFromNumberMenuOpen}
-                onOpenChange={setIsFromNumberMenuOpen}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size={showLabels ? "sm" : "icon"}
-                    className={cn(
-                      actionButtonClass(Boolean(selectedFromNumber)),
-                      !showLabels && "relative",
-                    )}
-                    aria-label={fromNumberLabel}
-                  >
-                    <Filter className="h-4 w-4" />
-                    {showLabels && (
-                      <span className="max-w-[9rem] truncate">
-                        {fromNumberLabel}
-                      </span>
-                    )}
-                    {!showLabels && selectedFromNumber && (
-                      <span
-                        className="absolute top-1.5 right-1.5 inline-block h-2 w-2 rounded-full bg-primary"
-                        aria-hidden
-                      />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 p-0">
-                  {fromNumberMenu}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </ActionLabel>
-          )}
-          {onToggleRead && (
-            <ActionLabel
-              expanded={labeledActions}
-              label={readLabel}
-            >
-              <Button
-                variant={isUnread ? "default" : "outline"}
-                size={labeledActions ? "sm" : "icon"}
-                onClick={onToggleRead}
-                className={cn(
-                  actionButtonClass(),
-                  "transition-none",
-                  isUnread &&
-                    "bg-red-500 text-white hover:bg-red-600 border-transparent",
-                )}
-                aria-label={readLabel}
-              >
-                <Mail className="h-4 w-4" />
-                {labeledActions ? <span>{readLabel}</span> : null}
-              </Button>
-            </ActionLabel>
-          )}
-          {!compactActions &&
-            extraActions &&
-            (isValidElement(extraActions)
-              ? cloneElement(
-                  extraActions as ReactElement<{ expanded?: boolean }>,
-                  { expanded: showLabels },
-                )
-              : extraActions)}
-          {!compactActions && hasBookMeeting && (
-            <BookMeetingMenu contact={contact} expanded={showLabels} />
-          )}
-          {onSearchToggle && (
-            <ActionLabel expanded={showLabels} label="Search">
-              <Button
-                variant="outline"
-                size={showLabels ? "sm" : "icon"}
-                onClick={onSearchToggle}
-                className={actionButtonClass()}
-                aria-label="Search"
-              >
-                <Search className="h-4 w-4" />
-                {showLabels && <span>Search</span>}
-              </Button>
-            </ActionLabel>
-          )}
-          {!compactActions && canShowLinkActions && (
-            <ActionLabel expanded={showLabels} label="Link contact">
-              <DropdownMenu
-                open={isLinkMenuOpen}
-                onOpenChange={setIsLinkMenuOpen}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size={showLabels ? "sm" : "icon"}
-                    className={actionButtonClass()}
-                    aria-label="Link this number"
-                    disabled={isLinkingPhone}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {showLabels && <span>Link contact</span>}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  {linkMenuItems}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </ActionLabel>
-          )}
-          {onAssign ? (
-            <SearchableSelect
-              items={staffOptions}
-              value={staffOptions.find((member) => member.id === assigneeId) ?? null}
-              onValueChange={(member) => onAssign(member?.id ?? null)}
-              getItemId={(member) => member.id}
-              getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
-              allowClear
-              clearLabel="Unassigned"
-              searchPlaceholder="Search admin staff..."
-              trigger={
-                <Button variant="outline" size="sm" className="h-8 max-w-40 rounded-full px-2" aria-label="Assign conversation">
-                  <User className="mr-1 h-4 w-4" />
-                  <span className="truncate">{staffOptions.find((member) => member.id === assigneeId) ? `${staffOptions.find((member) => member.id === assigneeId)?.first_name ?? ""} ${staffOptions.find((member) => member.id === assigneeId)?.last_name ?? ""}`.trim() : "Unassigned"}</span>
-                </Button>
-              }
-            />
-          ) : null}
-          {filterControl ? (
-            <ActionLabel expanded={false} label="Filter">
-              {filterControl}
-            </ActionLabel>
-          ) : null}
+            {contact?.parents && <StudentContextChips students={meetings.students} />}
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <EmailActionGroup label="Conversation actions">
+                {onSearchToggle && <EmailIconButton label="Search" onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
+                {onToggleRead && <EmailIconButton label={readLabel} data-unread={isUnread ? "true" : undefined} onClick={onToggleRead}><Mail className="h-4 w-4" /></EmailIconButton>}
           <DropdownMenu
               modal={false}
               open={isOverflowOpen}
@@ -655,7 +437,7 @@ export function ConversationHeader({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="flex-shrink-0"
+                    className="h-8 w-8 flex-shrink-0"
                     aria-label="More"
                   >
                     <MoreHorizontal className="h-4 w-4" />
@@ -687,57 +469,8 @@ export function ConversationHeader({
                   </DropdownMenuItem>
                 )}
                 {extraMenuItems}
-                {canLogAbsence &&
-                  (contact?.staff ? (
-                    <DropdownMenuItem
-                      onSelect={() => setAbsenceStaffId(contact.staff!.id)}
-                    >
-                      <CalendarOff className="mr-2 h-4 w-4" />
-                      Log absence
-                    </DropdownMenuItem>
-                  ) : absenceStudents.length > 1 ? (
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        <CalendarOff className="mr-2 h-4 w-4" />
-                        Log absence
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {absenceStudents.map((student) => (
-                          <DropdownMenuItem
-                            key={student.id}
-                            onSelect={() => setAbsenceStudentId(student.id)}
-                          >
-                            {`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim()}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ) : (
-                    <DropdownMenuItem
-                      disabled={parentLoading || !absenceStudents.length}
-                      onSelect={() =>
-                        setAbsenceStudentId(absenceStudents[0].id)
-                      }
-                    >
-                      <CalendarOff className="mr-2 h-4 w-4" />
-                      Log absence
-                    </DropdownMenuItem>
-                  ))}
-                {hasBookMeeting && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Book meeting
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      <BookMeetingMenu
-                        contact={contact}
-                        variant="menu"
-                        onAction={() => setIsOverflowOpen(false)}
-                      />
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                )}
+                {onFromNumberChange && <DropdownMenuSub><DropdownMenuSubTrigger>From number</DropdownMenuSubTrigger><DropdownMenuSubContent className="w-80 p-0">{fromNumberMenu}</DropdownMenuSubContent></DropdownMenuSub>}
+                {meetings.menuItems}
                 {canShowLinkActions && (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger disabled={isLinkingPhone}>
@@ -751,6 +484,19 @@ export function ConversationHeader({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+              </EmailActionGroup>
+              {onAssign && <EmailActionGroup label="Conversation responsibility"><SearchableSelect
+                items={staffOptions}
+                value={staffOptions.find((member) => member.id === assigneeId) ?? null}
+                onValueChange={(member) => onAssign(member?.id ?? null)}
+                getItemId={(member) => member.id}
+                getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
+                allowClear clearLabel="Unassigned" searchPlaceholder="Search admin staff..."
+                trigger={<EmailIconButton label="Assign conversation" className="w-auto max-w-40 gap-1 px-2"><User className="h-4 w-4" /><span className="truncate text-xs">{staffOptions.find((member) => member.id === assigneeId) ? `${staffOptions.find((member) => member.id === assigneeId)?.first_name ?? ""} ${staffOptions.find((member) => member.id === assigneeId)?.last_name ?? ""}`.trim() : "Unassigned"}</span></EmailIconButton>}
+              /></EmailActionGroup>}
+              {extraActions}
+              {filterControl}
             </div>
         </div>
         {/* Issue pills stay under the conversation actions. */}
@@ -765,22 +511,7 @@ export function ConversationHeader({
           </div>
         )}
       </div>
-      {absenceStudentId && currentStaff?.id && (
-        <LogAbsenceDialog
-          isOpen
-          initialStudentId={absenceStudentId}
-          staffId={currentStaff.id}
-          onClose={() => setAbsenceStudentId(null)}
-        />
-      )}
-      {absenceStaffId && currentStaff?.id && (
-        <LogStaffAbsenceDialog
-          isOpen
-          initialStaffId={absenceStaffId}
-          staffId={currentStaff.id}
-          onClose={() => setAbsenceStaffId(null)}
-        />
-      )}
+      {meetings.dialogs}
     </TooltipProvider>
   );
 }

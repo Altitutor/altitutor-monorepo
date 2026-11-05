@@ -14,6 +14,7 @@ import { useQueries } from "@tanstack/react-query";
 import { Archive, Mail, Reply, Forward, ListFilter } from "lucide-react";
 import {
   Button,
+  Input,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -24,6 +25,8 @@ import { useRegisterRecordActions } from "@/features/command-palette/RecordActio
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
 import { activityApi } from "@/features/activity/api";
 import { communicationActivityAt } from "@/features/activity/lib/entityCommunication";
+import { useEmailConversationContact } from "../api/useEmailConversationContact";
+import { useConversationMeetingActions } from "@/features/messages/hooks/useConversationMeetingActions";
 import { useEmailCommand, useEmailThread, useMailbox } from "../api/client";
 import {
   draftResponseSchema,
@@ -108,6 +111,10 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   );
   const mailbox = useMailbox();
   const command = useEmailCommand();
+  const person = useEmailConversationContact(thread.data);
+  const meetings = useConversationMeetingActions(person.data);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
   const closeEditors = useRef(new Map<string, () => Promise<boolean>>());
   const closing = useRef(false);
   const [closingEditors, setClosingEditors] = useState(false);
@@ -492,7 +499,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
   const entries: Array<{ id: string; at: string; content: ReactNode }> =
     showMessages
       ? messages
-          .filter((message) => !message.draft)
+          .filter((message) => !message.draft && (!messageSearch.trim() || `${message.subject} ${message.bodyText}`.toLowerCase().includes(messageSearch.trim().toLowerCase())))
           .map((message) => ({
             id: message.id,
             at: message.sentAt ?? message.receivedAt ?? "",
@@ -606,6 +613,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                 <EmailParticipant
                   email={email}
                   label={email}
+                  includeStudents
                   threadId={threadId}
                   mailboxAddress={mailbox.data!.mailboxAddress}
                 />
@@ -614,6 +622,10 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <EmailActions
+              onSearchToggle={() => { if (searchOpen) setMessageSearch(""); setSearchOpen(!searchOpen); }}
+              moreMenuItems={meetings.menuItems}
+              messageId={latest?.id}
+              messageLabel={subject}
               ids={nonDraftIds}
               threadId={threadId}
               read={messages
@@ -650,7 +662,9 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             </DropdownMenu>
           </div>
         </div>
+        {searchOpen && <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />}
       </header>
+      {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {entries.map((entry) => (
           <div key={entry.id}>{entry.content}</div>

@@ -14,16 +14,17 @@ function Harness({ children }: { children: React.ReactNode }) {
   );
 }
 
-test("a single settings page is the menu itself", () => {
+test("a single settings destination remains in the actions dropdown", async () => {
   render(<Harness><ListSettingsMenu list="mail" /></Harness>);
-  expect(screen.getByRole("link", { name: "Go to Email" })).toHaveAttribute("href", "/settings/email");
+  await userEvent.click(screen.getByRole("button", { name: "Go to settings" }));
+  expect(screen.getByRole("menuitem", { name: "Go to settings" })).toHaveAttribute("href", "/settings/email");
 });
 
-test("several settings pages open from Go to settings", async () => {
-  render(<Harness><ListSettingsMenu list="parents" /></Harness>);
-  expect(screen.queryByRole("button", { name: "Go to settings" })).not.toBeInTheDocument();
+test("several settings destinations share a Go to settings submenu", async () => {
   render(<Harness><ListSettingsMenu list="students" /></Harness>);
-  await userEvent.click(screen.getByRole("button", { name: "Go to settings" }));
-  expect(screen.getByRole("menuitem", { name: "Duplicate students" })).toHaveAttribute("href", "/settings/duplicate-students");
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Go to settings" }));
+  await user.hover(screen.getByRole("menuitem", { name: "Go to settings" }));
+  expect(await screen.findByRole("menuitem", { name: "Duplicate students" })).toHaveAttribute("href", "/settings/duplicate-students");
   expect(screen.getByRole("menuitem", { name: "Deleted entities" })).toHaveAttribute("href", "/settings/deleted-records?kind=student");
 });

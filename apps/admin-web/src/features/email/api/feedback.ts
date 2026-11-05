@@ -98,7 +98,7 @@ export function emailCommandFeedback(
         );
         if (seconds <= 0) {
           stopCountdown();
-          toast.dismiss(toastId);
+          toast.success("Sending…", { id: toastId, duration: Infinity, onDismiss: stopCountdown });
           return;
         }
         toast.success(`Sending in ${seconds} second${seconds === 1 ? "" : "s"}`, {

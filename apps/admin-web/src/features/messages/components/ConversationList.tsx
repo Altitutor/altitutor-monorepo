@@ -147,7 +147,6 @@ export function ConversationList({
           ownedNumberIds: [conversation.ownedNumberId],
         }, { search: state.search, filters: state.filters, staffId: currentStaff?.id ?? null });
       }
-      const latestOwnedNumberId = [...conversation.conversations].sort((a, b) => (b.last_message_at ?? '').localeCompare(a.last_message_at ?? ''))[0]?.owned_number_id;
       return matchesConversationListQuery({
         names: [formatContactName({ contacts: conversation.contact })],
         phones: [conversation.contact?.phone_e164 ?? ''],
@@ -156,7 +155,7 @@ export function ConversationList({
         followUp: isToFollowUp(conversation),
         assignedStaffId: conversation.assignedStaffId,
         recipientType: conversation.contact?.contact_type ?? null,
-        ownedNumberIds: latestOwnedNumberId ? [latestOwnedNumberId] : conversation.conversations.map((item) => item.owned_number_id),
+        ownedNumberIds: conversation.conversations.map((item) => item.owned_number_id),
       }, { search: state.search, filters: state.filters, staffId: currentStaff?.id ?? null });
     });
   }, [data, selectedOwnedNumberId, state.search, state.filters, currentStaff?.id]);

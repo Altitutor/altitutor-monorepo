@@ -1,3 +1,7 @@
+jest.mock("@/shared/components/EntityPropertiesLayout", () => ({
+  EntityPropertiesLayout: ({ children, sidebar }: { children: React.ReactNode; sidebar: React.ReactNode }) => <>{children}{sidebar}</>,
+  EntityPropertiesToggle: () => null,
+}));
 import { renderSuspending } from "@/shared/test-utils";
 import type { ComponentProps, ReactNode } from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";

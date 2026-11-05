@@ -119,7 +119,9 @@ export function useSendMessage() {
           .update({ assigned_staff_id: null })
           .eq('id', conversationId)
           .eq('assigned_staff_id', staffRow.id);
-        if (unassignError) throw unassignError;
+        // The message already exists. Assignment cleanup must not stop dispatch
+        // or make the composer retry an already queued message.
+        if (unassignError) console.warn('[useSendMessage] Could not clear assignment', unassignError);
       }
 
       // Create message_attachments records if attachments provided

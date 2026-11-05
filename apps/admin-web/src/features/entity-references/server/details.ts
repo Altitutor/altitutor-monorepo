@@ -184,7 +184,7 @@ export async function referenceDetails(
         read(
           db
             .from("sessions_staff")
-            .select("id,staff_id,planned_absence,is_swapped,was_trial,staff!sessions_staff_staff_id_fkey(id,first_name,last_name)")
+            .select("id,staff_id,planned_absence,is_swapped,was_trial,swapped_sessions_staff_id,staff!sessions_staff_staff_id_fkey(id,first_name,last_name)")
             .eq("session_id", id),
         ),
         read(
@@ -196,6 +196,8 @@ export async function referenceDetails(
             .maybeSingle(),
         ),
       ]);
+      const swapIds = (staff ?? []).flatMap((member) => member.swapped_sessions_staff_id ? [member.swapped_sessions_staff_id] : []);
+      const swaps = swapIds.length ? await read(db.from("sessions_staff").select("id,staff!sessions_staff_staff_id_fkey(id,first_name,last_name)").in("id", swapIds)) : [];
       const logged = Boolean(log?.id);
       const [studentAttendance, staffAttendance] = logged && log
         ? await Promise.all([
@@ -237,6 +239,7 @@ export async function referenceDetails(
             {
               planned_absence: row.planned_absence,
               is_swapped: row.is_swapped,
+              swapped_staff: swaps?.find((swap) => swap.id === row.swapped_sessions_staff_id)?.staff ?? null,
               was_trial: row.was_trial,
               actual_attended: actual?.attended ?? null,
             },
@@ -276,20 +279,7 @@ export async function referenceDetails(
               : null,
           ),
           field("Time", `${time(row.start_at)} – ${time(row.end_at)}`),
-          field(
-            "Students",
-            people
-              .filter((attendee) => attendee.role === "Student")
-              .map((attendee) => attendee.name)
-              .join(", ") || "None",
-          ),
-          field(
-            "Staff",
-            people
-              .filter((attendee) => attendee.role === "Staff")
-              .map((attendee) => attendee.name)
-              .join(", ") || "None",
-          ),
+
         ],
         people,
         logged,

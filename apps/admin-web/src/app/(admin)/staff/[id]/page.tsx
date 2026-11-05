@@ -1,4 +1,6 @@
 'use client';
+import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { IssuePill } from '@/features/issues';
@@ -8,11 +10,11 @@ import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState, use, useEffect } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
-import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -52,6 +54,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
@@ -86,6 +90,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
     onEditDetails: () => {
       editFlow.startEdit();
     },
+    onPasswordResetOrRegistration: () => setAccountOpen(true),
+    passwordResetLabel: staffMember?.user_id ? 'Send password reset' : 'Send invite',
     onLogAbsence: modals.openLogAbsence,
     onBookCheckIn: staffMember
       ? () =>
@@ -104,21 +110,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
 
   // UI state
   const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'activity', 'tab');
-  const [sidebarRoot, setSidebarRoot] = useState<HTMLDivElement | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    if (!sidebarRoot) return;
-    let wasNarrow: boolean | undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const next = entry.contentRect.width < 1000;
-      setNarrow(next);
-      if (next !== wasNarrow) setSidebarOpen(!next);
-      wasNarrow = next;
-    });
-    observer.observe(sidebarRoot);
-    return () => observer.disconnect();
-  }, [sidebarRoot]);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
@@ -184,17 +175,39 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const activityLayout = activeTab === 'activity';
 
   return (
-    <div ref={setSidebarRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <EntityPropertiesLayout id="staff-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{staffMember.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4" ref={sidebarForm}>
+        <StaffDetailsTab
+          hideAccount
+          staffMember={staffMember}
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
+          onRemoveSubject={editFlow.removeSubject}
+          onViewSubject={entityModals.openSubject}
+          addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
+      </div>
+</>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
-        {narrow && <UIButton variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="staff-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></UIButton>}
+        <EntityPropertiesToggle />
         <IssuePill entityType="staff" entityId={id} enabled />
         <NoteAlertPills entityType="staff" entityId={staffMember.id} />
 
         <ActionsMenu
           type="staff"
+          detailsInSidebar
           entityId={staffMember.id}
           copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
           {...staffActions}
@@ -309,28 +322,9 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <PersonAccountDialog type="staff" person={staffMember} open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
-    {sidebarOpen && <aside id="staff-properties-sidebar" aria-label="Properties" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 w-[min(100%,24rem)] overflow-y-auto border-l bg-background shadow-xl' : 'h-full w-96 shrink-0 overflow-y-auto border-l'}>
-      <div className="border-b p-4 text-sm">
-        <div className="font-medium">Properties</div>
-        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{staffMember.user_id ? 'Has account' : 'No account'}</span></div>
-      </div>
-      <div className="p-4">
-        <StaffDetailsTab
-          staffMember={staffMember}
-          isEditing={editFlow.isEditing}
-          isLoading={mutations.isUpdatingDetails}
-          onEdit={editFlow.startEdit}
-          onCancelEdit={editFlow.cancelEdit}
-          onSubmit={handleDetailsSubmit}
-          staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
-          onRemoveSubject={editFlow.removeSubject}
-          onViewSubject={entityModals.openSubject}
-          addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
-        />
-        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = document.getElementById('staff-edit-form') as HTMLFormElement | null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
-      </div>
-    </aside>}
-    </div>
+
+    </EntityPropertiesLayout>
   );
 }

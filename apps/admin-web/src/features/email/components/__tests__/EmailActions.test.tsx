@@ -139,9 +139,9 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   expect(forward).toHaveBeenCalledTimes(1);
   fireEvent.keyDown(document.body, { key: "m" });
   expect(
-    screen.getByPlaceholderText("Search Microsoft folders…"),
+    screen.getByRole("menuitem", { name: "Move to folder" }),
   ).toBeInTheDocument();
-  fireEvent.keyDown(screen.getByPlaceholderText("Search Microsoft folders…"), {
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Move to folder" }), {
     key: "r",
   });
   expect(reply).toHaveBeenCalledTimes(1);

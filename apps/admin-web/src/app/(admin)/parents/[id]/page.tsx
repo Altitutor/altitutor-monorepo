@@ -1,11 +1,12 @@
 'use client';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState, use, useEffect } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -22,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
@@ -44,6 +45,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { openCheckInModal } = useQuickActions();
 
@@ -71,21 +73,6 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
 
   // UI state
   const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'sessions'] as const, 'activity', 'tab');
-  const [sidebarRoot, setSidebarRoot] = useState<HTMLDivElement | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    if (!sidebarRoot) return;
-    let wasNarrow: boolean | undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const next = entry.contentRect.width < 1000;
-      setNarrow(next);
-      if (next !== wasNarrow) setSidebarOpen(!next);
-      wasNarrow = next;
-    });
-    observer.observe(sidebarRoot);
-    return () => observer.disconnect();
-  }, [sidebarRoot]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -152,12 +139,34 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const activityLayout = activeTab === 'activity';
 
   return (
-    <div ref={setSidebarRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <EntityPropertiesLayout id="parent-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{parent.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4" ref={sidebarForm}>
+        <ParentDetailsTab
+          parent={parent}
+          studentIds={students.map(s => s.id)}
+          students={students}
+          onViewStudent={modals.openStudentModal}
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          parentStudents={editFlow.isEditing ? editFlow.tempParentStudents : students}
+          onRemoveStudent={editFlow.removeStudent}
+          addStudentButton={editFlow.isEditing ? <StudentSearchPopover allStudents={allStudents} selectedStudents={editFlow.tempParentStudents} onSelectStudent={editFlow.assignStudent} /> : undefined}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
+      </div>
+</>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
-        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="parent-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
+        <EntityPropertiesToggle />
         <NoteAlertPills entityType="parent" entityId={parent.id} />
 
         <ActionsMenu
@@ -271,29 +280,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    {sidebarOpen && <aside id="parent-properties-sidebar" aria-label="Properties" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 w-[min(100%,24rem)] overflow-y-auto border-l bg-background shadow-xl' : 'h-full w-96 shrink-0 overflow-y-auto border-l'}>
-      <div className="border-b p-4 text-sm">
-        <div className="font-medium">Properties</div>
-        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{parent.user_id ? 'Has account' : 'No account'}</span></div>
-      </div>
-      <div className="p-4">
-        <ParentDetailsTab
-          parent={parent}
-          studentIds={students.map(s => s.id)}
-          students={students}
-          onViewStudent={modals.openStudentModal}
-          isEditing={editFlow.isEditing}
-          isLoading={mutations.isUpdatingDetails}
-          onEdit={editFlow.startEdit}
-          onCancelEdit={editFlow.cancelEdit}
-          onSubmit={handleDetailsSubmit}
-          parentStudents={editFlow.isEditing ? editFlow.tempParentStudents : students}
-          onRemoveStudent={editFlow.removeStudent}
-          addStudentButton={editFlow.isEditing ? <StudentSearchPopover allStudents={allStudents} selectedStudents={editFlow.tempParentStudents} onSelectStudent={editFlow.assignStudent} /> : undefined}
-        />
-        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => (document.getElementById('parent-edit-form') as HTMLFormElement | null)?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
-      </div>
-    </aside>}
-    </div>
+
+    </EntityPropertiesLayout>
   );
 }

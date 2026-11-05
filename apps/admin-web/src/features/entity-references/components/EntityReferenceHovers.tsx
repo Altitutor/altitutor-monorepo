@@ -8,9 +8,7 @@ import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 
-function ReferencePreview({ target }: { target: HTMLElement }) {
-  const type = target.dataset.type ?? "";
-  const id = target.dataset.id ?? "";
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -36,11 +34,11 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
     <div
       role="dialog"
       aria-label={`${label} preview`}
-      className="max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"
+      className={embedded ? "text-sm" : "max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className="min-w-0 break-words font-semibold">
-          {query.data?.title || target.dataset.label || "Preview"}
+          {query.data?.title || fallbackTitle || "Preview"}
         </h3>
         {query.data?.status && (
           <Badge className={`shrink-0 border-transparent ${statusToneClass(query.data.status)}`}>
@@ -168,6 +166,6 @@ export function EntityReferenceHovers() {
     return () => instance.destroy();
   }, [target, content]);
   return target && content
-    ? createPortal(<ReferencePreview target={target} />, content)
+    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} />, content)
     : null;
 }

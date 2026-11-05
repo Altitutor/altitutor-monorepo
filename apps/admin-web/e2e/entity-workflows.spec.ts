@@ -167,6 +167,9 @@ test("mail actions form one segmented pill and retain tooltips", async ({
     expect.arrayContaining([expect.objectContaining({ type: "email", id })]),
   );
   await page.goto(`/email/${id}`);
+  const threadActions = page.getByRole("group", { name: "Conversation actions", exact: true });
+  await expect(threadActions.getByRole("button", { name: "Search", exact: true })).toBeVisible();
+  await expect(threadActions.getByRole("button", { name: "More", exact: true })).toBeVisible();
   const article = page.getByRole("article", {
     name: "Email: Segmented mail actions",
     exact: true,

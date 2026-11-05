@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useId, type ReactNode } from "react";
+import { EntityReferencePreview } from "@/features/entity-references/components/EntityReferenceHovers";
 import Link from "next/link";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { Tables } from "@altitutor/shared";
@@ -239,7 +240,7 @@ export function CalendarDetailsTooltip({
         onClick={(event) => event.stopPropagation()}
         className="z-[100] max-h-[min(70vh,480px)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto border bg-popover p-4 text-popover-foreground shadow-lg"
       >
-        <div className="space-y-3">
+        {attendance && openEntity?.href.startsWith("/sessions/") ? <EntityReferencePreview type="session" id={openEntity.href.split("/")[2].split("?")[0]} fallbackTitle={title} embedded /> : <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-semibold">{title}</h3>
@@ -281,7 +282,7 @@ export function CalendarDetailsTooltip({
               <Link href={openEntity.href}>{openEntity.label}</Link>
             </Button>
           ) : null}
-        </div>
+        </div>}
       </PopoverContent>
     </Popover>
   );

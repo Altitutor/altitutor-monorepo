@@ -10,9 +10,12 @@ import {
   ReplyAll,
   Forward,
   CheckSquare,
+  Search,
+  MoreHorizontal,
+  AlertTriangle,
 } from "lucide-react";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { SearchableSelect } from "@altitutor/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, SearchableSelect } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -59,6 +62,8 @@ export function EmailActions({
   level = "thread",
   hideAssignee = false,
   captureWhenIdle = false,
+  onSearchToggle,
+  moreMenuItems,
 }: {
   ids: string[];
   messageId?: string;
@@ -76,6 +81,8 @@ export function EmailActions({
   hideAssignee?: boolean;
   /** Handles R, Shift+R, and F for the latest message when no message is hovered or focused. */
   captureWhenIdle?: boolean;
+  onSearchToggle?: () => void;
+  moreMenuItems?: React.ReactNode;
 }) {
   const quickActions = useQuickActions();
   const taskMessageId = messageId ?? ids[0];
@@ -83,9 +90,11 @@ export function EmailActions({
   const scope = useAccessoryTab();
   const root = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const current = useRef({
     ids,
+    taskMessageId,
     read,
     hovered: hovered && scope?.active !== false,
     captureWhenIdle,
@@ -96,6 +105,7 @@ export function EmailActions({
   });
   current.current = {
     ids,
+    taskMessageId,
     read,
     hovered: hovered && scope?.active !== false,
     captureWhenIdle,
@@ -150,7 +160,9 @@ export function EmailActions({
       )
         return;
       const action = event.key.toLowerCase();
-      if (!["r", "f", "m", "backspace", "u", "a"].includes(action)) return;
+      if (!["r", "f", "m", "backspace", "u", "a", "t", "i"].includes(action)) return;
+      if (event.shiftKey && action !== "r") return;
+      if (["t", "i"].includes(action) && !state.taskMessageId) return;
       if (!state.ids.length && ["m", "backspace", "u"].includes(action)) return;
       if (
         (action === "r" && !state.onReply) ||
@@ -163,7 +175,12 @@ export function EmailActions({
         else state.onReply?.();
       }
       if (action === "f") state.onForward?.();
-      if (action === "m") setMoveOpen(true);
+      if (action === "t" || action === "i") {
+        const reference = { type: "email", id: state.taskMessageId!, label: messageLabel || "Email" };
+        if (action === "t") quickActions.openCreateTaskDialog(reference);
+        else quickActions.openCreateIssueDialog(reference);
+      }
+      if (action === "m") { if (level === "thread") setMoreOpen(true); else setMoveOpen(true); }
       if (action === "a") setAssignOpen(true);
       if (action === "u")
         mutate({ action: "read", ids: state.ids, read: !state.read });
@@ -172,7 +189,7 @@ export function EmailActions({
     };
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
-  }, [mutate, scope?.active]);
+  }, [mutate, scope?.active, level, messageLabel, quickActions]);
   const name = (person: MailboxData["staff"][number]) =>
     [person.first_name, person.last_name].filter(Boolean).join(" ");
   const selected =
@@ -229,8 +246,9 @@ export function EmailActions({
       className="flex items-center gap-1"
       onClick={(event) => event.stopPropagation()}
     >
-      <EmailActionGroup label="Email actions">
-        {taskMessageId && (
+      <EmailActionGroup label={level === "thread" ? "Conversation actions" : "Email actions"}>
+        {level === "thread" && onSearchToggle && <EmailIconButton label="Search" onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
+        {level === "message" && taskMessageId && (
           <EmailIconButton
             label="Create task"
             onClick={() =>
@@ -276,7 +294,7 @@ export function EmailActions({
         )}
         {level === "thread" && (
           <EmailIconButton
-            label={read ? "Mark unread" : "Mark read"}
+            label={read ? "Mark as unread" : "Mark as read"}
             shortcut="U"
             data-unread={read ? undefined : "true"}
             disabled={!ids.length || command.isPending}
@@ -289,49 +307,18 @@ export function EmailActions({
             )}
           </EmailIconButton>
         )}
-        <SearchableSelect
-          items={folders}
-          value={null}
-          open={moveOpen}
-          onOpenChange={setMoveOpen}
-          getItemId={(folder) => folder.id}
-          getItemLabel={(folder) => folder.name}
-          searchPlaceholder="Search Microsoft folders…"
-          disabled={!ids.length || command.isPending}
-          onValueChange={(folder) => {
-            if (folder)
-              command.mutate(
-                { action: "move", ids, folderId: folder.id },
-                { onSuccess: () => rememberEmailFolder(folder.id) },
-              );
-          }}
-          trigger={
-            level === "message" ? (
-              <span aria-hidden="true" />
-            ) : (
-              <EmailIconButton
-                label="Move to folder"
-                shortcut="M"
-                disabled={!ids.length || command.isPending}
-              >
-                <FolderInput className="h-4 w-4" />
-              </EmailIconButton>
-            )
-          }
-        />
-        {level === "thread" && (
-          <EmailIconButton
-            label="Delete"
-            shortcut="Backspace"
-            destructive
-            disabled={!ids.length || command.isPending}
-            onClick={() =>
-              command.mutate({ action: "move", ids, folderId: "deleteditems" })
-            }
-          >
-            <Trash2 className="h-4 w-4" />
-          </EmailIconButton>
-        )}
+        {level === "thread" && <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+          <DropdownMenuTrigger asChild><EmailIconButton label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><CheckSquare className="mr-2 h-4 w-4" />Create task<span className="ml-auto text-xs text-muted-foreground">T</span></DropdownMenuItem>
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><AlertTriangle className="mr-2 h-4 w-4" />Create issue<span className="ml-auto text-xs text-muted-foreground">I</span></DropdownMenuItem>
+            {moreMenuItems}
+            <DropdownMenuSeparator />
+            <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder</DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
+            <DropdownMenuItem disabled={!ids.length || command.isPending} className="text-destructive" onSelect={() => command.mutate({ action: "move", ids, folderId: "deleteditems" })}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>}
+        {level === "message" && <SearchableSelect items={folders} value={null} open={moveOpen} onOpenChange={setMoveOpen} getItemId={(folder) => folder.id} getItemLabel={(folder) => folder.name} searchPlaceholder="Search Microsoft folders…" disabled={!ids.length || command.isPending} onValueChange={(folder) => { if (folder) command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) }); }} trigger={<span aria-hidden="true" />} />}
       </EmailActionGroup>
       {!hideAssignee &&
         (level === "thread" ? (

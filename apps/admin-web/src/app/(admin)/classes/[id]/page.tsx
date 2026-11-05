@@ -1,10 +1,11 @@
 'use client';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
-import { useState, use, useEffect } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -21,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
@@ -44,6 +45,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -60,21 +62,6 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
-  const [sidebarRoot, setSidebarRoot] = useState<HTMLDivElement | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    if (!sidebarRoot) return;
-    let wasNarrow: boolean | undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const next = entry.contentRect.width < 1000;
-      setNarrow(next);
-      if (next !== wasNarrow) setSidebarOpen(!next);
-      wasNarrow = next;
-    });
-    observer.observe(sidebarRoot);
-    return () => observer.disconnect();
-  }, [sidebarRoot]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -181,11 +168,43 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   }
 
   return (
-    <div ref={setSidebarRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <EntityPropertiesLayout id="class-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm font-medium">Properties</div>
+      <div className="space-y-6 p-4" ref={sidebarForm}>
+        <ClassInfoTab
+          classData={classData}
+          subject={subject || undefined}
+          subjects={allSubjects}
+          isEditing={isEditing}
+          isLoading={isLoading}
+          onEdit={() => setIsEditing(true)}
+          onCancelEdit={() => setIsEditing(false)}
+          onSaved={() => {
+            setIsEditing(false);
+            void invalidateClassSurfaces(queryClient, classData.id);
+            toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+          }}
+        />
+        <div className="border-t pt-6">
+          <ClassPeopleTab
+            classData={classData}
+            classSubject={subject || undefined}
+            classStaff={classStaff}
+            classStudents={classStudents}
+            allStudents={allStudentsData}
+            allStaff={allStaffData}
+            onStudentsUpdated={handleClassUpdated}
+            onAssignStaff={handleAssignStaff}
+            onRemoveStaff={handleRemoveStaff}
+            allowStudentEnrollment={classData.session_type === 'CLASS'}
+          />
+        </div>
+      </div>
+</>}>
     <div className="min-w-0 flex-1 overflow-y-auto p-4">
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
-        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="class-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
+        <EntityPropertiesToggle />
         <IssuePill entityType="class" entityId={id} enabled />
 
 
@@ -279,39 +298,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    {sidebarOpen && <aside id="class-properties-sidebar" aria-label="Properties" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 w-[min(100%,24rem)] overflow-y-auto border-l bg-background shadow-xl' : 'h-full w-96 shrink-0 overflow-y-auto border-l'}>
-      <div className="border-b p-4 text-sm font-medium">Properties</div>
-      <div className="space-y-6 p-4">
-        <ClassInfoTab
-          classData={classData}
-          subject={subject || undefined}
-          subjects={allSubjects}
-          isEditing={isEditing}
-          isLoading={isLoading}
-          onEdit={() => setIsEditing(true)}
-          onCancelEdit={() => setIsEditing(false)}
-          onSaved={() => {
-            setIsEditing(false);
-            void invalidateClassSurfaces(queryClient, classData.id);
-            toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
-          }}
-        />
-        <div className="border-t pt-6">
-          <ClassPeopleTab
-            classData={classData}
-            classSubject={subject || undefined}
-            classStaff={classStaff}
-            classStudents={classStudents}
-            allStudents={allStudentsData}
-            allStaff={allStaffData}
-            onStudentsUpdated={handleClassUpdated}
-            onAssignStaff={handleAssignStaff}
-            onRemoveStaff={handleRemoveStaff}
-            allowStudentEnrollment={classData.session_type === 'CLASS'}
-          />
-        </div>
-      </div>
-    </aside>}
-    </div>
+
+    </EntityPropertiesLayout>
   );
 }

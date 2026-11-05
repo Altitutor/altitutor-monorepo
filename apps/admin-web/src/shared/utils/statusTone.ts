@@ -38,7 +38,7 @@ export function statusLabel(status: string): string {
 /** Planned attendance is green when the person is expected, red when they are not. */
 export function plannedAttendanceTone(status: string): "attending" | "absent" {
   const key = status.toLowerCase();
-  if (key.includes("absent") || key.includes("unplanned")) return "absent";
+  if (key.includes("absent") || key.includes("unplanned") || key === "swapped") return "absent";
   return "attending";
 }
 
