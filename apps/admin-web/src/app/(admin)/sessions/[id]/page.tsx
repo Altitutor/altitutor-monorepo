@@ -1,7 +1,7 @@
 "use client";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -20,7 +20,7 @@ import {
 import type { Tables, TablesUpdate } from "@altitutor/shared";
 import { defaultCheckInSessionsStaffType } from "@altitutor/shared/pay-tiers";
 import { formatSessionTimeRangeForDisplay } from "@altitutor/shared";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PanelRight } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
@@ -194,7 +194,22 @@ function SessionDetailView({ id }: { id: string }) {
     });
 
   // UI state
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("activity");
+  const [sidebarRoot, setSidebarRoot] = useState<HTMLDivElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (!sidebarRoot) return;
+    let wasNarrow: boolean | undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = entry.contentRect.width < 1000;
+      setNarrow(next);
+      if (next !== wasNarrow) setSidebarOpen(!next);
+      wasNarrow = next;
+    });
+    observer.observe(sidebarRoot);
+    return () => observer.disconnect();
+  }, [sidebarRoot]);
 
   // Session helpers
   const helpers = useSessionHelpers({
@@ -219,7 +234,6 @@ function SessionDetailView({ id }: { id: string }) {
     setIsEditing(false);
     setPendingSaveData(null);
     setUndoTarget(null);
-    setActiveTab("details");
     router.push(`/sessions/${sessionId}`);
   };
 
@@ -413,10 +427,11 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col" : "p-4"}>
-      {/* Header */}
+    <div ref={setSidebarRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
+        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="session-properties-sidebar" onClick={() => setSidebarOpen((open) => !open)}><PanelRight className="h-4 w-4" /></Button>}
 
         <IssuePill entityType="session" entityId={id} enabled />
 
@@ -443,226 +458,9 @@ function SessionDetailView({ id }: { id: string }) {
         value={activeTab}
         onValueChange={setActiveTab}
         className={isEditing ? "space-y-6 flex-1" : "space-y-6"}
-        options={[
-          { value: "details", label: "Details" },
-          { value: "activity", label: "Activity" },
-        ]}
+        options={[{ value: "activity", label: "Activity" }]}
       >
-        <SegmentedTabPanelContent
-          when="details"
-          activeTab={activeTab}
-          className="space-y-6"
-        >
-          <SessionDetailsTab
-            key={`session-details-${id}-${isEditing}`}
-            session={session}
-            dayNavigation={
-              classId || adminShiftId ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  {previousSiblingSession ? (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-14 flex-col gap-0.5 py-1"
-                      onClick={() => handleOpenSession(previousSiblingSession.id)}
-                      aria-label={`Previous session in ${siblingScope}`}
-                      title={`Previous session: ${getSessionNavigationLabel(previousSiblingSession)}`}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
-                        {formatSessionNavigationDate(
-                          previousSiblingSession.start_at,
-                        )}
-                      </span>
-                    </Button>
-                  ) : null}
-                  <div className="min-w-0">
-                    <SearchableSelect<Tables<"sessions">>
-                      items={siblingSessions}
-                      value={selectedSiblingSession}
-                      onValueChange={(selectedSession) => {
-                        if (selectedSession)
-                          handleOpenSession(selectedSession.id);
-                      }}
-                      getItemId={(classSession) => classSession.id}
-                      getItemLabel={getSessionNavigationLabel}
-                      getItemValue={(classSession) =>
-                        [
-                          getSessionNavigationLabel(classSession),
-                          classSession.long_name,
-                          classSession.short_name,
-                        ]
-                          .filter(Boolean)
-                          .join(" ")
-                      }
-                      searchPlaceholder="Search session dates or times…"
-                      emptyMessage={`No ${siblingScope} sessions found.`}
-                      loading={siblingSessionsQuery.isLoading}
-                      disabled={
-                        siblingSessionsQuery.isLoading ||
-                        siblingSessions.length === 0
-                      }
-                      contentWidth="280px"
-                      align="end"
-                      trigger={
-                        <SearchableSelectFieldTrigger
-                          className="h-10 max-w-full px-2 text-sm"
-                          aria-label={`Select ${siblingScope} session`}
-                        >
-                          {session.start_at
-                            ? formatSessionLongDate(session.start_at)
-                            : "—"}
-                        </SearchableSelectFieldTrigger>
-                      }
-                    />
-                  </div>
-                  {nextSiblingSession ? (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-14 flex-col gap-0.5 py-1"
-                      onClick={() => handleOpenSession(nextSiblingSession.id)}
-                      aria-label={`Next session in ${siblingScope}`}
-                      title={`Next session: ${getSessionNavigationLabel(nextSiblingSession)}`}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
-                        {formatSessionNavigationDate(nextSiblingSession.start_at)}
-                      </span>
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null
-            }
-            studentsData={studentsData}
-            staffData={staffData}
-            tutorLog={tutorLog}
-            allTopics={sessionData.allTopics}
-            sessionId={id}
-            isSessionInPast={helpers.isSessionInPast}
-            currentStaff={currentStaff ?? null}
-            onOpenSession={handleOpenSession}
-            onOpenStudent={entityModals.openStudent}
-            onOpenStaff={handleOpenStaff}
-            onOpenParent={entityModals.openParent}
-            onOpenClass={handleOpenClass}
-            onOpenAdminShift={entityModals.openAdminShift}
-            onMessageStudent={handleMessageStudent}
-            onMessageStaff={handleMessageStaff}
-            onOpenTopic={handleOpenTopic}
-            onOpenFile={handleOpenFile}
-            onLogAbsenceStudent={
-              currentStaff && allowAbsenceLogging
-                ? modals.openLogStudentAbsenceDialog
-                : undefined
-            }
-            onLogAbsenceStaff={
-              currentStaff && allowAbsenceLogging
-                ? modals.openLogStaffAbsenceDialog
-                : undefined
-            }
-            onRemoveParentFromSession={(parentId, parentName) =>
-              modals.openRemoveFromSessionDialog({
-                entityType: "parent",
-                entityId: parentId,
-                entityName: parentName,
-              })
-            }
-            onRemoveStudentFromSession={(studentId, studentName) =>
-              modals.openRemoveFromSessionDialog({
-                entityType: "student",
-                entityId: studentId,
-                entityName: studentName,
-              })
-            }
-            onRemoveStaffFromSession={(staffId, staffName) =>
-              modals.openRemoveFromSessionDialog({
-                entityType: "staff",
-                entityId: staffId,
-                entityName: staffName,
-              })
-            }
-            meetingMode={meetingMode}
-            adminMeetingMode={adminMeetingMode}
-            parentsData={parentsData}
-            isEditing={isEditing}
-            onEdit={() => setIsEditing(true)}
-            onCancelEdit={() => setIsEditing(false)}
-            onSubmit={handleSessionFormSubmit}
-            isUpdating={updateSessionMutation.isPending || isAddingParticipant}
-            onUndoLogAbsenceStudent={
-              allowAbsenceLogging
-                ? (payload) => {
-                    type SessionsStudentRowWithId = {
-                      sessions_students_id?: string;
-                      id?: string;
-                      rescheduled_session?: { session?: unknown };
-                    };
-                    const sourceRow = (
-                      sessionsStudents as SessionsStudentRowWithId[]
-                    ).find(
-                      (row) =>
-                        (row.sessions_students_id || row.id) ===
-                        payload.sessionsStudentsId,
-                    );
-                    const rescheduledSession =
-                      sourceRow?.rescheduled_session?.session;
-
-                    setUndoTarget({
-                      entityType: "student",
-                      studentId: payload.studentId,
-                      studentName: payload.studentName,
-                      sessionsStudentsId: payload.sessionsStudentsId,
-                      action: payload.action,
-                      rescheduledSessionTitle: rescheduledSession
-                        ? getShortSessionName(rescheduledSession)
-                        : undefined,
-                    });
-                  }
-                : undefined
-            }
-            onUndoLogAbsenceStaff={
-              allowAbsenceLogging
-                ? (payload) => {
-                    setUndoTarget({
-                      entityType: "staff",
-                      staffId: payload.staffId,
-                      staffName: payload.staffName,
-                      sessionsStaffId: payload.sessionsStaffId,
-                      action: payload.action,
-                      swappedStaffName: payload.swappedStaffName,
-                    });
-                  }
-                : undefined
-            }
-            onAddStudentToSession={
-              !meetingMode && allowAddParticipants
-                ? modals.openAddStudentToSessionModal
-                : undefined
-            }
-            onAddStaffToSession={
-              !meetingMode && allowAddParticipants
-                ? modals.openAddStaffToSessionModal
-                : undefined
-            }
-            onMeetingAddStudent={
-              meetingMode && !adminMeetingMode && allowAddParticipants
-                ? (student) => addStudent(student).catch(() => undefined)
-                : undefined
-            }
-            onMeetingAddStaff={
-              meetingMode && allowAddParticipants
-                ? (staff) => addStaff(staff).catch(() => undefined)
-                : undefined
-            }
-            onMeetingAddParent={
-              meetingMode && !adminMeetingMode
-                ? (parent) => addParent(parent).catch(() => undefined)
-                : undefined
-            }
-          />
-          {meetingMode && <SessionFiles sessionId={id} />}
-        </SegmentedTabPanelContent>
+        
 
         <SegmentedTabPanelContent
           when="activity"
@@ -673,24 +471,7 @@ function SessionDetailView({ id }: { id: string }) {
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 
-      {isEditing && activeTab === "details" && (
-        <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex justify-end gap-2 border-t bg-background px-4 py-4">
-          <Button
-            variant="outline"
-            disabled={updateSessionMutation.isPending}
-            onClick={() => setIsEditing(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form="session-edit-form"
-            disabled={updateSessionMutation.isPending}
-          >
-            Save Changes
-          </Button>
-        </div>
-      )}
+      
       {/* Save confirmation dialog */}
       <AlertDialog
         open={!!pendingSaveData}
@@ -966,6 +747,239 @@ function SessionDetailView({ id }: { id: string }) {
           studentId={modals.selectedStudentForBookingConfirmation}
         />
       )}
+    </div>
+    {sidebarOpen && <aside id="session-properties-sidebar" aria-label="Properties" className={narrow ? "absolute bottom-0 right-0 top-16 z-20 w-[min(100%,24rem)] overflow-y-auto border-l bg-background shadow-xl" : "h-full w-96 shrink-0 overflow-y-auto border-l"}>
+      <div className="border-b p-4 text-sm font-medium">Properties</div>
+      <div className="space-y-6 p-4">
+        <SessionDetailsTab
+            key={`session-details-${id}-${isEditing}`}
+            session={session}
+            dayNavigation={
+              classId || adminShiftId ? (
+                <div className="flex flex-wrap items-center gap-1">
+                  {previousSiblingSession ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-14 flex-col gap-0.5 py-1"
+                      onClick={() => handleOpenSession(previousSiblingSession.id)}
+                      aria-label={`Previous session in ${siblingScope}`}
+                      title={`Previous session: ${getSessionNavigationLabel(previousSiblingSession)}`}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                        {formatSessionNavigationDate(
+                          previousSiblingSession.start_at,
+                        )}
+                      </span>
+                    </Button>
+                  ) : null}
+                  <div className="min-w-0">
+                    <SearchableSelect<Tables<"sessions">>
+                      items={siblingSessions}
+                      value={selectedSiblingSession}
+                      onValueChange={(selectedSession) => {
+                        if (selectedSession)
+                          handleOpenSession(selectedSession.id);
+                      }}
+                      getItemId={(classSession) => classSession.id}
+                      getItemLabel={getSessionNavigationLabel}
+                      getItemValue={(classSession) =>
+                        [
+                          getSessionNavigationLabel(classSession),
+                          classSession.long_name,
+                          classSession.short_name,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                      }
+                      searchPlaceholder="Search session dates or times…"
+                      emptyMessage={`No ${siblingScope} sessions found.`}
+                      loading={siblingSessionsQuery.isLoading}
+                      disabled={
+                        siblingSessionsQuery.isLoading ||
+                        siblingSessions.length === 0
+                      }
+                      contentWidth="280px"
+                      align="end"
+                      trigger={
+                        <SearchableSelectFieldTrigger
+                          className="h-10 max-w-full px-2 text-sm"
+                          aria-label={`Select ${siblingScope} session`}
+                        >
+                          {session.start_at
+                            ? formatSessionLongDate(session.start_at)
+                            : "—"}
+                        </SearchableSelectFieldTrigger>
+                      }
+                    />
+                  </div>
+                  {nextSiblingSession ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-14 flex-col gap-0.5 py-1"
+                      onClick={() => handleOpenSession(nextSiblingSession.id)}
+                      aria-label={`Next session in ${siblingScope}`}
+                      title={`Next session: ${getSessionNavigationLabel(nextSiblingSession)}`}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                        {formatSessionNavigationDate(nextSiblingSession.start_at)}
+                      </span>
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null
+            }
+            studentsData={studentsData}
+            staffData={staffData}
+            tutorLog={tutorLog}
+            allTopics={sessionData.allTopics}
+            sessionId={id}
+            isSessionInPast={helpers.isSessionInPast}
+            currentStaff={currentStaff ?? null}
+            onOpenSession={handleOpenSession}
+            onOpenStudent={entityModals.openStudent}
+            onOpenStaff={handleOpenStaff}
+            onOpenParent={entityModals.openParent}
+            onOpenClass={handleOpenClass}
+            onOpenAdminShift={entityModals.openAdminShift}
+            onMessageStudent={handleMessageStudent}
+            onMessageStaff={handleMessageStaff}
+            onOpenTopic={handleOpenTopic}
+            onOpenFile={handleOpenFile}
+            onLogAbsenceStudent={
+              currentStaff && allowAbsenceLogging
+                ? modals.openLogStudentAbsenceDialog
+                : undefined
+            }
+            onLogAbsenceStaff={
+              currentStaff && allowAbsenceLogging
+                ? modals.openLogStaffAbsenceDialog
+                : undefined
+            }
+            onRemoveParentFromSession={(parentId, parentName) =>
+              modals.openRemoveFromSessionDialog({
+                entityType: "parent",
+                entityId: parentId,
+                entityName: parentName,
+              })
+            }
+            onRemoveStudentFromSession={(studentId, studentName) =>
+              modals.openRemoveFromSessionDialog({
+                entityType: "student",
+                entityId: studentId,
+                entityName: studentName,
+              })
+            }
+            onRemoveStaffFromSession={(staffId, staffName) =>
+              modals.openRemoveFromSessionDialog({
+                entityType: "staff",
+                entityId: staffId,
+                entityName: staffName,
+              })
+            }
+            meetingMode={meetingMode}
+            adminMeetingMode={adminMeetingMode}
+            parentsData={parentsData}
+            isEditing={isEditing}
+            onEdit={() => setIsEditing(true)}
+            onCancelEdit={() => setIsEditing(false)}
+            onSubmit={handleSessionFormSubmit}
+            isUpdating={updateSessionMutation.isPending || isAddingParticipant}
+            onUndoLogAbsenceStudent={
+              allowAbsenceLogging
+                ? (payload) => {
+                    type SessionsStudentRowWithId = {
+                      sessions_students_id?: string;
+                      id?: string;
+                      rescheduled_session?: { session?: unknown };
+                    };
+                    const sourceRow = (
+                      sessionsStudents as SessionsStudentRowWithId[]
+                    ).find(
+                      (row) =>
+                        (row.sessions_students_id || row.id) ===
+                        payload.sessionsStudentsId,
+                    );
+                    const rescheduledSession =
+                      sourceRow?.rescheduled_session?.session;
+
+                    setUndoTarget({
+                      entityType: "student",
+                      studentId: payload.studentId,
+                      studentName: payload.studentName,
+                      sessionsStudentsId: payload.sessionsStudentsId,
+                      action: payload.action,
+                      rescheduledSessionTitle: rescheduledSession
+                        ? getShortSessionName(rescheduledSession)
+                        : undefined,
+                    });
+                  }
+                : undefined
+            }
+            onUndoLogAbsenceStaff={
+              allowAbsenceLogging
+                ? (payload) => {
+                    setUndoTarget({
+                      entityType: "staff",
+                      staffId: payload.staffId,
+                      staffName: payload.staffName,
+                      sessionsStaffId: payload.sessionsStaffId,
+                      action: payload.action,
+                      swappedStaffName: payload.swappedStaffName,
+                    });
+                  }
+                : undefined
+            }
+            onAddStudentToSession={
+              !meetingMode && allowAddParticipants
+                ? modals.openAddStudentToSessionModal
+                : undefined
+            }
+            onAddStaffToSession={
+              !meetingMode && allowAddParticipants
+                ? modals.openAddStaffToSessionModal
+                : undefined
+            }
+            onMeetingAddStudent={
+              meetingMode && !adminMeetingMode && allowAddParticipants
+                ? (student) => addStudent(student).catch(() => undefined)
+                : undefined
+            }
+            onMeetingAddStaff={
+              meetingMode && allowAddParticipants
+                ? (staff) => addStaff(staff).catch(() => undefined)
+                : undefined
+            }
+            onMeetingAddParent={
+              meetingMode && !adminMeetingMode
+                ? (parent) => addParent(parent).catch(() => undefined)
+                : undefined
+            }
+          />
+          {meetingMode && <SessionFiles sessionId={id} />}
+        {isEditing && (
+        <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex justify-end gap-2 border-t bg-background px-4 py-4">
+          <Button
+            variant="outline"
+            disabled={updateSessionMutation.isPending}
+            onClick={() => setIsEditing(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="session-edit-form"
+            disabled={updateSessionMutation.isPending}
+          >
+            Save Changes
+          </Button>
+        </div>
+      )}
+      </div>
+    </aside>}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import tippy from "tippy.js";
 import { Badge, Skeleton } from "@altitutor/ui";
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
+import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 
 function ReferencePreview({ target }: { target: HTMLElement }) {
@@ -52,6 +53,7 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
       ) : query.isError ? (
         <p className="text-muted-foreground">Preview unavailable</p>
       ) : (
+        <>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
           {query.data.fields.map(({ label, value }) => (
             <div key={label} className="contents">
@@ -62,6 +64,29 @@ function ReferencePreview({ target }: { target: HTMLElement }) {
             </div>
           ))}
         </dl>
+        {query.data.people?.length ? (
+          <div className="mt-3 space-y-3">
+            {(["Student", "Staff"] as const).map((role) => {
+              const members = query.data.people?.filter((person) => person.role === role) ?? [];
+              if (!members.length) return null;
+              return (
+                <section key={role} className="space-y-1.5">
+                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? "Students" : "Staff"}</h4>
+                  {members.map((person) => (
+                    <AttendancePersonRow
+                      key={`${person.role}:${person.id}`}
+                      href={`/${person.role === "Student" ? "students" : "staff"}/${person.id}`}
+                      name={person.name}
+                      plannedStatus={person.plannedStatus}
+                      actualAttended={query.data.logged ? person.actualAttended : null}
+                    />
+                  ))}
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
+        </>
       )}
     </div>
   );

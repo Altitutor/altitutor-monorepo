@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, useId, type ReactNode } from "react";
 import Link from "next/link";
-import { AttendanceCell } from "@/features/sessions/components/AttendanceCell";
-import { Check, X } from "lucide-react";
+import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { Tables } from "@altitutor/shared";
 import {
   Badge,
@@ -13,11 +12,7 @@ import {
   PopoverContent,
 } from "@altitutor/ui";
 import { getSubjectColorStyle, formatSessionType, cn } from "@/shared/utils";
-import {
-  plannedAttendanceClass,
-  plannedAttendanceTone,
-  statusToneClass,
-} from "@/shared/utils/statusTone";
+import { statusToneClass } from "@/shared/utils/statusTone";
 import {
   deriveStudentAttendanceStatus,
   deriveStaffAttendanceStatus,
@@ -139,36 +134,21 @@ export function CalendarDetailsTooltip({
               key={person.id}
               className="flex flex-wrap items-center gap-1.5 text-xs"
             >
-              <Link
-                href={`/${kind}/${person.id}`}
-                className={cn(
-                  "text-xs hover:underline focus-visible:underline",
-                  attendance &&
-                    plannedAttendanceClass(
-                      plannedAttendanceTone(derived.plannedStatus),
-                    ),
-                )}
-              >
-                {person.first_name} {person.last_name}
-              </Link>
               {attendance ? (
-                <>
-                  <AttendanceCell status={derived.plannedStatus} compact />
-                  {person.actual_attended === true ? (
-                    <Check
-                      role="img"
-                      aria-label="Actual: Attended"
-                      className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400"
-                    />
-                  ) : person.actual_attended === false ? (
-                    <X
-                      role="img"
-                      aria-label="Actual: Absent"
-                      className="h-3 w-3 shrink-0 text-red-600 dark:text-red-400"
-                    />
-                  ) : null}
-                </>
-              ) : null}
+                <AttendancePersonRow
+                  href={`/${kind}/${person.id}`}
+                  name={`${person.first_name} ${person.last_name}`}
+                  plannedStatus={derived.plannedStatus}
+                  actualAttended={person.actual_attended}
+                />
+              ) : (
+                <Link
+                  href={`/${kind}/${person.id}`}
+                  className="text-xs hover:underline focus-visible:underline"
+                >
+                  {person.first_name} {person.last_name}
+                </Link>
+              )}
               {!attendance &&
               person.enrolled_at &&
               new Date(person.enrolled_at).getTime() > Date.now() ? (
