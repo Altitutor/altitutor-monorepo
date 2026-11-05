@@ -13,6 +13,7 @@ import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { ArrowLeft, Loader2, PanelRight } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { AddToHomeworkHelpDialog } from '@/features/students/components/AddToHomeworkHelpDialog';
@@ -279,7 +280,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
-        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="student-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
+        {narrow && <AdminPageActions priority="secondary"><Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="student-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button></AdminPageActions>}
         <NoteAlertPills entityType="student" entityId={student.id} />
 
         {!student.deleted_at && <ActionsMenu
@@ -534,7 +535,6 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
       <div className="p-4">
         <DetailsTab
           student={student}
-          hideAccount
           isEditing={editFlow.isEditing}
           isLoading={mutations.isUpdatingDetails}
           onEdit={editFlow.startEdit}

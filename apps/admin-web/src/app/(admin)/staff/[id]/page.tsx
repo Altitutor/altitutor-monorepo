@@ -14,6 +14,7 @@ import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -189,7 +190,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
-        {narrow && <UIButton variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="staff-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></UIButton>}
+        {narrow && <AdminPageActions priority="secondary"><UIButton variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="staff-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></UIButton></AdminPageActions>}
         <IssuePill entityType="staff" entityId={id} enabled />
         <NoteAlertPills entityType="staff" entityId={staffMember.id} />
 
@@ -318,7 +319,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
       <div className="p-4">
         <StaffDetailsTab
           staffMember={staffMember}
-          hideAccount
           isEditing={editFlow.isEditing}
           isLoading={mutations.isUpdatingDetails}
           onEdit={editFlow.startEdit}
