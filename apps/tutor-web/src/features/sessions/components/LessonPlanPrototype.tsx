@@ -263,7 +263,7 @@ export function LessonPlanPrototype() {
           )}
         </pre>
       </details>
-      <div className="fixed bottom-5 right-5 z-[100] flex items-center gap-3 rounded-full border bg-foreground px-3 py-2 text-background shadow-xl">
+      <div className="fixed bottom-5 left-1/2 z-[100] -translate-x-1/2 whitespace-nowrap flex items-center gap-3 rounded-full border bg-foreground px-3 py-2 text-background shadow-xl">
         <button
           type="button"
           aria-label="Previous prototype"
