@@ -808,9 +808,11 @@ test("Issues retain editable priority through create, autosave and hover preview
     })
     .toBe(2);
   await page.reload();
-  await expect(
-    page.getByRole("button", { name: "High", exact: true }),
-  ).toBeVisible();
+  const high = panel.getByRole("button", { name: "High", exact: true });
+  if (!(await high.isVisible())) {
+    await panel.getByRole("button", { name: "Right sidebar", exact: true }).click();
+  }
+  await expect(high).toBeVisible();
   const preview = await page.request.get(
     `/api/entity-references/issue/${record.id}`,
   );

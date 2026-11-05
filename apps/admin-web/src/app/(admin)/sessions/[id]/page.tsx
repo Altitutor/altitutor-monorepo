@@ -22,7 +22,6 @@ import { defaultCheckInSessionsStaffType } from "@altitutor/shared/pay-tiers";
 import { formatSessionTimeRangeForDisplay } from "@altitutor/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PanelRight } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
-import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
 import { useCurrentStaff } from "@/shared/hooks";
@@ -432,7 +431,7 @@ function SessionDetailView({ id }: { id: string }) {
     <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
-        {narrow && <AdminPageActions priority="secondary"><Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="session-properties-sidebar" onClick={() => setSidebarOpen((open) => !open)}><PanelRight className="h-4 w-4" /></Button></AdminPageActions>}
+        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="session-properties-sidebar" onClick={() => setSidebarOpen((open) => !open)}><PanelRight className="h-4 w-4" /></Button>}
 
         <IssuePill entityType="session" entityId={id} enabled />
 

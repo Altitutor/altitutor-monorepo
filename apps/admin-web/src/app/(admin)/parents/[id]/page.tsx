@@ -25,7 +25,6 @@ import {
 import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ParentDetailsTab, ParentDetailsFormData } from '@/features/students/components/tabs/ParentDetailsTab';
 import { ParentSessionsTab } from '@/features/students/components/ParentSessionsTab';
@@ -158,7 +157,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
-        {narrow && <AdminPageActions priority="secondary"><Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="parent-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button></AdminPageActions>}
+        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="parent-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
         <NoteAlertPills entityType="parent" entityId={parent.id} />
 
         <ActionsMenu

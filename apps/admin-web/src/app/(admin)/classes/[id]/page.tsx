@@ -24,7 +24,6 @@ import {
 import { Loader2, ArrowLeft, PanelRight } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
 import { useClassDeleteImpact, useClassDetails, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
@@ -186,7 +185,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
     <div className="min-w-0 flex-1 overflow-y-auto p-4">
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
-        {narrow && <AdminPageActions priority="secondary"><Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="class-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button></AdminPageActions>}
+        {narrow && <Button variant="ghost" size="icon" aria-label="Right sidebar" aria-expanded={sidebarOpen} aria-controls="class-properties-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
         <IssuePill entityType="class" entityId={id} enabled />
 
 

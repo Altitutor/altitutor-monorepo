@@ -227,7 +227,9 @@ test('Messages accessory breadcrumb returns to the primary Messages collection',
   await panel.getByRole('navigation', { name: 'Breadcrumb', exact: true }).getByRole('button', { name: 'Messages', exact: true }).click();
   await expect(page).toHaveURL(/\/messages$/);
   await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Messages');
-  await expect(page.locator('[data-admin-main]').getByPlaceholder('Search conversations')).toBeVisible();
+  const main = page.locator('[data-admin-main]');
+  await main.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(main.getByPlaceholder('Search conversations')).toBeVisible();
 });
 
 declare global {
