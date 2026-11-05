@@ -39,6 +39,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     @Published var annotationCandidates: [LessonAnnotationCandidate] = []
     @Published var annotationsReady = false
     private var printTasks: [UUID: Task<Void, Never>] = [:]
+    private var planTask: Task<Void, Never>?
     private var libraryRequest = UUID()
     @Published var libraryTopics: [LibraryTopic] = []
     @Published var libraryBusy = false
@@ -87,6 +88,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     func signOut() {
         do {
             try api.signOut(); epoch += 1
+            planTask?.cancel(); planTask = nil
             for task in printTasks.values { task.cancel() }; printTasks = [:]
             route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil; printRequest = nil; annotationCandidates = []
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
@@ -121,6 +123,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         }
     }
     func choose(_ session: TeachingSession) {
+        planTask?.cancel()
         do {
             guard let store else { return }
             selectedSessionID = session.id; lesson = try store.lesson(sessionID: session.id)
@@ -129,14 +132,41 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             librarySubjectID = session.subjectID; route = [.lesson(session.id)]
             showLessonInformation(); allowActiveWorksheet()
             Task { await refreshResourceCodes() }
+            if ["CLASS", "DRAFTING", "EXAM_COURSE", "TRIAL_SESSION"].contains(session.kind) {
+                planTask = Task { await importSessionPlan(session.id) }
+            }
         } catch { report(error) }
+    }
+    private func importSessionPlan(_ sessionID: UUID) async {
+        guard let store else { return }
+        let version = epoch
+        do {
+            let plan: SessionLessonPlan = try await api.request("session-plan", query: [.init(name: "sessionID", value: sessionID.uuidString)])
+            try Task.checkCancellation()
+            guard version == epoch, selectedSessionID == sessionID else { return }
+            let updated = try await store.importPlan(plan) { source in
+                let bytes = try await self.api.download(source, sessionID: sessionID)
+                try Task.checkCancellation()
+                guard version == self.epoch, self.selectedSessionID == sessionID else { throw CancellationError() }
+                if source.isPDF, source.externalURL == nil, PDFDocument(data: bytes) == nil {
+                    throw APIError(status: 0, message: "A planned resource is not a readable PDF.")
+                }
+                return bytes
+            }
+            guard version == epoch, selectedSessionID == sessionID else { return }
+            lesson = updated
+            if activeResourceID == nil { activeResourceID = updated.resources.first?.id }
+        } catch {
+            guard version == epoch, selectedSessionID == sessionID, !Task.isCancelled else { return }
+            report(error)
+        }
     }
     func showLessonInformation() {
         NotificationCenter.default.post(name: Notification.Name("TeachingPausePDF"), object: nil)
         guard let session, let profile else { ClassroomState.shared.clear(); return }
         ClassroomState.shared.showLesson(title: session.classroomTitle, time: "\(Self.time(session.startAt))–\(Self.time(session.endAt))", room: session.room ?? "", tutor: profile.name)
     }
-    func leaveLesson() { annotationCandidates = []; annotationsReady = false; printRequest = nil; route = []; selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
+    func leaveLesson() { planTask?.cancel(); planTask = nil; annotationCandidates = []; annotationsReady = false; printRequest = nil; route = []; selectedSessionID = nil; lesson = nil; activeResourceID = nil; viewer = false; ClassroomState.shared.clear() }
     func allowActiveWorksheet() {
         if viewer, let item = activeResource, item.worksheet.source.isPDF, item.worksheet.source.externalURL == nil {
             ClassroomState.shared.allowWorksheet(item.worksheet.id)

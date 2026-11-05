@@ -1,3 +1,4 @@
+import { readSessionLessonPlan } from '@/features/sessions/server/lesson-plans';
 import { listLessonDocuments, lessonDocumentURL, LessonDocumentError } from '@altitutor/shared/teaching/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import * as Sentry from '@sentry/nextjs';
@@ -57,8 +58,9 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
       if (/^\/lesson-documents\/[^/]+$/.test(path)) return teachingJSON(await lessonDocumentURL(client, getServiceRoleClient(), path.split('/')[2], 'tutor'));
       if (path === '/profile') return teachingJSON(profile);
       if (path === '/sessions') return teachingJSON(await teachingSessions(client, url.searchParams.get('day') ?? ''));
+      if (path === '/session-plan') return teachingJSON(await readSessionLessonPlan(client, url.searchParams.get('sessionID') ?? ''));
       if (path === '/resources') return teachingJSON(await teachingResources(client, url.searchParams));
-      if (/^\/documents\/[^/]+$/.test(path)) return teachingJSON(await teachingDocumentURL(client, path.split('/')[2]));
+      if (/^\/documents\/[^/]+$/.test(path)) return teachingJSON(await teachingDocumentURL(client, path.split('/')[2], url.searchParams.get('sessionID')));
       if (/^\/logs\/[^/]+$/.test(path)) return teachingJSON(await teachingLog(client, path.split('/')[2]));
     }
     if (request.method === 'POST' && /^\/uploads\/[^/]+\/complete$/.test(path)) {
