@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 UPDATE public.students SET user_id=NULL WHERE user_id='10000000-0000-0000-0000-000000000002';
 INSERT INTO public.students(id,first_name,last_name,status,user_id) VALUES
@@ -11,6 +11,7 @@ SELECT public.retire_student('fd341000-0000-4000-8000-000000000004');
 INSERT INTO public.student_online_product_relationships(student_id,product) VALUES ('fd341000-0000-4000-8000-000000000001','UCAT_WEB');
 SET LOCAL ROLE authenticated;
 SELECT ok((public.search_students_admin(p_search => 'UCAT Only', p_statuses => NULL)->'students') @> '[{"id":"fd341000-0000-4000-8000-000000000001"}]'::jsonb,'enquiry search can find online-only Students');
+SELECT ok(NOT ((public.search_students_admin(p_search => 'UCAT Only')->'students') @> '[{"id":"fd341000-0000-4000-8000-000000000001"}]'::jsonb),'default in-person search still excludes online-only Students');
 SELECT ok(NOT has_function_privilege('anon','public.start_student_in_person_onboarding(uuid)','EXECUTE'),'anonymous callers cannot start onboarding');
 SELECT lives_ok($$SELECT public.start_student_in_person_onboarding('fd341000-0000-4000-8000-000000000001')$$,'admin starts in-person onboarding for existing UCAT Student');
 SELECT is((SELECT status FROM public.students WHERE id='fd341000-0000-4000-8000-000000000001'),'TRIAL','registration remains required for activation');
