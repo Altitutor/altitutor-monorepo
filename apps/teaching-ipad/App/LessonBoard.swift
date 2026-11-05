@@ -10,29 +10,38 @@ struct LessonBoard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 210, maximum: 260), spacing: 20)], spacing: 20) {
-                ForEach(model.lesson?.resources ?? []) { item in
-                    Button { model.open(item) } label: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            LessonThumbnail(model: model, item: item).frame(height: 180)
-                            Text(item.worksheet.source.title).font(.headline).lineLimit(2)
-                                .frame(height: 44, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
-                        }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 20))
-                    }.buttonStyle(.plain)
-                        .contextMenu { LessonResourceActions(model: model, item: item) }
-                        .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
+            VStack(alignment: .leading, spacing: 0) {
+                if let topics = model.lesson?.plannedTopics, !topics.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Planned topics").font(.headline)
+                        ForEach(topics) { topic in Text([topic.code, topic.name].compactMap { $0 }.joined(separator: " · ")) }
+                        Text("Preparation only. Confirm what you taught when logging.").font(.caption).foregroundStyle(.secondary)
+                    }.padding(.horizontal, 28).padding(.top, 24)
                 }
-                Menu {
-                    Button("Blank landscape PDF", systemImage: "rectangle") { model.addBlankDocument(landscape: true) }
-                    Button("Blank portrait PDF", systemImage: "rectangle.portrait") { model.addBlankDocument(landscape: false) }
-                    Button("Add resource", systemImage: "books.vertical") { addResource() }
-                } label: {
-                    Label("Add document", systemImage: "plus")
-                        .font(.headline).frame(maxWidth: .infinity).frame(height: 236)
-                        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                        .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])) }
-                }.buttonStyle(.plain).accessibilityIdentifier("teaching-add-document")
-            }.padding(28)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210, maximum: 260), spacing: 20)], spacing: 20) {
+                    ForEach(model.lesson?.resources ?? []) { item in
+                        Button { model.open(item) } label: {
+                            VStack(alignment: .leading, spacing: 12) {
+                                LessonThumbnail(model: model, item: item).frame(height: 180)
+                                Text(item.worksheet.source.title).font(.headline).lineLimit(2)
+                                    .frame(height: 44, alignment: .topLeading).frame(maxWidth: .infinity, alignment: .leading)
+                            }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 20))
+                        }.buttonStyle(.plain)
+                            .contextMenu { LessonResourceActions(model: model, item: item) }
+                            .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
+                    }
+                    Menu {
+                        Button("Blank landscape PDF", systemImage: "rectangle") { model.addBlankDocument(landscape: true) }
+                        Button("Blank portrait PDF", systemImage: "rectangle.portrait") { model.addBlankDocument(landscape: false) }
+                        Button("Add resource", systemImage: "books.vertical") { addResource() }
+                    } label: {
+                        Label("Add document", systemImage: "plus")
+                            .font(.headline).frame(maxWidth: .infinity).frame(height: 236)
+                            .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                            .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])) }
+                    }.buttonStyle(.plain).accessibilityIdentifier("teaching-add-document")
+                }.padding(28)
+            }
         }.background(TeachingColors.background)
             .onDrop(of: [LessonReorder.type, .pdf], delegate: LessonReorder(model: model, target: nil, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
             .onDisappear { dragging = nil }
