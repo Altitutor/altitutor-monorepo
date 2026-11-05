@@ -61,6 +61,7 @@ interface DetailsTabProps {
   onViewParent?: (parentId: string) => void;
   onRemoveParent?: (parentId: string) => void;
   addParentButton?: React.ReactNode;
+  hideAccount?: boolean;
 }
 
 export function DetailsTab({
@@ -81,6 +82,7 @@ export function DetailsTab({
   onViewParent,
   onRemoveParent,
   addParentButton,
+  hideAccount = false,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
   const parentIds = parents.map((p) => p.id);
@@ -224,8 +226,8 @@ export function DetailsTab({
               </div>
             </div>
 
-            {/* Account Section */}
-            <div>
+            {/* Account actions live in the record menu. The sidebar shows the account state. */}
+            {!hideAccount && <div>
               <h3 className="text-lg font-semibold mb-4">Account</h3>
               {(() => {
                 if (student.deleted_at) return <p className="text-sm text-muted-foreground">Student access is disabled. Restore this record before sending a new invitation.</p>;
@@ -318,7 +320,7 @@ export function DetailsTab({
                   />
                 );
               })()}
-            </div>
+            </div>}
 
             {onDelete && (
               <>
@@ -514,6 +516,7 @@ export function DetailsTab({
         )}
       </div>
 
+      {!hideAccount && <>
       <Separator className="my-6" />
 
       {/* Account Section */}
@@ -611,6 +614,7 @@ export function DetailsTab({
           );
         })()}
       </div>
+      </>}
     </div>
   );
 }

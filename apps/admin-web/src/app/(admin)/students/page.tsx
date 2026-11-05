@@ -8,6 +8,7 @@ import { STUDENT_VIEW_DEFAULTS } from '@/features/students/hooks/useStudentViews
 import { NewJourney } from '@/features/onboarding/components/NewJourney';
 import { AdminPageActionButton } from '@/shared/components';
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
+import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 
 export default function StudentsPage() {
   const params = useSearchParams();
@@ -35,6 +36,7 @@ export default function StudentsPage() {
   if (presetOnly) return null;
   return (
     <div className="h-full min-h-0 overflow-hidden">
+      <ListSettingsMenu list="students" />
       <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="Add Student" onClick={() => setAdding(true)} /><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="New enquiry" onClick={() => setEnquiry(true)} /></AdminPageActions>
       <StudentsTable onRefresh={refresh} />
       {enquiry && <NewJourney onClose={() => setEnquiry(false)} />}

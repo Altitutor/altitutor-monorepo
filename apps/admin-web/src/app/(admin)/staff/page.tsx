@@ -1,5 +1,6 @@
 'use client';
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
+import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -39,6 +40,7 @@ export default function StaffPage() {
 
   return (
     <div className="p-6">
+      <ListSettingsMenu list="staff" />
       <AdminPageActions>
 
         <AdminPageActionButton

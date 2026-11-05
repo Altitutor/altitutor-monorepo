@@ -116,5 +116,46 @@ it('exposes the assignee of an unread conversation', async () => {
     kind: 'contact',
     assignedStaffId: 'ada',
     unreadConversationIds: ['contact-thread'],
+    conversationIds: ['contact-thread'],
+  });
+});
+
+it('keeps the assignee when the conversation is already read', async () => {
+  const conversations = [{
+    id: 'contact-thread',
+    status: 'OPEN',
+    last_message_at: '2026-10-03T01:00:00Z',
+    last_message_id: 'contact-message',
+    last_message_direction: 'INBOUND',
+    assigned_staff_id: 'ada',
+    owned_number_id: 'number',
+    owned_numbers: null,
+    conversation_reads: [],
+    group_chat_participants: [],
+    contact_id: 'contact',
+    is_group_chat: false,
+    contacts: { id: 'contact', students: { first_name: 'Ada' } },
+  }];
+  const messages = [{
+    id: 'contact-message',
+    conversation_id: 'contact-thread',
+    body: 'Hello',
+    direction: 'INBOUND',
+    status: 'RECEIVED',
+    is_reaction: false,
+    staff: null,
+    message_attachments: [],
+  }];
+  jest.mocked(getSupabaseClient).mockReturnValue({
+    from: jest.fn((table) => queryResult(table === 'conversations' ? conversations : messages)),
+    rpc: jest.fn(() => queryResult([])),
+  } as unknown as ReturnType<typeof getSupabaseClient>);
+
+  const [conversation] = await fetchConversationList();
+
+  expect(conversation).toMatchObject({
+    assignedStaffId: 'ada',
+    unreadCount: 0,
+    conversationIds: ['contact-thread'],
   });
 });
