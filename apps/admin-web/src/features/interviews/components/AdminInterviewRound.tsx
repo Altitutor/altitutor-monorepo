@@ -13,9 +13,9 @@ import {
 } from "@altitutor/ui";
 import {
   interviewText,
-  type InterviewRound,
   type InterviewRichText,
 } from "@altitutor/shared";
+import { fetchAdminInterviewRound } from '../api/round';
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 
 function Document({ value }: { value: InterviewRichText | undefined }) {
@@ -63,16 +63,7 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
   const { openAnnouncementsModal } = useQuickActions();
   const query = useQuery({
     queryKey: ["admin-interview-round", roundId],
-    queryFn: async (): Promise<InterviewRound> => {
-      const response = await fetch(
-        `/api/interviews/rounds/${encodeURIComponent(roundId)}`,
-        { cache: "no-store" },
-      );
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error ?? "Unable to load interview.");
-      return data;
-    },
+    queryFn: () => fetchAdminInterviewRound(roundId),
     refetchInterval: 2000,
     refetchIntervalInBackground: false,
   });

@@ -252,6 +252,9 @@ export function AttemptEditor({
       ),
     ),
   );
+  const enteredQuestionTime = useRef(
+    round.phase === "questions" || (attempt.questionIntervals?.length ?? 0) > 0,
+  );
   const [scorePrompt, setScorePrompt] = useState(false);
   const [blankFeedback, setBlankFeedback] = useState<string[] | null>(null);
   const notScored = !!draft.notAssessedReason?.trim();
@@ -282,9 +285,25 @@ export function AttemptEditor({
     useInterviewQuestionTiming(round, attempt);
   const selectedQuestionId = question?.id;
   useEffect(() => {
-    if (round.phase === "questions" && !round.pausedAt && selectedQuestionId)
+    if (round.phase !== "questions") return;
+    if (!enteredQuestionTime.current) {
+      enteredQuestionTime.current = true;
+      // Reading-time browsing is not an answering selection. Start at Q1 once;
+      // later pauses and rejoining an existing attempt retain its selection.
+      if (questionIndex !== 0) {
+        setQuestionIndex(0);
+        return;
+      }
+    }
+    if (!round.pausedAt && selectedQuestionId)
       onQuestionSelected(selectedQuestionId);
-  }, [onQuestionSelected, selectedQuestionId, round.phase, round.pausedAt]);
+  }, [
+    onQuestionSelected,
+    questionIndex,
+    selectedQuestionId,
+    round.phase,
+    round.pausedAt,
+  ]);
   const response = draft.feedback.find(
     (feedback) => feedback.placementId === question?.id,
   );
