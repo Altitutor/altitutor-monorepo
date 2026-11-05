@@ -547,3 +547,27 @@ it("does not delete after an in-flight save reports the item missing", async () 
   expect(result.current.editor.deleting).toBe(false);
   expect(result.current.editor.editable).toBe(false);
 });
+
+
+it("keeps terminal recovery guidance when an older save fails transiently", async () => {
+  const refresh = deferred<void>();
+  const saving = deferred<void>();
+  const { result } = setup();
+  await ready(result);
+  read.mockImplementationOnce(async () => {
+    await refresh.promise;
+    throw Object.assign(new Error("Work item not found"), { code: "P0002" });
+  });
+  await tick(10000);
+  patch.mockImplementationOnce(async () => {
+    await saving.promise;
+    throw new Error("Gateway timeout");
+  });
+  edit(result, "description", changed);
+  await tick(600);
+  await act(async () => refresh.resolve());
+  expect(result.current.editor.error).toMatch(/no longer available/i);
+  await act(async () => saving.resolve());
+  expect(result.current.editor.error).toMatch(/no longer available/i);
+  expect(result.current.form.getValues("description")).toEqual(changed);
+});

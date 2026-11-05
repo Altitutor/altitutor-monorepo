@@ -325,7 +325,7 @@ export function useWorkItemEditor<T extends FieldValues>({
           preserve(s);
           return !s.pending.size && !s.request;
         } catch (failure) {
-          if (!s.disposed && !handleUnavailable(s, failure)) {
+          if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure)) {
             setError(
               failure instanceof Error
                 ? failure.message
@@ -422,7 +422,7 @@ export function useWorkItemEditor<T extends FieldValues>({
         if (s.request) void saveRef.current(false);
         else schedule(s);
       } catch (failure) {
-        if (!s.disposed && !handleUnavailable(s, failure))
+        if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure))
           setError(
             failure instanceof Error
               ? failure.message
@@ -608,7 +608,7 @@ export function useWorkItemEditor<T extends FieldValues>({
       invalidate();
       options.current.onClose();
     } catch (failure) {
-      if (!s.disposed && !handleUnavailable(s, failure))
+      if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure))
         setError(
           failure instanceof Error
             ? failure.message
