@@ -1,5 +1,6 @@
 "use client";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
@@ -160,6 +161,7 @@ export function MailPage() {
   const loading = mailbox.isLoading || mailbox.isPlaceholderData;
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <ListSettingsMenu list="mail" />
       <AdminPageActions>
         <AdminActionGroup label="Mail actions">
           <EmailIconButton
