@@ -1,5 +1,6 @@
 'use client';
 
+import { SessionLessonPlanEditor } from './SessionLessonPlanEditor';
 import { useEffect } from 'react';
 import { useSharedLessonDocuments } from '../hooks/useSharedLessonDocuments';
 import {
@@ -192,6 +193,10 @@ export function SessionModal({
                     })}
               />
             </div>
+
+            {['CLASS', 'DRAFTING', 'EXAM_COURSE', 'TRIAL_SESSION'].includes(session.session_type ?? '') && (
+              <SessionLessonPlanEditor key={session.session_id} sessionID={session.session_id!} subjectID={session.subject_id ?? null} editable={!canAddTutorLog} />
+            )}
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
