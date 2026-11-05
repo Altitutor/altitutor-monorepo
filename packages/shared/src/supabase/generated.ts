@@ -47468,6 +47468,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      start_student_in_person_onboarding: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string

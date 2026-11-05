@@ -23,12 +23,11 @@ import {
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { Pencil, Loader2, Trash2, X, Copy, Check, UserPlus } from 'lucide-react';
+import { Pencil, Loader2, Trash2, X, Copy, Check } from 'lucide-react';
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
-import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
-import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
+import { StudentAccountSection } from '../StudentAccountSection';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 export interface DetailsFormData {
@@ -90,8 +89,6 @@ export function DetailsTab({
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
 
   const [formData, setFormData] = useState<DetailsFormData>({
     firstName: student.first_name || '',
@@ -227,97 +224,7 @@ export function DetailsTab({
             {/* Account Section */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Account</h3>
-              {(() => {
-                if (student.deleted_at) return <p className="text-sm text-muted-foreground">Student access is disabled. Restore this record before sending a new invitation.</p>;
-          const isRegistered = student.status === 'ACTIVE';
-                const hasAccount = !!student.user_id;
-
-                // Case 1: Registered but no account -> Send Invite
-                if (isRegistered && !hasAccount) {
-                  return (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        This student has completed registration but does not have an associated user account yet. Send
-                        them an invite to create one.
-                      </p>
-
-                      <Button
-                        variant="default"
-                        onClick={() => {
-                          setInviteDialogType('invite');
-                          setInviteDialogOpen(true);
-                        }}
-                        className="justify-start w-fit"
-                      >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Send Invite
-                      </Button>
-
-                      <SendStudentInviteDialog
-                        isOpen={inviteDialogOpen}
-                        onClose={() => setInviteDialogOpen(false)}
-                        student={student}
-                        linkType={inviteDialogType}
-                      />
-                    </div>
-                  );
-                }
-
-                // Case 2: No account and not registered -> Send Registration Link
-                if (!hasAccount && !isRegistered) {
-                  return (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        This student has not completed registration. Send them a registration link to complete account
-                        setup and registration.
-                      </p>
-
-                      <Button
-                        variant="default"
-                        onClick={() => {
-                          setInviteDialogType('registration');
-                          setInviteDialogOpen(true);
-                        }}
-                        className="justify-start w-fit"
-                      >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Send Registration Link
-                      </Button>
-
-                      <SendStudentInviteDialog
-                        isOpen={inviteDialogOpen}
-                        onClose={() => setInviteDialogOpen(false)}
-                        student={student}
-                        linkType={inviteDialogType}
-                      />
-                    </div>
-                  );
-                }
-
-                // Case 3: Has account -> Show Reset Password
-                return (
-                  <AdminPasswordResetSection
-                    userId={student.user_id}
-                    email={student.email}
-                    userType="student"
-                    displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
-                    recipients={[
-                      {
-                        type: 'student',
-                        id: student.id,
-                        label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
-                        value: student.phone,
-                      },
-                      ...parents.map((parent) => ({
-                        type: 'parent' as const,
-                        id: parent.id,
-                        label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
-                        value: parent.phone,
-                      })),
-                    ]}
-                  />
-                );
-              })()}
+              <StudentAccountSection student={student} parents={parents} />
             </div>
 
             {onDelete && (
@@ -519,97 +426,7 @@ export function DetailsTab({
       {/* Account Section */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Account</h3>
-        {(() => {
-          if (student.deleted_at) return <p className="text-sm text-muted-foreground">Student access is disabled. Restore this record before sending a new invitation.</p>;
-          const isRegistered = student.status === 'ACTIVE';
-          const hasAccount = !!student.user_id;
-
-          // Case 1: Registered but no account -> Send Invite
-          if (isRegistered && !hasAccount) {
-            return (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  This student has completed registration but does not have an associated user account yet. Send them an
-                  invite to create one.
-                </p>
-
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    setInviteDialogType('invite');
-                    setInviteDialogOpen(true);
-                  }}
-                  className="justify-start w-fit"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Send Invite
-                </Button>
-
-                <SendStudentInviteDialog
-                  isOpen={inviteDialogOpen}
-                  onClose={() => setInviteDialogOpen(false)}
-                  student={student}
-                  linkType={inviteDialogType}
-                />
-              </div>
-            );
-          }
-
-          // Case 2: No account and not registered -> Send Registration Link
-          if (!hasAccount && !isRegistered) {
-            return (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  This student has not completed registration. Send them a registration link to complete account setup
-                  and registration.
-                </p>
-
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    setInviteDialogType('registration');
-                    setInviteDialogOpen(true);
-                  }}
-                  className="justify-start w-fit"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Send Registration Link
-                </Button>
-
-                <SendStudentInviteDialog
-                  isOpen={inviteDialogOpen}
-                  onClose={() => setInviteDialogOpen(false)}
-                  student={student}
-                  linkType={inviteDialogType}
-                />
-              </div>
-            );
-          }
-
-          // Case 3: Has account -> Show Reset Password
-          return (
-            <AdminPasswordResetSection
-              userId={student.user_id}
-              email={student.email}
-              userType="student"
-              displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
-              recipients={[
-                {
-                  type: 'student',
-                  id: student.id,
-                  label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
-                  value: student.phone,
-                },
-                ...parents.map((parent) => ({
-                  type: 'parent' as const,
-                  id: parent.id,
-                  label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
-                  value: parent.phone,
-                })),
-              ]}
-            />
-          );
-        })()}
+        <StudentAccountSection student={student} parents={parents} />
       </div>
     </div>
   );

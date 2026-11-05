@@ -152,6 +152,33 @@ async function registrationFixture(sharedEmail = true) {
       },
     );
 
+    it("activates in-person registration while retaining an existing UCAT login and relationship", async () => {
+      const fixture = await registrationFixture(false);
+      const { data: account, error: accountError } = await fixture.admin.auth.admin.createUser({
+        email: fixture.email,
+        password,
+        email_confirm: true,
+      });
+      expect(accountError).toBeNull();
+      expect(account.user).not.toBeNull();
+      const { error: linkError } = await fixture.admin.from("students")
+        .update({ user_id: account.user!.id }).eq("id", fixture.intendedId);
+      expect(linkError).toBeNull();
+      const { error: relationshipError } = await fixture.admin.from("student_online_product_relationships")
+        .insert({ student_id: fixture.intendedId, product: "UCAT_WEB" });
+      expect(relationshipError).toBeNull();
+
+      const response = await fixture.complete();
+      expect({ status: response.status, result: await response.json() }).toMatchObject({
+        status: 200, result: { success: true },
+      });
+      expect(await fixture.readStudent()).toMatchObject({ status: "ACTIVE", user_id: account.user!.id });
+      const { data: relationship, error } = await fixture.admin.from("student_online_product_relationships")
+        .select("product,closed_at").eq("student_id", fixture.intendedId).single();
+      expect(error).toBeNull();
+      expect(relationship).toEqual({ product: "UCAT_WEB", closed_at: null });
+    });
+
     it.each(["account_creation", "verification", "activation"])(
       "preserves the Student after %s failure so the same link can retry",
       async (stage) => {
