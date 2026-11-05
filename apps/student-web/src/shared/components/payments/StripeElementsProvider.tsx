@@ -4,6 +4,8 @@ import React, { useEffect, useState, type ReactNode } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import type { Stripe, StripeElementsOptions } from "@stripe/stripe-js";
 
+const STRIPE_LOAD_TIMEOUT_MS = 15_000;
+
 interface StripeElementsProviderProps {
   children: ReactNode;
   options: StripeElementsOptions;
@@ -26,6 +28,10 @@ export function StripeElementsProvider({
 
   useEffect(() => {
     let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      cancelled = true;
+      setLoadState({ status: "error", stripe: null });
+    }, STRIPE_LOAD_TIMEOUT_MS);
 
     const load = async () => {
       setLoadState({ status: "loading", stripe: null });
@@ -49,6 +55,8 @@ export function StripeElementsProvider({
         if (!cancelled) {
           setLoadState({ status: "error", stripe: null });
         }
+      } finally {
+        window.clearTimeout(timeout);
       }
     };
 
@@ -56,6 +64,7 @@ export function StripeElementsProvider({
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
     };
   }, [attempt]);
 
