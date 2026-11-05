@@ -1,7 +1,19 @@
+jest.mock("@/shared/components/EntityPropertiesLayout", () => ({
+  EntityPropertiesLayout: ({ children, sidebar }: { children: React.ReactNode; sidebar: React.ReactNode }) => <>{children}{sidebar}</>,
+  EntityPropertiesToggle: () => null,
+}));
 import { renderSuspending } from "@/shared/test-utils";
 import type { ComponentProps, ReactNode } from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import SessionDetailPage from "../page";
+
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 import type { SessionDetailsTab } from "@/features/sessions/components/SessionDetailsTab";
 import type { AddStudentToSessionModal } from "@/features/sessions/components/AddStudentToSessionModal";
 import type { AddStaffToSessionModal } from "@/features/sessions/components/AddStaffToSessionModal";

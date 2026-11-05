@@ -60,6 +60,7 @@ interface DetailsTabProps {
   onViewParent?: (parentId: string) => void;
   onRemoveParent?: (parentId: string) => void;
   addParentButton?: React.ReactNode;
+  hideAccount?: boolean;
 }
 
 export function DetailsTab({
@@ -80,6 +81,7 @@ export function DetailsTab({
   onViewParent,
   onRemoveParent,
   addParentButton,
+  hideAccount = false,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
   const parentIds = parents.map((p) => p.id);
@@ -221,11 +223,12 @@ export function DetailsTab({
               </div>
             </div>
 
-            {/* Account Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Account</h3>
-              <StudentAccountSection student={student} parents={parents} />
-            </div>
+            {!hideAccount && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Account</h3>
+                <StudentAccountSection student={student} parents={parents} />
+              </div>
+            )}
 
             {onDelete && (
               <>
@@ -421,13 +424,15 @@ export function DetailsTab({
         )}
       </div>
 
-      <Separator className="my-6" />
-
-      {/* Account Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Account</h3>
-        <StudentAccountSection student={student} parents={parents} />
-      </div>
+      {!hideAccount && (
+        <>
+          <Separator className="my-6" />
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Account</h3>
+            <StudentAccountSection student={student} parents={parents} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -139,10 +139,65 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   expect(forward).toHaveBeenCalledTimes(1);
   fireEvent.keyDown(document.body, { key: "m" });
   expect(
-    screen.getByPlaceholderText("Search Microsoft folders…"),
+    screen.getByRole("menuitem", { name: "Move to folder" }),
   ).toBeInTheDocument();
-  fireEvent.keyDown(screen.getByPlaceholderText("Search Microsoft folders…"), {
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Move to folder" }), {
     key: "r",
   });
   expect(reply).toHaveBeenCalledTimes(1);
+});
+
+it("replies to the open mail thread until a message is hovered", () => {
+  const latestReply = jest.fn();
+  const latestReplyAll = jest.fn();
+  const latestForward = jest.fn();
+  const messageReply = jest.fn();
+  render(
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <div data-email-shortcut-target>
+          <EmailActions
+            ids={["latest"]}
+            threadId="thread"
+            read
+            assignedStaffId={null}
+            mailbox={mailbox}
+            captureWhenIdle
+            onReply={latestReply}
+            onReplyAll={latestReplyAll}
+            onForward={latestForward}
+          />
+        </div>
+        <div data-email-shortcut-target data-testid="message">
+          <EmailActions
+            ids={["message"]}
+            threadId="thread"
+            read
+            assignedStaffId={null}
+            mailbox={mailbox}
+            onReply={messageReply}
+            onForward={jest.fn()}
+          />
+        </div>
+      </QueryClientProvider>
+    </QuickActionsProvider>,
+  );
+
+  fireEvent.keyDown(document.body, { key: "r" });
+  fireEvent.keyDown(document.body, { key: "r", shiftKey: true });
+  fireEvent.keyDown(document.body, { key: "f" });
+  expect(latestReply).toHaveBeenCalledTimes(1);
+  expect(latestReplyAll).toHaveBeenCalledTimes(1);
+  expect(latestForward).toHaveBeenCalledTimes(1);
+  expect(messageReply).not.toHaveBeenCalled();
+
+  const message = screen.getByTestId("message");
+  const query = jest.spyOn(document, "querySelector").mockImplementation((selector) => {
+    if (selector === "[data-email-shortcut-target]:hover") return message;
+    return Document.prototype.querySelector.call(document, selector as string);
+  });
+  fireEvent.keyDown(document.body, { key: "r" });
+  query.mockRestore();
+  expect(messageReply).toHaveBeenCalledTimes(1);
+  expect(latestReply).toHaveBeenCalledTimes(1);
 });

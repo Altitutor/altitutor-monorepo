@@ -1,9 +1,9 @@
 "use client";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw, Settings2 } from "lucide-react";
-import Link from "next/link";
+import { Plus, RefreshCw } from "lucide-react";
 import {
   Button,
   DataTableToolbar,
@@ -161,8 +161,31 @@ export function MailPage() {
   const loading = mailbox.isLoading || mailbox.isPlaceholderData;
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <ListSettingsMenu list="mail" />
       <AdminPageActions>
         <AdminActionGroup label="Mail actions">
+          <EmailIconButton
+            label={
+              sync.error
+                ? sync.error.message
+                : sync.isPending
+                  ? "Syncing with Microsoft…"
+                  : configured === false
+                    ? "Mailbox connection is not configured"
+                    : lastPage
+                      ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
+                      : "Not synced yet"
+            }
+            aria-label="Sync mailbox"
+            variant="ghost"
+            className="border-0 bg-transparent shadow-none"
+            disabled={sync.isPending || !configured}
+            onClick={() => sync.mutate()}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
+            />
+          </EmailIconButton>
           <Button
             variant="default"
             size="sm"
@@ -454,45 +477,6 @@ export function MailPage() {
           />
         </section>
       </div>
-      <footer className="flex shrink-0 items-center justify-between gap-3 border-t px-4 py-2 text-xs text-muted-foreground">
-        <div>
-          <p role="status">
-            {sync.isPending
-              ? "Syncing with Microsoft…"
-              : configured === false
-                ? "Mailbox connection is not configured"
-                : lastPage
-                  ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
-                  : "Not synced yet"}
-          </p>
-          {sync.error && (
-            <p role="alert" className="text-destructive">
-              {sync.error.message}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/settings/email"
-            aria-label="Email settings"
-            title="Email settings"
-            className="rounded-md p-2 hover:bg-muted"
-          >
-            <Settings2 className="h-4 w-4" />
-          </Link>
-          <EmailIconButton
-            label="Refresh mailbox"
-            variant="ghost"
-            className="border-0 bg-transparent shadow-none"
-            disabled={sync.isPending || !configured}
-            onClick={() => sync.mutate()}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
-            />
-          </EmailIconButton>
-        </div>
-      </footer>
     </div>
   );
 }

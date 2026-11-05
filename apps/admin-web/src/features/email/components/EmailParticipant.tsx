@@ -3,6 +3,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { ParentStudentChips } from "@/features/parents/components/StudentContextChips";
 import { EntityChip, SearchableSelect } from "@altitutor/ui";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
@@ -40,12 +41,14 @@ export function EmailParticipant({
   threadId,
   mailboxAddress,
   beforeLink,
+  includeStudents = false,
 }: {
   email: string;
   label: string;
   threadId: string;
   mailboxAddress: string;
   beforeLink?: () => Promise<string | undefined>;
+  includeStudents?: boolean;
 }) {
   email = email.trim().toLowerCase();
   const navigation = useEntityNavigation();
@@ -117,6 +120,7 @@ export function EmailParticipant({
   if (person.data?.person) {
     const target = person.data.person;
     return (
+      <span className="inline-flex flex-wrap items-center gap-1">
       <EntityChip
         entityType={target.type}
         entityId={target.id}
@@ -124,6 +128,8 @@ export function EmailParticipant({
         title={email}
         onClick={() => navigation.openEntity(target.type, target.id)}
       />
+      {includeStudents && target.type === "parent" && <ParentStudentChips parentId={target.id} />}
+      </span>
     );
   }
   return (

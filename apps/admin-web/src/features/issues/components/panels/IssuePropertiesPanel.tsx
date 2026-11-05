@@ -1,8 +1,8 @@
 "use client";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 
-import { useRef, useCallback, memo } from "react";
-import { Separator } from "@altitutor/ui";
+import { useRef, useCallback, memo, useState } from "react";
+import { Separator, SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { UseFormReturn } from "react-hook-form";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { IssueActivityTab } from "@/features/issues/components/IssueActivityTab";
@@ -37,6 +37,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   descriptionRef: descriptionRefProp,
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLInputElement>(null);
+  const [section, setSection] = useState<"overview" | "tasks">("overview");
   const internalDescriptionRef = useRef<RichTextEditorRef>(null);
   const descriptionRef = descriptionRefProp ?? internalDescriptionRef;
 
@@ -78,7 +79,17 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
             />
           </div>
 
-          {/* Description */}
+          <SegmentedTabPanel
+            value={section}
+            onValueChange={(value) => {
+              if (value === "overview" || value === "tasks") setSection(value);
+            }}
+            options={[
+              { value: "overview", label: "Overview" },
+              { value: "tasks", label: "Tasks" },
+            ]}
+          >
+            <SegmentedTabPanelContent when="overview" activeTab={section} className="space-y-6">
           <div className="space-y-2">
             <IssueDescriptionField
               form={form}
@@ -87,16 +98,6 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
               descriptionRef={descriptionRef}
             />
           </div>
-
-          {/* Tasks Section */}
-          {issue?.id && (
-            <div className="space-y-4 min-w-0 max-w-full">
-              <Separator />
-              <LinkedTasksSection issueId={issue.id} />
-            </div>
-          )}
-
-          {/* Activity Section */}
           {issue?.id && (
             <div className="space-y-4 pb-6">
               <Separator />
@@ -112,6 +113,11 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
               />
             </div>
           )}
+            </SegmentedTabPanelContent>
+            <SegmentedTabPanelContent when="tasks" activeTab={section}>
+              {issue?.id ? <LinkedTasksSection issueId={issue.id} /> : null}
+            </SegmentedTabPanelContent>
+          </SegmentedTabPanel>
         </div>
       </div>
     </>

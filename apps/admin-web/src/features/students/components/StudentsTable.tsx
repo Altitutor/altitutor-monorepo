@@ -307,7 +307,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     if (student.deleted_at) return;
     const action = studentAccountAction(student);
     if (action.type === 'details') {
-      router.push(`/students/${student.id}?tab=details`);
+      router.push(student.status === null ? `/students/${student.id}?account=open` : `/students/${student.id}`);
     } else if (action.type === 'reset') {
       handlePasswordResetRequest(student);
     } else {
