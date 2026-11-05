@@ -42,6 +42,7 @@ interface SaveRequest {
 interface EditingState {
   disposed: boolean;
   removing: boolean;
+  unavailable: boolean;
   snapshot: WorkItemSnapshot | null;
   baseline: EditRecord;
   expected: EditRecord;
@@ -57,6 +58,7 @@ interface EditingState {
 const newState = (): EditingState => ({
   disposed: false,
   removing: false,
+  unavailable: false,
   snapshot: null,
   baseline: {},
   expected: {},
@@ -93,6 +95,7 @@ export function useWorkItemEditor<T extends FieldValues>({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
@@ -150,7 +153,7 @@ export function useWorkItemEditor<T extends FieldValues>({
 
   const schedule = useCallback((s: EditingState) => {
     clearTimeout(s.timer);
-    if (s.disposed || s.active || s.removing) return;
+    if (s.disposed || s.active || s.removing || s.unavailable) return;
     const due = [...s.pending]
       .filter((field) => !s.conflicts.has(field) && !s.invalid.has(field))
       .map((field) => s.due.get(field) ?? 0);
@@ -165,7 +168,7 @@ export function useWorkItemEditor<T extends FieldValues>({
 
   const apply = useCallback(
     (s: EditingState, next: WorkItemSnapshot, submitted?: EditRecord) => {
-      if (s.disposed || state.current !== s) return;
+      if (s.disposed || s.unavailable || state.current !== s) return;
       const stale =
         Number(next.record.admin_revision ?? 0) <
         Number(s.snapshot?.record.admin_revision ?? 0);
@@ -217,6 +220,30 @@ export function useWorkItemEditor<T extends FieldValues>({
       void cache.invalidateQueries({ queryKey: ["folders"] });
   }, [cache, kind, id]);
 
+  const handleUnavailable = useCallback(
+    (s: EditingState, failure: unknown): boolean => {
+      if (
+        !failure ||
+        typeof failure !== "object" ||
+        !("code" in failure) ||
+        failure.code !== "P0002" ||
+        s.disposed ||
+        state.current !== s
+      )
+        return false;
+      s.unavailable = true;
+      clearTimeout(s.timer);
+      setUnavailable(true);
+      setError(
+        "This record is no longer available. Copy any unsaved text before closing, then reopen it from the list if it is available.",
+      );
+      preserve(s);
+      invalidate();
+      return true;
+    },
+    [invalidate, preserve],
+  );
+
   const save = useCallback(
     (force = true): Promise<boolean> => {
       const s = state.current;
@@ -224,14 +251,14 @@ export function useWorkItemEditor<T extends FieldValues>({
         return s.active.then(() =>
           force ? saveRef.current(true) : !s.pending.size && !s.request,
         );
-      if (s.disposed || !s.snapshot || s.removing)
+      if (s.disposed || !s.snapshot || s.removing || s.unavailable)
         return Promise.resolve(false);
       clearTimeout(s.timer);
       const run = async () => {
         setSaving(true);
         setError(null);
         try {
-          while (!s.disposed && !s.removing) {
+          while (!s.disposed && !s.removing && !s.unavailable) {
             if (!s.request) {
               const fields = [...s.pending].filter(
                 (field) =>
@@ -250,7 +277,7 @@ export function useWorkItemEditor<T extends FieldValues>({
                   valid.push(field);
                 else s.invalid.add(field);
               }
-              if (s.disposed || s.removing) return false;
+              if (s.disposed || s.removing || s.unavailable) return false;
               const current = options.current.toRecord(form.getValues());
               const changed = valid.filter(
                 (field) =>
@@ -278,7 +305,7 @@ export function useWorkItemEditor<T extends FieldValues>({
               request.expected,
               request.key,
             );
-            if (s.disposed) return false;
+            if (s.disposed || s.unavailable) return false;
             s.request = null;
             if (next.conflicts.length) {
               for (const field of next.conflicts)
@@ -298,7 +325,7 @@ export function useWorkItemEditor<T extends FieldValues>({
           preserve(s);
           return !s.pending.size && !s.request;
         } catch (failure) {
-          if (!s.disposed) {
+          if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure)) {
             setError(
               failure instanceof Error
                 ? failure.message
@@ -319,7 +346,7 @@ export function useWorkItemEditor<T extends FieldValues>({
       });
       return s.active;
     },
-    [apply, form, id, invalidate, kind, preserve, schedule],
+    [apply, form, handleUnavailable, id, invalidate, kind, preserve, schedule],
   );
   saveRef.current = save;
 
@@ -327,6 +354,7 @@ export function useWorkItemEditor<T extends FieldValues>({
     const s = newState();
     state.current = s;
     setSession(null);
+    setUnavailable(false);
     setDirty(false);
     setSaving(false);
     setError(null);
@@ -394,7 +422,7 @@ export function useWorkItemEditor<T extends FieldValues>({
         if (s.request) void saveRef.current(false);
         else schedule(s);
       } catch (failure) {
-        if (!s.disposed)
+        if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure))
           setError(
             failure instanceof Error
               ? failure.message
@@ -405,19 +433,22 @@ export function useWorkItemEditor<T extends FieldValues>({
     void load();
     // Refresh saved properties without replacing locally edited fields.
     const poll = setInterval(() => {
-      if (!s.snapshot || s.active || s.disposed || s.removing) return;
+      if (!s.snapshot || s.active || s.disposed || s.removing || s.unavailable)
+        return;
       void readWorkItem(kind, id)
         .then((next) => {
           if (!s.active) apply(s, next);
         })
-        .catch(() => undefined);
+        .catch((failure: unknown) => {
+          handleUnavailable(s, failure);
+        });
     }, 10000);
     return () => {
       s.disposed = true;
       clearTimeout(s.timer);
       clearInterval(poll);
     };
-  }, [apply, enabled, form, id, kind, preserve, schedule]);
+  }, [apply, enabled, form, handleUnavailable, id, kind, preserve, schedule]);
 
   useEffect(() => {
     const subscription = form.watch((_values, info) => {
@@ -426,6 +457,7 @@ export function useWorkItemEditor<T extends FieldValues>({
         resetting.current ||
         s.disposed ||
         s.removing ||
+        s.unavailable ||
         !s.snapshot ||
         !info.name
       )
@@ -460,7 +492,7 @@ export function useWorkItemEditor<T extends FieldValues>({
 
   const resolveConflict = (field: string, useMine: boolean) => {
     const s = state.current;
-    if (!s.snapshot || !s.conflicts.has(field) || s.active) return;
+    if (!s.snapshot || !s.conflicts.has(field) || s.active || s.unavailable) return;
     const latest = s.snapshot.record;
     s.expected[field] = latest[field];
     s.baseline[field] = options.current.toRecord(
@@ -484,7 +516,7 @@ export function useWorkItemEditor<T extends FieldValues>({
   const requestClose = async (next?: () => void) => {
     const s = state.current;
     continuation.current = next ?? null;
-    if (!state.current.snapshot) {
+    if (!s.snapshot || (s.unavailable && !s.pending.size && !s.request)) {
       finishClose();
       return;
     }
@@ -557,11 +589,15 @@ export function useWorkItemEditor<T extends FieldValues>({
 
   const remove = async () => {
     const s = state.current;
-    if (!s.snapshot || s.removing) return;
+    if (!s.snapshot || s.removing || s.unavailable) return;
     s.removing = true;
     setDeleting(true);
     if (s.active) await s.active;
-    if (s.disposed) return;
+    if (s.disposed || s.unavailable) {
+      s.removing = false;
+      if (!s.disposed) setDeleting(false);
+      return;
+    }
     clearTimeout(s.timer);
     try {
       await deleteWorkItem(kind, id);
@@ -572,7 +608,7 @@ export function useWorkItemEditor<T extends FieldValues>({
       invalidate();
       options.current.onClose();
     } catch (failure) {
-      if (!s.disposed)
+      if (!s.disposed && !s.unavailable && !handleUnavailable(s, failure))
         setError(
           failure instanceof Error
             ? failure.message
@@ -589,7 +625,8 @@ export function useWorkItemEditor<T extends FieldValues>({
 
   return {
     session,
-    editable: !!session && !deleting,
+    editable: !!session && !deleting && !unavailable,
+    unavailable,
     dirty,
     saving,
     deleting,
