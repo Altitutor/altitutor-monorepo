@@ -119,3 +119,18 @@ describe('session-helpers homework help', () => {
     ).toBe('Homework help');
   });
 });
+
+
+describe('session display names', () => {
+  it('formats the actual interview session title with 12-hour times and no seconds', () => {
+    expect(getSessionTitle({
+      session_id: 'interview-session', session_type: 'CLASS', class_id: null, subject_id: null,
+      start_at: null, end_at: null, room: null, class_status: null,
+      subject_discipline: null, subject_level: null, subject_color: null,
+      subject_year_level: null, subject_short_name: null, subject_long_name: null,
+      subject_curriculum: 'MEDICINE', subject_name: 'Medicine Interview',
+      class_level: 'Test interview course', day_of_week: 4,
+      start_time: '16:00:00', end_time: '17:30:00',
+    })).toBe('MEDICINE Medicine Interview Test interview course Thursday 4:00 PM - 5:30 PM');
+  });
+});

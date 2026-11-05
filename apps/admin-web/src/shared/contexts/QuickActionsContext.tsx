@@ -29,6 +29,7 @@ interface QuickActionsContextType {
   isLogAbsenceDialogOpen: boolean;
   isLogStaffAbsenceDialogOpen: boolean;
   isAnnouncementsModalOpen: boolean;
+  announcementStudentIds: string[];
   isCreateTaskDialogOpen: boolean;
   isCreateIssueDialogOpen: boolean;
   isCreateProjectDialogOpen: boolean;
@@ -44,7 +45,7 @@ interface QuickActionsContextType {
   closeLogAbsenceDialog: () => void;
   openLogStaffAbsenceDialog: () => void;
   closeLogStaffAbsenceDialog: () => void;
-  openAnnouncementsModal: () => void;
+  openAnnouncementsModal: (studentIds?: string[]) => void;
   closeAnnouncementsModal: () => void;
   taskReference: EntityReference | null;
   issueReference: EntityReference | null;
@@ -73,6 +74,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isTutorLogModalOpen, setIsTutorLogModalOpen] = useState(false);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
+  const [announcementStudentIds, setAnnouncementStudentIds] = useState<string[]>([]);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [isCreateIssueDialogOpen, setIsCreateIssueDialogOpen] = useState(false);
@@ -108,12 +110,14 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsLogStaffAbsenceDialogOpen(false);
   }, []);
 
-  const openAnnouncementsModal = useCallback(() => {
+  const openAnnouncementsModal = useCallback((studentIds: string[] = []) => {
+    setAnnouncementStudentIds(studentIds);
     setIsAnnouncementsModalOpen(true);
   }, []);
 
   const closeAnnouncementsModal = useCallback(() => {
     setIsAnnouncementsModalOpen(false);
+    setAnnouncementStudentIds([]);
   }, []);
 
   const openCreateTaskDialog = useCallback((reference?: EntityReference) => {
@@ -181,6 +185,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isLogAbsenceDialogOpen,
         isLogStaffAbsenceDialogOpen,
         isAnnouncementsModalOpen,
+        announcementStudentIds,
         isCreateTaskDialogOpen,
         isCreateIssueDialogOpen,
         isCreateProjectDialogOpen,

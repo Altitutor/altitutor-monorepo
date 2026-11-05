@@ -7,6 +7,11 @@ export interface InterviewAudioSegment {
   captureId: string;
   createdAt: number;
   blob: Blob;
+  /** Incomplete checkpoints are recovered after a crash, never uploaded mid-take. */
+  complete?: boolean;
+  startedAt?: string;
+  checkpoint?: boolean;
+  sequence?: number;
 }
 const memory = new Map<string, InterviewAudioSegment>();
 const uploads = new Map<
@@ -45,6 +50,60 @@ export async function saveInterviewAudio(
   memory.set(segment.id, segment);
   await transaction("readwrite", (store) => store.put(segment));
 }
+export async function recoverInterviewAudio(
+  roundId: string,
+  actorId: string,
+): Promise<string[]> {
+  const items = await pending(roundId, actorId);
+  const recovered = new Set<string>();
+  const chunks = new Map<string, InterviewAudioSegment[]>();
+  const completedCaptures = new Set(
+    items
+      .filter((item) => !item.checkpoint && item.complete === true)
+      .map((item) => item.captureId),
+  );
+  for (const item of items) {
+    if (item.checkpoint) {
+      if (completedCaptures.has(item.captureId)) continue;
+      const key = `${item.captureId}:${item.startedAt ?? ""}`;
+      const group = chunks.get(key) ?? [];
+      group.push(item);
+      chunks.set(key, group);
+    } else if (item.complete === false) {
+      await saveInterviewAudio({ ...item, complete: true });
+      recovered.add(item.captureId);
+    }
+  }
+  for (const group of chunks.values()) {
+    group.sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const first = group[0]!;
+    await saveInterviewAudio({
+      ...first,
+      id: first.captureId,
+      checkpoint: false,
+      complete: true,
+      blob: new Blob(
+        group.map((item) => item.blob),
+        { type: first.blob.type },
+      ),
+    });
+    recovered.add(first.captureId);
+  }
+  return [...recovered];
+}
+/** Raw chunks from one encoder are append-only locally; they are never separate server recordings. */
+export function appendInterviewAudio(
+  segment: InterviewAudioSegment,
+  sequence: number,
+): Promise<void> {
+  return saveInterviewAudio({
+    ...segment,
+    id: `${segment.captureId}:${segment.startedAt ?? segment.createdAt}:${sequence}`,
+    checkpoint: true,
+    sequence,
+    complete: false,
+  });
+}
 async function pending(
   roundId: string,
   actorId: string,
@@ -78,7 +137,10 @@ export function flushInterviewAudio(
   const existing = uploads.get(key);
   if (existing) return existing;
   const upload = (async () => {
-    const segments = await pending(roundId, actorId);
+    const allSegments = await pending(roundId, actorId);
+    const segments = allSegments.filter(
+      (item) => item.complete !== false && !item.checkpoint,
+    );
     for (let index = 0; index < segments.length; index++) {
       const segment = segments[index]!;
       try {
@@ -87,20 +149,64 @@ export function flushInterviewAudio(
           captureId: segment.captureId,
           segmentId: segment.id,
         });
-        const response = await fetch(
-          `/api/interviews/rounds/${encodeURIComponent(roundId)}/recordings/audio?${query}`,
-          {
+        const endpoint = `/api/interviews/rounds/${encodeURIComponent(roundId)}/recordings/audio?${query}`;
+        if (segment.id === segment.captureId) {
+          const metadata = {
+            contentType: segment.blob.type.split(";")[0] || "audio/webm",
+            byteLength: segment.blob.size,
+            startedAt: segment.startedAt,
+          };
+          const prepared = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...metadata, action: "prepare" }),
+          });
+          if (!prepared.ok) throw new Error("Unable to prepare audio upload.");
+          const { uploadUrl, complete } = (await prepared.json()) as {
+            uploadUrl?: string;
+            complete?: boolean;
+          };
+          if (!complete) {
+            if (!uploadUrl) throw new Error("Missing signed upload URL.");
+            // An interrupted response or duplicate upload can still have stored the
+            // immutable object. Only the authenticated finalizer acknowledges it.
+            await fetch(uploadUrl, {
+              method: "PUT",
+              headers: { "Content-Type": metadata.contentType },
+              body: segment.blob,
+            }).catch(() => undefined);
+            const completed = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...metadata, action: "complete" }),
+            });
+            if (!completed.ok) throw new Error("Unable to finalize audio.");
+          }
+        } else {
+          const response = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": segment.blob.type || "audio/webm" },
             body: segment.blob,
-          },
-        );
-        if (!response.ok)
-          throw new Error(
-            "Audio upload failed. Pending audio remains on this device for retry.",
-          );
-        memory.delete(segment.id);
-        await transaction("readwrite", (store) => store.delete(segment.id));
+          });
+          if (!response.ok)
+            throw new Error(
+              "Audio upload failed. Pending audio remains on this device for retry.",
+            );
+        }
+        const acknowledged = [
+          segment.id,
+          ...allSegments
+            .filter(
+              (item) => item.checkpoint && item.captureId === segment.captureId,
+            )
+            .map((item) => item.id),
+        ];
+        acknowledged.forEach((id) => memory.delete(id));
+        await transaction("readwrite", (store) => {
+          let last = store.delete(acknowledged[0]!);
+          for (const id of acknowledged.slice(1)) last = store.delete(id);
+          return last;
+        });
       } catch {
         return {
           pending: segments.length - index,

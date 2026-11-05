@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   type ToolbarView,
   Table,
@@ -13,36 +13,50 @@ import {
   SkeletonTable,
   DataTableToolbar,
   TablePagination,
-} from '@altitutor/ui';
-import { ArrowUpDown, Search } from 'lucide-react';
-import { encodeViewConfig, type QuickFilter, type DisplaySettings, type DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, formatSessionType } from '@/shared/utils/index';
-import { ViewClassModal } from '@/features/classes';
-import { useCurrentStaff } from '@/shared/hooks';
-import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
-import { useRouter } from 'next/navigation';
-import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
-import { SessionsCalendarView } from './SessionsCalendarView';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { useSessionsTable } from '../hooks/useSessionsTable';
-import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
-import { useDataTable } from '@/shared/hooks/useDataTable';
-import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
-import { SessionsTableRow } from './SessionsTableRow';
-import { useUninvoicedSessions } from '@/features/reconciliation/api/queries';
-import { useStudentSessionBillingDetails } from '../hooks/useStudentSessionBillingDetails';
+} from "@altitutor/ui";
+import { ArrowUpDown, Search } from "lucide-react";
+import {
+  encodeViewConfig,
+  type QuickFilter,
+  type DisplaySettings,
+  type DataTableFilterDefinition,
+  DataTableSortOption,
+  DataTableColumnDefinition,
+} from "@altitutor/shared";
+import { cn, formatSessionType } from "@/shared/utils/index";
+import { ViewClassModal } from "@/features/classes";
+import { useCurrentStaff } from "@/shared/hooks";
+import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
+import { useRouter } from "next/navigation";
+import { useAdminUrlSync } from "@/shared/hooks/useAdminUrlSync";
+import { useInterviewRoundEvents } from "../hooks/useInterviewRoundEvents";
+import {
+  filterInterviewRoundEvents,
+  type InterviewRoundCalendarEvent,
+} from "../utils/interviewRoundEvents";
+import { InterviewRoundInfoDialog } from "./InterviewRoundCalendarCard";
+import { SessionsCalendarView } from "./SessionsCalendarView";
+import { format, startOfWeek, endOfWeek } from "date-fns";
+import { useSessionsTable } from "../hooks/useSessionsTable";
+import { useSessionsTableModals } from "../hooks/useSessionsTableModals";
+import { useDataTable } from "@/shared/hooks/useDataTable";
+import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from "./absences";
+import { SessionsTableRow } from "./SessionsTableRow";
+import { useUninvoicedSessions } from "@/features/reconciliation/api/queries";
+import { useStudentSessionBillingDetails } from "../hooks/useStudentSessionBillingDetails";
 
 const SESSION_TYPES = [
-  'CLASS',
-  'DRAFTING',
-  'EXAM_COURSE',
-  'SUBSIDY_INTERVIEW',
-  'TRIAL_SESSION',
-  'STAFF_INTERVIEW',
-  'CHECK_IN',
-  'ADMIN_MEETING',
-  'ADMIN_SHIFT',
+  "INTERVIEW",
+  "CLASS",
+  "DRAFTING",
+  "EXAM_COURSE",
+  "SUBSIDY_INTERVIEW",
+  "TRIAL_SESSION",
+  "STAFF_INTERVIEW",
+  "CHECK_IN",
+  "ADMIN_MEETING",
+  "ADMIN_SHIFT",
 ] as const;
 
 type SessionsTableProps = {
@@ -57,7 +71,7 @@ type SessionsTableProps = {
   adminShiftId?: string;
   limit?: number;
   rangeStart?: string; // YYYY-MM-DD
-  rangeEnd?: string;   // YYYY-MM-DD
+  rangeEnd?: string; // YYYY-MM-DD
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
@@ -74,12 +88,12 @@ type SessionsTableProps = {
   hideToolbar?: boolean;
   hidePagination?: boolean;
   fillHeight?: boolean;
-  attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
+  attendanceView?: "student" | "staff"; // Specialized attendance table mode for student/staff tabs
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
     studentName: string;
     sessionsStudentsId: string;
-    action: 'credit' | 'reschedule';
+    action: "credit" | "reschedule";
     rescheduledSessionTitle?: string;
     sessionShortName: string;
   }) => void;
@@ -87,13 +101,26 @@ type SessionsTableProps = {
     staffId: string;
     staffName: string;
     sessionsStaffId: string;
-    action: 'log' | 'swap';
+    action: "log" | "swap";
     swappedStaffName?: string;
     sessionShortName: string;
   }) => void;
-  onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
-  onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
-  onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
+  onRemoveStudentFromSession?: (
+    sessionId: string,
+    studentId: string,
+    studentName: string,
+    sessionShortName?: string,
+  ) => void;
+  onRemoveStaffFromSession?: (
+    sessionId: string,
+    staffId: string,
+    staffName: string,
+    sessionShortName?: string,
+  ) => void;
+  onRemoveParentFromSession?: (
+    sessionId: string,
+    sessionShortName?: string,
+  ) => void;
 };
 
 export function SessionsTable({
@@ -132,41 +159,90 @@ export function SessionsTable({
   onRemoveStaffFromSession,
   onRemoveParentFromSession,
 }: SessionsTableProps) {
-  const [calendarRange,setCalendarRange] = useState(() => {
-    const anchor = initialCalendarDate && /^\d{4}-\d{2}-\d{2}$/.test(initialCalendarDate) ? new Date(initialCalendarDate+'T12:00:00') : new Date();
-    return {from:format(initialCalendarMode === 'day' ? anchor : startOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd'),to:format(initialCalendarMode === 'day' ? anchor : endOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd')};
+  const [calendarRange, setCalendarRange] = useState(() => {
+    const anchor =
+      initialCalendarDate && /^\d{4}-\d{2}-\d{2}$/.test(initialCalendarDate)
+        ? new Date(initialCalendarDate + "T12:00:00")
+        : new Date();
+    return {
+      from: format(
+        initialCalendarMode === "day"
+          ? anchor
+          : startOfWeek(anchor, { weekStartsOn: 1 }),
+        "yyyy-MM-dd",
+      ),
+      to: format(
+        initialCalendarMode === "day"
+          ? anchor
+          : endOfWeek(anchor, { weekStartsOn: 1 }),
+        "yyyy-MM-dd",
+      ),
+    };
   });
-  const changeCalendarRange = useCallback((from:string,to:string) => setCalendarRange((previous) => previous.from === from && previous.to === to ? previous : {from,to}),[]);
-  const isStudentAttendanceView = attendanceView === 'student';
-  const isStaffAttendanceView = attendanceView === 'staff';
+  const changeCalendarRange = useCallback(
+    (from: string, to: string) =>
+      setCalendarRange((previous) =>
+        previous.from === from && previous.to === to ? previous : { from, to },
+      ),
+    [],
+  );
+  const isStudentAttendanceView = attendanceView === "student";
+  const isStaffAttendanceView = attendanceView === "staff";
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: savedViews = [] } = useQuickFilters('sessions');
-  const [studentFilterSearch, setStudentFilterSearch] = useState('');
-  const [staffFilterSearch, setStaffFilterSearch] = useState('');
-  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
+  const { data: savedViews = [] } = useQuickFilters("sessions");
+  const [selectedRound, setSelectedRound] =
+    useState<InterviewRoundCalendarEvent | null>(null);
+  const [studentFilterSearch, setStudentFilterSearch] = useState("");
+  const [staffFilterSearch, setStaffFilterSearch] = useState("");
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState("");
 
   const defaultFilters = useMemo(() => ({}), []);
-  const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'asc' as const }), []);
+  const defaultSort = useMemo(
+    () => ({ field: "start_at", direction: "asc" as const }),
+    [],
+  );
   const defaultVisibleColumns = useMemo(() => {
     if (isStudentAttendanceView) {
-      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'absence_treatment', 'invoice'];
+      return [
+        "date",
+        "time",
+        "class",
+        "planned_attendance",
+        "actual_attendance",
+        "absence_treatment",
+        "invoice",
+      ];
     }
     if (isStaffAttendanceView) {
-      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'tutor_log'];
+      return [
+        "date",
+        "time",
+        "class",
+        "planned_attendance",
+        "actual_attendance",
+        "tutor_log",
+      ];
     }
-    return ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
+    return ["date", "time", "class", "staff", "students", "tutor_log"];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
 
   const quickFilters = useMemo(() => {
     if (!toolbarView) return savedViews;
     const settings: DisplaySettings = {
-      layout: 'calendar', filters: {}, sortBy: defaultSort.field,
-      sortDirection: defaultSort.direction, groupBy: null,
+      layout: "calendar",
+      filters: {},
+      sortBy: defaultSort.field,
+      sortDirection: defaultSort.direction,
+      groupBy: null,
       visibleColumns: defaultVisibleColumns,
     };
-    const builtIn = (id: string, name: string, config: DisplaySettings): QuickFilter => ({
+    const builtIn = (
+      id: string,
+      name: string,
+      config: DisplaySettings,
+    ): QuickFilter => ({
       id: `builtin:sessions:${id}`,
       name,
       target_entity: "sessions",
@@ -231,7 +307,6 @@ export function SessionsTable({
     // Data
     allSessions,
     filteredSessions,
-    paginatedSessions,
     classesById,
     sessionStudents,
     sessionStaff,
@@ -314,7 +389,7 @@ export function SessionsTable({
               choiceOperators: true,
               label: "Session Type",
               options: SESSION_TYPES.map((t) => ({
-                label: formatSessionType(t),
+                label: t === "INTERVIEW" ? "Interview" : formatSessionType(t),
                 value: t,
               })),
             },
@@ -442,7 +517,43 @@ export function SessionsTable({
     [modals],
   );
 
-  const displaySessions = hidePagination ? filteredSessions : paginatedSessions;
+  const { data: allRoundEvents = [], error: roundError } =
+    useInterviewRoundEvents(queryRangeStart, queryRangeEnd);
+  const roundEvents = filterInterviewRoundEvents(
+    allRoundEvents,
+    {
+      ...state.filters,
+      ...(hideStudentFilter && initialStudentFilters?.length
+        ? { student: initialStudentFilters }
+        : {}),
+    },
+    state.search,
+    { studentId, staffId, parentId, classId, adminShiftId },
+  );
+  const combinedEntries = [
+    ...filteredSessions.map((session) => ({
+      kind: "session" as const,
+      session,
+      start: session.start_at ?? "",
+    })),
+    ...roundEvents.map((round) => ({
+      kind: "round" as const,
+      round,
+      start: round.scheduledAt,
+    })),
+  ].sort(
+    (a, b) =>
+      ((Date.parse(a.start) || 0) - (Date.parse(b.start) || 0)) *
+      (state.sortDirection === "desc" ? -1 : 1),
+  );
+  const displayEntries = hidePagination
+    ? combinedEntries
+    : limit
+      ? combinedEntries.slice(0, limit)
+      : combinedEntries.slice(
+          (state.page - 1) * state.pageSize,
+          state.page * state.pageSize,
+        );
   const showTableChrome = !limit && !hideToolbar;
   const showPagination = !limit && !hidePagination;
 
@@ -551,6 +662,15 @@ export function SessionsTable({
         </div>
       )}
 
+      {roundError && (
+        <p role="alert" className="text-sm text-destructive">
+          Unable to load interview rounds. Refresh to try again.
+        </p>
+      )}
+      <InterviewRoundInfoDialog
+        round={selectedRound}
+        onClose={() => setSelectedRound(null)}
+      />
       {renderMode === "calendar" ? (
         <SessionsCalendarView
           onOpenSession={onOpenSession}
@@ -558,6 +678,7 @@ export function SessionsTable({
           initialViewMode={initialCalendarMode}
           onRangeChange={changeCalendarRange}
           visibleProperties={state.visibleColumns}
+          roundEvents={roundEvents}
           source={{
             sessions: filteredSessions,
             classesById,
@@ -642,7 +763,7 @@ export function SessionsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displaySessions.length === 0 ? (
+                {displayEntries.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={state.visibleColumns.length + 1}
@@ -654,51 +775,147 @@ export function SessionsTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  displaySessions.map((session) => (
-                    <SessionsTableRow
-                      key={session.id}
-                      session={session}
-                      visibleColumns={state.visibleColumns}
-                      classId={classId}
-                      hideClassColumn={hideClassColumn}
-                      hideTypeColumn={hideTypeColumn}
-                      hideStudentsColumn={hideStudentsColumn}
-                      hideBilling={hideBilling}
-                      isStudentAttendanceView={isStudentAttendanceView}
-                      isStaffAttendanceView={isStaffAttendanceView}
-                      studentId={studentId}
-                      staffId={staffId}
-                      classesById={classesById}
-                      subjectsById={subjectsById}
-                      sessionStudents={sessionStudents}
-                      sessionStaff={sessionStaff}
-                      tutorLogs={tutorLogs}
-                      allSessions={allSessions}
-                      formatDate={formatDate}
-                      getTimeRange={getTimeRange}
-                      getClassDisplayName={getClassDisplayName}
-                      getClassShortDisplayName={getClassShortDisplayName}
-                      onOpenSession={onOpenSession}
-                      onOpenStudent={onOpenStudent}
-                      onOpenStaff={onOpenStaff}
-                      onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
-                      onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
-                      onRemoveStudentFromSession={onRemoveStudentFromSession}
-                      onRemoveStaffFromSession={onRemoveStaffFromSession}
-                      onRemoveParentFromSession={onRemoveParentFromSession}
-                      modals={modals}
-                      currentStaff={currentStaff}
-                      onSessionClick={handleSessionClick}
-                      onClassClick={handleClassClick}
-                      onCopySessionId={handleCopySessionId}
-                      router={router}
-                      uninvoicedSessionsStudentsIds={
-                        uninvoicedSessionsStudentsIds
-                      }
-                      invoiceDetailsById={invoiceDetailsById}
-                      invoicePreviewsBySessionId={previewsBySessionId}
-                    />
-                  ))
+                  displayEntries.map((entry) =>
+                    entry.kind === "round" ? (
+                      <TableRow
+                        key={`round:${entry.round.id}`}
+                        className="cursor-pointer"
+                        tabIndex={0}
+                        onClick={() => setSelectedRound(entry.round)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedRound(entry.round);
+                          }
+                        }}
+                        aria-label={`Interview round ${entry.round.name}`}
+                      >
+                        {state.visibleColumns.includes("date") && (
+                          <TableCell>
+                            {format(
+                              new Date(entry.round.scheduledAt),
+                              "EEE d MMM yyyy",
+                            )}
+                          </TableCell>
+                        )}
+                        {state.visibleColumns.includes("time") && (
+                          <TableCell>
+                            {format(
+                              new Date(entry.round.scheduledAt),
+                              "h:mm a",
+                            )}{" "}
+                            – {format(new Date(entry.round.endAt), "h:mm a")}
+                          </TableCell>
+                        )}
+                        {state.visibleColumns.includes("class") &&
+                          !classId &&
+                          !hideClassColumn &&
+                          !hideTypeColumn && (
+                            <TableCell>
+                              <span className="text-xs text-violet-600">
+                                Interview
+                              </span>
+                              <p className="font-medium">{entry.round.name}</p>
+                            </TableCell>
+                          )}
+                        {state.visibleColumns.includes("staff") &&
+                          !isStudentAttendanceView &&
+                          !isStaffAttendanceView && (
+                            <TableCell>
+                              {entry.round.tutors
+                                .map((person) => person.name)
+                                .join(", ")}
+                            </TableCell>
+                          )}
+                        {state.visibleColumns.includes("students") &&
+                          !hideStudentsColumn &&
+                          !isStudentAttendanceView &&
+                          !isStaffAttendanceView && (
+                            <TableCell>
+                              {entry.round.students
+                                .map((person) => person.name)
+                                .join(", ")}
+                            </TableCell>
+                          )}
+                        {[
+                          "planned_attendance",
+                          "actual_attendance",
+                          "absence_treatment",
+                          "invoice",
+                          "tutor_log",
+                        ]
+                          .filter(
+                            (key) =>
+                              state.visibleColumns.includes(key) &&
+                              (key !== "absence_treatment" ||
+                                isStudentAttendanceView),
+                          )
+                          .map((key) => (
+                            <TableCell key={key}>—</TableCell>
+                          ))}
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="text-primary underline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedRound(entry.round);
+                            }}
+                          >
+                            View interview
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      ((session) => (
+                        <SessionsTableRow
+                          key={session.id}
+                          session={session}
+                          visibleColumns={state.visibleColumns}
+                          classId={classId}
+                          hideClassColumn={hideClassColumn}
+                          hideTypeColumn={hideTypeColumn}
+                          hideStudentsColumn={hideStudentsColumn}
+                          hideBilling={hideBilling}
+                          isStudentAttendanceView={isStudentAttendanceView}
+                          isStaffAttendanceView={isStaffAttendanceView}
+                          studentId={studentId}
+                          staffId={staffId}
+                          classesById={classesById}
+                          subjectsById={subjectsById}
+                          sessionStudents={sessionStudents}
+                          sessionStaff={sessionStaff}
+                          tutorLogs={tutorLogs}
+                          allSessions={allSessions}
+                          formatDate={formatDate}
+                          getTimeRange={getTimeRange}
+                          getClassDisplayName={getClassDisplayName}
+                          getClassShortDisplayName={getClassShortDisplayName}
+                          onOpenSession={onOpenSession}
+                          onOpenStudent={onOpenStudent}
+                          onOpenStaff={onOpenStaff}
+                          onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
+                          onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
+                          onRemoveStudentFromSession={
+                            onRemoveStudentFromSession
+                          }
+                          onRemoveStaffFromSession={onRemoveStaffFromSession}
+                          onRemoveParentFromSession={onRemoveParentFromSession}
+                          modals={modals}
+                          currentStaff={currentStaff}
+                          onSessionClick={handleSessionClick}
+                          onClassClick={handleClassClick}
+                          onCopySessionId={handleCopySessionId}
+                          router={router}
+                          uninvoicedSessionsStudentsIds={
+                            uninvoicedSessionsStudentsIds
+                          }
+                          invoiceDetailsById={invoiceDetailsById}
+                          invoicePreviewsBySessionId={previewsBySessionId}
+                        />
+                      ))(entry.session)
+                    ),
+                  )
                 )}
               </TableBody>
             </Table>
@@ -708,7 +925,7 @@ export function SessionsTable({
             <TablePagination
               page={state.page}
               pageSize={state.pageSize}
-              total={filteredSessions.length}
+              total={combinedEntries.length}
               isFetching={isFetching}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}

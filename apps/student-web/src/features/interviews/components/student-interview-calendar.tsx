@@ -5,11 +5,11 @@ import Link from "next/link";
 import { format } from "date-fns";
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   InterviewRoundCalendarCard,
   TimedCalendar,
 } from "@altitutor/ui";
@@ -127,19 +127,21 @@ export function StudentInterviewCalendar({
           )
         }
       />
-      <Dialog
+      <Sheet
         open={!!round}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
         }}
       >
-        <DialogContent>
+        <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto rounded-l-2xl border-0 p-6 shadow-2xl sm:max-w-[600px]">
           {round && (
             <>
-              <DialogHeader>
-                <DialogTitle>{round.name}</DialogTitle>
-                <DialogDescription>Interview round</DialogDescription>
-              </DialogHeader>
+              <SheetHeader>
+                <SheetTitle>Interview details</SheetTitle>
+                <SheetDescription className="text-lg font-medium">
+                  {round.name}
+                </SheetDescription>
+              </SheetHeader>
               <p className="text-sm">
                 {round.scheduledAt &&
                   format(
@@ -178,8 +180,8 @@ export function StudentInterviewCalendar({
               )}
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

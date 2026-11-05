@@ -11,6 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Badge,
+  InterviewRecordingPlayer,
+  useToast,
   Button,
   Input,
   Switch,
@@ -36,7 +38,6 @@ import {
   InterviewPanel,
 } from "./interview-ui";
 import {
-  tutorBtnOutline,
   tutorTableBodyRow,
   tutorTableHeaderRow,
   tutorTableShell,
@@ -79,7 +80,12 @@ function ResultStationEditor({
         error={error}
         retry={() => void flush().catch(() => undefined)}
       />
-{recoveryUnavailable && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Local recovery is unavailable. Online saving still works; wait for Saved before leaving or refreshing.</p>}
+      {recoveryUnavailable && (
+        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+          Local recovery is unavailable. Online saving still works; wait for
+          Saved before leaving or refreshing.
+        </p>
+      )}
       {newerRevision && (
         <div
           role="alert"
@@ -251,6 +257,7 @@ function studentSummary(round: InterviewRound, studentId: string) {
 }
 
 export function InterviewResults({ id }: { id: string }) {
+  const { toast } = useToast();
   const query = useInterviewRound(id);
   const catalog = useInterviewCatalog();
   const command = useInterviewCommand();
@@ -292,12 +299,20 @@ export function InterviewResults({ id }: { id: string }) {
   const release = async () => {
     await flush.current?.();
     const latest = await query.refetch();
-    if (!latest.data) return;
+    if (!latest.data)
+      throw new Error("Unable to refresh results. Please retry.");
     await command.mutateAsync({
       type: "release",
       roundId: id,
       commandId: randomUuid(),
       expectedVersion: latest.data.version,
+    });
+    setReleaseConfirm(false);
+    setError(null);
+    toast({
+      title: "Results released",
+      description:
+        "Students can now view their scores, feedback and recordings.",
     });
   };
   return (
@@ -337,20 +352,23 @@ export function InterviewResults({ id }: { id: string }) {
               recordings.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <InterviewError error={error ?? command.error} />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() =>
+              disabled={command.isPending}
+              onClick={(event) => {
+                event.preventDefault();
                 void release().catch((reason: unknown) =>
                   setError(
                     reason instanceof Error
                       ? reason
                       : new Error("Unable to release results."),
                   ),
-                )
-              }
+                );
+              }}
             >
-              Release results
+              {command.isPending ? "Releasing…" : "Release results"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -374,7 +392,11 @@ export function InterviewResults({ id }: { id: string }) {
               return (
                 <tr
                   key={student.id}
+                  onClick={() =>
+                    void transition(() => setStudentId(student.id))
+                  }
                   className={cn(
+                    "cursor-pointer",
                     tutorTableBodyRow,
                     selectedStudent?.id === student.id && "bg-muted",
                   )}
@@ -382,9 +404,10 @@ export function InterviewResults({ id }: { id: string }) {
                   <td className="p-4">
                     <button
                       className="font-medium hover:underline"
-                      onClick={() =>
-                        void transition(() => setStudentId(student.id))
-                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void transition(() => setStudentId(student.id));
+                      }}
                     >
                       {student.name}
                     </button>
@@ -459,49 +482,20 @@ export function InterviewResults({ id }: { id: string }) {
                 round.recordings
                   .filter((recording) => recording.attemptId === attempt.id)
                   .map((recording) => (
-                    <div
+                    <InterviewRecordingPlayer
                       key={recording.id}
-                      className="flex flex-wrap justify-between gap-3 text-sm"
-                    >
-                      <p>
-                        {recording.kind === "video" ? "Video" : "Audio"} ·{" "}
-                        {recording.state}
-                        <span className="ml-2 text-muted-foreground">
-                          Expires{" "}
-                          {new Date(recording.expiresAt).toLocaleDateString()}
-                        </span>
-                      </p>
-                      {recording.state === "ready" && (
-                        <Button
-                          variant="outline"
-                          className={tutorBtnOutline}
-                          onClick={() => {
-                            void (async () => {
-                              const response = await fetch(
-                                `/api/interviews/rounds/${id}/recordings/${recording.id}`,
-                              );
-                              if (!response.ok)
-                                throw new Error("Unable to open recording.");
-                              const body: { url: string } =
-                                await response.json();
-                              window.open(
-                                body.url,
-                                "_blank",
-                                "noopener,noreferrer",
-                              );
-                            })().catch((reason: unknown) =>
-                              setError(
-                                reason instanceof Error
-                                  ? reason
-                                  : new Error("Recording unavailable."),
-                              ),
-                            );
-                          }}
-                        >
-                          Play recording
-                        </Button>
-                      )}
-                    </div>
+                      recording={recording}
+                      intervals={attempt.questionIntervals}
+                      questions={station?.questions}
+                      loadUrl={async () => {
+                        const response = await fetch(
+                          `/api/interviews/rounds/${id}/recordings/${recording.id}`,
+                        );
+                        if (!response.ok)
+                          throw new Error("Unable to load recording.");
+                        return response.json() as Promise<{ url: string }>;
+                      }}
+                    />
                   ))
               )}
               {round.recordingEnabled &&

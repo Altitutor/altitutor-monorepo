@@ -89,6 +89,9 @@ test("ticket provisioning reuses initial state but still checks authorization af
     ensureRecording: async () => undefined,
     failPendingRecording: async () => undefined,
     syncRecording: async () => undefined,
+    capabilities: async () => [],
+    registerCapability: async () => undefined,
+    revokeCapabilities: async () => undefined,
   };
   const request = jest
     .fn()
@@ -104,7 +107,7 @@ test("ticket provisioning reuses initial state but still checks authorization af
       role: "tutor",
     }),
   ).toMatchObject({ token: "scoped", canReceive: true });
-  expect(read).toHaveBeenCalledTimes(2);
+  expect(read).toHaveBeenCalledTimes(3);
   request.mockClear();
   store.ensureSession = async (session) => {
     current = { ...current, pausedAt: "2026-10-25T00:00:00Z" };

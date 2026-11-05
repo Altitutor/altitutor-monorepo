@@ -1,10 +1,14 @@
-function privateResponse(body:unknown,status=200):Response {
-  return Response.json(body,{status,headers:{'Cache-Control':'private, no-store, max-age=0'}});
+function privateResponse(body: unknown, status = 200): Response {
+  return Response.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store, max-age=0" },
+  });
 }
 
 /** JSON-only requests prevent cross-site form submissions; stream limits bound allocation. */
 export async function readInterviewCommandBody(
   request: Request,
+  maximumBytes = 1_048_576,
 ): Promise<{ body: unknown } | { response: Response }> {
   if (
     !request.headers
@@ -25,7 +29,6 @@ export async function readInterviewCommandBody(
       ),
     };
   }
-  const maximumBytes = 1_048_576;
   if (Number(request.headers.get("content-length")) > maximumBytes) {
     return {
       response: privateResponse(

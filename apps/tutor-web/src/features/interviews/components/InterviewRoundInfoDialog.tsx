@@ -4,13 +4,17 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
 } from "@altitutor/ui";
-import { tutorBtnOutline, tutorBtnPrimary } from "@/shared/lib/tutor-visual";
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorSheetContentClass,
+} from "@/shared/lib/tutor-visual";
 import {
   roundRoomLabel,
   roundRoomPath,
@@ -36,21 +40,24 @@ export function InterviewRoundInfoDialog({
   const router = useRouter();
   const titleName = interviewName || round?.interviewName;
   return (
-    <Dialog
+    <Sheet
       open={!!round}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <DialogContent>
+      <SheetContent
+        className={`flex w-full flex-col gap-6 overflow-y-auto p-6 sm:max-w-[600px] ${tutorSheetContentClass}`}
+      >
         {round ? (
           <>
-            <DialogHeader>
-              <DialogTitle>{round.name}</DialogTitle>
-              <DialogDescription>
-                {titleName || "Interview round"}
-              </DialogDescription>
-            </DialogHeader>
+            <SheetHeader>
+              <SheetTitle>Interview details</SheetTitle>
+              <SheetDescription>
+                {round.name}
+                {titleName ? ` · ${titleName}` : ""}
+              </SheetDescription>
+            </SheetHeader>
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
                 {roundStatusLabel(round)} ·{" "}
@@ -62,7 +69,7 @@ export function InterviewRoundInfoDialog({
               <People title="Students" people={round.students} />
               <People title="Tutors" people={round.tutors} />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="mt-auto flex justify-end gap-2 border-t pt-5">
               {onEdit ? (
                 <Button
                   variant="outline"
@@ -81,8 +88,8 @@ export function InterviewRoundInfoDialog({
             </div>
           </>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

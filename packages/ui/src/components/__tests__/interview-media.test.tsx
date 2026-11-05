@@ -187,6 +187,57 @@ function meterFixture() {
   return { context, frame };
 }
 
+it("observes a selected station without requesting or publishing local devices", async () => {
+  jest
+    .mocked(fetch)
+    .mockResolvedValue(
+      response({ ...ticket, canSend: false, canReceive: true }),
+    );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      stationId="station"
+      phase="questions"
+      delivery="online"
+      role="admin"
+      enabled
+    />,
+  );
+  expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  expect(mockStartCamera).not.toHaveBeenCalled();
+  expect(mockJoin).toHaveBeenCalledWith(
+    expect.objectContaining({ startAudioOff: true, startVideoOff: true }),
+  );
+  expect(String(jest.mocked(fetch).mock.calls[0]?.[0])).toContain(
+    "stationId=station",
+  );
+  expect(container.querySelector('[aria-label="Mute"]')).toBeNull();
+  expect(mockAudio).toHaveBeenLastCalledWith(false);
+  expect(mockVideo).toHaveBeenLastCalledWith(false);
+});
+
+it("refreshes a revoked phase capability promptly instead of waiting for the regular poll", async () => {
+  jest.useFakeTimers();
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+    />,
+  );
+  await waitFor(() => expect(mockJoin).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    mockListeners.get("error")?.({ error: { type: "ejected" } });
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    jest.advanceTimersByTime(100);
+  });
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  expect(mockJoin).toHaveBeenCalledTimes(2);
+});
+
 it("keeps interview controls usable if the decorative microphone meter cannot initialize", async () => {
   meterFixture();
   Object.defineProperty(globalThis, "AudioContext", {
@@ -1164,14 +1215,12 @@ it("keeps recovery working when a reporter throws", async () => {
 it("reports sustained media-policy recovery failures without adding a polling loop", async () => {
   jest.useFakeTimers();
   const report = jest.fn();
-  global.fetch = jest
-    .fn()
-    .mockResolvedValue(
-      response({
-        ...ticket,
-        expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      }),
-    );
+  global.fetch = jest.fn().mockResolvedValue(
+    response({
+      ...ticket,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    }),
+  );
   await render(
     <InterviewMedia
       roundId="round"
@@ -1198,20 +1247,51 @@ it("reports sustained media-policy recovery failures without adding a polling lo
   });
 });
 
-it('does not report provider ejection during an intentional station cutoff', async () => {
+it("does not report provider ejection during an intentional station cutoff", async () => {
   const report = jest.fn();
-  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
-  await act(async () => mockListeners.get('error')?.({ error: { type: 'ejected' } }));
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () =>
+    mockListeners.get("error")?.({ error: { type: "ejected" } }),
+  );
   expect(report).not.toHaveBeenCalled();
 });
 
-
-it.each([400, 403, 429])("reports sustained unexpected media-policy HTTP %s failures", async (status) => {
-  jest.useFakeTimers();
-  const report = jest.fn();
-  global.fetch = jest.fn().mockResolvedValue({ok: false, status, json: async () => ({error: "private response"})});
-  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
-  await act(async () => { await jest.advanceTimersByTimeAsync(20_000); });
-  expect(report).toHaveBeenCalledWith({source: "recovery", category: "unknown", phase: "questions", state: "joining"});
-  expect(JSON.stringify(report.mock.calls)).not.toContain("private");
-});
+it.each([400, 403, 429])(
+  "reports sustained unexpected media-policy HTTP %s failures",
+  async (status) => {
+    jest.useFakeTimers();
+    const report = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({ error: "private response" }),
+    });
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="questions"
+        delivery="online"
+        enabled
+        onCallFailure={report}
+      />,
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(report).toHaveBeenCalledWith({
+      source: "recovery",
+      category: "unknown",
+      phase: "questions",
+      state: "joining",
+    });
+    expect(JSON.stringify(report.mock.calls)).not.toContain("private");
+  },
+);

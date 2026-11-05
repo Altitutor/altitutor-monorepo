@@ -5060,6 +5060,44 @@ export type Database = {
         }
         Relationships: []
       }
+      interview_media_capabilities: {
+        Row: {
+          actor_id: string
+          created_at: string
+          expires_at: string
+          policy_key: string
+          provider_user_id: string
+          revoked_at: string | null
+          session_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          expires_at: string
+          policy_key: string
+          provider_user_id: string
+          revoked_at?: string | null
+          session_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          expires_at?: string
+          policy_key?: string
+          provider_user_id?: string
+          revoked_at?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_media_capabilities_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "interview_media_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interview_media_jobs: {
         Row: {
           lease_token: string | null
@@ -5350,6 +5388,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at: string | null
           state: string
           storage_path: string | null
         }
@@ -5364,6 +5403,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at?: string | null
           state: string
           storage_path?: string | null
         }
@@ -5378,6 +5418,7 @@ export type Database = {
           kind?: string
           provider_id?: string
           round_id?: string
+          started_at?: string | null
           state?: string
           storage_path?: string | null
         }
@@ -46623,16 +46664,28 @@ export type Database = {
         Args: { p_round_id: string; p_tutor_id: string }
         Returns: Json
       }
-      interview_audio_segment: {
-        Args: {
-          p_capture_id: string
-          p_round_id: string
-          p_segment_id: string
-          p_storage_path: string
-          p_tutor_id: string
-        }
-        Returns: Json
-      }
+      interview_audio_segment:
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_started_at: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
       interview_can_receive_round: {
         Args: { p_round_id: string }
         Returns: boolean
@@ -46668,6 +46721,10 @@ export type Database = {
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
+        Returns: Json
+      }
+      interview_question_timing: {
+        Args: { at_time: string; d: Json }
         Returns: Json
       }
       interview_recording_json: {

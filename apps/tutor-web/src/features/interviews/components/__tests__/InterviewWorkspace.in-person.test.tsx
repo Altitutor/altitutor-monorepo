@@ -13,6 +13,14 @@ const mockFlush = jest.fn();
 const mockFinalizeAudio = jest.fn();
 const mockLeaveTo = jest.fn();
 
+jest.mock("../../hooks/use-interview-question-timing", () => ({
+  useInterviewQuestionTiming: () => ({
+    onQuestionSelected: jest.fn(),
+    timingError: null,
+    retryTiming: jest.fn(),
+  }),
+}));
+
 jest.mock("../../api/interviews", () => ({
   sendInterviewCommand: jest.fn().mockResolvedValue({}),
 }));
@@ -132,6 +140,9 @@ jest.mock("../interview-ui", () => ({
 }));
 
 jest.mock("@altitutor/ui", () => ({
+  InterviewRoundOverview: jest.requireActual(
+    "@altitutor/ui/components/interview-round-overview",
+  ).InterviewRoundOverview,
   Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Button: ({
     children,
@@ -680,7 +691,9 @@ describe("in-person interview round", () => {
     expect(screen.getAllByText("Not joined").length).toBeGreaterThan(0);
     expect(screen.getByText("Joined")).toBeInTheDocument();
     expect(screen.getByText("In person")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Join links" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Join links" }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Tutor link")).toHaveValue(
       `${window.location.origin}/interviews/rounds/round-1/waiting`,
     );

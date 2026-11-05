@@ -77,6 +77,9 @@ function boundedStore(
       bounded(deadlineAt, () => store.failPendingRecording(id)),
     syncRecording: (session, recording, first) =>
       bounded(deadlineAt, () => store.syncRecording(session, recording, first)),
+    capabilities: (id) => bounded(deadlineAt, () => store.capabilities(id)),
+    registerCapability: (value) => bounded(deadlineAt, () => store.registerCapability(value)),
+    revokeCapabilities: (ids) => bounded(deadlineAt, () => store.revokeCapabilities(ids)),
   };
 }
 function report(

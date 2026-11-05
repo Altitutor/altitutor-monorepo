@@ -5,11 +5,14 @@ import { InterviewAudioRecorder } from "../interview-audio-recorder";
 import {
   saveInterviewAudio,
   flushInterviewAudio,
+  recoverInterviewAudio,
 } from "../../lib/interview-audio-outbox";
 
 jest.mock("../../lib/interview-audio-outbox", () => ({
   saveInterviewAudio: jest.fn(),
   flushInterviewAudio: jest.fn(),
+  recoverInterviewAudio: jest.fn().mockResolvedValue([]),
+  appendInterviewAudio: jest.fn().mockResolvedValue(undefined),
 }));
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -103,6 +106,7 @@ beforeEach(() => {
     .mocked(flushInterviewAudio)
     .mockResolvedValue({ pending: 0, error: null });
   global.fetch = jest.fn().mockResolvedValue(policy("attempt-1", true));
+  jest.mocked(recoverInterviewAudio).mockResolvedValue([]);
 });
 afterEach(async () => {
   await act(async () => root.unmount());
@@ -116,6 +120,56 @@ async function enableMicrophone() {
 }
 
 describe("in-person recorder boundaries", () => {
+  it("keeps the current encoder during authorization failure and a retry", async () => {
+    await render("questions");
+    jest.mocked(fetch).mockRejectedValueOnce(new Error("Network unavailable"));
+    await render("feedback");
+    expect(track.enabled).toBe(false);
+    expect(instances[0]?.state).toBe("recording");
+    expect(container.textContent).toContain("Network unavailable");
+    await enableMicrophone();
+    await enableMicrophone();
+    expect(track.enabled).toBe(false);
+    await act(async () => {
+      Array.from(container.querySelectorAll("button"))
+        .find((button) => button.textContent?.includes("Retry"))
+        ?.click();
+    });
+    expect(instances).toHaveLength(1);
+    expect(track.enabled).toBe(true);
+    expect(saveInterviewAudio).not.toHaveBeenCalled();
+  });
+  it("mutes at the server phase deadline while preserving elapsed silence in the take", async () => {
+    jest.useFakeTimers();
+    const response = policy("attempt-1", true);
+    const body = await response.json();
+    jest
+      .mocked(fetch)
+      .mockResolvedValue({
+        ...response,
+        json: async () => ({
+          ...body,
+          expiresAt: new Date(Date.now() + 1_000).toISOString(),
+        }),
+      } as Response);
+    await render("questions");
+    // Pin the initial deadline: later failed polls cannot extend authorization.
+    jest.mocked(fetch).mockRejectedValue(new Error("Offline"));
+    await act(async () => {
+      jest.advanceTimersByTime(1_001);
+    });
+    expect(track.enabled).toBe(false);
+    expect(instances[0]?.state).toBe("recording");
+    expect(instances).toHaveLength(1);
+  });
+  it("recovers an interrupted take without concatenating incompatible encoder streams", async () => {
+    jest
+      .mocked(recoverInterviewAudio)
+      .mockResolvedValueOnce(["stable-capture"]);
+    await render("questions");
+    expect(instances).toHaveLength(0);
+    expect(container.textContent).toContain("partial recording was recovered");
+  });
   it("finalizes muted audio and waits for persistence and upload before allowing exit", async () => {
     let saved!: () => void;
     jest.mocked(saveInterviewAudio).mockImplementationOnce(
@@ -165,14 +219,13 @@ describe("in-person recorder boundaries", () => {
     });
   });
 
-  it("requires a device action and records only server-enabled answer phases", async () => {
+  it("prepares the microphone automatically and records only server-enabled answer phases", async () => {
     jest.mocked(fetch).mockResolvedValue(policy("attempt-1", false));
     await render("reading");
-    await enableMicrophone();
     expect(getUserMedia).toHaveBeenCalledWith({ audio: true, video: false });
     expect(instances).toHaveLength(0);
     expect(container.textContent).toContain(
-      "Recording will start during question time",
+      "Recording starts during question time",
     );
     jest.mocked(fetch).mockResolvedValue(policy("attempt-1", true));
     await render("questions");
@@ -187,44 +240,42 @@ describe("in-person recorder boundaries", () => {
     expect(instances[0]?.state).toBe("recording");
     expect(stopTrack).not.toHaveBeenCalled();
   });
-  it("flushes the original student audio and closes capture on pause, retaining upload failure warnings", async () => {
+  it("keeps the same take running silently during pause and resumes its microphone", async () => {
     await render("questions");
     await enableMicrophone();
-    jest.mocked(flushInterviewAudio).mockResolvedValue({
-      pending: 1,
-      error: "Upload failed; audio remains on this device.",
-    });
     await render("questions", false);
-    expect(stopTrack).toHaveBeenCalled();
-    expect(saveInterviewAudio).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorId: "actor",
-        roundId: "round",
-        attemptId: "attempt-1",
-        captureId: "stable-capture",
-        blob: expect.any(Blob),
-      }),
-    );
-    expect(container.textContent).toContain("Upload failed");
-    expect(instances[0]?.state).toBe("inactive");
+    expect(stopTrack).not.toHaveBeenCalled();
+    expect(track.enabled).toBe(false);
+    expect(instances).toHaveLength(1);
+    expect(instances[0]?.state).toBe("recording");
+    await enableMicrophone();
+    await render("questions", true);
+    expect(track.enabled).toBe(true);
   });
-  it("uses independent 30-second files so later segments can be played on their own", async () => {
+  it("keeps a single encoder and canonical take beyond thirty seconds and into verbal feedback", async () => {
     jest.useFakeTimers();
     await render("questions");
     await enableMicrophone();
     await act(async () => {
       jest.advanceTimersByTime(30_001);
     });
-    expect(instances.length).toBeGreaterThanOrEqual(2);
+    expect(instances).toHaveLength(1);
+    await render("feedback");
+    expect(instances).toHaveLength(1);
+    expect(instances[0]?.state).toBe("recording");
+    await act(async () => {
+      await finalizeAudio!();
+    });
     expect(saveInterviewAudio).toHaveBeenCalledWith(
       expect.objectContaining({
         attemptId: "attempt-1",
         captureId: "stable-capture",
-        id: expect.any(String),
+        id: "stable-capture",
+        complete: true,
       }),
     );
   });
-  it("preserves each segment's stable capture when the selected student is corrected", async () => {
+  it("retains the capture attribution anchor when a student's identity is corrected", async () => {
     jest.useFakeTimers();
     await render("questions");
     await enableMicrophone();
@@ -232,16 +283,13 @@ describe("in-person recorder boundaries", () => {
     await act(async () => {
       jest.advanceTimersByTime(10_001);
     });
-    expect(saveInterviewAudio).toHaveBeenCalledWith(
-      expect.objectContaining({
-        attemptId: "attempt-1",
-        captureId: "stable-capture",
-      }),
-    );
-    await render("questions", false);
+    expect(instances).toHaveLength(1);
+    await act(async () => {
+      await finalizeAudio!();
+    });
     expect(saveInterviewAudio).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        attemptId: "corrected-attempt",
+        attemptId: "attempt-1",
         captureId: "stable-capture",
       }),
     );

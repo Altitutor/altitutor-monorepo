@@ -26,6 +26,7 @@ import {
 } from "@altitutor/shared";
 import { useAttemptDraft } from "../hooks/use-attempt-draft";
 import { useInterviewCommand } from "../hooks/use-interviews";
+import { useInterviewQuestionTiming } from "../hooks/use-interview-question-timing";
 import {
   ConfirmAction,
   InterviewDocument,
@@ -243,7 +244,14 @@ export function AttemptEditor({
     loadSaved,
     keepDraft,
   } = useAttemptDraft(round.id, attempt);
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(() =>
+    Math.max(
+      0,
+      station.questions.findIndex(
+        (question) => question.id === attempt.selectedQuestionId,
+      ),
+    ),
+  );
   const [scorePrompt, setScorePrompt] = useState(false);
   const [blankFeedback, setBlankFeedback] = useState<string[] | null>(null);
   const notScored = !!draft.notAssessedReason?.trim();
@@ -270,6 +278,13 @@ export function AttemptEditor({
       setUpdatedRubricIds((ids) => Array.from(new Set([...ids, ...changed])));
   }, [station.questions]);
   const question = station.questions[questionIndex];
+  const { onQuestionSelected, timingError, retryTiming } =
+    useInterviewQuestionTiming(round, attempt);
+  const selectedQuestionId = question?.id;
+  useEffect(() => {
+    if (round.phase === "questions" && !round.pausedAt && selectedQuestionId)
+      onQuestionSelected(selectedQuestionId);
+  }, [onQuestionSelected, selectedQuestionId, round.phase, round.pausedAt]);
   const response = draft.feedback.find(
     (feedback) => feedback.placementId === question?.id,
   );
@@ -466,6 +481,17 @@ export function AttemptEditor({
         action={<FeedbackSaveStatus state={state} />}
         className="space-y-5"
       >
+        {timingError && (
+          <div role="alert" className="space-y-2 text-sm text-destructive">
+            <p>
+              Question timing could not be saved. Feedback saving is still
+              available.
+            </p>
+            <Button variant="outline" onClick={retryTiming}>
+              Retry question timing
+            </Button>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 px-1 pt-1">
           {station.questions.map((item, index) => {
             const unanswered = !interviewText(

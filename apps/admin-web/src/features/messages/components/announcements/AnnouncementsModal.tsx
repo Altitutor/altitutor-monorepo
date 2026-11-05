@@ -6,6 +6,7 @@ import { Button, useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
 import { AdminDialogShell } from '@/shared/components';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { StudentSelector } from '../bulk/StudentSelector';
 import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
@@ -18,10 +19,13 @@ type Step = 'select' | 'compose' | 'preview' | 'success';
 
 interface AnnouncementsModalProps {
   isOpen: boolean;
+  initialStudentIds?: string[];
   onClose: () => void;
 }
 
-export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps) {
+const NO_STUDENTS: string[] = [];
+
+export function AnnouncementsModal({ isOpen, onClose, initialStudentIds = NO_STUDENTS }: AnnouncementsModalProps) {
   const { toast } = useToast();
   const { sendAnnouncements, isLoading: isSending } = useAnnouncements();
   const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
@@ -37,6 +41,36 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     failed: number;
     skipped: number;
   } | null>(null);
+
+  const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
+  useEffect(() => {
+    if (!isOpen || !initialStudentIds.length) {
+      setIsLoadingRecipients(false);
+      return;
+    }
+    let canceled = false;
+    setIsLoadingRecipients(true);
+    void getSupabaseClient()
+      .from("students")
+      .select("*")
+      .in("id", initialStudentIds)
+      .then(({ data, error }) => {
+        if (canceled) return;
+        setIsLoadingRecipients(false);
+        if (error || data?.length !== new Set(initialStudentIds).size) {
+          toast({
+            title: "Unable to load all interview students",
+            description: "Close and reopen the message to try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setSelectedStudents(data);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [isOpen, initialStudentIds, toast]);
 
   const isFinalStep = useMemo(() => step === 'preview', [step]);
   const hasNextStep = useMemo(
@@ -83,6 +117,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
 
   const handleClose = () => {
     // Reset state when closing
+    setIsLoadingRecipients(false);
     setStep('select');
     setSelectedStudents([]);
     setMessage('');
@@ -195,7 +230,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
             ) : step === 'select' ? (
               <Button
                 onClick={() => setStep('compose')}
-                disabled={selectedStudents.length === 0}
+                disabled={isLoadingRecipients || selectedStudents.length === 0}
               >
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />
@@ -217,7 +252,8 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     >
       <div className="h-full overflow-y-auto">
         <div className="p-6">
-          {step === 'select' && (
+          {isLoadingRecipients && <p role="status">Loading interview students…</p>}
+          {step === 'select' && !isLoadingRecipients && (
             <StudentSelector
               selectedStudents={selectedStudents}
               onStudentsChange={setSelectedStudents}

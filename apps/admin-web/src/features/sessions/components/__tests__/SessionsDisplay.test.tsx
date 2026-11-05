@@ -1,10 +1,22 @@
 import * as React from "react";
 import { screen, within, waitFor, renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders, createQueryClientWrapper } from "@/shared/test-utils";
+import {
+  renderWithProviders,
+  createQueryClientWrapper,
+} from "@/shared/test-utils";
 import { SessionsTable } from "../SessionsTable";
 import { useSessionsTable } from "../../hooks/useSessionsTable";
+import type { InterviewRoundCalendarEvent } from "../../utils/interviewRoundEvents";
 import type { DataTableState } from "@altitutor/shared";
+
+let mockRoundEvents: InterviewRoundCalendarEvent[] = [];
+jest.mock("../../hooks/useInterviewRoundEvents", () => ({
+  useInterviewRoundEvents: () => ({ data: mockRoundEvents }),
+}));
+beforeEach(() => {
+  mockRoundEvents = [];
+});
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
@@ -32,7 +44,15 @@ jest.mock("../../api/sessions", () => ({
   sessionsApi: {
     getAllSessionsWithDetails: async () => ({
       sessions: [
-        { id: "shift", type: "ADMIN_SHIFT", admin_shift_id: "shift-1", short_name: "Office shift", start_at: new Date(2026, 9, 22, 14).toISOString(), end_at: new Date(2026, 9, 22, 15).toISOString(), is_active: true },
+        {
+          id: "shift",
+          type: "ADMIN_SHIFT",
+          admin_shift_id: "shift-1",
+          short_name: "Office shift",
+          start_at: new Date(2026, 9, 22, 14).toISOString(),
+          end_at: new Date(2026, 9, 22, 15).toISOString(),
+          is_active: true,
+        },
         {
           id: "bio",
           type: "CLASS",
@@ -135,7 +155,11 @@ it("shares subject filtering and property visibility between the calendar and ta
   expect(
     within(screen.getByRole("table")).queryByText("Mathematics"),
   ).not.toBeInTheDocument();
-  await userEvent.click(within(screen.getByLabelText("View layout")).getByRole("button", { name: "Calendar" }));
+  await userEvent.click(
+    within(screen.getByLabelText("View layout")).getByRole("button", {
+      name: "Calendar",
+    }),
+  );
   await userEvent.click(
     screen.getByRole("button", { name: "Subject", pressed: true }),
   );
@@ -185,20 +209,112 @@ it("changes a subject filter operator and filters the same sessions in both layo
   await userEvent.keyboard("{Escape}");
 });
 
-
 it("offers Admin Shift in the Session Type filter", async () => {
   renderWithProviders(<SessionsTable skipUrlSync />);
   await screen.findByText("Biology");
-  await userEvent.click(screen.getByRole("button", { name: "Display options" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
   await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Session Type" }));
-  expect(await screen.findByRole("option", { name: "Admin Shift" })).toBeVisible();
+  expect(
+    await screen.findByRole("option", { name: "Admin Shift" }),
+  ).toBeVisible();
 });
 
 it("includes or excludes admin shifts before pagination", async () => {
-  const state: DataTableState = { search: '', filters: { type: ['ADMIN_SHIFT'] }, sortBy: 'start_at', sortDirection: 'asc', groupBy: null, page: 1, pageSize: 50, visibleColumns: [] };
-  const { result, rerender } = renderHook(({ tableState }) => useSessionsTable({ state: tableState }), { initialProps: { tableState: state }, wrapper: createQueryClientWrapper() });
-  await waitFor(() => expect(result.current.paginatedSessions.map(row => row.id)).toEqual(['shift']));
-  rerender({ tableState: { ...state, filters: { type: ['ADMIN_SHIFT'], type__operator: ['none'] } } });
-  await waitFor(() => expect(result.current.paginatedSessions.map(row => row.id)).toEqual(['bio', 'math']));
+  const state: DataTableState = {
+    search: "",
+    filters: { type: ["ADMIN_SHIFT"] },
+    sortBy: "start_at",
+    sortDirection: "asc",
+    groupBy: null,
+    page: 1,
+    pageSize: 50,
+    visibleColumns: [],
+  };
+  const { result, rerender } = renderHook(
+    ({ tableState }) => useSessionsTable({ state: tableState }),
+    {
+      initialProps: { tableState: state },
+      wrapper: createQueryClientWrapper(),
+    },
+  );
+  await waitFor(() =>
+    expect(result.current.paginatedSessions.map((row) => row.id)).toEqual([
+      "shift",
+    ]),
+  );
+  rerender({
+    tableState: {
+      ...state,
+      filters: { type: ["ADMIN_SHIFT"], type__operator: ["none"] },
+    },
+  });
+  await waitFor(() =>
+    expect(result.current.paginatedSessions.map((row) => row.id)).toEqual([
+      "bio",
+      "math",
+    ]),
+  );
+});
+
+it("shows and filters interviews in both session layouts and opens an admin round link", async () => {
+  window.localStorage.clear();
+  window.history.replaceState({}, "", "/sessions");
+  mockRoundEvents = [
+    {
+      id: "d3080000-0000-4000-8000-000000000020",
+      name: "Evening MMI",
+      scheduledAt: new Date(2026, 9, 22, 16).toISOString(),
+      endAt: new Date(2026, 9, 22, 17).toISOString(),
+      startedAt: null,
+      phase: "waiting",
+      delivery: "online",
+      mode: "exam",
+      recordingEnabled: true,
+      students: [{ id: "alice", name: "Alice" }],
+      tutors: [{ id: "john", name: "John" }],
+    },
+  ];
+  function Sessions() {
+    const [mode, setMode] = React.useState<"calendar" | "table">("calendar");
+    return (
+      <SessionsTable
+        skipUrlSync
+        renderMode={mode}
+        initialCalendarDate="2026-10-22"
+        toolbarView={{
+          value: mode,
+          options: [
+            { value: "table", label: "Table" },
+            { value: "calendar", label: "Calendar" },
+          ],
+          onChange: (next) => setMode(next as "calendar" | "table"),
+        }}
+      />
+    );
+  }
+  renderWithProviders(<Sessions />);
+  expect(
+    await screen.findByRole("button", { name: "Interview round Evening MMI" }),
+  ).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Session Type" }));
+  await userEvent.click(
+    await screen.findByRole("option", { name: "Interview" }),
+  );
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByText("Biology")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Table" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "View interview" }),
+  );
+  expect(screen.getByRole("link", { name: "Open interview" })).toHaveAttribute(
+    "href",
+    "/interviews/rounds/d3080000-0000-4000-8000-000000000020",
+  );
 });
