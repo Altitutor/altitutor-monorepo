@@ -16,6 +16,7 @@ import { FillFormDialog } from "@/features/forms/components/FillFormDialog";
 import { classesApi } from "@/features/classes/api/classes";
 import { invalidateStudentClassSurfaces, invalidateStudentSessionSurfaces } from "@/shared/lib/query-invalidation";
 import { studentsApi } from "@/features/students/api/students";
+import { StartInPersonButton } from '@/features/students/components/StartInPersonButton';
 import { JourneyCommunication } from "./JourneyCommunication";
 import {
   allSubjectsPlaced,
@@ -266,6 +267,9 @@ export function JourneyDetail({
                 <Badge variant="outline">Historical</Badge>
               )}
             </div>
+            {!journey.closed_at && student?.status === null && !student.deleted_at && (
+              <StartInPersonButton studentId={student.id} />
+            )}
             <section className="space-y-3">
               <h3 className="font-semibold">
                 Next actions <Badge variant="outline">{actions.length}</Badge>

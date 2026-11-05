@@ -53,7 +53,7 @@ async function registrationFixture(sharedEmail = true) {
     });
   expect(paymentError).toBeNull();
 
-  function complete() {
+  function complete(includePassword = true) {
     return POST(
       new NextRequest("http://localhost/api/register/complete", {
         method: "POST",
@@ -74,8 +74,8 @@ async function registrationFixture(sharedEmail = true) {
             },
           ],
           subject_ids: [],
-          password,
-          confirmPassword: password,
+          password: includePassword ? password : undefined,
+          confirmPassword: includePassword ? password : undefined,
         }),
       }),
     );
@@ -152,11 +152,11 @@ async function registrationFixture(sharedEmail = true) {
       },
     );
 
-    it("activates in-person registration while retaining an existing UCAT login and relationship", async () => {
+    it.each([false, true])("retains an existing UCAT login and relationship (passwordless: %s)", async (passwordless) => {
       const fixture = await registrationFixture(false);
       const { data: account, error: accountError } = await fixture.admin.auth.admin.createUser({
         email: fixture.email,
-        password,
+        ...(passwordless ? {} : { password }),
         email_confirm: true,
       });
       expect(accountError).toBeNull();
@@ -168,7 +168,7 @@ async function registrationFixture(sharedEmail = true) {
         .insert({ student_id: fixture.intendedId, product: "UCAT_WEB" });
       expect(relationshipError).toBeNull();
 
-      const response = await fixture.complete();
+      const response = await fixture.complete(false);
       expect({ status: response.status, result: await response.json() }).toMatchObject({
         status: 200, result: { success: true },
       });

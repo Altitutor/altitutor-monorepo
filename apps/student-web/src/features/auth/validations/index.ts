@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(1, 'Please enter your password'),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -121,5 +121,9 @@ export const registrationSchema = z
       });
     }
   });
+
+// The durable registration link authorizes this journey; existing login credentials
+// and sign-in methods are retained, including accounts without a password.
+export const existingLoginRegistrationSchema = registrationSchema.safeExtend({ password: z.string() });
 
 export type RegistrationFormValues = z.infer<typeof registrationSchema>;

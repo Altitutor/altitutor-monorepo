@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
+  const registrationSuccess = searchParams.get('registered') === 'success';
   const resetSuccess = searchParams.get('reset') === 'success';
   const error = searchParams.get('error');
   const message = searchParams.get('message');
@@ -16,6 +17,11 @@ export default function LoginPage() {
   return (
     <LoginPageLayout>
       <div className="space-y-4">
+        {registrationSuccess && (
+          <Alert>
+            <AlertDescription>In-person registration is complete. Sign in with your existing account. If you signed up with Google or Apple, use Forgot password to set a password for the student portal.</AlertDescription>
+          </Alert>
+        )}
         {resetSuccess && (
           <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />

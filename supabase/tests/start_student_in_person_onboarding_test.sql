@@ -1,14 +1,14 @@
 BEGIN;
 SELECT plan(14);
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 UPDATE public.students SET user_id=NULL WHERE user_id='10000000-0000-0000-0000-000000000002';
 INSERT INTO public.students(id,first_name,last_name,status,user_id) VALUES
  ('fd341000-0000-4000-8000-000000000001','UCAT','Only',NULL,'10000000-0000-0000-0000-000000000002'),
  ('fd341000-0000-4000-8000-000000000002','Active','Student','ACTIVE',NULL),
  ('fd341000-0000-4000-8000-000000000003','Ended','Student','DISCONTINUED',NULL),
  ('fd341000-0000-4000-8000-000000000004','Deleted','Student',NULL,NULL);
-UPDATE public.students SET deleted_at=now() WHERE id='fd341000-0000-4000-8000-000000000004';
+SELECT public.retire_student('fd341000-0000-4000-8000-000000000004');
 INSERT INTO public.student_online_product_relationships(student_id,product) VALUES ('fd341000-0000-4000-8000-000000000001','UCAT_WEB');
-SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 SET LOCAL ROLE authenticated;
 SELECT ok((public.search_students_admin(p_search => 'UCAT Only', p_statuses => NULL)->'students') @> '[{"id":"fd341000-0000-4000-8000-000000000001"}]'::jsonb,'enquiry search can find online-only Students');
 SELECT ok(NOT has_function_privilege('anon','public.start_student_in_person_onboarding(uuid)','EXECUTE'),'anonymous callers cannot start onboarding');
