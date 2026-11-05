@@ -301,6 +301,7 @@ export function CreateTaskDialog({
           >
             <EntityResizablePanels
               id="create-task-panels"
+              inDialog
               primaryMinSize={320}
               secondaryMinSize={240}
               main={

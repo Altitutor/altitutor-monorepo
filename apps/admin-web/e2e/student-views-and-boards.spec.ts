@@ -331,9 +331,17 @@ test('board dragging stays responsive and persists a cross-column move', async (
   await page.mouse.move(from.x + 50, from.y + 15);
   await page.mouse.down();
   await page.mouse.move(target.x + 50, target.y + 20, { steps: 25 });
+  const saved = page.waitForResponse((response) => {
+    const request = response.request();
+    if (!response.url().endsWith('/rpc/admin_work_item_change') || request.method() !== 'POST') return false;
+    const body = request.postDataJSON();
+    return body.p_kind === 'task' && body.p_changes?.status === 'todo';
+  });
   await page.mouse.up();
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
-  await page.reload();
+  expect((await saved).ok()).toBe(true);
+  // Isolate the moved card so column virtualization does not hide it after navigation.
+  await page.goto(`/tasks?search=${encodeURIComponent(title)}`);
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
 });
 

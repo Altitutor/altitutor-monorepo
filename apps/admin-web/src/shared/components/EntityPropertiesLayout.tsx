@@ -51,6 +51,7 @@ export function EntityPropertiesLayout({
   sidebar,
   children,
   resizable = false,
+  narrowAt = 1000,
   primaryMinSize = 480,
   secondaryMinSize = 280,
 }: {
@@ -58,6 +59,7 @@ export function EntityPropertiesLayout({
   sidebar: ReactNode;
   children: ReactNode;
   resizable?: boolean;
+  narrowAt?: number;
   primaryMinSize?: number;
   secondaryMinSize?: number;
 }) {
@@ -76,7 +78,7 @@ export function EntityPropertiesLayout({
     if (!root) return;
     let previous: boolean | undefined;
     const update = (width: number) => {
-      const next = width < 1000;
+      const next = width < narrowAt;
       setNarrow(next);
       if (next !== previous) setOpen(false);
       previous = next;
@@ -87,7 +89,7 @@ export function EntityPropertiesLayout({
     );
     observer.observe(root);
     return () => observer.disconnect();
-  }, [root]);
+  }, [root, narrowAt]);
   const properties = (
     <aside
       id={id}

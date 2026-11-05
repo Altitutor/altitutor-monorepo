@@ -628,9 +628,8 @@ test("reference previews cover people, scheduling and work-item projections", as
   ])
     if (result.error) throw new Error(result.error.message);
   const classes = await db.from("classes").select("id").limit(1).single();
-  const sessions = await db.from("sessions").select("id").limit(1).single();
-  if (classes.error || sessions.error)
-    throw new Error("Scheduling fixtures unavailable");
+  if (classes.error) throw new Error("Scheduling fixtures unavailable");
+  const loggedSessionId = "50000000-0000-0000-0000-000000000001";
   await signIn(page);
   const cases: Array<[string, string, string[]]> = [
     ["parent", "60000000-0000-0000-0000-000000000001", ["Students"]],
@@ -640,11 +639,7 @@ test("reference previews cover people, scheduling and work-item projections", as
       classes.data.id,
       ["Subject", "Scheduled offerings", "Students", "Staff"],
     ],
-    [
-      "session",
-      sessions.data.id,
-      ["Subject", "Day", "Time", "Students", "Staff"],
-    ],
+    ["session", loggedSessionId, ["Subject", "Day", "Time"]],
     ["task", taskId, ["Priority", "Assignee", "Due date"]],
     ["issue", issueId, ["Priority", "Due date"]],
     [
@@ -663,6 +658,25 @@ test("reference previews cover people, scheduling and work-item projections", as
     expect(
       details.fields.map((field: { label: string }) => field.label),
     ).toEqual(labels);
+    if (type === "session") {
+      expect(details.logged).toBe(true);
+      expect(details.people).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: "Student",
+            id: "10000000-0000-0000-0000-000000000003",
+            plannedStatus: "absent",
+            actualAttended: false,
+          }),
+          expect.objectContaining({
+            role: "Staff",
+            id: "00000000-0000-0000-0000-000000000010",
+            plannedStatus: "attending",
+            actualAttended: true,
+          }),
+        ]),
+      );
+    }
     if (type === "task") expect(details.fields[0].value).toBe("Urgent");
     if (type === "project")
       expect(
@@ -833,7 +847,12 @@ test("Issues retain editable priority through create, autosave and hover preview
   });
   expect(invalid.error).not.toBeNull();
 
-  await page
+  const sidebar = panel.getByRole("dialog", { name: "Right sidebar", exact: true });
+  if (await sidebar.isVisible()) {
+    await sidebar.getByRole("button", { name: "Close sidebar", exact: true }).click();
+    await expect(sidebar).toBeHidden();
+  }
+  await panel
     .getByRole("button", { name: "Record actions", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
@@ -844,10 +863,17 @@ test("Issues retain editable priority through create, autosave and hover preview
   await dialog
     .getByPlaceholder("Issue title")
     .fill(`Created with priority ${randomUUID()}`);
+  const createToggle = dialog.getByRole("button", { name: "Right sidebar", exact: true });
+  if (await createToggle.isVisible()) await createToggle.click();
   await dialog
     .getByRole("button", { name: "No priority", exact: true })
     .click();
   await page.getByRole("option", { name: "Medium", exact: true }).click();
+  const createSidebar = dialog.getByRole("dialog", { name: "Right sidebar", exact: true });
+  if (await createSidebar.isVisible()) {
+    await createSidebar.getByRole("button", { name: "Close sidebar", exact: true }).click();
+    await expect(createSidebar).toBeHidden();
+  }
   const saved = page.waitForResponse(
     (response) =>
       response.url().includes("/rpc/admin_work_item_change") &&
