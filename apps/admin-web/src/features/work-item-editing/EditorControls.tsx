@@ -36,6 +36,7 @@ const labels: Record<string, string> = {
   is_tutor_documentation: "Tutor documentation",
 };
 function editorStatusLabel(editor: Controller): string {
+  if (editor.unavailable) return "Record unavailable";
   if (!editor.session) return editor.error ? "Couldn’t load" : "Loading…";
   if (editor.conflicts.length) return "Changes need review";
   if (editor.error) return "Couldn’t save";
@@ -131,7 +132,7 @@ export function EditorCloseConfirmDialog({ editor }: { editor: Controller }) {
           >
             Close without saving
           </Button>
-          {!editor.conflicts.length && (
+          {!editor.unavailable && !editor.conflicts.length && (
             <Button
               disabled={editor.saving}
               onClick={() => {
@@ -179,7 +180,7 @@ export function EditorNotices({ editor }: { editor: Controller }) {
       {editor.error && (
         <div role="alert" className="py-2 flex flex-wrap items-center gap-2">
           <p className="text-destructive">{editor.error}</p>
-          {editor.session && !editor.conflicts.length && (
+          {editor.session && !editor.unavailable && !editor.conflicts.length && (
             <Button
               type="button"
               variant="outline"
@@ -219,7 +220,7 @@ export function EditorNotices({ editor }: { editor: Controller }) {
             <Button
               type="button"
               variant="outline"
-              disabled={editor.saving}
+              disabled={editor.saving || editor.unavailable}
               onClick={() => editor.resolveConflict(field, false)}
             >
               Use latest
@@ -227,7 +228,7 @@ export function EditorNotices({ editor }: { editor: Controller }) {
             <Button
               type="button"
               variant="outline"
-              disabled={editor.saving}
+              disabled={editor.saving || editor.unavailable}
               onClick={() => {
                 if (
                   window.confirm(
