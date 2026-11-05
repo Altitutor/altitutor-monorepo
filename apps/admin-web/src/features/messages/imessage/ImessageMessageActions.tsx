@@ -7,16 +7,8 @@ import {
   TooltipTrigger,
   TooltipContent,
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { MoreHorizontal, CheckSquare, AlertTriangle } from "lucide-react";
+import { CheckSquare, AlertTriangle, Pencil, Undo2 } from "lucide-react";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useImessageControl } from "./hooks";
 import { ImessageCommandDialog } from "./ImessageCommandDialog";
@@ -65,7 +57,7 @@ export function ImessageMessageActions({
   sentAt,
   createdAt,
   isOwnMessage,
-  showCreateIssue = false,
+  showCreateIssue: _showCreateIssue = false,
   matchedIssues = [],
   issueActionLoading = false,
   onAddToIssue,
@@ -83,7 +75,6 @@ export function ImessageMessageActions({
   const [now, setNow] = useState(Date.now());
 
   const hasImessageActions = Boolean(imessageGuid);
-  const hasIssueActions = showCreateIssue && matchedIssues.length > 0;
   const sentAtMs = messageSentAtMs(sentAt, createdAt);
   const canEdit =
     isOwnMessage && hasImessageActions && canEditImessage(sentAtMs, now);
@@ -141,9 +132,7 @@ export function ImessageMessageActions({
           className={`absolute -top-4 z-20 inline-flex items-center rounded-full border bg-background p-0.5 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 ${isOwnMessage ? "right-0" : "left-0"}`}
         >
           {hasImessageActions &&
-            TAPBACKS.filter(([reaction]) =>
-              ["love", "like", "laugh"].includes(reaction),
-            ).map(([reaction, emoji]) => (
+            TAPBACKS.map(([reaction, emoji]) => (
               <Tooltip key={reaction}>
                 <TooltipTrigger asChild>
                   <Button
@@ -195,79 +184,53 @@ export function ImessageMessageActions({
             </TooltipTrigger>
             <TooltipContent>Create issue</TooltipContent>
           </Tooltip>
-          {(hasImessageActions || hasIssueActions) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+          {matchedIssues.map((issue) => (
+            <Button
+              key={issue.id}
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={issueActionLoading}
+              onClick={() => onAddToIssue?.(issue)}
+            >
+              Add to {issue.name ?? "open issue"}
+            </Button>
+          ))}
+          {canEdit && (
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  aria-label="Message actions"
+                  aria-label={`Edit sent message (${formatImessageWindowRemaining(editRemaining)})`}
+                  onClick={() => setEditOpen(true)}
                 >
-                  <MoreHorizontal className="h-4 w-4" />
+                  <Pencil className="h-4 w-4" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align={isOwnMessage ? "end" : "start"}>
-                {hasIssueActions && (
-                  <>
-                    <DropdownMenuItem
-                      disabled={issueActionLoading}
-                      onClick={createIssue}
-                    >
-                      Create issue
-                    </DropdownMenuItem>
-                    {matchedIssues.map((issue) => (
-                      <DropdownMenuItem
-                        key={issue.id}
-                        disabled={issueActionLoading}
-                        onClick={() => onAddToIssue?.(issue)}
-                      >
-                        Add to open issue: {issue.name ?? ""}
-                      </DropdownMenuItem>
-                    ))}
-                    {hasImessageActions && <DropdownMenuSeparator />}
-                  </>
-                )}
-                {hasImessageActions && (
-                  <>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>React</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {TAPBACKS.map(([reaction, emoji]) => (
-                          <DropdownMenuItem
-                            key={reaction}
-                            onClick={() =>
-                              control.mutate({
-                                commandType: "react",
-                                messageId,
-                                conversationId: conversationId ?? undefined,
-                                payload: { imessageGuid, reaction },
-                              })
-                            }
-                          >
-                            <span className="text-base leading-none">
-                              {emoji}
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    {canEdit && (
-                      <DropdownMenuItem onClick={() => setEditOpen(true)}>
-                        Edit sent message (
-                        {formatImessageWindowRemaining(editRemaining)})
-                      </DropdownMenuItem>
-                    )}
-                    {canUnsend && (
-                      <DropdownMenuItem onClick={() => setUnsendOpen(true)}>
-                        Unsend for everyone… (
-                        {formatImessageWindowRemaining(unsendRemaining)})
-                      </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </TooltipTrigger>
+              <TooltipContent>
+                Edit sent message ({formatImessageWindowRemaining(editRemaining)})
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {canUnsend && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label={`Unsend for everyone (${formatImessageWindowRemaining(unsendRemaining)})`}
+                  onClick={() => setUnsendOpen(true)}
+                >
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Unsend for everyone ({formatImessageWindowRemaining(unsendRemaining)})
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </TooltipProvider>

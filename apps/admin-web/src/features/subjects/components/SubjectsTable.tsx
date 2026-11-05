@@ -33,6 +33,7 @@ import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
 
@@ -43,6 +44,17 @@ interface SubjectsTableProps {
 
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
   useAdminUrlSync();
+  const [layout, setLayout] = useAdminPageViewParam(['cards', 'table'] as const, 'cards', 'layout');
+  const layoutView = {
+    value: layout,
+    options: [
+      { value: 'cards', label: 'Cards' },
+      { value: 'table', label: 'Table' },
+    ],
+    onChange: (value: string) => {
+      if (value === 'cards' || value === 'table') setLayout(value);
+    },
+  };
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('subjects');
 
@@ -247,6 +259,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters} viewTarget="subjects"
+          view={layoutView}
           searchPlaceholder="Search subjects..."
           isLoading={true}
         />
@@ -329,11 +342,64 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters} viewTarget="subjects"
+          view={layoutView}
           searchPlaceholder="Search subjects..."
           isLoading={isFetching}
         />
       </div>
 
+      {layout === 'cards' ? (
+        subjects.length === 0 ? (
+          <p className="rounded-md border p-8 text-center text-sm text-muted-foreground">
+            {state.search || Object.keys(state.filters).length > 0
+              ? 'No subjects match your filters'
+              : 'No subjects found'}
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {subjects.map((subject) => {
+              const subjectColorHex = getSubjectColorHex(subject);
+              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
+              return (
+                <button
+                  key={subject.id}
+                  type="button"
+                  className="rounded-lg border bg-card p-4 text-left hover:bg-muted/40"
+                  onClick={(event) => handleSubjectClick(subject.id, event)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{subject.name || 'Untitled subject'}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {[subject.curriculum, subject.year_level != null ? `Year ${subject.year_level}` : null]
+                          .filter(Boolean)
+                          .join(' · ') || 'No curriculum'}
+                      </p>
+                    </div>
+                    {subjectColorHex ? (
+                      <span
+                        className="h-6 w-6 shrink-0 rounded border border-gray-300"
+                        style={{ backgroundColor: subjectColorHex }}
+                        title={subjectColorHex}
+                      />
+                    ) : null}
+                  </div>
+                  {shortName ? (
+                    <Badge
+                      variant="secondary"
+                      className={`mt-3 text-xs ${subject.color ? textColorClass : ''}`}
+                      style={style.backgroundColor ? style : undefined}
+                    >
+                      {shortName}
+                    </Badge>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        )
+      ) : (
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -472,6 +538,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* Pagination */}
       <TablePagination

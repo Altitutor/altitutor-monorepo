@@ -30,8 +30,10 @@ import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/compon
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useOpenPersonMessages } from "@/features/messages/hooks/useOpenPersonMessages";
+import { EmailActionGroup } from "@/features/email/components/EmailActions";
 
 interface BaseActionsMenuProps {
+  detailsInSidebar?: boolean;
   onOpenInPage?: () => void;
   entityId?: string;
   copyTagType?: string;
@@ -273,7 +275,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     addTask: reference
       ? () => quickActions.openCreateTaskDialog(reference)
       : undefined,
-  });
+  }).filter((action) => !(props.detailsInSidebar && action.id === "edit"));
   useRegisterRecordActions(
     props.type,
     props.entityId,
@@ -410,13 +412,20 @@ export function ActionsMenu(props: ActionsMenuProps) {
     ),
   ];
   return (
-    <>
+    <div className="flex items-center gap-2">
+      <EmailActionGroup label="Common record actions">
+          {actions.filter((action) => action.primaryOnly).map((action) => (
+            <Button key={action.id} type="button" variant="outline" size="sm" className="h-8" aria-label={action.title} onClick={action.action}>
+              <action.icon className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">{action.title}</span>
+            </Button>
+          ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
             size="icon"
-            className="shrink-0"
+            className="h-8 w-8 shrink-0"
             aria-label="Record actions"
           >
             <MoreVertical className="h-4 w-4" />
@@ -449,6 +458,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {actions.filter((action) => action.destructive).map(renderAction)}
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+      </EmailActionGroup>
+    </div>
   );
 }

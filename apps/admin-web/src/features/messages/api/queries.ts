@@ -764,7 +764,8 @@ export async function fetchConversationList(
         ),
         unreadCount: unreadConversations.has(conv.id) ? 1 : 0,
         unreadConversationIds: unreadConversations.has(conv.id) ? [conv.id] : [],
-        assignedStaffId: unreadConversations.has(conv.id) ? conv.assigned_staff_id : null,
+        conversationIds: [conv.id],
+        assignedStaffId: conv.assigned_staff_id,
       });
       continue;
     }
@@ -780,6 +781,7 @@ export async function fetchConversationList(
         latestMessage: null,
         unreadCount: 0,
         unreadConversationIds: [],
+        conversationIds: [],
         assignedStaffId: null,
       });
     }
@@ -806,12 +808,11 @@ export async function fetchConversationList(
       );
     }
 
+    aggregated.conversationIds.push(conv.id);
+    if (conv.assigned_staff_id) aggregated.assignedStaffId = conv.assigned_staff_id;
     if (unreadConversations.has(conv.id)) {
       aggregated.unreadCount++;
       aggregated.unreadConversationIds.push(conv.id);
-      if (conv.assigned_staff_id && !aggregated.assignedStaffId) {
-        aggregated.assignedStaffId = conv.assigned_staff_id;
-      }
     }
   }
 

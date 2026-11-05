@@ -2,6 +2,14 @@ import { renderSuspending } from "@/shared/test-utils";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ClassDetailPage from "../page";
 
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
+
 const mockDelete = jest.fn().mockResolvedValue(undefined);
 let mockImpact: {
   data?: {

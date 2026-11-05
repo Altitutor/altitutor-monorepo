@@ -13,8 +13,9 @@ import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useAccessoryTab } from '@/shared/contexts/AccessoryTabContext';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { useConversationList } from '@/features/messages/api/queries';
+import { useActiveAdminStaff, useConversationList } from '@/features/messages/api/queries';
 import {
+  useAssignConversations,
   useMarkConversationRead,
   useMarkRead,
   useMarkUnread,
@@ -81,6 +82,8 @@ export function MessagesView() {
   const markUnread = useMarkUnread();
   const markContactUnread = useMarkContactUnread();
   const markConversationRead = useMarkConversationRead();
+  const assignConversation = useAssignConversations();
+  const { data: adminStaff = [] } = useActiveAdminStaff();
 
   useEffect(() => {
     setComposerSenderId(null);
@@ -330,6 +333,13 @@ export function MessagesView() {
             : undefined
         }
         onToggleRead={activeSelection && (!activeGroupId || listedGroup) ? handleToggleReadHeader : undefined}
+        messageId={(listedGroup ?? activeAggregated)?.latestMessage?.id ?? null}
+        assigneeId={(listedGroup ?? activeAggregated)?.assignedStaffId ?? null}
+        staffOptions={adminStaff}
+        onAssign={(staffId) => {
+          const conversationIds = (listedGroup ?? activeAggregated)?.conversationIds ?? [];
+          if (conversationIds.length) assignConversation.mutate({ conversationIds, staffId });
+        }}
         contact={activeContact}
         showUnknownNumberActions={linking.showUnknownNumberActions}
         isLinkingPhone={linking.isLinkingPhone}
