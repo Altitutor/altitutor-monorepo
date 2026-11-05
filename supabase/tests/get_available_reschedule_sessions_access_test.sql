@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(3);
+SELECT plan(4);
 
 INSERT INTO public.classes (
   id,
@@ -83,6 +83,20 @@ SELECT throws_ok(
   '42501',
   'Reschedule availability requires the student or active AdminStaff',
   'an unrelated student cannot read another student''s reschedule sessions'
+);
+RESET ROLE;
+
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+  $$SELECT public.get_available_reschedule_sessions(
+    '50000000-0000-0000-0000-000000000005',
+    NULL,
+    7
+  )$$,
+  '42501',
+  'Reschedule availability requires the student or active AdminStaff',
+  'a signed-in non-student cannot list sessions by omitting the student id'
 );
 RESET ROLE;
 

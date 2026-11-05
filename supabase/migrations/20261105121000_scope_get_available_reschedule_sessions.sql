@@ -26,9 +26,11 @@ DECLARE
   v_session_array jsonb := '[]'::jsonb;
   v_enrolled_session_ids uuid[];
   v_student_count integer;
+  v_caller_student_id uuid;
 BEGIN
+  v_caller_student_id := public.current_student_id();
   IF NOT public.is_adminstaff_active()
-     AND p_student_id IS DISTINCT FROM public.current_student_id() THEN
+     AND (v_caller_student_id IS NULL OR p_student_id IS DISTINCT FROM v_caller_student_id) THEN
     RAISE EXCEPTION 'Reschedule availability requires the student or active AdminStaff'
       USING ERRCODE = '42501';
   END IF;
