@@ -790,7 +790,12 @@ test("Issues retain editable priority through create, autosave and hover preview
     .record;
   expect(record.priority).toBe(1);
   await page.goto(`/issues/${record.id}`);
-  await page.getByRole("button", { name: "Urgent", exact: true }).click();
+  const panel = page.locator("#admin-accessory-panel");
+  const urgent = panel.getByRole("button", { name: "Urgent", exact: true });
+  if (!(await urgent.isVisible())) {
+    await panel.getByRole("button", { name: "Right sidebar", exact: true }).click();
+  }
+  await urgent.click();
   await page.getByRole("option", { name: "High", exact: true }).click();
   await expect
     .poll(async () => {

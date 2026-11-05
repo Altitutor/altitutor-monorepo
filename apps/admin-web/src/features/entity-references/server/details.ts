@@ -276,6 +276,20 @@ export async function referenceDetails(
               : null,
           ),
           field("Time", `${time(row.start_at)} – ${time(row.end_at)}`),
+          field(
+            "Students",
+            people
+              .filter((attendee) => attendee.role === "Student")
+              .map((attendee) => attendee.name)
+              .join(", ") || "None",
+          ),
+          field(
+            "Staff",
+            people
+              .filter((attendee) => attendee.role === "Staff")
+              .map((attendee) => attendee.name)
+              .join(", ") || "None",
+          ),
         ],
         people,
         logged,

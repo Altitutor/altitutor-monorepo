@@ -396,7 +396,7 @@ function ConversationRow({
   return (
     <div className="flex items-start gap-2">
       {show('avatar') ? (
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+        <span aria-hidden className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
           {initials(title) || '?'}
         </span>
       ) : null}
