@@ -47,6 +47,8 @@ SELECT
 FROM public.classes
 WHERE classes.id = '20000000-0000-4000-8000-00000000aa01';
 
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+
 CREATE TEMP TABLE reschedule_payload AS
 SELECT public.get_available_reschedule_sessions(
   '50000000-0000-0000-0000-000000000005',
