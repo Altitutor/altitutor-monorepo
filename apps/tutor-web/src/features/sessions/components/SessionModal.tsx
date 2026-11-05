@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { LessonPlanPrototype } from './LessonPlanPrototype';
 import { useSharedLessonDocuments } from '../hooks/useSharedLessonDocuments';
 import {
   Sheet,
@@ -166,6 +167,7 @@ export function SessionModal({
           </SheetHeader>
 
           <div className="space-y-6">
+            {process.env.NODE_ENV === "development" && <LessonPlanPrototype />}
             {/* Session Information */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Session Information</h3>
