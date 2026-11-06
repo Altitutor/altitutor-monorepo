@@ -23,8 +23,8 @@ function parseCrop(value: FormDataEntryValue | null) {
   }
 }
 
-async function tutorId() {
-  const client = await createClient()
+async function tutorId(request: Request) {
+  const client = await createClient(request)
   const [{ data: isTutor }, { data: id }] = await Promise.all([
     client.rpc('is_tutor'),
     client.rpc('current_tutor_id'),
@@ -34,7 +34,7 @@ async function tutorId() {
 
 export async function GET(request: NextRequest) {
   try {
-    const staffId = await tutorId()
+    const staffId = await tutorId(request)
     if (!staffId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const fileId = request.nextUrl.searchParams.get('fileId')
     if (!fileId) return NextResponse.json({ url: null })
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const staffId = await tutorId()
+    const staffId = await tutorId(request)
     if (!staffId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const form = await request.formData()
     const file = form.get('file')
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const staffId = await tutorId()
+    const staffId = await tutorId(request)
     if (!staffId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json() as { fileId?: unknown; crop?: unknown }

@@ -1,26 +1,22 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { serveWithSentry } from "../_shared/sentry.ts";
+import { batchPushDeliveries, messageFor, type PushRecipient } from "./messages.ts";
 
-type Delivery = {
+type Claim = {
   id: string;
   expo_push_token: string;
-  notification_id: string;
-  app_scope: "student_web" | "ucat_web";
-  student_id: string;
-  category: string;
-  notification_type: string;
+  lease_expires_at: string;
+};
+
+type Delivery = PushRecipient & Claim & {
   expires_at: string | null;
   resolved_at: string | null;
   dismissed_at: string | null;
   preference_enabled: boolean;
 };
 
-type ReceiptClaim = {
-  id: string;
-  ticket_id: string;
-  expo_push_token: string;
-};
+type ReceiptClaim = Claim & { ticket_id: string };
 
 type ExpoResult = {
   status: "ok" | "error";
@@ -31,22 +27,6 @@ type ExpoResult = {
 
 const sendEndpoint = "https://exp.host/--/api/v2/push/send";
 const receiptEndpoint = "https://exp.host/--/api/v2/push/getReceipts";
-
-function payloadFor(delivery: Delivery) {
-  if (delivery.app_scope === "student_web") {
-    return delivery.category === "sessions"
-      ? { title: "Session update", body: "A session update is available.", destination: "classes" }
-      : { title: "Payment needs attention", body: "Open Altitutor to view an update.", destination: "billing" };
-  }
-  const copy: Record<string, { title: string; body: string }> = {
-    payments: { title: "Payment update", body: "Open Altitutor UCAT to view a payment update." },
-    referrals: { title: "Referral update", body: "Open Altitutor UCAT to view a referral update." },
-    quota_grants: { title: "Quota updated", body: "Your UCAT allowance has been updated." },
-    quota_limits: { title: "Quota alert", body: "Open Altitutor UCAT to view your allowance." },
-    new_content: { title: "New UCAT content", body: "New practice content is available." },
-  };
-  return { ...copy[delivery.category], destination: "inbox" };
-}
 
 function expoHeaders(): HeadersInit {
   const headers: Record<string, string> = {
@@ -85,23 +65,30 @@ serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
   const url = Deno.env.get("SUPABASE_URL");
   if (!serviceKey || !url) return Response.json({ error: "Not configured" }, { status: 500 });
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const update = async (id: string, values: Record<string, unknown>) => {
+  const update = async (claim: Claim, values: Record<string, unknown>) => {
     const { error } = await supabase.from("mobile_push_deliveries").update({
       ...values, updated_at: new Date().toISOString(),
-    }).eq("id", id);
+    }).eq("id", claim.id).eq("lease_expires_at", claim.lease_expires_at);
     if (error) throw error;
   };
-  const retire = async (token: string) => {
-    const { error } = await supabase.from("mobile_push_devices").delete().eq("expo_push_token", token);
+  const retire = async (claim: Claim, status: "sending" | "ticket") => {
+    const { error } = await supabase.rpc("retire_mobile_push_device", {
+      p_delivery_id: claim.id,
+      p_expo_push_token: claim.expo_push_token,
+      p_status: status,
+      p_lease_expires_at: claim.lease_expires_at,
+    });
     if (error) throw error;
   };
-  const retry = async (id: string, error: string) => {
+  const retry = async (claim: Claim, error: string) => {
     const { data, error: lookupError } = await supabase.from("mobile_push_deliveries")
-      .select("attempts").eq("id", id).single();
+      .select("attempts").eq("id", claim.id)
+      .eq("lease_expires_at", claim.lease_expires_at).maybeSingle();
     if (lookupError) throw lookupError;
+    if (!data) return; // The device may have signed out or the delivery may have been reclaimed.
     const attempts = data.attempts as number;
     const exhausted = attempts >= 8;
-    await update(id, {
+    await update(claim, {
       status: exhausted ? "failed" : "pending",
       next_attempt_at: new Date(Date.now() + Math.min(2 ** attempts * 60_000, 3_600_000)).toISOString(),
       lease_expires_at: null,
@@ -111,7 +98,7 @@ serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
     });
   };
 
-  try {
+  async function sendDeliveries() {
     const { data: claimed, error: claimError } = await supabase.rpc("claim_mobile_push_deliveries", { p_limit: 100 });
     if (claimError) throw claimError;
     const deliveries = (claimed ?? []) as Delivery[];
@@ -120,42 +107,32 @@ serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
     for (const delivery of deliveries) {
       if (!delivery.preference_enabled || delivery.resolved_at || delivery.dismissed_at
           || (delivery.expires_at && Date.parse(delivery.expires_at) <= now)) {
-        await update(delivery.id, { status: "skipped", lease_expires_at: null });
+        await update(delivery, { status: "skipped", lease_expires_at: null });
       } else {
         eligible.push(delivery);
       }
     }
 
-    if (eligible.length > 0) {
+    const sends = await Promise.allSettled(batchPushDeliveries(eligible).map(async (batch) => {
       let response: unknown;
       try {
-        response = await expoPost(sendEndpoint, eligible.map((delivery) => {
-          const copy = payloadFor(delivery);
-          return {
-            to: delivery.expo_push_token,
-            title: copy.title,
-            body: copy.body,
-            data: { destination: copy.destination },
-            sound: "default",
-            channelId: delivery.app_scope === "student_web" ? "student-updates" : "ucat-updates",
-          };
-        }));
+        response = await expoPost(sendEndpoint, batch.map(messageFor));
         if (!response || typeof response !== "object" || !("data" in response)
-            || !Array.isArray(response.data) || response.data.length !== eligible.length) {
+            || !Array.isArray(response.data) || response.data.length !== batch.length) {
           throw new Error("Expo push service returned an invalid ticket batch");
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Expo push request failed";
-        await Promise.all(eligible.map((delivery) => retry(delivery.id, message)));
+        await Promise.all(batch.map((delivery) => retry(delivery, message)));
         throw error;
       }
       const tickets = (response as { data: unknown[] }).data;
-      await Promise.all(eligible.map(async (delivery, index) => {
+      await Promise.all(batch.map(async (delivery, index) => {
         const ticket = tickets[index];
         if (!isExpoResult(ticket)) {
-          await retry(delivery.id, "Expo returned an invalid ticket");
+          await retry(delivery, "Expo returned an invalid ticket");
         } else if (ticket.status === "ok" && ticket.id) {
-          await update(delivery.id, {
+          await update(delivery, {
             status: "ticket",
             ticket_id: ticket.id,
             receipt_due_at: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -163,13 +140,18 @@ serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
             last_error: null,
           });
         } else if (ticket.details?.error === "DeviceNotRegistered") {
-          await retire(delivery.expo_push_token);
+          await retire(delivery, "sending");
         } else {
-          await retry(delivery.id, ticket.details?.error ?? ticket.message ?? "Expo rejected the push");
+          await retry(delivery, ticket.details?.error ?? ticket.message ?? "Expo rejected the push");
         }
       }));
-    }
+    }));
+    const failedSend = sends.find((result) => result.status === "rejected");
+    if (failedSend) throw failedSend.reason;
+    return eligible.length;
+  }
 
+  async function pollReceipts() {
     const { data: claimedReceipts, error: receiptClaimError } = await supabase.rpc("claim_mobile_push_receipts", { p_limit: 100 });
     if (receiptClaimError) throw receiptClaimError;
     const receipts = (claimedReceipts ?? []) as ReceiptClaim[];
@@ -183,23 +165,31 @@ serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
       await Promise.all(receipts.map(async (receipt) => {
         const value = byId[receipt.ticket_id];
         if (!isExpoResult(value)) {
-          await update(receipt.id, {
+          await update(receipt, {
             receipt_due_at: new Date(Date.now() + 5 * 60_000).toISOString(),
             lease_expires_at: null,
           });
         } else if (value.status === "ok") {
-          await update(receipt.id, { status: "delivered", lease_expires_at: null, receipt_due_at: null });
+          await update(receipt, { status: "delivered", lease_expires_at: null, receipt_due_at: null });
         } else if (value.details?.error === "DeviceNotRegistered") {
-          await retire(receipt.expo_push_token);
+          await retire(receipt, "ticket");
         } else {
-          await retry(receipt.id, value.details?.error ?? value.message ?? "Expo receipt failed");
+          await retry(receipt, value.details?.error ?? value.message ?? "Expo receipt failed");
         }
       }));
     }
-    return Response.json({ sent: eligible.length, receipts: receipts.length });
-  } catch (error) {
-    sentry.captureException(error);
-    console.error("[mobile push] Dispatch failed", error);
-    return Response.json({ error: "Mobile push dispatch failed" }, { status: 500 });
+    return receipts.length;
   }
+
+  const [send, receipts] = await Promise.allSettled([sendDeliveries(), pollReceipts()]);
+  if (send.status === "fulfilled" && receipts.status === "fulfilled") {
+    return Response.json({ sent: send.value, receipts: receipts.value });
+  }
+  for (const [stage, result] of [["send", send], ["receipts", receipts]] as const) {
+    if (result.status === "rejected") {
+      sentry.captureException(result.reason);
+      console.error(`[mobile push] ${stage} failed`, result.reason);
+    }
+  }
+  return Response.json({ error: "Mobile push dispatch failed" }, { status: 500 });
 });

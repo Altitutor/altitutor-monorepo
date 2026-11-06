@@ -129,8 +129,8 @@ export function mapTopicFile(row: ResourceTopicFileRowInput): ResourceFile | nul
   };
 }
 
-export function groupFilesByType(files: ResourceFile[]): Record<string, ResourceFile[]> {
-  return files.reduce<Record<string, ResourceFile[]>>((acc, file) => {
+export function groupFilesByType<T extends ResourceFile>(files: T[]): Record<string, T[]> {
+  return files.reduce<Record<string, T[]>>((acc, file) => {
     const key = file.type || 'other';
     if (!acc[key]) acc[key] = [];
     acc[key].push(file);
@@ -215,7 +215,7 @@ export function flattenTopicFilesForNav(files: ResourceFile[]): ResourceFile[] {
   return out;
 }
 
-export function pairFilesWithSolutions(files: ResourceFile[]) {
+export function pairFilesWithSolutions<T extends ResourceFile>(files: T[]) {
   const byId = new Map(files.map((f) => [f.id, f]));
   return files
     .filter((file) => !file.isSolutions)

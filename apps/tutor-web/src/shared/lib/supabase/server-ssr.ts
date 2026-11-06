@@ -1,13 +1,25 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@altitutor/shared';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 /**
  * Create a Supabase client for use in Server Components and API Routes
- * Uses @supabase/ssr for better TypeScript support
+ * API routes can pass a request to accept a native caller's bearer token.
  */
-export async function createClient() {
+export async function createClient(request?: Request) {
+  const token = request?.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (token) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error('Missing Supabase configuration');
+    return instrumentSupabaseClient(createSupabaseClient<Database>(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    }));
+  }
+
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors

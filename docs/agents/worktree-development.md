@@ -8,7 +8,7 @@ pnpm dev:isolated --apps admin-web,ucat-web
 ```
 
 The default app is `ucat-web`. `--apps all` selects all five web apps.
-`--apps student-app` or `--apps ucat-app` also starts the matching web backend.
+`--apps student-app`, `--apps ucat-app` or `--apps tutor-app` also starts the matching web backend.
 Docker must be running. The command installs locked dependencies when absent,
 builds workspace packages, renders local email templates, and prepares a fresh
 snapshot of this checkout's Supabase migrations and configured seeds. It starts
