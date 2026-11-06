@@ -36,6 +36,7 @@ type PdfPage = {
   }) => { promise: Promise<void> };
 };
 
+const pdfjsAssetPath = process.env.NEXT_PUBLIC_PDFJS_ASSET_PATH;
 let pdfjsLoad: Promise<Pdfjs> | null = null;
 
 function importPublicEsm(href: string): Promise<unknown> {
@@ -51,9 +52,9 @@ function importPublicEsm(href: string): Promise<unknown> {
 
 function loadPdfjs(): Promise<Pdfjs> {
   if (!pdfjsLoad) {
-    pdfjsLoad = importPublicEsm('/pdfjs/pdf.min.mjs').then((mod) => {
+    pdfjsLoad = importPublicEsm(`${pdfjsAssetPath}/pdf.min.mjs`).then((mod) => {
       const pdfjs = mod as Pdfjs;
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+      pdfjs.GlobalWorkerOptions.workerSrc = `${pdfjsAssetPath}/pdf.worker.min.mjs`;
       return pdfjs;
     });
   }

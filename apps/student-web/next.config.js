@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { withSentryConfig } = require("@sentry/nextjs/config");
 const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
+const pdfjsPackage = require.resolve("pdfjs-dist/package.json");
+const pdfjsVersion = require(pdfjsPackage).version;
 
 /**
  * Next's webpack cannot load pdfjs-dist 5 ESM (`Object.defineProperty` on a
@@ -9,12 +11,16 @@ const { getLocalDevOrigins } = require("../../scripts/next-dev-origins.cjs");
  * a native `import()` instead of bundling them.
  */
 function copyPdfjsAssets() {
-  const pkgDir = path.dirname(require.resolve("pdfjs-dist/package.json", { paths: [__dirname] }));
+  const pkgDir = path.dirname(pdfjsPackage);
   const destDir = path.join(__dirname, "public", "pdfjs");
-  fs.mkdirSync(destDir, { recursive: true });
+  const versionDir = path.join(destDir, pdfjsVersion);
+  fs.mkdirSync(versionDir, { recursive: true });
   // Use the publisher's polyfilled bundle for Safari; API and worker must match.
   for (const file of ["pdf.min.mjs", "pdf.worker.min.mjs"]) {
-    fs.copyFileSync(path.join(pkgDir, "legacy", "build", file), path.join(destDir, file));
+    const source = path.join(pkgDir, "legacy", "build", file);
+    fs.copyFileSync(source, path.join(versionDir, file));
+    // Keep the existing URLs available to tabs opened before versioned URLs shipped.
+    fs.copyFileSync(source, path.join(destDir, file));
   }
   for (const dir of ["wasm", "cmaps", "standard_fonts"]) {
     fs.cpSync(path.join(pkgDir, dir), path.join(destDir, dir), { recursive: true });
@@ -35,6 +41,7 @@ const nextConfig = {
   // Expose Flight headers so the session boundary can handle legacy router state.
   skipProxyUrlNormalize: true,
   env: {
+    NEXT_PUBLIC_PDFJS_ASSET_PATH: `/pdfjs/${pdfjsVersion}`,
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
   },
