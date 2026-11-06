@@ -5,6 +5,7 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import { StudentTodaySessionsCalendarView } from "../StudentTodaySessionsCalendarView";
 import { StudentSessionsCalendarView } from "../StudentSessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
+import { studentSessionsApi } from "@/shared/api/sessions";
 
 Object.assign(globalThis, { React });
 jest.mock("next/navigation", () => ({
@@ -57,6 +58,31 @@ it("shows the student their online interview and links to its guarded room", () 
     screen.getByRole("link", { name: "Enter waiting room" }),
   ).toHaveAttribute("href", "/interviews/rounds/student-circuit");
   client.clear();
+});
+
+it("offers a reload when the timetable request fails", async () => {
+  useAuthStore.setState({ user: null, loading: true });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const list = jest
+    .spyOn(studentSessionsApi, "list")
+    .mockRejectedValue({ code: "42501", message: "permission denied" });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <StudentSessionsCalendarView />
+    </QueryClientProvider>,
+  );
+
+  try {
+    expect(await screen.findByRole("button", { name: "Reload timetable" }))
+      .toBeVisible();
+    expect(screen.getByText("Your timetable could not be loaded.")).toBeVisible();
+  } finally {
+    view.unmount();
+    client.clear();
+    list.mockRestore();
+  }
 });
 
 function renderToday(overrides: Record<string, unknown>, hasAccess = true) {
