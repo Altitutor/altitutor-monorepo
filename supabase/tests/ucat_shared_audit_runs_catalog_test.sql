@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT staff.id, subject.id
@@ -171,6 +171,18 @@ SELECT is(
   ),
   '["73000000-0000-4000-8000-000000000002", "73000000-0000-4000-8000-000000000004"]'::jsonb,
   'not audited includes stems with no live run membership'
+);
+
+SELECT is(
+  public.tutor_ucat_mcp_search_question_stems(
+    '{"filter":{"clause":{"auditFilters":["not_audited"],"statuses":["draft"]}}}'::jsonb,
+    p_search => 'Audit stem', p_ids_only => TRUE
+  ),
+  public.tutor_ucat_mcp_search_question_stems(
+    '{"filter":{"all":[{"clause":{"auditFilters":["not_audited"],"statuses":["draft"]}}]}}'::jsonb,
+    p_search => 'Audit stem', p_ids_only => TRUE
+  ),
+  'compiled unaudited MCP search matches the nested expression, including cancelled runs'
 );
 
 SELECT is(
