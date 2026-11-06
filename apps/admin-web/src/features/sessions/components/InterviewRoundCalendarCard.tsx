@@ -1,7 +1,13 @@
 "use client";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Button, Badge } from "@altitutor/ui";
+import { BUSINESS_TIMEZONE } from "@altitutor/shared";
+import {
+  Badge,
+  Button,
+  formatInterviewCalendarRange,
+  InterviewRoundCalendarCard as RoundCard,
+} from "@altitutor/ui";
 import { AdminDialogShell } from "@/shared/components";
 import { CalendarDetailsTooltip } from "@/shared/components/CalendarDetailsTooltip";
 import {
@@ -27,12 +33,11 @@ export function InterviewRoundCalendarCard({
     <CalendarDetailsTooltip
       enabled
       title={round.name}
-      subtitle={
-        <>
-          {format(new Date(round.scheduledAt), "EEE d MMM · h:mm a")} –{" "}
-          {format(new Date(round.endAt), "h:mm a")}
-        </>
-      }
+      subtitle={formatInterviewCalendarRange({
+        start: round.scheduledAt,
+        end: round.endAt,
+        timeZone: BUSINESS_TIMEZONE,
+      })}
       status={interviewRoundStatus(round)}
       students={calendarPeople(round.students)}
       staff={calendarPeople(round.tutors)}
@@ -41,20 +46,7 @@ export function InterviewRoundCalendarCard({
         label: "Open interview",
       }}
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Interview round ${round.name}`}
-        className="h-full w-full overflow-hidden rounded-lg border border-violet-300 bg-violet-50 p-2 text-left shadow-sm dark:border-violet-700 dark:bg-violet-950/40"
-      >
-        <p className="truncate text-xs font-medium text-violet-700 dark:text-violet-200">
-          Interview
-        </p>
-        <p className="truncate text-sm font-medium">{round.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {format(new Date(round.scheduledAt), "h:mm a")}
-        </p>
-      </button>
+      <RoundCard name={round.name} onClick={onOpen} />
     </CalendarDetailsTooltip>
   );
 }

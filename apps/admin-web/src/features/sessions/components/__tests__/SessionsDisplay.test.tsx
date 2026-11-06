@@ -318,3 +318,42 @@ it("shows and filters interviews in both session layouts and opens an admin roun
     "/interviews/rounds/d3080000-0000-4000-8000-000000000020",
   );
 });
+
+it("shows only the selected student's interviews in their sessions calendar", async () => {
+  mockRoundEvents = ["Alice", "Bob"].map((name) => ({
+    id: name.toLowerCase(),
+    name: `${name} practice interview`,
+    scheduledAt: new Date(2026, 9, 22, 16).toISOString(),
+    endAt: new Date(2026, 9, 22, 17).toISOString(),
+    startedAt: null,
+    phase: "waiting",
+    delivery: "online",
+    mode: "exam",
+    recordingEnabled: false,
+    students: [{ id: name.toLowerCase(), name }],
+    tutors: [],
+  }));
+
+  renderWithProviders(
+    <SessionsTable
+      skipUrlSync
+      renderMode="calendar"
+      initialCalendarDate="2026-10-22"
+      studentId="alice"
+      hideStudentFilter
+      attendanceView="student"
+    />,
+  );
+
+  const calendar = await screen.findByLabelText("Sessions calendar");
+  expect(
+    within(calendar).getByRole("button", {
+      name: "Interview round Alice practice interview",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(calendar).queryByRole("button", {
+      name: "Interview round Bob practice interview",
+    }),
+  ).not.toBeInTheDocument();
+});

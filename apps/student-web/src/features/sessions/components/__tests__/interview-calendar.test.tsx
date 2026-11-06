@@ -199,3 +199,13 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
     useAuthStore.setState({user: null, loading: true});
   }
 });
+
+it("shows the interview details tooltip when its calendar event receives focus", async () => {
+  const { client } = renderToday({});
+  fireEvent.focus(
+    screen.getByRole("button", { name: "Interview round Late interview" }),
+  );
+
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Late interview");
+  client.clear();
+});
