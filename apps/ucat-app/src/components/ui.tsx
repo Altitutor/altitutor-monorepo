@@ -82,7 +82,10 @@ export function Screen({
       ref={scrollRef}
       {...props}
       contentInsetAdjustmentBehavior={
-        reserveTopInsetForBanner ? "never" : "automatic"
+        // UIKit still needs to inset content below its translucent header.
+        reserveTopInsetForBanner && Platform.OS !== "ios"
+          ? "never"
+          : "automatic"
       }
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1, backgroundColor: c.background }}
