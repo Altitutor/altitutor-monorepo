@@ -5,6 +5,8 @@ import { AttemptPreviewPage } from "@/features/progress/components/attempt-previ
 import { ProgressPreviewPage } from "@/features/progress/components/progress-preview-page";
 import { StudyPlanPreviewPage } from "@/features/study-plan/components/study-plan-preview-page";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
+import { Suspense } from "react";
+import { LearningLessonFocusPreview } from "@/features/learning/components/learning-lesson-focus-prototype";
 import { LearningLessonPreviewPage } from "@/features/learning/components/learning-lesson-preview-page";
 import { MarketingPreviewLightMode } from "../marketing-preview-light-mode";
 import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
@@ -60,7 +62,9 @@ export default async function MarketingPreviewPage(
         ) : null}
         {params.surface === "learning" ? (
           <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
-            <LearningLessonPreviewPage />
+            <Suspense fallback={<LearningLessonPreviewPage />}>
+              <LearningLessonFocusPreview />
+            </Suspense>
           </div>
         ) : null}
       </main>
