@@ -58,7 +58,7 @@ export function useInterviewCommand() {
           client.invalidateQueries({
             queryKey: interviewKeys.round(command.roundId),
           }),
-          ...(command.type === "saveAttempt"
+          ...(["saveAttempt", "selectQuestion"].includes(command.type)
             ? []
             : [client.invalidateQueries({ queryKey: interviewKeys.rounds })]),
         ]);

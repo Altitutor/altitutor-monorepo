@@ -31,6 +31,19 @@ test.beforeAll(async () => {
   if (closed.error) throw closed.error;
   const sender = await db.from('owned_numbers').upsert({ id: '28200000-0000-4000-8000-000000000003', phone_e164: '+61428200000', label: 'Browser iMessage', provider: 'IMESSAGE', sender_type: 'PHONE' });
   if (sender.error) throw sender.error;
+  const parent = await db.from('parents').upsert({ id: '32800000-0000-4000-8000-000000000001', first_name: 'Context', last_name: 'Parent', phone: '+61428200001', email: 'context-parent@altitutor.test' });
+  if (parent.error) throw parent.error;
+  const links = await db.from('parents_students').upsert([
+    { parent_id: '32800000-0000-4000-8000-000000000001', student_id: '10000000-0000-0000-0000-000000000001' },
+    { parent_id: '32800000-0000-4000-8000-000000000001', student_id: '10000000-0000-0000-0000-000000000002' },
+  ], { onConflict: 'parent_id,student_id' });
+  if (links.error) throw links.error;
+  const contact = await db.from('contacts').select('id').eq('parent_id', '32800000-0000-4000-8000-000000000001').single();
+  if (contact.error) throw contact.error;
+  const parentConversation = await db.from('conversations').upsert({ id: '32800000-0000-4000-8000-000000000002', contact_id: contact.data.id, owned_number_id: '28200000-0000-4000-8000-000000000003' });
+  if (parentConversation.error) throw parentConversation.error;
+  const parentMessage = await db.from('messages').upsert({ id: '32800000-0000-4000-8000-000000000003', conversation_id: '32800000-0000-4000-8000-000000000002', direction: 'INBOUND', body: 'Context parent browser fixture', status: 'RECEIVED', from_number_e164: '+61428200001', to_number_e164: '+61428200000' });
+  if (parentMessage.error) throw parentMessage.error;
   const tasks = await db.from('tasks').upsert(Array.from({ length: 105 }, (_, index) => ({ id: `28200001-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, title: `Board drag check ${String(index + 1).padStart(3, '0')}`, status: ['backlog', 'todo', 'in_progress'][index % 3], priority: 1 })));
   if (tasks.error) throw tasks.error;
   const done = await db.from('tasks').upsert({ id: '28200001-0000-4000-8000-000000000106', title: 'Board edge done', status: 'done' });
@@ -75,26 +88,62 @@ test('Student views share one directory and open the Student page', async ({ pag
   await expect(views.getByRole('button', { name: 'Trial', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Student onboarding stays accessible in a responsive collapsible sidebar', async ({ page }) => {
+test('Student properties and onboarding stay in the responsive sidebar', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   await page.goto(`/students/${studentId}`);
-  const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
+  const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await expect(properties).toBeVisible();
+  await expect(properties.locator('span').filter({ hasText: /^Account$/ })).toBeVisible();
   await expect(sidebar).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Next actions' })).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Milestones' })).toBeVisible();
-  await expect(sidebar.getByText('Enquiry', { exact: true })).toBeVisible();
-  await toggle.click();
-  await expect(sidebar).toBeHidden();
-  await toggle.click();
-  await expect(sidebar).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Right sidebar', exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 850, height: 900 });
-  await expect(sidebar).toBeHidden();
+  await expect(properties).toBeHidden();
+  const toggle = page.getByRole('button', { name: 'Right sidebar', exact: true });
   await toggle.click();
+  await expect(properties).toBeVisible();
   await expect(sidebar).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(properties).toBeHidden();
+  await expect(toggle).toBeFocused();
   await toggle.click();
-  await expect(sidebar).toBeHidden();
+  await properties.getByRole('button', { name: 'Edit', exact: true }).click();
+  await properties.locator('#student-first-name').fill('Unsaved browser draft');
+  await page.keyboard.press('Escape');
+  await toggle.click();
+  await expect(properties.locator('#student-first-name')).toHaveValue('Unsaved browser draft');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(properties.locator('#student-first-name')).toHaveValue('Unsaved browser draft');
+  await properties.getByRole('button', { name: 'Cancel', exact: true }).click();
+});
+
+test('Student account actions live in the record menu and command palette', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await page.goto('/students/10000000-0000-0000-0000-000000000001');
+  const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
+  await expect(properties.getByText('Has account', { exact: true })).toBeVisible();
+  await expect(properties.getByRole('heading', { name: 'Password reset', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Send password reset', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Password reset', exact: true }).first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Open command palette', exact: true }).click();
+  await page.getByRole('searchbox').fill('Send password reset');
+  await expect(page.getByRole('option', { name: /Send password reset/ })).toBeVisible();
+});
+
+test('Parent conversations include chips for every linked student', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/messages');
+  await page.getByRole('button', { name: /^Context Parent / }).click();
+  const header = page.getByRole('tabpanel', { name: /^Context Parent/ }).locator('[data-pane-toolbar]');
+  await expect(header.getByRole('button', { name: 'Alice Williams', exact: true })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Bob Taylor', exact: true })).toBeVisible();
 });
 
 test('closing onboarding refreshes the Student page without reloading', async ({ page }) => {
@@ -109,17 +158,16 @@ test('closing onboarding refreshes the Student page without reloading', async ({
   await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
   await page.goto(`/students/${id}`, { waitUntil: 'domcontentloaded' });
-  const toggle = page.getByRole('button', { name: 'Toggle onboarding sidebar', exact: true });
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
+  await expect(properties).toBeVisible();
   await expect(sidebar).toBeVisible();
   await sidebar.getByText('Close journey', { exact: true }).click();
   await sidebar.getByLabel('Closure reason').selectOption('withdrawn');
   await sidebar.getByLabel('Closure detail').fill('Local browser regression: explicit withdrawal');
   await sidebar.getByRole('button', { name: 'Close and discontinue', exact: true }).click();
-  await expect(toggle).toBeHidden();
   await expect(sidebar).toBeHidden();
+  await expect(properties).toBeVisible();
 });
 
 test('individual conversations start with Emails hidden and allow opting in', async ({ page }) => {
@@ -208,7 +256,12 @@ test('date and priority pills share their surface in board and detail views', as
   await card.getByText('Board drag check 001', { exact: true }).click();
   const detail = page.locator('#admin-accessory-panel');
   await expect(detail.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Board drag check 001');
-  expect(await surface(detail.getByRole('button', { name: 'Date', exact: true }))).toEqual(priorityStyle);
+  const dueDate = detail.getByRole('button', { name: 'Select date', exact: true });
+  if (!(await dueDate.isVisible())) {
+    await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
+  }
+  await expect(dueDate).toBeVisible();
+  await expect(detail.getByRole('button', { name: 'Urgent', exact: true })).toBeVisible();
 });
 
 test('Messages accessory breadcrumb returns to the primary Messages collection', async ({ page }) => {
@@ -223,7 +276,9 @@ test('Messages accessory breadcrumb returns to the primary Messages collection',
   await panel.getByRole('navigation', { name: 'Breadcrumb', exact: true }).getByRole('button', { name: 'Messages', exact: true }).click();
   await expect(page).toHaveURL(/\/messages$/);
   await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Messages');
-  await expect(page.locator('[data-admin-main]').getByPlaceholder('Search conversations')).toBeVisible();
+  const toolbar = page.locator('[data-admin-main] [data-pane-toolbar]');
+  await toolbar.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
 });
 
 declare global {
@@ -276,9 +331,17 @@ test('board dragging stays responsive and persists a cross-column move', async (
   await page.mouse.move(from.x + 50, from.y + 15);
   await page.mouse.down();
   await page.mouse.move(target.x + 50, target.y + 20, { steps: 25 });
+  const saved = page.waitForResponse((response) => {
+    const request = response.request();
+    if (!response.url().endsWith('/rpc/admin_work_item_change') || request.method() !== 'POST') return false;
+    const body = request.postDataJSON();
+    return body.p_kind === 'task' && body.p_changes?.status === 'todo';
+  });
   await page.mouse.up();
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
-  await page.reload();
+  expect((await saved).ok()).toBe(true);
+  // Isolate the moved card so column virtualization does not hide it after navigation.
+  await page.goto(`/tasks?search=${encodeURIComponent(title)}`);
   await expect(todo.getByText(title, { exact: true })).toBeVisible();
 });
 
@@ -436,4 +499,63 @@ test('Trial queue can show completed onboarding for active Students and family e
   expect(result.entries).toHaveLength(2);
   expect(result.entries.find(entry => entry.kind === 'student')).toMatchObject({ student: { status: 'ACTIVE' } });
   expect(result.entries.find(entry => entry.kind === 'enquiry')).toMatchObject({ student: null, label: 'Completed family enquiry Browser check' });
+});
+
+test('Record actions start in-person onboarding for a student with an existing UCAT login', async ({ page }) => {
+  const url = process.env.ADMIN_E2E_SUPABASE_URL!;
+  if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Fixtures require a local database');
+  const db = createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const id = randomUUID();
+  const email = `ucat-account-${id}@altitutor.test`;
+  const lastName = `Browser check ${id.slice(0, 8)}`;
+  const user = await db.auth.admin.createUser({ email, email_confirm: true });
+  if (user.error) throw user.error;
+  const student = await db.from('students').insert({
+    id, first_name: 'Existing UCAT', last_name: lastName, email, status: null, user_id: user.data.user.id,
+  });
+  if (student.error) throw student.error;
+  const online = await db.from('student_online_product_relationships').insert({
+    student_id: id, product: 'UCAT_WEB', started_at: '2026-10-01T12:00:00Z',
+  });
+  if (online.error) throw online.error;
+
+  await signIn(page);
+  await page.goto('/students');
+  await page.getByLabel('Views', { exact: true }).getByRole('button', { name: 'Online', exact: true }).click();
+  const row = page.getByRole('row').filter({ has: page.getByText(`Existing UCAT ${lastName}`, { exact: true }) });
+  await row.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Start in-person onboarding', exact: true }).click();
+  const account = page.getByRole('dialog', { name: 'Student account', exact: true });
+  await expect(account.getByRole('button', { name: 'Start in-person onboarding', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(account).toBeHidden();
+
+  const recordActions = page.getByRole('button', { name: 'Record actions', exact: true });
+  await recordActions.click();
+  await page.getByRole('menuitem', { name: 'Start in-person onboarding', exact: true }).click();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Start in-person onboarding', exact: true }).click();
+  await expect(account.getByRole('button', { name: 'Send registration link', exact: true })).toBeVisible();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await recordActions.click();
+  await page.getByRole('menuitem', { name: 'Send registration link', exact: true }).click();
+  const generated = page.waitForResponse((response) =>
+    response.url().endsWith('/api/students/send-registration-invite') && response.request().method() === 'POST',
+  );
+  await account.getByRole('button', { name: 'Send registration link', exact: true }).click();
+  const registration = page.getByRole('dialog', { name: 'Send Registration Link', exact: true });
+  await expect(registration).toBeVisible();
+  expect((await generated).status()).toBe(200);
+  await page.keyboard.press('Escape');
+  await expect(registration).toBeHidden();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+
+  const persisted = await db.from('students').select('status,user_id').eq('id', id).single();
+  if (persisted.error) throw persisted.error;
+  expect(persisted.data).toEqual({ status: 'TRIAL', user_id: user.data.user.id });
+  const ucat = await db.from('student_online_product_relationships').select('product').eq('student_id', id).single();
+  if (ucat.error) throw ucat.error;
+  expect(ucat.data.product).toBe('UCAT_WEB');
 });

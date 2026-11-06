@@ -33,6 +33,8 @@ import {
   Form,
   Button,
   Separator,
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
   Input,
   type RichTextEditorRef,
 } from "@altitutor/ui";
@@ -49,7 +51,6 @@ import { EditDocumentDialog } from "@/features/notes/components/EditDocumentDial
 import { WorkItemActivity } from "@/features/activity/components/WorkItemActivity";
 import { useProjectActivity } from "@/features/activity/hooks";
 import { useNotes as useEntityNotes } from "@/shared/hooks/useNotes";
-import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
 import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
@@ -97,6 +98,7 @@ export function ProjectDetailView({
   );
   const createNote = useCreateNote();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [section, setSection] = useState<"overview" | "tasks">("overview");
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null,
@@ -285,12 +287,17 @@ export function ProjectDetailView({
                           data-rich-text-toolbar-container
                         >
                           <div className="p-6 space-y-6">
-                            <ProjectPropertyPills
-                              form={form}
-                              enabled={enabled}
-                              knownMembers={project.members}
-                            />
-
+                          <SegmentedTabPanel
+                            value={section}
+                            onValueChange={(value) => {
+                              if (value === "overview" || value === "tasks") setSection(value);
+                            }}
+                            options={[
+                              { value: "overview", label: "Overview" },
+                              { value: "tasks", label: "Tasks" },
+                            ]}
+                          >
+                            <SegmentedTabPanelContent when="overview" activeTab={section} className="space-y-6">
                             <ProjectTitleField
                               form={form}
                               onEnter={handleTitleEnter}
@@ -300,9 +307,6 @@ export function ProjectDetailView({
                               form={form}
                               descriptionRef={descriptionFieldRef}
                             />
-
-                            <Separator />
-                            <LinkedTasksSection projectId={projectId} />
 
                             <Separator />
                             <WorkItemActivity
@@ -316,19 +320,16 @@ export function ProjectDetailView({
                               isFetchingNextPage={isFetchingNextPage}
                               onLoadMore={fetchNextPage}
                             />
-
-                            <div className="space-y-4 md:hidden">
-                              <Separator />
-                              <h3 className="text-lg font-semibold">
-                                Documents
-                              </h3>
-                              {documentsList}
-                            </div>
+                            </SegmentedTabPanelContent>
+                            <SegmentedTabPanelContent when="tasks" activeTab={section} className="space-y-6">
+                              <LinkedTasksSection projectId={projectId} />
+                            </SegmentedTabPanelContent>
+                          </SegmentedTabPanel>
                           </div>
                         </div>
                       }
                       sidebar={
-                        <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
+                        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
                           <EntitySidebarCards
                             defaultOpen={["properties", "documents"]}
                           >

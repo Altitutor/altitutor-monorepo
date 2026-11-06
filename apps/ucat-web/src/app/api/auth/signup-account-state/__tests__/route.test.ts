@@ -8,7 +8,11 @@ jest.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: { rpc: jest.fn() },
 }));
 
-const mockedRpc = jest.mocked(supabaseAdmin!.rpc);
+// This route mock only needs the result fields consumed by the handler.
+const mockedRpc = supabaseAdmin!.rpc as unknown as jest.Mock<
+  Promise<{ data: string | null; error: { message: string } | null }>,
+  [string, { p_client_key: string; p_email: string }]
+>;
 
 function request(email: string): NextRequest {
   return {
@@ -26,7 +30,7 @@ describe("POST /api/auth/signup-account-state", () => {
     mockedRpc.mockResolvedValue({
       data: "confirmed",
       error: null,
-    } as never);
+    });
 
     const response = await POST(request(" Existing@Example.com "));
 
@@ -42,7 +46,7 @@ describe("POST /api/auth/signup-account-state", () => {
     mockedRpc.mockResolvedValue({
       data: null,
       error: { message: "signup_email_lookup_rate_limited" },
-    } as never);
+    });
 
     const response = await POST(request("student@example.com"));
 
@@ -53,7 +57,7 @@ describe("POST /api/auth/signup-account-state", () => {
   });
 
   it("uses one public state for absent and unconfirmed accounts", async () => {
-    mockedRpc.mockResolvedValue({ data: "available", error: null } as never);
+    mockedRpc.mockResolvedValue({ data: "available", error: null });
 
     const response = await POST(request("unfinished@example.com"));
 

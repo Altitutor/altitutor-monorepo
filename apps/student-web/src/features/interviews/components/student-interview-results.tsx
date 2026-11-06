@@ -1,19 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react";
 import {
   Badge,
+  InterviewRecordingPlayer,
   Button,
   clickableCardFocusRingCn,
   clickableCardHoverCn,
 } from "@altitutor/ui";
-import {
-  interviewText,
-  type InterviewRecording,
-  type StudentInterviewRound,
-} from "@altitutor/shared";
+import { interviewText, type StudentInterviewRound } from "@altitutor/shared";
 import {
   studentBtnIconOutline,
   studentCardCn,
@@ -77,113 +74,20 @@ function ResultsBackButton() {
   );
 }
 
-function ReleasedRecording({
-  roundId,
-  recording,
+function StationRecordings({
+  round,
+  stationId,
 }: {
-  roundId: string;
-  recording: InterviewRecording;
+  round: StudentInterviewRound;
+  stationId: string | undefined;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [requested, setRequested] = useState(0);
-  const expired =
-    recording.state === "expired" ||
-    Date.parse(recording.expiresAt) <= Date.now();
-  const playable = !expired && recording.state === "ready";
-
-  useEffect(() => {
-    if (!playable || !requested) return;
-    let cancelled = false;
-    setUrl(null);
-    setError("");
-    void getInterviewRecording(roundId, recording.id)
-      .then((result) => {
-        if (!cancelled) setUrl(result.url);
-      })
-      .catch((failure: unknown) => {
-        if (!cancelled) {
-          setError(
-            failure instanceof Error
-              ? failure.message
-              : "Unable to load recording.",
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [playable, recording.id, roundId, requested]);
-
-  const label =
-    recording.kind === "video" ? "Video recording" : "Audio recording";
-
-  return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">
-        {label}
-        {" · "}
-        {expired
-          ? "Expired"
-          : `Available until ${new Date(recording.expiresAt).toLocaleDateString()}`}
-      </p>
-      {expired ? null : recording.state === "ready" ? (
-        url ? (
-          recording.kind === "audio" ? (
-            <audio
-              aria-label="Interview recording"
-              className="w-full"
-              src={url}
-              controls
-              preload="none"
-            />
-          ) : (
-            <video
-              aria-label="Interview recording"
-              className="max-h-80 w-full rounded-xl bg-black"
-              src={url}
-              controls
-              preload="none"
-            />
-          )
-        ) : requested && !error ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            Loading recording…
-          </p>
-        ) : (
-          <>
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRequested((value) => value + 1)}
-            >
-              {error ? "Retry recording" : `Load ${label.toLowerCase()}`}
-            </Button>
-          </>
-        )
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {recording.state === "failed"
-            ? "This recording is unavailable. Your written feedback and scores are still available."
-            : "This recording is still processing."}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function StationRecordings({ round }: { round: StudentInterviewRound }) {
   const result = round.result;
   if (!result) return null;
   if (!round.recordingEnabled && result.recordings.length === 0) return null;
   return (
     <div className="space-y-5" aria-label="Station recordings">
-      {round.resultStations.map((station, index) => {
+      {round.resultStations.flatMap((station, index) => {
+        if (station.id !== stationId) return [];
         const attempt = result.attempts.find(
           (item) => item.stationId === station.id,
         );
@@ -197,10 +101,12 @@ function StationRecordings({ round }: { round: StudentInterviewRound }) {
             </h2>
             {recordings.length > 0 ? (
               recordings.map((recording) => (
-                <ReleasedRecording
+                <InterviewRecordingPlayer
                   key={recording.id}
-                  roundId={round.id}
                   recording={recording}
+                  loadUrl={() => getInterviewRecording(round.id, recording.id)}
+                  intervals={attempt?.questionIntervals}
+                  questions={station.questions}
                 />
               ))
             ) : (
@@ -353,7 +259,11 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
           );
         })}
       </div>
-      <StationRecordings round={round} />
+      <StationRecordings
+        key={station?.id}
+        round={round}
+        stationId={station?.id}
+      />
       {station && attempt && (
         <section className={studentCardCn("space-y-6 p-6")}>
           <h2 className="text-xl font-semibold">Station {stationNumber}</h2>
@@ -389,10 +299,10 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
               );
               return (
                 <article key={question.id} className="space-y-3">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="shrink-0 text-base font-medium">
-                      {index + 1}.
-                    </span>
+                  <div className="space-y-2">
+                    <h3 className="text-base font-medium">
+                      Question {index + 1}
+                    </h3>
                     <div className="min-w-0 flex-1">
                       <InterviewContent
                         value={question.question}

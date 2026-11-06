@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useId, type ReactNode } from "react";
+import { EntityReferencePreview } from "@/features/entity-references/components/EntityReferenceHovers";
 import Link from "next/link";
-import { AttendanceCell } from "@/features/sessions/components/AttendanceCell";
-import { Check, X } from "lucide-react";
+import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { Tables } from "@altitutor/shared";
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   PopoverContent,
 } from "@altitutor/ui";
 import { getSubjectColorStyle, formatSessionType, cn } from "@/shared/utils";
+import { statusToneClass } from "@/shared/utils/statusTone";
 import {
   deriveStudentAttendanceStatus,
   deriveStaffAttendanceStatus,
@@ -134,30 +135,21 @@ export function CalendarDetailsTooltip({
               key={person.id}
               className="flex flex-wrap items-center gap-1.5 text-xs"
             >
-              <Link
-                href={`/${kind}/${person.id}`}
-                className="text-xs hover:underline focus-visible:underline"
-              >
-                {person.first_name} {person.last_name}
-              </Link>
               {attendance ? (
-                <>
-                  <AttendanceCell status={derived.plannedStatus} compact />
-                  {person.actual_attended === true ? (
-                    <Check
-                      role="img"
-                      aria-label="Actual: Attended"
-                      className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400"
-                    />
-                  ) : person.actual_attended === false ? (
-                    <X
-                      role="img"
-                      aria-label="Actual: Absent"
-                      className="h-3 w-3 shrink-0 text-red-600 dark:text-red-400"
-                    />
-                  ) : null}
-                </>
-              ) : null}
+                <AttendancePersonRow
+                  href={`/${kind}/${person.id}`}
+                  name={`${person.first_name} ${person.last_name}`}
+                  plannedStatus={derived.plannedStatus}
+                  actualAttended={person.actual_attended}
+                />
+              ) : (
+                <Link
+                  href={`/${kind}/${person.id}`}
+                  className="text-xs hover:underline focus-visible:underline"
+                >
+                  {person.first_name} {person.last_name}
+                </Link>
+              )}
               {!attendance &&
               person.enrolled_at &&
               new Date(person.enrolled_at).getTime() > Date.now() ? (
@@ -248,9 +240,16 @@ export function CalendarDetailsTooltip({
         onClick={(event) => event.stopPropagation()}
         className="z-[100] max-h-[min(70vh,480px)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto border bg-popover p-4 text-popover-foreground shadow-lg"
       >
-        <div className="space-y-3">
+        {attendance && openEntity?.href.startsWith("/sessions/") ? <EntityReferencePreview type="session" id={openEntity.href.split("/")[2].split("?")[0]} fallbackTitle={title} embedded /> : <div className="space-y-3">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold">{title}</h3>
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-sm font-semibold">{title}</h3>
+              {status ? (
+                <Badge className={`shrink-0 border-transparent text-[10px] ${statusToneClass(status)}`}>
+                  {label(status)}
+                </Badge>
+              ) : null}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {subject ? (
                 <Badge
@@ -274,11 +273,6 @@ export function CalendarDetailsTooltip({
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {subtitle}
-              {status ? (
-                <Badge variant="outline" className="text-[10px]">
-                  {label(status)}
-                </Badge>
-              ) : null}
             </div>
           </div>
           {students ? people(students, "students") : null}
@@ -288,7 +282,7 @@ export function CalendarDetailsTooltip({
               <Link href={openEntity.href}>{openEntity.label}</Link>
             </Button>
           ) : null}
-        </div>
+        </div>}
       </PopoverContent>
     </Popover>
   );

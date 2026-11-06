@@ -32,6 +32,9 @@ jest.mock("@/features/staff/api/staff", () => ({
 jest.mock("@/features/reconciliation/api/reconciliation", () => ({
   reconciliationApi: { getUninvoicedSessions: async () => [] },
 }));
+jest.mock("../../hooks/useInterviewRoundEvents", () => ({
+  useInterviewRoundEvents: () => ({ data: [], error: null }),
+}));
 jest.mock("../../hooks/useStudentSessionBillingDetails", () => ({
   useStudentSessionBillingDetails: () => ({
     invoiceDetailsById: {},

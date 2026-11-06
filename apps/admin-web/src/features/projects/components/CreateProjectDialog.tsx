@@ -219,6 +219,7 @@ export function CreateProjectDialog({
           >
             <EntityResizablePanels
               id="create-project-panels"
+              inDialog
               primaryMinSize={320}
               secondaryMinSize={240}
               main={

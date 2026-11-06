@@ -1,10 +1,11 @@
 'use client';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
-import { useState, use } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -44,6 +45,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,7 +61,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   const classStaff = classDetails?.staff || [];
 
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState('activity');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -166,10 +168,43 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   }
 
   return (
-    <div className="p-4">
-      {/* Header */}
+    <EntityPropertiesLayout id="class-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm font-medium">Properties</div>
+      <div className="space-y-6 p-4" ref={sidebarForm}>
+        <ClassInfoTab
+          classData={classData}
+          subject={subject || undefined}
+          subjects={allSubjects}
+          isEditing={isEditing}
+          isLoading={isLoading}
+          onEdit={() => setIsEditing(true)}
+          onCancelEdit={() => setIsEditing(false)}
+          onSaved={() => {
+            setIsEditing(false);
+            void invalidateClassSurfaces(queryClient, classData.id);
+            toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+          }}
+        />
+        <div className="border-t pt-6">
+          <ClassPeopleTab
+            classData={classData}
+            classSubject={subject || undefined}
+            classStaff={classStaff}
+            classStudents={classStudents}
+            allStudents={allStudentsData}
+            allStaff={allStaffData}
+            onStudentsUpdated={handleClassUpdated}
+            onAssignStaff={handleAssignStaff}
+            onRemoveStaff={handleRemoveStaff}
+            allowStudentEnrollment={classData.session_type === 'CLASS'}
+          />
+        </div>
+      </div>
+</>}>
+    <div className="min-w-0 flex-1 overflow-y-auto p-4">
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
+        <EntityPropertiesToggle />
         <IssuePill entityType="class" entityId={id} enabled />
 
 
@@ -187,42 +222,10 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         onValueChange={setActiveTab}
         className="space-y-6"
         options={[
-          { value: 'details', label: 'Details' },
-          { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
+          { value: 'sessions', label: 'Sessions' },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
-          <ClassInfoTab
-            classData={classData}
-            subject={subject || undefined}
-            subjects={allSubjects}
-            isEditing={isEditing}
-            isLoading={isLoading}
-            onEdit={() => setIsEditing(true)}
-            onCancelEdit={() => setIsEditing(false)}
-            onSaved={() => {
-              setIsEditing(false);
-              void invalidateClassSurfaces(queryClient, classData.id);
-              toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
-            }}
-          />
-          <div className="border-t pt-6">
-            <ClassPeopleTab
-              classData={classData}
-              classSubject={subject || undefined}
-              classStaff={classStaff}
-              classStudents={classStudents}
-              allStudents={allStudentsData}
-              allStaff={allStaffData}
-              onStudentsUpdated={handleClassUpdated}
-              onAssignStaff={handleAssignStaff}
-              onRemoveStaff={handleRemoveStaff}
-              allowStudentEnrollment={classData.session_type === 'CLASS'}
-            />
-          </div>
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           {classData && (
             <ClassSessionsTab
@@ -295,5 +298,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+
+    </EntityPropertiesLayout>
   );
 }

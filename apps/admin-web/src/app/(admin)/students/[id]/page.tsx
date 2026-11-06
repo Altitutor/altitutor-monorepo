@@ -1,17 +1,20 @@
 'use client';
+import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTab';
+import { studentAccountAction } from '@/features/students/utils/studentAccountAction';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useEffect, useState, use } from 'react';
+import { useRef, useState, use } from 'react';
 import { StudentOnboardingSidebar } from '@/features/onboarding/components/StudentOnboardingSidebar';
 import { useOnboardingJourneys } from '@/features/onboarding/api/queries';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { ArrowLeft, Loader2, PanelRight } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -70,22 +73,12 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const params = use(props.params);
   const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
-  const [detailRoot, setDetailRoot] = useState<HTMLDivElement | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [narrow, setNarrow] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const accountFromDirectory = searchParams.get('account') === 'open';
+  const sidebarForm = useRef<HTMLDivElement>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const { data: journeys = [] } = useOnboardingJourneys();
-  useEffect(() => {
-    if (!detailRoot) return;
-    let wasNarrow: boolean | undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const next = entry.contentRect.width < 1000;
-      setNarrow(next);
-      if (next !== wasNarrow) setSidebarOpen(!next);
-      wasNarrow = next;
-    });
-    observer.observe(detailRoot);
-    return () => observer.disconnect();
-  }, [detailRoot]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
@@ -123,7 +116,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const { data: studentClasses = [] } = useStudentClasses(id);
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'online', 'classes', 'activity', 'sessions', 'files', 'billing'] as const, 'details', 'tab');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'activity', 'tab');
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isHomeworkHelpOpen, setIsHomeworkHelpOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
@@ -218,14 +211,25 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     });
   };
 
+  const accountAction = student && !student.deleted_at ? studentAccountAction(student) : undefined;
+  const canOpenAccount = accountAction && (accountAction.type !== 'details' || student?.status === null);
+  const closeAccount = () => {
+    setAccountOpen(false);
+    if (!accountFromDirectory) return;
+    const query = new URLSearchParams(searchParams.toString());
+    query.delete('account');
+    router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
   // Centralized action handlers
   const studentActions = useStudentActions({
     studentId: id,
     student,
     onEditDetails: () => {
-      setActiveTab('details');
       editFlow.startEdit();
     },
+    onPasswordResetOrRegistration: canOpenAccount ? () => setAccountOpen(true) : undefined,
+    passwordResetLabel: accountAction?.label,
     onLogAbsence: modals.openLogAbsence,
     onAddToHomeworkHelp: () => setIsHomeworkHelpOpen(true),
     onBookTrialSession: modals.openBookTrialSession,
@@ -275,16 +279,40 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const hasOnboarding = !student.deleted_at && (student.status === 'TRIAL' || journeys.some(journey => journey.student_id === id && !journey.closed_at));
 
   return (
-    <div ref={setDetailRoot} className="relative flex h-full min-h-0 flex-1 overflow-hidden">
+    <EntityPropertiesLayout id="student-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{student.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4" ref={sidebarForm}>
+        <DetailsTab
+          hideAccount
+          student={student}
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
+          parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
+          onViewParent={(parentId) => entityModals.openParent(parentId, { defaultTab: 'messages' })}
+          onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
+          addParentButton={editFlow.isEditing ? <ParentSearchPopover allParents={allParents} selectedParents={editFlow.tempStudentParents} onSelectParent={editFlow.assignParent} onCreateNewParent={() => setIsAddParentModalOpen(true)} /> : undefined}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
+      </div>
+      {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
+</>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
-        {hasOnboarding && <Button variant="ghost" size="icon" aria-label="Toggle onboarding sidebar" aria-expanded={sidebarOpen} aria-controls="student-onboarding-sidebar" onClick={() => setSidebarOpen(open => !open)}><PanelRight className="h-4 w-4" /></Button>}
+        <EntityPropertiesToggle />
         <NoteAlertPills entityType="student" entityId={student.id} />
 
         {!student.deleted_at && <ActionsMenu
           type="student"
+          detailsInSidebar
           entityId={student.id}
           copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}
@@ -300,67 +328,14 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
-          { value: 'details', label: 'Details' },
+          { value: 'activity', label: 'Activity' },
           ...((studentDetails?.onlineRelationships?.length ?? 0) > 0 ? [{ value: 'online' as const, label: 'Online' }] : []),
           { value: 'classes', label: 'Classes' },
-          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
           { value: 'billing', label: 'Billing' },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
-          <DetailsTab
-            student={student}
-            isEditing={editFlow.isEditing}
-            isLoading={mutations.isUpdatingDetails}
-            onEdit={editFlow.startEdit}
-            onCancelEdit={editFlow.cancelEdit}
-            onSubmit={handleDetailsSubmit}
-            onDelete={undefined}
-            isDeleting={mutations.isDeleting}
-            studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
-            loadingSubjects={false}
-            onRemoveSubject={undefined}
-            onViewSubject={entityModals.openSubject}
-            addSubjectButton={undefined}
-            parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
-            onViewParent={(parentId) => {
-              entityModals.openParent(parentId, { defaultTab: 'messages' });
-            }}
-            onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
-            addParentButton={
-              editFlow.isEditing ? (
-                <ParentSearchPopover
-                  allParents={allParents}
-                  selectedParents={editFlow.tempStudentParents}
-                  onSelectParent={editFlow.assignParent}
-                  onCreateNewParent={() => setIsAddParentModalOpen(true)}
-                />
-              ) : undefined
-            }
-          />
-          {editFlow.isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
-                Cancel
-              </Button>
-              <Button 
-                disabled={mutations.isUpdatingDetails}
-                onClick={() => {
-                  const form = document.getElementById('student-edit-form') as HTMLFormElement;
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-              >
-                {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="online" activeTab={activeTab} className="space-y-6"><StudentOnlineTab student={student} /></SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
@@ -579,8 +554,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           }}
         />
       )}
+      <PersonAccountDialog type="student" person={student} parents={parents} open={Boolean(canOpenAccount && (accountOpen || accountFromDirectory))} onClose={closeAccount} />
     </div>
-    {hasOnboarding && sidebarOpen && <div id="student-onboarding-sidebar" className={narrow ? 'absolute bottom-0 right-0 top-16 z-20 shadow-xl' : 'h-full shrink-0'}><StudentOnboardingSidebar studentId={id} /></div>}
-    </div>
+
+    </EntityPropertiesLayout>
   );
 }

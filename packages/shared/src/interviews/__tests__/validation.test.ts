@@ -109,3 +109,10 @@ test("station feedback uses the bounded rich-text command boundary", () => {
     isInterviewCommand({ ...assessment, generalFeedback: () => "unsafe" }),
   ).toBe(false);
 });
+
+
+test('question selection is a bounded command independent of assessment saves', () => {
+ const selection={type:'selectQuestion',commandId:command.commandId,roundId:stationId,attemptId:question.id,questionId:question.id};
+ expect(isInterviewCommand(selection)).toBe(true);
+ expect(isInterviewCommand({...selection,questionId:'unknown'})).toBe(false);
+});

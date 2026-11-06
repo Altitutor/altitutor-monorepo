@@ -37,6 +37,8 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSubjectCurriculumColor, cn } from '@/shared/utils';
+import { readInterviewRoundSummaries } from '@/features/interviews/api/round-summaries';
+import { interviewRecipients, type RecipientInterview } from '../../utils/interviewRecipients';
 import { useQuery } from '@tanstack/react-query';
 import { navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 
@@ -57,6 +59,62 @@ export function StudentSelector({
 }: StudentSelectorProps) {
   const { toast } = useToast();
   
+  const [recipientSort, setRecipientSort] = useState<
+    "selected" | "name" | "interview"
+  >("selected");
+  const [interviewSearch, setInterviewSearch] = useState("");
+  const { data: recipientInterviews = [], isError: interviewError } = useQuery({
+    queryKey: ["message-recipient-interviews"],
+    queryFn: async (): Promise<RecipientInterview[]> => {
+      const data = await readInterviewRoundSummaries();
+      return (data ?? []).flatMap((row) => {
+        if (
+          !row.data ||
+          typeof row.data !== "object" ||
+          Array.isArray(row.data)
+        )
+          return [];
+        const round = row.data;
+        return [
+          {
+            id: row.id,
+            name: typeof round.name === "string" ? round.name : "Interview",
+            studentIds: Array.isArray(round.studentIds)
+              ? round.studentIds.filter(
+                  (id): id is string => typeof id === "string",
+                )
+              : [],
+          },
+        ];
+      });
+    },
+    staleTime: 30_000,
+  });
+  const recipientEntries = interviewRecipients(
+    selectedStudents,
+    recipientInterviews,
+    recipientSort,
+  );
+  const addInterview = async (round: RecipientInterview) => {
+    try {
+      const { data, error } = await getSupabaseClient()
+        .from("students")
+        .select("*")
+        .in("id", round.studentIds);
+      if (error) throw error;
+      const ids = new Set(selectedStudents.map((student) => student.id));
+      onStudentsChange([
+        ...selectedStudents,
+        ...(data ?? []).filter((student) => !ids.has(student.id)),
+      ]);
+    } catch {
+      toast({
+        title: "Unable to add interview students",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Tables<'students'>[]>([]);
@@ -590,6 +648,63 @@ export function StudentSelector({
     <div className="space-y-4">
       {/* Search and Filters */}
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">By Interview</Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-2">
+              <Input
+                aria-label="Search interviews"
+                placeholder="Search interviews…"
+                value={interviewSearch}
+                onChange={(event) => setInterviewSearch(event.target.value)}
+              />
+              <ScrollArea className="mt-2 h-64">
+                {interviewError ? (
+                  <p role="alert" className="p-2 text-sm">
+                    Unable to load interviews.
+                  </p>
+                ) : (
+                  recipientInterviews
+                    .filter((round) =>
+                      round.name
+                        .toLowerCase()
+                        .includes(interviewSearch.toLowerCase()),
+                    )
+                    .map((round) => (
+                      <button
+                        key={round.id}
+                        type="button"
+                        className="block w-full rounded p-2 text-left text-sm hover:bg-muted"
+                        onClick={() => void addInterview(round)}
+                      >
+                        {round.name}
+                        <span className="ml-2 text-muted-foreground">
+                          {round.studentIds.length} students
+                        </span>
+                      </button>
+                    ))
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+          <label className="flex items-center gap-2 text-sm">
+            Sort recipients
+            <select
+              aria-label="Sort recipients"
+              className="rounded-md border bg-background p-2"
+              value={recipientSort}
+              onChange={(event) =>
+                setRecipientSort(event.target.value as typeof recipientSort)
+              }
+            >
+              <option value="selected">Selection order</option>
+              <option value="name">Name</option>
+              <option value="interview">Interview, then name</option>
+            </select>
+          </label>
+        </div>
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
@@ -871,7 +986,7 @@ export function StudentSelector({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedStudents.map((student) => {
+                {recipientEntries.map(({student, group}, index) => {
                   const classes = studentClassesMap[student.id] || [];
                   const isSelected = selectedStudentIds.has(student.id);
                   
@@ -902,6 +1017,7 @@ export function StudentSelector({
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
+                        {recipientSort === 'interview' && (index === 0 || recipientEntries[index-1].group !== group) && <span className="mb-1 block text-xs font-semibold text-muted-foreground">{group}</span>}
                         {student.first_name || '-'}
                       </TableCell>
                       <TableCell className="font-medium">

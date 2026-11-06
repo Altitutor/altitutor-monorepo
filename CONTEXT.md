@@ -349,6 +349,9 @@
 
 ## Core tutoring sessions and billing
 
+- **Session lesson plan** — An optional selection of Topics and catalog resources prepared for one future teaching Session and shared by its assigned Tutors. It describes intended teaching, independently of each Tutor's local Teaching workspace and the confirmed Tutor log.
+  _Avoid_: Submitted lesson, required Tutor log, tutor-private plan
+
 - **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
 
 - **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
@@ -565,6 +568,10 @@
 - **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
 
 - **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
+
+- **Interview question answering interval** — The time during question time for which a tutor has selected a station question. Question 1 is selected initially; each later selection or revisit starts another interval. Pauses are excluded. These intervals label recording playback and are independent of assessment completion.
+
+- **Interview station recording** — One continuous recording of one Student’s station encounter, covering question time and, in Feedback mode, verbal feedback. Muted microphones, disabled cameras and pauses leave silent or blank gaps. Reading and Exam-mode marking are excluded.
 
 - **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
 

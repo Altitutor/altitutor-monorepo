@@ -78,6 +78,87 @@ describe("independent interview recovery jobs", () => {
       request.mockRestore();
     }
   });
+  it.each([false, true])(
+    "retires a completed round with a pending browser upload only (Daily pending: %s)",
+    async (dailyPending) => {
+      const roundId = "round";
+      const anchor = {
+        id: "browser-capture",
+        kind: "audio",
+        phase_key: "browser-video:round:tutor:attempt",
+        closed_at: null,
+        recording_enabled: true,
+      };
+      const dailySession = {
+        id: "legacy-daily",
+        kind: "video",
+        phase_key: "attempt:attempt",
+        closed_at: "2026-11-05T10:00:00Z",
+        recording_enabled: true,
+      };
+      const rpc = jest.fn(async (name: string) => {
+        if (name === "interview_claim_media_job")
+          return {
+            data: [{ round_id: roundId, revision: 1, lease_token: "lease" }],
+            error: null,
+          };
+        if (name === "interview_media_state")
+          return {
+            data: {
+              id: roundId,
+              phase: "completed",
+              progress: [],
+              recordings: [
+                { id: anchor.id, kind: "video", state: "pending" },
+                ...(dailyPending
+                  ? [{ id: dailySession.id, kind: "video", state: "pending" }]
+                  : []),
+              ],
+            },
+            error: null,
+          };
+        return { data: null, error: null };
+      });
+      const client = {
+        rpc,
+        from: () => ({
+          select: () => ({
+            eq: async () => ({
+              data: dailyPending ? [anchor, dailySession] : [anchor],
+              error: null,
+            }),
+          }),
+          // A recent legacy recording check has already claimed this refresh.
+          update: () => ({
+            eq: () => ({
+              or: () => ({
+                select: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient<Database>;
+      const request = jest
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("{}", { status: 503 }));
+      try {
+        await expect(
+          reconcileInterviewMedia(client, "key", roundId),
+        ).resolves.toBe(1);
+        expect(request).not.toHaveBeenCalled();
+        expect(rpc).toHaveBeenCalledWith(
+          "interview_complete_media_job",
+          expect.objectContaining({
+            p_round_id: roundId,
+            p_delay_seconds: 300,
+            p_retire: !dailyPending,
+          }),
+        );
+      } finally {
+        request.mockRestore();
+      }
+    },
+  );
 });
 
 import {

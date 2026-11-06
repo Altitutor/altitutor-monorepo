@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { UnreadConversationMenu } from '../UnreadConversationMenu';
+import { ConversationRowActions } from '../ConversationRowActions';
 import type { AdminStaffOption } from '../../api/queries';
 
 const staff: AdminStaffOption[] = [
@@ -17,45 +17,47 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = jest.fn();
 });
 
-it('marks a read conversation unread from the mail button', async () => {
+it('marks a read conversation unread and keeps the unread dot off', async () => {
   const onMarkUnread = jest.fn();
   render(
-    <UnreadConversationMenu
-      unread={false}
-      staff={staff}
-      assigneeId={null}
-      onMarkRead={jest.fn()}
-      onMarkUnread={onMarkUnread}
-      onAssign={jest.fn()}
-    />,
+    <div data-conversation-row>
+      <ConversationRowActions
+        unread={false}
+        staff={staff}
+        assigneeId={null}
+        onMarkRead={jest.fn()}
+        onMarkUnread={onMarkUnread}
+        onAssign={jest.fn()}
+        onCreateTask={jest.fn()}
+      />
+    </div>,
   );
 
+  expect(screen.queryByLabelText('Unread')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Mark as unread' }));
   expect(onMarkUnread).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('menuitem', { name: 'Assign to' })).not.toBeInTheDocument();
 });
 
-it('offers mark as read and assigns the chosen admin from the unread menu', async () => {
+it('shows an unread dot and assigns from a separate chip', async () => {
   const user = userEvent.setup();
   const onMarkRead = jest.fn();
   const onAssign = jest.fn();
   render(
-    <UnreadConversationMenu
+    <ConversationRowActions
       unread
       staff={staff}
       assigneeId="ada"
       onMarkRead={onMarkRead}
       onMarkUnread={jest.fn()}
       onAssign={onAssign}
+      onCreateTask={jest.fn()}
     />,
   );
 
-  await user.click(screen.getByRole('button', { name: 'Conversation actions, Assigned to Ada Admin' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Mark as read' }));
+  expect(screen.getByLabelText('Unread')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Mark as read' }));
   expect(onMarkRead).toHaveBeenCalledTimes(1);
-
-  await user.click(screen.getByRole('button', { name: 'Conversation actions, Assigned to Ada Admin' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Assign to' }));
+  await user.click(screen.getByRole('button', { name: 'Assign conversation, Ada Admin' }));
   fireEvent.click(await screen.findByRole('option', { name: 'Bea Admin' }));
   expect(onAssign).toHaveBeenCalledWith('bea');
 });

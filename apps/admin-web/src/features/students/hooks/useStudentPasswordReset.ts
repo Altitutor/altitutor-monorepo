@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Tables } from '@altitutor/shared';
+import { studentAccountAction } from '../utils/studentAccountAction';
 
 interface UseStudentPasswordResetProps {
   student: Tables<'students'> | null;
@@ -24,44 +26,25 @@ interface UseStudentPasswordResetReturn {
 export function useStudentPasswordReset({
   student,
 }: UseStudentPasswordResetProps): UseStudentPasswordResetReturn {
+  const router = useRouter();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
 
-  const passwordResetLabel = useMemo(() => {
-    if (!student) return 'Send password reset';
-    
-    const isRegistered = student.status === 'ACTIVE';
-    const hasAccount = !!student.user_id;
-    
-    if (hasAccount) {
-      return 'Send password reset';
-    } else if (isRegistered) {
-      return 'Send invite';
-    } else {
-      return 'Send registration link';
-    }
-  }, [student]);
+  const passwordResetLabel = useMemo(() => student ? studentAccountAction(student).label : 'Send password reset', [student]);
 
   const openPasswordResetOrRegistration = useCallback(() => {
-    if (!student) return;
-    
-    const isRegistered = student.status === 'ACTIVE';
-    const hasAccount = !!student.user_id;
-    
-    if (hasAccount) {
-      // Student has an auth account, even if profile registration is incomplete.
+    if (!student || student.deleted_at) return;
+    const action = studentAccountAction(student);
+    if (action.type === 'details') {
+      router.push(`/students/${student.id}?tab=details`);
+    } else if (action.type === 'reset') {
       setHasPasswordResetLinkSent(true);
-    } else if (isRegistered) {
-      // Case 1: Registered but no account -> Send Invite
-      setInviteDialogType('invite');
-      setInviteDialogOpen(true);
     } else {
-      // No account and not registered -> Send Registration Link
-      setInviteDialogType('registration');
+      setInviteDialogType(action.type);
       setInviteDialogOpen(true);
     }
-  }, [student]);
+  }, [student, router]);
 
   const closeInviteDialog = useCallback(() => {
     setInviteDialogOpen(false);

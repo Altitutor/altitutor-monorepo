@@ -203,7 +203,14 @@ export function getSessionTitle(session: FlattenedSessionDetail): string {
   
   // Add time range
   if (session.start_time && session.end_time) {
-    parts.push(`${session.start_time} - ${session.end_time}`);
+    const displayTime = (value: string) => {
+      const match = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(value);
+      if (!match) return value;
+      const hour = Number(match[1]);
+      if (hour > 23 || Number(match[2]) > 59) return value;
+      return `${hour % 12 || 12}:${match[2]} ${hour >= 12 ? 'PM' : 'AM'}`;
+    };
+    parts.push(`${displayTime(session.start_time)} - ${displayTime(session.end_time)}`);
   }
   
   return parts.join(' ');

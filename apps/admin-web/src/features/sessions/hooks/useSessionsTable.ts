@@ -157,7 +157,7 @@ export function useSessionsTable({
     parentId,
     classId,
     adminShiftId,
-    types: typeFilters.length > 0 && filters.type__operator?.[0] !== 'none' ? typeFilters : undefined,
+    types: typeFilters.some(type => type !== 'INTERVIEW') && filters.type__operator?.[0] !== 'none' ? typeFilters.filter(type => type !== 'INTERVIEW') : undefined,
     orderBy: 'start_at',
     ascending: sortDirection === 'asc',
   }, {enabled:!(effectiveRangeStart && effectiveRangeEnd && effectiveRangeStart > effectiveRangeEnd)});
