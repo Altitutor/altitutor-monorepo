@@ -127,6 +127,59 @@ localDatabaseTest("palette search against its owned local database", () => {
     });
     expect(onlineOnly.results.map((student) => student.id)).toEqual([ids[3]]);
   });
+  it("searches matching Inbox messages before grouping and pagination", async () => {
+    const folders = ["inbox", "archive", "custom"].map((folder) => ({
+      id: `${marker}-${folder}`,
+      name: folder,
+      role: folder === "custom" ? null : folder,
+    }));
+    const messages = [
+      { folder: 0, thread: "inbox", subject: marker, day: "01" },
+      { folder: 1, thread: "archived", subject: marker, day: "04" },
+      { folder: 2, thread: "filed", subject: marker, day: "03" },
+      { folder: 0, thread: "mixed", subject: "Other subject", day: "01" },
+      { folder: 1, thread: "mixed", subject: marker, day: "02" },
+    ].map(({ folder, thread, subject, day }, index) => ({
+      id: `${marker}-message-${index}`,
+      thread_id: `${marker}-${thread}`,
+      folder_id: folders[folder].id,
+      data: { subject, sender: "fixture@example.test" },
+      occurred_at: `2026-01-${day}T00:00:00Z`,
+    }));
+    const threadIds = [...new Set(messages.map((message) => message.thread_id))];
+
+    try {
+      const folderInsert = await db.from("email_folders").insert(folders);
+      if (folderInsert.error) throw folderInsert.error;
+      const threadInsert = await db
+        .from("email_threads")
+        .insert(threadIds.map((id) => ({ id })));
+      if (threadInsert.error) throw threadInsert.error;
+      const messageInsert = await db.from("email_messages").insert(messages);
+      if (messageInsert.error) throw messageInsert.error;
+
+      const request = { type: "email" as const, search: marker, limit: 1 };
+      const result = await api.search(request);
+      expect(result.results.map((email) => email.id)).toEqual([
+        `${marker}-inbox`,
+      ]);
+      expect(result.hasMore).toBe(false);
+
+      const update = await db
+        .from("email_folders")
+        .update({ present: false })
+        .eq("id", folders[0].id);
+      if (update.error) throw update.error;
+      expect(await api.search(request)).toEqual({ results: [], hasMore: false });
+    } finally {
+      await db.from("email_messages").delete().in("thread_id", threadIds);
+      await db.from("email_threads").delete().in("id", threadIds);
+      await db
+        .from("email_folders")
+        .delete()
+        .in("id", folders.map(({ id }) => id));
+    }
+  });
   it("finds multiword topic names as well as subject-qualified codes", async () => {
     const byName = await api.search({
       type: "topic",
