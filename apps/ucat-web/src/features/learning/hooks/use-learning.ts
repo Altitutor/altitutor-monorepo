@@ -14,6 +14,7 @@ export const learningKeys = {
   all: ["learning"] as const,
   modules: () => [...learningKeys.all, "modules"] as const,
   lesson: (id: string) => [...learningKeys.all, "lesson", id] as const,
+  questionSubmission: (id: string) => [...learningKeys.lesson(id), "question-submission"] as const,
 };
 
 function invalidateLearningAndStudyPlan(
@@ -184,6 +185,34 @@ export function useUpdateBlockProgress(lessonId: string) {
   });
 }
 
+export function useRecordLessonQuestionSubmission(lessonId: string) {
+  const queryClient = useQueryClient();
+  const interactionState = { completedFromQuestionEngine: true };
+
+  return useMutation({
+    mutationKey: learningKeys.questionSubmission(lessonId),
+    mutationFn: (blockId: string) => learningApi.updateBlockProgress(blockId, {
+      completed: true,
+      interactionState,
+    }),
+    retry: 1,
+    onSuccess: (_result, blockId) => {
+      patchLessonCache(queryClient, lessonId, (current) => {
+        const blocks = current.blocks.map((block) => block.id === blockId
+          ? {
+              ...block,
+              block_completed_at: block.block_completed_at ?? new Date().toISOString(),
+              interaction_state: interactionState,
+            }
+          : block);
+
+        return { ...current, module: updateLessonSummary(current.module, blocks), blocks };
+      });
+      invalidateLearningAndStudyPlan(queryClient, lessonId);
+    },
+  });
+}
+
 export function useMarkBlockComplete(lessonId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -271,6 +300,7 @@ export function useResetLessonProgress(lessonId: string) {
         const blocks = current.blocks.map((block) => ({
           ...block,
           block_completed_at: null,
+          interaction_state: null,
         }));
 
         return {

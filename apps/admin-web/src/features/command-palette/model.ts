@@ -69,7 +69,9 @@ export type PaletteCommand = {
   id: string;
   title: string;
   icon: LucideIcon;
-  action: () => void;
+  action?: () => void;
+  submenu?: PaletteCommand[];
+  subtitle?: string;
   keywords?: string[];
   target?: RecordTarget;
   parents?: string[];

@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { 
             error: 'PHONE_CONFLICT',
-            message: errorMessage || 'This phone number is already associated with another account'
+            message: 'This phone number is already associated with another account'
           },
           { status: 409 } // Conflict
         );

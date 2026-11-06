@@ -1,4 +1,5 @@
 "use client";
+import { NewJourney } from "./NewJourney";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -285,7 +286,9 @@ export function JourneyDetail({
                       <Button size="sm" onClick={() => act(a)}>
                         {a.key === "registration"
                           ? "Send follow-up"
-                          : a.label.split(" · ")[0]}
+                          : a.key === "book_trial" && !journey.student_id
+                            ? "Identify children"
+                            : a.label.split(" · ")[0]}
                       </Button>
                     )}
                 </div>
@@ -454,40 +457,20 @@ export function JourneyDetail({
       {inline && communicationPurpose && <AdminDialogShell open onClose={() => setCommunicationPurpose(null)} title={journey.label} fillHeight defaultExpanded bodyClassName="!p-0 !overflow-hidden">
         <JourneyCommunication ref={commRef} journey={journey} onRefresh={refresh} />
       </AdminDialogShell>}
-      {modal === "book" && (
+      {modal === "book" && (journey.student_id ? (
         <BookSessionModal
           isOpen
           onClose={() => setModal(null)}
-          initialStudentId={journey.student_id ?? undefined}
+          initialStudentId={journey.student_id}
           sessionType="TRIAL_SESSION"
-          onBookingCreated={(sessionId) => {
-            void (async () => {
-              if (!journey.student_id) {
-                const result = await getSupabaseClient()
-                  .from("sessions_students")
-                  .select("student_id, students(first_name,last_name)")
-                  .eq("session_id", sessionId)
-                  .single();
-                if (result.error) {
-                  setError(result.error.message);
-                  return;
-                }
-                const linked = await getSupabaseClient()
-                  .from("onboarding_journeys")
-                  .update({
-                    student_id: result.data.student_id,
-                    label:
-                      `${result.data.students?.first_name ?? ""} ${result.data.students?.last_name ?? ""}`.trim() ||
-                      journey.label,
-                  })
-                  .eq("id", journey.id);
-                if (linked.error) setError(linked.error.message);
-              }
-              refresh();
-            })();
-          }}
+          onBookingCreated={refresh}
         />
-      )}
+      ) : (
+        <NewJourney familyJourney={journey} onClose={() => {
+          setModal(null);
+          refresh();
+        }} />
+      ))}
       {modal === "enrol" && student && staff && (
         <EnrollStudentModal
           isOpen
@@ -528,7 +511,7 @@ export function JourneyDetail({
           onClose={() => setModal(null)}
           sessionId={e.trial_session_id}
           purposeFilter="trial_session"
-          initialRespondent={{ type: "student", id: journey.student_id }}
+          lockedRespondent={{ type: "student", id: journey.student_id, name: journey.label }}
           onSaved={() => {
             setModal(null);
             refresh();

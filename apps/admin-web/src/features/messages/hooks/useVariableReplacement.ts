@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { COMPANY_CONTACT } from '@altitutor/email';
 import { getStudentClasses, getStudentClassesWithStartDates, getStaffClasses, getStaffClassesWithStartDates } from '../api/bulk';
 import { formatClassesList, formatClassesWithStartDatesList } from '../utils/classFormatters';
 import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/invites';
@@ -15,6 +16,12 @@ import {
   type TemplateVariable,
 } from '../utils/variableConfig';
 import type { Tables } from '@altitutor/shared';
+
+const COMPANY_VARIABLES = [
+  { name: 'company_phone', description: 'Altitutor phone number', example: COMPANY_CONTACT.phone },
+  { name: 'company_email', description: 'Altitutor email address', example: COMPANY_CONTACT.email },
+  { name: 'company_address', description: 'Altitutor street address', example: COMPANY_CONTACT.address },
+] satisfies readonly TemplateVariable[];
 
 /** Contact data shape from getContactForTemplate - uses partial types from API response */
 type ContactForTemplate = {
@@ -163,6 +170,8 @@ export function useVariableReplacement(
 
   const getVariableValue = useCallback(
     async (variable: string): Promise<string> => {
+      const companyVariable = COMPANY_VARIABLES.find(({ name }) => name === variable);
+      if (companyVariable) return companyVariable.example;
       if (variable === 'sender_name') return senderName;
 
       if (!contactData) return `{${variable}}`;
@@ -280,36 +289,21 @@ export function useVariableReplacement(
   );
 
   const getAvailableVariables = useCallback((): readonly TemplateVariable[] => {
-    if (!contactData) {
-      return getVariablesForRecipientType('STUDENT');
-    }
-    const contact = contactData;
-    const allVariables = getVariablesForRecipientType(contact.contact_type as RecipientType);
-
-    if (contact.contact_type === 'STUDENT' && contact.students) {
-      const student = contact.students as Tables<'students'>;
+    const recipientType = (contactData?.contact_type ?? 'STUDENT') as RecipientType;
+    let variables = getVariablesForRecipientType(recipientType);
+    if (contactData?.contact_type === 'STUDENT' && contactData.students) {
+      const student = contactData.students as Tables<'students'>;
       const hasClasses = studentHasClasses[student.id] ?? false;
-      return allVariables.filter((v) =>
-        canGenerateStudentVariable(v.name, student, hasClasses)
-      );
-    }
-
-    if (contact.contact_type === 'STAFF' && contact.staff) {
-      const staff = contact.staff as Tables<'staff'>;
+      variables = variables.filter((v) => canGenerateStudentVariable(v.name, student, hasClasses));
+    } else if (contactData?.contact_type === 'STAFF' && contactData.staff) {
+      const staff = contactData.staff as Tables<'staff'>;
       const hasClasses = staffHasClasses[staff.id] ?? false;
-      return allVariables.filter((v) =>
-        canGenerateStaffVariable(v.name, staff, hasClasses)
-      );
+      variables = variables.filter((v) => canGenerateStaffVariable(v.name, staff, hasClasses));
+    } else if (contactData?.contact_type === 'PARENT' && contactData.parents) {
+      const parent = contactData.parents as ParentWithStudents;
+      variables = variables.filter((v) => canGenerateParentVariable(v.name, parent));
     }
-
-    if (contact.contact_type === 'PARENT' && contact.parents) {
-      const parent = contact.parents as ParentWithStudents;
-      return allVariables.filter((v) =>
-        canGenerateParentVariable(v.name, parent)
-      );
-    }
-
-    return allVariables;
+    return [...variables, ...COMPANY_VARIABLES];
   }, [contactData, studentHasClasses, staffHasClasses]);
 
   const getParentStudents = useCallback((): Tables<'students'>[] => {

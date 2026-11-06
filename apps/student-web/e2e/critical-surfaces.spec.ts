@@ -35,6 +35,27 @@ async function signIn(page: Page) {
   }
 }
 
+test("a legacy router state falls back without a server exception @compat", async ({ page }) => {
+  await signIn(page);
+
+  const flight = async (segment: Array<string | null>) =>
+    page.request.get("/classes", {
+      headers: {
+        RSC: "1",
+        "Next-Router-State-Tree": encodeURIComponent(
+          JSON.stringify(["", { children: [segment, {}] }]),
+        ),
+      },
+    });
+  const legacy = await flight(["subjectShortName", "fixture", "d"]);
+  expect(legacy.status()).toBe(409);
+  expect(legacy.headers()["cache-control"]).toBe("private, no-store");
+
+  const current = await flight(["subjectShortName", "fixture", "d", null]);
+  expect(current.status()).toBe(200);
+  expect(current.headers()["content-type"]).toContain("text/x-component");
+});
+
 test("a student can reach classes, resources, and billing @compat", async ({
   page,
 }) => {

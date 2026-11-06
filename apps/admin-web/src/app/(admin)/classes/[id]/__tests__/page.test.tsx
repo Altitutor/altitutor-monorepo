@@ -22,6 +22,10 @@ let mockImpact: {
   isError: boolean;
 };
 
+jest.mock("@/features/forms/components/FormResponseCommands", () => ({
+  FormResponseCommands: () => null,
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));

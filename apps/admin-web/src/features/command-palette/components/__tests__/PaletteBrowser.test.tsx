@@ -234,3 +234,39 @@ it("keeps a topic subtree scoped, offers an explicit Open action, and uses Escap
     "Search 12MATH…",
   );
 });
+
+it("opens a contextual form command's member submenu and chooses the searched member", async () => {
+  const user = userEvent.setup();
+  const chooseAlice = jest.fn();
+  const chooseBob = jest.fn();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PaletteBrowser
+        isOpen
+        onClose={() => {}}
+        onEntitySelected={() => {}}
+        pages={[]}
+        commands={[{
+          id: "forms",
+          title: "Add form response",
+          icon: Copy,
+          target: { type: "class", id: "class", title: "Maths" },
+          submenu: [
+            { id: "alice", title: "Alice Williams", icon: Copy, action: chooseAlice },
+            { id: "bob", title: "Bob Taylor", icon: Copy, action: chooseBob },
+          ],
+        }]}
+        searchEntities={async () => ({ results: [], hasMore: false })}
+      />
+    </QueryClientProvider>,
+  );
+
+  const input = screen.getByRole("searchbox");
+  await user.type(input, "add form response");
+  await user.click(screen.getByRole("option", { name: "Commands Add form response Maths" }));
+  await user.type(input, "Alice");
+  expect(screen.queryByRole("option", { name: "Bob Taylor" })).not.toBeInTheDocument();
+  await user.keyboard("{Enter}");
+  expect(chooseAlice).toHaveBeenCalledTimes(1);
+  expect(chooseBob).not.toHaveBeenCalled();
+});
