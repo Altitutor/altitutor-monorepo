@@ -1,6 +1,11 @@
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 
+export type WorkedSolutionState = {
+  locked: boolean;
+  submissionSaved: boolean;
+};
+
 // Published lessons use these headings for worked feedback on the immediately preceding question.
 const workedSolutionHeading = /^(?:worked solution(?:$|:)|feedback(?:$|:| and )|review the reasoning$|what to notice(?: from | and quick summary$))/i;
 
