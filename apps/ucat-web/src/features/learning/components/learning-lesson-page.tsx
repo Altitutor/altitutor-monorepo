@@ -29,7 +29,9 @@ import {
 } from "@/features/learning/components/learning-lesson-progress-dialogs";
 import { LearningLessonPageSkeleton } from "@/features/learning/components/learning-lesson-page-skeleton";
 import { LearningTextBlock } from "@/features/learning/components/learning-text-block";
+import { LearningWorkedSolution } from "@/features/learning/components/learning-worked-solution";
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
+import { hasSubmittedLessonQuestion, isWorkedSolutionAfterQuestion } from "@/features/learning/lib/worked-solution";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
@@ -166,6 +168,8 @@ function LessonBlockContent({
   block,
   onBlockProgress,
   onSkillTrainerComplete,
+  onQuestionSubmitted,
+  workedSolutionLocked,
   questionBlockStarted,
   questionBlockActive,
   questionBlockComplete,
@@ -178,19 +182,30 @@ function LessonBlockContent({
     interactionState?: Json,
   ) => void;
   onSkillTrainerComplete: (blockId: string) => void;
+  onQuestionSubmitted: (blockId: string) => void;
+  workedSolutionLocked?: boolean;
   questionBlockStarted: boolean;
   questionBlockActive: boolean;
   questionBlockComplete: boolean;
   onActivateQuestionBlock: () => void;
 }) {
+  if (block.block_type === "text" && block.id) {
+    const text = (
+      <LearningTextBlock
+        block={block}
+        trackViewing={!workedSolutionLocked}
+        onViewed={() => onBlockProgress(block.id!, true)}
+      />
+    );
+    return workedSolutionLocked === undefined ? text : (
+      <LearningWorkedSolution locked={workedSolutionLocked}>
+        <div className="rounded-xl border bg-card px-5 py-4">{text}</div>
+      </LearningWorkedSolution>
+    );
+  }
+
   return (
     <>
-      {block.block_type === "text" && block.id ? (
-        <LearningTextBlock
-          block={block}
-          onViewed={() => onBlockProgress(block.id!, true)}
-        />
-      ) : null}
       {block.block_type === "video" && block.id ? (
         <VideoBlock
           block={block}
@@ -219,9 +234,7 @@ function LessonBlockContent({
           onActivate={onActivateQuestionBlock}
           onProgressChange={() => {
             if (!block.id) return;
-            onBlockProgress(block.id, true, {
-              completedFromQuestionEngine: true,
-            });
+            onQuestionSubmitted(block.id);
           }}
         />
       ) : null}
@@ -287,6 +300,16 @@ export function LearningLessonPage({
   }, [data?.module.started_at, queryClient]);
 
   const blocks = useMemo(() => data?.blocks ?? [], [data?.blocks]);
+  const workedSolutions = useMemo(() => {
+    const solutions = new Map<string, boolean>();
+    blocks.forEach((block, index) => {
+      const previous = blocks[index - 1];
+      if (block.id && previous && isWorkedSolutionAfterQuestion(block, previous)) {
+        solutions.set(block.id, !hasSubmittedLessonQuestion(previous));
+      }
+    });
+    return solutions;
+  }, [blocks]);
   const lesson = data?.module;
   const completionPercent = Number(lesson?.completion_percent ?? 0);
   const isLessonComplete =
@@ -358,10 +381,12 @@ export function LearningLessonPage({
         const index = blocks.findIndex((item) => item.id === block.id);
         return {
           id: block.id ?? `block-${index}`,
-          label: formatBlockLabel(block),
+          label: block.id && workedSolutions.get(block.id)
+            ? "Worked solution"
+            : formatBlockLabel(block),
         };
       }),
-    [blocks, incompleteBlocks],
+    [blocks, incompleteBlocks, workedSolutions],
   );
 
   const handleBlockProgress = useCallback(
@@ -380,6 +405,19 @@ export function LearningLessonPage({
     },
     [blocks, updateProgress],
   );
+
+  const handleQuestionSubmitted = useCallback((blockId: string) => {
+    const block = blocks.find((item) => item.id === blockId);
+    if (!block || hasSubmittedLessonQuestion(block)) return;
+
+    updateProgress.mutate({
+      blockId,
+      payload: {
+        completed: true,
+        interactionState: { completedFromQuestionEngine: true },
+      },
+    });
+  }, [blocks, updateProgress]);
 
   const refreshLessonProgress = useCallback(() => {
     void queryClient.invalidateQueries({
@@ -447,6 +485,8 @@ export function LearningLessonPage({
       onSuccess: () => {
         setIncompleteDialogOpen(false);
         setActiveIndex(0);
+        setActiveQuestionBlockId(null);
+        setStartedQuestionBlockIds(new Set());
       },
     });
   }, [resetLessonProgress]);
@@ -519,6 +559,8 @@ export function LearningLessonPage({
                     block={block}
                     onBlockProgress={handleBlockProgress}
                     onSkillTrainerComplete={handleSkillTrainerComplete}
+                    onQuestionSubmitted={handleQuestionSubmitted}
+                    workedSolutionLocked={workedSolutions.get(block.id)}
                     questionBlockStarted={startedQuestionBlockIds.has(block.id)}
                     questionBlockActive={activeQuestionBlockId === block.id}
                     questionBlockComplete={isBlockComplete(block)}
@@ -538,6 +580,7 @@ export function LearningLessonPage({
         <motion.div id="tour-learning-progress" variants={itemVariants}>
           <LearningLessonContentsSidebar
             blocks={blocks}
+            workedSolutions={workedSolutions}
             activeIndex={activeIndex}
             completionPercent={completionPercent}
             isLessonComplete={isLessonComplete}

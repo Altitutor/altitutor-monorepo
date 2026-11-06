@@ -164,6 +164,7 @@ export function useUpdateBlockProgress(lessonId: string) {
                 ...block,
                 block_completed_at:
                   block.block_completed_at ?? new Date().toISOString(),
+                interaction_state: payload.interactionState ?? block.interaction_state,
               }
             : block,
         );
@@ -271,6 +272,7 @@ export function useResetLessonProgress(lessonId: string) {
         const blocks = current.blocks.map((block) => ({
           ...block,
           block_completed_at: null,
+          interaction_state: null,
         }));
 
         return {

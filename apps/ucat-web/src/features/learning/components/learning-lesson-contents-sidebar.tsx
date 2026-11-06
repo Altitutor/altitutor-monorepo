@@ -20,6 +20,7 @@ function canManuallyCompleteBlock(block: LearningModuleBlockRow): boolean {
 
 type LearningLessonContentsSidebarProps = {
   blocks: LearningModuleBlockRow[];
+  workedSolutions?: ReadonlyMap<string, boolean>;
   activeIndex: number;
   completionPercent: number;
   isLessonComplete: boolean;
@@ -34,6 +35,7 @@ type LearningLessonContentsSidebarProps = {
 
 export function LearningLessonContentsSidebar({
   blocks,
+  workedSolutions,
   activeIndex,
   completionPercent,
   isLessonComplete,
@@ -99,7 +101,8 @@ export function LearningLessonContentsSidebar({
         <CardContent className="space-y-1">
           {blocks.map((block, index) => {
             const complete = isBlockComplete(block);
-            const manualComplete = canManuallyCompleteBlock(block);
+            const locked = block.id != null && workedSolutions?.get(block.id) === true;
+            const manualComplete = !locked && canManuallyCompleteBlock(block);
             const isActive = index === activeIndex;
 
             return (
@@ -120,7 +123,7 @@ export function LearningLessonContentsSidebar({
                   )}
                 >
                   <span className="line-clamp-2">
-                    {formatBlockLabel(block)}
+                    {locked ? "Worked solution" : formatBlockLabel(block)}
                   </span>
                 </button>
 
