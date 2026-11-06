@@ -63,6 +63,53 @@ describe("student session middleware", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it("asks the browser to reload an authenticated navigation with legacy router state", async () => {
+    mockGetClaims.mockImplementation(async () => {
+      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(
+        [{ name: "student-auth", value: "refreshed", options: { path: "/" } }],
+        { Pragma: "no-cache" },
+      );
+      return { data: { claims: { sub: "student-1" } }, error: null };
+    });
+    const state = ["", { children: [["subjectShortName", "fixture", "d"], {}] }];
+    const response = await middleware(request("/classes", {
+      headers: { RSC: "1", "Next-Router-State-Tree": encodeURIComponent(JSON.stringify(state)) },
+    }));
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("set-cookie")).toContain("student-auth=refreshed");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+  });
+
+  it("forwards current router state and preserves the sign-in redirect for a missing session", async () => {
+    const currentState = ["", { children: [["subjectShortName", "fixture", "d", null], {}] }];
+    const currentHeader = encodeURIComponent(JSON.stringify(currentState));
+    const response = await middleware(request("/classes", {
+      headers: { RSC: "1", "Next-Router-State-Tree": currentHeader },
+    }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-request-next-router-state-tree")).toBe(currentHeader);
+
+    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+    const legacyState = ["", { children: [["subjectShortName", "fixture", "d"], {}] }];
+    const unauthenticated = await middleware(request("/classes?week=next&_rsc=internal", {
+      headers: { RSC: "1", "Next-Router-State-Tree": encodeURIComponent(JSON.stringify(legacyState)) },
+    }));
+    const location = new URL(unauthenticated.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("next")).toBe("/classes?week=next");
+  });
+
+  it("leaves invalid dynamic param types to the renderer", async () => {
+    const state = [["subjectShortName", "fixture", "unknown"], {}];
+    const header = encodeURIComponent(JSON.stringify(state));
+    const response = await middleware(request("/classes", {
+      headers: { RSC: "1", "Next-Router-State-Tree": header },
+    }));
+    expect(response.headers.get("x-middleware-request-next-router-state-tree")).toBe(header);
+  });
+
   it("redirects a missing protected session with return intent", async () => {
     mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
     const location = new URL((await middleware(request("/classes?week=next"))).headers.get("location")!);
