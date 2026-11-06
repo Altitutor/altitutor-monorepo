@@ -32,6 +32,8 @@ const isSentrySourceMapUploadConfigured = Boolean(
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: getLocalDevOrigins(),
+  // Expose Flight headers so the session boundary can handle legacy router state.
+  skipProxyUrlNormalize: true,
   env: {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
