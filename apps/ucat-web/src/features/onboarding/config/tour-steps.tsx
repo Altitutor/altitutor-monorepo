@@ -710,8 +710,9 @@ const questionEngineAltitutorControlSteps: ContextualTourStep[] = [
     content: (
       <div className="space-y-2">
         <p>
-          Try Lag mode, move the toolbar, or select Report bug and Exit to learn
-          what each control does. Nothing can end this tutorial from here.
+          Try Lag mode, move the toolbar, select Full screen, or select Report
+          bug and Exit to learn what each control does. Nothing can end this
+          tutorial from here.
         </p>
         <p className="font-medium">
           Select Next when you are ready to continue.
