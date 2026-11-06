@@ -65,6 +65,36 @@
       "cache": false,
       "persistent": true
     },
+    "@altitutor/tutor-app#dev": {
+      "dependsOn": ["^build"],
+      "with": ["tutor-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/tutor-app#start": {
+      "dependsOn": ["^build"],
+      "with": ["tutor-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/tutor-app#native:dev": {
+      "dependsOn": ["^build"],
+      "with": ["tutor-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/tutor-app#native:ios": {
+      "dependsOn": ["^build"],
+      "with": ["tutor-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
+    "@altitutor/tutor-app#native:android": {
+      "dependsOn": ["^build"],
+      "with": ["tutor-web#dev"],
+      "cache": false,
+      "persistent": true
+    },
     "@altitutor/ucat-app#dev": {
       "dependsOn": ["^build"],
       "with": ["ucat-web#dev"],

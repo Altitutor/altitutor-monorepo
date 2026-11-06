@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(4);
+SELECT plan(6);
 
 SELECT is(
   (
@@ -232,11 +232,25 @@ SELECT results_eq(
   'a tutor only sees new students on sessions they are assigned to'
 );
 
+SELECT results_eq(
+  $$ SELECT student_id
+     FROM public.vtutor_dashboard_new_class_students
+     WHERE session_id IN ('d5200000-0000-4000-8000-000000000003',
+                          'd5200000-0000-4000-8000-000000000004')
+     ORDER BY student_id $$,
+  $$ VALUES ('10000000-0000-0000-0000-000000000001'::uuid),
+            ('10000000-0000-0000-0000-000000000005'::uuid),
+            ('10000000-0000-0000-0000-000000000006'::uuid) $$,
+  'the tutor view mirrors the assigned-session first attendance rules'
+);
+
 SELECT set_config(
   'request.jwt.claims',
   '{"sub":"10000000-0000-0000-0000-000000000009","role":"authenticated"}',
   true
 );
+SELECT is_empty('SELECT * FROM public.vtutor_dashboard_new_class_students',
+  'a student cannot read any tutor dashboard new-student rows');
 
 SELECT throws_ok(
   $$

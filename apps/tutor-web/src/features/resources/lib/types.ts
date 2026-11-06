@@ -3,10 +3,7 @@ import type { PairedResourceFile, ResourceFile, ResourceSubjectImage, ResourceTo
 
 export type { PairedResourceFile, ResourceFile, ResourceSubjectImage, ResourceTopicNode };
 
-/** Topic file with the stored `files.id` needed to enqueue office print. */
-export type TutorResourceFile = ResourceFile & {
-  fileId: string | null;
-};
+export type { TutorResourceFile } from '@altitutor/shared';
 
 export type TutorSubjectRow = Database['public']['Views']['vtutor_subjects']['Row'];
 export type TutorTopicRow = Database['public']['Views']['vtutor_topics']['Row'];

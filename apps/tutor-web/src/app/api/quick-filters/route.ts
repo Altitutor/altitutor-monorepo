@@ -2,6 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Json } from '@altitutor/shared'
 import {
+  canChangeNativePastSessionView,
   readViewWriteBody,
   requireTutorActor,
   toQuickFilter,
@@ -10,10 +11,13 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const actor = await requireTutorActor()
+    const actor = await requireTutorActor(request)
     if ('error' in actor) return actor.error
     const body = readViewWriteBody(await request.json())
     if (!body) return NextResponse.json({ error: 'Invalid view' }, { status: 400 })
+    if (actor.native && !canChangeNativePastSessionView(actor.userId, body)) {
+      return NextResponse.json({ error: 'Only personal past session views can be saved here.' }, { status: 403 })
+    }
     const decision = viewWriteDecision(actor.userId, null, body)
     if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 400 })
     const { data, error } = await actor.service
