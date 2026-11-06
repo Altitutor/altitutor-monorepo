@@ -8,3 +8,13 @@ it('copies distinct web links, preserving query strings and balanced parentheses
 it('returns no copy for a draft without web links', () => {
   expect(getLinkCopyBody('Call us or email admin@example.test.')).toBeUndefined();
 });
+
+it('preserves literal standalone URLs and removes surrounding prose quotes', () => {
+  expect(getLinkCopyBody("https://example.test/invite/abc!\nTry 'https://example.test/next'."))
+    .toBe('https://example.test/invite/abc!\nhttps://example.test/next');
+});
+
+it.each(['<URL>', '"URL"', '`URL`'])('preserves punctuation inside explicit %s boundaries', (wrapper) => {
+  const link = 'https://example.test/invite/abc!';
+  expect(getLinkCopyBody(`Send ${wrapper.replace('URL', link)}.`)).toBe(link);
+});

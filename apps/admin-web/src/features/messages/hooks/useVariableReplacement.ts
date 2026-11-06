@@ -289,30 +289,21 @@ export function useVariableReplacement(
   );
 
   const getAvailableVariables = useCallback((): readonly TemplateVariable[] => {
-    if (!contactData) {
-      return [...getVariablesForRecipientType('STUDENT'), ...COMPANY_VARIABLES];
-    }
-    const contact = contactData;
-    const allVariables = getVariablesForRecipientType(contact.contact_type as RecipientType);
-
-    if (contact.contact_type === 'STUDENT' && contact.students) {
-      const student = contact.students as Tables<'students'>;
+    const recipientType = (contactData?.contact_type ?? 'STUDENT') as RecipientType;
+    let variables = getVariablesForRecipientType(recipientType);
+    if (contactData?.contact_type === 'STUDENT' && contactData.students) {
+      const student = contactData.students as Tables<'students'>;
       const hasClasses = studentHasClasses[student.id] ?? false;
-      return [...allVariables.filter((v) => canGenerateStudentVariable(v.name, student, hasClasses)), ...COMPANY_VARIABLES];
-    }
-
-    if (contact.contact_type === 'STAFF' && contact.staff) {
-      const staff = contact.staff as Tables<'staff'>;
+      variables = variables.filter((v) => canGenerateStudentVariable(v.name, student, hasClasses));
+    } else if (contactData?.contact_type === 'STAFF' && contactData.staff) {
+      const staff = contactData.staff as Tables<'staff'>;
       const hasClasses = staffHasClasses[staff.id] ?? false;
-      return [...allVariables.filter((v) => canGenerateStaffVariable(v.name, staff, hasClasses)), ...COMPANY_VARIABLES];
+      variables = variables.filter((v) => canGenerateStaffVariable(v.name, staff, hasClasses));
+    } else if (contactData?.contact_type === 'PARENT' && contactData.parents) {
+      const parent = contactData.parents as ParentWithStudents;
+      variables = variables.filter((v) => canGenerateParentVariable(v.name, parent));
     }
-
-    if (contact.contact_type === 'PARENT' && contact.parents) {
-      const parent = contact.parents as ParentWithStudents;
-      return [...allVariables.filter((v) => canGenerateParentVariable(v.name, parent)), ...COMPANY_VARIABLES];
-    }
-
-    return [...allVariables, ...COMPANY_VARIABLES];
+    return [...variables, ...COMPANY_VARIABLES];
   }, [contactData, studentHasClasses, staffHasClasses]);
 
   const getParentStudents = useCallback((): Tables<'students'>[] => {

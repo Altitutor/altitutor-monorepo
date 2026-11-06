@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import type { FormBlock } from '@altitutor/shared';
 
 export type RespondentType = 'student' | 'parent' | 'staff';
@@ -22,13 +23,20 @@ export async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T
 
 export type FormRespondent = { type: RespondentType; id: string; name?: string };
 
-export function useFormResponseOptions(sessionId?: string, enabled = true) {
+export function getFormResponseOptions(sessionId?: string, signal?: AbortSignal) {
   const url = sessionId
     ? `/api/forms/session-responses?sessionId=${encodeURIComponent(sessionId)}`
     : '/api/forms/manual-responses';
+  return jsonRequest<{ forms: FillForm[]; participants?: Person[] }>(url, { signal });
+}
+
+export function useFormResponseOptions(sessionId?: string, enabled = true) {
   return useQuery({
-    queryKey: ['form-response-options', url],
-    queryFn: ({ signal }) => jsonRequest<{ forms: FillForm[]; participants?: Person[] }>(url, { signal }),
+    queryKey: sessionId
+      ? [...sessionsKeys.detail(sessionId), 'form-response-options']
+      : ['form-response-options'],
+    queryFn: ({ signal }) => getFormResponseOptions(sessionId, signal),
+    staleTime: 0,
     enabled,
   });
 }

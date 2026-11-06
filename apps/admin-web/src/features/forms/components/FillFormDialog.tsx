@@ -8,7 +8,7 @@ import { AdminDialogShell } from '@/shared/components';
 
 import {
   jsonRequest,
-  useFormResponseOptions,
+  getFormResponseOptions,
   type FormRespondent,
   type Person,
   type RespondentType,
@@ -51,11 +51,34 @@ export function FillFormDialog({
   const lockedRespondentId = lockedRespondent?.id;
   const idempotencyKeyRef = useRef<string | null>(null);
 
-  const options = useFormResponseOptions(sessionId, open);
-  const forms = (options.data?.forms ?? []).filter((candidate) => !purposeFilter || candidate.purpose === purposeFilter);
-  const sessionPeople = options.data?.participants ?? [];
+  const [options, setOptions] = useState<Awaited<ReturnType<typeof getFormResponseOptions>> | null>(null);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
+  const loading = !options && !optionsError;
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setOptions(null);
+    setOptionsError(null);
+    void getFormResponseOptions(sessionId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setOptions(data);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) {
+          setOptionsError(reason instanceof Error ? reason.message : 'Could not load forms.');
+        }
+      });
+    return () => controller.abort();
+  }, [open, sessionId]);
+  const forms = (options?.forms ?? []).filter((candidate) => !purposeFilter || candidate.purpose === purposeFilter);
+  const sessionPeople = options?.participants ?? [];
   const automaticForm = purposeFilter && forms.length === 1 ? forms[0] : null;
-  const form = forms.find((candidate) => candidate.id === (lockedFormId ?? formId)) ?? automaticForm;
+  const form = (
+    lockedFormId
+      ? forms.find((candidate) => candidate.id === lockedFormId)
+      : automaticForm ?? forms.find((candidate) => candidate.id === formId)
+  ) ?? null;
   const respondent = lockedRespondent ?? (person ? { type: respondentType, id: person.id } : null);
 
   useEffect(() => {
@@ -138,9 +161,9 @@ export function FillFormDialog({
 
   const version = form?.form_versions ?? null;
   const showFormPicker = !lockedFormId && !automaticForm;
-  const loadError = options.error?.message ?? (
-    options.data && !forms.length ? 'No published forms found.' :
-      options.data && lockedFormId && !form ? 'This form is no longer available.' : null
+  const loadError = optionsError ?? (
+    options && !forms.length ? 'No published forms found.' :
+      options && lockedFormId && !form ? 'This form is no longer available.' : null
   );
   const answererFormId = sessionId ? `session-form-response-${form?.id ?? 'new'}` : undefined;
 
@@ -189,24 +212,24 @@ export function FillFormDialog({
         ) : null}
         <div className={`grid gap-4 ${!lockedRespondent && showFormPicker ? 'md:grid-cols-2' : ''}`}>
           {!lockedRespondent && (
-          <SearchableSelect
-            items={availablePeople}
-            value={person}
-            onValueChange={(value) => {
-              if (!value) return;
-              setPerson(value);
-              setRespondentType(value.type ?? respondentType);
-              setCopiedUrl(null);
-            }}
-            getItemId={(item) => item.type ? `${item.type}:${item.id}` : item.id}
-            getItemLabel={(item) => personLabel(item, Boolean(sessionId))}
-            onSearchChange={sessionId ? undefined : setSearch}
-            loading={options.isLoading || searching}
-            placeholder={sessionId ? 'Select session participant' : `Select ${respondentType}`}
-            searchPlaceholder={sessionId ? 'Search students, parents, and staff...' : `Search ${respondentType}s...`}
-            emptyMessage={sessionId ? 'No session participants found.' : `No ${respondentType}s found.`}
-            contentWidth="min(420px, calc(100vw - 2rem))"
-          />
+            <SearchableSelect
+              items={availablePeople}
+              value={person}
+              onValueChange={(value) => {
+                if (!value) return;
+                setPerson(value);
+                setRespondentType(value.type ?? respondentType);
+                setCopiedUrl(null);
+              }}
+              getItemId={(item) => item.type ? `${item.type}:${item.id}` : item.id}
+              getItemLabel={(item) => personLabel(item, Boolean(sessionId))}
+              onSearchChange={sessionId ? undefined : setSearch}
+              loading={loading || searching}
+              placeholder={sessionId ? 'Select session participant' : `Select ${respondentType}`}
+              searchPlaceholder={sessionId ? 'Search students, parents, and staff...' : `Search ${respondentType}s...`}
+              emptyMessage={sessionId ? 'No session participants found.' : `No ${respondentType}s found.`}
+              contentWidth="min(420px, calc(100vw - 2rem))"
+            />
           )}
           {showFormPicker ? (
             <SearchableSelect
@@ -215,7 +238,7 @@ export function FillFormDialog({
               onValueChange={(value) => { setFormId(value?.id ?? null); setCopiedUrl(null); }}
               getItemId={(item) => item.id}
               getItemLabel={(item) => item.name}
-              loading={options.isLoading}
+              loading={loading}
               placeholder="Select form"
               searchPlaceholder="Search published forms..."
               emptyMessage="No published forms found."
@@ -240,7 +263,7 @@ export function FillFormDialog({
           />
         ) : !loadError && (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            {options.isLoading ? 'Loading forms…' : lockedRespondent ? 'Select a published form.' : 'Select a respondent and any published form.'}
+            {loading ? 'Loading forms…' : lockedRespondent ? 'Select a published form.' : 'Select a respondent and any published form.'}
           </p>
         )}
       </div>
