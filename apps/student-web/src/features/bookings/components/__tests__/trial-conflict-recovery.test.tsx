@@ -89,7 +89,7 @@ jest.mock("../TrialContactForm", () => ({
 // Exercise the actual route response, booking submission handler, wizard, and
 // recovery actions together. Only upstream data entry and external services are
 // replaced; this test does not create a booking or send a notification.
-describe("existing-student public trial recovery", () => {
+describe("public trial booking conflict recovery", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -162,4 +162,40 @@ describe("existing-student public trial recovery", () => {
       expect(captureApiError).not.toHaveBeenCalled();
     },
   );
+
+  it("returns a safe public message for a phone already linked to a parent", async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: "P0001",
+        message:
+          "Phone number +61420000001 is already associated with a parent (ID: 12345678-abcd-4321-abcd-123456789abc)",
+      },
+    });
+    jest
+      .mocked(getServerSupabaseAdmin)
+      .mockReturnValue({ rpc } as unknown as ReturnType<
+        typeof getServerSupabaseAdmin
+      >);
+
+    const response = await POST({
+      json: async () => ({
+        student_first_name: "New Student",
+        student_email: "new@student.test",
+        student_phone: "+61420000001",
+        curriculum: "SACE",
+        start_at: "2099-01-01T00:00:00.000Z",
+        end_at: "2099-01-01T00:45:00.000Z",
+        skip_parent_details: true,
+      }),
+      headers: new Headers({ "x-forwarded-for": "127.0.0.1" }),
+    } as NextRequest);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "PHONE_CONFLICT",
+      message: "This phone number is already associated with another account",
+    });
+    expect(captureApiError).not.toHaveBeenCalled();
+  });
 });
