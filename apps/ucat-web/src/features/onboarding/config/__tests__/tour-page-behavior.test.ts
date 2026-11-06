@@ -1,3 +1,4 @@
+import { isValidElement, type ReactNode } from "react";
 import {
   getTourStep,
   UCAT_DASHBOARD_TOUR,
@@ -10,6 +11,15 @@ import {
   UCAT_SKILL_TRAINER_TOUR,
   UCAT_STUDY_PLAN_TOUR,
 } from "@/features/onboarding/config/tour-steps";
+
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return textOf(node.props.children);
+  }
+  return "";
+}
 
 describe("contextual tutorial page behavior", () => {
   it("starts the dashboard welcome from the top on a compact heading target", () => {
@@ -38,13 +48,18 @@ describe("contextual tutorial page behavior", () => {
         showControls: false,
       }),
     );
-    expect(getTourStep(UCAT_QUESTION_ENGINE_CONTROLS_TOUR, 1)).toEqual(
+    const controls = getTourStep(UCAT_QUESTION_ENGINE_CONTROLS_TOUR, 1);
+    expect(controls).toEqual(
       expect.objectContaining({
         title: "Explore the Altitutor controls",
         selector: "[data-tour='question-engine-settings']",
         showControls: true,
       }),
     );
+    expect(isValidElement(controls?.content)).toBe(true);
+    if (isValidElement(controls?.content)) {
+      expect(textOf(controls.content)).toContain("select Full screen");
+    }
     expect(getTourStep(UCAT_QUESTION_ENGINE_CONTROLS_TOUR, 2)).toEqual(
       expect.objectContaining({
         title: "You are ready",

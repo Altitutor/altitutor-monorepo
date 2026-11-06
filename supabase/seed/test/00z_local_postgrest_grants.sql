@@ -75,3 +75,14 @@ GRANT SELECT,INSERT ON public.email_mailbox_identity TO service_role;
 REVOKE ALL ON public.email_command_undos FROM PUBLIC,anon,authenticated;
 -- Replay the production conversation-history privilege boundary after broad fixture grants.
 REVOKE DELETE, TRUNCATE ON public.messages, public.conversations FROM anon, authenticated;
+
+-- Device tokens, preferences, and delivery state are service-only in production.
+REVOKE ALL ON public.mobile_push_devices, public.mobile_push_preferences,
+  public.mobile_push_deliveries, public.mobile_push_content_days
+  FROM PUBLIC, anon, authenticated;
+
+-- Tutor participant, dashboard and print settings facades remain read-only.
+REVOKE ALL ON public.vtutor_session_student_candidates, public.vtutor_session_staff_candidates,
+  public.vtutor_dashboard_new_class_students, public.vtutor_office_print_settings FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vtutor_session_student_candidates, public.vtutor_session_staff_candidates,
+  public.vtutor_dashboard_new_class_students, public.vtutor_office_print_settings TO authenticated;

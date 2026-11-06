@@ -21,6 +21,7 @@ import {
 } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { useExamExperience } from "@/features/exam-experience/context/exam-experience-context";
+import { FullscreenToggleButton } from "@/features/layout/components/fullscreen-toggle-button";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
@@ -323,6 +324,10 @@ export function UcatExamToolbar({
             className="hidden md:inline-flex"
             tourTarget="question-engine-toolbar-layout"
           />
+          <FullscreenToggleButton
+            presentation="compact"
+            showLabel={hasRoomForActionLabels}
+          />
           <CompactAction
             label="Report bug"
             tooltip="Report a bug"
@@ -495,6 +500,7 @@ export function UcatExamToolbar({
             <LayoutPanelTop className="h-4 w-4" />
             Move toolbar to top
           </Button>
+          <FullscreenToggleButton presentation="detailed" />
           <Button
             data-tour="question-engine-toolbar-report"
             variant="ghost"
