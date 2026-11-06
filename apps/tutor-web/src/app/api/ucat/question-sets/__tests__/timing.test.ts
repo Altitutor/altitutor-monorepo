@@ -14,6 +14,9 @@ jest.mock('@sentry/nextjs', () => ({ instrumentSupabaseClient: jest.fn() }))
 function authorize(rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>) {
   // Execute the real tutor guard; only the external Supabase boundary is simulated.
   jest.mocked(createServerClient).mockReturnValue({
+    auth: {
+      getClaims: async () => ({ data: { claims: { sub: 'tutor-1' } }, error: null }),
+    },
     rpc: (name: string, args: Record<string, unknown>) => name === 'is_ucat_tutor'
       ? Promise.resolve({ data: true, error: null }) : rpc(name, args),
   } as never)
