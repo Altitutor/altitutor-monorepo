@@ -18,12 +18,14 @@ import {
   type PaletteCommand,
 } from "./model";
 
+type RegisteredAction = Omit<RecordMenuAction, "action"> & Pick<PaletteCommand, "action" | "submenu">;
+
 type Source = {
   target?: RecordTarget;
   key: string;
   active: boolean;
   primary?: boolean;
-  actions: RecordMenuAction[];
+  actions: RegisteredAction[];
 };
 type Registry = {
   register: (key: string, get: () => Source) => () => void;
@@ -85,7 +87,7 @@ export function useRegisterRecordActions(
   type: string,
   id: string | undefined,
   title: string | undefined,
-  actions: RecordMenuAction[],
+  actions: RegisteredAction[],
 ) {
   const registry = useContext(Context);
   const instance = useId();
@@ -127,7 +129,7 @@ export function useRegisterRecordActions(
 /** Page actions share the global registry without pretending to be a record. */
 export function useRegisterPageActions(
   path: string,
-  actions: RecordMenuAction[],
+  actions: RegisteredAction[],
 ) {
   const registry = useContext(Context);
   const pathname = usePathname();

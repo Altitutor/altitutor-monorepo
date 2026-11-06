@@ -16,19 +16,29 @@ function query(data: unknown, error: unknown = null) {
   return result;
 }
 
-it('dispatches the queued message even when clearing its assignment fails', async () => {
+it.each([
+  ['default', undefined, false],
+  ['link copy enabled', 'https://example.test/signup', false],
+  ['link copy fails', 'https://example.test/signup', true],
+] as const)('queues and dispatches the original despite assignment cleanup failure (%s)', async (_label, linkCopyBody, copyFails) => {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   }
   useAuthStore.setState({ user: { id: 'user' } as User });
   const invoke = jest.fn().mockResolvedValue({ data: {}, error: null });
+  const original = query({ id: 'message' });
+  const copy = copyFails ? query(null, { message: 'Copy insert failed' }) : query({ id: 'copy' });
+  const attachments = query(null);
+  const copyError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   const warning = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  let messageInserts = 0;
   jest.mocked(getSupabaseClient).mockReturnValue({
     from: jest.fn((table: string) => {
       if (table === 'staff') return query({ id: 'staff' });
       if (table === 'owned_numbers') return query({ id: 'sender', provider: 'IMESSAGE', sender_type: 'PHONE', phone_e164: '+61400000000' });
-      if (table === 'messages') return query({ id: 'message' });
+      if (table === 'messages') return messageInserts++ === 0 ? original : copy;
+      if (table === 'message_attachments') return attachments;
       if (table === 'conversations') return query(null, { message: 'Assignment temporarily unavailable' });
       return query(null);
     }),
@@ -36,13 +46,44 @@ it('dispatches the queued message even when clearing its assignment fails', asyn
   } as unknown as ReturnType<typeof getSupabaseClient>);
   const { result } = renderHook(() => useSendMessage(), { wrapper: Wrapper });
   try {
+    const body = 'Hello! Sign up at https://example.test/signup';
     await act(async () => {
-      await expect(result.current.mutateAsync({ conversationId: 'conversation', groupChatId: 'group', body: 'Hello', selectedSenderId: 'sender' }))
-        .resolves.toEqual({ messageId: 'message', conversationId: 'conversation' });
+      await expect(result.current.mutateAsync({
+        conversationId: 'conversation',
+        groupChatId: 'group',
+        body,
+        linkCopyBody,
+        selectedSenderId: 'sender',
+        attachments: [{ storageUrl: 'storage/file', filename: 'file', mimeType: 'text/plain', sizeBytes: 1 }],
+        onboarding: { journeyId: 'journey', purpose: 'registration_link' },
+      })).resolves.toEqual({
+        messageId: 'message',
+        conversationId: 'conversation',
+        ...(copyFails ? { linkCopyFailed: true } : {}),
+      });
     });
-    expect(invoke).toHaveBeenCalledWith('send-message', { body: { messageId: 'message' } });
+    expect(original.insert).toHaveBeenCalledWith(expect.objectContaining({
+      body, onboarding_journey_id: 'journey', conversation_id: 'conversation', to_number_e164: 'group',
+    }));
+    expect(attachments.insert).toHaveBeenCalledTimes(1);
+    expect(attachments.insert).toHaveBeenCalledWith([expect.objectContaining({ message_id: 'message' })]);
+    expect(invoke).toHaveBeenNthCalledWith(1, 'send-message', { body: { messageId: 'message' } });
+    if (linkCopyBody) {
+      expect(copy.insert).toHaveBeenCalledWith(expect.objectContaining({
+        body: linkCopyBody, conversation_id: 'conversation', to_number_e164: 'group',
+      }));
+      expect(copy.insert.mock.calls[0][0]).not.toHaveProperty('onboarding_journey_id');
+    } else {
+      expect(copy.insert).not.toHaveBeenCalled();
+    }
+    if (linkCopyBody && !copyFails) {
+      expect(invoke).toHaveBeenNthCalledWith(2, 'send-message', { body: { messageId: 'copy' } });
+    } else {
+      expect(invoke).toHaveBeenCalledTimes(1);
+    }
   } finally {
     warning.mockRestore();
+    copyError.mockRestore();
     client.clear();
   }
 });
