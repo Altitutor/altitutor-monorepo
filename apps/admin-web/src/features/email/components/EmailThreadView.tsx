@@ -547,6 +547,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
                       assignedStaffId={data?.assignedStaffId ?? null}
                       mailbox={mailbox.data!}
                       hovered={hoveredCard === message.id}
+                      enquiryEligible={!draft && !message.removed && Boolean(message.receivedAt)
+                        && message.sender.trim().toLowerCase() !== mailbox.data!.mailboxAddress}
                       onReply={
                         !draft && !message.removed
                           ? () => start("reply", message)

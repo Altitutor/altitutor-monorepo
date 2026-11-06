@@ -46,6 +46,12 @@ import {
 } from "./BookingNotifyMessageScreen";
 import { useSessionDurationMinutes } from "../hooks/useBookingSettings";
 
+export type PlannedTrial = {
+  input: ManualMeetingInput;
+  parents: MeetingPerson[];
+  staff: MeetingPerson[];
+};
+
 export type ManualMeetingModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -60,6 +66,12 @@ export type ManualMeetingModalProps = {
   initialStaffPhone?: string;
   originalSessionId?: string | null;
   originalSubjectId?: string | null;
+  trialPlan?: {
+    students: MeetingPerson[];
+    parent?: MeetingPerson;
+    initial?: PlannedTrial;
+    onConfirm: (trial: PlannedTrial) => void;
+  };
 };
 const personName = (person: {
   first_name?: string | null;
@@ -74,7 +86,7 @@ const pick = (person: {
 }): MeetingPerson => ({ id: person.id, label: personName(person) });
 const append = (people: MeetingPerson[], person: MeetingPerson) =>
   people.some((row) => row.id === person.id) ? people : [...people, person];
-const formatMeetingStart = (value: string) => {
+export const formatMeetingStart = (value: string) => {
   const date = new Date(value);
   const time = new Intl.DateTimeFormat("en-AU", {
     timeZone: "Australia/Adelaide",
@@ -105,6 +117,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     initialStudentId,
     originalSessionId,
     originalSubjectId,
+    trialPlan,
   } = props;
   const includesFamily = sessionType !== "STAFF_INTERVIEW";
   const { toast } = useToast();
@@ -149,16 +162,29 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     }
     if (opened.current) return;
     opened.current = true;
-    durationEdited.current = false;
+    const initialTrial = trialPlan?.initial;
+    durationEdited.current = Boolean(initialTrial);
     setStep(0);
     setCreatedId(null);
     setSubject(null);
-    setDate(getTodayAdelaideDate());
-    setTime("09:00");
-    setDuration(defaultDuration);
-    setStudents((initialPrefill?.students ?? []).map(pick));
-    setParents((initialPrefill?.parents ?? []).map(pick));
-    setStaff((initialPrefill?.staff ?? []).map(pick));
+    const start = initialTrial?.input.startAt;
+    setDate(start ? utcToAdelaideDate(start) : getTodayAdelaideDate());
+    setTime(start ? new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Australia/Adelaide",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(start)) : "09:00");
+    setDuration(initialTrial
+      ? (Date.parse(initialTrial.input.endAt) - Date.parse(initialTrial.input.startAt)) / 60_000
+      : defaultDuration);
+    setStudents(trialPlan
+      ? trialPlan.students.filter((person) =>
+          initialTrial ? initialTrial.input.studentIds.includes(person.id) : trialPlan.students.length === 1,
+        )
+      : (initialPrefill?.students ?? []).map(pick));
+    setParents(initialTrial?.parents ?? (initialPrefill?.parents ?? []).map(pick));
+    setStaff(initialTrial?.staff ?? (initialPrefill?.staff ?? []).map(pick));
     setAddStudentOpen(includesFamily && Boolean(props.initialCreateStudent));
     setAddStaffOpen(Boolean(props.initialStaffPhone));
   }, [
@@ -168,6 +194,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     props.initialCreateStudent,
     props.initialStaffPhone,
     includesFamily,
+    trialPlan,
   ]);
   useEffect(() => {
     if (
@@ -299,6 +326,10 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
     (hydratedOriginal === originalSessionId && !original.isError);
   const submit = async () => {
     if (!input || busy || !originalReady) return;
+    if (trialPlan) {
+      if (input.studentIds.length) trialPlan.onConfirm({ input, parents, staff });
+      return;
+    }
     setBusy(true);
     try {
       const id = await createManualMeeting(input);
@@ -372,7 +403,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
       <AdminDialogShell
         open={isOpen}
         onClose={createdId ? finish : onClose}
-        title={`Book ${title}`}
+        title={trialPlan ? "Plan trial session" : `Book ${title}`}
         subtitle={
           createdId
             ? "Meeting booked — send an optional message"
@@ -398,13 +429,14 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                 disabled={
                   busy ||
                   !originalReady ||
+                  (Boolean(trialPlan) && studentIds.length === 0) ||
                   (step > 0 &&
                     (!input ||
                       (sessionType === "DRAFTING" && !input.subjectId)))
                 }
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {step === 2 ? "Confirm booking" : "Next"}
+                {step === 2 ? (trialPlan ? "Save trial time" : "Confirm booking") : "Next"}
               </Button>
             </>
           )
@@ -465,7 +497,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                   onRemove={(id) =>
                     setStudents((rows) => rows.filter((row) => row.id !== id))
                   }
-                  addControl={
+                  addControl={trialPlan ? undefined : (
                     <MeetingEntitySearchAdd
                       includeInactive
                       kind="student"
@@ -480,8 +512,17 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                           : undefined
                       }
                     />
-                  }
+                  )}
                 />
+                {trialPlan && (
+                  <div className="flex flex-wrap gap-2">
+                    {trialPlan.students.filter((person) => !studentIds.includes(person.id)).map((person) => (
+                      <Button key={person.id} variant="outline" onClick={() => setStudents((rows) => append(rows, person))}>
+                        Add student {person.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 <MeetingPeopleList
                   title="Parents"
                   people={parents}
@@ -525,6 +566,14 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                   : "Receiving"
               }
             />
+            {trialPlan?.parent && !parentIds.includes(trialPlan.parent.id) && (
+              <Button variant="outline" onClick={() => {
+                const parent = trialPlan.parent;
+                if (parent) setParents((rows) => append(rows, parent));
+              }}>
+                Add parent {trialPlan.parent.label}
+              </Button>
+            )}
             {includesFamily && family.isError && (
               <p role="status" className="text-sm text-muted-foreground">
                 Family suggestions could not be loaded. You can still add people
@@ -533,12 +582,13 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
             )}
             {includesFamily &&
               !!(
-                family.data?.parents.length || family.data?.students.length
+                family.data?.parents.some((row) => row.id !== trialPlan?.parent?.id) ||
+                (!trialPlan && family.data?.students.length)
               ) && (
                 <section className="space-y-2">
                   <h3 className="font-semibold">Suggested family members</h3>
                   <div className="flex flex-wrap gap-2">
-                    {family.data?.parents.map((row) => (
+                    {family.data?.parents.filter((row) => row.id !== trialPlan?.parent?.id).map((row) => (
                       <Button
                         key={`parent-${row.id}`}
                         variant="outline"
@@ -549,7 +599,7 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                         Add parent {personName(row)}
                       </Button>
                     ))}
-                    {family.data?.students.map((row) => (
+                    {!trialPlan && family.data?.students.map((row) => (
                       <Button
                         key={`student-${row.id}`}
                         variant="outline"

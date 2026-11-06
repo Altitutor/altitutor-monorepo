@@ -37,7 +37,7 @@ export default function StudentsPage() {
   return (
     <div className="h-full min-h-0 overflow-hidden">
       <ListSettingsMenu list="students" />
-      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="Add Student" onClick={() => setAdding(true)} /><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="New enquiry" onClick={() => setEnquiry(true)} /></AdminPageActions>
+      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="Add Student" onClick={() => setAdding(true)} />{relationship === "trial" && <AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="New enquiry" onClick={() => setEnquiry(true)} />}</AdminPageActions>
       <StudentsTable onRefresh={refresh} />
       {enquiry && <NewJourney onClose={() => setEnquiry(false)} />}
       <AddStudentModal isOpen={adding} onClose={() => setAdding(false)} onStudentAdded={() => setRefresh(value => value + 1)} />
