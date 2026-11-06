@@ -1,34 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, FormAnswerer, SearchableSelect, SegmentedControl } from '@altitutor/ui';
-import type { FormAnswerPayload, FormBlock } from '@altitutor/shared';
+import type { FormAnswerPayload } from '@altitutor/shared';
 import { Copy, Link2 } from 'lucide-react';
 import { AdminDialogShell } from '@/shared/components';
 
-type RespondentType = 'student' | 'parent' | 'staff';
-type Person = { id: string; first_name: string | null; last_name: string | null; type?: RespondentType };
-type FillForm = {
-  id: string;
-  name: string;
-  purpose: string;
-  form_versions: { id: string; blocks: FormBlock[]; thank_you_message: string; version_number: number } | null;
-};
+import {
+  jsonRequest,
+  useFormResponseOptions,
+  type FormRespondent,
+  type Person,
+  type RespondentType,
+} from '../api/formResponseOptions';
 
 function personLabel(person: Person, includeType = false) {
   const label = `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim() || person.id;
   if (!includeType || !person.type) return label;
   return `${label} · ${person.type.charAt(0).toUpperCase()}${person.type.slice(1)}`;
-}
-
-async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  });
-  const json = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(json.error ?? 'Request failed.');
-  return json as T;
 }
 
 export function FillFormDialog({
@@ -37,7 +26,7 @@ export function FillFormDialog({
   sessionId,
   lockedFormId,
   purposeFilter,
-  initialRespondent,
+  lockedRespondent,
   onSaved,
 }: {
   open: boolean;
@@ -45,56 +34,43 @@ export function FillFormDialog({
   sessionId?: string;
   lockedFormId?: string;
   purposeFilter?: string;
-  initialRespondent?: { type: RespondentType; id: string };
+  lockedRespondent?: FormRespondent;
   onSaved?: (responseId: string) => void;
 }) {
-  const [forms, setForms] = useState<FillForm[]>([]);
-  const [sessionPeople, setSessionPeople] = useState<Person[]>([]);
-  const [respondentType, setRespondentType] = useState<RespondentType>(initialRespondent?.type ?? 'student');
+  const [respondentType, setRespondentType] = useState<RespondentType>(lockedRespondent?.type ?? 'student');
   const [people, setPeople] = useState<Person[]>([]);
   const [person, setPerson] = useState<Person | null>(null);
-  const [form, setForm] = useState<FillForm | null>(null);
+  const [formId, setFormId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [linking, setLinking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const initialRespondentType = initialRespondent?.type;
-  const initialRespondentId = initialRespondent?.id;
+  const lockedRespondentType = lockedRespondent?.type;
+  const lockedRespondentId = lockedRespondent?.id;
   const idempotencyKeyRef = useRef<string | null>(null);
+
+  const options = useFormResponseOptions(sessionId, open);
+  const forms = (options.data?.forms ?? []).filter((candidate) => !purposeFilter || candidate.purpose === purposeFilter);
+  const sessionPeople = options.data?.participants ?? [];
+  const automaticForm = purposeFilter && forms.length === 1 ? forms[0] : null;
+  const form = forms.find((candidate) => candidate.id === (lockedFormId ?? formId)) ?? automaticForm;
+  const respondent = lockedRespondent ?? (person ? { type: respondentType, id: person.id } : null);
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
     setError(null);
-    setForm(null);
+    setFormId(null);
     setPerson(null);
     setCopiedUrl(null);
     setSubmitting(false);
     idempotencyKeyRef.current = null;
-    setRespondentType(initialRespondentType ?? 'student');
-    const url = sessionId ? `/api/forms/session-responses?sessionId=${sessionId}` : '/api/forms/manual-responses';
-    void jsonRequest<{ forms: FillForm[]; participants?: Person[] }>(url)
-      .then((data) => {
-        setForms((data.forms ?? []).filter((candidate) => !purposeFilter || candidate.purpose === purposeFilter));
-        const participants = data.participants ?? [];
-        setSessionPeople(participants);
-        if (lockedFormId) {
-          setForm((data.forms ?? []).find((candidate) => candidate.id === lockedFormId) ?? null);
-        }
-        if (initialRespondentType && initialRespondentId) {
-          const selected = participants.find((candidate) => candidate.type === initialRespondentType && candidate.id === initialRespondentId) ?? null;
-          setPerson(selected);
-        }
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load forms.'))
-      .finally(() => setLoading(false));
-  }, [initialRespondentId, initialRespondentType, lockedFormId, open, purposeFilter, sessionId]);
+    setRespondentType(lockedRespondentType ?? 'student');
+  }, [lockedRespondentId, lockedRespondentType, lockedFormId, open, purposeFilter, sessionId]);
 
   useEffect(() => {
-    if (!open || sessionId) return;
+    if (!open || sessionId || lockedRespondentId) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       setSearching(true);
@@ -110,9 +86,9 @@ export function FillFormDialog({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [open, respondentType, search, sessionId]);
+  }, [lockedRespondentId, open, respondentType, search, sessionId]);
 
-  const availablePeople = useMemo(() => sessionId ? sessionPeople : people, [people, sessionId, sessionPeople]);
+  const availablePeople = sessionId ? sessionPeople : people;
 
   const changeRespondentType = (value: string) => {
     const type = value === 'parent' || value === 'staff' ? value : 'student';
@@ -123,15 +99,15 @@ export function FillFormDialog({
   };
 
   const submit = async (answers: FormAnswerPayload) => {
-    if (!form || !person) throw new Error('Select a form and respondent.');
+    if (!form || !respondent) throw new Error('Select a form and respondent.');
     const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
     idempotencyKeyRef.current = idempotencyKey;
     const data = await jsonRequest<{ responseId: string }>('/api/forms/manual-responses', {
       method: 'POST',
       body: JSON.stringify({
         formId: form.id,
-        respondentType,
-        respondentId: person.id,
+        respondentType: respondent.type,
+        respondentId: respondent.id,
         sessionId: sessionId ?? null,
         idempotencyKey,
         answers,
@@ -143,13 +119,13 @@ export function FillFormDialog({
   };
 
   const copyStudentLink = async () => {
-    if (!sessionId || respondentType !== 'student' || !person || !form) return;
+    if (!sessionId || respondent?.type !== 'student' || !form) return;
     setLinking(true);
     setError(null);
     try {
       const data = await jsonRequest<{ url: string }>('/api/forms/session-links', {
         method: 'POST',
-        body: JSON.stringify({ sessionId, studentId: person.id, formId: form.id }),
+        body: JSON.stringify({ sessionId, studentId: respondent.id, formId: form.id }),
       });
       await navigator.clipboard.writeText(data.url);
       setCopiedUrl(data.url);
@@ -161,6 +137,11 @@ export function FillFormDialog({
   };
 
   const version = form?.form_versions ?? null;
+  const showFormPicker = !lockedFormId && !automaticForm;
+  const loadError = options.error?.message ?? (
+    options.data && !forms.length ? 'No published forms found.' :
+      options.data && lockedFormId && !form ? 'This form is no longer available.' : null
+  );
   const answererFormId = sessionId ? `session-form-response-${form?.id ?? 'new'}` : undefined;
 
   return (
@@ -179,7 +160,7 @@ export function FillFormDialog({
             type="button"
             variant="outline"
             onClick={() => void copyStudentLink()}
-            disabled={linking || respondentType !== 'student' || !person || !form}
+            disabled={linking || respondent?.type !== 'student' || !form}
           >
             {copiedUrl ? <Copy className="mr-2 h-4 w-4" /> : <Link2 className="mr-2 h-4 w-4" />}
             {linking ? 'Creating link...' : copiedUrl ? 'Link copied' : 'Copy student link'}
@@ -187,7 +168,7 @@ export function FillFormDialog({
           <Button
             type="submit"
             form={answererFormId}
-            disabled={!person || !form || !version || submitting}
+            disabled={!respondent || !form || !version || submitting}
           >
             {submitting ? 'Saving...' : 'Save response'}
           </Button>
@@ -195,7 +176,7 @@ export function FillFormDialog({
       ) : undefined}
     >
       <div className="space-y-5">
-        {!sessionId ? (
+        {!sessionId && !lockedRespondent ? (
           <SegmentedControl
             value={respondentType}
             onValueChange={changeRespondentType}
@@ -206,7 +187,8 @@ export function FillFormDialog({
             ]}
           />
         ) : null}
-        <div className={`grid gap-4 ${lockedFormId ? '' : 'md:grid-cols-2'}`}>
+        <div className={`grid gap-4 ${!lockedRespondent && showFormPicker ? 'md:grid-cols-2' : ''}`}>
+          {!lockedRespondent && (
           <SearchableSelect
             items={availablePeople}
             value={person}
@@ -219,20 +201,21 @@ export function FillFormDialog({
             getItemId={(item) => item.type ? `${item.type}:${item.id}` : item.id}
             getItemLabel={(item) => personLabel(item, Boolean(sessionId))}
             onSearchChange={sessionId ? undefined : setSearch}
-            loading={loading || searching}
+            loading={options.isLoading || searching}
             placeholder={sessionId ? 'Select session participant' : `Select ${respondentType}`}
             searchPlaceholder={sessionId ? 'Search students, parents, and staff...' : `Search ${respondentType}s...`}
             emptyMessage={sessionId ? 'No session participants found.' : `No ${respondentType}s found.`}
             contentWidth="min(420px, calc(100vw - 2rem))"
           />
-          {!lockedFormId ? (
+          )}
+          {showFormPicker ? (
             <SearchableSelect
               items={forms}
               value={form}
-              onValueChange={(value) => { setForm(value); setCopiedUrl(null); }}
+              onValueChange={(value) => { setFormId(value?.id ?? null); setCopiedUrl(null); }}
               getItemId={(item) => item.id}
               getItemLabel={(item) => item.name}
-              loading={loading}
+              loading={options.isLoading}
               placeholder="Select form"
               searchPlaceholder="Search published forms..."
               emptyMessage="No published forms found."
@@ -241,8 +224,9 @@ export function FillFormDialog({
           ) : null}
         </div>
         {copiedUrl ? <p className="break-all rounded-md bg-muted/40 p-3 text-sm">{copiedUrl}</p> : null}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {person && form && version ? (
+        {lockedRespondent?.name && <p className="text-sm text-muted-foreground">Respondent: {lockedRespondent.name}</p>}
+        {(error || loadError) && <p role="alert" className="text-sm text-destructive">{error || loadError}</p>}
+        {respondent && form && version ? (
           <FormAnswerer
             title={form.name}
             blocks={version.blocks}
@@ -254,8 +238,10 @@ export function FillFormDialog({
             formId={answererFormId}
             hideSubmitButton={Boolean(sessionId)}
           />
-        ) : (
-          <p className="py-10 text-center text-sm text-muted-foreground">Select a respondent and any published form.</p>
+        ) : !loadError && (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            {options.isLoading ? 'Loading forms…' : lockedRespondent ? 'Select a published form.' : 'Select a respondent and any published form.'}
+          </p>
         )}
       </div>
     </AdminDialogShell>

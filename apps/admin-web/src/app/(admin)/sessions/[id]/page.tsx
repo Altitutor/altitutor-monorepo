@@ -22,6 +22,7 @@ import type { Tables, TablesUpdate } from "@altitutor/shared";
 import { defaultCheckInSessionsStaffType } from "@altitutor/shared/pay-tiers";
 import { formatSessionTimeRangeForDisplay } from "@altitutor/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { FormResponseCommands } from "@/features/forms/components/FormResponseCommands";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
@@ -652,6 +653,7 @@ function SessionDetailView({ id }: { id: string }) {
 
         <IssuePill entityType="session" entityId={id} enabled />
 
+        <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
         <ActionsMenu
           type="session"
           entityId={session.id}

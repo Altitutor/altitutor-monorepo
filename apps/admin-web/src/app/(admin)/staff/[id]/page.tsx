@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
+import { FormResponseCommands } from '@/features/forms/components/FormResponseCommands';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -205,6 +206,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         <IssuePill entityType="staff" entityId={id} enabled />
         <NoteAlertPills entityType="staff" entityId={staffMember.id} />
 
+        <FormResponseCommands record={{ type: "staff", id: staffMember.id, title: `${staffMember.first_name ?? ""} ${staffMember.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="staff"
           detailsInSidebar
@@ -252,6 +254,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
 
         <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            allowForm
             entityType="staff"
             entityId={id}
             className="min-h-0 flex-1"

@@ -528,7 +528,7 @@ export function JourneyDetail({
           onClose={() => setModal(null)}
           sessionId={e.trial_session_id}
           purposeFilter="trial_session"
-          initialRespondent={{ type: "student", id: journey.student_id }}
+          lockedRespondent={{ type: "student", id: journey.student_id, name: journey.label }}
           onSaved={() => {
             setModal(null);
             refresh();

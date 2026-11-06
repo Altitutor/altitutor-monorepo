@@ -23,6 +23,7 @@ import {
   type ThreadFeedEntry,
 } from "@/features/messages/components/MessageThread";
 import { ActivityFeed } from "./ActivityFeed";
+import { FormResponsePicker } from "@/features/forms/components/FormResponsePicker";
 import { ComposeModeControl, type ComposeMode } from "./ComposeModeControl";
 import { NoteComposerWithTemplate } from "@/shared/components/NoteComposerWithTemplate";
 import { FormResponseDialog } from "@/features/feedback/components/FormResponseDialog";
@@ -66,6 +67,7 @@ interface EntityCommunicationPanelProps {
   entityType: CommunicationEntityType;
   entityId: string;
   enabled?: boolean;
+  allowForm?: boolean;
   className?: string;
   initialContactId?: string;
   initialDestinationAddress?: string;
@@ -101,6 +103,7 @@ function EntityCommunicationContent({
   entityType,
   entityId,
   enabled = true,
+  allowForm = false,
   className,
   initialContactId,
   initialDestinationAddress,
@@ -117,7 +120,7 @@ function EntityCommunicationContent({
   const [preferredSenderId, setPreferredSenderId] = useState<string | null>(
     null,
   );
-  const [mode, setMode] = useState<ComposeMode>("message");
+  const [mode, setMode] = useState<ComposeMode | "form">("message");
   const [timeSort, setTimeSort] = useState<CommunicationTimeSort>("logged");
   const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const [destination, setDestination] = useState<string | null>(null);
@@ -345,7 +348,9 @@ function EntityCommunicationContent({
   }
 
   const modeControl = showActivity ? (
-    <ComposeModeControl value={mode} onValueChange={setMode} />
+    allowForm
+      ? <ComposeModeControl allowForm value={mode} onValueChange={setMode} />
+      : <ComposeModeControl value={mode === "form" ? "message" : mode} onValueChange={setMode} />
   ) : undefined;
 
   const filterControl = (
@@ -518,7 +523,12 @@ function EntityCommunicationContent({
         />
       )}
 
-      {showActivity && mode === "note" ? (
+      {showActivity && mode === "form" && allowForm ? (
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t bg-background p-3">
+          {modeControl}
+          <FormResponsePicker respondent={{ type: entityType, id: entityId }} onSaved={invalidateActivity} />
+        </div>
+      ) : showActivity && mode === "note" ? (
         <div
           className="flex-shrink-0 border-t bg-background p-3"
           onKeyDownCapture={(event) => {
