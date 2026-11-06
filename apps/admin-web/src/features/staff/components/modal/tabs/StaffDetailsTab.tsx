@@ -81,6 +81,7 @@ interface StaffDetailsTabProps {
   onRemoveSubject?: (subjectId: string) => void;
   onViewSubject?: (subjectId: string) => void;
   addSubjectButton?: React.ReactNode;
+  hideAccount?: boolean;
 }
 
 export function StaffDetailsTab({
@@ -97,6 +98,7 @@ export function StaffDetailsTab({
   onRemoveSubject,
   onViewSubject,
   addSubjectButton,
+  hideAccount = false,
 }: StaffDetailsTabProps) {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -437,6 +439,7 @@ export function StaffDetailsTab({
                 </PropertyFormRow>
               </PropertyForm>
 
+              {!hideAccount && <>
               <Separator className="my-6" />
 
               {/* Account Section */}
@@ -482,6 +485,7 @@ export function StaffDetailsTab({
                   </div>
                 )}
               </div>
+              </>}
 
               {onDelete && (
                 <>
@@ -696,6 +700,7 @@ export function StaffDetailsTab({
         );
       })()}
 
+      {!hideAccount && <>
       <Separator className="my-6" />
 
       {/* Account Section */}
@@ -741,6 +746,7 @@ export function StaffDetailsTab({
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 }

@@ -88,6 +88,7 @@ export type AggregatedConversation = {
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
   unreadConversationIds: string[];
+  conversationIds: string[];
   assignedStaffId: string | null;
 };
 
@@ -102,6 +103,7 @@ export type GroupConversation = {
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
   unreadConversationIds: string[];
+  conversationIds: string[];
   assignedStaffId: string | null;
 };
 

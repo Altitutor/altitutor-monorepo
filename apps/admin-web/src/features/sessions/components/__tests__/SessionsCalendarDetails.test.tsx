@@ -14,8 +14,9 @@ beforeAll(() => {
     disconnect() {}
   };
 });
-it("shows a colored subject for a session without a class and omits day/week controls", async () => {
+it("shows the shared subject preview for a session without a class and omits day/week controls", async () => {
   const client = new QueryClient();
+  client.setQueryData(["entity-reference", "session", "11111111-1111-4111-8111-111111111111"], { title: "Private lesson", fields: [{ label: "Subject", value: "Biology" }], people: [], logged: false });
   render(
     <QueryClientProvider client={client}>
       <SessionsCalendarView
@@ -53,9 +54,7 @@ it("shows a colored subject for a session without a class and omits day/week con
   const details = within(
     await screen.findByRole("dialog", { name: "Private lesson details" }),
   );
-  expect(details.getByText("Biology")).toHaveStyle({
-    backgroundColor: "#336699",
-  });
+  expect(details.getByText("Biology")).toBeVisible();
   client.clear();
 });
 

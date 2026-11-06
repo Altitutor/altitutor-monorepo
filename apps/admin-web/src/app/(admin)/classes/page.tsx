@@ -1,5 +1,6 @@
 "use client";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 
 import { Suspense, useState } from "react";
 import {
@@ -73,6 +74,7 @@ export default function ClassesPage() {
 
   return (
     <div className="p-6 space-y-4">
+      <ListSettingsMenu list="classes" />
       <AdminPageActions>
         <div className="flex items-center gap-4">
           <ClassesAddMenu

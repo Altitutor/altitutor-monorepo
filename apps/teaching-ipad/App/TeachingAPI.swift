@@ -220,9 +220,9 @@ struct TeachingKeychain {
         guard epoch == generation else { throw CancellationError() }
         return completed.id
     }
-    func download(_ source: TeachingDocument) async throws -> Data {
+    func download(_ source: TeachingDocument, sessionID: UUID? = nil) async throws -> Data {
         if source.externalURL != nil { return Data() }
-        let link: DownloadLink = try await request("documents/" + source.id.uuidString)
+        let link: DownloadLink = try await request("documents/" + source.id.uuidString, query: sessionID.map { [.init(name: "sessionID", value: $0.uuidString)] } ?? [])
         guard !link.external, link.url.scheme == "https" || link.url.host == "127.0.0.1" || link.url.host == "localhost" else {
             throw APIError(status: 0, message: "This resource is an external link.")
         }

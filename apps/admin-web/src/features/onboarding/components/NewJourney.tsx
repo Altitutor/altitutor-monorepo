@@ -25,11 +25,7 @@ export function NewJourney({
   const [enquiry, setEnquiry] = useState(new Date().toISOString().slice(0, 10));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const { data: searchData } = useStudentSearchFilter(search, [
-    "ACTIVE",
-    "TRIAL",
-    "DISCONTINUED",
-  ]);
+  const { data: searchData } = useStudentSearchFilter(search, null);
   const qc = useQueryClient();
   async function create() {
     setBusy(true);

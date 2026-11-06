@@ -1,4 +1,5 @@
 import { render, screen, within, waitFor, act } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { Tables } from "@altitutor/shared";
 import { SessionsCard } from "@/features/sessions/components/SessionsCard";
@@ -142,7 +143,15 @@ it("keeps full details when card properties are hidden and identifies unlogged a
   ).not.toBeInTheDocument();
 });
 
-it("offers subject/type pills, person links, recorded attendance icons and an open-session action", async () => {
+it("uses the chip session preview with linked people and recorded attendance", async () => {
+  const client = new QueryClient();
+  client.setQueryData(["entity-reference", "session", "11111111-1111-4111-8111-111111111111"], {
+    title: "Trial lesson", fields: [{ label: "Subject", value: "Biology" }], logged: true,
+    people: [
+      { role: "Student", id: "student", name: "Alice Student", plannedStatus: "attending-extra", actualAttended: null },
+      { role: "Staff", id: "staff", name: "Bob Tutor", plannedStatus: "attending", actualAttended: false },
+    ],
+  });
   render(
     <SessionsCard
       isCalendarView
@@ -175,15 +184,13 @@ it("offers subject/type pills, person links, recorded attendance icons and an op
       ]}
       staff={[{ ...staff, actual_attended: false }]}
     />,
+    { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> },
   );
   await userEvent.hover(screen.getByLabelText("Trial lesson details"));
   const details = within(
     await screen.findByRole("dialog", { name: "Trial lesson details" }),
   );
-  expect(details.getByText("Biology")).toHaveStyle({
-    backgroundColor: "#336699",
-  });
-  expect(details.getByText("Trial Session")).toBeVisible();
+  expect(details.getByText("Biology")).toBeVisible();
   expect(details.getByRole("link", { name: "Alice Student" })).toHaveAttribute(
     "href",
     "/students/student",
@@ -191,10 +198,6 @@ it("offers subject/type pills, person links, recorded attendance icons and an op
   expect(details.getByRole("link", { name: "Bob Tutor" })).toHaveAttribute(
     "href",
     "/staff/staff",
-  );
-  expect(details.getByRole("link", { name: "Open session" })).toHaveAttribute(
-    "href",
-    "/sessions/11111111-1111-4111-8111-111111111111",
   );
   expect(details.getByText("Attending (extra)")).toBeVisible();
   expect(details.getAllByRole("img", { name: /Actual:/ })).toHaveLength(1);

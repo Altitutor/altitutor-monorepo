@@ -10621,6 +10621,256 @@ export type Database = {
           },
         ]
       }
+      session_lesson_plan_files: {
+        Row: {
+          session_id: string
+          topics_file_id: string
+        }
+        Insert: {
+          session_id: string
+          topics_file_id: string
+        }
+        Update: {
+          session_id?: string
+          topics_file_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plan_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_lesson_plans"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_lesson_plan_topics: {
+        Row: {
+          session_id: string
+          topic_id: string
+        }
+        Insert: {
+          session_id: string
+          topic_id: string
+        }
+        Update: {
+          session_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plan_topics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_lesson_plans"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_lesson_plans: {
+        Row: {
+          revision: number
+          session_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          revision: number
+          session_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          revision?: number
+          session_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           admin_shift_id: string | null
@@ -37929,6 +38179,43 @@ export type Database = {
           },
         ]
       }
+      vtutor_session_lesson_plan_documents: {
+        Row: {
+          bucket: string | null
+          code: string | null
+          external_url: string | null
+          filename: string | null
+          id: string | null
+          is_solutions_of_id: string | null
+          mimetype: string | null
+          resource_id: string | null
+          session_id: string | null
+          storage_path: string | null
+          subject_id: string | null
+          subject_name: string | null
+          topic_id: string | null
+          topic_name: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_lesson_plan_topics: {
+        Row: {
+          code: string | null
+          id: string | null
+          name: string | null
+          session_id: string | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_lesson_plans: {
+        Row: {
+          revision: number | null
+          session_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       vtutor_session_log_state: {
         Row: {
           deleted_at: string | null
@@ -47260,6 +47547,16 @@ export type Database = {
         Returns: string
       }
       safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
+      save_session_lesson_plan: {
+        Args: {
+          p_actor_id: string
+          p_expected_revision: number
+          p_file_ids: string[]
+          p_session_id: string
+          p_topic_ids: string[]
+        }
+        Returns: number
+      }
       save_student_subsidy: {
         Args: {
           p_billing_type?: Database["public"]["Enums"]["billing_type"]
@@ -47572,6 +47869,10 @@ export type Database = {
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
+      start_student_in_person_onboarding: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       start_ucat_learning_module: {
         Args: {
           p_learning_module_id: string

@@ -247,7 +247,10 @@ for (const acceptGift of [false, true]) {
         .eq("id", studentId);
       if (resetError) throw resetError;
       await page.goto(`/signup?offer=${code}`);
-      await page.getByText("Reddit", { exact: true }).click();
+      await page
+        .getByRole("group", { name: "How you heard about Altitutor UCAT" })
+        .getByText("Reddit", { exact: true })
+        .click();
       await page.getByRole("button", { name: "Next", exact: true }).click();
       await page
         .getByRole("button", { name: /I’m already practicing/ })

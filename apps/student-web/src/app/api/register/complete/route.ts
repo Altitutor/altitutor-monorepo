@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     // whether this request creates another Auth user.
     const skipPassword = Boolean(studentCheck.user_id);
 
-    if (!password) {
+    if (!skipPassword && !password) {
       return NextResponse.json(
         {
           error: "Missing required fields: password",
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    if (!skipPassword && password.length < 6) {
       return NextResponse.json(
         {
           error: "Password must be at least 6 characters",
