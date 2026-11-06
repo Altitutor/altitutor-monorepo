@@ -3,6 +3,7 @@ import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDia
 import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTab';
+import { studentAccountAction } from '@/features/students/utils/studentAccountAction';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
@@ -10,7 +11,7 @@ import { useRef, useState, use } from 'react';
 import { StudentOnboardingSidebar } from '@/features/onboarding/components/StudentOnboardingSidebar';
 import { useOnboardingJourneys } from '@/features/onboarding/api/queries';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -72,6 +73,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const params = use(props.params);
   const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const accountFromDirectory = searchParams.get('account') === 'open';
   const sidebarForm = useRef<HTMLDivElement>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const { data: journeys = [] } = useOnboardingJourneys();
@@ -207,6 +211,16 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     });
   };
 
+  const accountAction = student && !student.deleted_at ? studentAccountAction(student) : undefined;
+  const canOpenAccount = accountAction && (accountAction.type !== 'details' || student?.status === null);
+  const closeAccount = () => {
+    setAccountOpen(false);
+    if (!accountFromDirectory) return;
+    const query = new URLSearchParams(searchParams.toString());
+    query.delete('account');
+    router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
   // Centralized action handlers
   const studentActions = useStudentActions({
     studentId: id,
@@ -214,8 +228,8 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     onEditDetails: () => {
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: () => setAccountOpen(true),
-    passwordResetLabel: student?.user_id ? 'Send password reset' : student?.status === 'ACTIVE' ? 'Send invite' : 'Send registration link',
+    onPasswordResetOrRegistration: canOpenAccount ? () => setAccountOpen(true) : undefined,
+    passwordResetLabel: accountAction?.label,
     onLogAbsence: modals.openLogAbsence,
     onAddToHomeworkHelp: () => setIsHomeworkHelpOpen(true),
     onBookTrialSession: modals.openBookTrialSession,
@@ -540,7 +554,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           }}
         />
       )}
-      <PersonAccountDialog type="student" person={student} parents={parents} open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <PersonAccountDialog type="student" person={student} parents={parents} open={Boolean(canOpenAccount && (accountOpen || accountFromDirectory))} onClose={closeAccount} />
     </div>
 
     </EntityPropertiesLayout>

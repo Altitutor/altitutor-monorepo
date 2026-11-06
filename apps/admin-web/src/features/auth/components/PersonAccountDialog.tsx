@@ -4,6 +4,7 @@ import type { Tables } from "@altitutor/shared";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { AdminPasswordResetSection } from "./password-reset/AdminPasswordResetSection";
 import { SendStudentInviteDialog } from "@/features/students/components/SendStudentInviteDialog";
+import { StudentAccountSection } from "@/features/students/components/StudentAccountSection";
 import { SendInviteDialog } from "@/features/staff/components/modal/SendInviteDialog";
 
 type Props = { open: boolean; onClose: () => void } & (
@@ -19,46 +20,41 @@ type Props = { open: boolean; onClose: () => void } & (
 export function PersonAccountDialog(props: Props) {
   if (!props.open) return null;
   const { person, onClose } = props;
-  if (!person.user_id) {
-    return props.type === "student" ? (
-      <SendStudentInviteDialog
-        isOpen
-        onClose={onClose}
-        student={props.person}
-        linkType={props.person.status === "ACTIVE" ? "invite" : "registration"}
-      />
-    ) : (
-      <SendInviteDialog isOpen onClose={onClose} staffMember={props.person} />
-    );
-  }
   const displayName =
     `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim();
-  const recipients =
-    props.type === "student"
-      ? [
-          {
-            type: "student" as const,
-            id: person.id,
-            label: displayName || "Student",
-            value: props.person.phone,
-          },
-          ...props.parents.map((parent) => ({
-            type: "parent" as const,
-            id: parent.id,
-            label:
-              `${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() ||
-              "Parent",
-            value: parent.phone,
-          })),
-        ]
-      : [
-          {
-            type: "staff" as const,
-            id: person.id,
-            label: displayName || "Staff member",
-            value: props.person.phone_number,
-          },
-        ];
+
+  if (props.type === "student") {
+    const student = props.person;
+    if (student.deleted_at) return null;
+
+    if (!student.user_id && (student.status === "TRIAL" || student.status === "ACTIVE")) {
+      return (
+        <SendStudentInviteDialog
+          isOpen
+          onClose={onClose}
+          student={student}
+          linkType={student.status === "ACTIVE" ? "invite" : "registration"}
+        />
+      );
+    }
+
+    return (
+      <AdminDialogShell
+        open
+        onClose={onClose}
+        title={student.status === null || student.status === "TRIAL" ? "Student account" : "Password reset"}
+        subtitle={displayName}
+      >
+        <StudentAccountSection student={student} parents={props.parents} />
+      </AdminDialogShell>
+    );
+  }
+
+  const staff = props.person;
+  if (!staff.user_id) {
+    return <SendInviteDialog isOpen onClose={onClose} staffMember={staff} />;
+  }
+
   return (
     <AdminDialogShell
       open
@@ -67,17 +63,18 @@ export function PersonAccountDialog(props: Props) {
       subtitle={displayName}
     >
       <AdminPasswordResetSection
-        userId={person.user_id}
-        email={person.email}
-        userType={
-          props.type === "student"
-            ? "student"
-            : props.person.role === "TUTOR"
-              ? "tutor"
-              : "admin"
-        }
+        userId={staff.user_id}
+        email={staff.email}
+        userType={staff.role === "TUTOR" ? "tutor" : "admin"}
         displayName={displayName}
-        recipients={recipients}
+        recipients={[
+          {
+            type: "staff",
+            id: staff.id,
+            label: displayName || "Staff member",
+            value: staff.phone_number,
+          },
+        ]}
       />
     </AdminDialogShell>
   );

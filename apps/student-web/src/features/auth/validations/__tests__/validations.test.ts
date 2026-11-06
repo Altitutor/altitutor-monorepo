@@ -4,6 +4,7 @@ import {
   acceptInviteSchema,
   resetPasswordSchema,
   registrationSchema,
+  existingLoginRegistrationSchema,
 } from '../index';
 
 describe('loginSchema', () => {
@@ -18,10 +19,9 @@ describe('loginSchema', () => {
     expect(() => loginSchema.parse({ email: 'test@', password: 'password123' })).toThrow();
   });
 
-  it('should reject password shorter than 8 characters', () => {
-    expect(() =>
-      loginSchema.parse({ email: 'test@example.com', password: 'short' })
-    ).toThrow();
+  it('accepts an existing six-character password and rejects an empty password', () => {
+    expect(() => loginSchema.parse({ email: 'test@example.com', password: 'legacy' })).not.toThrow();
+    expect(() => loginSchema.parse({ email: 'test@example.com', password: '' })).toThrow();
   });
 });
 
@@ -172,6 +172,13 @@ describe('registrationSchema', () => {
     paymentMethodVerified: true,
     billingPolicyAgreed: true,
   };
+
+  it('allows existing logins to register without a password while keeping new-account requirements', () => {
+    const existingLogin = { ...validRegistrationData, password: '', confirmPassword: '' };
+    expect(() => existingLoginRegistrationSchema.parse(existingLogin)).not.toThrow();
+    expect(() => registrationSchema.parse(existingLogin)).toThrow();
+    expect(() => existingLoginRegistrationSchema.parse({ ...existingLogin, paymentMethodVerified: false })).toThrow();
+  });
 
   it('should validate valid registration data', () => {
     expect(() => registrationSchema.parse(validRegistrationData)).not.toThrow();

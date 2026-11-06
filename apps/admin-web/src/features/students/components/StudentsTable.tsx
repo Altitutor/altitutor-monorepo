@@ -1,4 +1,5 @@
 'use client';
+import { studentAccountAction } from '../utils/studentAccountAction';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -303,32 +304,19 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   // Actions menu handlers
   const handlePasswordResetOrRegistration = (student: Tables<'students'>) => {
-    const isRegistered = student.status === 'ACTIVE';
-    const hasAccount = !!student.user_id;
-
-    if (hasAccount) {
+    if (student.deleted_at) return;
+    const action = studentAccountAction(student);
+    if (action.type === 'details') {
+      router.push(student.status === null ? `/students/${student.id}?account=open` : `/students/${student.id}`);
+    } else if (action.type === 'reset') {
       handlePasswordResetRequest(student);
-    } else if (isRegistered) {
-      setInviteDialogType('invite');
-      setInviteDialogOpen(true);
     } else {
-      setInviteDialogType('registration');
+      setInviteDialogType(action.type);
       setInviteDialogOpen(true);
     }
   };
 
-  const getPasswordResetLabel = (student: Tables<'students'>) => {
-    const isRegistered = student.status === 'ACTIVE';
-    const hasAccount = !!student.user_id;
-
-    if (hasAccount) {
-      return 'Send password reset';
-    } else if (isRegistered) {
-      return 'Send invite';
-    } else {
-      return 'Send registration link';
-    }
-  };
+  const getPasswordResetLabel = (student: Tables<'students'>) => studentAccountAction(student).label;
 
   const handlePasswordResetRequest = async (student: Tables<'students'>) => {
     if (!student.email) {
