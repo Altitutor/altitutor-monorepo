@@ -9,6 +9,7 @@ import {
   Button,
 } from "@altitutor/ui";
 import { CheckSquare, AlertTriangle, Pencil, Undo2 } from "lucide-react";
+import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useImessageControl } from "./hooks";
 import { ImessageCommandDialog } from "./ImessageCommandDialog";
@@ -33,6 +34,7 @@ interface ImessageMessageActionsProps {
   sentAt?: string | null;
   createdAt?: string | null;
   isOwnMessage: boolean;
+  enquiryActive?: boolean;
   showCreateIssue?: boolean;
   matchedIssues?: IssueWithTags[];
   issueActionLoading?: boolean;
@@ -57,6 +59,7 @@ export function ImessageMessageActions({
   sentAt,
   createdAt,
   isOwnMessage,
+  enquiryActive = false,
   showCreateIssue: _showCreateIssue = false,
   matchedIssues = [],
   issueActionLoading = false,
@@ -131,6 +134,9 @@ export function ImessageMessageActions({
           aria-label="Message actions"
           className={`absolute -top-4 z-20 inline-flex items-center rounded-full border bg-background p-0.5 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 ${isOwnMessage ? "right-0" : "left-0"}`}
         >
+          {!isOwnMessage && (
+            <EnquiryAction source={{ kind: "message", id: messageId }} active={enquiryActive} />
+          )}
           {hasImessageActions &&
             TAPBACKS.map(([reaction, emoji]) => (
               <Tooltip key={reaction}>

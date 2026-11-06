@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   AlertTriangle,
 } from "lucide-react";
+import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, SearchableSelect } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
@@ -64,6 +65,7 @@ export function EmailActions({
   captureWhenIdle = false,
   onSearchToggle,
   moreMenuItems,
+  enquiryEligible = false,
 }: {
   ids: string[];
   messageId?: string;
@@ -83,6 +85,7 @@ export function EmailActions({
   captureWhenIdle?: boolean;
   onSearchToggle?: () => void;
   moreMenuItems?: React.ReactNode;
+  enquiryEligible?: boolean;
 }) {
   const quickActions = useQuickActions();
   const taskMessageId = messageId ?? ids[0];
@@ -92,6 +95,7 @@ export function EmailActions({
   const [moveOpen, setMoveOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [actionsFocused, setActionsFocused] = useState(false);
   const current = useRef({
     ids,
     taskMessageId,
@@ -245,8 +249,12 @@ export function EmailActions({
       ref={root}
       className="flex items-center gap-1"
       onClick={(event) => event.stopPropagation()}
+      onFocusCapture={() => setActionsFocused(true)}
     >
       <EmailActionGroup label={level === "thread" ? "Conversation actions" : "Email actions"}>
+        {enquiryEligible && messageId && (
+          <EnquiryAction source={{ kind: "email", id: messageId }} active={hovered || actionsFocused} />
+        )}
         {level === "thread" && onSearchToggle && <EmailIconButton label="Search" onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
         {level === "message" && taskMessageId && (
           <EmailIconButton
