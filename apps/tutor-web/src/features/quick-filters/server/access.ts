@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { Json, QuickFilter, QuickFilterConfig } from '@altitutor/shared'
-import { assertTutorViewWrite, tutorCanReadSavedView } from '@altitutor/shared'
+import { assertTutorViewWrite, tutorCanReadSavedView, tutorViewEntity } from '@altitutor/shared'
 import { createClient } from '@/shared/lib/supabase/server-ssr'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
@@ -12,8 +12,17 @@ export function isSavedViewId(id: string): boolean {
 
 type ExistingView = { target_entity: string; user_id: string | null }
 
-export async function requireTutorActor() {
-  const userClient = await createClient()
+export const pastSessionViewTarget = tutorViewEntity('past_sessions')
+
+export function canChangeNativePastSessionView(actorId: string, view: {
+  target_entity: string | null
+  user_id: string | null
+} | null): boolean {
+  return view?.target_entity === pastSessionViewTarget && view.user_id === actorId
+}
+
+export async function requireTutorActor(request: Request) {
+  const userClient = await createClient(request)
   const [{ data: userData, error: userError }, { data: isTutor, error: tutorError }] = await Promise.all([
     userClient.auth.getUser(),
     userClient.rpc('is_tutor'),
@@ -21,7 +30,12 @@ export async function requireTutorActor() {
   if (userError || tutorError || !userData.user || !isTutor) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 403 }) }
   }
-  return { userId: userData.user.id, service: getServiceRoleClient() }
+  return {
+    userId: userData.user.id,
+    service: getServiceRoleClient(),
+    userClient,
+    native: request.headers.has('authorization'),
+  }
 }
 
 export function readViewWriteBody(body: unknown): {

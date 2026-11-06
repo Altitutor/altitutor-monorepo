@@ -18,8 +18,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { 'Cache-Control': 'private, no-store' },
   });
-async function caller() {
-  const client = await createClient();
+async function caller(request: Request) {
+  const client = await createClient(request);
   const auth = await client.auth.getUser();
   if (auth.error || !auth.data.user) {
     if ((auth.error?.status ?? 0) >= 500)
@@ -62,10 +62,10 @@ function failure(error: unknown) {
     error instanceof TeachingError ? error.status : 503,
   );
 }
-export async function GET(_request: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
   try {
     const sessionID = requireUUID((await context.params).sessionId);
-    const { client } = await caller();
+    const { client } = await caller(request);
     return json(await readSessionLessonPlan(client, sessionID));
   } catch (error) {
     return failure(error);
@@ -74,7 +74,7 @@ export async function GET(_request: NextRequest, context: Context) {
 export async function PUT(request: NextRequest, context: Context) {
   try {
     const sessionID = requireUUID((await context.params).sessionId);
-    const { client, profile } = await caller();
+    const { client, profile } = await caller(request);
     if (profile.status !== 'ACTIVE')
       throw new TeachingError(
         403,

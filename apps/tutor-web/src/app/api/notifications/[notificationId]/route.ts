@@ -19,7 +19,7 @@ export async function PATCH(
   try {
     const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

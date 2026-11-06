@@ -1,0 +1,71 @@
+{
+  "name": "@altitutor/tutor-app",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@altitutor/shared": "workspace:*",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@supabase/supabase-js": "2.118.0",
+    "@tanstack/react-query": "^5.90.6",
+    "expo": "~57.0.25",
+    "expo-constants": "~57.0.19",
+    "expo-file-system": "~57.0.7",
+    "expo-haptics": "~57.0.3",
+    "expo-image": "~57.0.5",
+    "expo-intent-launcher": "~57.0.1",
+    "expo-linking": "~57.0.11",
+    "expo-notifications": "~57.0.21",
+    "expo-router": "~57.0.23",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.5",
+    "expo-web-browser": "~57.0.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.26.2",
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "^13.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.24",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
+    "eslint": "^8.57.1",
+    "eslint-config-expo": "^57.0.2",
+    "eslint-import-resolver-typescript": "^3.10.1",
+    "eslint-plugin-expo": "^1.0.3",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "tsx": "^4.20.6",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "eas-build-post-install": "cd ../.. && pnpm turbo run build --filter=@altitutor/shared",
+    "dev": "node ../../scripts/run-native-dev.cjs @altitutor/tutor-app 8083",
+    "start": "node ../../scripts/run-native-dev.cjs @altitutor/tutor-app 8083",
+    "ios": "turbo run native:ios --filter=@altitutor/tutor-app",
+    "android": "turbo run native:android --filter=@altitutor/tutor-app",
+    "native:dev": "expo start --go --port 8083",
+    "native:ios": "expo start --go --ios --port 8083",
+    "native:android": "expo start --go --android --port 8083",
+    "web": "expo start --web",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build": "expo export",
+    "test": "tsx --test 'src/**/*.test.ts'"
+  },
+  "private": true,
+  "dependenciesMeta": {
+    "@altitutor/shared": {
+      "injected": true
+    }
+  }
+}
