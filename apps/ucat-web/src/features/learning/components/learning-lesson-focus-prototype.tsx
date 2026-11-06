@@ -95,7 +95,7 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
     return index === active ? "In focus" : "Open block";
   }
 
-  function navigationButton(index: number) {
+  function navigationButton(index: number, compact = false) {
     return (
       <button
         type="button"
@@ -114,7 +114,7 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
         </span>
         <span className="min-w-0 flex-1">{blocks[index].label}</span>
         {!mayOpen(index) ? <LockKeyhole className="size-3.5 shrink-0" aria-hidden /> : null}
-        <span className={cn("shrink-0 text-xs text-muted-foreground", mayOpen(index) ? "sr-only" : "sr-only sm:not-sr-only")}>
+        <span className={cn("shrink-0 text-xs text-muted-foreground", compact || mayOpen(index) ? "sr-only" : "sr-only sm:not-sr-only")}>
           {status(index)}
         </span>
       </button>
@@ -279,7 +279,11 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
           </div>
           <aside className="hidden h-fit rounded-xl border bg-background p-3 lg:block">
             <h2 className="mb-1 px-3 text-xs font-semibold text-muted-foreground">On this page</h2>
-            <nav aria-label="Lesson blocks">{blocks.map((block, index) => <div key={block.label}>{navigationButton(index)}</div>)}</nav>
+            <nav aria-label="Lesson blocks">
+              {blocks.map((block, index) => (
+                <div key={block.label}>{navigationButton(index, true)}</div>
+              ))}
+            </nav>
           </aside>
         </div>
       ) : slides ? (
