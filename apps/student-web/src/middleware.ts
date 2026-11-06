@@ -14,6 +14,7 @@ import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-clien
 const SESSION_DEADLINE_MS = 10_000;
 const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
 const RETRY_AFTER_SECONDS = 5;
+const LEGACY_DYNAMIC_PARAM_TYPES = new Set(["c", "ci", "oc", "d", "di"]);
 
 type CookieToSet = {
   name: string;
@@ -33,6 +34,41 @@ function forwardRequest(request: NextRequest, userId: string | null) {
     response.headers.set("Referrer-Policy", "no-referrer");
   }
   return response;
+}
+
+function hasLegacyRouterState(request: NextRequest): boolean {
+  if (request.method !== "GET" || request.headers.get("rsc") !== "1") return false;
+
+  const header = request.headers.get("next-router-state-tree");
+  // Match the renderer's bound on the encoded header before parsing input.
+  if (!header || header.length > 40_000) return false;
+
+  let state: unknown;
+  try {
+    state = JSON.parse(decodeURIComponent(header));
+  } catch {
+    return false;
+  }
+
+  const pending: unknown[] = [state];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!Array.isArray(node)) continue;
+
+    const [segment, parallelRoutes] = node;
+    if (
+      Array.isArray(segment) &&
+      segment.length === 3 &&
+      typeof segment[0] === "string" &&
+      typeof segment[1] === "string" &&
+      LEGACY_DYNAMIC_PARAM_TYPES.has(segment[2])
+    ) return true;
+
+    if (parallelRoutes && typeof parallelRoutes === "object" && !Array.isArray(parallelRoutes)) {
+      pending.push(...Object.values(parallelRoutes));
+    }
+  }
+  return false;
 }
 
 function createDeadline() {
@@ -63,6 +99,12 @@ function field(error: unknown, key: string) {
 function loginRedirect(origin: string, pathname: string, search: string) {
   const loginUrl = new URL("/login", origin);
   if (pathname !== "/") {
+    const query = new URLSearchParams(search);
+    if (query.has("_rsc")) {
+      query.delete("_rsc");
+      const remaining = query.toString();
+      search = remaining ? `?${remaining}` : "";
+    }
     loginUrl.searchParams.set("next", `${pathname}${search}`);
   }
   return NextResponse.redirect(loginUrl);
@@ -228,11 +270,12 @@ export async function handleAuthRequest(request: NextRequest) {
     if (pathname === "/") {
       return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
     }
-    return applyMetadata(
-      forwardRequest(request, userId),
-      cookies,
-      responseHeaders,
-    );
+    // A client with the old three-field dynamic segment cannot apply a
+    // current Flight response. A non-OK response triggers document navigation.
+    const response = hasLegacyRouterState(request)
+      ? new NextResponse(null, { status: 409 })
+      : forwardRequest(request, userId);
+    return applyMetadata(response, cookies, responseHeaders);
   } finally {
     deadline.dispose();
   }
