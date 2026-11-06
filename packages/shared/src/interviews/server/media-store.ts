@@ -31,44 +31,6 @@ export function createInterviewMediaStore(
   client: SupabaseClient<Database>,
 ): InterviewMediaStore {
   return {
-    async capabilities(sessionId) {
-      const { data, error } = await client
-        .from("interview_media_capabilities")
-        .select("*")
-        .eq("session_id", sessionId)
-        .is("revoked_at", null);
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        providerUserId: row.provider_user_id,
-        sessionId: row.session_id,
-        actorId: row.actor_id,
-        policyKey: row.policy_key,
-        expiresAt: row.expires_at,
-      }));
-    },
-    async registerCapability(value) {
-      const { error } = await client
-        .from("interview_media_capabilities")
-        .upsert(
-          {
-            provider_user_id: value.providerUserId,
-            session_id: value.sessionId,
-            actor_id: value.actorId,
-            policy_key: value.policyKey,
-            expires_at: value.expiresAt,
-          },
-          { onConflict: "provider_user_id", ignoreDuplicates: true },
-        );
-      if (error) throw error;
-    },
-    async revokeCapabilities(ids) {
-      if (!ids.length) return;
-      const { error } = await client
-        .from("interview_media_capabilities")
-        .update({ revoked_at: new Date().toISOString() })
-        .in("provider_user_id", ids);
-      if (error) throw error;
-    },
     async round(id) {
       const { data, error } = await client.rpc("interview_media_state", {
         p_round_id: id,
@@ -102,6 +64,7 @@ export function createInterviewMediaStore(
             attempt_id: value.attemptId,
             phase_key: value.key,
             room_name: value.roomName,
+            room_url: value.url,
             expires_at: value.expiresAt,
             recording_enabled: value.recordingEnabled,
           },
@@ -143,22 +106,6 @@ export function createInterviewMediaStore(
         .select("id");
       if (error) throw error;
       return Boolean(data?.length);
-    },
-    async ensureRecording(value) {
-      const { error } = await client
-        .from("interview_recordings")
-        .upsert(
-          {
-            id: value.id,
-            round_id: value.roundId,
-            attempt_id: value.attemptId,
-            provider_id: `pending:${value.id}`,
-            state: "pending",
-            kind: "video",
-          },
-          { onConflict: "id", ignoreDuplicates: true },
-        );
-      if (error) throw error;
     },
     async failPendingRecording(id) {
       const { error } = await client

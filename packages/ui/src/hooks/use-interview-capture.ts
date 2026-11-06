@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { InterviewMediaTicket, InterviewPhase } from "@altitutor/shared";
 import {
   appendInterviewAudio,
@@ -9,8 +9,15 @@ import {
   saveInterviewAudio,
 } from "../lib/interview-audio-outbox";
 
+import {
+  createInterviewVideoCompositor,
+  type InterviewVideoSources,
+} from "../lib/interview-video-compositor";
+
 const maximumBytes = 50 * 1024 * 1024;
 const stopBytes = 48 * 1024 * 1024;
+const duplicateTabMessage =
+  "Another tab on this device is handling this recording.";
 let waitingMicrophone: {
   roundId: string;
   stream: MediaStream;
@@ -18,18 +25,26 @@ let waitingMicrophone: {
   timer: ReturnType<typeof setTimeout>;
 } | null = null;
 
-/** One encoder per station take. Phase/pause changes gate its track, not its clock. */
-export function useInterviewAudioCapture({
+export interface InterviewOnlineCaptureSources {
+  attemptId: string;
+  tracks: InterviewVideoSources;
+}
+
+/** Keep one encoder running across phase changes and temporary media gaps. */
+export function useInterviewCapture({
   roundId,
   phase,
   enabled,
   registerFinalize,
+  video,
 }: {
   roundId: string;
   phase: InterviewPhase;
   enabled: boolean;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
+  video?: { sources: InterviewOnlineCaptureSources | null };
 }) {
+  const online = video !== undefined;
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
@@ -40,8 +55,25 @@ export function useInterviewAudioCapture({
   const [downloadRecording, setDownloadRecording] = useState<
     (() => void) | null
   >(null);
-  const latest = useRef({ phase, enabled, microphoneEnabled });
-  latest.current = { phase, enabled, microphoneEnabled };
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const composition = useRef<ReturnType<
+    typeof createInterviewVideoCompositor
+  > | null>(null);
+  const stopCapture = useRef<() => Promise<void>>(async () => undefined);
+  const syncVideo = useRef<() => void>(() => undefined);
+  const latest = useRef({
+    phase,
+    enabled,
+    microphoneEnabled,
+    sources: video?.sources,
+  });
+  latest.current = {
+    phase,
+    enabled,
+    microphoneEnabled,
+    sources: video?.sources,
+  };
   const finalize = useRef<() => Promise<void>>(async () => undefined);
   const refresh = useRef<() => void>(() => undefined);
   const finishing = useRef(false);
@@ -51,6 +83,38 @@ export function useInterviewAudioCapture({
     return () => registerFinalize?.(null);
   }, [registerFinalize]);
   useEffect(() => {
+    if (!online) return;
+    try {
+      const output = createInterviewVideoCompositor();
+      composition.current = output;
+      setVideoStream(output.stream);
+      setAudioBlocked(!output.audioRunning());
+      void output
+        .resumeAudio()
+        .then(() => {
+          if (composition.current === output)
+            setAudioBlocked(!output.audioRunning());
+        })
+        .catch(() => undefined);
+      return () => {
+        composition.current = null;
+        output.sync(null);
+        void stopCapture
+          .current()
+          .finally(() => output.dispose())
+          .catch(() => undefined);
+      };
+    } catch (failure) {
+      setVideoStream(null);
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Video recording is unavailable.",
+      );
+    }
+  }, [online, roundId, retry]);
+  useEffect(() => {
+    if (online) return;
     let cancelled = false;
     let stream: MediaStream | null = null;
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -108,7 +172,14 @@ export function useInterviewAudioCapture({
       } else stream?.getTracks().forEach((track) => track.stop());
       setMicStream(null);
     };
-  }, [roundId, retry]);
+  }, [online, roundId, retry]);
+  useLayoutEffect(() => {
+    if (online) syncVideo.current();
+  }, [online, phase, enabled, video?.sources]);
+  const sourceAttempt = video?.sources?.attemptId;
+  useEffect(() => {
+    if (online && sourceAttempt) refresh.current();
+  }, [online, sourceAttempt]);
   useEffect(() => {
     audible.current = false;
     micStream?.getTracks().forEach((track) => {
@@ -116,9 +187,30 @@ export function useInterviewAudioCapture({
     });
     refresh.current();
   }, [phase, enabled, micStream]);
+  const captureStream = online ? videoStream : micStream;
   useEffect(() => {
-    if (!micStream) return;
+    if (!captureStream) return;
     let disposed = false;
+    let recordedAttempt: string | null = null;
+    let authorisedPhase: InterviewPhase | null = null;
+    const output = online ? composition.current : null;
+    const sync = () => {
+      const {
+        phase: currentPhase,
+        enabled: currentEnabled,
+        sources,
+      } = latest.current;
+      output?.sync(
+        !disposed &&
+          currentEnabled &&
+          authorisedPhase === currentPhase &&
+          recordedAttempt !== null &&
+          sources?.attemptId === recordedAttempt
+          ? sources.tracks
+          : null,
+      );
+    };
+    syncVideo.current = sync;
     let actorId: string | null = null;
     let captureId: string | null = null;
     let recorder: MediaRecorder | null = null;
@@ -131,6 +223,30 @@ export function useInterviewAudioCapture({
     let recovered = false;
     const recoveredCaptures = new Set<string>();
     const abort = new AbortController();
+    let releaseWriter: (() => void) | undefined;
+    const claimWriter = async (id: string) => {
+      if (!online || !navigator.locks || releaseWriter) return true;
+      // Hold the lock through the final local write so another tab cannot
+      // recover an encoder that is still appending chunks.
+      return new Promise<boolean>((resolve, reject) => {
+        void navigator.locks
+          .request(
+            `altitutor:interview-capture:${roundId}:${id}`,
+            { ifAvailable: true },
+            (lock) => {
+              if (!lock || disposed) {
+                resolve(false);
+                return;
+              }
+              return new Promise<void>((release) => {
+                releaseWriter = release;
+                resolve(true);
+              });
+            },
+          )
+          .catch(reject);
+      });
+    };
     const flush = async () => {
       if (!actorId) return;
       const result = await flushInterviewAudio(roundId, actorId);
@@ -141,7 +257,7 @@ export function useInterviewAudioCapture({
       if (result.pending || result.error)
         throw new Error(
           result.error ??
-            "Audio is still waiting to upload. Keep this page open and retry.",
+            "Recording is still waiting to upload. Keep this page open and retry.",
         );
     };
     const stop = async () => {
@@ -149,6 +265,8 @@ export function useInterviewAudioCapture({
       const previous = recorder;
       recorder = null;
       captureId = null;
+      recordedAttempt = null;
+      sync();
       if (previous && previous.state !== "inactive") previous.stop();
       if (!disposed) setRecording(false);
       // onstop publishes a promise synchronously in browsers only after its final
@@ -156,8 +274,9 @@ export function useInterviewAudioCapture({
       await finished;
       await saved.catch(() => undefined);
     };
+    stopCapture.current = stop;
     let finished = Promise.resolve();
-    const start = (ticket: InterviewMediaTicket) => {
+    const start = (ticket: InterviewMediaTicket, clockOffset: number) => {
       if (
         !actorId ||
         !ticket.captureId ||
@@ -168,34 +287,31 @@ export function useInterviewAudioCapture({
         return;
       if (recoveredCaptures.has(ticket.captureId)) {
         setError(
-          "A partial recording was recovered after reloading. This station keeps that take; recording cannot resume without a new take.",
+          "This station already has a recording on this device. The existing take will be kept.",
         );
         return;
       }
       if (typeof MediaRecorder === "undefined")
-        throw new Error("Audio recording is not supported in this browser.");
-      const mimeType = [
-        "audio/webm;codecs=opus",
-        "audio/mp4",
-        "audio/ogg;codecs=opus",
-      ].find((type) => MediaRecorder.isTypeSupported(type));
+        throw new Error("Recording is not supported in this browser.");
+      const formats = online
+        ? ["video/webm;codecs=vp8,opus", "video/mp4"]
+        : ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"];
+      const mimeType = formats.find((type) =>
+        MediaRecorder.isTypeSupported(type),
+      );
       if (!mimeType)
-        throw new Error(
-          "This browser cannot record audio. Use a supported browser or continue without recording.",
-        );
+        throw new Error("This browser cannot record this station’s media.");
       const selectedCapture = ticket.captureId;
       const selectedActor = actorId;
       const selectedAttempt = ticket.attemptId;
-      const clockOffset = ticket.serverNow
-        ? Date.parse(ticket.serverNow) - Date.now()
-        : 0;
       const startedAt = new Date(Date.now() + clockOffset).toISOString();
       const chunks: Blob[] = [];
       let bytes = 0;
       let resolveFinished!: () => void;
-      const instance = new MediaRecorder(micStream, {
+      const instance = new MediaRecorder(captureStream, {
         mimeType,
-        audioBitsPerSecond: 64_000,
+        audioBitsPerSecond: online ? 48_000 : 64_000,
+        ...(online ? { videoBitsPerSecond: 320_000 } : {}),
       });
       finished = new Promise<void>((resolve) => {
         resolveFinished = resolve;
@@ -225,7 +341,7 @@ export function useInterviewAudioCapture({
         void saved.catch(() => {
           if (!disposed)
             setError(
-              "Local recovery is unavailable. Keep this page open until audio uploads.",
+              "Local recovery is unavailable. Keep this page open until the recording uploads.",
             );
         });
       };
@@ -263,8 +379,10 @@ export function useInterviewAudioCapture({
         if (recorder === instance) {
           recorder = null;
           captureId = null;
-          finishing.current = true;
-          micStream.getTracks().forEach((track) => {
+          recordedAttempt = null;
+          recoveredCaptures.add(selectedCapture);
+          sync();
+          micStream?.getTracks().forEach((track) => {
             track.enabled = false;
           });
           if (!disposed) setRecording(false);
@@ -274,14 +392,20 @@ export function useInterviewAudioCapture({
       instance.onerror = () => {
         if (!disposed)
           setError(
-            "Audio recording failed. You can continue the interview and retry.",
+            "Recording failed. You can continue the interview and retry.",
           );
       };
       recorder = instance;
       captureId = selectedCapture;
+      recordedAttempt = selectedAttempt;
+      sync();
       try {
         instance.start(5_000);
       } catch (failure) {
+        recorder = null;
+        captureId = null;
+        recordedAttempt = null;
+        sync();
         resolveFinished();
         throw failure;
       }
@@ -313,21 +437,29 @@ export function useInterviewAudioCapture({
         );
         if (!response.ok)
           throw new Error(
-            "Unable to verify recording access. The microphone is paused until connection returns.",
+            "Unable to verify recording access. Media capture is paused until connection returns.",
           );
         const ticket = (await response.json()) as InterviewMediaTicket;
-        if (disposed) return;
-        actorId = ticket.actorId ?? null;
-        if (actorId && !recovered) {
-          recovered = true;
-          for (const id of await recoverInterviewAudio(roundId, actorId))
-            recoveredCaptures.add(id);
-          await flush().catch(() => undefined);
-        } else if (actorId) void flush().catch(() => undefined);
         if (disposed) return;
         const offset = ticket.serverNow
           ? Date.parse(ticket.serverNow) - Date.now()
           : 0;
+        actorId = ticket.actorId ?? null;
+        if (actorId && !recovered) {
+          if (!(await claimWriter(actorId))) {
+            if (!disposed) setError(duplicateTabMessage);
+            return;
+          }
+          if (disposed) return;
+          setError((current) =>
+            current === duplicateTabMessage ? "" : current,
+          );
+          recovered = true;
+          for (const id of await recoverInterviewAudio(roundId, actorId))
+            recoveredCaptures.add(id);
+        }
+        if (disposed) return;
+        if (actorId) void flush().catch(() => undefined);
         const matchingPhase =
           !ticket.phase || ticket.phase === latest.current.phase;
         const allowed =
@@ -338,13 +470,18 @@ export function useInterviewAudioCapture({
           (!ticket.expiresAt ||
             Date.parse(ticket.expiresAt) > Date.now() + offset);
         setServerRecording(allowed);
+        if (output) setAudioBlocked(!output.audioRunning());
+        authorisedPhase = allowed ? latest.current.phase : null;
+        sync();
         audible.current = matchingPhase && (allowed || !recorder);
         if (authorizationTimer) clearTimeout(authorizationTimer);
         if (ticket.expiresAt && allowed)
           authorizationTimer = setTimeout(
             () => {
               audible.current = false;
-              micStream.getTracks().forEach((track) => {
+              authorisedPhase = null;
+              sync();
+              micStream?.getTracks().forEach((track) => {
                 track.enabled = false;
               });
               setServerRecording(false);
@@ -353,7 +490,7 @@ export function useInterviewAudioCapture({
             Math.max(0, Date.parse(ticket.expiresAt) - Date.now() - offset),
           );
         // A missing policy never leaves an audible track on an existing encoder.
-        micStream.getTracks().forEach((track) => {
+        micStream?.getTracks().forEach((track) => {
           track.enabled =
             latest.current.microphoneEnabled &&
             latest.current.enabled &&
@@ -363,19 +500,29 @@ export function useInterviewAudioCapture({
           await stop();
           void flush().catch(() => undefined);
         }
-        if (!recorder && allowed && ticket.captureId) start(ticket);
+        if (
+          !recorder &&
+          allowed &&
+          ticket.captureId &&
+          (!online || latest.current.sources?.attemptId === ticket.attemptId)
+        )
+          start(ticket, offset);
         if (ticket.warning) setError(ticket.warning);
       } catch (failure) {
         audible.current = false;
-        micStream.getTracks().forEach((track) => {
+        authorisedPhase = null;
+        sync();
+        micStream?.getTracks().forEach((track) => {
           track.enabled = false;
         });
-        if (!disposed)
+        if (!disposed) {
+          setServerRecording(false);
           setError(
             failure instanceof Error
               ? failure.message
-              : "Audio recording unavailable.",
+              : "Recording unavailable.",
           );
+        }
       } finally {
         polling = false;
         if (!disposed) {
@@ -395,7 +542,7 @@ export function useInterviewAudioCapture({
     };
     finalize.current = async () => {
       finishing.current = true;
-      micStream.getTracks().forEach((track) => {
+      micStream?.getTracks().forEach((track) => {
         track.enabled = false;
       });
       setMicrophoneEnabled(false);
@@ -409,11 +556,28 @@ export function useInterviewAudioCapture({
       if (timer) clearTimeout(timer);
       if (authorizationTimer) clearTimeout(authorizationTimer);
       refresh.current = () => undefined;
+      syncVideo.current = () => undefined;
       void stop()
+        .finally(() => releaseWriter?.())
         .then(flush)
         .catch(() => undefined);
     };
-  }, [roundId, micStream]);
+  }, [roundId, captureStream, micStream, online]);
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("altitutor:interview-audio-pending", {
+        detail: { roundId, pending: pendingCount, recording },
+      }),
+    );
+    const warn = (event: BeforeUnloadEvent) => {
+      if (recording || pendingCount > 0) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [roundId, pendingCount, recording]);
   const toggle = () => {
     const next = !microphoneEnabled;
     setMicrophoneEnabled(next);
@@ -429,10 +593,21 @@ export function useInterviewAudioCapture({
     pendingCount,
     downloadRecording,
     error,
+    audioBlocked,
+    resumeAudio: () => {
+      const output = composition.current;
+      if (!output) return;
+      void output
+        .resumeAudio()
+        .then(() => setAudioBlocked(!output.audioRunning()))
+        .catch(() => {
+          setError("Recording audio could not start.");
+        });
+    },
     toggle,
     retryCapture: () => {
       setError("");
-      if (micStream) refresh.current();
+      if (captureStream) refresh.current();
       else {
         finishing.current = false;
         setRetry((value) => value + 1);

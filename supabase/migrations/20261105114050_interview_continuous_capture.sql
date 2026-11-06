@@ -1,20 +1,4 @@
--- Rooms/recordings last for an attempt; participant capabilities remain phase scoped.
--- Recording issued capabilities before provider token minting makes pause/end
--- revocation durable, including a token that is still being provisioned.
-CREATE TABLE public.interview_media_capabilities (
- provider_user_id uuid PRIMARY KEY,
- session_id uuid NOT NULL REFERENCES public.interview_media_sessions(id) ON DELETE CASCADE,
- actor_id uuid NOT NULL,
- policy_key text NOT NULL,
- expires_at timestamptz NOT NULL,
- revoked_at timestamptz,
- created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX interview_media_capabilities_session ON public.interview_media_capabilities(session_id) WHERE revoked_at IS NULL;
-ALTER TABLE public.interview_media_capabilities ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.interview_media_capabilities FROM PUBLIC,anon,authenticated;
-GRANT ALL ON public.interview_media_capabilities TO service_role;
-
+-- Capture timestamps support continuous browser takes and question playback.
 ALTER TABLE public.interview_recordings ADD COLUMN started_at timestamptz;
 CREATE OR REPLACE FUNCTION public.interview_recording_json(r public.interview_recordings) RETURNS jsonb
 LANGUAGE sql STABLE SET search_path=public AS $$

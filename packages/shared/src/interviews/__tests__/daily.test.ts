@@ -1,21 +1,13 @@
 import { DailyInterviewProvider } from "../server/daily";
 
 describe("Daily interview adapter", () => {
-  it("bans retired provider identities so their unexpired tokens cannot rejoin", async () => {
-    const request = jest
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ ejectedIds: ["old"] })));
-    await new DailyInterviewProvider("test", request).revokeUsers(
-      "attempt-room",
-      ["retired-phase-user"],
+  it("deletes the room so its credentials cannot join again", async () => {
+    const request = jest.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    await new DailyInterviewProvider("test", request).closeRoom("phase-room");
+    expect(request).toHaveBeenCalledWith(
+      "https://api.daily.co/v1/rooms/phase-room",
+      expect.objectContaining({ method: "DELETE" }),
     );
-    expect(request.mock.calls[0]?.[0]).toBe(
-      "https://api.daily.co/v1/rooms/attempt-room/eject",
-    );
-    expect(JSON.parse(request.mock.calls[0]?.[1].body)).toEqual({
-      user_ids: ["retired-phase-user"],
-      ban: true,
-    });
   });
   it("creates a private room with expiry enforced by the provider and issues restricted non-owner tokens", async () => {
     const request = jest
@@ -32,7 +24,7 @@ describe("Daily interview adapter", () => {
         new Response(JSON.stringify({ token: "scoped-token" })),
       );
     const provider = new DailyInterviewProvider("server-secret", request);
-    await provider.ensureRoom("interview-room", 1900000000, true);
+    await provider.createRoom("interview-room", 1900000000);
     await provider.token("interview-room", "student", "Student", 1900000000, {
       canSend: true,
       canReceive: false,
@@ -45,6 +37,8 @@ describe("Daily interview adapter", () => {
         max_participants: 8,
       },
     });
+    expect(JSON.parse(request.mock.calls[0][1].body).properties).not.toHaveProperty("enable_recording");
+    expect(JSON.parse(request.mock.calls[1][1].body).properties).not.toHaveProperty("start_cloud_recording");
     expect(JSON.parse(request.mock.calls[1][1].body)).toMatchObject({
       properties: {
         room_name: "interview-room",

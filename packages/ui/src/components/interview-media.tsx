@@ -20,6 +20,10 @@ import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
 import {
+  useInterviewCapture,
+  type InterviewOnlineCaptureSources,
+} from "../hooks/use-interview-capture";
+import {
   InterviewDeviceSettings,
   type InterviewInputSelection,
 } from "./interview-device-settings";
@@ -44,6 +48,7 @@ export interface InterviewMediaProps {
   role?: "tutor" | "student" | "admin";
   stationId?: string;
   plain?: boolean;
+  onlineRecording?: { studentId: string | null };
   className?: string;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
 }
@@ -375,6 +380,69 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
 }
 
 /** Private pair calls use server-issued policy/tokens. UI hiding is additional protection. */
+function playableTrack(
+  participant: DailyParticipant | undefined,
+  kind: "audio" | "video",
+) {
+  const track = participant?.tracks[kind];
+  return track?.state === "playable" ? (track.persistentTrack ?? null) : null;
+}
+
+function OnlineRecording({
+  roundId,
+  phase,
+  enabled,
+  sources,
+  registerFinalize,
+}: Pick<
+  InterviewMediaProps,
+  "roundId" | "phase" | "enabled" | "registerFinalize"
+> & {
+  sources: InterviewOnlineCaptureSources | null;
+}) {
+  const capture = useInterviewCapture({
+    roundId,
+    phase,
+    enabled,
+    registerFinalize,
+    video: { sources },
+  });
+  return (
+    <div className="pointer-events-auto space-y-2 text-xs text-white">
+      {capture.recording && (
+        <p role="status">
+          {enabled && capture.serverRecording
+            ? "Recording this station"
+            : "Recording blank video and silence"}
+        </p>
+      )}
+      {capture.pendingCount > 0 && (
+        <p role="status">Recording waiting to upload</p>
+      )}
+      {capture.error && (
+        <p role="alert" className="rounded-md bg-black/80 p-2">
+          {capture.error}
+        </p>
+      )}
+      {capture.recording && capture.audioBlocked && (
+        <Button size="sm" variant="outline" onClick={capture.resumeAudio}>
+          Enable recording audio
+        </Button>
+      )}
+      {capture.error && (
+        <Button size="sm" variant="outline" onClick={capture.retryCapture}>
+          Retry recording / upload
+        </Button>
+      )}
+      {capture.downloadRecording && (
+        <Button size="sm" variant="outline" onClick={capture.downloadRecording}>
+          Download recording backup
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function InterviewMedia({
   roundId,
   phase,
@@ -383,6 +451,7 @@ export function InterviewMedia({
   role = "student",
   stationId,
   plain = false,
+  onlineRecording,
   className,
   registerFinalize,
   onCallFailure,
@@ -863,6 +932,11 @@ export function InterviewMedia({
   const remoteParticipants = visible.filter(
     (participant) => !participant.local,
   );
+  const recordingStudent = onlineRecording?.studentId
+    ? remoteParticipants.find(
+        (participant) => participant.user_id === onlineRecording.studentId,
+      )
+    : undefined;
   const requestDevices = () => {
     void captureDevices().then((access) => {
       if (access === "granted") {
@@ -920,13 +994,36 @@ export function InterviewMedia({
                 hear your tutor when question time starts.
               </p>
             )}
-          {current && ticket?.recordingEnabled && (
+          {role === "tutor" && onlineRecording && (
+            <OnlineRecording
+              roundId={roundId}
+              phase={phase}
+              enabled={enabled}
+              registerFinalize={registerFinalize}
+              sources={
+                current && enabled && ticket?.sessionId && ticket.attemptId
+                  ? {
+                      attemptId: ticket.attemptId,
+                      tracks: {
+                        localVideo:
+                          ticket.canSend && cameraOn
+                            ? playableTrack(localParticipant, "video")
+                            : null,
+                        localAudio:
+                          ticket.canSend && micOn
+                            ? playableTrack(localParticipant, "audio")
+                            : null,
+                        remoteVideo: playableTrack(recordingStudent, "video"),
+                        remoteAudio: playableTrack(recordingStudent, "audio"),
+                      },
+                    }
+                  : null
+              }
+            />
+          )}
+          {role === "student" && current && ticket?.recordingEnabled && (
             <p className="text-xs font-medium text-white">
-              {ticket.recordingActive
-                ? phase === "feedback"
-                  ? "Recording feedback"
-                  : "Recording this answer"
-                : "Recording is preparing"}
+              Recording is enabled for this station
             </p>
           )}
           {current && ticket?.warning && (

@@ -92,14 +92,12 @@ describe("audio upload durability boundary", () => {
       "chunked-capture",
     ]);
     expect(stored.get(audio.captureId)?.blob.size).toBe(11);
-    expect(await stored.get(audio.captureId)?.blob.text()).toBe('firstsecond');
+    expect(await stored.get(audio.captureId)?.blob.text()).toBe("firstsecond");
     expect(stored.size).toBe(3);
-    jest
-      .mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ complete: true }),
-      } as Response);
+    jest.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ complete: true }),
+    } as Response);
     expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
       pending: 0,
       error: null,
@@ -217,5 +215,37 @@ describe("audio upload durability boundary", () => {
     await flushInterviewAudio(audio.roundId, audio.actorId);
     expect(fetch).not.toHaveBeenCalled();
     expect(stored.has(audio.id)).toBe(false);
+  });
+});
+
+it("keeps an unsaved video while acknowledging later station takes", async () => {
+  const roundId = "round-with-pending-video";
+  const video = (id: string) => ({
+    ...segment(id),
+    roundId,
+    captureId: id,
+    complete: true,
+    startedAt: "2026-11-06T01:00:00Z",
+    blob: new Blob(["video"], { type: "video/webm" }),
+  });
+  const earlier = video("earlier-take");
+  const later = video("later-take");
+  await saveInterviewAudio(earlier);
+  await saveInterviewAudio(later);
+  jest
+    .mocked(fetch)
+    .mockResolvedValueOnce({ ok: false, status: 409 } as Response)
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({ complete: true }),
+    } as Response);
+  expect(await flushInterviewAudio(roundId, earlier.actorId)).toMatchObject({
+    pending: 1,
+  });
+  expect(stored.has(earlier.id)).toBe(true);
+  expect(stored.has(later.id)).toBe(false);
+  expect(await flushInterviewAudio(roundId, earlier.actorId)).toEqual({
+    pending: 0,
+    error: null,
   });
 });

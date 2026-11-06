@@ -1,4 +1,4 @@
-/** Pending audio is kept across page refreshes until the server acknowledges the stable segment ID. */
+/** Pending media is kept across page refreshes until the server acknowledges the stable segment ID. */
 export interface InterviewAudioSegment {
   id: string;
   actorId: string;
@@ -89,7 +89,7 @@ export async function recoverInterviewAudio(
     });
     recovered.add(first.captureId);
   }
-  return [...recovered];
+  return [...new Set([...completedCaptures, ...recovered])];
 }
 /** Raw chunks from one encoder are append-only locally; they are never separate server recordings. */
 export function appendInterviewAudio(
@@ -141,8 +141,8 @@ export function flushInterviewAudio(
     const segments = allSegments.filter(
       (item) => item.complete !== false && !item.checkpoint,
     );
-    for (let index = 0; index < segments.length; index++) {
-      const segment = segments[index]!;
+    let failed = 0;
+    for (const segment of segments) {
       try {
         const query = new URLSearchParams({
           attemptId: segment.attemptId,
@@ -161,7 +161,8 @@ export function flushInterviewAudio(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...metadata, action: "prepare" }),
           });
-          if (!prepared.ok) throw new Error("Unable to prepare audio upload.");
+          if (!prepared.ok)
+            throw new Error("Unable to prepare recording upload.");
           const { uploadUrl, complete } = (await prepared.json()) as {
             uploadUrl?: string;
             complete?: boolean;
@@ -180,7 +181,8 @@ export function flushInterviewAudio(
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ...metadata, action: "complete" }),
             });
-            if (!completed.ok) throw new Error("Unable to finalize audio.");
+            if (!completed.ok)
+              throw new Error("Unable to finalize the recording.");
           }
         } else {
           const response = await fetch(endpoint, {
@@ -190,7 +192,7 @@ export function flushInterviewAudio(
           });
           if (!response.ok)
             throw new Error(
-              "Audio upload failed. Pending audio remains on this device for retry.",
+              "Recording upload failed. The recording remains on this device for retry.",
             );
         }
         const acknowledged = [
@@ -208,14 +210,15 @@ export function flushInterviewAudio(
           return last;
         });
       } catch {
-        return {
-          pending: segments.length - index,
-          error:
-            "Audio upload failed. Keep this page open or return on this device to retry. The interview can continue.",
-        };
+        failed++;
       }
     }
-    return { pending: 0, error: null };
+    return {
+      pending: failed,
+      error: failed
+        ? "Recording upload failed. Keep this page open or return on this device to retry. The interview can continue."
+        : null,
+    };
   })().finally(() => uploads.delete(key));
   uploads.set(key, upload);
   return upload;

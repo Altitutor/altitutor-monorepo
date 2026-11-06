@@ -42,42 +42,25 @@ export class DailyInterviewProvider {
     if (response.status === 204) return {};
     return object(await response.json());
   }
-  async ensureRoom(
-    name: string,
-    expires: number,
-    recording: boolean,
-  ): Promise<string> {
-    let room: Record<string, unknown>;
-    try {
-      room = await this.request("/rooms", "POST", {
-        name,
-        privacy: "private",
-        properties: {
-          exp: expires,
-          eject_at_room_exp: true,
-          max_participants: 8,
-          enforce_unique_user_ids: true,
-          enable_chat: false,
-          enable_screenshare: false,
-          enable_knocking: false,
-          ...(recording ? { enable_recording: "cloud" } : {}),
-          permissions: {
-            canSend: false,
-            canReceive: { base: false },
-            canAdmin: false,
-          },
+  async createRoom(name: string, expires: number): Promise<string> {
+    const room = await this.request("/rooms", "POST", {
+      name,
+      privacy: "private",
+      properties: {
+        exp: expires,
+        eject_at_room_exp: true,
+        max_participants: 8,
+        enforce_unique_user_ids: true,
+        enable_chat: false,
+        enable_screenshare: false,
+        enable_knocking: false,
+        permissions: {
+          canSend: false,
+          canReceive: { base: false },
+          canAdmin: false,
         },
-      });
-    } catch (error) {
-      // Deterministic names make an interrupted create retry safe. Fetch only
-      // after conflict-like responses; never disguise a provider outage.
-      if (
-        !(error instanceof DailyProviderError) ||
-        ![400, 409].includes(error.status)
-      )
-        throw error;
-      room = await this.request(`/rooms/${encodeURIComponent(name)}`);
-    }
+      },
+    });
     const url = string(room.url);
     if (
       new URL(url).protocol !== "https:" ||
@@ -92,7 +75,6 @@ export class DailyInterviewProvider {
     name: string,
     expires: number,
     permissions: { canSend: boolean; canReceive: boolean },
-    recordingInstanceId?: string,
   ): Promise<string> {
     const result = await this.request("/meeting-tokens", "POST", {
       properties: {
@@ -104,22 +86,6 @@ export class DailyInterviewProvider {
         eject_at_token_exp: true,
         enable_screenshare: false,
         enable_recording_ui: false,
-        ...(recordingInstanceId
-          ? {
-              start_cloud_recording: true,
-              start_cloud_recording_opts: {
-                type: "cloud",
-                instanceId: recordingInstanceId,
-                width: 854,
-                height: 480,
-                fps: 15,
-                videoBitrate: 800,
-                audioBitrate: 64,
-                maxDuration: 14400,
-                minIdleTimeOut: 14400,
-              },
-            }
-          : {}),
         permissions: {
           canSend: permissions.canSend ? ["audio", "video"] : false,
           canReceive: { base: permissions.canReceive },
@@ -137,36 +103,6 @@ export class DailyInterviewProvider {
       if (!(error instanceof DailyProviderError) || error.status !== 404)
         throw error;
     }
-  }
-  /** A plain eject permits an unexpired token to rejoin. Ban retired capability IDs. */
-  async revokeUsers(room: string, userIds: string[]): Promise<void> {
-    for (let offset = 0; offset < userIds.length; offset += 100)
-      await this.request(`/rooms/${encodeURIComponent(room)}/eject`, "POST", {
-        user_ids: userIds.slice(offset, offset + 100),
-        ban: true,
-      });
-  }
-  async startRecording(
-    room: string,
-    instanceId: string,
-    secondsRemaining: number,
-  ): Promise<void> {
-    await this.request(
-      `/rooms/${encodeURIComponent(room)}/recordings/start`,
-      "POST",
-      {
-        type: "cloud",
-        instanceId,
-        width: 854,
-        height: 480,
-        fps: 15,
-        videoBitrate: 800,
-        audioBitrate: 64,
-        maxDuration: Math.max(1, Math.floor(secondsRemaining)),
-        minIdleTimeOut: Math.max(1, Math.floor(secondsRemaining)),
-        layout: { preset: "default" },
-      },
-    );
   }
   async recordings(
     room: string,

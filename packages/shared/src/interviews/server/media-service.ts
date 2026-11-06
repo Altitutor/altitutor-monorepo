@@ -39,7 +39,6 @@ export interface InterviewMediaStore {
     >,
   ): Promise<void>;
   claimRecordingRefresh(id: string): Promise<boolean>;
-  ensureRecording(session: InterviewMediaSession): Promise<void>;
   failPendingRecording(id: string): Promise<void>;
   syncRecording(
     session: InterviewMediaSession,
@@ -50,52 +49,11 @@ export interface InterviewMediaStore {
     },
     first: boolean,
   ): Promise<void>;
-  capabilities(sessionId: string): Promise<InterviewMediaCapability[]>;
-  registerCapability(capability: InterviewMediaCapability): Promise<void>;
-  revokeCapabilities(providerUserIds: string[]): Promise<void>;
-}
-export interface InterviewMediaCapability {
-  providerUserId: string;
-  sessionId: string;
-  actorId: string;
-  policyKey: string;
-  expiresAt: string;
 }
 
-function attemptIds(round: InterviewRound): Set<string> {
-  if (round.phase === "waiting" || round.phase === "completed")
-    return new Set();
-  return new Set(
-    round.progress.flatMap((station) => {
-      if (
-        !station.studentId ||
-        station.feedbackComplete ||
-        (round.mode === "exam" &&
-          (round.phase === "feedback" || station.endedEarly))
-      )
-        return [];
-      return round.attempts
-        .filter(
-          (attempt) =>
-            attempt.stationId === station.stationId &&
-            attempt.studentId === station.studentId,
-        )
-        .map((attempt) => attempt.id);
-    }),
-  );
-}
-async function digest(value: string): Promise<string> {
-  return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-    ),
-  )
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-async function capabilityId(value: string): Promise<string> {
-  const hash = await digest(value);
-  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+function sessionKey(policy: InterviewMediaPolicy) {
+  // Do not reissue credentials for a room from an older recording policy.
+  return `phase-v2:${policy.key}`;
 }
 
 export class InterviewMediaService {
@@ -106,55 +64,37 @@ export class InterviewMediaService {
   ) {}
 
   async reconcile(roundId: string, refreshRecordings = true): Promise<void> {
-    await this.reconcileRound(
-      await this.store.round(roundId),
-      refreshRecordings,
-    );
+    const sessions = await this.store.sessions(roundId);
+    const round = await this.store.round(roundId);
+    await this.reconcileRound(round, sessions, refreshRecordings);
+  }
+
+  private async closeSession(session: InterviewMediaSession): Promise<void> {
+    await this.provider.closeRoom(session.roomName);
+    await this.store.updateSession(session.id, {
+      closedAt: new Date(this.now()).toISOString(),
+    });
   }
 
   private async reconcileRound(
     round: InterviewRound,
+    sessions: InterviewMediaSession[],
     refreshRecordings: boolean,
   ): Promise<void> {
-    const roundId = round.id;
-    const attempts = attemptIds(round);
     const keys = new Set(
-      round.progress
-        .map(
-          (station) =>
-            interviewMediaPolicy(round, station.tutorId, "tutor")?.key,
-        )
-        .filter(Boolean),
+      round.progress.flatMap((station) => {
+        const policy = interviewMediaPolicy(round, station.tutorId, "tutor");
+        return policy ? [sessionKey(policy)] : [];
+      }),
     );
-    const sessions = await this.store.sessions(roundId);
     await Promise.all(
       sessions.map(async (session) => {
         if (session.kind === "audio") return;
         if (
           !session.closedAt &&
-          (session.key !== `attempt:${session.attemptId}` ||
-            !attempts.has(session.attemptId) ||
-            Date.parse(session.expiresAt) <= this.now())
+          (!keys.has(session.key) || Date.parse(session.expiresAt) <= this.now())
         ) {
-          await this.provider.closeRoom(session.roomName);
-          await this.store.updateSession(session.id, {
-            closedAt: new Date(this.now()).toISOString(),
-          });
-        } else if (!session.closedAt) {
-          const stale = (await this.store.capabilities(session.id)).filter(
-            (capability) =>
-              !keys.has(capability.policyKey) ||
-              Date.parse(capability.expiresAt) <= this.now(),
-          );
-          if (stale.length) {
-            await this.provider.revokeUsers(
-              session.roomName,
-              stale.map((capability) => capability.providerUserId),
-            );
-            await this.store.revokeCapabilities(
-              stale.map((capability) => capability.providerUserId),
-            );
-          }
+          await this.closeSession(session);
         }
         const settled =
           session.closedAt &&
@@ -237,8 +177,6 @@ export class InterviewMediaService {
     knownAccessKey?: string,
     stationId?: string,
   ): Promise<InterviewMediaTicket> {
-    const round = await this.store.round(roundId);
-    await this.reconcileRound(round, false);
     const resolvePolicy = (current: InterviewRound) => {
       if (actor.role !== "admin")
         return interviewMediaPolicy(current, actor.id, actor.role);
@@ -249,6 +187,10 @@ export class InterviewMediaService {
         ? interviewMediaPolicy(current, station.tutorId, "tutor")
         : null;
     };
+    const initial = await this.store.round(roundId);
+    const sessions = await this.store.sessions(roundId);
+    const round = await this.store.round(roundId);
+    await this.reconcileRound(round, sessions, false);
     const policy = resolvePolicy(round);
     const empty: InterviewMediaTicket = {
       sessionId: null,
@@ -257,160 +199,99 @@ export class InterviewMediaService {
       recordingEnabled: false,
       serverNow: round.serverNow,
     };
-    if (!policy) return empty;
+    // If policy changed while listing rooms, a just-published predecessor may
+    // have been missed. Let the next ticket reconcile it before admitting anyone.
+    if (!policy || resolvePolicy(initial)?.key !== policy.key) return empty;
     if (round.delivery === "in_person")
       return {
         ...empty,
         attemptId: policy.attemptId,
         recordingEnabled: actor.role === "tutor" && policy.recordingEnabled,
       };
-    let session = await this.ensureSession(
-      roundId,
-      policy,
-      round.recordingEnabled,
-    );
-    const expiresAt = new Date(
-      Math.min(
-        Date.parse(session.expiresAt),
-        policy.expiresAt ? Date.parse(policy.expiresAt) : Infinity,
-      ),
-    ).toISOString();
+    const expiresAt =
+      policy.expiresAt ??
+      new Date(Date.parse(round.phaseStartedAt) + 4 * 60 * 60 * 1000).toISOString();
     if (Date.parse(expiresAt) <= this.now()) return empty;
-    if (session.closedAt)
-      return {
-        ...empty,
-        warning:
-          "This video connection has ended. Refresh the interview state.",
-      };
-    const provisioned = await this.store.round(roundId);
-    if (resolvePolicy(provisioned)?.key !== policy.key) {
-      await this.reconcile(roundId);
-      return { ...empty, serverNow: provisioned.serverNow };
+    const session =
+      sessions.find((candidate) => candidate.key === sessionKey(policy)) ??
+      (await this.createSession(roundId, policy, expiresAt));
+    if (
+      session.closedAt ||
+      !session.url ||
+      Date.parse(session.expiresAt) <= this.now()
+    )
+      return empty;
+    const beforeMint = await this.store.round(roundId);
+    if (resolvePolicy(beforeMint)?.key !== policy.key) {
+      await this.closeSession(session);
+      return { ...empty, serverNow: beforeMint.serverNow };
     }
-    if (!session.url) {
-      const url = await this.provider.ensureRoom(
-        session.roomName,
-        Math.floor(Date.parse(session.expiresAt) / 1000),
-        round.recordingEnabled,
-      );
-      await this.store.updateSession(session.id, { url });
-      session = { ...session, url };
-    }
-    let recordingActive = false;
-    if (actor.role !== "admin" && policy.recordingEnabled) {
-      await this.store.ensureRecording(session);
-      recordingActive = await this.refreshRecordings(session);
-      // REST acceptance is only a request. Actual status comes from provider
-      // recordings; failures remain visible and retries reuse the instance ID.
-      if (!session.recordingRequestedAt) {
-        // The scoped token starts recording on join. Avoid six pre-join REST
-        // starts: Daily permits four recording-start requests per five seconds.
-        await this.store.updateSession(session.id, {
-          recordingRequestedAt: new Date(this.now()).toISOString(),
-        });
-      } else if (
-        !recordingActive &&
-        knownSessionId === session.id &&
-        this.now() - Date.parse(session.recordingRequestedAt) > 15_000
-      ) {
-        try {
-          await this.provider.startRecording(
-            session.roomName,
-            session.id,
-            (Date.parse(session.expiresAt) - this.now()) / 1000,
-          );
-          await this.store.updateSession(session.id, {
-            recordingRequestedAt: new Date(this.now()).toISOString(),
-          });
-        } catch {
-          await this.store.updateSession(session.id, {
-            recordingRequestedAt: new Date(this.now()).toISOString(),
-            recordingError:
-              "Recording has not started. The interview can continue; recording will retry.",
-          });
-        }
-      }
-    }
-    // Re-read before issuing a capability: a pause/end/rotation during provider
-    // provisioning must not grant access to the stale phase.
     const permissions =
       actor.role === "admin"
         ? { canSend: false, canReceive: true }
         : { canSend: policy.canSend, canReceive: policy.canReceive };
     const accessKey = `${actor.role}:${policy.key}`;
-    const providerUserId = await capabilityId(
-      `${session.id}:${actor.id}:${accessKey}`,
-    );
-    // Registered before token mint: concurrent pause/end can ban even an in-flight token.
-    await this.store.registerCapability({
-      sessionId: session.id,
-      actorId: actor.id,
-      providerUserId,
-      policyKey: policy.key,
-      expiresAt,
-    });
     const token =
       knownSessionId === session.id && knownAccessKey === accessKey
         ? undefined
         : await this.provider.token(
             session.roomName,
-            providerUserId,
+            actor.id,
             actor.name,
-            Math.floor(Date.parse(expiresAt) / 1000),
+            Math.floor(Date.parse(session.expiresAt) / 1000),
             permissions,
-            actor.role !== "admin" &&
-              policy.recordingEnabled &&
-              !recordingActive
-              ? session.id
-              : undefined,
           );
-    const current = await this.store.round(roundId);
+    const current = token ? await this.store.round(roundId) : beforeMint;
     if (resolvePolicy(current)?.key !== policy.key) {
-      await this.provider.revokeUsers(session.roomName, [providerUserId]);
-      await this.store.revokeCapabilities([providerUserId]);
-      await this.reconcile(roundId);
+      await this.closeSession(session);
       return { ...empty, serverNow: current.serverNow };
     }
     return {
+      ...empty,
       sessionId: session.id,
       accessKey,
-      url: session.url ?? undefined,
+      url: session.url,
       token,
-      expiresAt,
+      expiresAt: session.expiresAt,
       ...permissions,
-      recordingEnabled: policy.recordingEnabled,
-      recordingActive,
       attemptId: policy.attemptId,
+      recordingEnabled: policy.recordingEnabled,
       serverNow: current.serverNow,
-      warning:
-        policy.recordingEnabled && !recordingActive
-          ? "Recording is starting or unavailable. You can continue the interview."
-          : undefined,
     };
   }
 
-  private async ensureSession(
+  private async createSession(
     roundId: string,
     policy: InterviewMediaPolicy,
-    recordingEnabled: boolean,
+    expiresAt: string,
   ): Promise<InterviewMediaSession> {
-    const key = `attempt:${policy.attemptId}`;
-    const hash = await digest(`${roundId}:${key}`);
-    return this.store.ensureSession({
-      id: crypto.randomUUID(),
+    // Provision an unissued, unique room, then publish the ready row. A late
+    // create can never resurrect the name of a room that issued credentials.
+    const id = crypto.randomUUID();
+    const roomName = `mmi-${id}`;
+    const url = await this.provider.createRoom(
+      roomName,
+      Math.floor(Date.parse(expiresAt) / 1000),
+    );
+    const session = await this.store.ensureSession({
+      id,
       roundId,
       attemptId: policy.attemptId,
-      key,
-      roomName: `mmi-${hash.slice(0, 48)}`,
-      url: null,
-      expiresAt: new Date(this.now() + 4 * 60 * 60 * 1000).toISOString(),
+      key: sessionKey(policy),
+      roomName,
+      url,
+      expiresAt,
       closedAt: null,
-      recordingEnabled,
+      recordingEnabled: false,
       recordingRequestedAt: null,
       recordingError: null,
       kind: "video",
       recordingActive: false,
     });
+    // Only delete a known loser. A failed database read leaves the outcome
+    // uncertain and another caller may already have used the published room.
+    if (session.id !== id) await this.provider.closeRoom(roomName);
+    return session;
   }
 }
 

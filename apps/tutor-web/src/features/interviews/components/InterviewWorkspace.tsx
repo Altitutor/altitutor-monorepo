@@ -816,7 +816,7 @@ function InPersonRoundView({
   pending,
   registerFlush,
   registerFinish,
-  registerFinalizeAudio,
+  registerFinalizeRecording,
   error,
   connectionInterrupted,
   onRetry,
@@ -845,7 +845,7 @@ function InPersonRoundView({
   pending: boolean;
   registerFlush: (flush: (() => Promise<void>) | null) => void;
   registerFinish: (finish: (() => void) | null) => void;
-  registerFinalizeAudio: (finalize: (() => Promise<void>) | null) => void;
+  registerFinalizeRecording: (finalize: (() => Promise<void>) | null) => void;
   error: unknown;
   connectionInterrupted: boolean;
   onRetry: () => void;
@@ -1262,8 +1262,11 @@ function InPersonRoundView({
                   <InterviewMedia
                     onCallFailure={reportInterviewCallFailure}
                     className="mx-auto w-full max-w-[min(100%,34svh)] md:max-w-[min(100%,74dvh)]"
-                    registerFinalize={
-                      !online ? registerFinalizeAudio : undefined
+                    registerFinalize={registerFinalizeRecording}
+                    onlineRecording={
+                      round.recordingEnabled
+                        ? { studentId: progress?.studentId ?? null }
+                        : undefined
                     }
                     plain={!online}
                     role="tutor"
@@ -1349,8 +1352,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const [override, setOverride] = useState(false);
   const [claim, setClaim] = useState<string | null | undefined>(undefined);
   const [leaving, setLeaving] = useState(false);
-  const [pendingAudio, setPendingAudio] = useState(0);
-  const [recordingAudio, setRecordingAudio] = useState(false);
+  const [pendingRecordings, setPendingRecordings] = useState(0);
+  const [recordingActive, setRecordingActive] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
   useEffect(() => {
     const listener = (event: Event) => {
@@ -1362,8 +1365,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
         }>
       ).detail;
       if (detail?.roundId === id) {
-        setPendingAudio(detail.pending);
-        setRecordingAudio(detail.recording);
+        setPendingRecordings(detail.pending);
+        setRecordingActive(detail.recording);
       }
     };
     window.addEventListener("altitutor:interview-audio-pending", listener);
@@ -1373,10 +1376,10 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const [localError, setLocalError] = useState<Error | null>(null);
   const [editingRound, setEditingRound] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
-  const finalizeAudio = useRef<(() => Promise<void>) | null>(null);
-  const registerFinalizeAudio = useCallback(
+  const finalizeRecording = useRef<(() => Promise<void>) | null>(null);
+  const registerFinalizeRecording = useCallback(
     (callback: (() => Promise<void>) | null) => {
-      finalizeAudio.current = callback;
+      finalizeRecording.current = callback;
     },
     [],
   );
@@ -1397,14 +1400,14 @@ export function InterviewWorkspace({ id }: { id: string }) {
     const saving = (async () => {
       try {
         await flush.current?.();
-        await finalizeAudio.current?.();
+        await finalizeRecording.current?.();
         if (href) currentLeaveGuard.current.leaveTo(href);
         else currentLeaveGuard.current.leave();
       } catch (error) {
         setLocalError(
           error instanceof Error
             ? error
-            : new Error("Save your feedback and audio before leaving."),
+            : new Error("Save your feedback and recording before leaving."),
         );
       } finally {
         navigation.current = null;
@@ -1510,14 +1513,14 @@ export function InterviewWorkspace({ id }: { id: string }) {
           role="status"
         >
           <p>
-            This round is complete. Feedback and audio must finish saving before
+            This round is complete. Feedback and recordings must finish saving before
             opening results.
           </p>
           <Button
             disabled={leaving}
             onClick={() => void exit(`/interviews/rounds/${id}/results`)}
           >
-            {leaving ? "Saving feedback and audio…" : "Save and view results"}
+            {leaving ? "Saving feedback and recordings…" : "Save and view results"}
           </Button>
         </div>
       )}
@@ -1534,7 +1537,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         pending={command.isPending}
         registerFlush={registerFlush}
         registerFinish={registerFinish}
-        registerFinalizeAudio={registerFinalizeAudio}
+        registerFinalizeRecording={registerFinalizeRecording}
         error={localError ?? command.error ?? query.error}
         connectionInterrupted={query.isError}
         onRetry={() => void query.refetch()}
@@ -1596,13 +1599,13 @@ export function InterviewWorkspace({ id }: { id: string }) {
               : "The round continues for everyone else. We’ll save your pending feedback before leaving. You can rejoin from Interviews."}
           </p>
           <InterviewError error={localError} />
-          {(pendingAudio > 0 || recordingAudio) && (
+          {(pendingRecordings > 0 || recordingActive) && (
             <p className="rounded-lg bg-amber-500/10 p-3 text-sm">
-              {recordingAudio
-                ? "The current audio segment will finish and upload before leaving. "
+              {recordingActive
+                ? "The current recording will finish and upload before leaving. "
                 : ""}
-              {pendingAudio > 0
-                ? `${pendingAudio} audio segment(s) still need uploading. Keep this tab open until uploads finish, or rejoin later from this browser to retry.`
+              {pendingRecordings > 0
+                ? `${pendingRecordings} recording(s) still need uploading. Keep this tab open until uploads finish, or rejoin later from this browser to retry.`
                 : ""}
             </p>
           )}
@@ -1612,7 +1615,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
             </Button>
             <Button disabled={leaving} onClick={() => void exit()}>
               {leaving
-                ? "Saving feedback and audio…"
+                ? "Saving feedback and recordings…"
                 : "Save feedback and exit"}
             </Button>
           </div>

@@ -2,6 +2,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { InterviewMedia } from "../interview-media";
+import { useInterviewCapture } from "../../hooks/use-interview-capture";
 import type { InterviewMediaTicket } from "@altitutor/shared";
 import type { DailyParticipant } from "@daily-co/daily-js";
 
@@ -58,6 +59,9 @@ const mockCall = {
   setInputDevicesAsync: mockSetInputDevices,
   updateInputSettings: mockUpdateInputSettings,
 };
+jest.mock("../../hooks/use-interview-capture", () => ({
+  useInterviewCapture: jest.fn(),
+}));
 jest.mock("@daily-co/daily-js", () => ({
   __esModule: true,
   default: { createCallObject: (...args: unknown[]) => mockCreate(...args) },
@@ -1295,3 +1299,77 @@ it.each([400, 403, 429])(
     expect(JSON.stringify(report.mock.calls)).not.toContain("private");
   },
 );
+
+it("records the assigned student when a receive-only observer is listed first", async () => {
+  const capture = jest.mocked(useInterviewCapture).mockReturnValue({
+    microphoneEnabled: false,
+    micStream: null,
+    recording: false,
+    serverRecording: true,
+    pendingCount: 0,
+    downloadRecording: null,
+    error: "",
+    audioBlocked: false,
+    resumeAudio: jest.fn(),
+    toggle: jest.fn(),
+    retryCapture: jest.fn(),
+  });
+  const studentVideo = { id: "student-video" } as MediaStreamTrack;
+  const studentAudio = { id: "student-audio" } as MediaStreamTrack;
+  Object.defineProperty(globalThis, "MediaStream", {
+    configurable: true,
+    value: jest.fn(),
+  });
+  mockParticipants.mockReturnValue({
+    observer: {
+      session_id: "observer",
+      user_id: "admin",
+      local: false,
+      tracks: { audio: { state: "off" }, video: { state: "off" } },
+    } as unknown as DailyParticipant,
+    student: {
+      session_id: "student",
+      user_id: "assigned-student",
+      local: false,
+      tracks: {
+        audio: { state: "playable", persistentTrack: studentAudio },
+        video: { state: "playable", persistentTrack: studentVideo },
+      },
+    } as unknown as DailyParticipant,
+  });
+  jest.mocked(fetch).mockResolvedValue(
+    response({
+      ...ticket,
+      attemptId: "attempt-1",
+      canReceive: true,
+      recordingEnabled: true,
+    }),
+  );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      role="tutor"
+      enabled
+      onlineRecording={{ studentId: "assigned-student" }}
+    />,
+  );
+  await waitFor(() =>
+    expect(capture).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        video: {
+          sources: {
+            attemptId: "attempt-1",
+            tracks: {
+              localVideo: null,
+              localAudio: null,
+              remoteVideo: studentVideo,
+              remoteAudio: studentAudio,
+            },
+          },
+        },
+      }),
+    ),
+  );
+});

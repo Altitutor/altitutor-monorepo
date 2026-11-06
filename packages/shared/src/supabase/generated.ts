@@ -5060,44 +5060,6 @@ export type Database = {
         }
         Relationships: []
       }
-      interview_media_capabilities: {
-        Row: {
-          actor_id: string
-          created_at: string
-          expires_at: string
-          policy_key: string
-          provider_user_id: string
-          revoked_at: string | null
-          session_id: string
-        }
-        Insert: {
-          actor_id: string
-          created_at?: string
-          expires_at: string
-          policy_key: string
-          provider_user_id: string
-          revoked_at?: string | null
-          session_id: string
-        }
-        Update: {
-          actor_id?: string
-          created_at?: string
-          expires_at?: string
-          policy_key?: string
-          provider_user_id?: string
-          revoked_at?: string | null
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "interview_media_capabilities_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "interview_media_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       interview_media_jobs: {
         Row: {
           lease_token: string | null
@@ -47054,6 +47016,21 @@ export type Database = {
       }
       interview_tutor_id: { Args: { p_user_id: string }; Returns: string }
       interview_validate_template: { Args: { d: Json }; Returns: undefined }
+      interview_video_capture: {
+        Args: { p_round_id: string; p_tutor_id: string }
+        Returns: Json
+      }
+      interview_video_capture_upload: {
+        Args: {
+          p_action: string
+          p_capture_id: string
+          p_round_id: string
+          p_started_at: string
+          p_storage_path: string
+          p_tutor_id: string
+        }
+        Returns: Json
+      }
       invoice_lifecycle_event_payload: {
         Args: { row_data: Json }
         Returns: Json

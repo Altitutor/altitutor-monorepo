@@ -23,6 +23,15 @@ interface Dependencies {
 }
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const audioExtensions = new Map([
+  ["audio/webm", "webm"],
+  ["audio/mp4", "mp4"],
+  ["audio/ogg", "ogg"],
+]);
+const videoExtensions = new Map([
+  ["video/webm", "webm"],
+  ["video/mp4", "mp4"],
+]);
 function json(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -75,19 +84,24 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
         if ("response" in access) return access.response;
         const client = deps.serviceClient();
         const store = createInterviewMediaStore(client);
-        if (access.round.delivery === "in_person") {
+        const captureRequested =
+          deps.role === "tutor" &&
+          new URL(request.url).searchParams.get("capture") === "1";
+        const videoCapture =
+          access.round.delivery === "online" && captureRequested;
+        if (access.round.delivery === "in_person" || videoCapture) {
           const round = await store.round(roundId);
           const policy = interviewMediaPolicy(round, access.actorId, deps.role);
           let captureId: string | undefined;
           let captureAttemptId: string | undefined;
           let captureExpiresAt: string | undefined;
           let finalized = false;
-          if (
-            deps.role === "tutor" &&
-            new URL(request.url).searchParams.get("capture") === "1"
-          ) {
+          let videoCaptureAllowed = false;
+          if (captureRequested) {
             const { data: capture, error: captureError } = await client.rpc(
-              "interview_audio_capture",
+              videoCapture
+                ? "interview_video_capture"
+                : "interview_audio_capture",
               { p_round_id: roundId, p_tutor_id: access.actorId },
             );
             if (captureError) throw captureError;
@@ -107,6 +121,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
                   ? capture.expiresAt
                   : undefined;
               finalized = capture.finalized === true;
+              videoCaptureAllowed = capture.recordingEnabled === true;
             }
           }
           return json({
@@ -122,6 +137,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
             recordingEnabled:
               deps.role === "tutor" &&
               Boolean(policy?.recordingEnabled) &&
+              (!videoCapture || videoCaptureAllowed) &&
               !finalized,
             serverNow: round.serverNow,
             warning: finalized
@@ -244,12 +260,14 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
           .eq("kind", "audio")
           .maybeSingle();
         if (captureError) throw captureError;
+        const videoCapture = round.delivery === "online";
         const attempt = round.attempts.find(
           (entry) => entry.id === capture?.attempt_id,
         );
         if (
           !round.recordingEnabled ||
-          round.delivery !== "in_person" ||
+          !capture ||
+          capture.phase_key.startsWith("browser-video:") !== videoCapture ||
           !attempt ||
           !round.assignments.some(
             (entry) =>
@@ -278,12 +296,8 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
           const mime =
             typeof value.contentType === "string" ? value.contentType : "";
           const extension = (
-            {
-              "audio/webm": "webm",
-              "audio/mp4": "mp4",
-              "audio/ogg": "ogg",
-            } as Record<string, string>
-          )[mime];
+            videoCapture ? videoExtensions : audioExtensions
+          ).get(mime);
           if (
             segmentId !== captureId ||
             !extension ||
@@ -292,10 +306,12 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
             Number(value.byteLength) > 50 * 1024 * 1024
           )
             return json({ error: "Invalid recording size or format." }, 400);
+          const action = value.action;
+          if (action !== "prepare" && action !== "complete")
+            return json({ error: "Invalid upload action." }, 400);
           const startedAt =
             typeof value.startedAt === "string" ? value.startedAt : null;
           if (
-            !capture ||
             !startedAt ||
             !Number.isFinite(Date.parse(startedAt)) ||
             Date.parse(startedAt) < Date.parse(capture.created_at) - 30_000 ||
@@ -319,15 +335,37 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
               ? json({ id: captureId, complete: true })
               : json({ error: "Recording identity already used." }, 409);
           const bucket = client.storage.from("interview-recordings");
-          if (value.action === "prepare") {
+          const videoUpload = {
+            p_round_id: roundId,
+            p_tutor_id: access.actorId,
+            p_capture_id: captureId,
+            p_action: action,
+            p_storage_path: path,
+            p_started_at: startedAt,
+          };
+          if (action === "prepare") {
+            if (videoCapture) {
+              const { data, error } = await client.rpc(
+                "interview_video_capture_upload",
+                videoUpload,
+              );
+              if (error?.code === "23505")
+                return json({ error: "Recording identity already used." }, 409);
+              if (error) throw error;
+              if (
+                data &&
+                typeof data === "object" &&
+                !Array.isArray(data) &&
+                data.complete === true
+              )
+                return json({ id: captureId, complete: true });
+            }
             // Never grant overwrite: a replayed upload URL must not mutate a released take.
             const { data: grant, error: grantError } =
               await bucket.createSignedUploadUrl(path, { upsert: false });
             if (grantError) throw grantError;
             return json({ uploadUrl: grant.signedUrl });
           }
-          if (value.action !== "complete")
-            return json({ error: "Invalid upload action." }, 400);
           const { data: file, error: fileError } = await bucket.info(path);
           if (fileError) throw fileError;
           if (file.size !== value.byteLength || file.contentType !== mime)
@@ -335,25 +373,28 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
               { error: "Uploaded recording does not match its metadata." },
               400,
             );
-          const { error } = await client.rpc("interview_audio_segment", {
-            p_round_id: roundId,
-            p_tutor_id: access.actorId,
-            p_capture_id: captureId,
-            p_segment_id: captureId,
-            p_storage_path: path,
-            p_started_at: startedAt,
-          });
+          const { error } = videoCapture
+            ? await client.rpc("interview_video_capture_upload", videoUpload)
+            : await client.rpc("interview_audio_segment", {
+                p_round_id: roundId,
+                p_tutor_id: access.actorId,
+                p_capture_id: captureId,
+                p_segment_id: captureId,
+                p_storage_path: path,
+                p_started_at: startedAt,
+              });
+          if (error?.code === "23505" && videoCapture)
+            return json({ error: "Recording identity already used." }, 409);
           if (error) throw error;
           return json({ id: captureId, complete: true });
         }
+        if (videoCapture)
+          return json(
+            { error: "Online video requires a signed recording upload." },
+            415,
+          );
         const mime = (request.headers.get("content-type") ?? "").split(";")[0];
-        const extension = (
-          {
-            "audio/webm": "webm",
-            "audio/mp4": "mp4",
-            "audio/ogg": "ogg",
-          } as Record<string, string>
-        )[mime];
+        const extension = audioExtensions.get(mime);
         if (!extension)
           return json({ error: "Unsupported audio format." }, 415);
         const maximum = 5 * 1024 * 1024;

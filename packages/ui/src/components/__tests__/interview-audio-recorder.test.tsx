@@ -3,11 +3,20 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { InterviewAudioRecorder } from "../interview-audio-recorder";
 import {
+  useInterviewCapture,
+  type InterviewOnlineCaptureSources,
+} from "../../hooks/use-interview-capture";
+import { createInterviewVideoCompositor } from "../../lib/interview-video-compositor";
+import type { InterviewPhase } from "@altitutor/shared";
+import {
   saveInterviewAudio,
   flushInterviewAudio,
   recoverInterviewAudio,
 } from "../../lib/interview-audio-outbox";
 
+jest.mock("../../lib/interview-video-compositor", () => ({
+  createInterviewVideoCompositor: jest.fn(),
+}));
 jest.mock("../../lib/interview-audio-outbox", () => ({
   saveInterviewAudio: jest.fn(),
   flushInterviewAudio: jest.fn(),
@@ -143,15 +152,13 @@ describe("in-person recorder boundaries", () => {
     jest.useFakeTimers();
     const response = policy("attempt-1", true);
     const body = await response.json();
-    jest
-      .mocked(fetch)
-      .mockResolvedValue({
-        ...response,
-        json: async () => ({
-          ...body,
-          expiresAt: new Date(Date.now() + 1_000).toISOString(),
-        }),
-      } as Response);
+    jest.mocked(fetch).mockResolvedValue({
+      ...response,
+      json: async () => ({
+        ...body,
+        expiresAt: new Date(Date.now() + 1_000).toISOString(),
+      }),
+    } as Response);
     await render("questions");
     // Pin the initial deadline: later failed polls cannot extend authorization.
     jest.mocked(fetch).mockRejectedValue(new Error("Offline"));
@@ -168,7 +175,9 @@ describe("in-person recorder boundaries", () => {
       .mockResolvedValueOnce(["stable-capture"]);
     await render("questions");
     expect(instances).toHaveLength(0);
-    expect(container.textContent).toContain("partial recording was recovered");
+    expect(container.textContent).toContain(
+      "already has a recording on this device",
+    );
   });
   it("finalizes muted audio and waits for persistence and upload before allowing exit", async () => {
     let saved!: () => void;
@@ -293,5 +302,97 @@ describe("in-person recorder boundaries", () => {
         captureId: "stable-capture",
       }),
     );
+  });
+});
+
+function OnlineCapture({
+  phase,
+  enabled,
+  sources,
+}: {
+  phase: InterviewPhase;
+  enabled: boolean;
+  sources: InterviewOnlineCaptureSources | null;
+}) {
+  useInterviewCapture({
+    roundId: "round",
+    phase,
+    enabled,
+    registerFinalize,
+    video: { sources },
+  });
+  return null;
+}
+
+it("records one online video take across a paused call and fresh feedback room", async () => {
+  const output = {
+    stream: {} as MediaStream,
+    sync: jest.fn(),
+    audioRunning: () => true,
+    resumeAudio: async () => undefined,
+    dispose: jest.fn(),
+  };
+  jest.mocked(createInterviewVideoCompositor).mockReturnValue(output);
+  const first = {
+    attemptId: "attempt-1",
+    tracks: {
+      localVideo: { id: "questions" } as MediaStreamTrack,
+      localAudio: null,
+      remoteVideo: null,
+      remoteAudio: null,
+    },
+  };
+  const resumed = {
+    ...first,
+    tracks: {
+      ...first.tracks,
+      localVideo: { id: "feedback" } as MediaStreamTrack,
+    },
+  };
+  const show = async (
+    phase: InterviewPhase,
+    enabled: boolean,
+    sources: InterviewOnlineCaptureSources | null,
+    recordingEnabled: boolean,
+  ) => {
+    jest.mocked(fetch).mockResolvedValue(policy("attempt-1", recordingEnabled));
+    await act(async () => {
+      root.render(
+        <OnlineCapture phase={phase} enabled={enabled} sources={sources} />,
+      );
+    });
+  };
+  let finishEarlierUpload!: (result: { pending: number; error: null }) => void;
+  jest.mocked(flushInterviewAudio).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishEarlierUpload = resolve;
+      }),
+  );
+  await show("reading", true, first, false);
+  expect(instances).toHaveLength(0);
+  await show("questions", true, first, true);
+  expect(instances).toHaveLength(1);
+  expect(instances[0]?.stream).toBe(output.stream);
+  expect(output.sync).toHaveBeenLastCalledWith(first.tracks);
+  await act(async () => {
+    finishEarlierUpload({ pending: 0, error: null });
+  });
+  await show("questions", false, null, false);
+  expect(output.sync).toHaveBeenLastCalledWith(null);
+  expect(instances[0]?.state).toBe("recording");
+  await show("feedback", true, resumed, true);
+  expect(output.sync).toHaveBeenLastCalledWith(resumed.tracks);
+  expect(instances).toHaveLength(1);
+  expect(getUserMedia).not.toHaveBeenCalled();
+  await act(async () => {
+    await finalizeAudio!();
+  });
+  expect(saveInterviewAudio).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(saveInterviewAudio).mock.calls[0]?.[0]).toMatchObject({
+    id: "stable-capture",
+    attemptId: "attempt-1",
+    complete: true,
+    blob: { type: "video/webm;codecs=vp8,opus" },
   });
 });

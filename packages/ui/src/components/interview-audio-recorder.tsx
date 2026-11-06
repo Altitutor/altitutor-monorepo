@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import type { InterviewPhase } from "@altitutor/shared";
 import { Mic, MicOff } from "lucide-react";
 import { Button } from "./button";
-import { useInterviewAudioCapture } from "../hooks/use-interview-audio-capture";
+import { useInterviewCapture } from "../hooks/use-interview-capture";
 
 export function InterviewAudioRecorder(props: {
   roundId: string;
@@ -13,7 +13,7 @@ export function InterviewAudioRecorder(props: {
   plain?: boolean;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
 }) {
-  const { roundId, phase, enabled, plain = false } = props;
+  const { phase, enabled, plain = false } = props;
   const {
     microphoneEnabled,
     micStream,
@@ -24,7 +24,7 @@ export function InterviewAudioRecorder(props: {
     error,
     toggle,
     retryCapture,
-  } = useInterviewAudioCapture(props);
+  } = useInterviewCapture(props);
   const [level, setLevel] = useState(0);
   useEffect(() => {
     if (!micStream || !microphoneEnabled || !enabled) {
@@ -70,21 +70,6 @@ export function InterviewAudioRecorder(props: {
       void context?.close().catch(() => undefined);
     };
   }, [micStream, microphoneEnabled, enabled]);
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("altitutor:interview-audio-pending", {
-        detail: { roundId, pending: pendingCount, recording },
-      }),
-    );
-    const warn = (event: BeforeUnloadEvent) => {
-      if (recording || pendingCount > 0) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [roundId, pendingCount, recording]);
   const caption =
     !enabled && recording
       ? "Interview paused — the recording continues with silence"

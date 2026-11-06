@@ -71,15 +71,10 @@ function boundedStore(
       bounded(deadlineAt, () => store.updateSession(id, patch)),
     claimRecordingRefresh: (id) =>
       bounded(deadlineAt, () => store.claimRecordingRefresh(id)),
-    ensureRecording: (session) =>
-      bounded(deadlineAt, () => store.ensureRecording(session)),
     failPendingRecording: (id) =>
       bounded(deadlineAt, () => store.failPendingRecording(id)),
     syncRecording: (session, recording, first) =>
       bounded(deadlineAt, () => store.syncRecording(session, recording, first)),
-    capabilities: (id) => bounded(deadlineAt, () => store.capabilities(id)),
-    registerCapability: (value) => bounded(deadlineAt, () => store.registerCapability(value)),
-    revokeCapabilities: (ids) => bounded(deadlineAt, () => store.revokeCapabilities(ids)),
   };
 }
 function report(
@@ -133,6 +128,17 @@ export async function reconcileInterviewMedia(
       await bounded(workDeadline, () => service.reconcile(job.round_id));
       const state = await store.round(job.round_id);
       const sessions = await store.sessions(job.round_id);
+      // Browser video uses an audio-kind capture anchor with the same ID as
+      // its recording. Its upload lifecycle does not depend on Daily.
+      const browserVideoIds = new Set(
+        sessions
+          .filter(
+            (session) =>
+              session.kind === "audio" &&
+              session.key.startsWith("browser-video:"),
+          )
+          .map((session) => session.id),
+      );
       const settled =
         state.phase === "completed" &&
         sessions.every(
@@ -141,6 +147,7 @@ export async function reconcileInterviewMedia(
         state.recordings.every(
           (recording) =>
             recording.kind === "audio" ||
+            browserVideoIds.has(recording.id) ||
             !["pending", "recording"].includes(recording.state),
         );
       const { error: completeError } = await bounded(deadlineAt, () =>
