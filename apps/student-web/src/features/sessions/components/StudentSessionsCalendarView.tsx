@@ -39,7 +39,7 @@ export function StudentSessionsCalendarView({
     [anchor],
   );
 
-  const { data: sessions } = useStudentSessions(
+  const { data: sessions, isError } = useStudentSessions(
     format(weekStart, "yyyy-MM-dd"),
     format(weekEnd, "yyyy-MM-dd"),
   );
@@ -72,6 +72,18 @@ export function StudentSessionsCalendarView({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+      {isError && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Your timetable could not be loaded.{" "}
+          <button
+            type="button"
+            className="underline"
+            onClick={() => window.location.reload()}
+          >
+            Reload timetable
+          </button>
+        </p>
+      )}
       <StudentInterviewCalendar
         dates={days}
         sessions={sessions ?? []}
