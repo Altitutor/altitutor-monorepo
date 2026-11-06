@@ -25,9 +25,11 @@ const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
 export function LearningTextBlock({
   block,
   onViewed,
+  trackViewing = true,
 }: {
   block: LearningModuleBlockRow;
   onViewed: () => void;
+  trackViewing?: boolean;
 }) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const reportedRef = useRef(false);
@@ -38,7 +40,7 @@ export function LearningTextBlock({
 
   useEffect(() => {
     const end = endRef.current;
-    if (!end) return;
+    if (!end || !trackViewing) return;
 
     reportedRef.current = false;
     const observer = new IntersectionObserver(
@@ -54,7 +56,7 @@ export function LearningTextBlock({
 
     observer.observe(end);
     return () => observer.disconnect();
-  }, [block.id]);
+  }, [block.id, trackViewing]);
 
   return (
     <div className="pr-2">
