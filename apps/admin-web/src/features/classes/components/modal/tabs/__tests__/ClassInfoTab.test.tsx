@@ -83,6 +83,11 @@ describe('ClassInfoTab ended schedule', () => {
   });
 
   beforeEach(() => {
+    jest.useFakeTimers({
+      // After the last revision ends and before the class itself ends.
+      now: new Date('2026-11-02T01:00:00Z'),
+      doNotFake: ['setTimeout', 'clearTimeout'],
+    });
     previewSchedule.mockReset();
     previewSchedule.mockResolvedValue({
       proposal_hash: 'hash',
@@ -93,6 +98,8 @@ describe('ClassInfoTab ended schedule', () => {
     });
     mockScheduleTimeline.mockReturnValue({ data: [], isLoading: false });
   });
+
+  afterEach(() => jest.useRealTimers());
 
   it('keeps the last timetable and subject when no revision is still in force', async () => {
     const user = userEvent.setup();
