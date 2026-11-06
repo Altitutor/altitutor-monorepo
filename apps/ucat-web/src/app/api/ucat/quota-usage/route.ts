@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -49,13 +50,15 @@ export async function GET() {
     );
   }
 
-  const usage = await getQuotaUsageForStudent(supabaseAdmin, student.id);
-  if (!usage) {
-    return NextResponse.json(
-      { error: "Failed to load quota usage" },
-      { status: 500 },
-    );
+  try {
+    const usage = await getQuotaUsageForStudent(supabaseAdmin, student.id);
+    if (usage) return NextResponse.json(usage);
+  } catch (error) {
+    captureApiError(error, "/api/ucat/quota-usage");
   }
 
-  return NextResponse.json(usage);
+  return NextResponse.json(
+    { error: "Failed to load quota usage" },
+    { status: 500 },
+  );
 }
