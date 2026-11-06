@@ -20,7 +20,7 @@ import { useInterviewCalendarRounds } from "../hooks/use-interviews";
 import { interviewResultsHref, interviewRoomHref } from "../lib/routes";
 
 type Entry =
-  | { kind: "round"; round: StudentInterviewRound }
+  | { kind: "round"; round: StudentInterviewRound; start: string; end: string }
   | { kind: "session"; session: StudentSessionWithStaff };
 
 export function StudentInterviewCalendar({
@@ -48,21 +48,22 @@ export function StudentInterviewCalendar({
           ]
         : [],
     ),
-    ...(query.data ?? []).flatMap((r) =>
-      r.scheduledAt
-        ? [
-            {
-              id: `round:${r.id}`,
-              startAt: r.scheduledAt,
-              // Older deployments may not yet include the additive projected end estimate.
-              endAt:
-                r.scheduledEndAt ??
-                new Date(Date.parse(r.scheduledAt) + 30 * 60_000).toISOString(),
-              value: { kind: "round" as const, round: r },
-            },
-          ]
-        : [],
-    ),
+    ...(query.data ?? []).flatMap((round) => {
+      const start = round.scheduledAt;
+      if (!start) return [];
+      // Older deployments may not yet include the projected end estimate.
+      const end =
+        round.scheduledEndAt ??
+        new Date(Date.parse(start) + 30 * 60_000).toISOString();
+      return [
+        {
+          id: `round:${round.id}`,
+          startAt: start,
+          endAt: end,
+          value: { kind: "round" as const, round, start, end },
+        },
+      ];
+    }),
   ];
   const hasVisibleEvents = dates.some((date) => {
     const start = new Date(date).setHours(0, 0, 0, 0);
@@ -106,7 +107,7 @@ export function StudentInterviewCalendar({
           entry.kind === "round" ? (
             <InterviewRoundCalendarCard
               name={entry.round.name}
-              start={entry.round.scheduledAt!}
+              tooltipRange={entry}
               onClick={() => setSelectedId(entry.round.id)}
             />
           ) : (

@@ -112,7 +112,10 @@ export function SessionsCalendarView({
             return (
               <InterviewRoundCalendarCard
                 name={entry.round.name}
-                start={entry.round.scheduledAt}
+                tooltipRange={{
+                  start: entry.round.scheduledAt,
+                  end: entry.round.endAt,
+                }}
                 onClick={() => setRoundId(entry.round.id)}
               />
             );

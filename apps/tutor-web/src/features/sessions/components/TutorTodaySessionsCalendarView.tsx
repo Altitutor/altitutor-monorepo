@@ -11,7 +11,7 @@ import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionCard } from './SessionCard';
-import type { Database } from '@altitutor/shared';
+import { BUSINESS_TIMEZONE, type Database } from '@altitutor/shared';
 import type { SessionStudent } from '../utils/session-helpers';
 
 type TutorSessionRow = Database['public']['Views']['vtutor_sessions']['Row'];
@@ -181,7 +181,11 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
                           >
                             <InterviewRoundCalendarCard
                               name={entry.value.round.name}
-                              start={entry.value.round.scheduledAt}
+                              tooltipRange={{
+                                start: entry.value.round.scheduledAt,
+                                end: entry.value.round.endAt,
+                                timeZone: BUSINESS_TIMEZONE,
+                              }}
                               onClick={() => setSelectedRound(entry.value.kind === 'round' ? entry.value.round : null)}
                             />
                           </div>

@@ -1,12 +1,21 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { SessionsCalendarView } from "../SessionsCalendarView";
+import { TutorTodaySessionsCalendarView } from "../TutorTodaySessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 
 Object.assign(globalThis, { React });
 const push = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 
 it("opens an assigned interview from the weekly calendar into its waiting room", () => {
   useAuthStore.setState({ user: null, loading: true });
@@ -126,4 +135,51 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
     global.fetch = originalFetch;
     useAuthStore.setState({user: null, loading: true});
   }
+});
+
+it("shows the Adelaide time used by the dashboard grid in the interview tooltip", async () => {
+  useAuthStore.setState({ user: null, loading: true });
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+  const scheduledAt = "2026-11-06T04:00:00.000Z";
+  client.setQueryData(["staff", "current", null], { id: "assigned-tutor" });
+  client.setQueryData(["interviews", "access", undefined], true);
+  client.setQueryData(
+    ["interviews", "rounds", undefined],
+    [
+      {
+        id: "dashboard-round",
+        name: "Afternoon interview",
+        scheduledAt,
+        startedAt: null,
+        phase: "waiting",
+        delivery: "online",
+        mode: "exam",
+        recordingEnabled: false,
+        readingTimeSeconds: 60,
+        questionTimeSeconds: 480,
+        stations: [{ id: "station" }],
+        students: [],
+        tutors: [{ id: "assigned-tutor", name: "Assigned tutor" }],
+      },
+    ],
+  );
+
+  render(
+    <QueryClientProvider client={client}>
+      <TutorTodaySessionsCalendarView
+        date={format(new Date(scheduledAt), "yyyy-MM-dd")}
+        sessions={[]}
+      />
+    </QueryClientProvider>,
+  );
+  fireEvent.focus(
+    screen.getByRole("button", { name: "Interview round Afternoon interview" }),
+  );
+
+  const tooltip = await screen.findByRole("tooltip");
+  expect(tooltip).toHaveTextContent("2:30");
+  expect(tooltip).toHaveTextContent(/3:00 pm/i);
+  client.clear();
 });
