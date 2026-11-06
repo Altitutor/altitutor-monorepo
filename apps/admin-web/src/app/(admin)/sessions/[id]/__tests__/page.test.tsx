@@ -1,3 +1,7 @@
+jest.mock("@/features/forms/components/FormResponseCommands", () => ({
+  FormResponseCommands: () => null,
+}));
+
 jest.mock("@/shared/components/EntityPropertiesLayout", () => ({
   EntityPropertiesLayout: ({ children, sidebar }: { children: React.ReactNode; sidebar: React.ReactNode }) => <>{children}{sidebar}</>,
   EntityPropertiesToggle: () => null,

@@ -97,7 +97,7 @@
 - **In-person onboarding completion** — Resolution of the first onboarding check-in and all outstanding onboarding actions after In-person conversion. Conversion alone does not remove a Student with outstanding actions from the onboarding queue.
   _Avoid_: First payment, initial class placement
 
-- **Family enquiry** — An enquiry on behalf of children who are not yet individually identified. It remains visible until it can be linked to individual children's In-person onboarding journeys, which retain the shared communication and original enquiry date.
+- **Family enquiry** — An enquiry on behalf of children who are not yet individually identified. It remains visible until it can be linked to individual children's In-person onboarding journeys, which retain the shared communication and original enquiry date. Known siblings may be captured in one enquiry and progress independently, including attending the same or different trials.
   _Avoid_: One Student per parent contact, anonymous marketing lead
 
 - **Trial form completion** — Submission by adminstaff during the trial session of a Form with the Trial session purpose on behalf of the Student, linked to that Student and session; each participating Student requires their own response. It is distinct from trial attendance and In-person registration, and a missing response remains a staff recording requirement even after registration.

@@ -479,6 +479,7 @@ export function MessageThread({
   const sendMessage = useSendMessage();
   const smsSender = defaultPhoneSmsSender(availableSenders);
   const isGroupThread = Boolean(conversationId) && !contactId;
+  const [activeEnquiryMessage, setActiveEnquiryMessage] = useState<string>();
   const threadItems = data?.pages.flatMap((page) => page.items) ?? [];
   const resendSourceIds = threadItems
     .filter(
@@ -1079,6 +1080,8 @@ export function MessageThread({
 
                   <div
                     className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}
+                    onPointerEnter={() => setActiveEnquiryMessage(m.id)}
+                    onFocusCapture={() => setActiveEnquiryMessage(m.id)}
                   >
                     {partyLabel && (
                       <div
@@ -1276,6 +1279,7 @@ export function MessageThread({
                             sentAt={m.sent_at}
                             createdAt={m.created_at}
                             isOwnMessage={direction === "OUTBOUND"}
+                            enquiryActive={activeEnquiryMessage === m.id}
                             showCreateIssue={!hideAddIssueHover}
                             matchedIssues={matchedIssues}
                             issueActionLoading={isIssueActionLoading}

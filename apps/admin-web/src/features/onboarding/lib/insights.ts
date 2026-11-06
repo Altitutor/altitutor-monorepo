@@ -1,68 +1,53 @@
-import { nextActions, type Journey } from "./model";
-function median(values: number[]) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
-}
-function elapsed(from: string | null, to: string | null | undefined) {
-  if (!from || !to) return null;
-  const days = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
-  return days >= 0 ? days : null;
-}
-export function actionInsights(
+import { utcToAdelaideDate } from "@/features/bookings/utils/dateTimeHelpers";
+import { stages, type Journey } from "./model";
+
+export const funnelStages = [
+  stages[0],
+  stages[1],
+  stages[2],
+  "Registration link sent",
+  stages[4],
+  stages[5],
+  "Paid and attended",
+] as const;
+
+export type EnquiryCohort = "new" | "returning" | "historical";
+
+export function enquiryFunnel(
   journeys: Journey[],
-  deadlines: Record<string, number>,
-  cadence: number[],
+  range: { from: string; to: string },
+  cohort: EnquiryCohort,
 ) {
-  const definitions = [
-    {
-      key: "book_trial",
-      label: "Book trial",
-      duration: (j: Journey) =>
-        elapsed(j.enquiry_at, j.evidence.trial_booked_at),
-    },
-    {
-      key: "registration_link",
-      label: "Send registration link",
-      duration: (j: Journey) =>
-        elapsed(j.evidence.trial_attended_at, j.evidence.registration_link_at),
-    },
-    {
-      key: "enrol",
-      label: "Place all agreed subjects",
-      duration: (j: Journey) =>
-        j.evidence.subjects.length &&
-        j.evidence.subjects.every((s) =>
-          j.evidence.classes.some((c) => c.subject_id === s.id),
-        )
-          ? elapsed(
-              j.evidence.registered_at,
-              j.evidence.classes
-                .flatMap((c) => (c.added_at ? [c.added_at] : []))
-                .sort()
-                .at(-1),
-            )
-          : null,
-    },
-  ];
-  const pending = journeys.flatMap((j) =>
-    nextActions(j, deadlines, new Date(), cadence),
-  );
-  return definitions.map((d) => {
-    const values = journeys.flatMap((j) => {
-      const v = d.duration(j);
-      return v === null ? [] : [v];
+  const counts = funnelStages.map(() => 0);
+  let unresolvedFamilies = 0;
+  let unknownEnquiryDates = 0;
+
+  for (const journey of journeys) {
+    if (!journey.enquiry_at) {
+      if (cohort === "historical" && journey.historical) unknownEnquiryDates += 1;
+      continue;
+    }
+    const day = utcToAdelaideDate(journey.enquiry_at);
+    if (day < range.from || day > range.to) continue;
+    if (!journey.student_id) {
+      if (cohort === "new" && !journey.historical && !journey.closed_at) unresolvedFamilies += 1;
+      continue;
+    }
+    const kind = journey.historical ? "historical" : journey.is_returning ? "returning" : "new";
+    if (kind !== cohort) continue;
+
+    const evidence = journey.evidence;
+    [
+      true,
+      evidence.trial_booked_at,
+      evidence.trial_attended_at,
+      evidence.registration_link_at,
+      evidence.registered_at,
+      evidence.classes.length,
+      evidence.converted_at,
+    ].forEach((reached, index) => {
+      if (reached) counts[index] += 1;
     });
-    return {
-      key: d.key,
-      label: d.label,
-      completed: values.length,
-      medianDays: median(values),
-      open: pending.filter((a) => a.key === d.key).length,
-      overdue: pending.filter((a) => a.key === d.key && a.overdue).length,
-    };
-  });
+  }
+  return { counts, unresolvedFamilies, unknownEnquiryDates };
 }

@@ -15,6 +15,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { FormResponseCommands } from '@/features/forms/components/FormResponseCommands';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -310,6 +311,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="student" entityId={student.id} />
 
+        {!student.deleted_at && <FormResponseCommands record={{ type: "student", id: student.id, title: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() }} />}
         {!student.deleted_at && <ActionsMenu
           type="student"
           detailsInSidebar
@@ -358,6 +360,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
 
         <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            allowForm={!student.deleted_at}
             entityType="student"
             entityId={id}
             className="min-h-0 flex-1"

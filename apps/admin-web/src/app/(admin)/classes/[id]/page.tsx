@@ -24,6 +24,7 @@ import {
 } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
+import { FormResponseCommands } from '@/features/forms/components/FormResponseCommands';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
@@ -208,6 +209,13 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         <IssuePill entityType="class" entityId={id} enabled />
 
 
+        <FormResponseCommands
+          record={{ type: "class", id: classData.id, title: classData.short_name ?? "" }}
+          classMembers={[
+            ...classStudents.map((student) => ({ ...student, type: "student" as const })),
+            ...classStaff.map((staff) => ({ ...staff, type: "staff" as const })),
+          ]}
+        />
         <ActionsMenu
           type="class"
           entityId={classData.id}

@@ -15,6 +15,6 @@ export function FeedbackShell({ children }: { children: React.ReactNode }) {
       <Button onClick={() => setFillFormOpen(true)}><FilePenLine />Fill form</Button>
     </AdminPageActions>
     {children}
-    <FillFormDialog open={fillFormOpen} onClose={() => setFillFormOpen(false)} />
+    {fillFormOpen && <FillFormDialog open onClose={() => setFillFormOpen(false)} />}
   </div>;
 }
