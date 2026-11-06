@@ -22,6 +22,38 @@ const collection = resolveSentryCollection({
 
 const replayEnabled = collection.errors && !isMobileAuthBrowserContext();
 
+function attachTrialStylesheetContext(event: Sentry.ErrorEvent, hint: Sentry.EventHint) {
+  if (
+    typeof window === "undefined" ||
+    window.location.pathname !== "/booking/trial-session" ||
+    hint.mechanism?.type !== "auto.browser.global_handlers.onunhandledrejection"
+  ) return;
+
+  const reason = hint.originalException;
+  if (!(reason instanceof Event) || reason.type !== "error") return;
+
+  const link = reason.target;
+  if (
+    !(link instanceof HTMLLinkElement) ||
+    link.parentElement !== document.head ||
+    link.rel !== "stylesheet" ||
+    !link.href.startsWith(`${window.location.origin}/_next/static/`)
+  ) return;
+
+  const { pathname } = new URL(link.href);
+  if (!/^\/_next\/static\/[a-z0-9_./()-]+\.css$/i.test(pathname)) return;
+
+  const timing = performance.getEntriesByName?.(link.href, "resource").at(-1);
+  const responseStatus = (timing as PerformanceResourceTiming | undefined)?.responseStatus;
+  event.contexts = {
+    ...event.contexts,
+    trial_stylesheet: {
+      path: pathname,
+      response_status: responseStatus,
+    },
+  };
+}
+
 Sentry.init({
   dsn,
   enabled: collection.feedback,
@@ -29,13 +61,14 @@ Sentry.init({
   sendClientReports: collection.errors,
   ...sentryWebCompatibilityOptions(),
   tracesSampleRate: collection.errors ? 0.1 : 0,
-  beforeSend(event) {
+  beforeSend(event, hint) {
     if (!collection.errors && event.type !== "feedback") return null;
     const filtered = filterMobileAuthTelemetry(event);
     if (!filtered) return null;
     if (filtered.request?.url) {
       filtered.request.url = sanitizeStudentAnalyticsUrl(filtered.request.url);
     }
+    attachTrialStylesheetContext(filtered, hint);
     return sanitizeInterviewCallEvent(filtered);
   },
   beforeSendTransaction: (event) => collection.errors ? filterMobileAuthTelemetry(event) : null,

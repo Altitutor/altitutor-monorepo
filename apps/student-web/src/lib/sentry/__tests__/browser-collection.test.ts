@@ -35,6 +35,41 @@ describe('student browser collection', () => {
     expect(options?.replaysSessionSampleRate).toBe(0);
     expect(options?.replaysOnErrorSampleRate).toBe(0.1);
   });
+  it('adds the asset path and HTTP status to a trial stylesheet rejection', () => {
+    const path = '/_next/static/css/app/booking/trial-session/page.css';
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${path}?private=fixture#section`;
+    document.head.append(link);
+    const originalException = new Event('error');
+    link.dispatchEvent(originalException);
+    const timingDescriptor = Object.getOwnPropertyDescriptor(performance, 'getEntriesByName');
+    Object.defineProperty(performance, 'getEntriesByName', {
+      configurable: true,
+      value: jest.fn().mockReturnValue([{ responseStatus: 404 }]),
+    });
+    window.history.replaceState({}, '', '/booking/trial-session?private=booking');
+
+    try {
+      const options = initialize({ NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'true' });
+      const beforeSend = options?.beforeSend as (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null;
+      const sent = beforeSend({ type: undefined }, {
+        originalException,
+        mechanism: { type: 'auto.browser.global_handlers.onunhandledrejection', handled: false },
+      });
+      expect(sent?.contexts?.trial_stylesheet).toEqual({ path, response_status: 404 });
+      expect(JSON.stringify(sent?.contexts)).not.toContain('private');
+    } finally {
+      link.remove();
+      window.history.replaceState({}, '', '/');
+      if (timingDescriptor) {
+        Object.defineProperty(performance, 'getEntriesByName', timingDescriptor);
+      } else {
+        Reflect.deleteProperty(performance, 'getEntriesByName');
+      }
+    }
+  });
+
   it('strips inherited private data from handled interview failure events', () => {
     const options = initialize({ NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'true' });
     const beforeSend = options?.beforeSend as (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null;
