@@ -88,6 +88,42 @@ it("enters Students with Enter, searches only that submenu, and returns with Bac
   expect(screen.getByRole("option", { name: "Students" })).toBeVisible();
 });
 
+it("breaks equal root search matches in favor of records while preserving stronger email matches", async () => {
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PaletteBrowser
+        isOpen
+        onClose={() => {}}
+        onEntitySelected={() => {}}
+        commands={[]}
+        pages={[]}
+        searchEntities={async ({ type }) => ({
+          results:
+            type === "email"
+              ? [
+                  { type, id: "email-prefix", title: "Alice enquiry" },
+                  { type, id: "email-exact", title: "Alice" },
+                ]
+              : type === "student"
+                ? [{ type, id: "student", title: "Alice Williams" }]
+                : [],
+          hasMore: false,
+        })}
+      />
+    </QueryClientProvider>,
+  );
+
+  await user.type(screen.getByRole("searchbox"), "Alice");
+  await screen.findByRole("option", { name: "Students Alice Williams" });
+  await screen.findByRole("option", { name: "Email Alice enquiry" });
+  const options = screen.getAllByRole("option");
+  expect(options).toHaveLength(3);
+  expect(options[0]).toHaveAccessibleName("Email Alice");
+  expect(options[1]).toHaveAccessibleName("Students Alice Williams");
+  expect(options[2]).toHaveAccessibleName("Email Alice enquiry");
+});
+
 it("distinguishes action targets with an entity pill and mutes only ancestor labels", async () => {
   const action = jest.fn();
   const user = userEvent.setup();

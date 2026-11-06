@@ -67,9 +67,11 @@ function scorePage(page: CommandPalettePage, query: string): number {
 /**
  * Calculate match quality score for an entity
  */
-function scoreEntity(result: CommandPaletteEntityResult, query: string): number {
+export function scoreEntityText(
+  { title, subtitle }: { title: string; subtitle?: string | null },
+  query: string,
+): number {
   const queryLower = query.toLowerCase().trim();
-  const { title, subtitle } = getEntityDisplayText(result);
 
   const titleLower = title.toLowerCase();
   const subtitleLower = subtitle?.toLowerCase() || '';
@@ -111,7 +113,7 @@ export function calculateMatchScore(
   }
 
   if (item.type === 'entity') {
-    return scoreEntity(item.result, query);
+    return scoreEntityText(getEntityDisplayText(item.result), query);
   }
 
   return 0;

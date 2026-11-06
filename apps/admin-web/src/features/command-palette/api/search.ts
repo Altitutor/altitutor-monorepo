@@ -67,10 +67,33 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
       });
       switch (type) {
         case "email": {
-          const result = await db.rpc("email_list_threads", { p_folder_id: "", p_search: search, p_assignee: "all", p_offset: offset, p_limit: take });
+          const inbox = await db
+            .from("email_folders")
+            .select("id")
+            .eq("role", "inbox")
+            .eq("present", true)
+            .maybeSingle();
+          if (inbox.error) throw new Error(inbox.error.message);
+          if (!inbox.data?.id) return finish([]);
+
+          const result = await db.rpc("email_list_threads", {
+            p_folder_id: inbox.data.id,
+            p_search: search,
+            p_assignee: "all",
+            p_offset: offset,
+            p_limit: take,
+          });
           if (result.error) throw new Error(result.error.message);
           const page = emailListSchema.parse(result.data);
-          return { results: page.threads.map((thread) => ({ type, id: thread.id, title: thread.subject || "Email conversation", subtitle: thread.senderName || thread.sender })), hasMore: page.hasMore };
+          return {
+            results: page.threads.map((thread) => ({
+              type,
+              id: thread.id,
+              title: thread.subject || "Email conversation",
+              subtitle: thread.senderName || thread.sender,
+            })),
+            hasMore: page.hasMore,
+          };
         }
         case "student": {
           // An empty left embed permits OR with the independent in-person relationship.
