@@ -7859,6 +7859,64 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_enquiry_messages: {
+        Row: {
+          journey_id: string
+          message_id: string
+        }
+        Insert: {
+          journey_id: string
+          message_id: string
+        }
+        Update: {
+          journey_id?: string
+          message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_enquiry_messages_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_enquiry_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_enquiry_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+        ]
+      }
+      onboarding_enquiry_submissions: {
+        Row: {
+          id: string
+          result: Json
+          source_id: string | null
+          source_kind: string | null
+        }
+        Insert: {
+          id: string
+          result: Json
+          source_id?: string | null
+          source_kind?: string | null
+        }
+        Update: {
+          id?: string
+          result?: Json
+          source_id?: string | null
+          source_kind?: string | null
+        }
+        Relationships: []
+      }
       onboarding_journeys: {
         Row: {
           closed_at: string | null
@@ -7869,6 +7927,7 @@ export type Database = {
           created_at: string
           enquiry_at: string | null
           enquiry_email: string | null
+          enquiry_parent_id: string | null
           historical: boolean
           id: string
           is_returning: boolean
@@ -7885,6 +7944,7 @@ export type Database = {
           created_at?: string
           enquiry_at?: string | null
           enquiry_email?: string | null
+          enquiry_parent_id?: string | null
           historical?: boolean
           id?: string
           is_returning?: boolean
@@ -7901,6 +7961,7 @@ export type Database = {
           created_at?: string
           enquiry_at?: string | null
           enquiry_email?: string | null
+          enquiry_parent_id?: string | null
           historical?: boolean
           id?: string
           is_returning?: boolean
@@ -7914,6 +7975,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_enquiry_parent_id_fkey"
+            columns: ["enquiry_parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
             referencedColumns: ["id"]
           },
           {
@@ -45930,6 +45998,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_onboarding_enquiry: { Args: { p_request: Json }; Returns: Json }
       create_public_trial_booking: {
         Args: {
           p_curriculum: string
@@ -47174,6 +47243,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      onboarding_enquiry_source: {
+        Args: { p_id: string; p_kind: string }
+        Returns: Json
       }
       onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
       onboarding_journeys_board: { Args: never; Returns: Json }

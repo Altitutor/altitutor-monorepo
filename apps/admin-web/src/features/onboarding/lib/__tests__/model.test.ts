@@ -37,6 +37,7 @@ function journey(
     student_id: "student",
     contact_id: null,
     enquiry_email: null,
+    enquiry_parent_id: null,
     label: "Student",
     enquiry_at: "2026-09-01T00:00:00Z",
     created_at: "2026-09-01T00:00:00Z",

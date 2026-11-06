@@ -17,13 +17,11 @@ export function useJourneyConversations(journey: Journey) {
       const ids = new Set<string>(
         journey.contact_id ? [journey.contact_id] : [],
       );
-      const studentIds = new Set<string>();
       if (journey.student_id) {
         for (const c of await getMessageContactsForStudent(
           journey.student_id,
         )) {
           ids.add(c.id);
-          studentIds.add(c.id);
         }
         const parents = await db
           .from("parents_students")
@@ -42,7 +40,14 @@ export function useJourneyConversations(journey: Journey) {
           contacts.data.forEach((c) => ids.add(c.id));
         }
       }
-      if (!ids.size) return { contacts: [], conversations: [] };
+      const source = await db.from("onboarding_enquiry_messages")
+        .select("message:messages(conversation_id)")
+        .eq("journey_id", journey.id);
+      if (source.error) throw source.error;
+      const sourceConversationIds = source.data.flatMap(({ message }) =>
+        message ? [message.conversation_id] : [],
+      );
+      if (!ids.size && !sourceConversationIds.length) return { contacts: [], conversations: [] };
       const contacts = await db
         .from("contacts")
         .select(
@@ -55,7 +60,11 @@ export function useJourneyConversations(journey: Journey) {
         .select("conversation_id")
         .in("contact_id", [...ids]);
       if (groups.error) throw groups.error;
-      const filter = `contact_id.in.(${[...ids].join(",")})${groups.data.length ? `,id.in.(${groups.data.map((g) => g.conversation_id).join(",")})` : ""}`;
+      const conversationIds = [...new Set([...sourceConversationIds, ...groups.data.map((row) => row.conversation_id)])];
+      const filter = [
+        ids.size ? `contact_id.in.(${[...ids].join(",")})` : "",
+        conversationIds.length ? `id.in.(${conversationIds.join(",")})` : "",
+      ].filter(Boolean).join(",");
       const conversations = await db
         .from("conversations")
         .select("*, owned_numbers(*)")
