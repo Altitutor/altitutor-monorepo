@@ -229,13 +229,16 @@ BEGIN
         EXISTS(SELECT 1 FROM public.onboarding_journeys WHERE student_id=v_student AND closed_at IS NOT NULL))
       RETURNING id INTO v_journey;
     ELSE
+      -- An ordinary follow-up is not proof of the start of a historical
+      -- journey. Explicitly resolving a family enquiry provides that evidence.
       UPDATE public.onboarding_journeys
-      SET enquiry_at=CASE WHEN NOT historical AND enquiry_at>v_received THEN v_received ELSE enquiry_at END,
-          enquiry_parent_id=coalesce(v_parent,enquiry_parent_id)
-      WHERE id=v_journey AND (
+      SET enquiry_at=v_received
+      WHERE id=v_journey AND v_received IS NOT NULL AND (
         (NOT historical AND enquiry_at>v_received)
-        OR (v_parent IS NOT NULL AND enquiry_parent_id IS DISTINCT FROM v_parent)
+        OR (historical AND enquiry_at IS NULL AND v_family_id IS NOT NULL)
       );
+      UPDATE public.onboarding_journeys SET enquiry_parent_id=v_parent
+      WHERE id=v_journey AND v_parent IS NOT NULL AND enquiry_parent_id IS DISTINCT FROM v_parent;
     END IF;
     v_students := array_append(v_students,v_student);
     v_journeys := array_append(v_journeys,v_journey);

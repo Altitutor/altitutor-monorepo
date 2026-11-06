@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(22);
+SELECT plan(23);
 INSERT INTO public.contacts(id, contact_type, phone_e164, parent_id)
 VALUES ('fd279000-0000-4000-8000-000000000001','PARENT','+61429927900','60000000-0000-0000-0000-000000000001');
 INSERT INTO public.conversations(id,contact_id,owned_number_id)
@@ -13,9 +13,12 @@ VALUES ('fd279000-0000-4000-8000-000000000003','fd279000-0000-4000-8000-00000000
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 INSERT INTO public.students(id,first_name,last_name,status,registered_at) VALUES
- ('fd279000-0000-4000-8000-000000000013','Harper','','DISCONTINUED','2026-08-01T04:00:00Z');
+ ('fd279000-0000-4000-8000-000000000013','Harper','','DISCONTINUED','2026-08-01T04:00:00Z'),
+ ('fd279000-0000-4000-8000-000000000017','Morgan','','TRIAL',NULL);
 INSERT INTO public.onboarding_journeys(student_id,label,enquiry_at)
 VALUES ('fd279000-0000-4000-8000-000000000013','Harper','2026-11-07T04:00:00Z');
+INSERT INTO public.onboarding_journeys(student_id,label,historical)
+VALUES ('fd279000-0000-4000-8000-000000000017','Morgan',true);
 CREATE TEMP TABLE enquiry_request AS SELECT '{
   "requestId":"fd279000-0000-4000-8000-000000000004",
   "source":{"kind":"message","id":"fd279000-0000-4000-8000-000000000003"},
@@ -55,13 +58,16 @@ SELECT ok((SELECT student_id IS NULL AND closed_at IS NULL FROM public.onboardin
 SELECT lives_ok($$SELECT public.create_onboarding_enquiry(jsonb_build_object(
   'requestId','fd279000-0000-4000-8000-000000000012','familyJourneyId',(SELECT id FROM unresolved_family),
   'assigneeId','00000000-0000-0000-0000-000000000002',
-  'children','[{"id":"fd279000-0000-4000-8000-000000000013","kind":"existing"}]'::jsonb
+  'children','[{"id":"fd279000-0000-4000-8000-000000000013","kind":"existing"},
+    {"id":"fd279000-0000-4000-8000-000000000017","kind":"existing"}]'::jsonb
 ))$$,'staff can identify children later without a new message');
 SELECT ok((SELECT closed_at IS NOT NULL FROM public.onboarding_journeys WHERE id=(SELECT id FROM unresolved_family)),
   'resolved family entry leaves the open queue');
 SELECT is((SELECT count(*) FROM public.onboarding_enquiry_messages m JOIN public.onboarding_journeys j ON j.id=m.journey_id
   WHERE j.student_id='fd279000-0000-4000-8000-000000000013' AND j.enquiry_at='2026-11-06T04:00:00Z'
     AND m.message_id='fd279000-0000-4000-8000-000000000009'),1::bigint,'identified child retains the family date and source');
+SELECT ok((SELECT historical AND enquiry_at='2026-11-06T04:00:00Z' FROM public.onboarding_journeys
+  WHERE student_id='fd279000-0000-4000-8000-000000000017'),'a verified family date is retained without reclassifying a historical journey');
 SELECT throws_ok($$SELECT public.create_onboarding_enquiry('{
   "requestId":"fd279000-0000-4000-8000-000000000014",
   "children":[{"id":"fd279000-0000-4000-8000-000000000015","kind":"new","firstName":"Rollback"}],
