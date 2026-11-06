@@ -76,6 +76,8 @@ describe('ResourceFileViewer', () => {
     expect(source).not.toMatch(/from ['"]react-pdf['"]/);
     expect(source).not.toMatch(/import\(['"]pdfjs-dist/);
     expect(source).not.toMatch(/import\(['"]react-pdf/);
-    expect(source).toContain('/pdfjs/pdf.min.mjs');
+    expect(source).toContain('process.env.NEXT_PUBLIC_PDFJS_ASSET_PATH');
+    expect(source).toContain('importPublicEsm(`${pdfjsAssetPath}/pdf.min.mjs`)');
+    expect(source).toContain('workerSrc = `${pdfjsAssetPath}/pdf.worker.min.mjs`');
   });
 });
