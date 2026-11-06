@@ -7,10 +7,11 @@ import { Check, ChevronLeft, ChevronRight, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout/components/ucat-page-header";
 import { cn } from "@/lib/utils";
+import { LearningWorkedSolution } from "./learning-worked-solution";
 import { LearningLessonPreviewPage } from "./learning-lesson-preview-page";
 
 const variants = [
-  { key: "locked-note", label: "Show a locked note" },
+  { key: "blurred-solution", label: "Blur the worked solution" },
   { key: "hidden", label: "Hide until answered" },
 ] as const;
 
@@ -55,7 +56,7 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState<number | null>(null);
   const answered = submitted !== null;
-  const showLockedNote = variant.key === "locked-note";
+  const showBlurredSolution = variant.key === "blurred-solution";
 
   const changeVariant = useCallback((direction: number) => {
     const next = variants[(variantIndex + direction + variants.length) % variants.length];
@@ -153,12 +154,12 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
                     variant={answered ? "outline" : "default"}
                     disabled={selected === null}
                     aria-disabled={answered || undefined}
-                    className={cn("shrink-0", answered && "cursor-default")}
+                    className={cn("min-w-40 shrink-0", answered && "cursor-default")}
                   >
                     {answered ? <Check className="size-4" aria-hidden /> : null}
                     {answered ? "Answer submitted" : "Submit answer"}
                   </Button>
-                  <span role="status" className="text-sm text-muted-foreground">
+                  <span role="status" className="sr-only">
                     {answered ? "Worked solution available below." : null}
                   </span>
                 </div>
@@ -166,22 +167,16 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
             </div>
           </LessonBlock>
 
-          {answered ? (
-            <LessonBlock id="solution" type="Explanation" title="Worked solution">
-              <p className="rounded-lg bg-primary/10 p-3">
-                <strong>{submitted === 0 ? "Correct" : "Correct answer: A"}</strong>
-                <span className="mt-1 block">{options[0]}</span>
-              </p>
-              <p>The passage gives a direct cost comparison. A new item cost less than the labour or parts needed for repair. The passage gives no evidence that these items were unsafe or that parts were unavailable.</p>
-            </LessonBlock>
-          ) : showLockedNote ? (
-            <div className="flex items-start gap-3 rounded-lg border border-dashed bg-background/65 px-5 py-3 text-sm">
-              <LockKeyhole className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <div>
-                <p className="font-medium">Worked solution</p>
-                <p className="text-muted-foreground">Appears here after you submit your answer.</p>
-              </div>
-            </div>
+          {answered || showBlurredSolution ? (
+            <LearningWorkedSolution locked={!answered}>
+              <LessonBlock id="solution" type="Explanation" title="Worked solution">
+                <p className="rounded-lg bg-primary/10 p-3">
+                  <strong>Correct answer: A</strong>
+                  <span className="mt-1 block">{options[0]}</span>
+                </p>
+                <p>The passage gives a direct cost comparison. A new item cost less than the labour or parts needed for repair. The passage gives no evidence that these items were unsafe or that parts were unavailable.</p>
+              </LessonBlock>
+            </LearningWorkedSolution>
           ) : null}
 
           <LessonBlock id="recap" type="Recap" title="Take it into the test">
@@ -197,7 +192,7 @@ function LearningLessonFocusPrototype({ variantIndex }: { variantIndex: number }
               <li><a className="hover:text-foreground hover:underline" href="#practice">Try the question</a></li>
               {answered ? (
                 <li><a className="hover:text-foreground hover:underline" href="#solution">Worked solution</a></li>
-              ) : showLockedNote ? (
+              ) : showBlurredSolution ? (
                 <li className="flex items-center gap-1.5">
                   <LockKeyhole className="size-3.5" aria-hidden />
                   <span>Worked solution <span className="sr-only">available after submitting</span></span>
@@ -242,7 +237,7 @@ export function LearningLessonFocusPreview() {
   const variantIndex = variants.findIndex((item) => item.key === variant);
 
   // Keep the previous review links usable after replacing the old prototypes.
-  if (variant === "blur" || variant === "outline" || variant === "slides") {
+  if (variant === "locked-note" || variant === "blur" || variant === "outline" || variant === "slides") {
     return <LearningLessonFocusPrototype variantIndex={0} />;
   }
   return variantIndex === -1 ? (
