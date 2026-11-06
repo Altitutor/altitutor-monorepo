@@ -20,12 +20,11 @@ interface UseStudentActionsProps {
    */
   onEditDetails: () => void;
   /**
-   * Callback for password reset/registration. Omitted on record pages,
-   * where account actions live on the details tab.
+   * Callback for the student account action in the record menu.
    */
   onPasswordResetOrRegistration?: () => void;
   /**
-   * Label for password reset button
+   * Label for the student account action
    */
   passwordResetLabel?: string;
   /**

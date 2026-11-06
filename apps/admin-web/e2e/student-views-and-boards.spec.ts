@@ -500,3 +500,62 @@ test('Trial queue can show completed onboarding for active Students and family e
   expect(result.entries.find(entry => entry.kind === 'student')).toMatchObject({ student: { status: 'ACTIVE' } });
   expect(result.entries.find(entry => entry.kind === 'enquiry')).toMatchObject({ student: null, label: 'Completed family enquiry Browser check' });
 });
+
+test('Record actions start in-person onboarding for a student with an existing UCAT login', async ({ page }) => {
+  const url = process.env.ADMIN_E2E_SUPABASE_URL!;
+  if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Fixtures require a local database');
+  const db = createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const id = randomUUID();
+  const email = `ucat-account-${id}@altitutor.test`;
+  const lastName = `Browser check ${id.slice(0, 8)}`;
+  const user = await db.auth.admin.createUser({ email, email_confirm: true });
+  if (user.error) throw user.error;
+  const student = await db.from('students').insert({
+    id, first_name: 'Existing UCAT', last_name: lastName, email, status: null, user_id: user.data.user.id,
+  });
+  if (student.error) throw student.error;
+  const online = await db.from('student_online_product_relationships').insert({
+    student_id: id, product: 'UCAT_WEB', started_at: '2026-10-01T12:00:00Z',
+  });
+  if (online.error) throw online.error;
+
+  await signIn(page);
+  await page.goto('/students');
+  await page.getByLabel('Views', { exact: true }).getByRole('button', { name: 'Online', exact: true }).click();
+  const row = page.getByRole('row').filter({ has: page.getByText(`Existing UCAT ${lastName}`, { exact: true }) });
+  await row.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Start in-person onboarding', exact: true }).click();
+  const account = page.getByRole('dialog', { name: 'Student account', exact: true });
+  await expect(account.getByRole('button', { name: 'Start in-person onboarding', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(account).toBeHidden();
+
+  const recordActions = page.getByRole('button', { name: 'Record actions', exact: true });
+  await recordActions.click();
+  await page.getByRole('menuitem', { name: 'Start in-person onboarding', exact: true }).click();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Start in-person onboarding', exact: true }).click();
+  await expect(account.getByRole('button', { name: 'Send registration link', exact: true })).toBeVisible();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await recordActions.click();
+  await page.getByRole('menuitem', { name: 'Send registration link', exact: true }).click();
+  const generated = page.waitForResponse((response) =>
+    response.url().endsWith('/api/students/send-registration-invite') && response.request().method() === 'POST',
+  );
+  await account.getByRole('button', { name: 'Send registration link', exact: true }).click();
+  const registration = page.getByRole('dialog', { name: 'Send Registration Link', exact: true });
+  await expect(registration).toBeVisible();
+  expect((await generated).status()).toBe(200);
+  await page.keyboard.press('Escape');
+  await expect(registration).toBeHidden();
+  await expect(account.getByRole('heading', { name: 'Password reset', exact: true })).toBeVisible();
+
+  const persisted = await db.from('students').select('status,user_id').eq('id', id).single();
+  if (persisted.error) throw persisted.error;
+  expect(persisted.data).toEqual({ status: 'TRIAL', user_id: user.data.user.id });
+  const ucat = await db.from('student_online_product_relationships').select('product').eq('student_id', id).single();
+  if (ucat.error) throw ucat.error;
+  expect(ucat.data.product).toBe('UCAT_WEB');
+});

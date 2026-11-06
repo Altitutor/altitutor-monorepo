@@ -47812,6 +47812,10 @@ export type Database = {
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
+      start_student_in_person_onboarding: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       start_ucat_learning_module: {
         Args: {
           p_learning_module_id: string
