@@ -12,10 +12,17 @@ import { getStudentClasses, getStaffClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useAvailableSenders, useContactForTemplate, useLastInboundOwnedNumberId } from '../api/queries';
 import { resolveComposerSenderId } from '../utils/resolveComposerSenderId';
-import { Button } from '@altitutor/ui';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  useToast,
+} from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
-import { Loader2, Paperclip } from 'lucide-react';
+import { Loader2, Paperclip, SlidersHorizontal } from 'lucide-react';
 import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
 import { calculateSMSSegments } from '../utils/smsSegments';
@@ -26,6 +33,7 @@ import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
 import { ComposerControlTooltip } from './ComposerControlTooltip';
 import { isMessageComposerSendShortcut } from '../utils/composerShortcut';
+import { getLinkCopyBody } from '../utils/getLinkCopyBody';
 
 interface Props {
   onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
@@ -72,7 +80,10 @@ export function Composer({
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
+  const [sendLinkCopy, setSendLinkCopy] = useState(false);
+  const { toast } = useToast();
   const send = useSendMessage();
+  const sendingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +107,10 @@ export function Composer({
     setSelectedSenderId(initialSenderId ?? preferredSenderId ?? null);
     setDestinationAddress(initialDestinationAddress ?? '');
   }, [contactId, groupChatId, initialDestinationAddress, initialSenderId, preferredSenderId]);
+
+  useEffect(() => {
+    setSendLinkCopy(false);
+  }, [contactId, conversationId, groupChatId]);
 
   useEffect(() => {
     if (preferredSenderId) {
@@ -212,7 +227,7 @@ export function Composer({
     const body = text.trim();
     // Allow sending if there's text OR attachments (for iMessage, can send attachments without text)
     const hasContent = body || (isIMessageSender && hasAttachments);
-    if (!hasContent || (!contactId && !conversationId) || !selectedSenderId) return;
+    if (sendingRef.current || !hasContent || (!contactId && !conversationId) || !selectedSenderId) return;
 
     // Get successful attachments
     const successfulAttachments = getSuccessfulAttachments();
@@ -231,6 +246,8 @@ export function Composer({
       return;
     }
 
+    sendingRef.current = true;
+
     // Clear draft (either via callback or directly)
     if (onDraftClear) {
       onDraftClear();
@@ -244,12 +261,13 @@ export function Composer({
         await onBeforeSend(body, selectedSenderId);
       }
 
-      await send.mutateAsync({
+      const result = await send.mutateAsync({
         contactId,
         onboarding,
         conversationId,
         groupChatId,
-        body: body || '', // Allow empty body if attachments exist
+        body,
+        linkCopyBody: sendLinkCopy ? getLinkCopyBody(body) : undefined,
         selectedSenderId,
         destinationAddress: isIMessageSender && !groupChatId ? destinationAddress || undefined : undefined,
         attachments: successfulAttachments.map(att => ({
@@ -262,11 +280,21 @@ export function Composer({
 
       // Clear attachments after successful send
       clearAll();
+      setSendLinkCopy(false);
+      if ('linkCopyFailed' in result) {
+        toast({
+          title: 'Link copy could not be queued',
+          description: 'The original message was queued. You can send the links separately from the conversation.',
+          variant: 'destructive',
+        });
+      }
       onQueued?.();
     } catch (e) {
       console.error(e);
       // Restore draft on error
       setText(body);
+    } finally {
+      sendingRef.current = false;
     }
   };
   const handleTemplateSelect = async (template: Tables<'message_templates'>) => {
@@ -535,7 +563,7 @@ export function Composer({
         {/* Button row: template/attachments/phone on left, send on right */}
         <div ref={buttonRowRef} className="flex items-end justify-between gap-2 min-w-0" data-message-composer-controls>
           {/* Left side: Template, Attachments, Phone buttons */}
-          <div className="flex flex-1 items-center gap-2 min-w-0">
+          <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
             {toolbarBeforeTemplate}
             {/* Template button */}
             <ComposerControlTooltip label="Template" compact={!canExpand}><div className="relative flex-shrink-0">
@@ -550,6 +578,30 @@ export function Composer({
                 </div>
               )}
             </div></ComposerControlTooltip>
+
+            <ComposerControlTooltip label="Options" compact={!canExpand}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    aria-label="Options"
+                    data-composer-label="Options"
+                    variant={sendLinkCopy ? 'secondary' : 'outline'}
+                    size={canExpand ? 'sm' : 'icon'}
+                    disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
+                    className="h-10 shrink-0"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {canExpand && 'Options'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuCheckboxItem checked={sendLinkCopy} onCheckedChange={setSendLinkCopy}>
+                    Also send links separately
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ComposerControlTooltip>
 
             <ComposerControlTooltip label="Insert variable" compact={!canExpand}><ComposerVariablesDropdown
               availableVariables={availableVariables}

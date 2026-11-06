@@ -25,6 +25,7 @@ import {
 } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
+import { FormResponseCommands } from '@/features/forms/components/FormResponseCommands';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ParentDetailsTab, ParentDetailsFormData } from '@/features/students/components/tabs/ParentDetailsTab';
@@ -169,6 +170,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="parent" entityId={parent.id} />
 
+        <FormResponseCommands record={{ type: "parent", id: parent.id, title: `${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="parent"
           entityId={parent.id}
@@ -211,6 +213,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
 
         <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            allowForm
             className="min-h-0 flex-1"
             entityType="parent"
             entityId={id}
