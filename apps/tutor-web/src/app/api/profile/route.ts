@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
@@ -178,10 +178,10 @@ export async function PATCH(request: NextRequest) {
  * GET /api/profile
  * Get tutor's own profile (alternative to using vtutor_profile view directly)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

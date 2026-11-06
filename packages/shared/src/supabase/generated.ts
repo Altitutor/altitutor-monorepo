@@ -6857,7 +6857,10 @@ export type Database = {
           expo_push_token: string
           id: string
           platform: string
-          student_id: string
+          staff_id: string | null
+          staff_session_id: string | null
+          staff_user_id: string | null
+          student_id: string | null
           updated_at: string
         }
         Insert: {
@@ -6866,7 +6869,10 @@ export type Database = {
           expo_push_token: string
           id?: string
           platform: string
-          student_id: string
+          staff_id?: string | null
+          staff_session_id?: string | null
+          staff_user_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -6875,10 +6881,41 @@ export type Database = {
           expo_push_token?: string
           id?: string
           platform?: string
-          student_id?: string
+          staff_id?: string | null
+          staff_session_id?: string | null
+          staff_user_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mobile_push_devices_student_id_fkey"
             columns: ["student_id"]
@@ -6921,24 +6958,55 @@ export type Database = {
           app_scope: string
           category: string
           enabled: boolean
-          student_id: string
+          staff_id: string | null
+          student_id: string | null
           updated_at: string
         }
         Insert: {
           app_scope: string
           category: string
           enabled: boolean
-          student_id: string
+          staff_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
           app_scope?: string
           category?: string
           enabled?: boolean
-          student_id?: string
+          staff_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mobile_push_preferences_student_id_fkey"
             columns: ["student_id"]
@@ -36200,6 +36268,98 @@ export type Database = {
           },
         ]
       }
+      vtutor_dashboard_new_class_students: {
+        Row: {
+          session_id: string | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       vtutor_documentation_documents: {
         Row: {
           content: Json | null
@@ -37015,19 +37175,25 @@ export type Database = {
       }
       vtutor_office_print_settings: {
         Row: {
+          connector_online: boolean | null
           tutor_access:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open: boolean | null
         }
         Insert: {
+          connector_online?: never
           tutor_access?:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open?: never
         }
         Update: {
+          connector_online?: never
           tutor_access?:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open?: never
         }
         Relationships: []
       }
@@ -38341,6 +38507,51 @@ export type Database = {
             referencedColumns: ["session_id"]
           },
         ]
+      }
+      vtutor_session_staff_candidates: {
+        Row: {
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          role: string | null
+          status: string | null
+        }
+        Insert: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Update: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_student_candidates: {
+        Row: {
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          status: string | null
+        }
+        Insert: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          status?: string | null
+        }
+        Update: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          status?: string | null
+        }
+        Relationships: []
       }
       vtutor_sessions: {
         Row: {
@@ -45543,6 +45754,7 @@ export type Database = {
           expires_at: string
           expo_push_token: string
           id: string
+          lease_expires_at: string
           notification_id: string
           notification_type: string
           preference_enabled: boolean
@@ -45555,6 +45767,7 @@ export type Database = {
         Returns: {
           expo_push_token: string
           id: string
+          lease_expires_at: string
           ticket_id: string
         }[]
       }
@@ -47574,6 +47787,15 @@ export type Database = {
       retire_business_record: {
         Args: { p_id: string; p_kind: string }
         Returns: undefined
+      }
+      retire_mobile_push_device: {
+        Args: {
+          p_delivery_id: string
+          p_expo_push_token: string
+          p_lease_expires_at: string
+          p_status: string
+        }
+        Returns: boolean
       }
       retire_student: { Args: { p_student_id: string }; Returns: Json }
       retire_student_identity: {

@@ -24,7 +24,7 @@ import uuid
 import owned_database as db
 
 WEB_APPS = ('admin-web', 'student-web', 'tutor-web', 'marketing-web', 'ucat-web')
-NATIVE_APPS = {'student-app': 'student-web', 'ucat-app': 'ucat-web'}
+NATIVE_APPS = {'student-app': 'student-web', 'ucat-app': 'ucat-web', 'tutor-app': 'tutor-web'}
 ROOT = Path(__file__).resolve().parents[1]
 
 
