@@ -21,27 +21,28 @@ export default function ResourceSubjectDetailPage() {
   const params = useParams<{ subjectShortName: string }>();
   const subjectShortName = params.subjectShortName;
 
-  const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
+  const subjectQuery = useResourceSubject(subjectShortName);
+  const subject = subjectQuery.data;
   const { data: topics } = useResourceTopics(subject?.id ?? null);
   const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
-  const { data: accessBySubject } = useResourceAccessBySubject();
+  const accessQuery = useResourceAccessBySubject();
 
-  const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+  const hasAccess = Boolean(subject?.id && accessQuery.data?.get(subject.id)?.length);
 
   const tree = useMemo(() => buildTopicTree(topics ?? []), [topics]);
 
-  if (!subjectLoading && !subject) {
+  if (!subject) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied verification={subjectQuery} />
       </StudentPageContainer>
     );
   }
 
-  if (!subjectLoading && !hasAccess) {
+  if (!hasAccess) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied verification={accessQuery} />
       </StudentPageContainer>
     );
   }

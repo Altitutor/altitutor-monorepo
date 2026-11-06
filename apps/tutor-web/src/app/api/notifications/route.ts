@@ -15,8 +15,8 @@ type NotificationIdRow = {
   id: string | null;
 };
 
-async function resolveTutorContext() {
-  const userClient = await createClient();
+async function resolveTutorContext(request: Request) {
+  const userClient = await createClient(request);
   const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
 
   if (tutorCheckError) {
@@ -88,7 +88,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, updated: 0 });
     }
 
-    const resolved = await resolveTutorContext();
+    const resolved = await resolveTutorContext(request);
     if ('response' in resolved) return resolved.response;
 
     const { userClient, tutorId } = resolved;
@@ -136,6 +136,7 @@ export async function PATCH(request: Request) {
       .from('notifications')
       .update({ read_at: now, updated_at: now })
       .eq('staff_id', tutorId)
+      .eq('app_scope', 'staff_web')
       .is('read_at', null)
       .is('dismissed_at', null)
       .is('resolved_at', null);

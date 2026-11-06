@@ -33,6 +33,23 @@ describe("UcatFloatingToolbar", () => {
     pathname = "/exam";
   });
 
+  it("does not put fullscreen on the menu that shows the toolbar", () => {
+    Object.defineProperty(document, "fullscreenEnabled", {
+      configurable: true,
+      get: () => true,
+    });
+    document.documentElement.requestFullscreen = jest
+      .fn()
+      .mockResolvedValue(undefined);
+
+    render(<UcatFloatingToolbar />);
+
+    expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Hide toolbar" }),
+    ).toBeInTheDocument();
+  });
+
   it("uses the pill itself to hide the toolbar", () => {
     render(<UcatFloatingToolbar />);
 
