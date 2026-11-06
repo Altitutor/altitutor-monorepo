@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import type { StudentInterviewRound } from "@altitutor/shared";
 import { StudentInterviewRoom } from "../student-interview-room";
 import { useInterviewRound } from "../../hooks/use-interviews";
@@ -80,7 +80,7 @@ describe("online student interview room", () => {
     jest.useRealTimers();
   });
 
-  it("shows the tutor-style toolbar, edge-to-edge camera, and reading prompt", () => {
+  it("shows the toolbar, camera, and reading prompt", () => {
     setRound(round({}));
     render(<StudentInterviewRoom roundId="round-1" />);
     expect(
@@ -98,7 +98,7 @@ describe("online student interview room", () => {
       screen.queryByLabelText("Interview stations"),
     ).not.toBeInTheDocument();
     const camera = screen.getByText("Camera");
-    expect(camera).toHaveClass("rounded-none");
+    expect(camera).toBeInTheDocument();
     expect(
       screen.getByText("Choose a treatment and explain why."),
     ).toBeInTheDocument();
@@ -123,5 +123,32 @@ describe("online student interview room", () => {
     expect(
       screen.queryByText("Choose a treatment and explain why."),
     ).not.toBeInTheDocument();
+  });
+  it("shows the mode and a live elapsed waiting timer without revealing question deadlines", () => {
+    setRound(
+      round({
+        phase: "waiting",
+        phaseDeadline: null,
+        serverNow: "2026-10-23T10:00:30Z",
+      }),
+    );
+    render(<StudentInterviewRoom roundId="round-1" />);
+    expect(screen.getByText("Exam mode")).toBeInTheDocument();
+    expect(
+      screen.getByRole("timer", { name: "Waiting time elapsed" }),
+    ).toHaveTextContent("0:30");
+    act(() => jest.advanceTimersByTime(1000));
+    expect(
+      screen.getByRole("timer", { name: "Waiting time elapsed" }),
+    ).toHaveTextContent("0:31");
+  });
+
+  it("replaces all online media with the completion message", () => {
+    setRound(round({ phase: "completed" }));
+    render(<StudentInterviewRoom roundId="round-1" />);
+    expect(
+      screen.getByRole("heading", { name: "Interview complete" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Camera")).not.toBeInTheDocument();
   });
 });

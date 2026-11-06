@@ -9,8 +9,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Input,
   InterviewMedia,
+  InterviewRoundOverview,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -721,50 +721,6 @@ function studentJoinOrigin() {
     : "http://localhost:3001";
 }
 
-function CopyJoinLink({ label, href }: { label: string; href: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    if (!href) return;
-    try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(href);
-      else {
-        const field = document.createElement("textarea");
-        field.value = href;
-        document.body.appendChild(field);
-        field.select();
-        document.execCommand("copy");
-        field.remove();
-      }
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
-  return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">{label}</p>
-      <div className="flex gap-2">
-        <Input
-          readOnly
-          value={href}
-          aria-label={label}
-          onFocus={(event) => event.currentTarget.select()}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          className={tutorBtnOutline}
-          disabled={!href}
-          onClick={() => void copy()}
-        >
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function WaitingRoom({
   round,
   actorId,
@@ -789,95 +745,31 @@ function WaitingRoom({
     tutorHasJoined(round, tutor.id, actorId, selfStatus),
   );
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
-      {round.delivery === "online" ? (
-        <InterviewMedia
-          onCallFailure={reportInterviewCallFailure}
-          className="mx-auto max-w-4xl"
-          role="tutor"
-          roundId={round.id}
-          phase={round.phase}
-          delivery={round.delivery}
-          enabled={!round.pausedAt && selfStatus !== "offline"}
-        />
-      ) : null}
-      <div className="grid items-start gap-5 md:grid-cols-2">
-        <InterviewPanel title="Tutors">
-          <ul className="space-y-2">
-            {round.tutors.map((tutor) => {
-              const joined = tutorHasJoined(
-                round,
-                tutor.id,
-                actorId,
-                selfStatus,
-              );
-              return (
-                <li
-                  key={tutor.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm"
-                >
-                  <span>
-                    {tutor.name}
-                    {tutor.id === actorId ? " · You" : ""}
-                  </span>
-                  {joined ? (
-                    <Badge variant="success">Joined</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">Not joined</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </InterviewPanel>
-        <InterviewPanel title="Students">
-          <ul className="space-y-2">
-            {round.students.map((student) => {
-              const joined =
-                round.delivery === "online" &&
-                round.connectedStudentIds.includes(student.id);
-              return (
-                <li
-                  key={student.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm"
-                >
-                  <span>{student.name}</span>
-                  {round.delivery === "online" ? (
-                    joined ? (
-                      <Badge variant="success">Joined</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">Not joined</span>
-                    )
-                  ) : (
-                    <span className="text-muted-foreground">In person</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </InterviewPanel>
-      </div>
-      <InterviewPanel title="Join links">
-        <p className="mb-4 text-sm text-muted-foreground">
-          Send a link to someone on this round. They sign in first, then land
-          in the waiting room. Anyone who is not added to the round cannot
-          enter.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2">
-          <CopyJoinLink
-            label="Tutor link"
-            href={
-              tutorOrigin
-                ? `${tutorOrigin}/interviews/rounds/${round.id}/waiting`
-                : ""
-            }
-          />
-          <CopyJoinLink
-            label="Student link"
-            href={`${studentJoinOrigin()}/interviews/rounds/${encodeURIComponent(round.id)}`}
-          />
-        </div>
-      </InterviewPanel>
+    <div className="mx-auto min-h-0 w-full max-w-5xl space-y-5 overflow-y-auto">
+      <InterviewMedia
+        onCallFailure={reportInterviewCallFailure}
+        className="mx-auto max-w-4xl"
+        role="tutor"
+        roundId={round.id}
+        phase={round.phase}
+        delivery={round.delivery}
+        enabled={!round.pausedAt && selfStatus !== "offline"}
+      />
+      <InterviewRoundOverview
+        actorId={actorId}
+        round={round}
+        joinedTutorIds={round.tutors
+          .filter((tutor) =>
+            tutorHasJoined(round, tutor.id, actorId, selfStatus),
+          )
+          .map((tutor) => tutor.id)}
+        tutorJoinUrl={
+          tutorOrigin
+            ? `${tutorOrigin}/interviews/rounds/${round.id}/waiting`
+            : ""
+        }
+        studentJoinUrl={`${studentJoinOrigin()}/interviews/rounds/${encodeURIComponent(round.id)}`}
+      />
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" className={tutorBtnOutline} onClick={onEdit}>
           Edit round
@@ -924,7 +816,7 @@ function InPersonRoundView({
   pending,
   registerFlush,
   registerFinish,
-  registerFinalizeAudio,
+  registerFinalizeRecording,
   error,
   connectionInterrupted,
   onRetry,
@@ -953,7 +845,7 @@ function InPersonRoundView({
   pending: boolean;
   registerFlush: (flush: (() => Promise<void>) | null) => void;
   registerFinish: (finish: (() => void) | null) => void;
-  registerFinalizeAudio: (finalize: (() => Promise<void>) | null) => void;
+  registerFinalizeRecording: (finalize: (() => Promise<void>) | null) => void;
   error: unknown;
   connectionInterrupted: boolean;
   onRetry: () => void;
@@ -1053,11 +945,183 @@ function InPersonRoundView({
         : "text-red-700 dark:text-red-300",
     };
   });
+  const stationControls = (
+    <InterviewPanel title={station?.name ?? "Your station"} className="min-w-0">
+      <div className={"flex flex-col gap-3"}>
+        <div className={online ? "flex flex-col gap-2" : "space-y-4"}>
+          {progress ? (
+            <StationFacts
+              round={round}
+              item={progress}
+              studentControl={
+                canSelectStudent && station ? (
+                  progress.studentId ? (
+                    <InterviewSelect
+                      label="Select arriving student"
+                      value={progress.studentId}
+                      clear
+                      options={round.students.map((student) => {
+                        const alreadyDone = round.attempts.some(
+                          (item) =>
+                            item.stationId === station.id &&
+                            item.studentId === student.id &&
+                            item.completed,
+                        );
+                        return {
+                          id: student.id,
+                          label: alreadyDone
+                            ? `${student.name} · already did this station`
+                            : student.name,
+                          disabled:
+                            alreadyDone ||
+                            round.progress.some(
+                              (item) =>
+                                item.studentId === student.id &&
+                                item.stationId !== station.id,
+                            ),
+                        };
+                      })}
+                      onChange={onSelectStudent}
+                    />
+                  ) : (
+                    <InterviewSelect
+                      label="Select arriving student"
+                      value={null}
+                      clear
+                      options={round.students.map((student) => {
+                        const alreadyDone = round.attempts.some(
+                          (item) =>
+                            item.stationId === station.id &&
+                            item.studentId === student.id &&
+                            item.completed,
+                        );
+                        return {
+                          id: student.id,
+                          label: alreadyDone
+                            ? `${student.name} · already did this station`
+                            : student.name,
+                          disabled:
+                            alreadyDone ||
+                            round.progress.some(
+                              (item) =>
+                                item.studentId === student.id &&
+                                item.stationId !== station.id,
+                            ),
+                        };
+                      })}
+                      onChange={onSelectStudent}
+                    />
+                  )
+                ) : undefined
+              }
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              You are not assigned to a station.
+            </p>
+          )}
+          <div
+            className={
+              online
+                ? "flex flex-col gap-2 [&>button]:w-full [&>span]:w-full"
+                : "flex flex-wrap gap-2 empty:hidden"
+            }
+          >
+            {isWaiting && (
+              <ActionButton
+                variant="outline"
+                className={tutorBtnOutline}
+                reason={readyReason}
+                disabled={Boolean(readyReason)}
+                onClick={onReady}
+              >
+                {progress?.ready
+                  ? "Mark not ready"
+                  : !online && !progress?.studentId
+                    ? "Ready — idle this rotation"
+                    : "I’m ready"}
+              </ActionButton>
+            )}
+            {isWaiting && (
+              <ActionButton
+                reason={readingReason}
+                disabled={Boolean(readingReason)}
+                onClick={onStartReading}
+              >
+                Start reading
+              </ActionButton>
+            )}
+            {round.phase === "reading" && !paused && (
+              <ActionButton
+                variant="outline"
+                className={tutorBtnOutline}
+                reason={pendingReason}
+                disabled={pending}
+                onClick={() => setConfirm("skip")}
+              >
+                Skip reading time
+              </ActionButton>
+            )}
+            {round.phase === "questions" &&
+              progress &&
+              !progress.endedEarly && (
+                <ActionButton
+                  variant="outline"
+                  className={tutorBtnOutline}
+                  reason={pendingReason}
+                  disabled={pending}
+                  onClick={() => setConfirm("end")}
+                >
+                  End my station early
+                </ActionButton>
+              )}
+            {progress &&
+              (round.phase === "feedback" || progress.endedEarly) &&
+              !progress.feedbackComplete && (
+                <ActionButton
+                  reason={pendingReason}
+                  disabled={pending}
+                  onClick={onRequestFinish}
+                >
+                  Finish feedback
+                </ActionButton>
+              )}
+            {(round.phase === "feedback" ||
+              (!online && round.phase === "waiting" && circuitComplete)) && (
+              <ActionButton
+                reason={nextReason}
+                disabled={Boolean(nextReason)}
+                onClick={onNext}
+              >
+                {circuitComplete ? "Complete round" : "Next rotation"}
+              </ActionButton>
+            )}
+          </div>
+          {round.recordings
+            .filter(
+              (recording) =>
+                recording.attemptId === attempt?.id &&
+                recording.state === "failed",
+            )
+            .map((recording) => (
+              <p
+                role="alert"
+                className="text-sm text-amber-700 dark:text-amber-300"
+                key={recording.id}
+              >
+                Recording failed. Continue the interview; feedback and marks can
+                still be saved.
+              </p>
+            ))}
+        </div>
+      </div>
+    </InterviewPanel>
+  );
   return (
     <TooltipProvider delayDuration={150}>
       <div
         className={cn(
-          "min-h-dvh",
+          "flex h-dvh min-h-0 flex-col overflow-hidden",
           paused ? "bg-amber-50 dark:bg-amber-950/30" : "bg-background",
         )}
       >
@@ -1104,6 +1168,9 @@ function InPersonRoundView({
                 </div>
               )}
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <Badge variant="secondary">
+                  {round.mode === "exam" ? "Exam mode" : "Feedback mode"}
+                </Badge>
                 <p
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -1170,7 +1237,7 @@ function InPersonRoundView({
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-5">
+        <main className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-5 overflow-hidden p-4 md:p-5">
           <InterviewError error={error} retry={onRetry} />
           {connectionInterrupted && (
             <p className="text-sm text-destructive">
@@ -1190,263 +1257,61 @@ function InPersonRoundView({
           ) : (
             <>
               <StationStrip round={round} actorId={actorId} />
-              <div
-                className={
-                  online
-                    ? "grid items-stretch gap-5 md:grid-cols-[minmax(0,1fr)_16rem]"
-                    : "mx-auto w-full max-w-5xl"
-                }
-              >
-                {online ? (
+              <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] items-start gap-4 md:grid-cols-2 md:grid-rows-1">
+                <aside className="max-h-[34svh] min-h-0 min-w-0 space-y-4 overflow-y-auto md:max-h-full md:h-full">
                   <InterviewMedia
-          onCallFailure={reportInterviewCallFailure}
-                    className="self-start"
+                    onCallFailure={reportInterviewCallFailure}
+                    className="mx-auto w-full max-w-[min(100%,34svh)] md:max-w-[min(100%,74dvh)]"
+                    registerFinalize={registerFinalizeRecording}
+                    onlineRecording={
+                      round.recordingEnabled
+                        ? { studentId: progress?.studentId ?? null }
+                        : undefined
+                    }
+                    plain={!online}
                     role="tutor"
                     roundId={round.id}
                     phase={round.phase}
                     delivery={round.delivery}
                     enabled={
                       !round.pausedAt &&
+                      !progress?.feedbackComplete &&
+                      round.phase !== "completed" &&
                       !(round.mode === "exam" && !!progress?.endedEarly)
                     }
                   />
-                ) : null}
-                <InterviewPanel
-                  title={station?.name ?? "Your station"}
-                  className={online ? "h-full" : undefined}
-                >
-                  <div
-                    className={
-                      online
-                        ? "flex h-full flex-col gap-2"
-                        : "grid items-stretch gap-5 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]"
-                    }
-                  >
-                    <div
-                      className={online ? "flex flex-col gap-2" : "space-y-4"}
-                    >
-                      {progress ? (
-                        <StationFacts
-                          round={round}
-                          item={progress}
-                          studentControl={
-                            canSelectStudent && station ? (
-                              progress.studentId ? (
-                                <InterviewSelect
-                                  label="Select arriving student"
-                                  value={progress.studentId}
-                                  clear
-                                  options={round.students.map((student) => {
-                                    const alreadyDone = round.attempts.some(
-                                      (item) =>
-                                        item.stationId === station.id &&
-                                        item.studentId === student.id &&
-                                        item.completed,
-                                    );
-                                    return {
-                                      id: student.id,
-                                      label: alreadyDone
-                                        ? `${student.name} · already did this station`
-                                        : student.name,
-                                      disabled:
-                                        alreadyDone ||
-                                        round.progress.some(
-                                          (item) =>
-                                            item.studentId === student.id &&
-                                            item.stationId !== station.id,
-                                        ),
-                                    };
-                                  })}
-                                  onChange={onSelectStudent}
-                                />
-                              ) : (
-                                <InterviewSelect
-                                  label="Select arriving student"
-                                  value={null}
-                                  clear
-                                  options={round.students.map((student) => {
-                                    const alreadyDone = round.attempts.some(
-                                      (item) =>
-                                        item.stationId === station.id &&
-                                        item.studentId === student.id &&
-                                        item.completed,
-                                    );
-                                    return {
-                                      id: student.id,
-                                      label: alreadyDone
-                                        ? `${student.name} · already did this station`
-                                        : student.name,
-                                      disabled:
-                                        alreadyDone ||
-                                        round.progress.some(
-                                          (item) =>
-                                            item.studentId === student.id &&
-                                            item.stationId !== station.id,
-                                        ),
-                                    };
-                                  })}
-                                  onChange={onSelectStudent}
-                                />
-                              )
-                            ) : undefined
-                          }
-                        />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          You are not assigned to a station.
-                        </p>
-                      )}
-                      <div
-                        className={
-                          online
-                            ? "flex flex-col gap-2 [&>button]:w-full [&>span]:w-full"
-                            : "flex flex-wrap gap-2 empty:hidden"
-                        }
-                      >
-                        {isWaiting && (
-                          <ActionButton
-                            variant="outline"
-                            className={tutorBtnOutline}
-                            reason={readyReason}
-                            disabled={Boolean(readyReason)}
-                            onClick={onReady}
-                          >
-                            {progress?.ready
-                              ? "Mark not ready"
-                              : !online && !progress?.studentId
-                                ? "Ready — idle this rotation"
-                                : "I’m ready"}
-                          </ActionButton>
-                        )}
-                        {isWaiting && (
-                          <ActionButton
-                            reason={readingReason}
-                            disabled={Boolean(readingReason)}
-                            onClick={onStartReading}
-                          >
-                            Start reading
-                          </ActionButton>
-                        )}
-                        {round.phase === "reading" && !paused && (
-                          <ActionButton
-                            variant="outline"
-                            className={tutorBtnOutline}
-                            reason={pendingReason}
-                            disabled={pending}
-                            onClick={() => setConfirm("skip")}
-                          >
-                            Skip reading time
-                          </ActionButton>
-                        )}
-                        {round.phase === "questions" &&
-                          progress &&
-                          !progress.endedEarly && (
-                            <ActionButton
-                              variant="outline"
-                              className={tutorBtnOutline}
-                              reason={pendingReason}
-                              disabled={pending}
-                              onClick={() => setConfirm("end")}
-                            >
-                              End my station early
-                            </ActionButton>
-                          )}
-                        {progress &&
-                          (round.phase === "feedback" || progress.endedEarly) &&
-                          !progress.feedbackComplete && (
-                            <ActionButton
-                              reason={pendingReason}
-                              disabled={pending}
-                              onClick={onRequestFinish}
-                            >
-                              Finish feedback
-                            </ActionButton>
-                          )}
-                        {(round.phase === "feedback" ||
-                          (!online &&
-                            round.phase === "waiting" &&
-                            circuitComplete)) && (
-                          <ActionButton
-                            reason={nextReason}
-                            disabled={Boolean(nextReason)}
-                            onClick={onNext}
-                          >
-                            {circuitComplete
-                              ? "Complete round"
-                              : "Next rotation"}
-                          </ActionButton>
-                        )}
-                      </div>
-                      {round.recordings
-                        .filter(
-                          (recording) =>
-                            recording.attemptId === attempt?.id &&
-                            recording.state === "failed",
-                        )
-                        .map((recording) => (
-                          <p
-                            role="alert"
-                            className="text-sm text-amber-700 dark:text-amber-300"
-                            key={recording.id}
-                          >
-                            Recording failed. Continue the interview; feedback
-                            and marks can still be saved.
-                          </p>
-                        ))}
-                    </div>
-                    {!online ? (
-                      <div className="relative h-full md:pl-5">
-                        <div
-                          aria-hidden
-                          className="absolute inset-y-0 left-0 hidden w-px bg-border md:block"
-                        />
-                        <div className="border-t pt-4 md:border-t-0 md:pt-0">
-                          <InterviewMedia
-          onCallFailure={reportInterviewCallFailure}
-                            registerFinalize={registerFinalizeAudio}
-                            plain
-                            role="tutor"
-                            roundId={round.id}
-                            phase={round.phase}
-                            delivery={round.delivery}
-                            enabled={
-                              !round.pausedAt &&
-                              !(round.mode === "exam" && !!progress?.endedEarly)
-                            }
+
+                  {!online ? stationControls : null}
+                </aside>
+                <div className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-y-auto">
+                  {online ? stationControls : null}
+                  {attempt && station ? (
+                    <AttemptEditor
+                      key={attempt.id}
+                      round={round}
+                      station={station}
+                      attempt={attempt}
+                      registerFlush={registerFlush}
+                      registerFinish={registerFinish}
+                      onFinishFeedback={onFinishFeedback}
+                      leading={
+                        <InterviewPanel title="Reading prompt">
+                          <InterviewDocument
+                            value={station.prompt as JSONContent}
                           />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </InterviewPanel>
-              </div>
-              <div className="grid items-start gap-5 md:grid-cols-2">
-                {attempt && station ? (
-                  <AttemptEditor
-                    key={attempt.id}
-                    round={round}
-                    station={station}
-                    attempt={attempt}
-                    registerFlush={registerFlush}
-                    registerFinish={registerFinish}
-                    onFinishFeedback={onFinishFeedback}
-                    leading={
-                      <InterviewPanel title="Reading prompt">
-                        <InterviewDocument
-                          value={station.prompt as JSONContent}
-                        />
-                      </InterviewPanel>
-                    }
-                  />
-                ) : station ? (
-                  <StationMaterials station={station} />
-                ) : (
-                  <InterviewPanel title="Your station">
-                    <p className="text-sm text-muted-foreground">
-                      You are not assigned to a station.
-                    </p>
-                  </InterviewPanel>
-                )}
+                        </InterviewPanel>
+                      }
+                    />
+                  ) : station ? (
+                    <StationMaterials station={station} />
+                  ) : (
+                    <InterviewPanel title="Your station">
+                      <p className="text-sm text-muted-foreground">
+                        You are not assigned to a station.
+                      </p>
+                    </InterviewPanel>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -1487,8 +1352,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const [override, setOverride] = useState(false);
   const [claim, setClaim] = useState<string | null | undefined>(undefined);
   const [leaving, setLeaving] = useState(false);
-  const [pendingAudio, setPendingAudio] = useState(0);
-  const [recordingAudio, setRecordingAudio] = useState(false);
+  const [pendingRecordings, setPendingRecordings] = useState(0);
+  const [recordingActive, setRecordingActive] = useState(false);
   const [endConfirm, setEndConfirm] = useState(false);
   useEffect(() => {
     const listener = (event: Event) => {
@@ -1500,8 +1365,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
         }>
       ).detail;
       if (detail?.roundId === id) {
-        setPendingAudio(detail.pending);
-        setRecordingAudio(detail.recording);
+        setPendingRecordings(detail.pending);
+        setRecordingActive(detail.recording);
       }
     };
     window.addEventListener("altitutor:interview-audio-pending", listener);
@@ -1511,10 +1376,10 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const [localError, setLocalError] = useState<Error | null>(null);
   const [editingRound, setEditingRound] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
-  const finalizeAudio = useRef<(() => Promise<void>) | null>(null);
-  const registerFinalizeAudio = useCallback(
+  const finalizeRecording = useRef<(() => Promise<void>) | null>(null);
+  const registerFinalizeRecording = useCallback(
     (callback: (() => Promise<void>) | null) => {
-      finalizeAudio.current = callback;
+      finalizeRecording.current = callback;
     },
     [],
   );
@@ -1535,14 +1400,14 @@ export function InterviewWorkspace({ id }: { id: string }) {
     const saving = (async () => {
       try {
         await flush.current?.();
-        await finalizeAudio.current?.();
+        await finalizeRecording.current?.();
         if (href) currentLeaveGuard.current.leaveTo(href);
         else currentLeaveGuard.current.leave();
       } catch (error) {
         setLocalError(
           error instanceof Error
             ? error
-            : new Error("Save your feedback and audio before leaving."),
+            : new Error("Save your feedback and recording before leaving."),
         );
       } finally {
         navigation.current = null;
@@ -1648,14 +1513,14 @@ export function InterviewWorkspace({ id }: { id: string }) {
           role="status"
         >
           <p>
-            This round is complete. Feedback and audio must finish saving before
+            This round is complete. Feedback and recordings must finish saving before
             opening results.
           </p>
           <Button
             disabled={leaving}
             onClick={() => void exit(`/interviews/rounds/${id}/results`)}
           >
-            {leaving ? "Saving feedback and audio…" : "Save and view results"}
+            {leaving ? "Saving feedback and recordings…" : "Save and view results"}
           </Button>
         </div>
       )}
@@ -1672,7 +1537,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         pending={command.isPending}
         registerFlush={registerFlush}
         registerFinish={registerFinish}
-        registerFinalizeAudio={registerFinalizeAudio}
+        registerFinalizeRecording={registerFinalizeRecording}
         error={localError ?? command.error ?? query.error}
         connectionInterrupted={query.isError}
         onRetry={() => void query.refetch()}
@@ -1734,13 +1599,13 @@ export function InterviewWorkspace({ id }: { id: string }) {
               : "The round continues for everyone else. We’ll save your pending feedback before leaving. You can rejoin from Interviews."}
           </p>
           <InterviewError error={localError} />
-          {(pendingAudio > 0 || recordingAudio) && (
+          {(pendingRecordings > 0 || recordingActive) && (
             <p className="rounded-lg bg-amber-500/10 p-3 text-sm">
-              {recordingAudio
-                ? "The current audio segment will finish and upload before leaving. "
+              {recordingActive
+                ? "The current recording will finish and upload before leaving. "
                 : ""}
-              {pendingAudio > 0
-                ? `${pendingAudio} audio segment(s) still need uploading. Keep this tab open until uploads finish, or rejoin later from this browser to retry.`
+              {pendingRecordings > 0
+                ? `${pendingRecordings} recording(s) still need uploading. Keep this tab open until uploads finish, or rejoin later from this browser to retry.`
                 : ""}
             </p>
           )}
@@ -1750,7 +1615,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
             </Button>
             <Button disabled={leaving} onClick={() => void exit()}>
               {leaving
-                ? "Saving feedback and audio…"
+                ? "Saving feedback and recordings…"
                 : "Save feedback and exit"}
             </Button>
           </div>

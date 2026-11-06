@@ -433,6 +433,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     isLogAbsenceDialogOpen,
     isLogStaffAbsenceDialogOpen,
     isAnnouncementsModalOpen,
+    announcementStudentIds,
     closeTutorLogModal,
     closeLogAbsenceDialog,
     closeLogStaffAbsenceDialog,
@@ -525,6 +526,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 />
                 <AnnouncementsModal
                   isOpen={isAnnouncementsModalOpen}
+                  initialStudentIds={announcementStudentIds}
                   onClose={closeAnnouncementsModal}
                 />
                 {bookingSessionType === "STAFF_INTERVIEW" ? (

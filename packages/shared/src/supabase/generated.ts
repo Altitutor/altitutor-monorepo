@@ -5350,6 +5350,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at: string | null
           state: string
           storage_path: string | null
         }
@@ -5364,6 +5365,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at?: string | null
           state: string
           storage_path?: string | null
         }
@@ -5378,6 +5380,7 @@ export type Database = {
           kind?: string
           provider_id?: string
           round_id?: string
+          started_at?: string | null
           state?: string
           storage_path?: string | null
         }
@@ -46910,16 +46913,28 @@ export type Database = {
         Args: { p_round_id: string; p_tutor_id: string }
         Returns: Json
       }
-      interview_audio_segment: {
-        Args: {
-          p_capture_id: string
-          p_round_id: string
-          p_segment_id: string
-          p_storage_path: string
-          p_tutor_id: string
-        }
-        Returns: Json
-      }
+      interview_audio_segment:
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_started_at: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
       interview_can_receive_round: {
         Args: { p_round_id: string }
         Returns: boolean
@@ -46955,6 +46970,10 @@ export type Database = {
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
+        Returns: Json
+      }
+      interview_question_timing: {
+        Args: { at_time: string; d: Json }
         Returns: Json
       }
       interview_recording_json: {
@@ -46997,6 +47016,21 @@ export type Database = {
       }
       interview_tutor_id: { Args: { p_user_id: string }; Returns: string }
       interview_validate_template: { Args: { d: Json }; Returns: undefined }
+      interview_video_capture: {
+        Args: { p_round_id: string; p_tutor_id: string }
+        Returns: Json
+      }
+      interview_video_capture_upload: {
+        Args: {
+          p_action: string
+          p_capture_id: string
+          p_round_id: string
+          p_started_at: string
+          p_storage_path: string
+          p_tutor_id: string
+        }
+        Returns: Json
+      }
       invoice_lifecycle_event_payload: {
         Args: { row_data: Json }
         Returns: Json

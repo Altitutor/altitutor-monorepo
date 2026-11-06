@@ -569,6 +569,10 @@
 
 - **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
 
+- **Interview question answering interval** — The time during question time for which a tutor has selected a station question. Question 1 is selected initially; each later selection or revisit starts another interval. Pauses are excluded. These intervals label recording playback and are independent of assessment completion.
+
+- **Interview station recording** — One continuous recording of one Student’s station encounter, covering question time and, in Feedback mode, verbal feedback. Muted microphones, disabled cameras and pauses leave silent or blank gaps. Reading and Exam-mode marking are excluded.
+
 - **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
 
 - **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.

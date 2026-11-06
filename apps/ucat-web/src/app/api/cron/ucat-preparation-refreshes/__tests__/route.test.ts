@@ -14,16 +14,20 @@ jest.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: { rpc: jest.fn() },
 }));
 
+const mockedRpc = supabaseAdmin!.rpc as unknown as jest.Mock<
+  Promise<{ data: unknown; error: null }>,
+  [string]
+>;
+
 describe("UCAT preparation refresh cron", () => {
   it("runs three bounded worker lanes and stops when a lane finds no work", async () => {
-    jest
-      .mocked(supabaseAdmin!.rpc)
+    mockedRpc
       .mockResolvedValueOnce({
         data: [{ students_processed: 1, tasks_skipped: 2 }],
         error: null,
-      } as never)
-      .mockResolvedValueOnce({ data: 2, error: null } as never)
-      .mockResolvedValueOnce({ data: [], error: null } as never);
+      })
+      .mockResolvedValueOnce({ data: 2, error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
     jest
       .mocked(processPendingPreparationRefreshes)
       .mockResolvedValueOnce({ claimed: 1, completed: 1, failed: 0 })

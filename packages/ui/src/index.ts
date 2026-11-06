@@ -129,3 +129,7 @@ export * from './extensions/entity-mention';
 export * from "./components/keyboard-shortcut";
 
 export * from './components/shared-lesson-document-links';
+
+export * from "./components/interview-round-overview";
+
+export { InterviewRecordingPlayer } from "./components/interview-recording-player";

@@ -76,11 +76,11 @@ export function InterviewVideoStage({
       role="group"
       aria-label="Interview video"
       className={cn(
-        "relative w-full overflow-hidden bg-slate-950",
-        sideBySide ? "grid grid-cols-2 gap-2" : "aspect-video",
+        "relative aspect-video w-full overflow-hidden bg-slate-950",
+        sideBySide && "grid grid-cols-2 gap-2",
       )}
     >
-      <div className={sideBySide ? "aspect-video min-w-0" : "h-full"}>
+      <div className={sideBySide ? "h-full min-w-0" : "h-full"}>
         {remoteVideo || localVideo || (
           <div className="flex h-full items-center justify-center text-slate-400">
             <CameraOff className="h-8 w-8" aria-hidden />
@@ -88,7 +88,7 @@ export function InterviewVideoStage({
         )}
       </div>
       {sideBySide ? (
-        <div className="aspect-video min-w-0">{localVideo}</div>
+        <div className="h-full min-w-0">{localVideo}</div>
       ) : paired ? (
         <button
           type="button"

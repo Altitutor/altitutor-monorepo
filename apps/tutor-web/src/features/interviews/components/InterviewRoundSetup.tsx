@@ -49,7 +49,7 @@ import { cn } from "@/shared/utils";
 
 import { createRoundSubmission } from "../lib/round-submission";
 
-const roundSteps = ["Details", "Students", "Tutor assignments", "Review"];
+const roundSteps = ["Details", "Students", "Tutor assignments"];
 
 type RoundWizardBind = {
   canSubmit: boolean;
@@ -191,7 +191,7 @@ function SetupEditor({
       ? "Save"
       : schedule === "later"
         ? "Schedule round"
-        : "Open waiting room";
+        : "Create round";
   useLayoutEffect(() => {
     onBindRef.current({
       canSubmit,
@@ -635,29 +635,33 @@ export function InterviewRoundDialog({
             </div>
           </DialogHeader>
           <div className="px-6 pb-4">
-            <div
-              role="tablist"
-              aria-label="Round setup"
-              className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1"
-            >
-              {roundSteps.map((label, index) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="tab"
-                  aria-selected={step === index}
-                  className={cn(
-                    "flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm",
-                    step === index
-                      ? "bg-background font-medium text-foreground shadow-sm"
-                      : "text-muted-foreground",
-                  )}
-                  onClick={() => setStep(index)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {step === 3 ? (
+              <p className="text-sm font-medium">Review round</p>
+            ) : (
+              <div
+                role="tablist"
+                aria-label="Round setup"
+                className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1"
+              >
+                {roundSteps.map((label, index) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="tab"
+                    aria-selected={step === index}
+                    className={cn(
+                      "flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm",
+                      step === index
+                        ? "bg-background font-medium text-foreground shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                    onClick={() => setStep(index)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -704,13 +708,26 @@ export function InterviewRoundDialog({
             tutorDialogFooterStrip,
           )}
         >
+          {step === 3 ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={bind.pending}
+              onClick={() => setStep(2)}
+            >
+              Back to setup
+            </Button>
+          ) : null}
           <Button
             type="button"
             className={tutorBtnPrimary}
             disabled={!interview || !bind.canSubmit || bind.pending}
-            onClick={() => void bind.submit().catch(() => undefined)}
+            onClick={() => {
+              if (step === 3) void bind.submit().catch(() => undefined);
+              else setStep(3);
+            }}
           >
-            {bind.submitLabel}
+            {step === 3 ? bind.submitLabel : "Next: review"}
           </Button>
         </DialogFooter>
       </DialogContent>

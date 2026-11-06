@@ -20,6 +20,10 @@ import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
 import {
+  useInterviewCapture,
+  type InterviewOnlineCaptureSources,
+} from "../hooks/use-interview-capture";
+import {
   InterviewDeviceSettings,
   type InterviewInputSelection,
 } from "./interview-device-settings";
@@ -41,8 +45,10 @@ export interface InterviewMediaProps {
   phase: InterviewPhase;
   delivery: InterviewDelivery;
   enabled: boolean;
-  role?: "tutor" | "student";
+  role?: "tutor" | "student" | "admin";
+  stationId?: string;
   plain?: boolean;
+  onlineRecording?: { studentId: string | null };
   className?: string;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
 }
@@ -374,20 +380,85 @@ function ParticipantMedia({ participant }: { participant: DailyParticipant }) {
 }
 
 /** Private pair calls use server-issued policy/tokens. UI hiding is additional protection. */
+function playableTrack(
+  participant: DailyParticipant | undefined,
+  kind: "audio" | "video",
+) {
+  const track = participant?.tracks[kind];
+  return track?.state === "playable" ? (track.persistentTrack ?? null) : null;
+}
+
+function OnlineRecording({
+  roundId,
+  phase,
+  enabled,
+  sources,
+  registerFinalize,
+}: Pick<
+  InterviewMediaProps,
+  "roundId" | "phase" | "enabled" | "registerFinalize"
+> & {
+  sources: InterviewOnlineCaptureSources | null;
+}) {
+  const capture = useInterviewCapture({
+    roundId,
+    phase,
+    enabled,
+    registerFinalize,
+    video: { sources },
+  });
+  return (
+    <div className="pointer-events-auto space-y-2 text-xs text-white">
+      {capture.recording && (
+        <p role="status">
+          {enabled && capture.serverRecording
+            ? "Recording this station"
+            : "Recording blank video and silence"}
+        </p>
+      )}
+      {capture.pendingCount > 0 && (
+        <p role="status">Recording waiting to upload</p>
+      )}
+      {capture.error && (
+        <p role="alert" className="rounded-md bg-black/80 p-2">
+          {capture.error}
+        </p>
+      )}
+      {capture.recording && capture.audioBlocked && (
+        <Button size="sm" variant="outline" onClick={capture.resumeAudio}>
+          Enable recording audio
+        </Button>
+      )}
+      {capture.error && (
+        <Button size="sm" variant="outline" onClick={capture.retryCapture}>
+          Retry recording / upload
+        </Button>
+      )}
+      {capture.downloadRecording && (
+        <Button size="sm" variant="outline" onClick={capture.downloadRecording}>
+          Download recording backup
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function InterviewMedia({
   roundId,
   phase,
   delivery,
   enabled,
   role = "student",
+  stationId,
   plain = false,
+  onlineRecording,
   className,
   registerFinalize,
   onCallFailure,
 }: InterviewMediaProps) {
   const failureReporter = useRef(onCallFailure);
   failureReporter.current = onCallFailure;
-  const [devicesRequested, setDevicesRequested] = useState(true);
+  const [devicesRequested, setDevicesRequested] = useState(role !== "admin");
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [videoView, setVideoView] = useState<InterviewVideoView>("pip");
@@ -404,7 +475,7 @@ export function InterviewMedia({
   const [status, setStatus] = useState("Preparing your devices…");
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const scope = `${roundId}:${phase}:${enabled}:${devicesRequested}:${retry}`;
+  const scope = `${roundId}:${stationId ?? ""}:${phase}:${enabled}:${devicesRequested}:${retry}`;
   const [renderScope, setRenderScope] = useState(scope);
   const current = renderScope === scope;
 
@@ -413,12 +484,22 @@ export function InterviewMedia({
     let disposed = false;
     let call: DailyCall | null = null;
     let sessionId: string | null = null;
+    let accessKey: string | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     let activeTicket: InterviewMediaTicket | null = null;
     let clockOffset = 0;
     let consecutiveFailures = 0;
+    let polling = false;
+    let refreshAgain = false;
     const abort = new AbortController();
+    const refreshSoon = () => {
+      if (disposed) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void poll();
+      }, 100);
+    };
     setRenderScope(scope);
     setParticipants([]);
     setTicket(null);
@@ -433,6 +514,7 @@ export function InterviewMedia({
       const previous = call;
       call = null;
       sessionId = null;
+      accessKey = undefined;
       if (callRef.current === previous) callRef.current = null;
       if (!disposed) setParticipants([]);
       if (!previous) return;
@@ -523,9 +605,10 @@ export function InterviewMedia({
           );
       });
       instance.on("left-meeting", () => {
-        if (!disposed) {
+        if (!disposed && instance === call) {
           sessionId = null;
           setStatus("Reconnecting to your station…");
+          refreshSoon();
         }
       });
       instance.on("error", (event) => {
@@ -571,13 +654,13 @@ export function InterviewMedia({
             instance !== call ? "obsolete" : sessionId ? "joined" : "joining",
           );
           setError("The call was interrupted. Reconnecting automatically.");
-          void close();
+          void close().then(refreshSoon);
         }
       });
       instance.on("camera-error", () => {
         if (!disposed) setError(deviceDeniedMessage);
       });
-      if (devicesRequested) {
+      if (devicesRequested && role !== "admin") {
         await instance.startCamera({
           startAudioOff: !devicePreferences.current.micOn,
           startVideoOff: !devicePreferences.current.cameraOn,
@@ -591,12 +674,21 @@ export function InterviewMedia({
       return instance;
     };
     const poll = async () => {
+      if (disposed) return;
+      if (polling) {
+        refreshAgain = true;
+        return;
+      }
+      polling = true;
+      if (timer) clearTimeout(timer);
       let nextPoll = 3_000;
       let source: "join" | "recovery" = "recovery";
       try {
-        const query = sessionId
-          ? `?sessionId=${encodeURIComponent(sessionId)}`
-          : "";
+        const params = new URLSearchParams();
+        if (sessionId) params.set("sessionId", sessionId);
+        if (accessKey) params.set("accessKey", accessKey);
+        if (stationId) params.set("stationId", stationId);
+        const query = params.toString() ? `?${params}` : "";
         const response = await fetch(
           `/api/interviews/rounds/${encodeURIComponent(roundId)}/media${query}`,
           { cache: "no-store", signal: abort.signal },
@@ -636,7 +728,11 @@ export function InterviewMedia({
           }
           return;
         }
-        if (sessionId && sessionId !== policy.sessionId) await close();
+        if (
+          sessionId &&
+          (sessionId !== policy.sessionId || accessKey !== policy.accessKey)
+        )
+          await close();
         const instance = await create();
         if (!instance || disposed) return;
         if (expiryTimer) clearTimeout(expiryTimer);
@@ -656,7 +752,7 @@ export function InterviewMedia({
             ),
           );
         }
-        if (sessionId !== policy.sessionId) {
+        if (sessionId !== policy.sessionId || accessKey !== policy.accessKey) {
           if (!policy.url || !policy.token)
             throw new Error("A fresh call connection is required. Retrying…");
           setStatus("Connecting to your station…");
@@ -681,6 +777,7 @@ export function InterviewMedia({
           }
           if (instance !== call) return;
           sessionId = policy.sessionId;
+          accessKey = policy.accessKey;
         }
         // Daily only permits subscription updates after join has completed.
         // Keep the initial call unsubscribed until its server policy is applied.
@@ -722,14 +819,19 @@ export function InterviewMedia({
           setError(mediaError(failure));
         }
       } finally {
+        polling = false;
         if (!disposed)
-          timer = setTimeout(() => {
-            void poll();
-          }, nextPoll);
+          timer = setTimeout(
+            () => {
+              void poll();
+            },
+            refreshAgain ? 0 : nextPoll,
+          );
+        refreshAgain = false;
       }
     };
     const openingDevices =
-      devicesRequested && enabled ? captureDevices() : null;
+      devicesRequested && enabled && role !== "admin" ? captureDevices() : null;
     void (async () => {
       await closing.current;
       if (disposed) return;
@@ -775,7 +877,17 @@ export function InterviewMedia({
       document.removeEventListener("visibilitychange", changeVisibility);
       closing.current = close();
     };
-  }, [roundId, phase, delivery, enabled, devicesRequested, retry, scope]);
+  }, [
+    roundId,
+    phase,
+    delivery,
+    enabled,
+    devicesRequested,
+    retry,
+    scope,
+    role,
+    stationId,
+  ]);
 
   const toggleMic = () => {
     const next = !micOn;
@@ -820,6 +932,11 @@ export function InterviewMedia({
   const remoteParticipants = visible.filter(
     (participant) => !participant.local,
   );
+  const recordingStudent = onlineRecording?.studentId
+    ? remoteParticipants.find(
+        (participant) => participant.user_id === onlineRecording.studentId,
+      )
+    : undefined;
   const requestDevices = () => {
     void captureDevices().then((access) => {
       if (access === "granted") {
@@ -868,18 +985,45 @@ export function InterviewMedia({
               {current ? status : "Updating your station…"}
             </p>
           ) : null}
-          {current && ticket?.sessionId && !ticket.canReceive && (
-            <p className="text-xs text-white/80">
-              You will see and hear your tutor when question time starts.
-            </p>
+          {current &&
+            role === "student" &&
+            ticket?.sessionId &&
+            !ticket.canReceive && (
+              <p className="inline-block rounded-full bg-black/80 px-3 py-2 text-xs font-medium text-white">
+                Your tutor can see and hear you during reading. You will see and
+                hear your tutor when question time starts.
+              </p>
+            )}
+          {role === "tutor" && onlineRecording && (
+            <OnlineRecording
+              roundId={roundId}
+              phase={phase}
+              enabled={enabled}
+              registerFinalize={registerFinalize}
+              sources={
+                current && enabled && ticket?.sessionId && ticket.attemptId
+                  ? {
+                      attemptId: ticket.attemptId,
+                      tracks: {
+                        localVideo:
+                          ticket.canSend && cameraOn
+                            ? playableTrack(localParticipant, "video")
+                            : null,
+                        localAudio:
+                          ticket.canSend && micOn
+                            ? playableTrack(localParticipant, "audio")
+                            : null,
+                        remoteVideo: playableTrack(recordingStudent, "video"),
+                        remoteAudio: playableTrack(recordingStudent, "audio"),
+                      },
+                    }
+                  : null
+              }
+            />
           )}
-          {current && ticket?.recordingEnabled && (
+          {role === "student" && current && ticket?.recordingEnabled && (
             <p className="text-xs font-medium text-white">
-              {ticket.recordingActive
-                ? phase === "feedback"
-                  ? "Recording feedback"
-                  : "Recording this answer"
-                : "Recording is preparing"}
+              Recording is enabled for this station
             </p>
           )}
           {current && ticket?.warning && (
@@ -907,7 +1051,7 @@ export function InterviewMedia({
           )}
         </div>
       </InterviewVideoStage>
-      {(enabled || devicesRequested) && (
+      {role !== "admin" && (enabled || devicesRequested) && (
         <div className="flex justify-center p-3">
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-2">

@@ -1,14 +1,21 @@
-'use client';
-
-import { format } from 'date-fns';
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@altitutor/ui';
+"use client";
+import Link from "next/link";
+import { format } from "date-fns";
+import { Button, Badge } from "@altitutor/ui";
+import { AdminDialogShell } from "@/shared/components";
+import { CalendarDetailsTooltip } from "@/shared/components/CalendarDetailsTooltip";
 import {
-  interviewRoundRoomLabel,
   interviewRoundRoomUrl,
   interviewRoundStatus,
   type InterviewRoundCalendarEvent,
-} from '../utils/interviewRoundEvents';
+} from "../utils/interviewRoundEvents";
 
+const calendarPeople = (people: { id: string; name: string }[]) =>
+  people.map((person) => ({
+    id: person.id,
+    first_name: person.name,
+    last_name: "",
+  }));
 export function InterviewRoundCalendarCard({
   round,
   onOpen,
@@ -17,19 +24,40 @@ export function InterviewRoundCalendarCard({
   onOpen: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`Interview round ${round.name}`}
-      className="h-full w-full overflow-hidden rounded-lg border border-violet-300 bg-violet-50 p-2 text-left shadow-sm dark:border-violet-700 dark:bg-violet-950/40"
+    <CalendarDetailsTooltip
+      enabled
+      title={round.name}
+      subtitle={
+        <>
+          {format(new Date(round.scheduledAt), "EEE d MMM · h:mm a")} –{" "}
+          {format(new Date(round.endAt), "h:mm a")}
+        </>
+      }
+      status={interviewRoundStatus(round)}
+      students={calendarPeople(round.students)}
+      staff={calendarPeople(round.tutors)}
+      openEntity={{
+        href: interviewRoundRoomUrl(round),
+        label: "Open interview",
+      }}
     >
-      <p className="truncate text-xs font-medium text-violet-700 dark:text-violet-200">Interview</p>
-      <p className="truncate text-sm font-medium">{round.name}</p>
-      <p className="truncate text-xs text-muted-foreground">{format(new Date(round.scheduledAt), 'h:mm a')}</p>
-    </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Interview round ${round.name}`}
+        className="h-full w-full overflow-hidden rounded-lg border border-violet-300 bg-violet-50 p-2 text-left shadow-sm dark:border-violet-700 dark:bg-violet-950/40"
+      >
+        <p className="truncate text-xs font-medium text-violet-700 dark:text-violet-200">
+          Interview
+        </p>
+        <p className="truncate text-sm font-medium">{round.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {format(new Date(round.scheduledAt), "h:mm a")}
+        </p>
+      </button>
+    </CalendarDetailsTooltip>
   );
 }
-
 export function InterviewRoundInfoDialog({
   round,
   onClose,
@@ -38,58 +66,57 @@ export function InterviewRoundInfoDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={!!round} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent>
-        {round ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{round.name}</DialogTitle>
-              <DialogDescription>Interview round</DialogDescription>
-            </DialogHeader>
-            <RoundDetails round={round} />
-            <div className="flex justify-end">
-              <Button asChild>
-                <a href={interviewRoundRoomUrl(round)} target="_blank" rel="noreferrer">
-                  {interviewRoundRoomLabel(round)}
-                </a>
-              </Button>
-            </div>
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function RoundDetails({ round }: { round: InterviewRoundCalendarEvent }) {
-  const start = new Date(round.scheduledAt);
-  return (
-    <div className="space-y-3 text-sm">
-      <p className="text-muted-foreground">
-        {interviewRoundStatus(round)} · {round.delivery === 'online' ? 'Online' : 'In person'} ·{' '}
-        {round.mode === 'exam' ? 'Exam' : 'Feedback'}
-        {round.recordingEnabled ? ' · Recording on' : ''}
-      </p>
-      <p>{format(start, 'EEE d MMM · h:mm a')}</p>
-      <People title="Students" people={round.students} />
-      <People title="Tutors" people={round.tutors} />
-    </div>
-  );
-}
-
-function People({ title, people }: { title: string; people: { id: string; name: string }[] }) {
-  return (
-    <section className="space-y-1">
-      <h3 className="font-medium">{title}</h3>
-      {people.length ? (
-        <ul className="space-y-0.5 text-muted-foreground">
-          {people.map((person) => (
-            <li key={person.id}>{person.name}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-muted-foreground">None</p>
+    <AdminDialogShell
+      open={!!round}
+      onClose={onClose}
+      title={round?.name ?? "Interview"}
+      subtitle="Interview session"
+      contentClassName="md:max-w-3xl"
+      footer={
+        round ? (
+          <Button asChild>
+            <Link href={interviewRoundRoomUrl(round)}>Open interview</Link>
+          </Button>
+        ) : undefined
+      }
+    >
+      {round && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">{interviewRoundStatus(round)}</Badge>
+            <Badge variant="outline">
+              {round.delivery === "online" ? "Online" : "In person"}
+            </Badge>
+            <Badge variant="outline">
+              {round.mode === "exam" ? "Exam mode" : "Feedback mode"}
+            </Badge>
+            {round.recordingEnabled && (
+              <Badge variant="outline">Recording enabled</Badge>
+            )}
+          </div>
+          <section>
+            <h3 className="font-medium">Time</h3>
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(round.scheduledAt), "EEE d MMM yyyy · h:mm a")} –{" "}
+              {format(new Date(round.endAt), "h:mm a")}
+            </p>
+          </section>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {(["students", "tutors"] as const).map((kind) => (
+              <section key={kind}>
+                <h3 className="mb-2 font-medium capitalize">{kind}</h3>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {round[kind].map((person) => (
+                    <li key={person.id} className="rounded-lg border p-3">
+                      {person.name}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </div>
       )}
-    </section>
+    </AdminDialogShell>
   );
 }

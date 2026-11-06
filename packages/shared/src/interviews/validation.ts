@@ -144,6 +144,8 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
     case "heartbeat":
     case "tick":
       return uuid(value.roundId);
+    case "selectQuestion":
+      return uuid(value.roundId) && uuid(value.attemptId) && uuid(value.questionId);
     case "saveAttempt":
       return (
         uuid(value.roundId) &&

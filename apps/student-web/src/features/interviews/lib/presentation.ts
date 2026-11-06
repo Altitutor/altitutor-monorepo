@@ -99,3 +99,19 @@ export function studentPhaseMessage(round: StudentInterviewRound): string {
     ? "Your tutor is marking. Wait here for the next rotation."
     : "Discuss your feedback with your tutor.";
 }
+
+/** Waiting is elapsed time only; never disclose the question deadline. */
+export function studentWaitingSeconds(
+  round: StudentInterviewRound,
+  now: number,
+): number | null {
+  const waiting =
+    round.phase === "waiting" ||
+    (round.phase === "feedback" && round.mode === "exam");
+  if (!waiting || round.phase === "completed") return null;
+  const reference = round.pausedAt ? Date.parse(round.pausedAt) : now;
+  return Math.max(
+    0,
+    Math.floor((reference - Date.parse(round.phaseStartedAt)) / 1000),
+  );
+}

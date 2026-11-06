@@ -23,13 +23,19 @@ jest.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: { rpc: jest.fn(), from: jest.fn() },
 }));
 
+const mockedRpc = supabaseAdmin!.rpc as unknown as jest.Mock<
+  Promise<{ data: unknown; error: null }>,
+  [string]
+>;
+const mockedFrom = supabaseAdmin!.from as unknown as jest.Mock;
+
 describe("preparation refresh worker", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it("reconciles coalesced activity and rebalance reasons once and fences completion", async () => {
-    jest.mocked(supabaseAdmin!.rpc).mockImplementation((name) => {
+    mockedRpc.mockImplementation((name) => {
       if (name === "claim_ucat_preparation_refreshes") {
         return Promise.resolve({
           data: [
@@ -41,9 +47,9 @@ describe("preparation refresh worker", () => {
             },
           ],
           error: null,
-        }) as never;
+        });
       }
-      return Promise.resolve({ data: true, error: null }) as never;
+      return Promise.resolve({ data: true, error: null });
     });
 
     await expect(
@@ -67,7 +73,7 @@ describe("preparation refresh worker", () => {
   });
 
   it("records a structured stage-specific Supabase failure", async () => {
-    jest.mocked(supabaseAdmin!.rpc).mockImplementation((name) => {
+    mockedRpc.mockImplementation((name) => {
       if (name === "claim_ucat_preparation_refreshes") {
         return Promise.resolve({
           data: [
@@ -79,18 +85,18 @@ describe("preparation refresh worker", () => {
             },
           ],
           error: null,
-        }) as never;
+        });
       }
-      return Promise.resolve({ data: true, error: null }) as never;
+      return Promise.resolve({ data: true, error: null });
     });
-    jest.mocked(supabaseAdmin!.from).mockReturnValue({
+    mockedFrom.mockReturnValue({
       select: () => ({
         eq: () => ({
           maybeSingle: () =>
             Promise.resolve({ data: { dead_lettered_at: null }, error: null }),
         }),
       }),
-    } as never);
+    });
     jest.mocked(refreshStudentScoreProjection).mockResolvedValue();
     jest.mocked(reconcileStudyPlanAfterActivity).mockResolvedValue();
     jest
