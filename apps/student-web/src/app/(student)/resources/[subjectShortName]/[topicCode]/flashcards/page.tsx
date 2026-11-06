@@ -23,22 +23,34 @@ import Link from 'next/link';
 export default function FlashcardsPage() {
   const params = useParams<{ subjectShortName: string; topicCode: string }>();
 
-  const { data: subject, isLoading: subjectLoading } = useResourceSubject(params.subjectShortName);
+  const subjectQuery = useResourceSubject(params.subjectShortName);
+  const { data: subject } = subjectQuery;
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, params.topicCode);
   const { data: topicFiles } = useResourceTopicFiles(topic?.id ?? null);
-  const { data: accessBySubject } = useResourceAccessBySubject();
+  const accessCheck = useResourceAccessBySubject();
   const { data: flashcardTopic } = useFlashcardTopic(topic?.id ?? null);
   const { data: cards, isLoading: cardsLoading } = useFlashcardReviewCards(topic?.id ?? null, 'all');
 
-  const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+  const hasAccess = Boolean(subject?.id && accessCheck.data?.get(subject.id)?.length);
 
-  if ((!subjectLoading && !subject) || (!topicLoading && !topic) || (!subjectLoading && !hasAccess)) {
+  if (!hasAccess) {
+    return (
+      <StudentPageContainer>
+        <ResourceAccessDenied
+          accessCheck={subjectQuery.status === 'success' ? accessCheck : subjectQuery}
+        />
+      </StudentPageContainer>
+    );
+  }
+
+  if (!topicLoading && !topic) {
     return (
       <StudentPageContainer>
         <ResourceAccessDenied />
       </StudentPageContainer>
     );
   }
+
 
   const subjectLabel = subject?.long_name || subject?.name || subject?.short_name || params.subjectShortName;
   const subjectHref = `/resources/${encodeURIComponent(params.subjectShortName)}`;

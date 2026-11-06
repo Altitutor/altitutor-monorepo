@@ -33,15 +33,16 @@ export default function ResourceTopicDetailPage() {
   const subjectShortName = params.subjectShortName;
   const topicCode = params.topicCode;
 
-  const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
+  const subjectQuery = useResourceSubject(subjectShortName);
+  const { data: subject } = subjectQuery;
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
   const { data: topicFiles, isLoading: filesLoading } = useResourceTopicFiles(topic?.id ?? null);
   const { data: flashcardTopic, isLoading: flashcardsLoading } = useFlashcardTopic(topic?.id ?? null);
   const { data: subjectTopics } = useResourceTopics(subject?.id ?? null);
   const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
-  const { data: accessBySubject } = useResourceAccessBySubject();
+  const accessCheck = useResourceAccessBySubject();
 
-  const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+  const hasAccess = Boolean(subject?.id && accessCheck.data?.get(subject.id)?.length);
 
   const topicHref = (code: string) =>
     `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(code.toLowerCase())}`;
@@ -85,15 +86,17 @@ export default function ResourceTopicDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree, topic?.id, subjectShortName]);
 
-  if ((!subjectLoading && !subject) || (!topicLoading && !topic)) {
+  if (!hasAccess) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied
+          accessCheck={subjectQuery.status === 'success' ? accessCheck : subjectQuery}
+        />
       </StudentPageContainer>
     );
   }
 
-  if (!subjectLoading && !hasAccess) {
+  if (!topicLoading && !topic) {
     return (
       <StudentPageContainer>
         <ResourceAccessDenied />
