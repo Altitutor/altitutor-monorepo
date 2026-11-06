@@ -34,15 +34,18 @@ export default function ResourceFileDetailPage() {
   const topicCode = params.topicCode;
   const fileCode = params.fileCode;
 
-  const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
-  const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
-  const { data: file, isLoading: fileLoading } = useResourceTopicFile(topic?.id ?? null, fileCode);
+  const subjectQuery = useResourceSubject(subjectShortName);
+  const subject = subjectQuery.data;
+  const topicQuery = useResourceTopic(subject?.id ?? null, topicCode);
+  const topic = topicQuery.data;
+  const fileQuery = useResourceTopicFile(topic?.id ?? null, fileCode);
+  const file = fileQuery.data;
   const { data: topicFiles } = useResourceTopicFiles(topic?.id ?? null);
   const { data: flashcardTopic } = useFlashcardTopic(topic?.id ?? null);
   const { data: signedUrl, refetch: refreshSignedUrl, isFetching: isRefreshingSignedUrl } = useResourceSignedFileUrl(topic?.id ?? null, fileCode);
-  const { data: accessBySubject } = useResourceAccessBySubject();
+  const accessQuery = useResourceAccessBySubject();
 
-  const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+  const hasAccess = Boolean(subject?.id && accessQuery.data?.get(subject.id)?.length);
 
   const flashcardsHref = `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/flashcards`;
   const sidebarItems = useMemo(
@@ -91,18 +94,34 @@ export default function ResourceFileDetailPage() {
     return { prev: toEntry(prevFile), next: toEntry(nextFile) };
   }, [file, topicFiles, topic?.name, subjectShortName, topicCode]);
 
-  if ((!subjectLoading && !subject) || (!topicLoading && !topic) || (!fileLoading && !file)) {
+  if (!subject) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied verification={subjectQuery} />
       </StudentPageContainer>
     );
   }
 
-  if (!subjectLoading && !hasAccess) {
+  if (!hasAccess) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied verification={accessQuery} />
+      </StudentPageContainer>
+    );
+  }
+
+  if (!topic) {
+    return (
+      <StudentPageContainer>
+        <ResourceAccessDenied verification={topicQuery} />
+      </StudentPageContainer>
+    );
+  }
+
+  if (!file) {
+    return (
+      <StudentPageContainer>
+        <ResourceAccessDenied verification={fileQuery} />
       </StudentPageContainer>
     );
   }

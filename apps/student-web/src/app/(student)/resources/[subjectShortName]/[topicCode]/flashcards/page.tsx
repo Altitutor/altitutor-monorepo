@@ -23,19 +23,37 @@ import Link from 'next/link';
 export default function FlashcardsPage() {
   const params = useParams<{ subjectShortName: string; topicCode: string }>();
 
-  const { data: subject, isLoading: subjectLoading } = useResourceSubject(params.subjectShortName);
-  const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, params.topicCode);
+  const subjectQuery = useResourceSubject(params.subjectShortName);
+  const subject = subjectQuery.data;
+  const topicQuery = useResourceTopic(subject?.id ?? null, params.topicCode);
+  const topic = topicQuery.data;
   const { data: topicFiles } = useResourceTopicFiles(topic?.id ?? null);
-  const { data: accessBySubject } = useResourceAccessBySubject();
+  const accessQuery = useResourceAccessBySubject();
   const { data: flashcardTopic } = useFlashcardTopic(topic?.id ?? null);
   const { data: cards, isLoading: cardsLoading } = useFlashcardReviewCards(topic?.id ?? null, 'all');
 
-  const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+  const hasAccess = Boolean(subject?.id && accessQuery.data?.get(subject.id)?.length);
 
-  if ((!subjectLoading && !subject) || (!topicLoading && !topic) || (!subjectLoading && !hasAccess)) {
+  if (!subject) {
     return (
       <StudentPageContainer>
-        <ResourceAccessDenied />
+        <ResourceAccessDenied verification={subjectQuery} />
+      </StudentPageContainer>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <StudentPageContainer>
+        <ResourceAccessDenied verification={accessQuery} />
+      </StudentPageContainer>
+    );
+  }
+
+  if (!topic) {
+    return (
+      <StudentPageContainer>
+        <ResourceAccessDenied verification={topicQuery} />
       </StudentPageContainer>
     );
   }
