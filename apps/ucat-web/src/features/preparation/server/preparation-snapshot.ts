@@ -60,11 +60,11 @@ export async function loadLatestPreparationSnapshot(
   supabase: SupabaseClient<Database>,
   versions: PreparationEngineResult["versions"],
 ): Promise<PreparationProjectionSnapshot | null> {
+  // Study-plan policy changes do not invalidate persisted score projections.
   const { data, error } = await supabase
     .from("vstudent_ucat_preparation_snapshots")
     .select("generated_at, snapshot")
     .eq("engine_version", versions.engine)
-    .eq("policy_version", versions.policy)
     .eq("score_model_version", versions.scoreModel)
     .eq("trajectory_model_version", versions.trajectoryModel)
     .order("generated_at", { ascending: false })
