@@ -17,6 +17,7 @@ export function useJourneyConversations(journey: Journey) {
       const ids = new Set<string>(
         journey.contact_id ? [journey.contact_id] : [],
       );
+      const parentIds = new Set(journey.enquiry_parent_id ? [journey.enquiry_parent_id] : []);
       if (journey.student_id) {
         for (const c of await getMessageContactsForStudent(
           journey.student_id,
@@ -28,17 +29,12 @@ export function useJourneyConversations(journey: Journey) {
           .select("parent_id")
           .eq("student_id", journey.student_id);
         if (parents.error) throw parents.error;
-        if (parents.data.length) {
-          const contacts = await db
-            .from("contacts")
-            .select("id")
-            .in(
-              "parent_id",
-              parents.data.map((p) => p.parent_id),
-            );
-          if (contacts.error) throw contacts.error;
-          contacts.data.forEach((c) => ids.add(c.id));
-        }
+        parents.data.forEach(({ parent_id }) => parentIds.add(parent_id));
+      }
+      if (parentIds.size) {
+        const contacts = await db.from("contacts").select("id").in("parent_id", [...parentIds]);
+        if (contacts.error) throw contacts.error;
+        contacts.data.forEach((contact) => ids.add(contact.id));
       }
       const source = await db.from("onboarding_enquiry_messages")
         .select("message:messages(conversation_id)")

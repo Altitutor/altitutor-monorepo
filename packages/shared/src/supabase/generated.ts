@@ -7899,18 +7899,21 @@ export type Database = {
       onboarding_enquiry_submissions: {
         Row: {
           id: string
+          request_hash: string
           result: Json
           source_id: string | null
           source_kind: string | null
         }
         Insert: {
           id: string
+          request_hash: string
           result: Json
           source_id?: string | null
           source_kind?: string | null
         }
         Update: {
           id?: string
+          request_hash?: string
           result?: Json
           source_id?: string | null
           source_kind?: string | null

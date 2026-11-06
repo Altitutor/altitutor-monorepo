@@ -11,6 +11,7 @@ import {
   formatMeetingStart,
   type PlannedTrial,
 } from "@/features/bookings/components/ManualMeetingModal";
+import type { NotifyRecipient } from "@/features/bookings/components/BookingNotifyMessageScreen";
 import { BookSessionNotifyStep } from "@/features/bookings/components/BookSessionNotifyStep";
 import { getMeetingFamilySuggestions } from "@/features/bookings/api/meeting-family";
 import type { MeetingPerson } from "@/features/bookings/components/MeetingPeopleList";
@@ -166,7 +167,7 @@ export function NewJourney({
         ),
       });
       void invalidateOnboarding(client);
-      for (const key of ["students", "parents", "sessions", "email", "messages"]) {
+      for (const key of ["students", "parents", "sessions", "email", "messages", "meeting-family"]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
       toast({ title: "Enquiry created" });
@@ -186,6 +187,22 @@ export function NewJourney({
   const showManualContact = !source && !familyJourney && children.length === 0 && parent === null;
   const notificationId = sessionIds[notifyIndex];
   const parentLabel = parent ? personLabel(parent) : "";
+  const notificationTrial = notificationId ? trials[notifyIndex] : undefined;
+  const notificationStudentIds = notificationTrial?.input.studentIds ?? [];
+  const notificationFamily = useQuery({
+    queryKey: ["meeting-family", notificationStudentIds, []],
+    queryFn: () => getMeetingFamilySuggestions(notificationStudentIds, []),
+    enabled: Boolean(notificationId),
+  });
+  const notificationRecipients: NotifyRecipient[] = notificationTrial ? [
+    ...children.filter((child) => notificationStudentIds.includes(child.id)).map((child) =>
+      ({ id: child.id, label: personLabel(child), type: "student" as const })),
+    ...notificationTrial.parents.map((person) => ({ ...person, type: "parent" as const })),
+    ...notificationTrial.staff.map((person) => ({ ...person, type: "staff" as const })),
+    ...(parent ? [{ id: parent.id, label: parentLabel, type: "parent" as const }] : []),
+    ...(notificationFamily.data?.parents ?? []).map((person) =>
+      ({ id: person.id, label: fullName(person), type: "parent" as const })),
+  ] : [];
   const trialStudents = (trial: PlannedTrial) => trial.input.studentIds
     .map((id) => children.find((child) => child.id === id))
     .flatMap((child) => child ? [personLabel(child)] : []).join(", ");
@@ -232,6 +249,7 @@ export function NewJourney({
             key={notificationId}
             sessionId={notificationId}
             sessionType="TRIAL_SESSION"
+            additionalRecipients={notificationRecipients}
             successMessage={`Trial ${notifyIndex + 1} of ${sessionIds.length} booked`}
           />
         ) : step === 0 ? (
