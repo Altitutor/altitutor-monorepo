@@ -20,6 +20,10 @@
     "./hooks/use-interview-round-sync": {
       "types": "./dist/hooks/use-interview-round-sync.d.ts",
       "default": "./dist/hooks/use-interview-round-sync.js"
+    },
+    "./lib/calendar-layout": {
+      "types": "./dist/lib/calendar-layout.d.ts",
+      "default": "./dist/lib/calendar-layout.js"
     }
   },
   "sideEffects": [

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { layoutCalendarColumns } from "../lib/calendar-layout";
 import { format, isSameDay, startOfDay, addDays } from "date-fns";
 
 export interface TimedCalendarEvent<T> {
@@ -120,46 +121,44 @@ export function TimedCalendar<T>({
                         />
                       )}
                     {(() => {
-                      const groups: (typeof dayEntries)[] = [];
-                      let groupEnd = -Infinity;
-                      for (const entry of dayEntries) {
-                        if (entry.start >= groupEnd) {
-                          groups.push([entry]);
-                          groupEnd = entry.end;
-                        } else {
-                          groups[groups.length - 1].push(entry);
-                          groupEnd = Math.max(groupEnd, entry.end);
-                        }
-                      }
-                      return groups.flatMap((group) =>
-                        group.map((entry, column) => {
-                          const width = 95 / group.length;
-                          const height = Math.max(
-                            45,
-                            ((entry.end - entry.start) / 60) * slotHeight,
-                          );
-                          return (
-                            <div
-                              key={entry.event.id}
-                              className="absolute z-10"
-                              data-calendar-event={entry.event.id}
-                              style={{
-                                top:
-                                  ((entry.start - startHour * 60) / 60) *
-                                  slotHeight,
-                                height,
-                                left: `${2.5 + column * width}%`,
-                                width: `${width}%`,
-                              }}
-                            >
-                              {renderEvent(entry.event.value, {
-                                height,
-                                width: (width / 100) * 180,
-                              })}
-                            </div>
-                          );
-                        }),
+                      const placements = new Map(
+                        layoutCalendarColumns(
+                          dayEntries.map((entry) => ({
+                            id: entry.event.id,
+                            startMinutes: entry.start,
+                            endMinutes: entry.end,
+                          })),
+                        ).map((placement) => [placement.id, placement]),
                       );
+                      return dayEntries.map((entry) => {
+                        const placement = placements.get(entry.event.id)!;
+                        const width = 95 / placement.columnCount;
+                        const column = placement.column;
+                        const height = Math.max(
+                          45,
+                          ((entry.end - entry.start) / 60) * slotHeight,
+                        );
+                        return (
+                          <div
+                            key={entry.event.id}
+                            className="absolute z-10"
+                            data-calendar-event={entry.event.id}
+                            style={{
+                              top:
+                                ((entry.start - startHour * 60) / 60) *
+                                slotHeight,
+                              height,
+                              left: `${2.5 + column * width}%`,
+                              width: `${width}%`,
+                            }}
+                          >
+                            {renderEvent(entry.event.value, {
+                              height,
+                              width: (width / 100) * 180,
+                            })}
+                          </div>
+                        );
+                      });
                     })()}
                   </div>
                 )}

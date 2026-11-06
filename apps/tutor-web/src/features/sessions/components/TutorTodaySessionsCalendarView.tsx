@@ -6,7 +6,7 @@ import { useTutorSessionDetailsBatch } from '../hooks/useSessionsQuery';
 import { useInterviewCalendarRounds } from '@/features/interviews/hooks/use-interviews';
 import { toScheduledRound, type ScheduledInterviewRound } from '@/features/interviews/lib/round-calendar';
 import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from '@/features/interviews/components/InterviewRoundInfoDialog';
-import { clusterTimed } from '../utils/clusterTimed';
+import { layoutCalendarColumns } from '@altitutor/ui/lib/calendar-layout';
 import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { useElementSize } from '@/shared/hooks/useElementSize';
@@ -148,51 +148,28 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
                         value: { kind: 'round' as const, round },
                       })),
                     ];
-                    const groups = clusterTimed<(typeof entries)[number]["value"]>(entries);
+                    const placements = new Map(
+                      layoutCalendarColumns(entries.map((entry) => ({
+                        id: entry.id,
+                        startMinutes: entry.start,
+                        endMinutes: entry.end,
+                      }))).map((placement) => [placement.id, placement]),
+                    );
                     const blocks: React.JSX.Element[] = [];
-                    groups.forEach((group) => {
-                      const total = group.length;
-                      const columnWidth = total > 1 ? 95 / total : 95;
-                      group.forEach((entry, entryIndex) => {
-                        const top = Math.max(0, ((entry.start - startHour * 60) / 60) * slotHeight);
-                        const height = Math.max(30, ((entry.end - entry.start) / 60) * slotHeight);
-                        const left = entryIndex * columnWidth + 2.5;
-                        const cardHeight = Math.max(height, 45);
-                        const cardWidth =
-                          dayColumnWidth > 0 ? (dayColumnWidth * columnWidth) / 100 : columnWidth;
-                        if (entry.value.kind === 'round') {
-                          blocks.push(
-                            <div
-                              key={entry.id}
-                              className="absolute"
-                              style={{
-                                top: `${top}px`,
-                                height: `${cardHeight}px`,
-                                left: `${left}%`,
-                                width: `${columnWidth}%`,
-                                zIndex: 10,
-                                minHeight: '45px',
-                              }}
-                            >
-                              <InterviewRoundCalendarCard
-                                name={entry.value.round.name}
-                                start={entry.value.round.scheduledAt}
-                                onClick={() => setSelectedRound(entry.value.kind === 'round' ? entry.value.round : null)}
-                              />
-                            </div>
-                          );
-                          return;
-                        }
-                        const session = entry.value.session;
-                        const details = detailsMap?.[session.session_id];
-                        const students: SessionStudent[] = details?.students ?? [];
-                        const hasAttendingStudents =
-                          students.length === 0 || students.some((student) => !student.planned_absence);
-
+                    entries.forEach((entry) => {
+                      const placement = placements.get(entry.id)!;
+                      const columnWidth = 95 / placement.columnCount;
+                      const top = Math.max(0, ((entry.start - startHour * 60) / 60) * slotHeight);
+                      const height = Math.max(30, ((entry.end - entry.start) / 60) * slotHeight);
+                      const left = placement.column * columnWidth + 2.5;
+                      const cardHeight = Math.max(height, 45);
+                      const cardWidth =
+                        dayColumnWidth > 0 ? (dayColumnWidth * columnWidth) / 100 : columnWidth;
+                      if (entry.value.kind === 'round') {
                         blocks.push(
                           <div
-                            key={session.session_id}
-                            className={cn('absolute', !hasAttendingStudents && 'opacity-50')}
+                            key={entry.id}
+                            className="absolute"
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,
@@ -202,45 +179,72 @@ export function TutorTodaySessionsCalendarView({ date, sessions, isLoading, onOp
                               minHeight: '45px',
                             }}
                           >
-                            <SessionCard
-                              session={{
-                                session_id: session.session_id,
-                                session_type: session.session_type ?? '',
-                                class_id: session.class_id,
-                                subject_id: session.subject_id,
-                                start_at: session.start_at,
-                                end_at: session.end_at,
-                                class_day_of_week: session.class_day_of_week,
-                                class_start_time: session.class_start_time,
-                                class_end_time: session.class_end_time,
-                                class_room: session.class_room,
-                                class_level: session.class_level,
-                                class_status: session.class_status,
-                                subject_name: session.subject_name,
-                                subject_curriculum: session.subject_curriculum,
-                                subject_discipline: session.subject_discipline,
-                                subject_level: session.subject_level,
-                                subject_color: session.subject_color,
-                                subject_year_level: session.subject_year_level,
-                              }}
-                              staff={details?.staff}
-                              students={students.map((student) => ({
-                                id: student.id,
-                                first_name: student.first_name,
-                                last_name: student.last_name,
-                                year_level: student.year_level ?? undefined,
-                                planned_absence: student.planned_absence,
-                                is_extra: student.is_extra,
-                                account_class: student.account_class,
-                              }))}
-                              onClick={() => onOpenSession?.(session.session_id)}
-                              isCalendarView
-                              cardHeight={cardHeight}
-                              cardWidth={cardWidth}
+                            <InterviewRoundCalendarCard
+                              name={entry.value.round.name}
+                              start={entry.value.round.scheduledAt}
+                              onClick={() => setSelectedRound(entry.value.kind === 'round' ? entry.value.round : null)}
                             />
                           </div>
                         );
-                      });
+                        return;
+                      }
+                      const session = entry.value.session;
+                      const details = detailsMap?.[session.session_id];
+                      const students: SessionStudent[] = details?.students ?? [];
+                      const hasAttendingStudents =
+                        students.length === 0 || students.some((student) => !student.planned_absence);
+
+                      blocks.push(
+                        <div
+                          key={session.session_id}
+                          className={cn('absolute', !hasAttendingStudents && 'opacity-50')}
+                          style={{
+                            top: `${top}px`,
+                            height: `${cardHeight}px`,
+                            left: `${left}%`,
+                            width: `${columnWidth}%`,
+                            zIndex: 10,
+                            minHeight: '45px',
+                          }}
+                        >
+                          <SessionCard
+                            session={{
+                              session_id: session.session_id,
+                              session_type: session.session_type ?? '',
+                              class_id: session.class_id,
+                              subject_id: session.subject_id,
+                              start_at: session.start_at,
+                              end_at: session.end_at,
+                              class_day_of_week: session.class_day_of_week,
+                              class_start_time: session.class_start_time,
+                              class_end_time: session.class_end_time,
+                              class_room: session.class_room,
+                              class_level: session.class_level,
+                              class_status: session.class_status,
+                              subject_name: session.subject_name,
+                              subject_curriculum: session.subject_curriculum,
+                              subject_discipline: session.subject_discipline,
+                              subject_level: session.subject_level,
+                              subject_color: session.subject_color,
+                              subject_year_level: session.subject_year_level,
+                            }}
+                            staff={details?.staff}
+                            students={students.map((student) => ({
+                              id: student.id,
+                              first_name: student.first_name,
+                              last_name: student.last_name,
+                              year_level: student.year_level ?? undefined,
+                              planned_absence: student.planned_absence,
+                              is_extra: student.is_extra,
+                              account_class: student.account_class,
+                            }))}
+                            onClick={() => onOpenSession?.(session.session_id)}
+                            isCalendarView
+                            cardHeight={cardHeight}
+                            cardWidth={cardWidth}
+                          />
+                        </div>
+                      );
                     });
                     return blocks;
                   })()}
