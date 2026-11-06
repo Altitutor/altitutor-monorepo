@@ -559,6 +559,9 @@
 
 - **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
 
+- **Interview performance review** — A tutor’s written assessment and practice recommendations for one Medicine Interview student, recorded for a date and explicitly published to that student. An initial diagnostic and a follow-up review are the same kind of record. Each published version retains the released mock evidence available at publication. Only the author can edit the review, and a draft correction leaves the published version visible until republication.
+  _Avoid_: Check-in, interview result, diagnostic note
+
 - **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
 
 - **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.

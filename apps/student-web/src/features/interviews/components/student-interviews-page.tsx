@@ -3,22 +3,44 @@
 import React from "react";
 import Link from "next/link";
 import { Calendar, ChevronRight, Video, MapPin } from "lucide-react";
-import { Badge, Button } from "@altitutor/ui";
+import { Badge, Button, ClickableNavCard } from "@altitutor/ui";
 import type { StudentInterviewRound } from "@altitutor/shared";
+import { ResourcesBreadcrumb } from "@/features/resources/components/resources-breadcrumb";
+import { studentCardCn } from "@/shared/lib/student-visual";
 import {
   useInterviewAccess,
   useInterviewRounds,
 } from "../hooks/use-interviews";
 import { interviewResultsHref, interviewRoomHref } from "../lib/routes";
 import { InterviewError } from "./interview-error";
+import { StudentInterviewListCard } from "./student-interview-list-card";
 
-function RoundCard({ round }: { round: StudentInterviewRound }) {
+function RoundCard({ round, clickable = false }: { round: StudentInterviewRound; clickable?: boolean }) {
   const completed = round.phase === "completed";
   const active =
     !completed &&
     (Boolean(round.startedAt) ||
       !round.scheduledAt ||
       Date.parse(round.scheduledAt) <= Date.now());
+  if (clickable) {
+    const href = completed ? round.result && interviewResultsHref(round.id) :
+      round.delivery === "online" && interviewRoomHref(round.id);
+    if (href) {
+      const time = round.scheduledAt ? new Date(round.scheduledAt).toLocaleString(undefined, {
+        dateStyle: "medium", timeStyle: "short",
+      }) : "Start when your tutor is ready";
+      const action = completed ? "Results available" : round.startedAt ? "Rejoin interview" : active ? "Enter waiting room" : "Upcoming";
+      const card = {
+        href,
+        icon: round.delivery === "online" ? Video : MapPin,
+        title: round.name,
+        description: time + " · " + action,
+      };
+      return completed
+        ? <StudentInterviewListCard {...card} />
+        : <ClickableNavCard {...card} cardClassName={studentCardCn()} className="hover:bg-muted dark:hover:bg-muted" />;
+    }
+  }
   return (
     <article
       className={`rounded-xl border p-5 ${active ? "border-primary/30 bg-primary/5" : "bg-card"}`}
@@ -85,7 +107,7 @@ function RoundCard({ round }: { round: StudentInterviewRound }) {
   );
 }
 
-export function StudentInterviewsPage() {
+export function StudentInterviewsPage({ usePerformanceReviewListStyle = false }: { usePerformanceReviewListStyle?: boolean } = {}) {
   const access = useInterviewAccess();
   const rounds = useInterviewRounds();
   if (access.isPending)
@@ -106,7 +128,7 @@ export function StudentInterviewsPage() {
   if (!access.data?.hasAccess)
     return (
       <div className="py-10">
-        <h1 className="text-2xl font-semibold">Interviews</h1>
+        <h1 className="text-2xl font-semibold">{usePerformanceReviewListStyle ? "Mock interviews" : "Interviews"}</h1>
         <p className="mt-3 text-muted-foreground">
           An active Medicine interview enrolment is required to access
           interviews and past results.
@@ -133,7 +155,8 @@ export function StudentInterviewsPage() {
   return (
     <div className="space-y-8 py-8">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Interviews</h1>
+        {usePerformanceReviewListStyle && <ResourcesBreadcrumb items={[{ label: "Interviews", href: "/interviews" }, { label: "Mock interviews" }]} />}
+        <h1 className="text-3xl font-semibold tracking-tight">{usePerformanceReviewListStyle ? "Mock interviews" : "Interviews"}</h1>
         <p className="mt-2 text-muted-foreground">
           Join your mock interviews and review released feedback.
         </p>
@@ -141,7 +164,9 @@ export function StudentInterviewsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Active and upcoming</h2>
         {upcoming.length ? (
-          upcoming.map((round) => <RoundCard key={round.id} round={round} />)
+          <div className={usePerformanceReviewListStyle ? "grid gap-4 sm:grid-cols-2" : "space-y-3"}>
+            {upcoming.map((round) => <RoundCard key={round.id} round={round} clickable={usePerformanceReviewListStyle} />)}
+          </div>
         ) : (
           <p className="rounded-xl border border-dashed p-6 text-muted-foreground">
             No upcoming interviews. Your tutor will invite you when a round is
@@ -152,7 +177,7 @@ export function StudentInterviewsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Past interviews</h2>
         {past.length ? (
-          past.map((round) => <RoundCard key={round.id} round={round} />)
+          past.map((round) => <RoundCard key={round.id} round={round} clickable={usePerformanceReviewListStyle} />)
         ) : (
           <p className="text-sm text-muted-foreground">
             Your completed interviews will appear here.
