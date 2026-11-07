@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react";
 import {
   Badge,
   InterviewRecordingPlayer,
+  formatInterviewRecordingAvailability,
   InterviewReviewDisclosure,
   Button,
   clickableCardFocusRingCn,
@@ -25,7 +26,7 @@ import {
 import { cn } from "@/shared/utils";
 import { useInterviewRound } from "../hooks/use-interviews";
 import { readingClock } from "../lib/presentation";
-import { getInterviewRecording } from "../api/interviews";
+import { interviewRecordingSource } from "../api/interviews";
 import { InterviewContent } from "./interview-content";
 import { InterviewError } from "./interview-error";
 
@@ -101,6 +102,11 @@ function StationRecording({
     <section className={studentCardCn("space-y-3 p-5")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Recording</h2>
+        {recording && (
+          <p className="text-sm text-muted-foreground sm:ml-auto">
+            {formatInterviewRecordingAvailability(recording)}
+          </p>
+        )}
         {recordings.length > 1 && (
           <select
             aria-label="Recording clip"
@@ -118,7 +124,7 @@ function StationRecording({
         <InterviewRecordingPlayer
           key={recording.id}
           recording={recording}
-          loadUrl={() => getInterviewRecording(roundId, recording.id)}
+          src={interviewRecordingSource(roundId, recording.id)}
           intervals={attempt?.questionIntervals}
           questions={station.questions ?? []}
           variant="student"

@@ -1,9 +1,8 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { StudentInterviewRound } from "@altitutor/shared";
 import { StudentInterviewResults } from "../student-interview-results";
 import { useInterviewRound } from "../../hooks/use-interviews";
-import { getInterviewRecording } from "../../api/interviews";
 
 jest.mock("@altitutor/ui", () => ({
   ...jest.requireActual("@altitutor/ui/components/button"),
@@ -13,9 +12,6 @@ jest.mock("@altitutor/ui", () => ({
 }));
 jest.mock("../../hooks/use-interviews", () => ({
   useInterviewRound: jest.fn(),
-}));
-jest.mock("../../api/interviews", () => ({
-  getInterviewRecording: jest.fn(),
 }));
 jest.mock("../interview-content", () => ({
   InterviewContent: ({ value }: { value: string }) => <p>{value}</p>,
@@ -144,10 +140,7 @@ describe("student released result boundary", () => {
     );
   });
 
-  it("shows a media player for each released station recording", async () => {
-    jest.mocked(getInterviewRecording).mockResolvedValue({
-      url: "https://example.com/station.webm",
-    });
+  it("shows a media player for each released station recording", () => {
     setQuery({
       ...round,
       recordingEnabled: true,
@@ -187,30 +180,21 @@ describe("student released result boundary", () => {
     });
     render(<StudentInterviewResults roundId="round-1" />);
     const stations = screen.getByRole("group", { name: "Station results" });
-    expect(getInterviewRecording).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Play recording" }),
-    );
-    const player = await screen.findByLabelText("Interview recording");
-    expect(player).toHaveAttribute("src", "https://example.com/station.webm");
+    const player = screen.getByLabelText("Interview recording");
+    expect(player).toHaveAttribute("src", "/api/interviews/rounds/round-1/recordings/recording-1?format=media");
+    expect(screen.getByRole("button", { name: "Play audio" })).toBeInTheDocument();
+    expect(player).not.toHaveAttribute("controls");
+    expect(player).toHaveAttribute("preload", "none");
+    expect(player).not.toHaveAttribute("autoplay");
     expect(player.tagName).toBe("AUDIO");
     expect(
       stations.compareDocumentPosition(player) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Recording" })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(getInterviewRecording).toHaveBeenCalledWith(
-        "round-1",
-        "recording-1",
-      );
-    });
   });
 
-  it("shows only the selected station recording and removes its player on station change", async () => {
-    jest
-      .mocked(getInterviewRecording)
-      .mockResolvedValue({ url: "https://example.com/station.webm" });
+  it("shows only the selected station recording and replaces its player on station change", () => {
     const stations = [
       round.resultStations[0],
       { ...round.resultStations[0], id: "station-2" },
@@ -250,17 +234,12 @@ describe("student released result boundary", () => {
       },
     });
     render(<StudentInterviewResults roundId="round-1" />);
-    expect(
-      screen.getAllByRole("button", { name: "Play recording" }),
-    ).toHaveLength(1);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Play recording" }),
-    );
-    await screen.findByLabelText("Interview recording");
+    const firstPlayer = screen.getByLabelText("Interview recording");
     fireEvent.click(screen.getByRole("button", { name: /Station 2/ }));
-    expect(
-      screen.queryByLabelText("Interview recording"),
-    ).not.toBeInTheDocument();
+    expect(firstPlayer).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Interview recording")).toHaveAttribute(
+      "src", "/api/interviews/rounds/round-1/recordings/recording-2?format=media",
+    );
     expect(screen.getByRole("heading", { name: "Recording" })).toBeInTheDocument();
   });
 

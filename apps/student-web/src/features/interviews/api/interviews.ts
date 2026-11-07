@@ -26,10 +26,8 @@ export const getInterviewRounds = () =>
   request<StudentInterviewRound[]>("/rounds");
 export const getInterviewRound = (id: string) =>
   request<StudentInterviewRound>(`/rounds/${encodeURIComponent(id)}`);
-export const getInterviewRecording = (roundId: string, recordingId: string) =>
-  request<{ url: string }>(
-    `/rounds/${encodeURIComponent(roundId)}/recordings/${encodeURIComponent(recordingId)}`,
-  );
+export const interviewRecordingSource = (roundId: string, recordingId: string) =>
+  `/api/interviews/rounds/${encodeURIComponent(roundId)}/recordings/${encodeURIComponent(recordingId)}?format=media`;
 export const sendInterviewCommand = (command: InterviewCommand) =>
   request<InterviewCommandResult>("/commands", {
     method: "POST",

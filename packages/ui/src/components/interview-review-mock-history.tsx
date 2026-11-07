@@ -42,7 +42,7 @@ function scoreLabel(score: number | null, maximum: number | null) {
   return score === null ? "—" : maximum === null ? String(score) : `${score} / ${maximum}`;
 }
 
-export function InterviewReviewMockHistory({ round, resultHref }: { round: InterviewReviewMock; resultHref?: string }) {
+export function InterviewReviewMockHistory({ round, resultHref, resultButtonClassName }: { round: InterviewReviewMock; resultHref?: string; resultButtonClassName?: string }) {
   return (
     <InterviewReviewDisclosure detail={<strong>{scoreLabel(round.score, round.maximumPoints)}</strong>}
       title={<>
@@ -65,7 +65,7 @@ export function InterviewReviewMockHistory({ round, resultHref }: { round: Inter
           ))}
         </InterviewReviewDisclosure>
       ))}
-      {resultHref && <div className="px-2 py-1"><Button asChild variant="outline" size="sm"><Link href={resultHref}>View mock</Link></Button></div>}
+      {resultHref && <div className="px-2 py-1"><Button asChild variant="outline" size="sm" className={resultButtonClassName}><Link href={resultHref}>View mock</Link></Button></div>}
     </InterviewReviewDisclosure>
   );
 }
