@@ -180,6 +180,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
       request: Request,
       roundId: string,
       recordingId: string,
+      format: "json" | "media" = "json",
     ): Promise<Response> {
       try {
         if (!uuid.test(recordingId))
@@ -229,6 +230,12 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
           url = await new DailyInterviewProvider(key).recordingLink(
             data.provider_id,
           );
+        }
+        if (format === "media") {
+          return new Response(null, {
+            status: 307,
+            headers: { Location: url, "Cache-Control": "private, no-store" },
+          });
         }
         return json({ url });
       } catch (error) {

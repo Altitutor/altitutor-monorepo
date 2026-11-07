@@ -1,6 +1,8 @@
 /** @jest-environment node */
 import { handleTeachingRequest } from '../http';
 
+const mockSessionBounds: Record<string, string> = {};
+
 let mockStaffStatus = 'ACTIVE';
 let mockProfileErrors: Array<{code: string; message: string}> = [];
 
@@ -18,9 +20,17 @@ jest.mock('@supabase/supabase-js', () => ({
       data: { user: options?.global?.headers?.Authorization === 'Bearer tutor-token' ? { id: 'auth-tutor' } : null },
       error: options?.global?.headers?.Authorization === 'Bearer tutor-token' ? null : new Error('Invalid token'),
     }) },
-    from: () => ({ select: () => ({ maybeSingle: async () => ({ data: {
+    from: (view: string) => {
+      if (view === 'vtutor_operational_session_detail') {
+        const lower = (_field: string, value: string) => { mockSessionBounds.start = value; return query; };
+        const upper = (_field: string, value: string) => { mockSessionBounds.end = value; return query; };
+        const query = { select: () => query, gte: lower, lte: upper, lt: upper, order: async () => ({ data: [], error: null }) };
+        return query;
+      }
+      return { select: () => ({ maybeSingle: async () => ({ data: {
       id: 'staff-tutor', user_id: 'auth-tutor', first_name: 'Alex', last_name: 'Tutor', role: 'TUTOR', status: mockStaffStatus,
-    }, error: mockProfileErrors.shift() ?? null }) }) }),
+    }, error: mockProfileErrors.shift() ?? null }) }) };
+    },
   }),
 }));
 
@@ -29,6 +39,17 @@ beforeEach(() => {
   mockProfileErrors = [];
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'fixture-public-key';
+});
+
+it.each([
+  ['2026-10-04', '2026-10-03T14:30:00.000Z', '2026-10-04T13:30:00.000Z'],
+  ['2026-04-05', '2026-04-04T13:30:00.000Z', '2026-04-05T14:30:00.000Z'],
+])('queries the full Adelaide teaching day %s regardless of server timezone', async (day, start, end) => {
+  const response = await handleTeachingRequest(new Request(`https://tutor.test/api/teaching/sessions?day=${day}`, {
+    headers: { Authorization: 'Bearer tutor-token' },
+  }));
+  expect(response.status).toBe(200);
+  expect(mockSessionBounds).toEqual({ start, end });
 });
 
 it('rejects a supplied token that the auth service cannot verify', async () => {

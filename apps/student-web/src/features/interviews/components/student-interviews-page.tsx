@@ -3,10 +3,10 @@
 import React from "react";
 import Link from "next/link";
 import { Calendar, ChevronRight, Video, MapPin } from "lucide-react";
-import { Badge, Button, ClickableNavCard } from "@altitutor/ui";
+import { Badge, Button } from "@altitutor/ui";
 import type { StudentInterviewRound } from "@altitutor/shared";
+import { StudentSessionsCalendarView } from "@/features/sessions/components/StudentSessionsCalendarView";
 import { ResourcesBreadcrumb } from "@/features/resources/components/resources-breadcrumb";
-import { studentCardCn } from "@/shared/lib/student-visual";
 import {
   useInterviewAccess,
   useInterviewRounds,
@@ -22,24 +22,16 @@ function RoundCard({ round, clickable = false }: { round: StudentInterviewRound;
     (Boolean(round.startedAt) ||
       !round.scheduledAt ||
       Date.parse(round.scheduledAt) <= Date.now());
-  if (clickable) {
-    const href = completed ? round.result && interviewResultsHref(round.id) :
-      round.delivery === "online" && interviewRoomHref(round.id);
-    if (href) {
-      const time = round.scheduledAt ? new Date(round.scheduledAt).toLocaleString(undefined, {
-        dateStyle: "medium", timeStyle: "short",
-      }) : "Start when your tutor is ready";
-      const action = completed ? "Results available" : round.startedAt ? "Rejoin interview" : active ? "Enter waiting room" : "Upcoming";
-      const card = {
-        href,
-        icon: round.delivery === "online" ? Video : MapPin,
-        title: round.name,
-        description: time + " · " + action,
-      };
-      return completed
-        ? <StudentInterviewListCard {...card} />
-        : <ClickableNavCard {...card} cardClassName={studentCardCn()} className="hover:bg-muted dark:hover:bg-muted" />;
-    }
+  if (clickable && completed && round.result) {
+    const time = round.scheduledAt ? new Date(round.scheduledAt).toLocaleString(undefined, {
+      dateStyle: "medium", timeStyle: "short",
+    }) : "Completed";
+    return <StudentInterviewListCard
+      href={interviewResultsHref(round.id)}
+      icon={round.delivery === "online" ? Video : MapPin}
+      title={round.name}
+      description={time + " · Results available"}
+    />;
   }
   return (
     <article
@@ -163,9 +155,11 @@ export function StudentInterviewsPage({ usePerformanceReviewListStyle = false }:
       </header>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Active and upcoming</h2>
-        {upcoming.length ? (
-          <div className={usePerformanceReviewListStyle ? "grid gap-4 sm:grid-cols-2" : "space-y-3"}>
-            {upcoming.map((round) => <RoundCard key={round.id} round={round} clickable={usePerformanceReviewListStyle} />)}
+        {usePerformanceReviewListStyle ? (
+          <StudentSessionsCalendarView interviewsOnly />
+        ) : upcoming.length ? (
+          <div className="space-y-3">
+            {upcoming.map((round) => <RoundCard key={round.id} round={round} />)}
           </div>
         ) : (
           <p className="rounded-xl border border-dashed p-6 text-muted-foreground">

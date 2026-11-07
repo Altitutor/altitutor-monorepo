@@ -24,6 +24,7 @@ export interface InterviewReviewFields {
   studentId: string | null;
   date: string;
   template: string;
+  title?: string | null;
   body: Json;
 }
 
@@ -33,6 +34,7 @@ export interface InterviewReviewRelease extends InterviewReviewFields {
 
 export interface InterviewReviewSummary {
   id: string;
+  title?: string | null;
   date: string;
   author: string;
 }
@@ -56,6 +58,7 @@ export type TutorInterviewReviewSummary = Omit<TutorInterviewReview, "body" | "p
 export interface InterviewReviewTemplate {
   id: string;
   name: string;
+  title?: string | null;
   body: Json;
   version: number;
 }
@@ -63,7 +66,7 @@ export interface InterviewReviewTemplate {
 export type InterviewReviewCommand =
   | { type: "createReview"; id: string; date: string }
   | { type: "saveReview" | "publishReview"; id: string; expectedVersion: number; fields: InterviewReviewFields }
-  | { type: "saveTemplate"; id: string; expectedVersion: number; name: string; body: Json };
+  | { type: "saveTemplate"; id: string; expectedVersion: number; name: string; title?: string; body: Json };
 
 export function formatInterviewReviewDate(value: string) {
   return value ? new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value)) : "—";

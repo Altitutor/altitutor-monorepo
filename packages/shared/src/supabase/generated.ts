@@ -5261,6 +5261,7 @@ export type Database = {
           body: Json
           id: string
           name: string
+          title: string | null
           updated_at: string
           version: number
         }
@@ -5268,6 +5269,7 @@ export type Database = {
           body: Json
           id: string
           name: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5275,6 +5277,7 @@ export type Database = {
           body?: Json
           id?: string
           name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5288,6 +5291,7 @@ export type Database = {
           review_date: string
           student_id: string | null
           template_name: string
+          title: string | null
           updated_at: string
           version: number
         }
@@ -5298,6 +5302,7 @@ export type Database = {
           review_date: string
           student_id?: string | null
           template_name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5308,6 +5313,7 @@ export type Database = {
           review_date?: string
           student_id?: string | null
           template_name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -17895,6 +17901,205 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_tutor_log"
             referencedColumns: ["tutor_log_id"]
+          },
+        ]
+      }
+      teaching_workspace_resources: {
+        Row: {
+          created_at: string
+          item: Json
+          item_id: string
+          owner_staff_id: string
+          session_id: string
+          solutions_artifact_id: string | null
+          worksheet_artifact_id: string
+        }
+        Insert: {
+          created_at?: string
+          item: Json
+          item_id: string
+          owner_staff_id: string
+          session_id: string
+          solutions_artifact_id?: string | null
+          worksheet_artifact_id: string
+        }
+        Update: {
+          created_at?: string
+          item?: Json
+          item_id?: string
+          owner_staff_id?: string
+          session_id?: string
+          solutions_artifact_id?: string | null
+          worksheet_artifact_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_workspace_resources_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "teaching_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_teaching_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "teaching_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_teaching_uploads"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -36947,18 +37152,21 @@ export type Database = {
           body: Json | null
           id: string | null
           name: string | null
+          title: string | null
           version: number | null
         }
         Insert: {
           body?: Json | null
           id?: string | null
           name?: string | null
+          title?: string | null
           version?: number | null
         }
         Update: {
           body?: Json | null
           id?: string | null
           name?: string | null
+          title?: string | null
           version?: number | null
         }
         Relationships: []
@@ -39506,6 +39714,17 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_teaching_previous_lessons: {
+        Row: {
+          catalog_resource_ids: string[] | null
+          previous_session_id: string | null
+          previous_session_type:
+            | Database["public"]["Enums"]["session_type"]
+            | null
+          session_id: string | null
+        }
+        Relationships: []
+      }
       vtutor_teaching_uploads: {
         Row: {
           canonical_topics_file_id: string | null
@@ -39717,6 +39936,158 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      vtutor_teaching_workspace_resources: {
+        Row: {
+          created_at: string | null
+          item: Json | null
+          item_id: string | null
+          session_id: string | null
+          solutions_artifact_id: string | null
+          worksheet_artifact_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "teaching_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_solutions_artifact_id_fkey"
+            columns: ["solutions_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_teaching_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "teaching_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_lesson_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teaching_workspace_resources_worksheet_artifact_id_fkey"
+            columns: ["worksheet_artifact_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_teaching_uploads"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -47873,6 +48244,17 @@ export type Database = {
       }
       refresh_ucat_question_catalog_set_derived_fields_for_stems: {
         Args: { stem_ids: string[] }
+        Returns: undefined
+      }
+      register_teaching_workspace_resource: {
+        Args: {
+          p_item: Json
+          p_item_id: string
+          p_owner_staff_id: string
+          p_session_id: string
+          p_solutions?: string
+          p_worksheet: string
+        }
         Returns: undefined
       }
       reject_ucat_referral_gift: {

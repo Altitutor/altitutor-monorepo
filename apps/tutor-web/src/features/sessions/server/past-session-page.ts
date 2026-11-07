@@ -1,25 +1,9 @@
-import { BUSINESS_TIMEZONE, pastSessionTypes, type PastSessionCursor, type PastSessionType } from '@altitutor/shared';
+import { pastSessionTypes, type PastSessionCursor, type PastSessionType } from '@altitutor/shared';
+
+import { adelaideMidnight, readCalendarDay } from '@/shared/utils/datetime';
 
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
-const dayOffset = new Intl.DateTimeFormat('en-AU', { timeZone: BUSINESS_TIMEZONE, timeZoneName: 'longOffset' });
-
-function readDay(value: string | null) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(+date) && date.toISOString().slice(0, 10) === value ? date : null;
-}
-
-function adelaideMidnight(day: Date) {
-  // At this probe the Adelaide clock is still on the evening before midnight.
-  const probe = new Date(+day - 12 * 60 * 60 * 1000);
-  const zone = dayOffset.formatToParts(probe).find(({ type }) => type === 'timeZoneName')?.value;
-  const offset = zone?.match(/^GMT([+-])(\d{2}):(\d{2})(?::(\d{2}))?$/);
-  if (!offset) throw new Error('Adelaide time offset is unavailable.');
-  const [, sign, hours, minutes, seconds] = offset;
-  const offsetSeconds = (sign === '-' ? -1 : 1) * (Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds ?? 0));
-  return new Date(+day - offsetSeconds * 1000).toISOString();
-}
 
 export function readPastSessionRequest(params: URLSearchParams) {
   const before = params.get('before');
@@ -31,8 +15,8 @@ export function readPastSessionRequest(params: URLSearchParams) {
   const staffIds = params.getAll('staff');
   const fromDay = params.get('from');
   const toDay = params.get('to');
-  const from = readDay(fromDay);
-  const to = readDay(toDay);
+  const from = readCalendarDay(fromDay);
+  const to = readCalendarDay(toDay);
   const validType = (value: string): value is PastSessionType => pastSessionTypes.some((type) => type === value);
   const excludedTypes = ['STAFF_INTERVIEW', 'SUBSIDY_INTERVIEW'];
   if (search.length > 160 || requestedTypes.length > pastSessionTypes.length + excludedTypes.length ||

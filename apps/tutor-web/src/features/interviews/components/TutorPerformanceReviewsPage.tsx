@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, Eye, FileText, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Badge, Button, DataTable, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
-  RichTextEditorBottomToolbar, SearchableSelect, SmartDatePickerField, TablePagination, type JSONContent,
+  Badge, Button, DataTable, editorJsonSignature, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
+  SearchableSelect, SmartDatePickerField, TablePagination, type JSONContent,
 } from "@altitutor/ui";
 import { formatInterviewReviewDate as reviewDate, performanceReviewPath as reviewRoot, tutorDefaultDisplaySettings,
   type DataTableColumnDefinition, type DataTableFilterDefinition, type InterviewReviewFields,
@@ -30,6 +30,7 @@ const rootCrumbs = [{ label: "Interviews", href: "/interviews" }, { label: "Perf
 type Editor = Parameters<NonNullable<ComponentProps<typeof RichTextEditor>["onEditorReady"]>>[0];
 
 const reviewColumns: DataTableColumnDefinition[] = [
+  { key: "title", label: "Title", visibleByDefault: true },
   { key: "date", label: "Date", visibleByDefault: true },
   { key: "student", label: "Student", visibleByDefault: true },
   { key: "tutor", label: "Tutor", visibleByDefault: true },
@@ -47,13 +48,13 @@ function reviewStatus(review: ReviewSummary) {
 }
 
 
-function UnsavedReviewGuard() {
+function UnsavedReviewGuard({ template = false }: { template?: boolean }) {
   const guard = useInterviewLeaveGuard();
   return (
     <TutorDialogShell open={guard.open} onOpenChange={(open) => { if (!open) guard.cancel(); }}
       title="Leave without saving?" description="Changes since your last save will be lost." size="compact"
       footer={<><Button variant="outline" onClick={guard.cancel}>Keep editing</Button><Button onClick={guard.leave}>Discard changes</Button></>}>
-      <p className="text-sm text-muted-foreground">Save your draft to resume editing later.</p>
+      <p className="text-sm text-muted-foreground">{template ? "Save your template to resume editing later." : "Save your draft to resume editing later."}</p>
     </TutorDialogShell>
   );
 }
@@ -63,7 +64,7 @@ function ReviewPreviewDialog({ review, close }: { review: ReviewSummary | null; 
   const content = record.data?.published?.body ?? record.data?.body;
   return (
     <TutorDialogShell open={Boolean(review)} onOpenChange={(open) => { if (!open) close(); }}
-      title={review ? reviewStatus(review) + " performance review" : "Performance review"}
+      title={(review?.published ?? review)?.title || "Performance review"}
       description={review ? [review.student, reviewDate((review.published ?? review).date), review.author].filter(Boolean).join(" · ") : undefined}>
       <div className="h-full overflow-y-auto">
         {content ? <RichTextEditor allowMedia={false} content={content as JSONContent} editable={false} autoHeight /> :
@@ -84,7 +85,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
   const [preview, setPreview] = useState<ReviewSummary | null>(null);
   const [inserting, setInserting] = useState(false);
   const [draft, setDraft] = useState<InterviewReviewFields>({
-    studentId: record.studentId, date: record.date, template: record.template, body: record.body,
+    studentId: record.studentId, date: record.date, template: record.template, title: record.title ?? "", body: record.body,
   });
   const [version, setVersion] = useState(record.version);
   const [dirty, setDirty] = useState(false);
@@ -106,7 +107,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
       const saved = await readInterviewReviewTemplate(template.id);
       if (editor.isDestroyed) return;
       editor.chain().focus().insertContent((saved.body as JSONContent).content ?? []).run();
-      update({ template: saved.name });
+      update({ template: saved.name, ...(saved.title ? { title: saved.title } : {}) });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to load template.");
     } finally {
@@ -138,7 +139,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
 
   return (
     <>
-      <InterviewPageHeader title="Performance review" backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Review" }]}
+      <InterviewPageHeader title={review.title?.trim() || "Performance review"} backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Review" }]}
         actions={editable && <div className="flex flex-wrap gap-2">
           <Button variant="outline" className={tutorBtnOutline} disabled={!dirty || !review.date || command.isPending || inserting} onClick={() => void save(false)}>Save draft</Button>
           <Button className={tutorBtnPrimary} disabled={!canPublish || command.isPending || inserting} onClick={() => setPublishing(true)}>{review.published ? "Publish correction" : "Publish"}</Button>
@@ -177,6 +178,12 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
               <section className={tutorCardCn("space-y-3 p-4")}>
                 <h2 className="font-semibold">Properties</h2>
                 <div className="space-y-1.5">
+                  <Label htmlFor="review-title">Title (optional)</Label>
+                  <Input id="review-title" value={review.title ?? ""} maxLength={160}
+                    onChange={(event) => update({ title: event.target.value })}
+                    readOnly={!editable} disabled={command.isPending || inserting} placeholder="Performance review" />
+                </div>
+                <div className="space-y-1.5">
                   <Label>Student</Label>
                   <SearchableSelect ariaLabel="Student" items={students} value={student} onValueChange={(item) => update({ studentId: item?.id ?? null })}
                     getItemLabel={(item) => item.name} getItemId={(item) => item.id} placeholder="Select student"
@@ -199,7 +206,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
                   <h2 className="font-semibold">Previous performance reviews</h2>
                   {previous.map((item) => <button key={item.id} type="button" onClick={() => setPreview(item)}
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted">
-                    <span><strong className="block">{reviewDate(item.published?.date ?? "")}</strong><span className="text-muted-foreground">{item.published?.template || "Performance review"} · {item.author}</span></span>
+                    <span><strong className="block">{reviewDate(item.published?.date ?? "")}</strong><span className="text-muted-foreground">{item.published?.title || item.published?.template || "Performance review"} · {item.author}</span></span>
                     <Eye className="size-4 shrink-0 text-muted-foreground" />
                   </button>)}
                 </section>
@@ -221,24 +228,41 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
 }
 
 function TemplateEditor({ template, save, pending }: { template: Template; save: (template: Template) => void; pending: boolean }) {
-  const [id] = useState(() => template.id || crypto.randomUUID());
-  const [name, setName] = useState(template.name);
-  const [body, setBody] = useState(template.body);
+  const [baseline] = useState(template);
+  const [id] = useState(() => baseline.id || crypto.randomUUID());
+  const [name, setName] = useState(baseline.name);
+  const [title, setTitle] = useState(baseline.title ?? "");
+  const [body, setBody] = useState(baseline.body);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const dirty = name !== baseline.name || title !== (baseline.title ?? "") ||
+    editorJsonSignature(body) !== editorJsonSignature(baseline.body);
   return (
     <>
-      <InterviewPageHeader title={template.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
+      <InterviewPageHeader title={baseline.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
         breadcrumbs={[...rootCrumbs, { label: "Templates", href: reviewRoot + "/templates" }, { label: "Template" }]}
-        actions={<Button className={tutorBtnPrimary} disabled={pending || !name.trim() || !editor?.getText().trim()}
-          onClick={() => save({ ...template, id, name: name.trim(), body })}>Save template</Button>} />
-      <section className={tutorCardCn("max-w-4xl overflow-hidden")}>
-        <div className="space-y-2 border-b p-4"><Label htmlFor="template-name">Template name</Label>
-          <Input id="template-name" value={name} maxLength={160} disabled={pending} onChange={(event) => setName(event.target.value)} placeholder="Template name" />
-        </div>
-        <div className="border-b bg-muted/20 p-2"><RichTextEditorBottomToolbar editor={editor} variant="plain" /></div>
-        <div className="p-4"><RichTextEditor allowMedia={false} content={body as JSONContent} onChange={(value) => setBody(value as Json)} onEditorReady={setEditor} editable={!pending} autoHeight
-          className="[&_.ProseMirror]:min-h-72" placeholder="Write the starting content for this template…" /></div>
-      </section>
+        actions={<Button className={tutorBtnPrimary} disabled={pending || !dirty || !name.trim() || !editor?.getText().trim()}
+          onClick={() => save({ ...baseline, id, name: name.trim(), title: title.trim(), body })}>Save template</Button>} />
+      {dirty && <UnsavedReviewGuard template />}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="min-h-[calc(100dvh-12rem)] min-w-0 pb-20" data-rich-text-toolbar-container aria-label="Template document">
+          <RichTextEditor allowMedia={false} content={body as JSONContent} onChange={(value) => setBody(value as Json)}
+            onChangeDebounceMs={0} onEditorReady={setEditor} editable={!pending} autoHeight floatingToolbar
+            className="border-0 bg-transparent p-0 [&_.ProseMirror]:min-h-72"
+            placeholder="Write the starting content for this template…" />
+        </section>
+        <aside className={tutorCardCn("order-first space-y-4 p-4 lg:order-none")} aria-label="Template properties">
+          <h2 className="font-semibold">Properties</h2>
+          <div className="space-y-2">
+            <Label htmlFor="template-name">Template name</Label>
+            <Input id="template-name" value={name} maxLength={160} disabled={pending} onChange={(event) => setName(event.target.value)} placeholder="Template name" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="template-review-title">Review title (optional)</Label>
+            <Input id="template-review-title" value={title} maxLength={160} disabled={pending}
+              onChange={(event) => setTitle(event.target.value)} placeholder="Prefill the review title" />
+          </div>
+        </aside>
+      </div>
     </>
   );
 }
@@ -254,6 +278,8 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
   const { reviews = [], templates = [], students = [] } = workspace.data ?? {};
   const authorId = staff.data?.id ?? undefined;
   const table = useInterviewTable(reviewColumnKeys);
+  const templateTable = useInterviewTable([]);
+  const pagedTemplates = pageRows(templates, templateTable.state.page, templateTable.state.pageSize);
   const [viewing, setViewing] = useState<ReviewSummary | null>(null);
   const reviewRecord = useInterviewReview(access.data && path[0] !== "templates" ? path[0] : undefined);
   const templateRecord = useInterviewReviewTemplate(access.data && path[0] === "templates" && path[1] !== "new" ? path[1] : undefined);
@@ -287,9 +313,10 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
     matchesMulti(filters, "tutor", review.authorId) &&
     matchesMulti(filters, "template", review.template || noTemplate) &&
     matchesMulti(filters, "status", reviewStatus(review)) &&
-    [review.student, review.author, review.template, reviewStatus(review), reviewDate(review.date)]
+    [review.title, review.student, review.author, review.template, reviewStatus(review), reviewDate(review.date)]
       .some((value) => value?.toLowerCase().includes(query)),
   ), table.state, "date", {
+    title: (review) => review.title ?? "",
     date: (review) => review.date,
     student: (review) => review.student ?? "",
     tutor: (review) => review.author,
@@ -327,19 +354,22 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
     <TutorPageContainer className="space-y-6">
       {path[0] === "templates" ? template ? (
         <TemplateEditor key={path[1]} template={template} pending={command.isPending} save={(saved) => {
-          void command.mutateAsync({ type: "saveTemplate", id: saved.id, expectedVersion: saved.version, name: saved.name, body: saved.body })
+          void command.mutateAsync({ type: "saveTemplate", id: saved.id, expectedVersion: saved.version, name: saved.name, title: saved.title ?? "", body: saved.body })
             .then(() => { go("/templates"); toast.success("Template saved"); })
             .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Unable to save template."));
         }} />
       ) : <>
         <InterviewPageHeader title="Performance review templates" backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Templates" }]}
           actions={<Button className={tutorBtnPrimary} onClick={() => go("/templates/new")}><Plus className="size-4" /> New template</Button>} />
-        <DataTable {...tutorDataTableProps} data={templates} columns={[
+        <DataTable {...tutorDataTableProps} pagination="external" data={pagedTemplates.rows} columns={[
           { accessorKey: "name", header: "Template" },
-          { id: "actions", header: "Actions", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions label="Actions" actions={[
+          { id: "actions", header: "", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions actions={[
             { label: "Edit template", icon: <Pencil className="size-4" />, onClick: () => go("/templates/" + row.original.id) },
           ]} /></div> },
         ]} />
+        {pagedTemplates.total > 0 && <TablePagination page={pagedTemplates.page} pageSize={templateTable.state.pageSize} total={pagedTemplates.total}
+          onPageChange={templateTable.actions.onPageChange} onPageSizeChange={templateTable.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]} className="pt-3" />}
       </> : selected ? (
         <ReviewEditor key={selected.id} record={selected} reviews={reviews} templates={templates} students={students} authorId={authorId} />
       ) : <>
@@ -368,6 +398,7 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
         />
         <DataTable {...tutorDataTableProps} pagination="external" data={paged.rows} columns={[
           ...[
+            { id: "title", header: "Title", cell: ({ row }: { row: { original: ReviewSummary } }) => row.original.title || "Performance review" },
             { id: "date", header: "Date", cell: ({ row }: { row: { original: ReviewSummary } }) => reviewDate(row.original.date) },
             { id: "student", header: "Student", cell: ({ row }: { row: { original: ReviewSummary } }) => row.original.student ?? "No student selected" },
             { id: "tutor", header: "Tutor", cell: ({ row }: { row: { original: ReviewSummary } }) => row.original.author },
@@ -380,7 +411,7 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
               </div>
             ) },
           ].filter((column) => visible.has(column.id)),
-          { id: "actions", header: "Actions", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions label="Actions" actions={[
+          { id: "actions", header: "", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions actions={[
             { label: "View", icon: <Eye className="size-4" />, onClick: () => setViewing(row.original) },
             ...(row.original.authorId === authorId ? [{ label: "Edit", icon: <Pencil className="size-4" />, onClick: () => go("/" + row.original.id) }] : []),
           ]} /></div> },

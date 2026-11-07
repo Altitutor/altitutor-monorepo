@@ -6,8 +6,11 @@ export interface InterviewVideoSources {
 }
 
 const frameRate = 12;
-const tileWidth = 320;
+const frameWidth = 640;
 const frameHeight = 360;
+const insetWidth = 160;
+const insetHeight = 90;
+const insetMargin = 12;
 const unsupportedMessage =
   "This browser does not support recording online interview video.";
 
@@ -38,6 +41,9 @@ function drawVideo(
   drawing: CanvasRenderingContext2D,
   input: VideoInput | null,
   left: number,
+  top: number,
+  width: number,
+  height: number,
 ) {
   if (!input) return;
   const { track, element } = input;
@@ -50,16 +56,17 @@ function drawVideo(
     !element.videoHeight
   )
     return;
-  const scale = Math.min(
-    tileWidth / element.videoWidth,
-    frameHeight / element.videoHeight,
-  );
-  const width = element.videoWidth * scale;
-  const height = element.videoHeight * scale;
+  const scale = Math.max(width / element.videoWidth, height / element.videoHeight);
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
   drawing.drawImage(
     element,
-    left + (tileWidth - width) / 2,
-    (frameHeight - height) / 2,
+    (element.videoWidth - sourceWidth) / 2,
+    (element.videoHeight - sourceHeight) / 2,
+    sourceWidth,
+    sourceHeight,
+    left,
+    top,
     width,
     height,
   );
@@ -72,7 +79,7 @@ export function createInterviewVideoCompositor() {
     (window as Window & { webkitAudioContext?: typeof AudioContext })
       .webkitAudioContext;
   const canvas = document.createElement("canvas");
-  canvas.width = 2 * tileWidth;
+  canvas.width = frameWidth;
   canvas.height = frameHeight;
   const drawing = canvas.getContext("2d", { alpha: false });
   if (!drawing || !AudioContextCtor || !canvas.captureStream)
@@ -115,8 +122,8 @@ export function createInterviewVideoCompositor() {
   const paint = () => {
     drawing.fillStyle = "#000";
     drawing.fillRect(0, 0, canvas.width, canvas.height);
-    drawVideo(drawing, local, 0);
-    drawVideo(drawing, remote, tileWidth);
+    drawVideo(drawing, remote, 0, 0, frameWidth, frameHeight);
+    drawVideo(drawing, local, frameWidth - insetWidth - insetMargin, frameHeight - insetHeight - insetMargin, insetWidth, insetHeight);
   };
   paint();
   const timer = window.setInterval(paint, 1000 / frameRate);

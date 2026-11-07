@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
-import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
+import { adelaideMidnight, readCalendarDay } from '@/shared/utils/datetime';
 import { parseSessionParentList, parseSessionStaffList, parseSessionStudentList } from '@/features/sessions/utils/parseSessionDetailJson';
 import { TeachingError } from './auth';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
@@ -24,12 +24,12 @@ async function allRows<T>(query: (start: number, end: number) => PromiseLike<{ d
 }
 
 export async function teachingSessions(client: Client, day: string) {
-  const date = new Date(day + 'T00:00:00Z');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) {
-    throw new TeachingError(400, 'Choose a valid lesson date.');
-  }
+  const date = readCalendarDay(day);
+  if (!date) throw new TeachingError(400, 'Choose a valid lesson date.');
+  const nextDay = new Date(date);
+  nextDay.setUTCDate(date.getUTCDate() + 1);
   const { data, error } = await client.from('vtutor_operational_session_detail').select('*')
-    .gte('start_at', dateStringToUtcStart(day)).lte('start_at', dateStringToUtcEnd(day)).order('start_at');
+    .gte('start_at', adelaideMidnight(date)).lt('start_at', adelaideMidnight(nextDay)).order('start_at');
   check(error);
   const rows = (data ?? []).filter(row => row.session_id && row.start_at && row.end_at);
   const logs = rows.length ? await client.from('vtutor_tutor_log').select('session_id,tutor_log_id')
@@ -119,7 +119,8 @@ export async function teachingResources(client: Client, params: URLSearchParams)
     if (!file.id || !topic?.id || !subject?.id) return [];
     const answer = solutions.data?.find(s => s.is_solutions_of_id === file.id);
     return [{ id: file.id, topicID: topic.id, topicName: topic.name ?? 'Topic', subjectID: subject.id,
-      subjectName: subject.name ?? 'Subject', worksheet: document(file), solutions: answer ? document(answer) : null }];
+      subjectName: subject.name ?? 'Subject', resourceType: file.type, resourceIndex: file.index,
+      worksheet: document(file), solutions: answer ? document(answer) : null }];
   }), nextOffset };
 }
 

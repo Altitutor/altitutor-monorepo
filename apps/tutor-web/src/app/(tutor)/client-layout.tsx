@@ -216,6 +216,7 @@ function isInterviewDropdownChildActive(pathname: string, href: string): boolean
     if (
       pathname.startsWith('/interviews/stations') ||
       pathname.startsWith('/interviews/rounds') ||
+      isNavLinkActive(pathname, '/interviews/performance-reviews') ||
       pathname.startsWith('/interviews/station-categories') ||
       pathname.startsWith('/interviews/question-tags') ||
       pathname === '/interviews'

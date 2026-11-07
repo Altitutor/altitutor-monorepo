@@ -8,9 +8,14 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { cn } from "../lib/cn";
 
-function ReviewDisclosure({ title, detail, children }: { title: ReactNode; detail?: ReactNode; children: ReactNode }) {
+export function InterviewReviewDisclosure({ title, detail, children, defaultOpen = false }: {
+  title: ReactNode;
+  detail?: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
       <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}
@@ -37,9 +42,9 @@ function scoreLabel(score: number | null, maximum: number | null) {
   return score === null ? "—" : maximum === null ? String(score) : `${score} / ${maximum}`;
 }
 
-export function InterviewReviewMockHistory({ round, resultHref }: { round: InterviewReviewMock; resultHref?: string }) {
+export function InterviewReviewMockHistory({ round, resultHref, resultButtonClassName }: { round: InterviewReviewMock; resultHref?: string; resultButtonClassName?: string }) {
   return (
-    <ReviewDisclosure detail={<strong>{scoreLabel(round.score, round.maximumPoints)}</strong>}
+    <InterviewReviewDisclosure detail={<strong>{scoreLabel(round.score, round.maximumPoints)}</strong>}
       title={<>
         <strong className="block">{round.title}</strong>
         <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -48,19 +53,19 @@ export function InterviewReviewMockHistory({ round, resultHref }: { round: Inter
         </span>
       </>}>
       {round.stations.map((station, index) => (
-        <ReviewDisclosure key={station.id} title={<strong className="font-medium">{station.name || `Station ${index + 1}`}</strong>}
+        <InterviewReviewDisclosure key={station.id} title={<strong className="font-medium">{station.name || `Station ${index + 1}`}</strong>}
           detail={<span className="text-muted-foreground">{scoreLabel(station.score, station.maximumPoints)}</span>}>
           {station.notAssessedReason && <p className="px-2 py-1 text-sm text-muted-foreground">{station.notAssessedReason}</p>}
           <Feedback content={station.feedback} />
           {station.questions.map((question, questionIndex) => (
-            <ReviewDisclosure key={question.id} title={<span className="text-xs"><strong>Q{questionIndex + 1}</strong> · {interviewText(question.title)}</span>}>
+            <InterviewReviewDisclosure key={question.id} title={<span className="text-xs"><strong>Q{questionIndex + 1}</strong> · {interviewText(question.title)}</span>}>
               {interviewText(question.feedback).trim() ? <Feedback content={question.feedback} /> :
                 <p className="px-2 py-1 text-xs text-muted-foreground">No written feedback.</p>}
-            </ReviewDisclosure>
+            </InterviewReviewDisclosure>
           ))}
-        </ReviewDisclosure>
+        </InterviewReviewDisclosure>
       ))}
-      {resultHref && <div className="px-2 py-1"><Button asChild variant="outline" size="sm"><Link href={resultHref}>View mock</Link></Button></div>}
-    </ReviewDisclosure>
+      {resultHref && <div className="px-2 py-1"><Button asChild variant="outline" size="sm" className={resultButtonClassName}><Link href={resultHref}>View mock</Link></Button></div>}
+    </InterviewReviewDisclosure>
   );
 }
