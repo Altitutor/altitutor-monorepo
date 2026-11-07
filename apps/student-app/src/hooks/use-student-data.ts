@@ -13,6 +13,30 @@ export const studentKeys = {
   subjects: ['student', 'resources', 'subjects'] as const,
 };
 
+export function useCalendarSessions(fromIso: string, toIso: string) {
+  return useQuery({
+    queryKey: ['student', 'calendar', fromIso, toIso],
+    queryFn: () => studentApi.listCalendarSessions(fromIso, toIso),
+  });
+}
+
+export function useSessionAttendance(sessionId: string) {
+  return useQuery({
+    queryKey: ['student', 'sessions', sessionId, 'attendance'],
+    queryFn: () => studentApi.getSessionAttendance(sessionId),
+    enabled: Boolean(sessionId),
+  });
+}
+
+export function useSubjectCovers(subjectIds: string[]) {
+  return useQuery({
+    queryKey: ['student', 'resources', 'covers', subjectIds],
+    queryFn: () => studentApi.listSubjectCovers(subjectIds),
+    enabled: subjectIds.length > 0,
+    staleTime: 45 * 60_000,
+  });
+}
+
 export function useUpcomingSessions() {
   return useQuery({ queryKey: studentKeys.sessions, queryFn: studentApi.listUpcomingSessions });
 }

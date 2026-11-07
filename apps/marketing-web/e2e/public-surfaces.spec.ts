@@ -33,6 +33,44 @@ test("header course menus work after scrolling", async ({ page }) => {
   await expect(onlineMenu).toBeHidden();
 });
 
+test("ArrowDown focuses a course after dismissing the other menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/about/");
+  await page.mouse.wheel(0, 1000);
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(72);
+
+  const online = page.getByRole("button", {
+    name: "Online courses",
+    exact: true,
+  });
+  for (let i = 0; i < 12; i++) {
+    if (await online.evaluate((button) => button === document.activeElement)) {
+      break;
+    }
+    await page.keyboard.press("Tab");
+  }
+  await expect(online).toBeFocused();
+  await expect(online).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(online).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("[data-desktop-panel]")).toHaveCSS(
+    "visibility",
+    "hidden",
+  );
+
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("ArrowDown");
+  const inPersonMenu = page.getByRole("navigation", {
+    name: "In person courses",
+    exact: true,
+  });
+  await expect(inPersonMenu.getByRole("link").first()).toBeFocused();
+});
+
 test("page section chips navigate after scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/about/");

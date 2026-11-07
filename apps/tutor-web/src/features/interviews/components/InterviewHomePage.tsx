@@ -3,6 +3,7 @@
 import {
   Calendar,
   FileQuestion,
+  FileText,
   FolderTree,
   Layers,
   Tag,
@@ -29,6 +30,12 @@ const sections: { heading: string; cards: InterviewNavCard[] }[] = [
         description: "Schedule rounds, edit setup, and open the waiting room",
         href: "/interviews/rounds",
         icon: Calendar,
+      },
+      {
+        title: "Performance reviews",
+        description: "Write and publish student feedback and next steps",
+        href: "/interviews/performance-reviews",
+        icon: FileText,
       },
     ],
   },

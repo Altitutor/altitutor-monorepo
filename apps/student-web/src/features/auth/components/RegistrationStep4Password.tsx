@@ -13,13 +13,20 @@ import type { RegistrationFormValues } from '../validations';
 
 interface RegistrationStep4PasswordProps {
   form: UseFormReturn<RegistrationFormValues>;
-  skipPassword?: boolean; // If true, user is signing in with existing password
+  skipPassword?: boolean; // Existing accounts retain their sign-in methods.
 }
 
 export function RegistrationStep4Password({
   form,
   skipPassword = false,
 }: RegistrationStep4PasswordProps) {
+  if (skipPassword) return (
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold">Keep your existing login</h3>
+      <p className="text-sm text-muted-foreground">In-person registration uses your existing account. Your password and connected sign-in methods stay the same.</p>
+      <p className="text-sm text-muted-foreground">If you signed up with Google or Apple and need a password for the student portal, use Forgot password after registration.</p>
+    </div>
+  );
   return (
     <div className="space-y-6">
       <div>

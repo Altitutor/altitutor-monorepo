@@ -5,11 +5,11 @@ import Link from "next/link";
 import { format } from "date-fns";
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   InterviewRoundCalendarCard,
   TimedCalendar,
 } from "@altitutor/ui";
@@ -20,7 +20,7 @@ import { useInterviewCalendarRounds } from "../hooks/use-interviews";
 import { interviewResultsHref, interviewRoomHref } from "../lib/routes";
 
 type Entry =
-  | { kind: "round"; round: StudentInterviewRound }
+  | { kind: "round"; round: StudentInterviewRound; start: string; end: string }
   | { kind: "session"; session: StudentSessionWithStaff };
 
 export function StudentInterviewCalendar({
@@ -48,21 +48,22 @@ export function StudentInterviewCalendar({
           ]
         : [],
     ),
-    ...(query.data ?? []).flatMap((r) =>
-      r.scheduledAt
-        ? [
-            {
-              id: `round:${r.id}`,
-              startAt: r.scheduledAt,
-              // Older deployments may not yet include the additive projected end estimate.
-              endAt:
-                r.scheduledEndAt ??
-                new Date(Date.parse(r.scheduledAt) + 30 * 60_000).toISOString(),
-              value: { kind: "round" as const, round: r },
-            },
-          ]
-        : [],
-    ),
+    ...(query.data ?? []).flatMap((round) => {
+      const start = round.scheduledAt;
+      if (!start) return [];
+      // Older deployments may not yet include the projected end estimate.
+      const end =
+        round.scheduledEndAt ??
+        new Date(Date.parse(start) + 30 * 60_000).toISOString();
+      return [
+        {
+          id: `round:${round.id}`,
+          startAt: start,
+          endAt: end,
+          value: { kind: "round" as const, round, start, end },
+        },
+      ];
+    }),
   ];
   const hasVisibleEvents = dates.some((date) => {
     const start = new Date(date).setHours(0, 0, 0, 0);
@@ -106,7 +107,7 @@ export function StudentInterviewCalendar({
           entry.kind === "round" ? (
             <InterviewRoundCalendarCard
               name={entry.round.name}
-              start={entry.round.scheduledAt!}
+              tooltipRange={entry}
               onClick={() => setSelectedId(entry.round.id)}
             />
           ) : (
@@ -127,19 +128,21 @@ export function StudentInterviewCalendar({
           )
         }
       />
-      <Dialog
+      <Sheet
         open={!!round}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
         }}
       >
-        <DialogContent>
+        <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto rounded-l-2xl border-0 p-6 shadow-2xl sm:max-w-[600px]">
           {round && (
             <>
-              <DialogHeader>
-                <DialogTitle>{round.name}</DialogTitle>
-                <DialogDescription>Interview round</DialogDescription>
-              </DialogHeader>
+              <SheetHeader>
+                <SheetTitle>Interview details</SheetTitle>
+                <SheetDescription className="text-lg font-medium">
+                  {round.name}
+                </SheetDescription>
+              </SheetHeader>
               <p className="text-sm">
                 {round.scheduledAt &&
                   format(
@@ -178,8 +181,8 @@ export function StudentInterviewCalendar({
               )}
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

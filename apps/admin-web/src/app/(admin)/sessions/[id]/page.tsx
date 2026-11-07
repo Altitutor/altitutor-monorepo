@@ -1,4 +1,5 @@
 "use client";
+import { EntityPropertiesLayout, EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
 import { useState, use } from "react";
@@ -21,6 +22,7 @@ import type { Tables, TablesUpdate } from "@altitutor/shared";
 import { defaultCheckInSessionsStaffType } from "@altitutor/shared/pay-tiers";
 import { formatSessionTimeRangeForDisplay } from "@altitutor/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { FormResponseCommands } from "@/features/forms/components/FormResponseCommands";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
@@ -194,7 +196,7 @@ function SessionDetailView({ id }: { id: string }) {
     });
 
   // UI state
-  const [activeTab, setActiveTab] = useState("details");
+  const [activeTab, setActiveTab] = useState("activity");
 
   // Session helpers
   const helpers = useSessionHelpers({
@@ -219,7 +221,6 @@ function SessionDetailView({ id }: { id: string }) {
     setIsEditing(false);
     setPendingSaveData(null);
     setUndoTarget(null);
-    setActiveTab("details");
     router.push(`/sessions/${sessionId}`);
   };
 
@@ -413,47 +414,10 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col" : "p-4"}>
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
-
-        <IssuePill entityType="session" entityId={id} enabled />
-
-        <ActionsMenu
-          type="session"
-          entityId={session.id}
-          copyTagDisplayText={sessionTitle || session.id}
-          {...sessionActions}
-          sessionType={session.type}
-          sessionStudents={studentsData.map(
-            (d: {
-              student: { id: string; first_name: string; last_name: string };
-            }) => ({
-              id: d.student.id,
-              name: `${d.student.first_name} ${d.student.last_name}`,
-            }),
-          )}
-          onSendBookingConfirmation={modals.openBookingConfirmationDialog}
-        />
-      </div>
-
-      {/* Sections */}
-      <SegmentedTabPanel
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className={isEditing ? "space-y-6 flex-1" : "space-y-6"}
-        options={[
-          { value: "details", label: "Details" },
-          { value: "activity", label: "Activity" },
-        ]}
-      >
-        <SegmentedTabPanelContent
-          when="details"
-          activeTab={activeTab}
-          className="space-y-6"
-        >
-          <SessionDetailsTab
+    <EntityPropertiesLayout id="session-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm font-medium">Properties</div>
+      <div className="space-y-6 p-4">
+        <SessionDetailsTab
             key={`session-details-${id}-${isEditing}`}
             session={session}
             dayNavigation={
@@ -662,18 +626,7 @@ function SessionDetailView({ id }: { id: string }) {
             }
           />
           {meetingMode && <SessionFiles sessionId={id} />}
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent
-          when="activity"
-          activeTab={activeTab}
-          className="space-y-6"
-        >
-          <SessionActivityTab sessionId={id} isOpen={true} />
-        </SegmentedTabPanelContent>
-      </SegmentedTabPanel>
-
-      {isEditing && activeTab === "details" && (
+        {isEditing && (
         <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex justify-end gap-2 border-t bg-background px-4 py-4">
           <Button
             variant="outline"
@@ -691,6 +644,53 @@ function SessionDetailView({ id }: { id: string }) {
           </Button>
         </div>
       )}
+      </div>
+</>}>
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
+        <EntityPropertiesToggle />
+
+        <IssuePill entityType="session" entityId={id} enabled />
+
+        <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
+        <ActionsMenu
+          type="session"
+          entityId={session.id}
+          copyTagDisplayText={sessionTitle || session.id}
+          {...sessionActions}
+          sessionType={session.type}
+          sessionStudents={studentsData.map(
+            (d: {
+              student: { id: string; first_name: string; last_name: string };
+            }) => ({
+              id: d.student.id,
+              name: `${d.student.first_name} ${d.student.last_name}`,
+            }),
+          )}
+          onSendBookingConfirmation={modals.openBookingConfirmationDialog}
+        />
+      </div>
+
+      {/* Sections */}
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className={isEditing ? "space-y-6 flex-1" : "space-y-6"}
+        options={[{ value: "activity", label: "Activity" }]}
+      >
+        
+
+        <SegmentedTabPanelContent
+          when="activity"
+          activeTab={activeTab}
+          className="space-y-6"
+        >
+          <SessionActivityTab sessionId={id} isOpen={true} />
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
+
+      
       {/* Save confirmation dialog */}
       <AlertDialog
         open={!!pendingSaveData}
@@ -967,5 +967,7 @@ function SessionDetailView({ id }: { id: string }) {
         />
       )}
     </div>
+
+    </EntityPropertiesLayout>
   );
 }

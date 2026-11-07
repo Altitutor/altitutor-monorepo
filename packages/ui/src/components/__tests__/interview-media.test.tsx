@@ -2,6 +2,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { InterviewMedia } from "../interview-media";
+import { useInterviewCapture } from "../../hooks/use-interview-capture";
 import type { InterviewMediaTicket } from "@altitutor/shared";
 import type { DailyParticipant } from "@daily-co/daily-js";
 
@@ -58,6 +59,9 @@ const mockCall = {
   setInputDevicesAsync: mockSetInputDevices,
   updateInputSettings: mockUpdateInputSettings,
 };
+jest.mock("../../hooks/use-interview-capture", () => ({
+  useInterviewCapture: jest.fn(),
+}));
 jest.mock("@daily-co/daily-js", () => ({
   __esModule: true,
   default: { createCallObject: (...args: unknown[]) => mockCreate(...args) },
@@ -186,6 +190,57 @@ function meterFixture() {
   });
   return { context, frame };
 }
+
+it("observes a selected station without requesting or publishing local devices", async () => {
+  jest
+    .mocked(fetch)
+    .mockResolvedValue(
+      response({ ...ticket, canSend: false, canReceive: true }),
+    );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      stationId="station"
+      phase="questions"
+      delivery="online"
+      role="admin"
+      enabled
+    />,
+  );
+  expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  expect(mockStartCamera).not.toHaveBeenCalled();
+  expect(mockJoin).toHaveBeenCalledWith(
+    expect.objectContaining({ startAudioOff: true, startVideoOff: true }),
+  );
+  expect(String(jest.mocked(fetch).mock.calls[0]?.[0])).toContain(
+    "stationId=station",
+  );
+  expect(container.querySelector('[aria-label="Mute"]')).toBeNull();
+  expect(mockAudio).toHaveBeenLastCalledWith(false);
+  expect(mockVideo).toHaveBeenLastCalledWith(false);
+});
+
+it("refreshes a revoked phase capability promptly instead of waiting for the regular poll", async () => {
+  jest.useFakeTimers();
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+    />,
+  );
+  await waitFor(() => expect(mockJoin).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    mockListeners.get("error")?.({ error: { type: "ejected" } });
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    jest.advanceTimersByTime(100);
+  });
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  expect(mockJoin).toHaveBeenCalledTimes(2);
+});
 
 it("keeps interview controls usable if the decorative microphone meter cannot initialize", async () => {
   meterFixture();
@@ -1164,14 +1219,12 @@ it("keeps recovery working when a reporter throws", async () => {
 it("reports sustained media-policy recovery failures without adding a polling loop", async () => {
   jest.useFakeTimers();
   const report = jest.fn();
-  global.fetch = jest
-    .fn()
-    .mockResolvedValue(
-      response({
-        ...ticket,
-        expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      }),
-    );
+  global.fetch = jest.fn().mockResolvedValue(
+    response({
+      ...ticket,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    }),
+  );
   await render(
     <InterviewMedia
       roundId="round"
@@ -1198,20 +1251,125 @@ it("reports sustained media-policy recovery failures without adding a polling lo
   });
 });
 
-it('does not report provider ejection during an intentional station cutoff', async () => {
+it("does not report provider ejection during an intentional station cutoff", async () => {
   const report = jest.fn();
-  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
-  await act(async () => mockListeners.get('error')?.({ error: { type: 'ejected' } }));
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      enabled
+      onCallFailure={report}
+    />,
+  );
+  await act(async () =>
+    mockListeners.get("error")?.({ error: { type: "ejected" } }),
+  );
   expect(report).not.toHaveBeenCalled();
 });
 
+it.each([400, 403, 429])(
+  "reports sustained unexpected media-policy HTTP %s failures",
+  async (status) => {
+    jest.useFakeTimers();
+    const report = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({ error: "private response" }),
+    });
+    await render(
+      <InterviewMedia
+        roundId="round"
+        phase="questions"
+        delivery="online"
+        enabled
+        onCallFailure={report}
+      />,
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_000);
+    });
+    expect(report).toHaveBeenCalledWith({
+      source: "recovery",
+      category: "unknown",
+      phase: "questions",
+      state: "joining",
+    });
+    expect(JSON.stringify(report.mock.calls)).not.toContain("private");
+  },
+);
 
-it.each([400, 403, 429])("reports sustained unexpected media-policy HTTP %s failures", async (status) => {
-  jest.useFakeTimers();
-  const report = jest.fn();
-  global.fetch = jest.fn().mockResolvedValue({ok: false, status, json: async () => ({error: "private response"})});
-  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled onCallFailure={report} />);
-  await act(async () => { await jest.advanceTimersByTimeAsync(20_000); });
-  expect(report).toHaveBeenCalledWith({source: "recovery", category: "unknown", phase: "questions", state: "joining"});
-  expect(JSON.stringify(report.mock.calls)).not.toContain("private");
+it("records the assigned student when a receive-only observer is listed first", async () => {
+  const capture = jest.mocked(useInterviewCapture).mockReturnValue({
+    microphoneEnabled: false,
+    micStream: null,
+    recording: false,
+    serverRecording: true,
+    pendingCount: 0,
+    downloadRecording: null,
+    error: "",
+    audioBlocked: false,
+    resumeAudio: jest.fn(),
+    toggle: jest.fn(),
+    retryCapture: jest.fn(),
+  });
+  const studentVideo = { id: "student-video" } as MediaStreamTrack;
+  const studentAudio = { id: "student-audio" } as MediaStreamTrack;
+  Object.defineProperty(globalThis, "MediaStream", {
+    configurable: true,
+    value: jest.fn(),
+  });
+  mockParticipants.mockReturnValue({
+    observer: {
+      session_id: "observer",
+      user_id: "admin",
+      local: false,
+      tracks: { audio: { state: "off" }, video: { state: "off" } },
+    } as unknown as DailyParticipant,
+    student: {
+      session_id: "student",
+      user_id: "assigned-student",
+      local: false,
+      tracks: {
+        audio: { state: "playable", persistentTrack: studentAudio },
+        video: { state: "playable", persistentTrack: studentVideo },
+      },
+    } as unknown as DailyParticipant,
+  });
+  jest.mocked(fetch).mockResolvedValue(
+    response({
+      ...ticket,
+      attemptId: "attempt-1",
+      canReceive: true,
+      recordingEnabled: true,
+    }),
+  );
+  await render(
+    <InterviewMedia
+      roundId="round"
+      phase="questions"
+      delivery="online"
+      role="tutor"
+      enabled
+      onlineRecording={{ studentId: "assigned-student" }}
+    />,
+  );
+  await waitFor(() =>
+    expect(capture).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        video: {
+          sources: {
+            attemptId: "attempt-1",
+            tracks: {
+              localVideo: null,
+              localAudio: null,
+              remoteVideo: studentVideo,
+              remoteAudio: studentAudio,
+            },
+          },
+        },
+      }),
+    ),
+  );
 });

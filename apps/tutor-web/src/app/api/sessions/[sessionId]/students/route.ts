@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ sess
     }
     
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

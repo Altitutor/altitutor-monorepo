@@ -61,6 +61,10 @@ function HeaderControls({ onUndo, onBury, onRefresh, canUndo, canBury, disabled 
         <View style={{ flex: 1 }}>
           <Pressable accessibilityLabel="Close study actions" onPress={() => setMenuOpen(false)} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
           <View accessibilityRole="menu" style={{ position: 'absolute', top: insets.top + 48, right: 12, minWidth: 190, paddingVertical: 5, borderRadius: 14, borderCurve: 'continuous', backgroundColor: theme.backgroundElement, borderWidth: 1, borderColor: theme.border, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.18)' }}>
+            <Pressable accessibilityRole="menuitem" accessibilityState={{ disabled: disabled || !canUndo }} disabled={disabled || !canUndo} onPress={() => choose(onUndo)} style={{ paddingHorizontal: 16, paddingVertical: 13, opacity: disabled || !canUndo ? 0.4 : 1 }}>
+              <Text style={{ color: theme.text, fontSize: 15 }}>Undo last answer</Text>
+            </Pressable>
+            <View style={{ height: 1, backgroundColor: theme.border }} />
             <Pressable accessibilityRole="menuitem" accessibilityState={{ disabled: disabled || !canBury }} disabled={disabled || !canBury} onPress={() => choose(onBury)} style={{ paddingHorizontal: 16, paddingVertical: 13, opacity: disabled || !canBury ? 0.4 : 1 }}>
               <Text style={{ color: theme.text, fontSize: 15 }}>Bury until tomorrow</Text>
             </Pressable>
@@ -83,6 +87,7 @@ export function StudyHeaderActions({ title, onUndo, onBury, onRefresh, canUndo, 
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button icon="arrow.uturn.backward" accessibilityLabel="Undo last answer" disabled={disabled || !canUndo} onPress={withHaptic(onUndo)} />
           <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="Study actions">
+            <Stack.Toolbar.MenuAction icon="arrow.uturn.backward" disabled={disabled || !canUndo} onPress={withHaptic(onUndo)}>Undo last answer</Stack.Toolbar.MenuAction>
             <Stack.Toolbar.MenuAction icon="archivebox" disabled={disabled || !canBury} onPress={withHaptic(onBury)}>Bury until tomorrow</Stack.Toolbar.MenuAction>
             <Stack.Toolbar.MenuAction icon="arrow.clockwise" disabled={disabled} onPress={withHaptic(onRefresh)}>Sync study queue</Stack.Toolbar.MenuAction>
           </Stack.Toolbar.Menu>

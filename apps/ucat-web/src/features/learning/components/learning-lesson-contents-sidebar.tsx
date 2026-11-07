@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LearningLessonPager } from "@/features/learning/components/learning-lesson-pager";
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import type { LessonNavEntry } from "@/features/learning/lib/flatten-lessons-for-nav";
+import type { WorkedSolutionState } from "@/features/learning/lib/worked-solution";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ function canManuallyCompleteBlock(block: LearningModuleBlockRow): boolean {
 
 type LearningLessonContentsSidebarProps = {
   blocks: LearningModuleBlockRow[];
+  workedSolutions?: ReadonlyMap<string, WorkedSolutionState>;
   activeIndex: number;
   completionPercent: number;
   isLessonComplete: boolean;
@@ -34,6 +36,7 @@ type LearningLessonContentsSidebarProps = {
 
 export function LearningLessonContentsSidebar({
   blocks,
+  workedSolutions,
   activeIndex,
   completionPercent,
   isLessonComplete,
@@ -99,6 +102,8 @@ export function LearningLessonContentsSidebar({
         <CardContent className="space-y-1">
           {blocks.map((block, index) => {
             const complete = isBlockComplete(block);
+            const workedSolution = block.id ? workedSolutions?.get(block.id) : undefined;
+            const canComplete = workedSolution?.submissionSaved ?? true;
             const manualComplete = canManuallyCompleteBlock(block);
             const isActive = index === activeIndex;
 
@@ -120,7 +125,7 @@ export function LearningLessonContentsSidebar({
                   )}
                 >
                   <span className="line-clamp-2">
-                    {formatBlockLabel(block)}
+                    {workedSolution ? "Worked solution" : formatBlockLabel(block)}
                   </span>
                 </button>
 
@@ -132,10 +137,12 @@ export function LearningLessonContentsSidebar({
                         ? "Block complete"
                         : `Mark block ${index + 1} complete`
                     }
-                    disabled={complete}
+                    disabled={complete || !canComplete}
+                    aria-hidden={!canComplete || undefined}
                     onClick={() => onMarkBlockComplete(block.id!)}
                     className={cn(
                       "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-[color,opacity]",
+                      !canComplete && "invisible",
                       complete
                         ? "pointer-events-none opacity-100"
                         : "opacity-0 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100",

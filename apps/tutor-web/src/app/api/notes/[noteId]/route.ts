@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ not
     }
     
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
@@ -158,7 +158,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ no
   const params = await props.params;
   try {
     // Get the authenticated user's supabase client
-    const userClient = await createClient();
+    const userClient = await createClient(request);
     
     // Verify user is a tutor
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');

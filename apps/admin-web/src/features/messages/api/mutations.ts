@@ -22,7 +22,8 @@ export function useSendMessage() {
       contactId?: string | null;
       conversationId?: string | null;
       groupChatId?: string | null;
-      body: string; 
+      body: string;
+      linkCopyBody?: string;
       selectedSenderId: string;
       destinationAddress?: string | null;
       resentFromMessageId?: string;
@@ -95,24 +96,36 @@ export function useSendMessage() {
         throw new Error('Sender has no valid from value');
       }
 
-      // Create message row (QUEUED)
-      // ensureConversationForContact returns Promise<string>, so conversationId is always a string
+      const outboundMessage = {
+        conversation_id: conversationId,
+        direction: 'OUTBOUND',
+        status: 'QUEUED',
+        created_by_staff_id: staffRow?.id || null,
+        from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null,
+        to_number_e164: toNumber,
+      } as const;
+
       const { data: created, error: insertErr } = await supabase
         .from('messages')
         .insert({
-          conversation_id: conversationId,
-          direction: 'OUTBOUND',
+          ...outboundMessage,
           body: args.body,
-          status: 'QUEUED',
-          created_by_staff_id: staffRow?.id || null,
-          from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null, // NULL for alphanumeric
-          to_number_e164: toNumber,
           resent_from_message_id: args.resentFromMessageId ?? null,
           ...(args.onboarding ? { onboarding_journey_id: args.onboarding.journeyId, onboarding_purpose: args.onboarding.purpose } : {}),
         })
         .select('id')
         .single();
       if (insertErr) throw insertErr;
+      if (staffRow?.id) {
+        const { error: unassignError } = await supabase
+          .from('conversations')
+          .update({ assigned_staff_id: null })
+          .eq('id', conversationId)
+          .eq('assigned_staff_id', staffRow.id);
+        // The message already exists. Assignment cleanup must not stop dispatch
+        // or make the composer retry an already queued message.
+        if (unassignError) console.warn('[useSendMessage] Could not clear assignment', unassignError);
+      }
 
       // Create message_attachments records if attachments provided
       if (args.attachments && args.attachments.length > 0) {
@@ -134,17 +147,30 @@ export function useSendMessage() {
         }
       }
 
-      // Fire-and-forget the send to avoid blocking UI; failures are handled in the function
-      // which marks the message as FAILED when applicable.
-      supabase.functions
-        .invoke('send-message', { body: { messageId: created.id } })
-        .catch((e: unknown) => {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error('[send-message invoke] error', msg);
-        });
+      const dispatch = (messageId: string) => {
+        // The send function records provider failures against the queued message.
+        void supabase.functions.invoke('send-message', { body: { messageId } })
+          .catch((error: unknown) => console.error('[send-message invoke] error', error));
+      };
+      dispatch(created.id);
 
-      // Return immediately so UI can refresh and show the queued message
-      return { messageId: created.id, conversationId };
+      const result = { messageId: created.id, conversationId };
+      if (!args.linkCopyBody) return result;
+
+      try {
+        const { data: copy, error } = await supabase
+          .from('messages')
+          .insert({ ...outboundMessage, body: args.linkCopyBody })
+          .select('id')
+          .single();
+        if (error) throw error;
+        dispatch(copy.id);
+        return result;
+      } catch (error) {
+        // The original is already queued. Report the copy failure separately.
+        console.error('[useSendMessage] Could not queue link copy', error);
+        return { ...result, linkCopyFailed: true };
+      }
     },
     onSuccess: (result, vars) => {
       // Invalidate messages for this contact (aggregated view)
@@ -200,6 +226,12 @@ export function useMarkRead() {
         const failed = results.find((result) => result.error);
         if (failed?.error) throw failed.error;
       }
+      const { error: unassignError } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: null })
+        .eq('contact_id', args.contactId)
+        .eq('assigned_staff_id', staff.id);
+      if (unassignError) throw unassignError;
     },
     onMutate: (args) => applyOptimisticUnread(qc, { contactId: args.contactId }, false),
     onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
@@ -252,7 +284,7 @@ export function useMarkContactUnread() {
 export function useAssignConversations() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { conversationIds: string[]; staffId: string }) => {
+    mutationFn: async (args: { conversationIds: string[]; staffId: string | null }) => {
       if (args.conversationIds.length === 0) return;
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const { error } = await supabase
@@ -291,6 +323,12 @@ export function useMarkConversationRead() {
           last_read_at: new Date().toISOString(),
         }, { onConflict: 'conversation_id,staff_id' });
       if (error) throw error;
+      const { error: unassignError } = await supabase
+        .from('conversations')
+        .update({ assigned_staff_id: null })
+        .eq('id', args.conversationId)
+        .eq('assigned_staff_id', staff.id);
+      if (unassignError) throw unassignError;
     },
     onMutate: (args) => applyOptimisticUnread(qc, { conversationId: args.conversationId }, false),
     onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),

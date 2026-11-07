@@ -14,6 +14,7 @@ import {
 } from '@/components/student-ui';
 import { useBilling, useInvoices, useSubscriptions } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
+import { invoiceListSubtitle, invoiceListTitle } from '@/features/billing/invoice-list';
 import { readPaymentMethod, type StudentInvoiceWithItems } from '@/lib/student-api';
 
 const PAGE_SIZE = 5;
@@ -105,7 +106,6 @@ export default function BillingScreen() {
       {invoices.isError ? <ErrorBlock message={invoices.error.message} /> : null}
       {visibleInvoices?.length === 0 ? <EmptyBlock>No invoices found.</EmptyBlock> : null}
       {visibleInvoices?.map((invoice) => {
-        const item = invoice.items.find((entry) => !entry.is_subsidy) ?? invoice.items[0];
         const status = invoiceStatus(invoice);
         const statusColor = status === 'paid' ? theme.success : status === 'overdue' ? theme.danger : theme.warning;
         return (
@@ -116,14 +116,14 @@ export default function BillingScreen() {
             <Card>
               <View style={styles.invoiceHeading}>
                 <Text style={[styles.invoiceTitle, styles.grow, { color: theme.text }]} numberOfLines={1}>
-                  {item?.subject_name ?? item?.description ?? 'Student invoice'}
+                  {invoiceListTitle(invoice)}
                 </Text>
                 <Text style={[styles.invoiceAmount, { color: theme.text }]}>
                   {formatMoney(invoice.amount_due_cents ?? invoice.amount_paid_cents, invoice.currency?.toUpperCase() ?? 'AUD')}
                 </Text>
               </View>
               <Text style={[styles.invoiceDate, { color: theme.textSecondary }]}>
-                {item?.session_start_at ? `${new Date(item.session_start_at).toLocaleDateString('en-AU')} session` : invoice.invoice_date ?? 'Invoice'}
+                {invoiceListSubtitle(invoice.items)}
               </Text>
               <View style={styles.invoiceFooter}>
                 <View style={[styles.statusPill, { backgroundColor: `${statusColor}18` }]}>

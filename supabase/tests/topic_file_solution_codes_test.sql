@@ -1,6 +1,9 @@
 BEGIN;
 SELECT plan(9);
 
+-- The reorder RPC is an active-AdminStaff boundary, including direct SQL tests.
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+
 -- Calculus is seed topic 2, so TEST files get codes 2T.n / 2T.n_SOL.
 -- Isolated from the seed NOTES file on the same topic.
 

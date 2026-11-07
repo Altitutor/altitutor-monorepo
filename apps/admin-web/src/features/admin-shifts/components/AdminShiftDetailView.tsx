@@ -32,13 +32,8 @@ import {
   useDeleteAdminShift,
 } from "../hooks/useAdminShiftsQuery";
 import { useStaff } from "@/features/staff/hooks/useStaffQuery";
-import { useUpdateAdminShift } from "../hooks/useAdminShiftsQuery";
 import { useCurrentStaff } from "@/shared/hooks";
-import type { TablesUpdate } from "@altitutor/shared";
-import {
-  AdminShiftInfoTab,
-  AdminShiftInfoFormData,
-} from "./modal/tabs/AdminShiftInfoTab";
+import { AdminShiftInfoTab } from "./modal/tabs/AdminShiftInfoTab";
 import { AdminShiftStaffTab } from "./modal/tabs/AdminShiftStaffTab";
 import { AdminShiftSessionsTab } from "./modal/tabs/AdminShiftSessionsTab";
 import { AdminShiftActivityTab } from "./modal/tabs/AdminShiftActivityTab";
@@ -62,7 +57,6 @@ export function AdminShiftDetailView({
     isOpen && !!adminShiftId,
   );
   const { data: allStaffData = [] } = useStaff();
-  const updateAdminShiftMutation = useUpdateAdminShift();
 
   // Extract data from adminShiftDetails
   const adminShiftData = adminShiftDetails?.adminShift || null;
@@ -72,6 +66,8 @@ export function AdminShiftDetailView({
     adminShiftDetails?.staffToAdminShiftStaffId || {};
 
   const [isEditing, setIsEditing] = useState(false);
+  const [scheduleLabel, setScheduleLabel] = useState("Review changes");
+  const [scheduleBusy, setScheduleBusy] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -99,48 +95,18 @@ export function AdminShiftDetailView({
     }
   }, [isOpen]);
 
-  // Update admin shift handler
-  const handleAdminShiftUpdate = async (data: AdminShiftInfoFormData) => {
+  const handleScheduleSaved = () => {
     if (!adminShiftData) return;
-
-    try {
-      const updateData: TablesUpdate<"admin_shifts"> = {
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        status: data.status,
-        session_start_date: data.sessionStartDate || null,
-        session_end_date: data.sessionEndDate || null,
-      };
-      await updateAdminShiftMutation.mutateAsync({
-        id: adminShiftData.id,
-        data: updateData,
-      });
-
-      // Invalidate admin shift details to refetch full data
-      queryClient.invalidateQueries({
-        queryKey: adminShiftsKeys.detailFull(adminShiftData.id),
-      });
-
-      // Reset edit mode
-      setIsEditing(false);
-
-      // Notify parent of update
-      onAdminShiftUpdated();
-
-      toast({
-        title: "Admin shift updated",
-        description: "Admin shift has been updated successfully.",
-      });
-    } catch (err) {
-      console.error("Failed to update admin shift:", err);
-      toast({
-        title: "Update failed",
-        description:
-          "There was an error updating the admin shift. Please try again.",
-        variant: "destructive",
-      });
-    }
+    setIsEditing(false);
+    setScheduleLabel("Review changes");
+    queryClient.invalidateQueries({
+      queryKey: adminShiftsKeys.detailFull(adminShiftData.id),
+    });
+    onAdminShiftUpdated();
+    toast({
+      title: "Admin shift updated",
+      description: "The schedule change has been applied.",
+    });
   };
 
   // Handle staff assignment
@@ -298,7 +264,11 @@ export function AdminShiftDetailView({
                     isLoading={isLoading}
                     onEdit={() => setIsEditing(true)}
                     onCancelEdit={() => setIsEditing(false)}
-                    onSubmit={handleAdminShiftUpdate}
+                    onSaved={handleScheduleSaved}
+                    onReviewStateChange={({ label, busy }) => {
+                      setScheduleLabel(label);
+                      setScheduleBusy(busy);
+                    }}
                   />
                 </div>
               </SegmentedTabPanelContent>
@@ -367,7 +337,7 @@ export function AdminShiftDetailView({
                   </Button>
                   <Button
                     type="button"
-                    disabled={isLoading}
+                    disabled={isLoading || scheduleBusy}
                     onClick={() => {
                       const form = document.getElementById(
                         "admin-shift-edit-form",
@@ -377,10 +347,10 @@ export function AdminShiftDetailView({
                       }
                     }}
                   >
-                    {isLoading && (
+                    {scheduleBusy && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Save Changes
+                    {scheduleLabel}
                   </Button>
                 </div>
               </div>

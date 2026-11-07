@@ -333,6 +333,84 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_shift_schedule_revisions: {
+        Row: {
+          admin_shift_id: string
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          effective_from: string
+          effective_to: string
+          end_time: string
+          id: string
+          start_time: string
+          status: string
+          superseded_at: string | null
+        }
+        Insert: {
+          admin_shift_id: string
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          effective_from: string
+          effective_to: string
+          end_time: string
+          id?: string
+          start_time: string
+          status: string
+          superseded_at?: string | null
+        }
+        Update: {
+          admin_shift_id?: string
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          effective_from?: string
+          effective_to?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          status?: string
+          superseded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_admin_shift_id_fkey"
+            columns: ["admin_shift_id"]
+            isOneToOne: false
+            referencedRelation: "admin_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "admin_shift_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_shifts: {
         Row: {
           created_at: string
@@ -5135,6 +5213,170 @@ export type Database = {
           },
         ]
       }
+      interview_performance_review_releases: {
+        Row: {
+          created_at: string
+          review_id: string
+          revision: number
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          review_id: string
+          revision: number
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          review_id?: string
+          revision?: number
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_performance_review_templates: {
+        Row: {
+          body: Json
+          id: string
+          name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: Json
+          id: string
+          name: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      interview_performance_reviews: {
+        Row: {
+          author_id: string
+          body: Json
+          id: string
+          review_date: string
+          student_id: string | null
+          template_name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          author_id: string
+          body?: Json
+          id: string
+          review_date: string
+          student_id?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          author_id?: string
+          body?: Json
+          id?: string
+          review_date?: string
+          student_id?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       interview_presence: {
         Row: {
           last_seen_at: string
@@ -5272,6 +5514,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at: string | null
           state: string
           storage_path: string | null
         }
@@ -5286,6 +5529,7 @@ export type Database = {
           kind: string
           provider_id: string
           round_id: string
+          started_at?: string | null
           state: string
           storage_path?: string | null
         }
@@ -5300,6 +5544,7 @@ export type Database = {
           kind?: string
           provider_id?: string
           round_id?: string
+          started_at?: string | null
           state?: string
           storage_path?: string | null
         }
@@ -6776,7 +7021,10 @@ export type Database = {
           expo_push_token: string
           id: string
           platform: string
-          student_id: string
+          staff_id: string | null
+          staff_session_id: string | null
+          staff_user_id: string | null
+          student_id: string | null
           updated_at: string
         }
         Insert: {
@@ -6785,7 +7033,10 @@ export type Database = {
           expo_push_token: string
           id?: string
           platform: string
-          student_id: string
+          staff_id?: string | null
+          staff_session_id?: string | null
+          staff_user_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -6794,10 +7045,41 @@ export type Database = {
           expo_push_token?: string
           id?: string
           platform?: string
-          student_id?: string
+          staff_id?: string | null
+          staff_session_id?: string | null
+          staff_user_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mobile_push_devices_student_id_fkey"
             columns: ["student_id"]
@@ -6840,24 +7122,55 @@ export type Database = {
           app_scope: string
           category: string
           enabled: boolean
-          student_id: string
+          staff_id: string | null
+          student_id: string | null
           updated_at: string
         }
         Insert: {
           app_scope: string
           category: string
           enabled: boolean
-          student_id: string
+          staff_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
           app_scope?: string
           category?: string
           enabled?: boolean
-          student_id?: string
+          staff_id?: string | null
+          student_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mobile_push_preferences_student_id_fkey"
             columns: ["student_id"]
@@ -7778,6 +8091,67 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_enquiry_messages: {
+        Row: {
+          journey_id: string
+          message_id: string
+        }
+        Insert: {
+          journey_id: string
+          message_id: string
+        }
+        Update: {
+          journey_id?: string
+          message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_enquiry_messages_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_enquiry_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_enquiry_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+        ]
+      }
+      onboarding_enquiry_submissions: {
+        Row: {
+          id: string
+          request_hash: string
+          result: Json
+          source_id: string | null
+          source_kind: string | null
+        }
+        Insert: {
+          id: string
+          request_hash: string
+          result: Json
+          source_id?: string | null
+          source_kind?: string | null
+        }
+        Update: {
+          id?: string
+          request_hash?: string
+          result?: Json
+          source_id?: string | null
+          source_kind?: string | null
+        }
+        Relationships: []
+      }
       onboarding_journeys: {
         Row: {
           closed_at: string | null
@@ -7788,6 +8162,7 @@ export type Database = {
           created_at: string
           enquiry_at: string | null
           enquiry_email: string | null
+          enquiry_parent_id: string | null
           historical: boolean
           id: string
           is_returning: boolean
@@ -7804,6 +8179,7 @@ export type Database = {
           created_at?: string
           enquiry_at?: string | null
           enquiry_email?: string | null
+          enquiry_parent_id?: string | null
           historical?: boolean
           id?: string
           is_returning?: boolean
@@ -7820,6 +8196,7 @@ export type Database = {
           created_at?: string
           enquiry_at?: string | null
           enquiry_email?: string | null
+          enquiry_parent_id?: string | null
           historical?: boolean
           id?: string
           is_returning?: boolean
@@ -7833,6 +8210,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_enquiry_parent_id_fkey"
+            columns: ["enquiry_parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
             referencedColumns: ["id"]
           },
           {
@@ -10498,6 +10882,256 @@ export type Database = {
             columns: ["source_invoice_item_id"]
             isOneToOne: false
             referencedRelation: "vstudent_invoice_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_lesson_plan_files: {
+        Row: {
+          session_id: string
+          topics_file_id: string
+        }
+        Insert: {
+          session_id: string
+          topics_file_id: string
+        }
+        Update: {
+          session_id?: string
+          topics_file_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plan_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_lesson_plans"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_files_topics_file_id_fkey"
+            columns: ["topics_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_lesson_plan_topics: {
+        Row: {
+          session_id: string
+          topic_id: string
+        }
+        Insert: {
+          session_id: string
+          topic_id: string
+        }
+        Update: {
+          session_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plan_topics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_lesson_plans"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plan_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_lesson_plans: {
+        Row: {
+          revision: number
+          session_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          revision: number
+          session_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          revision?: number
+          session_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_lesson_plans_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -28860,6 +29494,14 @@ export type Database = {
         }
         Relationships: []
       }
+      vstudent_interview_performance_reviews: {
+        Row: {
+          data: Json | null
+          id: string | null
+          summary: Json | null
+        }
+        Relationships: []
+      }
       vstudent_interview_rounds: {
         Row: {
           data: Json | null
@@ -35798,6 +36440,98 @@ export type Database = {
           },
         ]
       }
+      vtutor_dashboard_new_class_students: {
+        Row: {
+          session_id: string | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_operational_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_staff_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       vtutor_documentation_documents: {
         Row: {
           content: Json | null
@@ -36191,6 +36925,49 @@ export type Database = {
       vtutor_interview_catalog: {
         Row: {
           data: Json | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_mocks: {
+        Row: {
+          data: Json | null
+          student_id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_students: {
+        Row: {
+          id: string | null
+          name: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_templates: {
+        Row: {
+          body: Json | null
+          id: string | null
+          name: string | null
+          version: number | null
+        }
+        Insert: {
+          body?: Json | null
+          id?: string | null
+          name?: string | null
+          version?: number | null
+        }
+        Update: {
+          body?: Json | null
+          id?: string | null
+          name?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_reviews: {
+        Row: {
+          data: Json | null
+          id: string | null
+          summary: Json | null
         }
         Relationships: []
       }
@@ -36613,19 +37390,25 @@ export type Database = {
       }
       vtutor_office_print_settings: {
         Row: {
+          connector_online: boolean | null
           tutor_access:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open: boolean | null
         }
         Insert: {
+          connector_online?: never
           tutor_access?:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open?: never
         }
         Update: {
+          connector_online?: never
           tutor_access?:
             | Database["public"]["Enums"]["tutor_office_print_access"]
             | null
+          window_open?: never
         }
         Relationships: []
       }
@@ -37810,6 +38593,43 @@ export type Database = {
           },
         ]
       }
+      vtutor_session_lesson_plan_documents: {
+        Row: {
+          bucket: string | null
+          code: string | null
+          external_url: string | null
+          filename: string | null
+          id: string | null
+          is_solutions_of_id: string | null
+          mimetype: string | null
+          resource_id: string | null
+          session_id: string | null
+          storage_path: string | null
+          subject_id: string | null
+          subject_name: string | null
+          topic_id: string | null
+          topic_name: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_lesson_plan_topics: {
+        Row: {
+          code: string | null
+          id: string | null
+          name: string | null
+          session_id: string | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_lesson_plans: {
+        Row: {
+          revision: number | null
+          session_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       vtutor_session_log_state: {
         Row: {
           deleted_at: string | null
@@ -37902,6 +38722,51 @@ export type Database = {
             referencedColumns: ["session_id"]
           },
         ]
+      }
+      vtutor_session_staff_candidates: {
+        Row: {
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          role: string | null
+          status: string | null
+        }
+        Insert: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Update: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      vtutor_session_student_candidates: {
+        Row: {
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          status: string | null
+        }
+        Insert: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          status?: string | null
+        }
+        Update: {
+          first_name?: string | null
+          id?: never
+          last_name?: string | null
+          status?: string | null
+        }
+        Relationships: []
       }
       vtutor_sessions: {
         Row: {
@@ -44939,6 +45804,10 @@ export type Database = {
         Args: { p_id: string; p_kind: string }
         Returns: Json
       }
+      apply_admin_shift_schedule: {
+        Args: { p_expected_proposal_hash: string; p_proposal: Json }
+        Returns: Json
+      }
       apply_class_schedule: {
         Args: { p_expected_proposal_hash: string; p_proposal: Json }
         Returns: Json
@@ -45100,6 +45969,7 @@ export type Database = {
           expires_at: string
           expo_push_token: string
           id: string
+          lease_expires_at: string
           notification_id: string
           notification_type: string
           preference_enabled: boolean
@@ -45112,6 +45982,7 @@ export type Database = {
         Returns: {
           expo_push_token: string
           id: string
+          lease_expires_at: string
           ticket_id: string
         }[]
       }
@@ -45558,6 +46429,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_onboarding_enquiry: { Args: { p_request: Json }; Returns: Json }
       create_public_trial_booking: {
         Args: {
           p_curriculum: string
@@ -46541,16 +47413,28 @@ export type Database = {
         Args: { p_round_id: string; p_tutor_id: string }
         Returns: Json
       }
-      interview_audio_segment: {
-        Args: {
-          p_capture_id: string
-          p_round_id: string
-          p_segment_id: string
-          p_storage_path: string
-          p_tutor_id: string
-        }
-        Returns: Json
-      }
+      interview_audio_segment:
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_capture_id: string
+              p_round_id: string
+              p_segment_id: string
+              p_started_at: string
+              p_storage_path: string
+              p_tutor_id: string
+            }
+            Returns: Json
+          }
       interview_can_receive_round: {
         Args: { p_round_id: string }
         Returns: boolean
@@ -46584,8 +47468,16 @@ export type Database = {
       interview_effective_state: { Args: { p_data: Json }; Returns: Json }
       interview_feedback_has_text: { Args: { value: Json }; Returns: boolean }
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
+      interview_performance_review_command: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
+        Returns: Json
+      }
+      interview_question_timing: {
+        Args: { at_time: string; d: Json }
         Returns: Json
       }
       interview_recording_json: {
@@ -46602,6 +47494,10 @@ export type Database = {
           p_storage_path?: string
         }
         Returns: string
+      }
+      interview_review_mock_history: {
+        Args: { p_review_date?: string; p_student_id: string }
+        Returns: Json
       }
       interview_round_json: {
         Args: { r: Database["public"]["Tables"]["interview_rounds"]["Row"] }
@@ -46628,6 +47524,21 @@ export type Database = {
       }
       interview_tutor_id: { Args: { p_user_id: string }; Returns: string }
       interview_validate_template: { Args: { d: Json }; Returns: undefined }
+      interview_video_capture: {
+        Args: { p_round_id: string; p_tutor_id: string }
+        Returns: Json
+      }
+      interview_video_capture_upload: {
+        Args: {
+          p_action: string
+          p_capture_id: string
+          p_round_id: string
+          p_started_at: string
+          p_storage_path: string
+          p_tutor_id: string
+        }
+        Returns: Json
+      }
       invoice_lifecycle_event_payload: {
         Args: { row_data: Json }
         Returns: Json
@@ -46641,6 +47552,10 @@ export type Database = {
       is_office_print_window_open: { Args: never; Returns: boolean }
       is_print_connector_online: {
         Args: { p_stale_after?: string }
+        Returns: boolean
+      }
+      is_pristine_generated_admin_shift_session: {
+        Args: { p_session_id: string }
         Returns: boolean
       }
       is_pristine_generated_class_session: {
@@ -46768,6 +47683,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      onboarding_enquiry_source: {
+        Args: { p_id: string; p_kind: string }
+        Returns: Json
+      }
       onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
       onboarding_journeys_board: { Args: never; Returns: Json }
       precreate_admin_shift_sessions: {
@@ -46792,11 +47711,19 @@ export type Database = {
         Args: { p_artifact_id: string; p_owner_staff_id: string }
         Returns: string
       }
+      preview_admin_shift_schedule: {
+        Args: { p_proposal: Json }
+        Returns: Json
+      }
       preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
       preview_student_merge: {
         Args: { p_retained: string; p_source: string }
         Returns: Json
+      }
+      purge_expired_admin_shift_session_tombstones: {
+        Args: never
+        Returns: number
       }
       purge_expired_class_session_tombstones: { Args: never; Returns: number }
       qualify_ucat_paid_referral: {
@@ -46915,6 +47842,10 @@ export type Database = {
       redrive_ucat_preparation_refresh: {
         Args: { p_student_id: string }
         Returns: boolean
+      }
+      refresh_admin_shift_schedule_projection: {
+        Args: { p_admin_shift_id: string }
+        Returns: undefined
       }
       refresh_class_schedule_projection: {
         Args: { p_class_id: string }
@@ -47080,6 +48011,15 @@ export type Database = {
         Args: { p_id: string; p_kind: string }
         Returns: undefined
       }
+      retire_mobile_push_device: {
+        Args: {
+          p_delivery_id: string
+          p_expo_push_token: string
+          p_lease_expires_at: string
+          p_status: string
+        }
+        Returns: boolean
+      }
       retire_student: { Args: { p_student_id: string }; Returns: Json }
       retire_student_identity: {
         Args: { p_staff_id: string; p_student_id: string }
@@ -47105,6 +48045,16 @@ export type Database = {
         Returns: string
       }
       safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
+      save_session_lesson_plan: {
+        Args: {
+          p_actor_id: string
+          p_expected_revision: number
+          p_file_ids: string[]
+          p_session_id: string
+          p_topic_ids: string[]
+        }
+        Returns: number
+      }
       save_student_subsidy: {
         Args: {
           p_billing_type?: Database["public"]["Enums"]["billing_type"]
@@ -47417,6 +48367,10 @@ export type Database = {
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
+      start_student_in_person_onboarding: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       start_ucat_learning_module: {
         Args: {
           p_learning_module_id: string

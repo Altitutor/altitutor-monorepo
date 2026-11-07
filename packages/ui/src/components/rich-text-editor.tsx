@@ -227,6 +227,8 @@ export interface RichTextEditorProps {
   enableCollapsibleHeadings?: boolean;
   /** Show a contextual toolbar while the editor has focus, including table controls. */
   floatingToolbar?: boolean;
+  /** Enable image and external video nodes. Disable for cross-account review documents. */
+  allowMedia?: boolean;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -471,6 +473,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onChangeDebounceMs,
   enableCollapsibleHeadings = false,
   floatingToolbar = false,
+  allowMedia = true,
 }, ref) => {
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -559,7 +562,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }),
       DetailsSummary,
       DetailsContent,
-      Image.extend({
+      ...(allowMedia ? [Image.extend({
         addAttributes() {
           return {
             ...this.parent?.(),
@@ -704,7 +707,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }),
       ImageSelectionHighlight,
       ImageUploadPlaceholderExtension,
-      ExternalVideoExtension,
+      ExternalVideoExtension] : []),
       ...(slashMenuSuggestions
         ? [
             SlashCommandExtension.configure({

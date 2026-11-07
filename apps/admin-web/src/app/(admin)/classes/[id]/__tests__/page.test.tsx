@@ -2,6 +2,14 @@ import { renderSuspending } from "@/shared/test-utils";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ClassDetailPage from "../page";
 
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
+
 const mockDelete = jest.fn().mockResolvedValue(undefined);
 let mockImpact: {
   data?: {
@@ -13,6 +21,10 @@ let mockImpact: {
   isLoading: boolean;
   isError: boolean;
 };
+
+jest.mock("@/features/forms/components/FormResponseCommands", () => ({
+  FormResponseCommands: () => null,
+}));
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),

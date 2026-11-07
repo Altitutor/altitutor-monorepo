@@ -1,0 +1,188 @@
+import { Stack } from 'expo-router';
+import { Children, Fragment, isValidElement, type PropsWithChildren, type ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTheme } from '@/hooks/use-theme';
+
+export function TutorScreen({
+  title,
+  subtitle,
+  children,
+  refreshing,
+  onRefresh,
+  largeTitle = true,
+}: PropsWithChildren<{
+  title: string;
+  subtitle?: string;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  largeTitle?: boolean;
+}>) {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <>
+      <Stack.Screen options={{
+        title,
+        ...(largeTitle ? {} : { headerLargeTitleEnabled: false }),
+      }} />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.content, {
+          paddingLeft: 20 + insets.left,
+          paddingRight: 20 + insets.right,
+          paddingBottom: 100,
+        }]}
+        refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} /> : undefined}>
+        {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
+        {children}
+      </ScrollView>
+    </>
+  );
+}
+
+export function Card({ children, divided = false }: PropsWithChildren<{ divided?: boolean }>) {
+  const theme = useTheme();
+  const items = Children.toArray(children);
+  return (
+    <View style={[styles.card, divided && styles.dividedCard, { backgroundColor: theme.backgroundElement }]}>
+      {divided
+        ? items.map((child, index) => (
+            <Fragment key={isValidElement(child) ? (child.key ?? index) : index}>
+              {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}
+              {child}
+            </Fragment>
+          ))
+        : children}
+    </View>
+  );
+}
+
+export function SectionTitle({ children }: PropsWithChildren) {
+  const theme = useTheme();
+  return <Text style={[styles.sectionTitle, { color: theme.text }]}>{children}</Text>;
+}
+
+export function Label({ children }: PropsWithChildren) {
+  const theme = useTheme();
+  return <Text style={[styles.label, { color: theme.textSecondary }]}>{children}</Text>;
+}
+
+export function Value({ children, align = 'left' }: PropsWithChildren<{ align?: 'left' | 'right' }>) {
+  const theme = useTheme();
+  return <Text selectable style={[styles.value, { color: theme.text, textAlign: align }]}>{children}</Text>;
+}
+
+export function KeyValueRow({ label, children }: PropsWithChildren<{ label: string }>) {
+  const theme = useTheme();
+  return (
+    <View style={styles.keyValue}>
+      <Text style={[styles.key, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={styles.keyValueBody}>{children}</View>
+    </View>
+  );
+}
+
+export function TappableRow({ title, detail, onPress, accent }: { title: string; detail?: string; onPress?: () => void; accent?: string | null }) {
+  const theme = useTheme();
+  const content = (
+    <View style={styles.row}>
+      {accent ? <View style={[styles.dot, { backgroundColor: accent }]} /> : null}
+      <View style={styles.grow}>
+        <Text style={[styles.rowTitle, { color: theme.text }]}>{title}</Text>
+        {detail ? <Text style={[styles.label, { color: theme.textSecondary }]}>{detail}</Text> : null}
+      </View>
+      {onPress ? <Text style={{ color: theme.textSecondary }}>›</Text> : null}
+    </View>
+  );
+  return onPress ? (
+    <Pressable accessibilityRole="button" accessibilityLabel={detail ? `${title}, ${detail}` : title}
+      onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}>
+      {content}
+    </Pressable>
+  ) : content;
+}
+
+export function LoadingBlock({ label = 'Loading...' }: { label?: string }) {
+  const theme = useTheme();
+  return (
+    <Card>
+      <View style={styles.loading}>
+        <ActivityIndicator color={theme.primary} />
+        <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      </View>
+    </Card>
+  );
+}
+
+export function ErrorBlock({ message }: { message: string }) {
+  const theme = useTheme();
+  return (
+    <Card>
+      <Text selectable accessibilityRole="alert" style={[styles.value, { color: theme.danger }]}>{message}</Text>
+    </Card>
+  );
+}
+
+export function EmptyBlock({ children }: { children: ReactNode }) {
+  return (
+    <Card>
+      <Label>{children}</Label>
+    </Card>
+  );
+}
+
+export function FullScreenLoading({ label }: { label: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.fullScreen, { backgroundColor: theme.background }]}>
+      <ActivityIndicator size="large" color={theme.primary} />
+      <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{label}</Text>
+    </View>
+  );
+}
+
+export function formatDateTime(value: string | null) {
+  if (!value) return 'Time to be confirmed';
+  return new Intl.DateTimeFormat('en-AU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+const styles = StyleSheet.create({
+  content: { paddingTop: 10, gap: 14 },
+  subtitle: { fontSize: 15, lineHeight: 22 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 12 },
+  card: {
+    padding: 16,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    gap: 12,
+    boxShadow: '0 2px 8px rgba(10, 41, 65, 0.05)',
+  },
+  label: { fontSize: 14, lineHeight: 20 },
+  value: { fontSize: 16, lineHeight: 23, fontWeight: '500' },
+  keyValue: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, minHeight: 28 },
+  key: { fontSize: 15, lineHeight: 21, width: 108 },
+  keyValueBody: { alignItems: 'flex-end', flex: 1, gap: 4 },
+  dividedCard: { gap: 0, paddingVertical: 4 },
+  divider: { height: 0.5 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingVertical: 4 },
+  rowTitle: { fontSize: 16, fontWeight: '600', lineHeight: 22 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  grow: { flex: 1, gap: 3 },
+  loading: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  fullScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+});

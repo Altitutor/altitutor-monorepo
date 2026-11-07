@@ -16,6 +16,7 @@ import {
   Repeat2,
   WalletCards,
   MessagesSquare,
+  FileText,
 } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import {
@@ -77,6 +78,7 @@ function isDropdownChildActive(pathname: string, parentHref: string, childHref: 
   if (parentHref === '/resources') {
     return isResourceSubjectNavActive(pathname, childHref);
   }
+  if (childHref === '/interviews/mock-interviews' && pathname.startsWith('/interviews/rounds/')) return true;
   return isNavLinkActive(pathname, childHref);
 }
 
@@ -84,6 +86,7 @@ function getInitialOpenDropdowns(pathname: string): Record<string, boolean> {
   return {
     Resources: isResourcesNavSectionActive(pathname, { excludeFlashcards: true }),
     Billing: pathname.startsWith('/billing'),
+    Interviews: pathname.startsWith('/interviews'),
   };
 }
 
@@ -305,7 +308,16 @@ function useStudentPrimaryNavItems(): NavItem[] {
     return [
       { title: 'Dashboard', href: '/dashboard', icon: Home },
       { title: 'Classes', href: '/classes', icon: Calendar },
-      ...(interviewAccess?.hasAccess ? [{ title: 'Interviews', href: '/interviews', icon: MessagesSquare }] : []),
+      ...(interviewAccess?.hasAccess ? [{
+        type: 'dropdown' as const,
+        title: 'Interviews',
+        href: '/interviews',
+        icon: MessagesSquare,
+        children: [
+          { title: 'Mock interviews', href: '/interviews/mock-interviews', icon: MessagesSquare },
+          { title: 'Performance reviews', href: '/interviews/performance-reviews', icon: FileText },
+        ],
+      }] : []),
       {
         type: 'dropdown',
         title: 'Resources',
@@ -351,6 +363,9 @@ function MobileMenu({
     }
     if (pathname.startsWith('/billing')) {
       setOpenDropdowns((prev) => ({ ...prev, Billing: true }));
+    }
+    if (pathname.startsWith('/interviews')) {
+      setOpenDropdowns((prev) => ({ ...prev, Interviews: true }));
     }
   }, [pathname]);
 
@@ -493,6 +508,9 @@ function SidebarNav({
     }
     if (pathname.startsWith('/billing')) {
       setOpenDropdowns((prev) => ({ ...prev, Billing: true }));
+    }
+    if (pathname.startsWith('/interviews')) {
+      setOpenDropdowns((prev) => ({ ...prev, Interviews: true }));
     }
   }, [pathname]);
 

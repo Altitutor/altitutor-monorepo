@@ -5,6 +5,7 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import { StudentTodaySessionsCalendarView } from "../StudentTodaySessionsCalendarView";
 import { StudentSessionsCalendarView } from "../StudentSessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
+import { studentSessionsApi } from "@/shared/api/sessions";
 
 Object.assign(globalThis, { React });
 jest.mock("next/navigation", () => ({
@@ -57,6 +58,31 @@ it("shows the student their online interview and links to its guarded room", () 
     screen.getByRole("link", { name: "Enter waiting room" }),
   ).toHaveAttribute("href", "/interviews/rounds/student-circuit");
   client.clear();
+});
+
+it("offers a reload when the timetable request fails", async () => {
+  useAuthStore.setState({ user: null, loading: true });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const list = jest
+    .spyOn(studentSessionsApi, "list")
+    .mockRejectedValue({ code: "42501", message: "permission denied" });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <StudentSessionsCalendarView />
+    </QueryClientProvider>,
+  );
+
+  try {
+    expect(await screen.findByRole("button", { name: "Reload timetable" }))
+      .toBeVisible();
+    expect(screen.getByText("Your timetable could not be loaded.")).toBeVisible();
+  } finally {
+    view.unmount();
+    client.clear();
+    list.mockRestore();
+  }
 });
 
 function renderToday(overrides: Record<string, unknown>, hasAccess = true) {
@@ -172,4 +198,14 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
     global.fetch = originalFetch;
     useAuthStore.setState({user: null, loading: true});
   }
+});
+
+it("shows the interview details tooltip when its calendar event receives focus", async () => {
+  const { client } = renderToday({});
+  fireEvent.focus(
+    screen.getByRole("button", { name: "Interview round Late interview" }),
+  );
+
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Late interview");
+  client.clear();
 });

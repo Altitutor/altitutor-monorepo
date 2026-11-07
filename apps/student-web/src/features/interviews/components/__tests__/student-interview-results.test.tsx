@@ -8,6 +8,7 @@ import { getInterviewRecording } from "../../api/interviews";
 jest.mock("@altitutor/ui", () => ({
   ...jest.requireActual("@altitutor/ui/components/button"),
   ...jest.requireActual("@altitutor/ui/components/badge"),
+  ...jest.requireActual("@altitutor/ui/components/interview-recording-player"),
 }));
 jest.mock("../../hooks/use-interviews", () => ({
   useInterviewRound: jest.fn(),
@@ -127,8 +128,9 @@ describe("student released result boundary", () => {
     expect(
       screen.queryByText("Your released feedback"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Question 1")).not.toBeInTheDocument();
-    expect(screen.getByText("1.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Question 1" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Interviews" })).toHaveAttribute(
       "href",
       "/interviews",
@@ -202,6 +204,64 @@ describe("student released result boundary", () => {
         "recording-1",
       );
     });
+  });
+
+  it("shows only the selected station recording and removes its player on station change", async () => {
+    jest
+      .mocked(getInterviewRecording)
+      .mockResolvedValue({ url: "https://example.com/station.webm" });
+    const stations = [
+      round.resultStations[0],
+      { ...round.resultStations[0], id: "station-2" },
+    ];
+    setQuery({
+      ...round,
+      recordingEnabled: true,
+      resultStations: stations,
+      result: {
+        studentId: "student-1",
+        releasedAt: "2026-10-23T10:30:00Z",
+        revision: 1,
+        score: 8,
+        possiblePoints: 12,
+        partial: false,
+        attempts: stations.map((station, index) => ({
+          id: `attempt-${index + 1}`,
+          studentId: "student-1",
+          stationId: station.id,
+          version: 1,
+          score: 4,
+          notAssessedReason: null,
+          generalFeedback: null,
+          feedback: [],
+          completed: true,
+          updatedAt: "2026-10-23T10:20:00Z",
+          updatedBy: "tutor-1",
+        })),
+        recordings: stations.map((_, index) => ({
+          id: `recording-${index + 1}`,
+          attemptId: `attempt-${index + 1}`,
+          state: "ready",
+          kind: "audio",
+          expiresAt: "2099-01-01T00:00:00Z",
+          createdAt: "2026-10-23T10:20:00Z",
+        })),
+      },
+    });
+    render(<StudentInterviewResults roundId="round-1" />);
+    expect(
+      screen.getAllByRole("button", { name: "Load audio recording" }),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Station 2 recording")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load audio recording" }),
+    );
+    await screen.findByLabelText("Interview recording");
+    fireEvent.click(screen.getByRole("button", { name: /Station 2/ }));
+    expect(
+      screen.queryByLabelText("Interview recording"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Station 2 recording")).toBeInTheDocument();
   });
 
   it("removes cached results immediately when access is denied on refetch", () => {

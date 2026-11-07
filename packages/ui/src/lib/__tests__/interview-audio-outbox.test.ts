@@ -1,6 +1,8 @@
 import {
   flushInterviewAudio,
   saveInterviewAudio,
+  recoverInterviewAudio,
+  appendInterviewAudio,
   type InterviewAudioSegment,
 } from "../interview-audio-outbox";
 
@@ -64,6 +66,112 @@ beforeEach(() => {
 });
 
 describe("audio upload durability boundary", () => {
+  it("recovers append-only chunks as one take and removes checkpoints only after acknowledgment", async () => {
+    const audio = {
+      ...segment("chunked"),
+      id: "chunked-capture",
+      captureId: "chunked-capture",
+      complete: false,
+      startedAt: "2026-11-05T10:00:00Z",
+    };
+    await appendInterviewAudio(
+      { ...audio, blob: new Blob(["second"], { type: "audio/webm" }) },
+      1,
+    );
+    await appendInterviewAudio(
+      { ...audio, blob: new Blob(["first"], { type: "audio/webm" }) },
+      0,
+    );
+    expect(stored.size).toBe(2);
+    expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
+      pending: 0,
+      error: null,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await recoverInterviewAudio(audio.roundId, audio.actorId)).toEqual([
+      "chunked-capture",
+    ]);
+    expect(stored.get(audio.captureId)?.blob.size).toBe(11);
+    expect(await stored.get(audio.captureId)?.blob.text()).toBe("firstsecond");
+    expect(stored.size).toBe(3);
+    jest.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ complete: true }),
+    } as Response);
+    expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
+      pending: 0,
+      error: null,
+    });
+    expect(stored.size).toBe(0);
+  });
+  it("checkpoints a live take locally and uploads one final immutable blob directly to Storage", async () => {
+    const audio = {
+      ...segment("canonical"),
+      id: "capture-1",
+      complete: false,
+      startedAt: "2026-11-05T10:00:00Z",
+    };
+    await saveInterviewAudio(audio);
+    expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
+      pending: 0,
+      error: null,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    await saveInterviewAudio({ ...audio, complete: true });
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          uploadUrl: "https://local-storage.test/object/sign",
+        }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response);
+    expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
+      pending: 0,
+      error: null,
+    });
+    const calls = jest.mocked(fetch).mock.calls;
+    expect(calls[1]).toEqual([
+      "https://local-storage.test/object/sign",
+      expect.objectContaining({ method: "PUT", body: audio.blob }),
+    ]);
+    expect(JSON.parse(calls[2]![1]!.body as string)).toMatchObject({
+      action: "complete",
+      byteLength: audio.blob.size,
+      startedAt: audio.startedAt,
+    });
+    expect(stored.has(audio.id)).toBe(false);
+  });
+  it("acknowledges an already finalized take without overwriting its object", async () => {
+    const audio = { ...segment("finalized"), id: "capture-1", complete: true };
+    await saveInterviewAudio(audio);
+    jest.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ complete: true }),
+    } as Response);
+    expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({
+      pending: 0,
+      error: null,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(stored.has(audio.id)).toBe(false);
+  });
+  it("makes an interrupted checkpoint recoverable for its original actor only", async () => {
+    const audio = {
+      ...segment("interrupted"),
+      id: "capture-1",
+      complete: false,
+    };
+    await saveInterviewAudio(audio);
+    expect(await recoverInterviewAudio(audio.roundId, "other")).toEqual([]);
+    expect(stored.get(audio.id)?.complete).toBe(false);
+    expect(await recoverInterviewAudio(audio.roundId, audio.actorId)).toEqual([
+      "capture-1",
+    ]);
+    expect(stored.get(audio.id)?.complete).toBe(true);
+  });
   it("retains the bytes after failure and retries the exact segment ID before deleting acknowledged audio", async () => {
     const audio = segment("retry-round");
     await saveInterviewAudio(audio);
@@ -107,5 +215,37 @@ describe("audio upload durability boundary", () => {
     await flushInterviewAudio(audio.roundId, audio.actorId);
     expect(fetch).not.toHaveBeenCalled();
     expect(stored.has(audio.id)).toBe(false);
+  });
+});
+
+it("keeps an unsaved video while acknowledging later station takes", async () => {
+  const roundId = "round-with-pending-video";
+  const video = (id: string) => ({
+    ...segment(id),
+    roundId,
+    captureId: id,
+    complete: true,
+    startedAt: "2026-11-06T01:00:00Z",
+    blob: new Blob(["video"], { type: "video/webm" }),
+  });
+  const earlier = video("earlier-take");
+  const later = video("later-take");
+  await saveInterviewAudio(earlier);
+  await saveInterviewAudio(later);
+  jest
+    .mocked(fetch)
+    .mockResolvedValueOnce({ ok: false, status: 409 } as Response)
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({ complete: true }),
+    } as Response);
+  expect(await flushInterviewAudio(roundId, earlier.actorId)).toMatchObject({
+    pending: 1,
+  });
+  expect(stored.has(earlier.id)).toBe(true);
+  expect(stored.has(later.id)).toBe(false);
+  expect(await flushInterviewAudio(roundId, earlier.actorId)).toEqual({
+    pending: 0,
+    error: null,
   });
 });

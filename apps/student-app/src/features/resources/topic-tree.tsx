@@ -1,8 +1,11 @@
 import type { ResourceTopicNode } from '@altitutor/shared';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useReducedMotion, withSpring } from 'react-native-reanimated';
 
 import { useTheme } from '@/hooks/use-theme';
+import { haptic } from '@/lib/haptics';
 
 export function TopicTree({
   tree,
@@ -47,30 +50,22 @@ export function TopicTree({
 
   function renderTopic(topic: ResourceTopicNode, depth: number) {
     const open = expanded.has(topic.id);
-    const fileCount = fileCounts?.get(topic.id) ?? 0;
-    const current = topic.id === currentId;
     return (
       <View key={topic.id}>
-        <View style={[styles.topicRow, { paddingLeft: 10 + depth * 22, borderBottomColor: theme.border, backgroundColor: current ? theme.backgroundSelected : 'transparent' }]}>
-          {topic.children.length ? (
-            <Pressable accessibilityLabel={open ? 'Collapse topic' : 'Expand topic'} onPress={() => toggle(topic.id)} style={styles.disclosure}>
-              <Text style={[styles.disclosureText, { color: theme.textSecondary }]}>{open ? '⌄' : '›'}</Text>
-            </Pressable>
-          ) : <View style={styles.disclosure} />}
-          <Pressable onPress={() => onOpen(topic)} style={styles.topicContent}>
-            <View style={styles.grow}>
-              <Text style={[styles.topicTitle, { color: theme.text }]}>{topic.name}</Text>
-              <Text style={[styles.topicDetail, { color: theme.textSecondary }]}>{current ? 'Current' : topic.code}</Text>
-            </View>
-            {fileCount ? (
-              <View style={[styles.countBadge, { backgroundColor: theme.backgroundSelected }]}>
-                <Text style={[styles.countText, { color: theme.primary }]}>{fileCount}</Text>
-              </View>
-            ) : null}
-            <Text style={[styles.openIndicator, { color: theme.textSecondary }]}>›</Text>
-          </Pressable>
-        </View>
-        {open && topic.children.length ? topic.children.map((child) => renderTopic(child, depth + 1)) : null}
+        <TopicRow
+          topic={topic}
+          depth={depth}
+          open={open}
+          current={topic.id === currentId}
+          fileCount={fileCounts?.get(topic.id) ?? 0}
+          onToggle={() => toggle(topic.id)}
+          onOpen={() => onOpen(topic)}
+        />
+        {open && topic.children.length ? (
+          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} layout={LinearTransition.springify().damping(20)}>
+            {topic.children.map((child) => renderTopic(child, depth + 1))}
+          </Animated.View>
+        ) : null}
       </View>
     );
   }
@@ -78,28 +73,59 @@ export function TopicTree({
   if (!tree.length) return null;
 
   return (
-    <View style={[styles.tree, { backgroundColor: theme.backgroundElement, shadowColor: theme.shadow }]}>
+    <View style={[styles.tree, { backgroundColor: theme.backgroundElement }]}>
       {tree.map((topic) => renderTopic(topic, 0))}
     </View>
   );
 }
 
+function TopicRow({
+  topic,
+  depth,
+  open,
+  current,
+  fileCount,
+  onToggle,
+  onOpen,
+}: {
+  topic: ResourceTopicNode;
+  depth: number;
+  open: boolean;
+  current: boolean;
+  fileCount: number;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  const theme = useTheme();
+  const reducedMotion = useReducedMotion();
+  const chevron = useAnimatedStyle(() => ({
+    transform: [{ rotate: reducedMotion ? (open ? '90deg' : '0deg') : withSpring(open ? '90deg' : '0deg', { damping: 18, stiffness: 220 }) }],
+  }), [open, reducedMotion]);
+
+  return (
+    <View style={[styles.topicRow, { paddingLeft: 8 + depth * 18, borderBottomColor: theme.border, backgroundColor: current ? theme.backgroundSelected : 'transparent' }]}>
+      {topic.children.length ? (
+        <Pressable accessibilityLabel={open ? 'Collapse topic' : 'Expand topic'} onPressIn={() => haptic()} onPress={onToggle} style={styles.disclosure}>
+          <Animated.View style={chevron}>
+            <Image source="sf:chevron.right" tintColor={theme.textSecondary} style={{ width: 12, height: 16 }} />
+          </Animated.View>
+        </Pressable>
+      ) : <View style={styles.disclosure} />}
+      <Pressable accessibilityRole="button" onPressIn={() => haptic()} onPress={onOpen} style={styles.topicContent}>
+        <Text style={[styles.topicTitle, { color: theme.text }]}>{`${topic.code} ${topic.name}`}</Text>
+        {fileCount ? (
+          <Text style={[styles.countText, { color: theme.textSecondary, fontVariant: ['tabular-nums'] }]}>{fileCount}</Text>
+        ) : null}
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  tree: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-  },
-  topicRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', minHeight: 58, paddingRight: 10 },
-  disclosure: { alignItems: 'center', justifyContent: 'center', width: 30, height: 46 },
-  disclosureText: { fontSize: 22, lineHeight: 24 },
-  topicContent: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, paddingVertical: 9 },
-  grow: { flex: 1 },
-  topicTitle: { fontSize: 15, fontWeight: '600' },
-  topicDetail: { fontSize: 12, marginTop: 2 },
-  countBadge: { borderRadius: 999, minWidth: 26, paddingHorizontal: 8, paddingVertical: 4 },
-  countText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
-  openIndicator: { fontSize: 20 },
+  tree: { borderRadius: 16, borderCurve: 'continuous', overflow: 'hidden' },
+  topicRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', minHeight: 52, paddingRight: 14 },
+  disclosure: { alignItems: 'center', justifyContent: 'center', width: 32, height: 44 },
+  topicContent: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, paddingVertical: 10 },
+  topicTitle: { flex: 1, fontSize: 16, fontWeight: '500' },
+  countText: { fontSize: 15 },
 });

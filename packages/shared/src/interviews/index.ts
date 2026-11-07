@@ -125,6 +125,12 @@ export interface InterviewFeedback {
 /** Stored when a tutor turns on Not scored. A score and this reason never apply together. */
 export const INTERVIEW_NOT_SCORED = "Not scored";
 
+/** A tutor selection's server-clock interval, independent of assessment completion. */
+export interface InterviewQuestionInterval {
+  questionId: string;
+  startedAt: string;
+  endedAt: string | null;
+}
 export interface InterviewStationAttempt {
   id: string;
   studentId: string;
@@ -134,6 +140,8 @@ export interface InterviewStationAttempt {
   notAssessedReason: string | null;
   /** Optional on attempts and clients created before station feedback was added. */
   generalFeedback?: InterviewRichText;
+  selectedQuestionId?: string;
+  questionIntervals?: InterviewQuestionInterval[];
   feedback: InterviewFeedback[];
   completed: boolean;
   updatedAt: string;
@@ -146,6 +154,7 @@ export interface InterviewRecording {
   kind: "video" | "audio";
   expiresAt: string;
   createdAt: string;
+  startedAt?: string;
 }
 export interface InterviewReleasedResult {
   studentId: string;
@@ -279,6 +288,12 @@ export type InterviewCommand =
       confirmMove?: boolean;
     })
   | (Command & { type: "heartbeat" | "tick"; roundId: string })
+  | (Command & {
+      type: "selectQuestion";
+      roundId: string;
+      attemptId: string;
+      questionId: string;
+    })
   | (Command & {
       type: "saveAttempt";
       roundId: string;

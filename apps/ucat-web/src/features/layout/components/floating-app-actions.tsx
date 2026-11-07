@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FullscreenToggleButton } from "@/features/layout/components/fullscreen-toggle-button";
 import { HeaderNotificationPills } from "@/features/layout/components/header-notification-pills";
 import { ProfileDropdown } from "@/features/layout/components/profile-dropdown";
 import { NotificationTray } from "@/features/notifications";
@@ -54,6 +55,7 @@ export function FloatingAppActions({
         </div>
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
           <NotificationTray />
+          <FullscreenToggleButton presentation="icon" />
           <ThemeToggle />
           <ProfileDropdown />
         </div>

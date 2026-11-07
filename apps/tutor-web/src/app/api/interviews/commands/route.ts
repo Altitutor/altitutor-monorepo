@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       },
     );
     if (error) throw error;
-    if (process.env.DAILY_API_KEY && 'roundId' in body && ['pause','resume','next','endStation','finishFeedback','startReading'].includes(body.type)) {
+    if (process.env.DAILY_API_KEY && 'roundId' in body && ['pause','resume','next','endStation','finishFeedback','startReading','skipReading'].includes(body.type)) {
       try {
         await reconcileInterviewMedia(service, process.env.DAILY_API_KEY, body.roundId);
       } catch (mediaError) {

@@ -97,7 +97,7 @@
 - **In-person onboarding completion** — Resolution of the first onboarding check-in and all outstanding onboarding actions after In-person conversion. Conversion alone does not remove a Student with outstanding actions from the onboarding queue.
   _Avoid_: First payment, initial class placement
 
-- **Family enquiry** — An enquiry on behalf of children who are not yet individually identified. It remains visible until it can be linked to individual children's In-person onboarding journeys, which retain the shared communication and original enquiry date.
+- **Family enquiry** — An enquiry on behalf of children who are not yet individually identified. It remains visible until it can be linked to individual children's In-person onboarding journeys, which retain the shared communication and original enquiry date. Known siblings may be captured in one enquiry and progress independently, including attending the same or different trials.
   _Avoid_: One Student per parent contact, anonymous marketing lead
 
 - **Trial form completion** — Submission by adminstaff during the trial session of a Form with the Trial session purpose on behalf of the Student, linked to that Student and session; each participating Student requires their own response. It is distinct from trial attendance and In-person registration, and a missing response remains a staff recording requirement even after registration.
@@ -349,6 +349,9 @@
 
 ## Core tutoring sessions and billing
 
+- **Session lesson plan** — An optional selection of Topics and catalog resources prepared for one future teaching Session and shared by its assigned Tutors. It describes intended teaching, independently of each Tutor's local Teaching workspace and the confirmed Tutor log.
+  _Avoid_: Submitted lesson, required Tutor log, tutor-private plan
+
 - **Teaching workspace** — A Tutor's preparation and teaching space for one Session, containing its selected Lesson resources. It remains distinct from the Session's submitted Tutor log.
 
 - **Lesson resource** — A resource added to a Teaching workspace for intended use in that Session. Its file and Topic are suggestions for the Tutor log until the Tutor confirms learning activity and Student assignments.
@@ -556,6 +559,9 @@
 
 - **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
 
+- **Interview performance review** — A tutor’s written assessment and practice recommendations for one Medicine Interview student, recorded for a date and explicitly published to that student. An initial diagnostic and a follow-up review are the same kind of record. Each published version retains the released mock evidence available at publication. Only the author can edit the review, and a draft correction leaves the published version visible until republication.
+  _Avoid_: Check-in, interview result, diagnostic note
+
 - **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
 
 - **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
@@ -565,6 +571,10 @@
 - **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
 
 - **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
+
+- **Interview question answering interval** — The time during question time for which a tutor has selected a station question. Question 1 is selected initially; each later selection or revisit starts another interval. Pauses are excluded. These intervals label recording playback and are independent of assessment completion.
+
+- **Interview station recording** — One continuous recording of one Student’s station encounter, covering question time and, in Feedback mode, verbal feedback. Muted microphones, disabled cameras and pauses leave silent or blank gaps. Reading and Exam-mode marking are excluded.
 
 - **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
 

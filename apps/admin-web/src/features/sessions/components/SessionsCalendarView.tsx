@@ -11,6 +11,7 @@ import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { SessionsCard } from './SessionsCard';
 import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
+import { filterInterviewRoundEvents, type InterviewRoundCalendarEvent } from '../utils/interviewRoundEvents';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button } from "@altitutor/ui";
 import { utcToAdelaideDate } from '@/features/bookings/utils/dateTimeHelpers';
@@ -18,6 +19,7 @@ import { utcToAdelaideDate } from '@/features/bookings/utils/dateTimeHelpers';
 type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
   source?: CalendarSource;
+  roundEvents?: InterviewRoundCalendarEvent[];
   expandToSessions?: boolean;
   visibleProperties?: string[];
   onRangeChange?: (from:string,to:string) => void;
@@ -38,7 +40,7 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, visibleProperties, onRangeChange, preview }: Props) {
+export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, roundEvents: providedRounds, visibleProperties, onRangeChange, preview }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
@@ -68,7 +70,8 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
   const data = source ?? fetchedData;
   const from = format(rangeStart,'yyyy-MM-dd');
   const to = format(rangeEnd,'yyyy-MM-dd');
-  const { data: roundEvents = [] } = useInterviewRoundEvents(from, to);
+  const { data: fetchedRounds = [] } = useInterviewRoundEvents(from, to);
+  const roundEvents = providedRounds ?? filterInterviewRoundEvents(fetchedRounds, {});
   const selectedRound = roundEvents.find((round) => round.id === selectedRoundId) ?? null;
   useEffect(() => onRangeChange?.(from,to),[from,to,onRangeChange]);
   const showProperty = (key:string) => !visibleProperties || visibleProperties.includes(key);
@@ -90,8 +93,8 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
 
   // Time grid similar to classes timetable
   const calendarSessions = data?.sessions ?? [];
-  const startMinutes = [...calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []), ...Array.from(previewSegments.values(), segment => segment.startMinutes)];
-  const endMinutes = [...calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []), ...Array.from(previewSegments.values(), segment => segment.endMinutes)];
+  const startMinutes = [...roundEvents.map(round => adelaideTimeToMinutes(round.scheduledAt)), ...calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []), ...Array.from(previewSegments.values(), segment => segment.startMinutes)];
+  const endMinutes = [...roundEvents.map(round => adelaideTimeToMinutes(round.endAt) || 1440), ...calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []), ...Array.from(previewSegments.values(), segment => segment.endMinutes)];
   const firstHour = expandToSessions ? Math.floor(Math.min(9 * 60, ...startMinutes) / 60) : 9;
   const lastHour = expandToSessions ? Math.min(24, Math.ceil(Math.max(21 * 60, ...endMinutes) / 60)) : 21;
   const slots = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);

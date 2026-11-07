@@ -1,4 +1,6 @@
 'use client';
+import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
+import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { IssuePill } from '@/features/issues';
@@ -8,11 +10,12 @@ import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
-import { useState, use } from 'react';
+import { useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
+import { FormResponseCommands } from '@/features/forms/components/FormResponseCommands';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -52,6 +55,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const params = use(props.params);
   const { id } = params;
   const router = useRouter();
+  const sidebarForm = useRef<HTMLDivElement>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
@@ -84,9 +89,10 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const staffActions = useStaffActions({
     staffId: id,
     onEditDetails: () => {
-      setActiveTab('details');
       editFlow.startEdit();
     },
+    onPasswordResetOrRegistration: () => setAccountOpen(true),
+    passwordResetLabel: staffMember?.user_id ? 'Send password reset' : 'Send invite',
     onLogAbsence: modals.openLogAbsence,
     onBookCheckIn: staffMember
       ? () =>
@@ -104,7 +110,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   });
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'pay-tier', 'website', 'classes', 'activity', 'sessions', 'files'] as const, 'details', 'tab');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'activity', 'tab');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
@@ -170,15 +176,40 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const activityLayout = activeTab === 'activity';
 
   return (
-    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden px-4 pt-4' : 'p-4'}>
+    <EntityPropertiesLayout id="staff-properties-sidebar" sidebar={<>
+      <div className="border-b p-4 text-sm">
+        <div className="font-medium">Properties</div>
+        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{staffMember.user_id ? 'Has account' : 'No account'}</span></div>
+      </div>
+      <div className="p-4" ref={sidebarForm}>
+        <StaffDetailsTab
+          hideAccount
+          staffMember={staffMember}
+          isEditing={editFlow.isEditing}
+          isLoading={mutations.isUpdatingDetails}
+          onEdit={editFlow.startEdit}
+          onCancelEdit={editFlow.cancelEdit}
+          onSubmit={handleDetailsSubmit}
+          staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
+          onRemoveSubject={editFlow.removeSubject}
+          onViewSubject={entityModals.openSubject}
+          addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
+        />
+        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
+      </div>
+</>}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
+        <EntityPropertiesToggle />
         <IssuePill entityType="staff" entityId={id} enabled />
         <NoteAlertPills entityType="staff" entityId={staffMember.id} />
 
+        <FormResponseCommands record={{ type: "staff", id: staffMember.id, title: `${staffMember.first_name ?? ""} ${staffMember.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="staff"
+          detailsInSidebar
           entityId={staffMember.id}
           copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
           {...staffActions}
@@ -192,11 +223,10 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
-          { value: 'details', label: 'Details' },
+          { value: 'activity', label: 'Activity' },
           { value: 'pay-tier', label: 'Pay tier' },
           { value: 'website', label: 'Website' },
           { value: 'classes', label: 'Classes' },
-          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
         ]}
@@ -204,53 +234,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         <SegmentedTabPanelContent when="website" activeTab={activeTab} className="overflow-y-auto">
           <StaffWebsiteProfile key={staffMember.id} staffId={staffMember.id} active={staffMember.status === 'ACTIVE'} />
         </SegmentedTabPanelContent>
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
-          <StaffDetailsTab
-            staffMember={staffMember}
-            isEditing={editFlow.isEditing}
-            isLoading={mutations.isUpdatingDetails}
-            onEdit={editFlow.startEdit}
-            onCancelEdit={editFlow.cancelEdit}
-            onSubmit={handleDetailsSubmit}
-            onDelete={undefined}
-            isDeleting={mutations.isDeleting}
-            staffSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
-            loadingSubjects={isLoading}
-            onRemoveSubject={editFlow.removeSubject}
-            onViewSubject={entityModals.openSubject}
-            addSubjectButton={
-              <SubjectSearchPopover
-                selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects}
-                onSelectSubject={(subject) => handleAssignSubject(subject.id)}
-              />
-            }
-          />
-          {editFlow.isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>
-                Cancel
-              </UIButton>
-              <UIButton
-                disabled={mutations.isUpdatingDetails}
-                onClick={() => {
-                  const form = document.getElementById('staff-edit-form') as HTMLFormElement;
-                  if (form) {
-                    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-                    if (submitButton) {
-                      submitButton.click();
-                    } else {
-                      form.requestSubmit();
-                    }
-                  }
-                }}
-              >
-                {mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </UIButton>
-            </div>
-          )}
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="pay-tier" activeTab={activeTab} className="space-y-6"><StaffPayTierTab staffId={id} staffFirstName={staffMember.first_name} staffLastName={staffMember.last_name} onOpenSession={entityModals.openSession} /></SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
@@ -271,6 +254,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
 
         <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            allowForm
             entityType="staff"
             entityId={id}
             className="min-h-0 flex-1"
@@ -341,6 +325,9 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <PersonAccountDialog type="staff" person={staffMember} open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
+
+    </EntityPropertiesLayout>
   );
 }

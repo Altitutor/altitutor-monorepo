@@ -49,6 +49,9 @@ jest.mock("@/shared/lib/supabase/client", () => ({
     const result = { data: [], error: null };
     const query = {
       select: () => query,
+      order: () => query,
+      range: () => query,
+      not: () => query,
       filter: () => query,
       eq: () => query,
       maybeSingle: async () => ({ data: null, error: null }),
@@ -127,6 +130,32 @@ it("keeps flexible participant lists and makes family suggestions optional", asy
   expect(screen.getByText("Suggested Parent")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(await screen.findByLabelText("Sessions calendar")).toBeInTheDocument();
+});
+
+it("plans a shared trial for selected siblings without booking before enquiry confirmation", async () => {
+  const onConfirm = jest.fn();
+  const children = [
+    { id: "00000000-0000-4000-8000-000000000001", label: "Riley" },
+    { id: "00000000-0000-4000-8000-000000000002", label: "Casey" },
+    { id: "00000000-0000-4000-8000-000000000003", label: "Jordan" },
+  ];
+  renderWithProviders(
+    <ManualMeetingModal isOpen onClose={jest.fn()} sessionType="TRIAL_SESSION"
+      trialPlan={{ students: children, onConfirm }} />,
+  );
+
+  expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Add student Riley" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add student Casey" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByText("Riley, Casey")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Save trial time" }));
+
+  expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({
+    input: expect.objectContaining({ type: "TRIAL_SESSION", studentIds: [children[0].id, children[1].id] }),
+  }));
+  expect(fetch).not.toHaveBeenCalledWith("/api/sessions/manual-meeting", expect.objectContaining({ method: "POST" }));
 });
 
 it("allows confirmation despite an availability warning and keeps messaging optional after booking", async () => {

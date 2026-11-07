@@ -12,6 +12,15 @@ const mockMutateAsync = jest.fn();
 const mockFlush = jest.fn();
 const mockFinalizeAudio = jest.fn();
 const mockLeaveTo = jest.fn();
+const mockQuestionSelected = jest.fn();
+
+jest.mock("../../hooks/use-interview-question-timing", () => ({
+  useInterviewQuestionTiming: () => ({
+    onQuestionSelected: mockQuestionSelected,
+    timingError: null,
+    retryTiming: jest.fn(),
+  }),
+}));
 
 jest.mock("../../api/interviews", () => ({
   sendInterviewCommand: jest.fn().mockResolvedValue({}),
@@ -132,6 +141,9 @@ jest.mock("../interview-ui", () => ({
 }));
 
 jest.mock("@altitutor/ui", () => ({
+  InterviewRoundOverview: jest.requireActual(
+    "@altitutor/ui/components/interview-round-overview",
+  ).InterviewRoundOverview,
   Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Button: ({
     children,
@@ -323,6 +335,7 @@ beforeEach(() => {
   mockFlush.mockReset().mockResolvedValue(undefined);
   mockFinalizeAudio.mockReset().mockResolvedValue(undefined);
   mockLeaveTo.mockClear();
+  mockQuestionSelected.mockClear();
 });
 
 it("waits for feedback and final audio before opening completed results", async () => {
@@ -680,7 +693,9 @@ describe("in-person interview round", () => {
     expect(screen.getAllByText("Not joined").length).toBeGreaterThan(0);
     expect(screen.getByText("Joined")).toBeInTheDocument();
     expect(screen.getByText("In person")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Join links" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Join links" }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Tutor link")).toHaveValue(
       `${window.location.origin}/interviews/rounds/round-1/waiting`,
     );
@@ -809,4 +824,85 @@ test("resolved missed encounters permit explicit completion from waiting without
       ([command]) => command.type === "claimStudent",
     ),
   ).toBe(false);
+});
+
+it("starts question time at Question 1 after browsing Question 2 while reading", () => {
+  currentRound = { ...roundFixture("in_person"), phase: "reading" };
+  const station = currentRound.stations[0];
+  station.questions.push({
+    ...station.questions[0],
+    id: "placement-followup",
+    questionId: "question-followup",
+    question: textDoc("What is your next step?"),
+  });
+  const view = render(<InterviewWorkspace id="round-1" />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  ).toHaveAttribute("aria-current", "true");
+  expect(mockQuestionSelected).not.toHaveBeenCalled();
+  currentRound = {
+    ...currentRound,
+    phase: "questions",
+    attempts: currentRound.attempts.map((attempt) => ({
+      ...attempt,
+      selectedQuestionId: station.questions[0].id,
+    })),
+  };
+  view.rerender(<InterviewWorkspace id="round-1" />);
+  expect(
+    screen.getByRole("button", { name: "Question 1, unanswered" }),
+  ).toHaveAttribute("aria-current", "true");
+  expect(mockQuestionSelected).toHaveBeenCalledWith("placement-1");
+  expect(mockQuestionSelected).not.toHaveBeenCalledWith("placement-followup");
+});
+
+it("preserves answering navigation through pause, resume, and rejoining an attempt", () => {
+  currentRound = roundFixture("in_person");
+  const station = currentRound.stations[0];
+  station.questions.push({
+    ...station.questions[0],
+    id: "placement-followup",
+    questionId: "question-followup",
+    question: textDoc("What is your next step?"),
+  });
+  const view = render(<InterviewWorkspace id="round-1" />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  );
+  expect(mockQuestionSelected).toHaveBeenLastCalledWith("placement-followup");
+  mockQuestionSelected.mockClear();
+  currentRound = { ...currentRound, pausedAt: "2026-10-23T01:06:30.000Z" };
+  view.rerender(<InterviewWorkspace id="round-1" />);
+  expect(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  ).toHaveAttribute("aria-current", "true");
+  expect(mockQuestionSelected).not.toHaveBeenCalled();
+  currentRound = {
+    ...currentRound,
+    pausedAt: null,
+    phaseStartedAt: "2026-10-23T01:05:30.000Z",
+  };
+  view.rerender(<InterviewWorkspace id="round-1" />);
+  expect(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  ).toHaveAttribute("aria-current", "true");
+  expect(mockQuestionSelected).toHaveBeenLastCalledWith("placement-followup");
+  view.unmount();
+  mockQuestionSelected.mockClear();
+  currentRound = {
+    ...currentRound,
+    attempts: currentRound.attempts.map((attempt) => ({
+      ...attempt,
+      selectedQuestionId: "placement-followup",
+    })),
+  };
+  render(<InterviewWorkspace id="round-1" />);
+  expect(
+    screen.getByRole("button", { name: "Question 2, unanswered" }),
+  ).toHaveAttribute("aria-current", "true");
+  expect(mockQuestionSelected).toHaveBeenLastCalledWith("placement-followup");
+  expect(mockQuestionSelected).not.toHaveBeenCalledWith("placement-1");
 });

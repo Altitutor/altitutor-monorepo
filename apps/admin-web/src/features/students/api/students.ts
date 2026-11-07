@@ -785,7 +785,7 @@ export const studentsApi = {
    * Uses server-side RPC search to avoid pagination limits
    * @param excludeClassSearch - If true, excludes class name search (name-only search)
    */
-  searchStudents: async (query: string, statuses?: NonNullable<Tables<'students'>['status']>[], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
+  searchStudents: async (query: string, statuses?: NonNullable<Tables<'students'>['status']>[] | null, excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -803,7 +803,7 @@ export const studentsApi = {
       
       // Only add p_statuses if we want to filter (for drafting sessions, filter to ACTIVE only)
       // If omitted, RPC uses default which includes ACTIVE and TRIAL
-      if (statuses && statuses.length > 0) {
+      if (statuses === null || (statuses && statuses.length > 0)) {
         rpcParams.p_statuses = statuses;
       }
       

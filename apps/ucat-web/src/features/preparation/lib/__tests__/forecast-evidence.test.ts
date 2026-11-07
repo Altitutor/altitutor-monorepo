@@ -58,7 +58,7 @@ describe("preparation forecast evidence", () => {
     ]);
   });
 
-  it("uses six weeks of recency-weighted behavior and stable plan uptake", () => {
+  it("keeps compatible score history across policy changes and uses stable plan uptake", () => {
     const currentSnapshot = {
       versions: CURRENT_PREPARATION_VERSIONS,
       sectionTargets: { vr: 730, dm: 730, qr: 740 },
@@ -106,7 +106,10 @@ describe("preparation forecast evidence", () => {
         {
           generatedAt: "2026-01-13T00:00:00.000Z",
           projectionSnapshot: {
-            ...currentSnapshot,
+            versions: {
+              ...CURRENT_PREPARATION_VERSIONS,
+              policy: "previous-policy",
+            },
             currentScore: { status: "available", currentEstimate: 1750 },
           },
         },
@@ -118,6 +121,16 @@ describe("preparation forecast evidence", () => {
               trajectoryModel: "incompatible-v0",
             },
             currentScore: { status: "available", currentEstimate: 1600 },
+          },
+        },
+        {
+          generatedAt: "2026-01-02T00:00:00.000Z",
+          projectionSnapshot: {
+            versions: {
+              ...CURRENT_PREPARATION_VERSIONS,
+              scoreModel: "incompatible-score-v0",
+            },
+            currentScore: { status: "available", currentEstimate: 1550 },
           },
         },
         {

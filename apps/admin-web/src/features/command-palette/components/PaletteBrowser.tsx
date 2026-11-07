@@ -32,6 +32,7 @@ import {
   type SearchPaletteEntities,
 } from "../model";
 import { EntityPill } from "./EntityPill";
+import { scoreEntityText } from "../utils/matchScoring";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { focusCommandPaletteInput } from "@altitutor/shared";
 
@@ -44,7 +45,8 @@ type Frame =
       topicId?: string;
       entity?: EntityTarget;
     }
-  | { label: string; mode: "commands" | "create" | "pages" };
+  | { label: string; mode: "commands" | "create" | "pages" }
+  | { label: string; mode: "command-submenu"; commandId: string };
 type Item = {
   id: string;
   title: string;
@@ -178,6 +180,14 @@ export function PaletteBrowser({
         });
     }
   }
+  if (current?.mode === "command-submenu") {
+    const children = commands.find((command) => command.id === current.commandId)?.submenu ?? [];
+    for (const command of children) {
+      if (matches([command.title, ...(command.keywords ?? [])].join(" "), query)) {
+        items.push({ ...command, id: `command-${command.id}` });
+      }
+    }
+  }
   if (
     (!current && query) ||
     current?.mode === "commands" ||
@@ -202,6 +212,10 @@ export function PaletteBrowser({
         items.push({
           ...command,
           id: `command-${command.id}`,
+          enter: command.submenu ? [
+            commandFrame,
+            { label: command.title, mode: "command-submenu", commandId: command.id },
+          ] : undefined,
           parents:
             !current || current.mode === "commands"
               ? parents.slice(current ? 1 : 0)
@@ -297,11 +311,19 @@ export function PaletteBrowser({
       icon: ExternalLink,
       action: () => openEntity(current.entity!),
     });
-  if (!pendingQuery)
-    for (const result of queries)
-      for (const entity of (result.isFetching ? [] : result.data?.results) ??
-        [])
-        items.push(entityItem(entity));
+  if (!pendingQuery) {
+    const entities = queries.flatMap((result) =>
+      result.isFetching ? [] : (result.data?.results ?? []),
+    );
+    if (!current) {
+      entities.sort(
+        (a, b) =>
+          scoreEntityText(b, query) - scoreEntityText(a, query) ||
+          Number(a.type === "email") - Number(b.type === "email"),
+      );
+    }
+    for (const entity of entities) items.push(entityItem(entity));
+  }
   useEffect(() => {
     setSelected(0);
   }, [search, current, limit]);

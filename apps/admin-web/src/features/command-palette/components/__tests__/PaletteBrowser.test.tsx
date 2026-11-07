@@ -88,6 +88,42 @@ it("enters Students with Enter, searches only that submenu, and returns with Bac
   expect(screen.getByRole("option", { name: "Students" })).toBeVisible();
 });
 
+it("breaks equal root search matches in favor of records while preserving stronger email matches", async () => {
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PaletteBrowser
+        isOpen
+        onClose={() => {}}
+        onEntitySelected={() => {}}
+        commands={[]}
+        pages={[]}
+        searchEntities={async ({ type }) => ({
+          results:
+            type === "email"
+              ? [
+                  { type, id: "email-prefix", title: "Alice enquiry" },
+                  { type, id: "email-exact", title: "Alice" },
+                ]
+              : type === "student"
+                ? [{ type, id: "student", title: "Alice Williams" }]
+                : [],
+          hasMore: false,
+        })}
+      />
+    </QueryClientProvider>,
+  );
+
+  await user.type(screen.getByRole("searchbox"), "Alice");
+  await screen.findByRole("option", { name: "Students Alice Williams" });
+  await screen.findByRole("option", { name: "Email Alice enquiry" });
+  const options = screen.getAllByRole("option");
+  expect(options).toHaveLength(3);
+  expect(options[0]).toHaveAccessibleName("Email Alice");
+  expect(options[1]).toHaveAccessibleName("Students Alice Williams");
+  expect(options[2]).toHaveAccessibleName("Email Alice enquiry");
+});
+
 it("distinguishes action targets with an entity pill and mutes only ancestor labels", async () => {
   const action = jest.fn();
   const user = userEvent.setup();
@@ -197,4 +233,40 @@ it("keeps a topic subtree scoped, offers an explicit Open action, and uses Escap
     "placeholder",
     "Search 12MATH…",
   );
+});
+
+it("opens a contextual form command's member submenu and chooses the searched member", async () => {
+  const user = userEvent.setup();
+  const chooseAlice = jest.fn();
+  const chooseBob = jest.fn();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <PaletteBrowser
+        isOpen
+        onClose={() => {}}
+        onEntitySelected={() => {}}
+        pages={[]}
+        commands={[{
+          id: "forms",
+          title: "Add form response",
+          icon: Copy,
+          target: { type: "class", id: "class", title: "Maths" },
+          submenu: [
+            { id: "alice", title: "Alice Williams", icon: Copy, action: chooseAlice },
+            { id: "bob", title: "Bob Taylor", icon: Copy, action: chooseBob },
+          ],
+        }]}
+        searchEntities={async () => ({ results: [], hasMore: false })}
+      />
+    </QueryClientProvider>,
+  );
+
+  const input = screen.getByRole("searchbox");
+  await user.type(input, "add form response");
+  await user.click(screen.getByRole("option", { name: "Commands Add form response Maths" }));
+  await user.type(input, "Alice");
+  expect(screen.queryByRole("option", { name: "Bob Taylor" })).not.toBeInTheDocument();
+  await user.keyboard("{Enter}");
+  expect(chooseAlice).toHaveBeenCalledTimes(1);
+  expect(chooseBob).not.toHaveBeenCalled();
 });

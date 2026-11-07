@@ -3,6 +3,7 @@ import type { Database } from '@altitutor/shared';
 import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
 import { parseSessionParentList, parseSessionStaffList, parseSessionStudentList } from '@/features/sessions/utils/parseSessionDetailJson';
 import { TeachingError } from './auth';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { requireUUID } from './validation';
 
 type Client = SupabaseClient<Database>;
@@ -122,9 +123,12 @@ export async function teachingResources(client: Client, params: URLSearchParams)
   }), nextOffset };
 }
 
-export async function teachingDocumentURL(client: Client, id: string) {
+export async function teachingDocumentURL(client: Client, id: string, sessionID: string | null = null) {
   requireUUID(id);
-  const { data, error } = await client.from('vtutor_topics_files').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
+  if (sessionID) requireUUID(sessionID);
+  const { data, error } = sessionID
+    ? await client.from('vtutor_session_lesson_plan_documents').select('*').eq('session_id', sessionID).eq('id', id).maybeSingle()
+    : await client.from('vtutor_topics_files').select('*').eq('id', id).is('deleted_at', null).maybeSingle();
   check(error);
   if (!data) throw new TeachingError(404, 'This resource is no longer accessible.');
   if (data.external_url) {
@@ -132,7 +136,8 @@ export async function teachingDocumentURL(client: Client, id: string) {
     return { url: data.external_url, external: true };
   }
   if (!data.bucket || !data.storage_path) throw new TeachingError(404, 'This resource has no downloadable file.');
-  const result = await client.storage.from(data.bucket).createSignedUrl(data.storage_path, 300);
+  const signer = sessionID ? getServiceRoleClient() : client;
+  const result = await signer.storage.from(data.bucket).createSignedUrl(data.storage_path, 300);
   check(result.error);
   if (!result.data) throw new TeachingError(503, 'Could not prepare this resource.');
   return { url: result.data.signedUrl, external: false };

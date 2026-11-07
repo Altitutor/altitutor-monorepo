@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   registrationSchema,
+  existingLoginRegistrationSchema,
   type RegistrationFormValues,
 } from "../validations";
 import { Button } from "@altitutor/ui";
@@ -81,9 +82,7 @@ export function RegistrationFlow({
   onStepChange,
   skipPassword = false,
 }: RegistrationFlowProps) {
-  // Always show all steps (including password step)
-  // When skipPassword is true, the password step will show "Enter your password" instead of "Create password"
-  const steps = STEPS;
+  const steps = skipPassword ? STEPS.map((step) => step.id === "password" ? { ...step, title: "Existing login" } : step) : STEPS;
   const router = useRouter();
   const { toast } = useToast();
   const supabase = useSupabaseClient();
@@ -196,7 +195,7 @@ export function RegistrationFlow({
   ]);
 
   const form = useForm<RegistrationFormValues>({
-    resolver: zodResolver(registrationSchema),
+    resolver: zodResolver(skipPassword ? existingLoginRegistrationSchema : registrationSchema),
     mode: "onChange",
     defaultValues: {
       student: {
@@ -261,7 +260,7 @@ export function RegistrationFlow({
     const fieldsToValidate: (keyof RegistrationFormValues)[] = [];
 
     // Steps: student(0), parents(1), availability(2), password(3), payment(4), confirm(5)
-    // When skipPassword=true, password step shows "Enter your password" instead of "Create password"
+    // Existing logins retain their credentials and do not need a password step.
 
     if (currentStep === 0) {
       fieldsToValidate.push("student");
@@ -269,7 +268,7 @@ export function RegistrationFlow({
       fieldsToValidate.push("parents");
     } else if (currentStep === 2) {
       fieldsToValidate.push("availability");
-    } else if (currentStep === 3) {
+    } else if (currentStep === 3 && !skipPassword) {
       // Password step - always validate password, but only validate confirmPassword if not skipping
       fieldsToValidate.push("password");
       if (!skipPassword) {
@@ -350,7 +349,7 @@ export function RegistrationFlow({
         },
         parents: formData.parents,
         subject_ids: formData.student.subject_ids,
-        password: skipPassword ? formData.password : formData.password,
+        password: skipPassword ? undefined : formData.password,
         confirmPassword: skipPassword ? undefined : formData.confirmPassword,
         skipPassword,
       };
@@ -403,11 +402,17 @@ export function RegistrationFlow({
       toast({
         title: "Registration Successful!",
         description: skipPassword
-          ? "Redirecting to dashboard..."
+          ? "In-person registration is complete. Your existing account is ready to use."
           : "Signing you in...",
       });
 
-      // Sign in the user - either with newly created password or existing password
+      if (skipPassword) {
+        isRedirectingRef.current = true;
+        router.replace("/login?registered=success");
+        return;
+      }
+
+      // Sign in the newly created account.
       try {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: formData.student.email,

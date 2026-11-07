@@ -123,14 +123,12 @@ function snapshotVersions(snapshot: SnapshotRecord): SnapshotRecord | null {
   return record(snapshot.versions);
 }
 
-function matchesVersions(
-  snapshot: SnapshotRecord,
+function matchesScoreProjectionVersions(
+  stored: SnapshotRecord | null,
   versions: PreparationVersions,
 ): boolean {
-  const stored = snapshotVersions(snapshot);
   return (
     stored?.engine === versions.engine &&
-    stored.policy === versions.policy &&
     stored.trajectoryModel === versions.trajectoryModel &&
     stored.scoreModel === versions.scoreModel
   );
@@ -151,7 +149,12 @@ function historyPoint(
   versions: PreparationVersions,
 ) {
   const snapshot = record(snapshotEvidence.projectionSnapshot);
-  if (!snapshot || !matchesVersions(snapshot, versions)) return null;
+  if (
+    !snapshot ||
+    !matchesScoreProjectionVersions(snapshotVersions(snapshot), versions)
+  ) {
+    return null;
+  }
   const currentScore = record(snapshot.currentScore);
   if (
     currentScore?.status !== "available" ||
@@ -281,8 +284,10 @@ export function derivePreparationForecastEvidence(input: {
 }): NonNullable<PreparationEngineInput["evidence"]["forecast"]> {
   const active = input.activePlanSnapshot;
   const activeSnapshot = active ? record(active.projectionSnapshot) : null;
+  const activeVersions = activeSnapshot && snapshotVersions(activeSnapshot);
   const compatibleActive =
-    activeSnapshot && matchesVersions(activeSnapshot, input.versions)
+    activeVersions?.policy === input.versions.policy &&
+    matchesScoreProjectionVersions(activeVersions, input.versions)
       ? activeSnapshot
       : null;
   const uptake = planUptake({

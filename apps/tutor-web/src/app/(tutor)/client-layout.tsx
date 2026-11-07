@@ -163,6 +163,7 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean
         children: [
           { type: 'heading', title: 'Scheduling' },
           { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
+          { title: 'Performance reviews', href: '/interviews/performance-reviews', icon: FileQuestion },
           { type: 'heading', title: 'Content' },
           { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
           { title: 'Station bank', href: '/interviews/stations', icon: FileQuestion },

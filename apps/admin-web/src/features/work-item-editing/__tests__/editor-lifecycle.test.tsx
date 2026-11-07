@@ -430,3 +430,144 @@ it("a custom selector can return to its initial form default after an earlier sa
     project_id: "11111111-1111-4111-8111-111111111111",
   });
 });
+
+
+it.each<EditKind>(["task", "issue", "project", "document"])(
+  "%s stops polling when the work item is no longer available",
+  async (kind) => {
+    const { result } = setup(kind);
+    await ready(result);
+    read.mockRejectedValue(
+      Object.assign(new Error("Work item not found"), { code: "P0002" }),
+    );
+    await tick(10000);
+    expect(read).toHaveBeenCalledTimes(2);
+    await tick(30000);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(result.current.editor.editable).toBe(false);
+    expect(result.current.editor.error).toMatch(/no longer available/i);
+  },
+);
+
+
+it("keeps unsaved text and stops saves after a not-found patch", async () => {
+  patch.mockRejectedValue(
+    Object.assign(new Error("Work item not found"), { code: "P0002" }),
+  );
+  const { result, close } = setup();
+  await ready(result);
+  edit(result, "description", changed);
+  await tick(600);
+  expect(result.current.editor.editable).toBe(false);
+  expect(result.current.form.getValues("description")).toEqual(changed);
+  expect(result.current.editor.dirty).toBe(true);
+  const recovery = sessionStorage.getItem("work-autosave:user:task:one");
+  expect(recovery).toContain("New writing");
+  await act(async () => {
+    window.dispatchEvent(new Event("online"));
+    expect(await result.current.editor.save()).toBe(false);
+    await result.current.editor.requestClose();
+  });
+  await tick(40000);
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(close).not.toHaveBeenCalled();
+  expect(result.current.editor.closeRequested).toBe(true);
+  act(() => result.current.editor.finishClose());
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(sessionStorage.getItem("work-autosave:user:task:one")).toBe(recovery);
+});
+
+
+it("ignores an older successful refresh after the item becomes unavailable", async () => {
+  const old = deferred<WorkItemSnapshot>();
+  const { result } = setup();
+  await ready(result);
+  read.mockImplementationOnce(() => old.promise);
+  await tick(10000);
+  read.mockRejectedValueOnce(
+    Object.assign(new Error("Work item not found"), { code: "P0002" }),
+  );
+  await tick(10000);
+  await act(async () => {
+    old.resolve(snapshot({ ...original, title: "Old response", admin_revision: 2 }));
+  });
+  expect(result.current.form.getValues("title")).toBe("Existing");
+  expect(result.current.editor.editable).toBe(false);
+  expect(result.current.editor.error).toMatch(/no longer available/i);
+});
+
+it("continues polling after transient read failures", async () => {
+  const { result } = setup();
+  await ready(result);
+  read.mockRejectedValueOnce(new Error("Gateway timeout"));
+  await tick(10000);
+  server = { ...original, title: "Updated elsewhere", admin_revision: 2 };
+  await tick(10000);
+  expect(read).toHaveBeenCalledTimes(3);
+  expect(result.current.form.getValues("title")).toBe("Updated elsewhere");
+  expect(result.current.editor.editable).toBe(true);
+});
+
+it("can close a missing unchanged item and open another record normally", async () => {
+  const { result, close, rerender } = setup();
+  await ready(result);
+  read.mockRejectedValueOnce(
+    Object.assign(new Error("Work item not found"), { code: "P0002" }),
+  );
+  await tick(10000);
+  await act(async () => result.current.editor.requestClose());
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(result.current.editor.closeRequested).toBe(false);
+  rerender({ id: "two" });
+  await ready(result);
+  expect(result.current.editor.error).toBeNull();
+  await tick(10000);
+  expect(read).toHaveBeenLastCalledWith("task", "two");
+});
+
+
+it("does not delete after an in-flight save reports the item missing", async () => {
+  const response = deferred<void>();
+  patch.mockImplementationOnce(async () => {
+    await response.promise;
+    throw Object.assign(new Error("Work item not found"), { code: "P0002" });
+  });
+  const { result } = setup();
+  await ready(result);
+  edit(result, "description", changed);
+  await tick(600);
+  let deleting: Promise<void>;
+  await act(async () => {
+    deleting = result.current.editor.remove();
+    response.resolve();
+    await deleting;
+  });
+  expect(remove).not.toHaveBeenCalled();
+  expect(result.current.editor.deleting).toBe(false);
+  expect(result.current.editor.editable).toBe(false);
+});
+
+
+it("keeps terminal recovery guidance when an older save fails transiently", async () => {
+  const refresh = deferred<void>();
+  const saving = deferred<void>();
+  const { result } = setup();
+  await ready(result);
+  read.mockImplementationOnce(async () => {
+    await refresh.promise;
+    throw Object.assign(new Error("Work item not found"), { code: "P0002" });
+  });
+  await tick(10000);
+  patch.mockImplementationOnce(async () => {
+    await saving.promise;
+    throw new Error("Gateway timeout");
+  });
+  edit(result, "description", changed);
+  await tick(600);
+  await act(async () => refresh.resolve());
+  expect(result.current.editor.error).toMatch(/no longer available/i);
+  await act(async () => saving.resolve());
+  expect(result.current.editor.error).toMatch(/no longer available/i);
+  expect(result.current.form.getValues("description")).toEqual(changed);
+});

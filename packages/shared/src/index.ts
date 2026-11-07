@@ -59,3 +59,7 @@ export * from "./validation/iso-datetime";
 export * from "./observability/sentry-web-compatibility";
 
 export type { SharedLessonDocument } from './teaching/types';
+
+export * from "./utils/past-session-history";
+
+export * from './interviews/performance-reviews';
