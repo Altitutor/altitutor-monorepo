@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
 const id = z.guid();
 const date = z.string().date();
 const document = z.custom<Json>(isInterviewReviewDocument);
+const title = z.string().trim().max(160).nullable().optional();
 const fields = z.object({
+  title,
   studentId: id.nullable(),
   date,
   template: z.string().max(160),
@@ -24,7 +26,7 @@ const fields = z.object({
 const command = z.union([
   z.object({ type: z.literal("createReview"), id, commandId: id, date }),
   z.object({ type: z.enum(["saveReview", "publishReview"]), id, commandId: id, expectedVersion: z.number().int().positive(), fields }),
-  z.object({ type: z.literal("saveTemplate"), id, commandId: id, expectedVersion: z.number().int().nonnegative(), name: z.string().trim().min(1).max(160), body: document }),
+  z.object({ type: z.literal("saveTemplate"), id, commandId: id, expectedVersion: z.number().int().nonnegative(), name: z.string().trim().min(1).max(160), title, body: document }),
 ]);
 
 async function pages<T>(read: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
@@ -66,7 +68,7 @@ export async function GET(request: Request) {
     if (templateId !== null) {
       if (!id.safeParse(templateId).success) return interviewResponse({ error: "Template unavailable." }, 404);
       const { data, error } = await db.from("vtutor_interview_performance_review_templates")
-        .select("id,name,body,version").eq("id", templateId).maybeSingle();
+        .select("id,name,body,version,title").eq("id", templateId).maybeSingle();
       if (error) throw error;
       return data ? interviewResponse(data) : interviewResponse({ error: "Template unavailable." }, 404);
     }

@@ -42,7 +42,7 @@ export function StudentPerformanceReviewsPage({ reviewId, revision }: { reviewId
         <header className="mb-6 flex items-start gap-3">
           <Button asChild variant="outline" size="icon" className={studentBtnIconOutline}><Link href={reviewRoot} aria-label="Back to performance reviews"><ArrowLeft className="size-4" /></Link></Button>
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Performance review</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">{review.title || "Performance review"}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{reviewDate(review.date)} · {review.author}</p>
           </div>
         </header>
@@ -74,7 +74,7 @@ export function StudentPerformanceReviewsPage({ reviewId, revision }: { reviewId
         {[...(list.data ?? [])].sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
           <li key={item.id}>
             <StudentInterviewListCard href={reviewRoot + "/" + item.id} icon={FileText}
-              title="Performance review" description={reviewDate(item.date) + " · " + item.author} />
+              title={item.title || "Performance review"} description={reviewDate(item.date) + " · " + item.author} />
           </li>
         ))}
       </ul>

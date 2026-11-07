@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, ChevronRight, Video, MapPin } from "lucide-react";
 import { Badge, Button, ClickableNavCard } from "@altitutor/ui";
 import type { StudentInterviewRound } from "@altitutor/shared";
+import { StudentSessionsCalendarView } from "@/features/sessions/components/StudentSessionsCalendarView";
 import { ResourcesBreadcrumb } from "@/features/resources/components/resources-breadcrumb";
 import { studentCardCn } from "@/shared/lib/student-visual";
 import {
@@ -163,9 +164,11 @@ export function StudentInterviewsPage({ usePerformanceReviewListStyle = false }:
       </header>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Active and upcoming</h2>
-        {upcoming.length ? (
-          <div className={usePerformanceReviewListStyle ? "grid gap-4 sm:grid-cols-2" : "space-y-3"}>
-            {upcoming.map((round) => <RoundCard key={round.id} round={round} clickable={usePerformanceReviewListStyle} />)}
+        {usePerformanceReviewListStyle ? (
+          <StudentSessionsCalendarView interviewsOnly />
+        ) : upcoming.length ? (
+          <div className="space-y-3">
+            {upcoming.map((round) => <RoundCard key={round.id} round={round} />)}
           </div>
         ) : (
           <p className="rounded-xl border border-dashed p-6 text-muted-foreground">

@@ -10,11 +10,13 @@ import { Button } from "@altitutor/ui";
 import { studentBtnOutline } from "@/shared/lib/student-visual";
 
 type StudentSessionsCalendarViewProps = {
+  interviewsOnly?: boolean;
   linkedSessionId?: string | null;
   onLinkedSessionHandled?: () => void;
 };
 
 export function StudentSessionsCalendarView({
+  interviewsOnly = false,
   linkedSessionId = null,
   onLinkedSessionHandled,
 }: StudentSessionsCalendarViewProps = {}) {
@@ -47,31 +49,6 @@ export function StudentSessionsCalendarView({
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          className={studentBtnOutline}
-          aria-label="Previous week"
-          onClick={() => setAnchor(addDays(anchor, -7))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          className={studentBtnOutline}
-          onClick={() => setAnchor(new Date())}
-        >
-          Today
-        </Button>
-        <Button
-          variant="outline"
-          className={studentBtnOutline}
-          aria-label="Next week"
-          onClick={() => setAnchor(addDays(anchor, 7))}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
       {isError && (
         <p role="status" className="text-sm text-muted-foreground">
           Your timetable could not be loaded.{" "}
@@ -87,6 +64,34 @@ export function StudentSessionsCalendarView({
       <StudentInterviewCalendar
         dates={days}
         sessions={sessions ?? []}
+        interviewsOnly={interviewsOnly}
+        calendarControls={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              className={studentBtnOutline}
+              aria-label="Previous week"
+              onClick={() => setAnchor(addDays(anchor, -7))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className={studentBtnOutline}
+              onClick={() => setAnchor(new Date())}
+            >
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              className={studentBtnOutline}
+              aria-label="Next week"
+              onClick={() => setAnchor(addDays(anchor, 7))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        }
         onOpenSession={(id) => {
           setSelectedSessionId(id);
           setIsModalOpen(true);
