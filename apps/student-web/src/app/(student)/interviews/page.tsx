@@ -1,5 +1,5 @@
-import { StudentInterviewsPage } from "@/features/interviews/components/student-interviews-page";
+import { redirect } from "next/navigation";
 
 export default function InterviewsPage() {
-  return <StudentInterviewsPage />;
+  redirect("/interviews/mock-interviews");
 }

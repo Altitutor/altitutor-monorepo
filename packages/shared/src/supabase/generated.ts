@@ -5213,6 +5213,170 @@ export type Database = {
           },
         ]
       }
+      interview_performance_review_releases: {
+        Row: {
+          created_at: string
+          review_id: string
+          revision: number
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          review_id: string
+          revision: number
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          review_id?: string
+          revision?: number
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_review_releases_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_performance_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_performance_review_templates: {
+        Row: {
+          body: Json
+          id: string
+          name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: Json
+          id: string
+          name: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      interview_performance_reviews: {
+        Row: {
+          author_id: string
+          body: Json
+          id: string
+          review_date: string
+          student_id: string | null
+          template_name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          author_id: string
+          body?: Json
+          id: string
+          review_date: string
+          student_id?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          author_id?: string
+          body?: Json
+          id?: string
+          review_date?: string
+          student_id?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_performance_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       interview_presence: {
         Row: {
           last_seen_at: string
@@ -29330,6 +29494,14 @@ export type Database = {
         }
         Relationships: []
       }
+      vstudent_interview_performance_reviews: {
+        Row: {
+          data: Json | null
+          id: string | null
+          summary: Json | null
+        }
+        Relationships: []
+      }
       vstudent_interview_rounds: {
         Row: {
           data: Json | null
@@ -36753,6 +36925,49 @@ export type Database = {
       vtutor_interview_catalog: {
         Row: {
           data: Json | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_mocks: {
+        Row: {
+          data: Json | null
+          student_id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_students: {
+        Row: {
+          id: string | null
+          name: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_review_templates: {
+        Row: {
+          body: Json | null
+          id: string | null
+          name: string | null
+          version: number | null
+        }
+        Insert: {
+          body?: Json | null
+          id?: string | null
+          name?: string | null
+          version?: number | null
+        }
+        Update: {
+          body?: Json | null
+          id?: string | null
+          name?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_performance_reviews: {
+        Row: {
+          data: Json | null
+          id: string | null
+          summary: Json | null
         }
         Relationships: []
       }
@@ -47253,6 +47468,10 @@ export type Database = {
       interview_effective_state: { Args: { p_data: Json }; Returns: Json }
       interview_feedback_has_text: { Args: { value: Json }; Returns: boolean }
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
+      interview_performance_review_command: {
+        Args: { p_actor_user_id: string; p_command: Json }
+        Returns: Json
+      }
       interview_question_json: {
         Args: { q: Database["public"]["Tables"]["interview_questions"]["Row"] }
         Returns: Json
@@ -47275,6 +47494,10 @@ export type Database = {
           p_storage_path?: string
         }
         Returns: string
+      }
+      interview_review_mock_history: {
+        Args: { p_review_date?: string; p_student_id: string }
+        Returns: Json
       }
       interview_round_json: {
         Args: { r: Database["public"]["Tables"]["interview_rounds"]["Row"] }
