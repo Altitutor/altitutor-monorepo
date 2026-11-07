@@ -96,18 +96,15 @@ struct TeachingNavigation: View {
         if let session = model.session {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.viewer, let item = model.activeResource {
-                    Button {
-                        library = false; model.showLessonInformation(); bulkPrinting = true
-                    } label: { Label("Bulk print", systemImage: "printer.filled.and.paper") }
-                        .disabled(model.offline || model.lesson?.resources.isEmpty != false)
-                        .accessibilityIdentifier("teaching-bulk-print")
                     if item.worksheet.source.isPDF || (model.solutions && item.solutions?.source.isPDF == true) {
                         Button {
-                            model.laserPointer.toggle()
+                            model.laserMode = model.laserMode.next
                         } label: {
-                            Label("Laser pointer", systemImage: model.laserPointer ? "scope" : "dot.scope")
-                        }.tint(model.laserPointer ? .red : nil)
-                            .accessibilityAddTraits(model.laserPointer ? .isSelected : [])
+                            Label("Laser pointer", systemImage: model.laserMode.symbol)
+                        }.tint(model.laserMode == .off ? nil : .red)
+                            .accessibilityValue(model.laserMode.label)
+                            .accessibilityHint(model.laserMode.hint)
+                            .accessibilityAddTraits(model.laserMode == .off ? [] : .isSelected)
                             .accessibilityIdentifier("teaching-laser")
                     }
                     Button { library = false; model.presentPrint(item.worksheet) } label: { Label("Print to office", systemImage: "printer") }
@@ -117,6 +114,11 @@ struct TeachingNavigation: View {
                     Button { library = false; model.share(item.worksheet) } label: { Label("Share worksheet", systemImage: "square.and.arrow.up") }
                 }
                 if !model.viewer {
+                    Button {
+                        library = false; model.showLessonInformation(); bulkPrinting = true
+                    } label: { Label("Bulk print", systemImage: "printer.filled.and.paper") }
+                        .disabled(model.offline || model.lesson?.resources.isEmpty != false)
+                        .accessibilityIdentifier("teaching-bulk-print")
                     Button { library = false; model.showLessonInformation(); importing = true } label: { Label("Import PDF", systemImage: "square.and.arrow.down") }
                         .disabled(model.busy).accessibilityIdentifier("teaching-import")
                 }
@@ -303,12 +305,11 @@ struct LessonWorkspace: View {
             ZStack(alignment: .trailing) {
                 ScrollViewReader { reader in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        GlassEffectContainer(spacing: 8) {
-                            HStack(spacing: 8) {
-                                ForEach(model.lesson?.resources ?? []) { item in tab(item).id(item.id) }
-                            }.padding(.leading, 16).padding(.vertical, 8)
-                        }
+                        HStack(spacing: 8) {
+                            ForEach(model.lesson?.resources ?? []) { item in tab(item).id(item.id) }
+                        }.padding(.leading, 16).padding(.vertical, 8)
                     }
+                    .scrollEdgeEffectHidden()
                     .contentMargins(.trailing, solutionsWidth + 24, for: .scrollContent)
                     .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil,
                         animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
@@ -331,7 +332,7 @@ struct LessonWorkspace: View {
                     .padding(.trailing, 16)
                     .accessibilityIdentifier("teaching-solutions")
             }.frame(height: 60)
-        }.scrollEdgeEffectStyle(.soft, for: .top).background(TeachingColors.background)
+        }.scrollEdgeEffectHidden(true, for: .top).background(TeachingColors.background)
             .onDisappear { dragging = nil }
     }
     private func tab(_ item: LessonResource) -> some View {
@@ -343,7 +344,12 @@ struct LessonWorkspace: View {
         } primaryAction: { model.open(item) }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
-            .glassEffect(.regular.tint(model.activeResourceID == item.id ? TeachingColors.teal.opacity(0.2) : .clear).interactive(), in: .capsule)
+            .background {
+                Capsule().fill(Color(uiColor: .secondarySystemBackground))
+                    .overlay {
+                        Capsule().fill(TeachingColors.teal.opacity(model.activeResourceID == item.id ? 0.20 : 0))
+                    }
+            }
             .overlay { Capsule().strokeBorder(.primary.opacity(model.activeResourceID == item.id ? 0.45 : 0), lineWidth: 1) }
             .accessibilityAddTraits(model.activeResourceID == item.id ? .isSelected : [])
             .modifier(LessonResourceDrag(model: model, item: item, dragging: $dragging))
@@ -401,7 +407,7 @@ struct DocumentPane: View {
                 ContentUnavailableView { Label("External resource", systemImage: "link") } description: { Text(document.source.title) } actions: { Link("Open resource", destination: external).buttonStyle(.borderedProminent) }
             } else if document.source.isPDF {
                 PDFEditorView(document: document, sessionID: sessionID, store: store, isWorksheet: worksheet,
-                    fingerDrawing: model.fingerDrawing, laserPointer: model.laserPointer, sidebar: worksheet ? $model.pageSidebar : $solutionsSidebar,
+                    laserMode: model.laserMode, sidebar: worksheet ? $model.pageSidebar : $solutionsSidebar,
                     onEdit: { model.documentRevision = UUID() }, onError: model.report)
             } else if let url = try? store.documentURL(sessionID: sessionID, document: document), let image = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: image).resizable().scaledToFit().padding()

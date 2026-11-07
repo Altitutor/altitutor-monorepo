@@ -24,8 +24,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     @Published var route: [TeachingRoute] = []
     @Published var viewer = false
     @Published var solutions = false
-    @Published var fingerDrawing = false
-    @Published var laserPointer = false
+    @Published var laserMode = TeachingLaserMode.off
     @Published var pageSidebar = false
     @Published var documentRevision = UUID()
     @Published var busy = false
@@ -144,7 +143,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     }
     func choose(_ session: TeachingSession) {
         planTask?.cancel()
-        laserPointer = false
+        laserMode = .off
         do {
             guard let store else { return }
             selectedSessionID = session.id; lesson = try store.lesson(sessionID: session.id)
@@ -187,6 +186,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             let record = try store.lesson(sessionID: session.id)
             let localIDs = Set((record.resources + record.archivedResources).map(\.syncID))
             var missingOriginal = false
+            var excludedPlanResources = Set<UUID>()
             for remote in existing where !localIDs.contains(remote.item.syncID) {
                 try verify()
                 do {
@@ -201,10 +201,15 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
                     if activeResourceID == nil { activeResourceID = lesson?.resources.first?.id }
                 } catch let failure as APIError where failure.status == 401 { throw failure }
                 catch is CancellationError { return }
-                catch { missingOriginal = true }
+                catch {
+                    missingOriginal = true
+                    if let resourceID = remote.item.resource?.id, remote.item.syncID == resourceID {
+                        excludedPlanResources.insert(resourceID)
+                    }
+                }
             }
-            if !missingOriginal, ["CLASS", "DRAFTING", "EXAM_COURSE", "TRIAL_SESSION"].contains(session.kind) {
-                await importSessionPlan(session.id)
+            if ["CLASS", "DRAFTING", "EXAM_COURSE", "TRIAL_SESSION"].contains(session.kind) {
+                await importSessionPlan(session.id, excluding: excludedPlanResources)
                 try verify()
             }
             scheduleWorkspaceUpload(session.id)
@@ -334,14 +339,14 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         }
     }
 
-    private func importSessionPlan(_ sessionID: UUID) async {
+    private func importSessionPlan(_ sessionID: UUID, excluding resourceIDs: Set<UUID>) async {
         guard let store else { return }
         let version = epoch
         do {
             let plan: SessionLessonPlan = try await api.request("session-plan", query: [.init(name: "sessionID", value: sessionID.uuidString)])
             try Task.checkCancellation()
             guard version == epoch, selectedSessionID == sessionID else { return }
-            let updated = try await store.importPlan(plan) { source in
+            let updated = try await store.importPlan(plan, excluding: resourceIDs) { source in
                 let bytes = try await self.api.download(source, sessionID: sessionID)
                 try Task.checkCancellation()
                 guard version == self.epoch, self.selectedSessionID == sessionID else { throw CancellationError() }

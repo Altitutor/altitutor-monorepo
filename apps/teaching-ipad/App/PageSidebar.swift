@@ -34,8 +34,7 @@ struct PDFEditorView: View {
     let sessionID: UUID
     let store: LessonStore
     let isWorksheet: Bool
-    let fingerDrawing: Bool
-    let laserPointer: Bool
+    let laserMode: TeachingLaserMode
     @Binding var sidebar: Bool
     let onEdit: () -> Void
     let onError: (Error) -> Void
@@ -61,7 +60,8 @@ struct PDFEditorView: View {
                             }
                         })
                 PDFDocumentSurface(document: document, sessionID: sessionID, store: store, isWorksheet: isWorksheet,
-                    fingerDrawing: fingerDrawing, laserPointer: laserPointer, navigation: navigation, onEdit: onEdit, onError: onError)
+                    laserMode: laserMode, navigation: navigation, onEdit: onEdit, onError: onError)
+                    .accessibilityAction(named: Text("Zoom to fit")) { navigation.editor?.fitCurrentPage() }
                     .overlay(alignment: .topLeading) {
                         if navigation.count > 0 {
                             Button { withAnimation(TeachingMotion.panel(reduceMotion: reduceMotion)) { sidebar.toggle() }; navigation.activity(page: navigation.page, count: navigation.count) } label: {

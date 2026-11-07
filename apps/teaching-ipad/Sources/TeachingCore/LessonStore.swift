@@ -43,7 +43,7 @@ public final class LessonStore {
 
     /// Reopening imports additions, while local removals, draft choices and pinned ink remain authoritative.
     @MainActor @discardableResult
-    public func importPlan(_ plan: SessionLessonPlan,
+    public func importPlan(_ plan: SessionLessonPlan, excluding resourceIDs: Set<UUID> = [],
                            download: @MainActor (TeachingDocument) async throws -> Data) async throws -> LessonRecord {
         try Task.checkCancellation()
         var record = try lesson(sessionID: plan.sessionID)
@@ -53,7 +53,7 @@ public final class LessonStore {
         record.importedPlanResourceIDs.formUnion((record.resources + record.archivedResources).compactMap { $0.resource?.id })
         try files.createDirectory(at: folder(plan.sessionID), withIntermediateDirectories: true)
         try write(JSONEncoder().encode(record), to: folder(plan.sessionID).appendingPathComponent("lesson.json"))
-        for resource in plan.resources where !record.importedPlanResourceIDs.contains(resource.id) {
+        for resource in plan.resources where !record.importedPlanResourceIDs.contains(resource.id) && !resourceIDs.contains(resource.id) {
             try Task.checkCancellation()
             let worksheet = try await download(resource.worksheet)
             let solutions: Data?

@@ -11,8 +11,7 @@ struct ClassroomWorksheet: Equatable {
 
 struct ClassroomLaser: Equatable {
     let documentID: UUID
-    let page: Int
-    let location: CGPoint
+    let trace: TeachingLaserTrace
 }
 
 /// The audience model has no roster, notes, log draft or solutions field.
@@ -31,9 +30,10 @@ struct ClassroomLaser: Equatable {
         let next = ClassroomWorksheet(id: id, url: url, page: page, visibleRect: visibleRect, rotation: rotation, drawings: drawings)
         if next != worksheet { worksheet = next }
     }
-    func pointLaser(documentID: UUID, page: Int, location: CGPoint) {
+    func showLaser(documentID: UUID, trace: TeachingLaserTrace) {
         guard allowedWorksheet == documentID else { return }
-        laser = ClassroomLaser(documentID: documentID, page: page, location: location)
+        let next = trace.hasMarks ? ClassroomLaser(documentID: documentID, trace: trace) : nil
+        if next != laser { laser = next }
     }
     func clearLaser(documentID: UUID) {
         if laser?.documentID == documentID { laser = nil }
@@ -72,8 +72,8 @@ struct AudiencePDF: UIViewRepresentable {
     private var worksheet: ClassroomWorksheet?
     private var pdf: PDFDocument?
     private var laser: ClassroomLaser?
-    private var projectLaser: ((ClassroomLaser) -> CGPoint?)?
-    private let laserDot = CALayer()
+    private var projectLaser: ((TeachingLaserTrace.Point) -> CGPoint?)?
+    private let laserOverlay = TeachingLaserOverlay()
 
     func show(_ next: ClassroomWorksheet, laser: ClassroomLaser?) {
         self.laser = laser
@@ -88,21 +88,11 @@ struct AudiencePDF: UIViewRepresentable {
     }
 
     private func updateLaser() {
-        if laserDot.superlayer == nil {
-            laserDot.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
-            laserDot.cornerRadius = 7
-            laserDot.backgroundColor = UIColor.systemRed.cgColor
-            laserDot.borderColor = UIColor.white.cgColor
-            laserDot.borderWidth = 2
-            layer.addSublayer(laserDot)
+        guard let laser, laser.documentID == worksheet?.id, let projectLaser else {
+            laserOverlay.clear()
+            return
         }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        if let laser, let point = projectLaser?(laser) {
-            laserDot.position = point
-            laserDot.isHidden = false
-        } else { laserDot.isHidden = true }
-        CATransaction.commit()
+        laserOverlay.show(laser.trace, in: self, project: projectLaser)
     }
     override func draw(_ rect: CGRect) {
         guard let graphics = UIGraphicsGetCurrentContext() else { return }
@@ -130,9 +120,9 @@ struct AudiencePDF: UIViewRepresentable {
         TeachingPageRenderer.draw(page, ink: ink, in: graphics)
         graphics.restoreGState()
         let height = bounds.height
-        projectLaser = { laser in
-            guard laser.documentID == worksheet.id, laser.page == worksheet.page else { return nil }
-            let point = laser.location.applying(pageTransform)
+        projectLaser = { sample in
+            guard sample.page == worksheet.page else { return nil }
+            let point = sample.location.applying(pageTransform)
             guard displayRegion.contains(point) else { return nil }
             return CGPoint(x: target.minX + (point.x - displayRegion.minX) * scale,
                            y: height - target.minY - (point.y - displayRegion.minY) * scale)

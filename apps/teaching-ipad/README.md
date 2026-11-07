@@ -32,7 +32,7 @@ to require the account’s normal sign-in credentials.
 
 The timetable pushes a lesson board with native back navigation. Tap a thumbnail
 card to open the file
-workspace, switch files with Liquid Glass tabs, and use the top-left back button
+workspace, switch files with document tabs, and use the top-left back button
 to return to the board. Cards have a uniform size and can be dragged into a new
 order. Document tabs support the same live reordering and share that saved
 order. Dragging uses a local move operation and updates neighboring positions
@@ -45,7 +45,9 @@ Show/Hide solutions stays fixed in the file-tab row while tabs scroll beneath
 it and slides the solutions pane in and out. Tabs and library files show file
 codes before filenames; selected glass tabs use semantic text contrast. Drag
 the divider to resize the two panes; ink and viewports remain
-independent. Native PDF scrolling and pinch zoom replace the former toolbar.
+independent. Double-tap either PDF to fit the page. Tap the laser button to cycle
+through off, a temporary dot, and a trailing path that fades after lift. Both
+laser modes follow the Pencil toolbar’s Draw With Finger setting.
 
 Use the temporary page indicator or swipe inward from the left edge to open page
 thumbnails. Tap a thumbnail to jump; its ellipsis menu inserts a matching blank
@@ -114,7 +116,9 @@ portrait/landscape PDF or opens Resources. Local documents have no catalog/topic
 identity. Importing alone never publishes them or adds taught topics.
 
 The document toolbar groups Share and Review log, with Print to office beside
-them. Sharing exports the annotated worksheet; solution sharing remains a
+them. Bulk Print on the lesson board sends the selected original worksheet and
+solutions PDFs with separate copy counts. Sharing exports the annotated
+worksheet; solution sharing remains a
 separate menu action. Board-card menus also offer Print. Every PDF uses the office
 queue, including imported and blank documents. Preview the exact flattened PDF
 before sending it; **Include annotations** and **Include blank pages** default off.

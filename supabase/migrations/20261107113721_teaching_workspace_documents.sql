@@ -144,7 +144,7 @@ SELECT current.session_id::text::uuid AS session_id, prior.id::text::uuid AS pre
       SELECT attached.topics_files_id AS id
       FROM public.tutor_logs log
       JOIN public.tutor_logs_topics_files attached ON attached.tutor_log_id = log.id
-      WHERE log.session_id = prior.id
+      WHERE log.session_id = prior.id AND log.deleted_at IS NULL
     ) attachment
     JOIN public.vtutor_topics_files accessible ON accessible.id = attachment.id
     WHERE accessible.deleted_at IS NULL AND accessible.is_solutions_of_id IS NULL AND NOT accessible.is_solutions
