@@ -2215,11 +2215,13 @@
   visibility: hidden;
   transition:
     grid-template-rows 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 420ms;
+    visibility 0s linear 420ms;
 }
 .desktopExpansion[data-open="true"] {
   grid-template-rows: 1fr;
+  /* The first link must be focusable as soon as the panel opens. */
   visibility: visible;
+  transition-delay: 0s;
 }
 .desktopPanelClip {
   min-height: 0;
