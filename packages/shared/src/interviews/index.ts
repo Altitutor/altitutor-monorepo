@@ -156,6 +156,24 @@ export interface InterviewRecording {
   createdAt: string;
   startedAt?: string;
 }
+/** Project question intervals onto the recording clock, retaining each revisit. */
+export function interviewQuestionSegments(
+  intervals: InterviewQuestionInterval[],
+  originAt: string,
+  duration = Number.POSITIVE_INFINITY,
+) {
+  const origin = Date.parse(originAt);
+  return intervals.flatMap((interval, index) => {
+    const start = Math.max(0, (Date.parse(interval.startedAt) - origin) / 1000);
+    const end = interval.endedAt
+      ? Math.min(duration, (Date.parse(interval.endedAt) - origin) / 1000)
+      : duration;
+    return Number.isFinite(end) && end > start
+      ? [{ start, end, questionId: interval.questionId, index }]
+      : [];
+  });
+}
+
 export interface InterviewReleasedResult {
   studentId: string;
   releasedAt: string;

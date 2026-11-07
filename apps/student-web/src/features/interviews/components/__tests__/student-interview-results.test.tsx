@@ -9,6 +9,7 @@ jest.mock("@altitutor/ui", () => ({
   ...jest.requireActual("@altitutor/ui/components/button"),
   ...jest.requireActual("@altitutor/ui/components/badge"),
   ...jest.requireActual("@altitutor/ui/components/interview-recording-player"),
+  ...jest.requireActual("@altitutor/ui/components/interview-review-mock-history"),
 }));
 jest.mock("../../hooks/use-interviews", () => ({
   useInterviewRound: jest.fn(),
@@ -129,7 +130,7 @@ describe("student released result boundary", () => {
       screen.queryByText("Your released feedback"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Question 1" }),
+      screen.getByRole("button", { name: /Question 1/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Interviews" })).toHaveAttribute(
       "href",
@@ -188,7 +189,7 @@ describe("student released result boundary", () => {
     const stations = screen.getByRole("group", { name: "Station results" });
     expect(getInterviewRecording).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole("button", { name: "Load audio recording" }),
+      screen.getByRole("button", { name: "Play recording" }),
     );
     const player = await screen.findByLabelText("Interview recording");
     expect(player).toHaveAttribute("src", "https://example.com/station.webm");
@@ -197,7 +198,7 @@ describe("student released result boundary", () => {
       stations.compareDocumentPosition(player) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText("Station 1 recording")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recording" })).toBeInTheDocument();
     await waitFor(() => {
       expect(getInterviewRecording).toHaveBeenCalledWith(
         "round-1",
@@ -250,18 +251,17 @@ describe("student released result boundary", () => {
     });
     render(<StudentInterviewResults roundId="round-1" />);
     expect(
-      screen.getAllByRole("button", { name: "Load audio recording" }),
+      screen.getAllByRole("button", { name: "Play recording" }),
     ).toHaveLength(1);
-    expect(screen.queryByText("Station 2 recording")).not.toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Load audio recording" }),
+      screen.getByRole("button", { name: "Play recording" }),
     );
     await screen.findByLabelText("Interview recording");
     fireEvent.click(screen.getByRole("button", { name: /Station 2/ }));
     expect(
       screen.queryByLabelText("Interview recording"),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Station 2 recording")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recording" })).toBeInTheDocument();
   });
 
   it("removes cached results immediately when access is denied on refetch", () => {

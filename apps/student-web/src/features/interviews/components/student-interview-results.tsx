@@ -6,17 +6,25 @@ import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react";
 import {
   Badge,
   InterviewRecordingPlayer,
+  InterviewReviewDisclosure,
   Button,
   clickableCardFocusRingCn,
   clickableCardHoverCn,
 } from "@altitutor/ui";
-import { interviewText, type StudentInterviewRound } from "@altitutor/shared";
+import {
+  interviewQuestionSegments,
+  interviewText,
+  type InterviewRecording,
+  type InterviewStationAttempt,
+  type StudentInterviewRound,
+} from "@altitutor/shared";
 import {
   studentBtnIconOutline,
   studentCardCn,
 } from "@/shared/lib/student-visual";
 import { cn } from "@/shared/utils";
 import { useInterviewRound } from "../hooks/use-interviews";
+import { readingClock } from "../lib/presentation";
 import { getInterviewRecording } from "../api/interviews";
 import { InterviewContent } from "./interview-content";
 import { InterviewError } from "./interview-error";
@@ -74,50 +82,153 @@ function ResultsBackButton() {
   );
 }
 
-function StationRecordings({
-  round,
-  stationId,
+function StationRecording({
+  roundId,
+  recordings,
+  recording,
+  onRecordingChange,
+  attempt,
+  station,
 }: {
-  round: StudentInterviewRound;
-  stationId: string | undefined;
+  roundId: string;
+  recordings: InterviewRecording[];
+  recording?: InterviewRecording;
+  onRecordingChange: (id: string) => void;
+  attempt?: InterviewStationAttempt;
+  station: StudentInterviewRound["resultStations"][number];
 }) {
-  const result = round.result;
-  if (!result) return null;
-  if (!round.recordingEnabled && result.recordings.length === 0) return null;
   return (
-    <div className="space-y-5" aria-label="Station recordings">
-      {round.resultStations.flatMap((station, index) => {
-        if (station.id !== stationId) return [];
-        const attempt = result.attempts.find(
-          (item) => item.stationId === station.id,
-        );
-        const recordings = result.recordings.filter(
-          (recording) => recording.attemptId === attempt?.id,
-        );
-        return (
-          <div key={station.id} className="space-y-2">
-            <h2 className="text-sm font-medium">
-              Station {index + 1} recording
-            </h2>
-            {recordings.length > 0 ? (
-              recordings.map((recording) => (
-                <InterviewRecordingPlayer
-                  key={recording.id}
-                  recording={recording}
-                  loadUrl={() => getInterviewRecording(round.id, recording.id)}
-                  intervals={attempt?.questionIntervals}
-                  questions={station.questions}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No recording is available for this station.
-              </p>
-            )}
+    <section className={studentCardCn("space-y-3 p-5")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Recording</h2>
+        {recordings.length > 1 && (
+          <select
+            aria-label="Recording clip"
+            className="rounded-md border bg-background px-2 py-1 text-sm"
+            value={recording?.id ?? ""}
+            onChange={(event) => onRecordingChange(event.target.value)}
+          >
+            {recordings.map((item, index) => (
+              <option key={item.id} value={item.id}>Clip {index + 1}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      {recording ? (
+        <InterviewRecordingPlayer
+          key={recording.id}
+          recording={recording}
+          loadUrl={() => getInterviewRecording(roundId, recording.id)}
+          intervals={attempt?.questionIntervals}
+          questions={station.questions ?? []}
+          variant="student"
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No recording is available for this station.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function questionTimingSummary(segments: { start: number; end: number }[]) {
+  if (!segments.length) return null;
+  const ranges = segments.map(({ start, end }) =>
+    readingClock(Math.floor(start)) + " - " + readingClock(Math.floor(end)),
+  );
+  const total = Math.round(segments.reduce((seconds, { start, end }) => seconds + end - start, 0));
+  return ranges.join(", ") + " · " + total + (total === 1 ? " second" : " seconds");
+}
+
+function StationFeedback({
+  station,
+  stationNumber,
+  attempt,
+}: {
+  station: StudentInterviewRound["resultStations"][number];
+  stationNumber: number;
+  attempt: InterviewStationAttempt;
+}) {
+  const intervals = attempt.questionIntervals ?? [];
+  // Feedback counts the whole station even when capture started late or only a clip remains.
+  const origin = intervals[0]?.startedAt;
+  const timings = origin ? interviewQuestionSegments(intervals, origin) : [];
+  const score = attempt.notAssessedReason ? "Not assessed" : `${attempt.score ?? "—"} / ${station.maximumPoints}`;
+  return (
+    <section className={studentCardCn("space-y-3 p-5")} aria-label="Station feedback">
+      <h2 className="font-semibold">Feedback</h2>
+      <InterviewReviewDisclosure defaultOpen title={<strong>Station {stationNumber}</strong>}
+        detail={<strong>{score}</strong>}>
+        {attempt.notAssessedReason && (
+          <div className="space-y-1 px-2 py-2 text-sm">
+            <p className="font-medium">Not assessed</p>
+            <p className="whitespace-pre-wrap">{attempt.notAssessedReason}</p>
+            <p className="text-xs text-muted-foreground">This station is excluded from the total possible score.</p>
           </div>
-        );
-      })}
-    </div>
+        )}
+        <div className="space-y-1 px-2 py-2 text-sm">
+          <p className="font-medium">General feedback</p>
+          {interviewText(attempt.generalFeedback ?? null).trim() ? (
+            <InterviewContent value={attempt.generalFeedback ?? null} />
+          ) : (
+            <p className="text-muted-foreground">No general feedback for this station.</p>
+          )}
+        </div>
+        {(station.questions ?? []).map((question, index) => {
+          const feedback = attempt.feedback.find((entry) => entry.placementId === question.id);
+          const timing = questionTimingSummary(timings.filter((segment) => segment.questionId === question.id));
+          return (
+            <InterviewReviewDisclosure key={question.id} defaultOpen
+              title={<strong>Question {index + 1}</strong>}
+              detail={timing && <span className="hidden max-w-64 text-xs leading-5 text-muted-foreground lg:block">{timing}</span>}>
+              <div className="space-y-2 px-2 py-2 text-sm">
+                {timing && <p className="text-xs tabular-nums text-muted-foreground lg:hidden">{timing}</p>}
+                <InterviewContent value={question.question} className="[&>p:first-child]:!mt-0" />
+                {feedback ? (
+                  <div>
+                    <p className="font-medium">Tutor feedback</p>
+                    <InterviewContent value={feedback.value} />
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No written feedback for this question.</p>
+                )}
+              </div>
+            </InterviewReviewDisclosure>
+          );
+        })}
+      </InterviewReviewDisclosure>
+    </section>
+  );
+}
+
+function StationResult({ round, station, attempt, recordings, stationNumber }: {
+  round: StudentInterviewRound;
+  station: StudentInterviewRound["resultStations"][number];
+  attempt?: InterviewStationAttempt;
+  recordings: InterviewRecording[];
+  stationNumber: number;
+}) {
+  const [selectedRecordingId, setSelectedRecordingId] = useState<string>();
+  const recording = recordings.find((item) => item.id === selectedRecordingId) ??
+    recordings.find((item) => item.state === "ready" && Date.parse(item.expiresAt) > Date.now()) ??
+    recordings[0];
+  return (
+    <>
+      {(round.recordingEnabled || recordings.length > 0) && (
+        <StationRecording
+          roundId={round.id}
+          recordings={recordings}
+          recording={recording}
+          onRecordingChange={setSelectedRecordingId}
+          station={station}
+          attempt={attempt}
+        />
+      )}
+      {attempt && (
+        <StationFeedback station={station} stationNumber={stationNumber} attempt={attempt} />
+      )}
+    </>
   );
 }
 
@@ -172,6 +283,7 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
   const attempt = result.attempts.find(
     (item) => item.stationId === station?.id,
   );
+  const recordings = result.recordings.filter((recording) => recording.attemptId === attempt?.id);
   const stationNumber =
     round.resultStations.findIndex((item) => item.id === station?.id) + 1;
   return (
@@ -259,76 +371,9 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
           );
         })}
       </div>
-      <StationRecordings
-        key={station?.id}
-        round={round}
-        stationId={station?.id}
-      />
-      {station && attempt && (
-        <section className={studentCardCn("space-y-6 p-6")}>
-          <h2 className="text-xl font-semibold">Station {stationNumber}</h2>
-          {attempt.notAssessedReason ? (
-            <div>
-              <h3 className="font-medium">Not assessed</h3>
-              <p className="mt-2 whitespace-pre-wrap text-sm">
-                {attempt.notAssessedReason}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                This station is excluded from the total possible score.
-              </p>
-            </div>
-          ) : null}
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">
-              General feedback
-            </h3>
-            <div className="mt-2">
-              {interviewText(attempt.generalFeedback ?? null).trim() ? (
-                <InterviewContent value={attempt.generalFeedback ?? null} />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No general feedback for this station.
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="space-y-6">
-            {station.questions.map((question, index) => {
-              const feedback = attempt.feedback.find(
-                (entry) => entry.placementId === question.id,
-              );
-              return (
-                <article key={question.id} className="space-y-3">
-                  <div className="space-y-2">
-                    <h3 className="text-base font-medium">
-                      Question {index + 1}
-                    </h3>
-                    <div className="min-w-0 flex-1">
-                      <InterviewContent
-                        value={question.question}
-                        className="[&>p:first-child]:!mt-0"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      Tutor feedback
-                    </h3>
-                    <div className="mt-2">
-                      {feedback ? (
-                        <InterviewContent value={feedback.value} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No written feedback for this question.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+      {station && (
+        <StationResult key={station.id} round={round} station={station} attempt={attempt}
+          recordings={recordings} stationNumber={stationNumber} />
       )}
     </div>
   );

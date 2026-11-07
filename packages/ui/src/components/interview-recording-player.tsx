@@ -1,11 +1,22 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import type {
-  InterviewRecording,
-  InterviewStationAttempt,
+import {
+  interviewQuestionSegments,
+  type InterviewRecording,
+  type InterviewStationAttempt,
 } from "@altitutor/shared";
+import { cn } from "../lib/cn";
 import { Button } from "./button";
+
+const questionColors = [
+  "bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-amber-500",
+  "bg-rose-500", "bg-indigo-500", "bg-lime-500", "bg-fuchsia-500",
+];
+
+function recordingTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+}
 
 /** Lazy, role-authorized playback. Signed URLs are requested only on user action. */
 export function InterviewRecordingPlayer({
@@ -13,12 +24,15 @@ export function InterviewRecordingPlayer({
   loadUrl,
   intervals = [],
   questions = [],
+  variant = "default",
 }: {
   recording: InterviewRecording;
   loadUrl: () => Promise<{ url: string }>;
   intervals?: NonNullable<InterviewStationAttempt["questionIntervals"]>;
   questions?: { id: string }[];
+  variant?: "default" | "student";
 }) {
+  const studentPlayback = variant === "student";
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,19 +45,18 @@ export function InterviewRecordingPlayer({
     Date.parse(recording.expiresAt) <= Date.now();
   const label =
     recording.kind === "video" ? "Video recording" : "Audio recording";
-  const origin = Date.parse(recording.startedAt ?? recording.createdAt);
-  const segments = intervals.flatMap((interval, index) => {
-    const start = Math.max(0, (Date.parse(interval.startedAt) - origin) / 1000);
-    const end = interval.endedAt
-      ? Math.min(duration, (Date.parse(interval.endedAt) - origin) / 1000)
-      : duration;
-    const questionNumber =
-      questions.findIndex((question) => question.id === interval.questionId) +
-      1;
-    return duration > 0 && end > start
-      ? [{ start, end, questionNumber, index }]
-      : [];
-  });
+  const segments = interviewQuestionSegments(intervals, recording.startedAt ?? recording.createdAt, duration).map(
+    (segment) => {
+      const index = questions.findIndex((question) => question.id === segment.questionId);
+      return {
+        ...segment,
+        questionNumber: index + 1,
+        color: studentPlayback && index >= 0 ? questionColors[index % questionColors.length] : "bg-primary/45",
+      };
+    },
+  );
+  const activeSegment = segments.find(({ start, end }) => start <= position && position < end);
+  const progressLabel = activeSegment?.questionNumber ? `Question ${activeSegment.questionNumber}` : "Between questions";
   const load = async () => {
     setLoading(true);
     durationProbe.current = null;
@@ -84,6 +97,7 @@ export function InterviewRecordingPlayer({
     "aria-label": "Interview recording",
     src: url ?? undefined,
     controls: true,
+    autoPlay: studentPlayback,
     preload: "metadata" as const,
     onLoadedMetadata: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       const media = event.currentTarget;
@@ -100,7 +114,7 @@ export function InterviewRecordingPlayer({
       receiveDuration(event.currentTarget),
     onPointerDown: preserveUserPosition,
     onKeyDown: preserveUserPosition,
-    onPlay: preserveUserPosition,
+    onPlay: studentPlayback ? undefined : preserveUserPosition,
     onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       setPosition(event.currentTarget.currentTime),
     onError: () => {
@@ -111,7 +125,7 @@ export function InterviewRecordingPlayer({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        {label} ·{" "}
+        {!studentPlayback && label + " · "}
         {expired
           ? "Expired"
           : `Available until ${new Date(recording.expiresAt).toLocaleDateString()}`}
@@ -133,7 +147,7 @@ export function InterviewRecordingPlayer({
                 ref={(node) => {
                   player.current = node;
                 }}
-                className="max-h-80 w-full rounded-xl bg-black"
+                className={studentPlayback ? "w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black"}
               />
             )}
             {segments.length > 0 && (
@@ -145,7 +159,7 @@ export function InterviewRecordingPlayer({
                   {segments.map((segment) => (
                     <span
                       key={segment.index}
-                      className="absolute inset-y-0 border-r-2 border-background bg-primary/45"
+                      className={cn("absolute inset-y-0 border-r-2 border-background", segment.color)}
                       style={{
                         left: `${(segment.start / duration) * 100}%`,
                         width: `${((segment.end - segment.start) / duration) * 100}%`,
@@ -159,6 +173,7 @@ export function InterviewRecordingPlayer({
                     step={0.1}
                     value={position}
                     aria-label="Recording progress"
+                    aria-valuetext={studentPlayback ? recordingTime(position) + " · " + progressLabel : undefined}
                     className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                     onChange={(event) => seek(Number(event.target.value))}
                   />
@@ -168,6 +183,12 @@ export function InterviewRecordingPlayer({
                     style={{ left: `${(position / duration) * 100}%` }}
                   />
                 </div>
+                {studentPlayback && (
+                  <p className="flex justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+                    <span>{recordingTime(position)} · {progressLabel}</span>
+                    <span>{recordingTime(duration)}</span>
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {segments.map((segment) => (
                     <Button
@@ -176,11 +197,10 @@ export function InterviewRecordingPlayer({
                       size="sm"
                       variant="outline"
                       onClick={() => seek(segment.start)}
-                      aria-label={`Play question ${segment.questionNumber || "unknown"}, segment ${segment.index + 1}`}
+                      aria-label={`${studentPlayback ? "Jump to" : "Play"} question ${segment.questionNumber || "unknown"}, segment ${segment.index + 1}`}
                     >
-                      Question {segment.questionNumber || "—"} ·{" "}
-                      {Math.floor(segment.start / 60)}:
-                      {String(Math.floor(segment.start % 60)).padStart(2, "0")}
+                      {studentPlayback && <span aria-hidden className={cn("size-2 rounded-full", segment.color)} />}
+                      Question {segment.questionNumber || "—"} · {recordingTime(segment.start)}
                     </Button>
                   ))}
                 </div>
@@ -205,7 +225,7 @@ export function InterviewRecordingPlayer({
                 ? "Loading recording…"
                 : error
                   ? "Retry recording"
-                  : `Load ${label.toLowerCase()}`}
+                  : studentPlayback ? "Play recording" : `Load ${label.toLowerCase()}`}
             </Button>
           </>
         )

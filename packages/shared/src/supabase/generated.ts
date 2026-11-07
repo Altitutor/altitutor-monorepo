@@ -5261,6 +5261,7 @@ export type Database = {
           body: Json
           id: string
           name: string
+          title: string | null
           updated_at: string
           version: number
         }
@@ -5268,6 +5269,7 @@ export type Database = {
           body: Json
           id: string
           name: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5275,6 +5277,7 @@ export type Database = {
           body?: Json
           id?: string
           name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5288,6 +5291,7 @@ export type Database = {
           review_date: string
           student_id: string | null
           template_name: string
+          title: string | null
           updated_at: string
           version: number
         }
@@ -5298,6 +5302,7 @@ export type Database = {
           review_date: string
           student_id?: string | null
           template_name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -5308,6 +5313,7 @@ export type Database = {
           review_date?: string
           student_id?: string | null
           template_name?: string
+          title?: string | null
           updated_at?: string
           version?: number
         }
@@ -36947,18 +36953,21 @@ export type Database = {
           body: Json | null
           id: string | null
           name: string | null
+          title: string | null
           version: number | null
         }
         Insert: {
           body?: Json | null
           id?: string | null
           name?: string | null
+          title?: string | null
           version?: number | null
         }
         Update: {
           body?: Json | null
           id?: string | null
           name?: string | null
+          title?: string | null
           version?: number | null
         }
         Relationships: []
