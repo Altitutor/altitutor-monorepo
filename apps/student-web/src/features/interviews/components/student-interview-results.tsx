@@ -145,15 +145,14 @@ function StationFeedback({
   station,
   stationNumber,
   attempt,
-  recording,
 }: {
   station: StudentInterviewRound["resultStations"][number];
   stationNumber: number;
   attempt: InterviewStationAttempt;
-  recording?: InterviewRecording;
 }) {
   const intervals = attempt.questionIntervals ?? [];
-  const origin = recording?.startedAt ?? recording?.createdAt ?? intervals[0]?.startedAt;
+  // Feedback counts the whole station even when capture started late or only a clip remains.
+  const origin = intervals[0]?.startedAt;
   const timings = origin ? interviewQuestionSegments(intervals, origin) : [];
   const score = attempt.notAssessedReason ? "Not assessed" : `${attempt.score ?? "—"} / ${station.maximumPoints}`;
   return (
@@ -181,11 +180,17 @@ function StationFeedback({
           const timing = questionTimingSummary(timings.filter((segment) => segment.questionId === question.id));
           return (
             <InterviewReviewDisclosure key={question.id} defaultOpen
-              title={<span><strong>Question {index + 1}</strong> · {interviewText(question.question)}</span>}
+              title={<strong>Question {index + 1}</strong>}
               detail={timing && <span className="hidden max-w-64 text-xs leading-5 text-muted-foreground lg:block">{timing}</span>}>
               <div className="space-y-2 px-2 py-2 text-sm">
                 {timing && <p className="text-xs tabular-nums text-muted-foreground lg:hidden">{timing}</p>}
-                {feedback ? <InterviewContent value={feedback.value} /> : (
+                <InterviewContent value={question.question} className="[&>p:first-child]:!mt-0" />
+                {feedback ? (
+                  <div>
+                    <p className="font-medium">Tutor feedback</p>
+                    <InterviewContent value={feedback.value} />
+                  </div>
+                ) : (
                   <p className="text-muted-foreground">No written feedback for this question.</p>
                 )}
               </div>
@@ -205,7 +210,9 @@ function StationResult({ round, station, attempt, recordings, stationNumber }: {
   stationNumber: number;
 }) {
   const [selectedRecordingId, setSelectedRecordingId] = useState<string>();
-  const recording = recordings.find((item) => item.id === selectedRecordingId) ?? recordings[0];
+  const recording = recordings.find((item) => item.id === selectedRecordingId) ??
+    recordings.find((item) => item.state === "ready" && Date.parse(item.expiresAt) > Date.now()) ??
+    recordings[0];
   return (
     <>
       {(round.recordingEnabled || recordings.length > 0) && (
@@ -219,7 +226,7 @@ function StationResult({ round, station, attempt, recordings, stationNumber }: {
         />
       )}
       {attempt && (
-        <StationFeedback station={station} stationNumber={stationNumber} attempt={attempt} recording={recording} />
+        <StationFeedback station={station} stationNumber={stationNumber} attempt={attempt} />
       )}
     </>
   );

@@ -36,7 +36,7 @@ function isMedicineInterviewSession(session: StudentSessionWithStaff) {
 }
 
 function roundTime(round: StudentInterviewRound) {
-  const start = round.scheduledAt ?? round.startedAt;
+  const start = round.startedAt ?? round.scheduledAt;
   return start ? format(new Date(start), "h:mm a") : "Start when your tutor is ready";
 }
 

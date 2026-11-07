@@ -139,7 +139,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
 
   return (
     <>
-      <InterviewPageHeader title={record.title || "Performance review"} backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Review" }]}
+      <InterviewPageHeader title={review.title?.trim() || "Performance review"} backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Review" }]}
         actions={editable && <div className="flex flex-wrap gap-2">
           <Button variant="outline" className={tutorBtnOutline} disabled={!dirty || !review.date || command.isPending || inserting} onClick={() => void save(false)}>Save draft</Button>
           <Button className={tutorBtnPrimary} disabled={!canPublish || command.isPending || inserting} onClick={() => setPublishing(true)}>{review.published ? "Publish correction" : "Publish"}</Button>
@@ -206,7 +206,7 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
                   <h2 className="font-semibold">Previous performance reviews</h2>
                   {previous.map((item) => <button key={item.id} type="button" onClick={() => setPreview(item)}
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted">
-                    <span><strong className="block">{reviewDate(item.published?.date ?? "")}</strong><span className="text-muted-foreground">{item.published?.title || "Performance review"} · {item.author}</span></span>
+                    <span><strong className="block">{reviewDate(item.published?.date ?? "")}</strong><span className="text-muted-foreground">{item.published?.title || item.published?.template || "Performance review"} · {item.author}</span></span>
                     <Eye className="size-4 shrink-0 text-muted-foreground" />
                   </button>)}
                 </section>
