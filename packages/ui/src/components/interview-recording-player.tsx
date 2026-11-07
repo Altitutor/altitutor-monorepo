@@ -6,8 +6,12 @@ import {
   type InterviewRecording,
   type InterviewStationAttempt,
 } from "@altitutor/shared";
+import { Pause, Play } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
+import { SearchableSelect } from "./searchable-select";
+
+const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 const questionColors = [
   "bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-amber-500",
@@ -18,21 +22,33 @@ function recordingTime(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 }
 
-/** Lazy, role-authorized playback. Signed URLs are requested only on user action. */
+export function formatInterviewRecordingAvailability(recording: InterviewRecording) {
+  return recording.state === "expired" || Date.parse(recording.expiresAt) <= Date.now()
+    ? "Expired"
+    : `Available until ${new Date(recording.expiresAt).toLocaleDateString()}`;
+}
+
+/** Lazy, role-authorized playback for the recording mounted by the caller. */
 export function InterviewRecordingPlayer({
   recording,
   loadUrl,
+  src,
   intervals = [],
   questions = [],
   variant = "default",
 }: {
   recording: InterviewRecording;
-  loadUrl: () => Promise<{ url: string }>;
   intervals?: NonNullable<InterviewStationAttempt["questionIntervals"]>;
   questions?: { id: string }[];
-  variant?: "default" | "student";
-}) {
+} & (
+  | { variant?: "default"; loadUrl: () => Promise<{ url: string }>; src?: never }
+  | { variant: "student"; src: string; loadUrl?: never }
+)) {
   const studentPlayback = variant === "student";
+  const studentAudio = studentPlayback && recording.kind === "audio";
+  const [playing, setPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -58,11 +74,15 @@ export function InterviewRecordingPlayer({
   const activeSegment = segments.find(({ start, end }) => start <= position && position < end);
   const progressLabel = activeSegment?.questionNumber ? `Question ${activeSegment.questionNumber}` : "Between questions";
   const load = async () => {
-    setLoading(true);
     durationProbe.current = null;
     setDuration(0);
     setPosition(0);
     setError("");
+    if (!loadUrl) {
+      player.current?.load();
+      return;
+    }
+    setLoading(true);
     try {
       setUrl((await loadUrl()).url);
     } catch (reason) {
@@ -95,10 +115,9 @@ export function InterviewRecordingPlayer({
   };
   const mediaProps = {
     "aria-label": "Interview recording",
-    src: url ?? undefined,
+    src: src ?? url ?? undefined,
     controls: true,
-    autoPlay: studentPlayback,
-    preload: "metadata" as const,
+    preload: studentPlayback ? "none" as const : "metadata" as const,
     onLoadedMetadata: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       const media = event.currentTarget;
       if (media.duration === Infinity) {
@@ -114,24 +133,30 @@ export function InterviewRecordingPlayer({
       receiveDuration(event.currentTarget),
     onPointerDown: preserveUserPosition,
     onKeyDown: preserveUserPosition,
-    onPlay: studentPlayback ? undefined : preserveUserPosition,
+    onPlay: () => {
+      preserveUserPosition();
+      if (studentAudio) setPlaying(true);
+    },
+    onPause: () => { if (studentAudio) setPlaying(false); },
+    onEnded: () => { if (studentAudio) setPlaying(false); },
+    onVolumeChange: (event: React.SyntheticEvent<HTMLMediaElement>) => {
+      if (studentAudio) setVolume(event.currentTarget.volume);
+    },
     onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       setPosition(event.currentTarget.currentTime),
     onError: () => {
+      setPlaying(false);
       setUrl(null);
       setError("Playback failed. Reload the recording to try again.");
     },
   };
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        {!studentPlayback && label + " · "}
-        {expired
-          ? "Expired"
-          : `Available until ${new Date(recording.expiresAt).toLocaleDateString()}`}
-      </p>
+      {!studentPlayback && (
+        <p className="text-sm text-muted-foreground">{label} · {formatInterviewRecordingAvailability(recording)}</p>
+      )}
       {!expired && recording.state === "ready" ? (
-        url ? (
+        src || url ? (
           <>
             {recording.kind === "audio" ? (
               <audio
@@ -139,7 +164,8 @@ export function InterviewRecordingPlayer({
                 ref={(node) => {
                   player.current = node;
                 }}
-                className="w-full"
+                controls={!studentAudio}
+                className={studentAudio ? "hidden" : "w-full"}
               />
             ) : (
               <video
@@ -147,10 +173,61 @@ export function InterviewRecordingPlayer({
                 ref={(node) => {
                   player.current = node;
                 }}
-                className={studentPlayback ? "w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black"}
+                className={studentPlayback ? "aspect-video w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black"}
               />
             )}
-            {segments.length > 0 && (
+            {studentAudio && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Button type="button" size="icon" variant="outline" disabled={Boolean(error)}
+                  aria-label={playing ? "Pause audio" : "Play audio"}
+                  onClick={() => {
+                    const media = player.current;
+                    if (!media) return;
+                    if (media.paused) void media.play().catch(() => undefined);
+                    else media.pause();
+                  }}>
+                  {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    Volume
+                    <input type="range" min={0} max={1} step={0.05} value={volume} className="w-20 accent-current"
+                      onChange={(event) => {
+                        if (player.current) player.current.volume = Number(event.target.value);
+                      }} />
+                  </label>
+                  <SearchableSelect
+                    ariaLabel="Playback speed"
+                    items={playbackRates}
+                    value={playbackRate}
+                    getItemId={String}
+                    getItemLabel={(rate) => `${rate}×`}
+                    searchPlaceholder="Search speeds…"
+                    align="end"
+                    triggerVariant="outline"
+                    triggerClassName="h-8 text-xs"
+                    contentWidth="10rem"
+                    onValueChange={(rate) => {
+                      if (rate === null) return;
+                      if (player.current) {
+                        player.current.defaultPlaybackRate = rate;
+                        player.current.playbackRate = rate;
+                      }
+                      setPlaybackRate(rate);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="flex flex-wrap items-center gap-2">
+                <p role="alert" className="text-sm text-destructive">{error}</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+                  Retry recording
+                </Button>
+              </div>
+            )}
+            {!error && (studentAudio || segments.length > 0) && (
               <div
                 className="space-y-2"
                 aria-label="Question recording segments"
@@ -169,24 +246,25 @@ export function InterviewRecordingPlayer({
                   <input
                     type="range"
                     min={0}
-                    max={duration}
+                    max={duration || 1}
+                    disabled={!duration}
                     step={0.1}
                     value={position}
                     aria-label="Recording progress"
                     aria-valuetext={studentPlayback ? recordingTime(position) + " · " + progressLabel : undefined}
-                    className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                    className="absolute inset-0 z-10 h-full w-full cursor-pointer appearance-none opacity-0 [&::-moz-range-thumb]:w-0 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0"
                     onChange={(event) => seek(Number(event.target.value))}
                   />
                   <span
                     aria-hidden
                     className="absolute inset-y-0 w-0.5 bg-foreground"
-                    style={{ left: `${(position / duration) * 100}%` }}
+                    style={{ left: `${duration ? (position / duration) * 100 : 0}%` }}
                   />
                 </div>
                 {studentPlayback && (
                   <p className="flex justify-between gap-2 text-xs tabular-nums text-muted-foreground">
                     <span>{recordingTime(position)} · {progressLabel}</span>
-                    <span>{recordingTime(duration)}</span>
+                    <span>{duration ? recordingTime(duration) : "—"}</span>
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
@@ -225,7 +303,7 @@ export function InterviewRecordingPlayer({
                 ? "Loading recording…"
                 : error
                   ? "Retry recording"
-                  : studentPlayback ? "Play recording" : `Load ${label.toLowerCase()}`}
+                  : `Load ${label.toLowerCase()}`}
             </Button>
           </>
         )

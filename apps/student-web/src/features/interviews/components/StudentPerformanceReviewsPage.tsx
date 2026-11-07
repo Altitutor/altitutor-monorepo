@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { Button, InterviewReviewMockHistory, RichTextEditor, type JSONContent } from "@altitutor/ui";
-import { studentBtnIconOutline, studentCardCn } from "@/shared/lib/student-visual";
+import { studentBtnIconOutline, studentBtnOutline, studentCardCn } from "@/shared/lib/student-visual";
 import { ResourcesBreadcrumb } from "@/features/resources/components/resources-breadcrumb";
 import { useInterviewAccess } from "../hooks/use-interviews";
 import { StudentInterviewListCard } from "./student-interview-list-card";
@@ -55,7 +55,7 @@ export function StudentPerformanceReviewsPage({ reviewId, revision }: { reviewId
               <h2 className="font-semibold">Mock scores</h2>
               <p className="text-sm text-muted-foreground">Through {reviewDate(review.date)}</p>
             </header>
-            {rounds.length ? rounds.map((round) => <InterviewReviewMockHistory key={round.id} round={round} resultHref={interviewResultsHref(round.id)} />) :
+            {rounds.length ? rounds.map((round) => <InterviewReviewMockHistory key={round.id} round={round} resultHref={interviewResultsHref(round.id)} resultButtonClassName={studentBtnOutline} />) :
               <p className="text-sm text-muted-foreground">No released mocks by this review date.</p>}
           </aside>
         </div>

@@ -6,5 +6,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ roundId: string; recordingId: string }> }
 ) {
-  return interviewMediaHandlers.recording(request, (await context.params).roundId, (await context.params).recordingId);
+  const { roundId, recordingId } = await context.params;
+  const format = new URL(request.url).searchParams.get("format") === "media" ? "media" : "json";
+  return interviewMediaHandlers.recording(request, roundId, recordingId, format);
 }

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, Eye, FileText, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Badge, Button, DataTable, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
-  RichTextEditorBottomToolbar, SearchableSelect, SmartDatePickerField, TablePagination, type JSONContent,
+  Badge, Button, DataTable, editorJsonSignature, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
+  SearchableSelect, SmartDatePickerField, TablePagination, type JSONContent,
 } from "@altitutor/ui";
 import { formatInterviewReviewDate as reviewDate, performanceReviewPath as reviewRoot, tutorDefaultDisplaySettings,
   type DataTableColumnDefinition, type DataTableFilterDefinition, type InterviewReviewFields,
@@ -48,13 +48,13 @@ function reviewStatus(review: ReviewSummary) {
 }
 
 
-function UnsavedReviewGuard() {
+function UnsavedReviewGuard({ template = false }: { template?: boolean }) {
   const guard = useInterviewLeaveGuard();
   return (
     <TutorDialogShell open={guard.open} onOpenChange={(open) => { if (!open) guard.cancel(); }}
       title="Leave without saving?" description="Changes since your last save will be lost." size="compact"
       footer={<><Button variant="outline" onClick={guard.cancel}>Keep editing</Button><Button onClick={guard.leave}>Discard changes</Button></>}>
-      <p className="text-sm text-muted-foreground">Save your draft to resume editing later.</p>
+      <p className="text-sm text-muted-foreground">{template ? "Save your template to resume editing later." : "Save your draft to resume editing later."}</p>
     </TutorDialogShell>
   );
 }
@@ -228,19 +228,30 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
 }
 
 function TemplateEditor({ template, save, pending }: { template: Template; save: (template: Template) => void; pending: boolean }) {
-  const [id] = useState(() => template.id || crypto.randomUUID());
-  const [name, setName] = useState(template.name);
-  const [title, setTitle] = useState(template.title ?? "");
-  const [body, setBody] = useState(template.body);
+  const [baseline] = useState(template);
+  const [id] = useState(() => baseline.id || crypto.randomUUID());
+  const [name, setName] = useState(baseline.name);
+  const [title, setTitle] = useState(baseline.title ?? "");
+  const [body, setBody] = useState(baseline.body);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const dirty = name !== baseline.name || title !== (baseline.title ?? "") ||
+    editorJsonSignature(body) !== editorJsonSignature(baseline.body);
   return (
     <>
-      <InterviewPageHeader title={template.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
+      <InterviewPageHeader title={baseline.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
         breadcrumbs={[...rootCrumbs, { label: "Templates", href: reviewRoot + "/templates" }, { label: "Template" }]}
-        actions={<Button className={tutorBtnPrimary} disabled={pending || !name.trim() || !editor?.getText().trim()}
-          onClick={() => save({ ...template, id, name: name.trim(), title: title.trim(), body })}>Save template</Button>} />
-      <section className={tutorCardCn("max-w-4xl overflow-hidden")}>
-        <div className="grid gap-4 border-b p-4 sm:grid-cols-2">
+        actions={<Button className={tutorBtnPrimary} disabled={pending || !dirty || !name.trim() || !editor?.getText().trim()}
+          onClick={() => save({ ...baseline, id, name: name.trim(), title: title.trim(), body })}>Save template</Button>} />
+      {dirty && <UnsavedReviewGuard template />}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="min-h-[calc(100dvh-12rem)] min-w-0 pb-20" data-rich-text-toolbar-container aria-label="Template document">
+          <RichTextEditor allowMedia={false} content={body as JSONContent} onChange={(value) => setBody(value as Json)}
+            onChangeDebounceMs={0} onEditorReady={setEditor} editable={!pending} autoHeight floatingToolbar
+            className="border-0 bg-transparent p-0 [&_.ProseMirror]:min-h-72"
+            placeholder="Write the starting content for this template…" />
+        </section>
+        <aside className={tutorCardCn("order-first space-y-4 p-4 lg:order-none")} aria-label="Template properties">
+          <h2 className="font-semibold">Properties</h2>
           <div className="space-y-2">
             <Label htmlFor="template-name">Template name</Label>
             <Input id="template-name" value={name} maxLength={160} disabled={pending} onChange={(event) => setName(event.target.value)} placeholder="Template name" />
@@ -250,11 +261,8 @@ function TemplateEditor({ template, save, pending }: { template: Template; save:
             <Input id="template-review-title" value={title} maxLength={160} disabled={pending}
               onChange={(event) => setTitle(event.target.value)} placeholder="Prefill the review title" />
           </div>
-        </div>
-        <div className="border-b bg-muted/20 p-2"><RichTextEditorBottomToolbar editor={editor} variant="plain" /></div>
-        <div className="p-4"><RichTextEditor allowMedia={false} content={body as JSONContent} onChange={(value) => setBody(value as Json)} onEditorReady={setEditor} editable={!pending} autoHeight
-          className="[&_.ProseMirror]:min-h-72" placeholder="Write the starting content for this template…" /></div>
-      </section>
+        </aside>
+      </div>
     </>
   );
 }
@@ -270,6 +278,8 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
   const { reviews = [], templates = [], students = [] } = workspace.data ?? {};
   const authorId = staff.data?.id ?? undefined;
   const table = useInterviewTable(reviewColumnKeys);
+  const templateTable = useInterviewTable([]);
+  const pagedTemplates = pageRows(templates, templateTable.state.page, templateTable.state.pageSize);
   const [viewing, setViewing] = useState<ReviewSummary | null>(null);
   const reviewRecord = useInterviewReview(access.data && path[0] !== "templates" ? path[0] : undefined);
   const templateRecord = useInterviewReviewTemplate(access.data && path[0] === "templates" && path[1] !== "new" ? path[1] : undefined);
@@ -351,12 +361,15 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
       ) : <>
         <InterviewPageHeader title="Performance review templates" backHref={reviewRoot} breadcrumbs={[...rootCrumbs, { label: "Templates" }]}
           actions={<Button className={tutorBtnPrimary} onClick={() => go("/templates/new")}><Plus className="size-4" /> New template</Button>} />
-        <DataTable {...tutorDataTableProps} data={templates} columns={[
+        <DataTable {...tutorDataTableProps} pagination="external" data={pagedTemplates.rows} columns={[
           { accessorKey: "name", header: "Template" },
-          { id: "actions", header: "Actions", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions label="Actions" actions={[
+          { id: "actions", header: "", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions actions={[
             { label: "Edit template", icon: <Pencil className="size-4" />, onClick: () => go("/templates/" + row.original.id) },
           ]} /></div> },
         ]} />
+        {pagedTemplates.total > 0 && <TablePagination page={pagedTemplates.page} pageSize={templateTable.state.pageSize} total={pagedTemplates.total}
+          onPageChange={templateTable.actions.onPageChange} onPageSizeChange={templateTable.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]} className="pt-3" />}
       </> : selected ? (
         <ReviewEditor key={selected.id} record={selected} reviews={reviews} templates={templates} students={students} authorId={authorId} />
       ) : <>
@@ -398,7 +411,7 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
               </div>
             ) },
           ].filter((column) => visible.has(column.id)),
-          { id: "actions", header: "Actions", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions label="Actions" actions={[
+          { id: "actions", header: "", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions actions={[
             { label: "View", icon: <Eye className="size-4" />, onClick: () => setViewing(row.original) },
             ...(row.original.authorId === authorId ? [{ label: "Edit", icon: <Pencil className="size-4" />, onClick: () => go("/" + row.original.id) }] : []),
           ]} /></div> },

@@ -3,7 +3,7 @@
 import React, { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { format, isSameDay } from "date-fns";
-import { Calendar, MapPin, Video } from "lucide-react";
+import { MapPin, Video } from "lucide-react";
 import {
   Badge,
   Button,
@@ -20,7 +20,6 @@ import { formatSessionDate, formatSessionTimeRangeForDisplay, type StudentInterv
 import { studentModalHairline, studentModalShell } from "@/shared/lib/student-visual";
 import { cn } from "@/shared/utils";
 import { formatTime } from "@/shared/utils/datetime";
-import { useStudentSessions } from "@/shared/hooks/useStudentSessions";
 import type { StudentSessionWithStaff } from "@/shared/api/sessions";
 import { StudentSessionsCard } from "@/features/sessions/components/StudentSessionsCard";
 import { StudentInterviewListCard } from "./student-interview-list-card";
@@ -68,13 +67,10 @@ export function StudentInterviewCalendar({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const round = query.data?.find((r) => r.id === selectedId);
   const today = new Date();
-  const todayKey = format(today, "yyyy-MM-dd");
-  const todayQuery = useStudentSessions(todayKey, todayKey, interviewsOnly);
   const todayRounds = interviewsOnly ? (query.data ?? []).filter((item) => {
     const date = item.startedAt ?? item.scheduledAt;
     return date ? isSameDay(new Date(date), today) : item.phase !== "completed";
   }) : [];
-  const todaySessions = interviewsOnly ? (todayQuery.data ?? []).filter(isMedicineInterviewSession) : [];
   const calendarRounds = (query.data ?? []).filter((item) => !interviewsOnly || item.phase !== "completed");
   const calendarSessions = interviewsOnly ? sessions.filter(isMedicineInterviewSession) : sessions;
   const events = [
@@ -125,9 +121,8 @@ export function StudentInterviewCalendar({
     );
   return (
     <>
-      {(todayRounds.length > 0 || todaySessions.length > 0) && (
-        <section className="space-y-3" aria-labelledby="today-interviews-heading">
-          <h3 id="today-interviews-heading" className="font-semibold">Today</h3>
+      {todayRounds.length > 0 && (
+        <section className="space-y-3" aria-label="Today’s mock interviews">
           {todayRounds.map((item) => {
             const props = {
               icon: item.delivery === "online" ? Video : MapPin,
@@ -139,21 +134,7 @@ export function StudentInterviewCalendar({
             return href ? <StudentInterviewListCard key={item.id} {...props} href={href} /> :
               <StudentInterviewListCard key={item.id} {...props} onClick={() => setSelectedId(item.id)} />;
           })}
-          {todaySessions.map((session) => {
-            const id = session.session_id;
-            return id && (
-              <StudentInterviewListCard key={id} icon={Calendar} title="Medicine Interview session"
-                description={formatSessionTimeRangeForDisplay(session, formatTime)}
-                onClick={() => onOpenSession?.(id)} />
-            );
-          })}
         </section>
-      )}
-      {todayQuery.isError && interviewsOnly && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Today’s interview sessions could not be loaded.{" "}
-          <button type="button" className="underline" onClick={() => void todayQuery.refetch()}>Retry</button>
-        </p>
       )}
       {calendarControls}
       {query.isError && (
