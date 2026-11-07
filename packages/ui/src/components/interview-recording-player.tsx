@@ -74,16 +74,15 @@ export function InterviewRecordingPlayer({
   const activeSegment = segments.find(({ start, end }) => start <= position && position < end);
   const progressLabel = activeSegment?.questionNumber ? `Question ${activeSegment.questionNumber}` : "Between questions";
   const load = async () => {
-    if (!loadUrl) {
-      setError("");
-      player.current?.load();
-      return;
-    }
-    setLoading(true);
     durationProbe.current = null;
     setDuration(0);
     setPosition(0);
     setError("");
+    if (!loadUrl) {
+      player.current?.load();
+      return;
+    }
+    setLoading(true);
     try {
       setUrl((await loadUrl()).url);
     } catch (reason) {
@@ -140,6 +139,9 @@ export function InterviewRecordingPlayer({
     },
     onPause: () => { if (studentAudio) setPlaying(false); },
     onEnded: () => { if (studentAudio) setPlaying(false); },
+    onVolumeChange: (event: React.SyntheticEvent<HTMLMediaElement>) => {
+      if (studentAudio) setVolume(event.currentTarget.volume);
+    },
     onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       setPosition(event.currentTarget.currentTime),
     onError: () => {
@@ -191,9 +193,7 @@ export function InterviewRecordingPlayer({
                     Volume
                     <input type="range" min={0} max={1} step={0.05} value={volume} className="w-20 accent-current"
                       onChange={(event) => {
-                        const next = Number(event.target.value);
-                        if (player.current) player.current.volume = next;
-                        setVolume(next);
+                        if (player.current) player.current.volume = Number(event.target.value);
                       }} />
                   </label>
                   <SearchableSelect
@@ -209,7 +209,10 @@ export function InterviewRecordingPlayer({
                     contentWidth="10rem"
                     onValueChange={(rate) => {
                       if (rate === null) return;
-                      if (player.current) player.current.playbackRate = rate;
+                      if (player.current) {
+                        player.current.defaultPlaybackRate = rate;
+                        player.current.playbackRate = rate;
+                      }
                       setPlaybackRate(rate);
                     }}
                   />

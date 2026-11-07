@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, Eye, FileText, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Badge, Button, DataTable, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
+  Badge, Button, DataTable, editorJsonSignature, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
   SearchableSelect, SmartDatePickerField, TablePagination, type JSONContent,
 } from "@altitutor/ui";
 import { formatInterviewReviewDate as reviewDate, performanceReviewPath as reviewRoot, tutorDefaultDisplaySettings,
@@ -228,19 +228,20 @@ function ReviewEditor({ record, reviews, templates, students, authorId }: {
 }
 
 function TemplateEditor({ template, save, pending }: { template: Template; save: (template: Template) => void; pending: boolean }) {
-  const [id] = useState(() => template.id || crypto.randomUUID());
-  const [name, setName] = useState(template.name);
-  const [title, setTitle] = useState(template.title ?? "");
-  const [body, setBody] = useState(template.body);
+  const [baseline] = useState(template);
+  const [id] = useState(() => baseline.id || crypto.randomUUID());
+  const [name, setName] = useState(baseline.name);
+  const [title, setTitle] = useState(baseline.title ?? "");
+  const [body, setBody] = useState(baseline.body);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const dirty = name !== template.name || title !== (template.title ?? "") ||
-    JSON.stringify(body) !== JSON.stringify(template.body);
+  const dirty = name !== baseline.name || title !== (baseline.title ?? "") ||
+    editorJsonSignature(body) !== editorJsonSignature(baseline.body);
   return (
     <>
-      <InterviewPageHeader title={template.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
+      <InterviewPageHeader title={baseline.name ? "Edit template" : "New template"} backHref={reviewRoot + "/templates"}
         breadcrumbs={[...rootCrumbs, { label: "Templates", href: reviewRoot + "/templates" }, { label: "Template" }]}
         actions={<Button className={tutorBtnPrimary} disabled={pending || !dirty || !name.trim() || !editor?.getText().trim()}
-          onClick={() => save({ ...template, id, name: name.trim(), title: title.trim(), body })}>Save template</Button>} />
+          onClick={() => save({ ...baseline, id, name: name.trim(), title: title.trim(), body })}>Save template</Button>} />
       {dirty && <UnsavedReviewGuard template />}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className="min-h-[calc(100dvh-12rem)] min-w-0 pb-20" data-rich-text-toolbar-container aria-label="Template document">
