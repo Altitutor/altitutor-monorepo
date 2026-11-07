@@ -60,6 +60,9 @@ public struct LessonResource: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public let workspaceID: UUID?
     public var syncID: UUID { workspaceID ?? resource?.id ?? id }
+    public var canSync: Bool {
+        [worksheet, solutions].compactMap { $0 }.allSatisfy { $0.source.isPDF && $0.source.externalURL == nil }
+    }
     /// Absent for imported and blank local documents; never invent catalog identity.
     public let resource: TeachingResource?
     public let worksheet: CachedDocument
@@ -79,8 +82,9 @@ public struct LessonRecord: Codable, Sendable {
     public var plannedTopics: [SessionPlanTopic] = []
     public var plannedRevision: Int = 0
     public var importedPlanResourceIDs: Set<UUID> = []
+    var pendingWorkspaceIDs: Set<UUID> = []
     public init(sessionID: UUID) { self.sessionID = sessionID }
-    private enum CodingKeys: String, CodingKey { case sessionID, resources, draft, archivedResources, plannedTopics, plannedRevision, importedPlanResourceIDs }
+    private enum CodingKeys: String, CodingKey { case sessionID, resources, draft, archivedResources, plannedTopics, plannedRevision, importedPlanResourceIDs, pendingWorkspaceIDs }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         sessionID = try values.decode(UUID.self, forKey: .sessionID)
@@ -90,6 +94,17 @@ public struct LessonRecord: Codable, Sendable {
         plannedTopics = try values.decodeIfPresent([SessionPlanTopic].self, forKey: .plannedTopics) ?? []
         plannedRevision = try values.decodeIfPresent(Int.self, forKey: .plannedRevision) ?? 0
         importedPlanResourceIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .importedPlanResourceIDs) ?? []
+        pendingWorkspaceIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .pendingWorkspaceIDs) ?? []
+        // Older versions allowed multiple pinned copies of the same catalog resource.
+        var catalogSlots = Set<UUID>()
+        func distinguishLegacyCopy(_ item: LessonResource) -> LessonResource {
+            guard item.workspaceID == nil, let resourceID = item.resource?.id,
+                  !catalogSlots.insert(resourceID).inserted else { return item }
+            return LessonResource(id: item.id, workspaceID: item.id, resource: item.resource,
+                                  worksheet: item.worksheet, solutions: item.solutions)
+        }
+        archivedResources = archivedResources.map(distinguishLegacyCopy)
+        resources = resources.map(distinguishLegacyCopy)
     }
 }
 

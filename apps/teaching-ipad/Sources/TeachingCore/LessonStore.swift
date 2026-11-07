@@ -20,7 +20,9 @@ public final class LessonStore {
         var record = try lesson(sessionID: sessionID)
         if !freshCopy && record.resources.contains(where: { $0.resource?.id == resource.id }) { return record }
         if !freshCopy, let index = record.archivedResources.lastIndex(where: { $0.resource?.id == resource.id }) {
-            record.resources.append(record.archivedResources.remove(at: index))
+            let restored = record.archivedResources.remove(at: index)
+            record.resources.append(restored)
+            if restored.canSync { record.pendingWorkspaceIDs.insert(restored.syncID) }
             try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
             return record
         }
@@ -31,8 +33,10 @@ public final class LessonStore {
         try write(worksheet, to: target.appendingPathComponent(primary.id.uuidString + ".pdf"))
         if let answer, let solutions { try write(solutions, to: target.appendingPathComponent(answer.id.uuidString + ".pdf")) }
         let itemID = UUID()
-        record.resources.append(LessonResource(id: itemID, workspaceID: freshCopy ? itemID : nil,
-            resource: resource, worksheet: primary, solutions: answer))
+        let item = LessonResource(id: itemID, workspaceID: freshCopy ? itemID : nil,
+            resource: resource, worksheet: primary, solutions: answer)
+        record.resources.append(item)
+        if item.canSync { record.pendingWorkspaceIDs.insert(item.syncID) }
         try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
         return record
     }
@@ -82,7 +86,9 @@ public final class LessonStore {
         let url = target.appendingPathComponent(document.id.uuidString + ".pdf")
         do {
             try write(pdf, to: url)
-            record.resources.append(LessonResource(id: UUID(), resource: nil, worksheet: document, solutions: nil))
+            let item = LessonResource(id: UUID(), resource: nil, worksheet: document, solutions: nil)
+            record.resources.append(item)
+            record.pendingWorkspaceIDs.insert(item.syncID)
             try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
             return record
         } catch {
@@ -102,6 +108,7 @@ public final class LessonStore {
         if let archived = record.archivedResources.lastIndex(where: { $0.syncID == item.syncID }) {
             guard restoreArchived else { return record }
             record.resources.append(record.archivedResources.remove(at: archived))
+            record.pendingWorkspaceIDs.insert(item.syncID)
             try write(JSONEncoder().encode(record), to: manifest)
             return record
         }
@@ -121,6 +128,7 @@ public final class LessonStore {
             try write(worksheet, to: primary)
             if let answer, let solutions { try write(solutions, to: answer) }
             record.resources.append(item)
+            if restoreArchived && item.canSync { record.pendingWorkspaceIDs.insert(item.syncID) }
             try write(JSONEncoder().encode(record), to: manifest)
             return record
         } catch {
@@ -134,7 +142,9 @@ public final class LessonStore {
     public func remove(_ resourceID: UUID, from sessionID: UUID) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
         guard let index = record.resources.firstIndex(where: { $0.id == resourceID }) else { throw CocoaError(.fileReadNoPermission) }
-        record.archivedResources.append(record.resources.remove(at: index))
+        let item = record.resources.remove(at: index)
+        record.archivedResources.append(item)
+        record.pendingWorkspaceIDs.remove(item.syncID)
         record.draft.excludedResources.remove(resourceID)
         record.draft.excludedAnnotations.remove(resourceID)
         record.draft.studentAssignments.removeValue(forKey: resourceID)
@@ -277,6 +287,21 @@ public final class LessonStore {
         return LogSuggestions(topics: topicStudents.map { TopicSelection(topicId: $0.key,
             studentIds: $0.value.sorted { $0.uuidString < $1.uuidString }) }.sorted { $0.topicId.uuidString < $1.topicId.uuidString },
             topicFiles: selectedFiles.values.sorted { $0.topicsFilesId.uuidString < $1.topicsFilesId.uuidString })
+    }
+
+    public func pendingWorkspaceSessions() throws -> [UUID] {
+        try files.contentsOfDirectory(atPath: directory.path).compactMap { name in
+            guard let id = UUID(uuidString: name),
+                  let record = try? lesson(sessionID: id), !record.pendingWorkspaceIDs.isEmpty else { return nil }
+            return id
+        }
+    }
+
+    public func markWorkspaceSynced(sessionID: UUID, ids: Set<UUID>) throws {
+        var record = try lesson(sessionID: sessionID)
+        guard !record.pendingWorkspaceIDs.isDisjoint(with: ids) else { return }
+        record.pendingWorkspaceIDs.subtract(ids)
+        try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
     }
 
     public func saveSessions(_ data: Data) throws { try write(data, to: directory.appendingPathComponent("sessions.json")) }

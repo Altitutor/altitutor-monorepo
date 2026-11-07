@@ -20,8 +20,11 @@ export type TeachingLogInput = z.infer<typeof teachingLogSchema>;
 
 export const teachingStudentSchema = z.object({ sessionId: id, studentId: id }).strict();
 
+const signInFields = { email: z.string().email().max(320), password: z.string().min(1).max(1024) };
+
 export const authSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('signIn'), email: z.string().email().max(320), password: z.string().min(1).max(1024) }).strict(),
+  z.object({ action: z.literal('signIn'), ...signInFields }).strict(),
+  z.object({ action: z.literal('enrollDevice'), ...signInFields }).strict(),
   z.object({ action: z.literal('refresh'), refreshToken: z.string().min(1).max(8192) }).strict(),
 ]);
 

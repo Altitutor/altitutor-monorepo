@@ -23,8 +23,8 @@ storage across logout. The directory grants no lesson access by itself.
 A tutor can set a four-digit Teaching PIN from the menu after confirming their
 account password. Each iPad can remember several tutors in its device-only
 Keychain, with one workspace active at a time. Log out to switch tutors. The PIN
-is verified locally, and signing in with it refreshes the tutor’s online staff
-access. Five incorrect attempts, 30 days, or revoked access require password
+is verified locally. Remembered credentials are sealed by the server and only
+accepted by the Teaching API, which rechecks the tutor’s active staff access. Five incorrect attempts, 30 days, or revoked access require password
 sign-in. Tutors set up the PIN independently on each iPad. TutorWeb continues
 to require the account’s normal sign-in credentials.
 

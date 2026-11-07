@@ -10,6 +10,8 @@ import Testing
     let second = try LessonStore(root: root.appendingPathComponent("second"), tutorID: tutor)
     let original = Data([1, 2]), edited = Data([1, 2, 3])
     let item = try #require(first.addLocalDocument(title: "Worksheet.pdf", to: session, pdf: original).resources.first)
+    let reopened = try LessonStore(root: root.appendingPathComponent("first"), tutorID: tutor)
+    #expect(try reopened.pendingWorkspaceSessions() == [session])
     _ = try first.editPages(.insertBlank(at: 1), pdf: edited, pageCount: 2, sessionID: session, document: item.worksheet)
     try first.saveDrawing(Data([4]), sessionID: session, document: item.worksheet, page: 0)
 
@@ -21,6 +23,9 @@ import Testing
     #expect(try second.lesson(sessionID: session).resources.map(\.id) == [item.id])
     #expect(try Data(contentsOf: second.documentURL(sessionID: session, document: item.worksheet)) == original)
     #expect(try second.drawing(sessionID: session, document: item.worksheet, page: 0) == nil)
+    #expect(try second.pendingWorkspaceSessions().isEmpty)
+    try reopened.markWorkspaceSynced(sessionID: session, ids: [item.syncID])
+    #expect(try reopened.pendingWorkspaceSessions().isEmpty)
 
     _ = try second.remove(item.id, from: session)
     #expect(try second.addOriginal(item, to: session, worksheet: pinned, solutions: nil).resources.isEmpty)

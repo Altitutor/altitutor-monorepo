@@ -163,9 +163,10 @@ struct TeachingKeychain {
         let epoch = generation
         // A fresh password check also creates a separate device credential for this
         // remembered tutor. An unattended active workspace cannot enroll a PIN.
-        let verified = try await exchange(["action": "signIn", "email": staff.email, "password": password])
+        let verified = try await exchange(["action": "enrollDevice", "email": staff.email, "password": password])
         guard epoch == generation, session?.profile.id == staff.id else { throw CancellationError() }
-        guard verified.profile.id == staff.id, verified.profile.canSubmitLogs else {
+        guard verified.profile.id == staff.id, verified.profile.canSubmitLogs,
+              verified.credentials.refreshToken.hasPrefix("teaching_device_v1.") else {
             throw APIError(status: 403, message: "An active staff account is required to set a PIN.")
         }
         let salt = UUID()

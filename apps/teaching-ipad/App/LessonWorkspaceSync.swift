@@ -12,7 +12,8 @@ struct PreviousLessonPreview: View {
     @ObservedObject var model: TeachingModel
     let previous: PreviousLessonPDF
     @Environment(\.dismiss) private var dismiss
-    @State private var bytes: Data?
+    @State private var worksheetBytes: Data?
+    @State private var showingSolutions = false
     @State private var pdf: PDFDocument?
     @State private var failure: String?
     private var added: Bool { model.lesson?.resources.contains { $0.syncID == previous.id } == true }
@@ -20,30 +21,40 @@ struct PreviousLessonPreview: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let pdf { LibraryPDFPreview(document: pdf) }
+                if let pdf { LibraryPDFPreview(document: pdf).id(showingSolutions) }
                 else if let failure {
                     ContentUnavailableView("Couldn’t open PDF", systemImage: "doc", description: Text(failure))
                 } else { ProgressView("Loading PDF…") }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .top) {
+                if let answer = previous.solutions, answer.isPDF, answer.externalURL == nil {
+                    Picker("Document", selection: $showingSolutions) {
+                        Text("Worksheet").tag(false)
+                        Text("Solutions").tag(true)
+                    }.pickerStyle(.segmented).padding()
+                }
+            }
             .navigationTitle(model.title(previous.document))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(added ? "Added to lesson" : "Add to lesson") {
-                        guard let bytes else { return }
-                        Task { if await model.addPrevious(previous, worksheet: bytes) { dismiss() } }
-                    }.disabled(added || model.busy || model.offline || bytes == nil)
+                        guard let worksheetBytes else { return }
+                        Task { if await model.addPrevious(previous, worksheet: worksheetBytes) { dismiss() } }
+                    }.disabled(added || model.busy || model.offline || worksheetBytes == nil)
                 }
             }
         }
-        .task {
+        .task(id: showingSolutions) {
+            pdf = nil; failure = nil
+            let solutions = showingSolutions
             do {
-                let original = try await model.previousPDF(previous)
+                let original = try await model.previousPDF(previous, solutions: solutions)
                 try Task.checkCancellation()
                 pdf = PDFDocument(data: original)
-                bytes = original
+                if !solutions { worksheetBytes = original }
             } catch {
                 if !Task.isCancelled { failure = error.localizedDescription }
             }

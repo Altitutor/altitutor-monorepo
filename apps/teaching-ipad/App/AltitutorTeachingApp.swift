@@ -59,7 +59,7 @@ struct SignInView: View {
                     if needsSetup {
                         HStack(spacing: 12) {
                             Image(systemName: "person").foregroundStyle(.secondary).accessibilityHidden(true)
-                            TextField("Staff email", text: $email).textContentType(.username).keyboardType(.emailAddress)
+                            TextField("Staff email", text: $email).keyboardType(.emailAddress)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                                 .submitLabel(.next).onSubmit { passwordFocused = true }
                                 .accessibilityIdentifier("teaching-email")
@@ -82,7 +82,6 @@ struct SignInView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "lock").foregroundStyle(.secondary).accessibilityHidden(true)
                     SecureField(pinSignIn ? "4-digit PIN" : "Password", text: $password)
-                        .textContentType(pinSignIn ? nil : .password)
                         .keyboardType(pinSignIn ? .numberPad : .default)
                         .focused($passwordFocused).submitLabel(.go).onSubmit { signIn() }
                         .accessibilityIdentifier(pinSignIn ? "teaching-pin" : "teaching-password")

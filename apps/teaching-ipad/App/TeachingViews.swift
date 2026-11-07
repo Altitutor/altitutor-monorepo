@@ -150,6 +150,8 @@ private struct TeachingSettings: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("teaching-theme") private var theme = TeachingTheme.light
     @State private var confirmingLogout = false
+    @State private var syncingForLogout = false
+    @State private var syncFailure = false
     let logOut: () -> Void
 
     var body: some View {
@@ -163,8 +165,12 @@ private struct TeachingSettings: View {
                 if let staff = model.staffDirectory.first(where: { $0.id == model.profile?.id }) {
                     NavigationLink("Teaching PIN") { TeachingPINSettings(api: model.api, staff: staff) }
                 }
-                Button("Log out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                Button(syncingForLogout ? "Syncing documents…" : "Log out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     confirmingLogout = true
+                }
+                if syncFailure {
+                    Text("Some documents still need to sync. Retry or log out now to keep them queued on this iPad.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Settings")
@@ -173,9 +179,24 @@ private struct TeachingSettings: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .confirmationDialog("Log out of this teaching iPad?", isPresented: $confirmingLogout) {
-                Button("Log out", role: .destructive, action: logOut)
+                if model.hasPendingWorkspaceSync && !model.offline && !syncingForLogout {
+                    Button("Sync and log out") {
+                        Task {
+                            syncingForLogout = true; syncFailure = false
+                            let synced = await model.syncBeforeLogout()
+                            syncingForLogout = false
+                            if synced { logOut() }
+                            else if model.profile != nil { syncFailure = true }
+                        }
+                    }
+                }
+                Button(model.hasPendingWorkspaceSync ? "Log out now" : "Log out", role: .destructive, action: logOut)
             } message: {
-                Text("Your local lesson annotations stay on this iPad for your next sign-in.")
+                if model.hasPendingWorkspaceSync {
+                    Text("Some PDFs are still syncing. If you log out now, this iPad will retry when you next sign in here.")
+                } else {
+                    Text("Your local lesson annotations stay on this iPad for your next sign-in.")
+                }
             }
         }
         .preferredColorScheme(theme.colorScheme)
@@ -198,7 +219,7 @@ private struct TeachingPINSettings: View {
                     .onChange(of: pin) { _, value in
                         pin = String(decoding: value.utf8.filter { (48...57).contains($0) }.prefix(4), as: UTF8.self)
                     }
-                SecureField("Account password", text: $password).textContentType(.password)
+                SecureField("Account password", text: $password)
                 Button("Save PIN") { Task { await savePIN() } }
                     .disabled(pin.utf8.count != 4 || password.isEmpty)
             } footer: {

@@ -41,6 +41,8 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
     @Published var annotationsReady = false
     private var printTasks: [UUID: Task<Void, Never>] = [:]
     private var planTask: Task<Void, Never>?
+    private var workspaceUploads: [UUID: Task<Void, Never>] = [:]
+    private var workspaceUploadsQueuedAgain = Set<UUID>()
     @Published private(set) var previousLesson: [PreviousLessonPDF] = []
     @Published private(set) var lessonRefreshError: String?
     private var libraryRequest = UUID()
@@ -101,6 +103,9 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
         do {
             try api.signOut(); epoch += 1
             planTask?.cancel(); planTask = nil; previousLesson = []; lessonRefreshError = nil
+            for upload in workspaceUploads.values { upload.cancel() }
+            workspaceUploads = [:]; workspaceUploadsQueuedAgain = []
+            busy = false
             for task in printTasks.values { task.cancel() }; printTasks = [:]
             route = []; librarySubjects = []; librarySubjectID = nil; resourceCodes = [:]; printNotice = nil; printRequest = nil; annotationCandidates = []
             ClassroomState.shared.clear(); profile = nil; sessions = []; lesson = nil; selectedSessionID = nil
@@ -126,6 +131,9 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
             try store.saveSessions(encoder.encode(cache)); sessions = fresh; offline = false
             if let id = selectedSessionID, !fresh.contains(where: { $0.id == id }) { leaveLesson() }
+            for pending in (try? store.pendingWorkspaceSessions()) ?? [] where workspaceUploads[pending] == nil {
+                scheduleWorkspaceUpload(pending)
+            }
         } catch {
             guard epoch == version else { return }
             if let failure = error as? APIError, failure.status == 401 || failure.status == 403 { signOut(); report(error); return }
@@ -173,47 +181,103 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             guard version == epoch, selectedSessionID == session.id else { throw CancellationError() }
         }
         do {
-            if ["CLASS", "DRAFTING", "EXAM_COURSE", "TRIAL_SESSION"].contains(session.kind) {
-                await importSessionPlan(session.id)
-                try verify()
-            }
             let query = [URLQueryItem(name: "sessionID", value: session.id.uuidString)]
             let existing: [SyncedLessonResource] = try await api.request("workspace", query: query)
             try verify()
-            var record = try store.lesson(sessionID: session.id)
+            let record = try store.lesson(sessionID: session.id)
             let localIDs = Set((record.resources + record.archivedResources).map(\.syncID))
+            var missingOriginal = false
             for remote in existing where !localIDs.contains(remote.item.syncID) {
-                let worksheet = try await api.downloadWorkspacePDF(remote.worksheetArtifactID)
-                let solutions: Data?
-                if let id = remote.solutionsArtifactID { solutions = try await api.downloadWorkspacePDF(id) }
-                else { solutions = nil }
                 try verify()
-                try validateOriginal(worksheet)
-                if let solutions { try validateOriginal(solutions) }
-                lesson = try store.addOriginal(remote.item, to: session.id, worksheet: worksheet, solutions: solutions)
-                if activeResourceID == nil { activeResourceID = lesson?.resources.first?.id }
+                do {
+                    let worksheet = try await api.downloadWorkspacePDF(remote.worksheetArtifactID)
+                    let solutions: Data?
+                    if let id = remote.solutionsArtifactID { solutions = try await api.downloadWorkspacePDF(id) }
+                    else { solutions = nil }
+                    try verify()
+                    try validateOriginal(worksheet)
+                    if let solutions { try validateOriginal(solutions) }
+                    lesson = try store.addOriginal(remote.item, to: session.id, worksheet: worksheet, solutions: solutions)
+                    if activeResourceID == nil { activeResourceID = lesson?.resources.first?.id }
+                } catch let failure as APIError where failure.status == 401 { throw failure }
+                catch is CancellationError { return }
+                catch { missingOriginal = true }
             }
+            if !missingOriginal, ["CLASS", "DRAFTING", "EXAM_COURSE", "TRIAL_SESSION"].contains(session.kind) {
+                await importSessionPlan(session.id)
+                try verify()
+            }
+            scheduleWorkspaceUpload(session.id)
             let previous: PreviousLessonResources? = try await api.request("previous-lesson", query: query)
             try verify()
             previousLesson = try previous.map { try previousDocuments($0, store: store) } ?? []
-            record = try store.lesson(sessionID: session.id)
-            let remoteIDs = Set(existing.map { $0.item.syncID })
-            var syncError: Error?
-            for item in record.resources where !remoteIDs.contains(item.syncID) {
-                try verify()
-                guard [item.worksheet, item.solutions].compactMap({ $0 }).allSatisfy({
-                    $0.source.isPDF && $0.source.externalURL == nil
-                }) else { continue }
-                do { try await api.syncOriginal(item, sessionID: session.id, store: store) }
-                catch { if syncError == nil { syncError = error } }
-            }
-            try verify()
-            if let syncError { throw syncError }
-            lessonRefreshError = nil
+            lessonRefreshError = missingOriginal ? "Some lesson documents couldn’t download. Pull down to retry." : nil
         } catch {
             guard version == epoch, selectedSessionID == session.id, !Task.isCancelled, !(error is CancellationError) else { return }
             if let failure = error as? APIError, failure.status == 401 { report(error); return }
             lessonRefreshError = "Couldn’t refresh all lesson documents. Pull down to retry."
+        }
+    }
+
+    // Uploads belong to the signed-in tutor, so backing out of a lesson does not
+    // cancel work already accepted by the board. The manifest survives sign-out.
+    var hasPendingWorkspaceSync: Bool {
+        !workspaceUploads.isEmpty || ((try? store?.pendingWorkspaceSessions())?.isEmpty == false)
+    }
+
+    func syncBeforeLogout() async -> Bool {
+        guard let store, profile != nil, !offline else { return false }
+        let version = epoch
+        for id in (try? store.pendingWorkspaceSessions()) ?? [] where workspaceUploads[id] == nil {
+            scheduleWorkspaceUpload(id)
+        }
+        for task in Array(workspaceUploads.values) { await task.value }
+        return version == epoch && !hasPendingWorkspaceSync
+    }
+
+    private func scheduleWorkspaceUpload(_ sessionID: UUID) {
+        guard let store, profile != nil, !offline else { return }
+        if workspaceUploads[sessionID] != nil {
+            workspaceUploadsQueuedAgain.insert(sessionID)
+            return
+        }
+        let version = epoch
+        workspaceUploads[sessionID] = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if version == epoch {
+                    workspaceUploads[sessionID] = nil
+                    if workspaceUploadsQueuedAgain.remove(sessionID) != nil { scheduleWorkspaceUpload(sessionID) }
+                }
+            }
+            do {
+                let existing: [SyncedLessonResource] = try await api.request("workspace",
+                    query: [URLQueryItem(name: "sessionID", value: sessionID.uuidString)])
+                try Task.checkCancellation()
+                let remoteIDs = Set(existing.map { $0.item.syncID })
+                try store.markWorkspaceSynced(sessionID: sessionID, ids: remoteIDs)
+                let record = try store.lesson(sessionID: sessionID)
+                var failed = false
+                for item in record.resources where item.canSync && !remoteIDs.contains(item.syncID) {
+                    try Task.checkCancellation()
+                    do {
+                        try await api.syncOriginal(item, sessionID: sessionID, store: store)
+                        try Task.checkCancellation()
+                        try store.markWorkspaceSynced(sessionID: sessionID, ids: [item.syncID])
+                    } catch let failure as APIError where failure.status == 401 { throw failure }
+                    catch is CancellationError { return }
+                    catch { failed = true }
+                }
+                if failed, selectedSessionID == sessionID {
+                    lessonRefreshError = "Some lesson documents couldn’t sync. Pull down to retry."
+                }
+            } catch {
+                guard version == epoch, !Task.isCancelled, !(error is CancellationError) else { return }
+                if let failure = error as? APIError, failure.status == 401 { report(error) }
+                else if selectedSessionID == sessionID {
+                    lessonRefreshError = "Couldn’t sync lesson documents. Pull down to retry."
+                }
+            }
         }
     }
 
@@ -259,7 +323,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             case .catalog(let resource, _):
                 lesson = try store.add(resource, to: sessionID, worksheet: worksheet, solutions: solutions)
             }
-            scheduleLessonRefresh()
+            scheduleWorkspaceUpload(sessionID)
             return true
         } catch { report(error); return false }
     }
@@ -391,7 +455,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             guard version == epoch, selectedSessionID == session.id else { return }
             if resource.worksheet.isPDF, resource.worksheet.externalURL == nil, PDFDocument(data: primary) == nil { throw APIError(status: 0, message: "This resource is not a readable PDF.") }
             lesson = try store.add(resource, to: session.id, worksheet: primary, solutions: answers, freshCopy: freshCopy)
-            scheduleLessonRefresh()
+            scheduleWorkspaceUpload(session.id)
             if activeResourceID == nil || freshCopy { activeResourceID = lesson?.resources.last?.id; allowActiveWorksheet() }
         } catch { report(error) }
     }
@@ -444,7 +508,7 @@ enum TeachingRoute: Hashable { case lesson(UUID), document }
             throw APIError(status: 0, message: "Choose a readable, unlocked PDF smaller than 50 MB.")
         }
         lesson = try store.addLocalDocument(title: title, to: session.id, pdf: bytes)
-        scheduleLessonRefresh()
+        scheduleWorkspaceUpload(session.id)
     }
     func addBlankDocument(landscape: Bool) {
         do {

@@ -33,7 +33,7 @@ function check(error: { code?: string; message: string } | null) {
 }
 
 async function scopedSession(client: Client, sessionID: string) {
-  const result = await client.from('vtutor_operational_session_detail').select('class_id,start_at')
+  const result = await client.from('vtutor_operational_session_detail').select('session_id')
     .eq('session_id', requireUUID(sessionID)).maybeSingle();
   check(result.error);
   if (!result.data) throw new TeachingError(404, 'This teaching session is unavailable.');
@@ -93,29 +93,24 @@ export async function teachingWorkspaceDownload(client: Client, staffID: string,
 }
 
 export async function previousTeachingLesson(client: Client, sessionID: string) {
-  const current = await scopedSession(client, sessionID);
-  if (!current.class_id || !current.start_at) return null;
-  const previous = await client.from('vtutor_operational_session_detail').select('session_id')
-    .eq('class_id', current.class_id).lt('start_at', current.start_at)
-    .order('start_at', { ascending: false }).order('session_id').limit(1).maybeSingle();
+  await scopedSession(client, sessionID);
+  const previous = await client.from('vtutor_teaching_previous_lessons')
+    .select('previous_session_id,catalog_resource_ids').eq('session_id', sessionID).maybeSingle();
   check(previous.error);
-  const previousID = previous.data?.session_id;
+  const previousID = previous.data?.previous_session_id;
   if (!previousID) return null;
-  const [workspace, plan, logs] = await Promise.all([
+  const [workspace, priorPlan] = await Promise.all([
     workspaceResources(client, previousID),
-    readSessionLessonPlan(client, previousID),
-    client.from('vtutor_tutor_log').select('files').eq('session_id', previousID),
+    client.from('vtutor_session_lesson_plans').select('session_id').eq('session_id', previousID).maybeSingle(),
   ]);
-  check(logs.error);
-  const files = z.array(z.object({ topics_files_id: id }));
-  const loggedIDs = [...new Set((logs.data ?? []).flatMap(log => {
-    const parsed = files.safeParse(log.files ?? []);
-    return parsed.success ? parsed.data.map(file => file.topics_files_id) : [];
-  }))];
+  check(priorPlan.error);
+  const planned = priorPlan.data ? (await readSessionLessonPlan(client, previousID)).resources : [];
+  const plannedIDs = new Set(planned.map(item => item.id));
+  const catalogIDs = (previous.data?.catalog_resource_ids ?? []).filter(id => !plannedIDs.has(id));
   const catalog = [];
-  for (let offset = 0; offset < loggedIDs.length; offset += 50) {
-    const page = await teachingResources(client, new URLSearchParams({ resourceIDs: loggedIDs.slice(offset, offset + 50).join(',') }));
+  for (let offset = 0; offset < catalogIDs.length; offset += 50) {
+    const page = await teachingResources(client, new URLSearchParams({ resourceIDs: catalogIDs.slice(offset, offset + 50).join(',') }));
     catalog.push(...page.resources);
   }
-  return { sessionID: previousID, workspace, planned: plan.resources, catalog };
+  return { sessionID: previousID, workspace, planned, catalog };
 }

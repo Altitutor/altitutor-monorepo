@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import * as Sentry from '@sentry/nextjs';
+import { isTeachingCredential, openTeachingAccess } from './device-credentials';
 
 export class TeachingError extends Error {
   constructor(public readonly status: number, message: string, public readonly dependency?: unknown) { super(message); }
@@ -22,8 +23,12 @@ export function teachingClient(token?: string): SupabaseClient<Database> {
 export async function authenticateTeaching(request: Request) {
   const match = /^Bearer (\S+)$/i.exec(request.headers.get('Authorization') ?? '');
   if (!match) throw new TeachingError(401, 'Sign in to the teaching app.');
-  const client = teachingClient(match[1]);
-  const { data, error } = await client.auth.getUser(match[1]);
+  const bearer = match[1];
+  const scoped = isTeachingCredential(bearer) ? openTeachingAccess(bearer) : null;
+  if (isTeachingCredential(bearer) && !scoped) throw new TeachingError(401, 'Please sign in again.');
+  const token = scoped?.token ?? bearer;
+  const client = teachingClient(token);
+  const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) {
     const unavailable = error && ((error.status ?? 0) >= 500 || error.name === 'AuthRetryableFetchError');
     throw new TeachingError(unavailable ? 503 : 401, unavailable ? 'Sign-in verification is temporarily unavailable.' : 'Please sign in again.', unavailable ? error : undefined);
@@ -41,7 +46,7 @@ export async function authenticateTeaching(request: Request) {
   if (profile.error) throw new TeachingError(503, 'Tutor access is temporarily unavailable.', profile.error);
   const row = profile.data;
   if (!row?.id || row.user_id !== data.user.id || !['TUTOR', 'ADMINSTAFF'].includes(row.role ?? '') ||
-      !['ACTIVE', 'TRIAL'].includes(row.status ?? '')) {
+      !['ACTIVE', 'TRIAL'].includes(row.status ?? '') || (scoped && (row.id !== scoped.staffID || row.status !== 'ACTIVE'))) {
     throw new TeachingError(403, 'This account does not have tutor access.');
   }
   return { client, profile: {

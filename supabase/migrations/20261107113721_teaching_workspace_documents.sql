@@ -127,3 +127,38 @@ BEGIN
     RETURN NEXT a;
   END LOOP;
 END $$;
+
+-- Identify the actual preceding occurrence before filtering its materials.
+-- A substitute can carry forward catalog resources they can already access,
+-- even when they were not assigned to the preceding session.
+CREATE VIEW public.vtutor_teaching_previous_lessons
+WITH (security_barrier = true, security_invoker = false) AS
+-- Keep this flat, scoped projection out of PostgREST relationship inference.
+SELECT current.session_id::text::uuid AS session_id, prior.id::text::uuid AS previous_session_id,
+  prior.type AS previous_session_type,
+  ARRAY(
+    SELECT DISTINCT accessible.id
+    FROM (
+      SELECT plan.topics_file_id AS id FROM public.session_lesson_plan_files plan WHERE plan.session_id = prior.id
+      UNION
+      SELECT attached.topics_files_id AS id
+      FROM public.tutor_logs log
+      JOIN public.tutor_logs_topics_files attached ON attached.tutor_log_id = log.id
+      WHERE log.session_id = prior.id
+    ) attachment
+    JOIN public.vtutor_topics_files accessible ON accessible.id = attachment.id
+    WHERE accessible.deleted_at IS NULL AND accessible.is_solutions_of_id IS NULL AND NOT accessible.is_solutions
+    ORDER BY accessible.id
+  ) AS catalog_resource_ids
+FROM public.vtutor_operational_session_detail current
+CROSS JOIN LATERAL (
+  SELECT session.id, session.type
+  FROM public.sessions session
+  WHERE session.class_id = current.class_id AND session.start_at < current.start_at
+    AND session.status = 'ACTIVE' AND session.calendar_tombstone_until IS NULL
+  ORDER BY session.start_at DESC, session.id
+  LIMIT 1
+) prior;
+
+REVOKE ALL ON public.vtutor_teaching_previous_lessons FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON public.vtutor_teaching_previous_lessons TO authenticated;

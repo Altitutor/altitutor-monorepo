@@ -39714,6 +39714,17 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_teaching_previous_lessons: {
+        Row: {
+          catalog_resource_ids: string[] | null
+          previous_session_id: string | null
+          previous_session_type:
+            | Database["public"]["Enums"]["session_type"]
+            | null
+          session_id: string | null
+        }
+        Relationships: []
+      }
       vtutor_teaching_uploads: {
         Row: {
           canonical_topics_file_id: string | null

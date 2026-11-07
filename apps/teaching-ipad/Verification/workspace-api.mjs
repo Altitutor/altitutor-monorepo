@@ -42,6 +42,24 @@ async function signIn({ email, password }) {
 const first = await signIn(fixture.first), secondDevice = await signIn(fixture.first);
 const coTutor = await signIn(fixture.second);
 assert.notEqual(first, secondDevice, 'the same tutor signs in on two independent devices');
+const enrolled = await call('auth', null, { action: 'enrollDevice', email: fixture.first.email, password: fixture.first.password });
+assert.equal(enrolled.status, 200, enrolled.body.error);
+const remembered = enrolled.body.credentials;
+assert.match(remembered.accessToken, /^teaching_access_v1\./);
+assert.match(remembered.refreshToken, /^teaching_device_v1\./);
+const authClient = createClient(owned.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+assert.ok((await authClient.auth.getUser(remembered.accessToken)).error, 'a Teaching credential is not a Supabase/TutorWeb login');
+assert.ok((await authClient.auth.refreshSession({ refresh_token: remembered.refreshToken })).error, 'the remembered credential cannot refresh a TutorWeb session');
+assert.equal((await call('profile', remembered.accessToken)).status, 200);
+assert.equal((await call('profile', remembered.refreshToken)).status, 401);
+assert.equal((await call('auth', null, { action: 'refresh', refreshToken: remembered.accessToken })).status, 401);
+const tampered = remembered.refreshToken.replace(/(\.[^.]+\.)[^.]/, '$1!');
+assert.equal((await call('auth', null, { action: 'refresh', refreshToken: tampered })).status, 401);
+const switched = await call('auth', null, { action: 'refresh', refreshToken: remembered.refreshToken });
+assert.equal(switched.status, 200, switched.body.error);
+assert.equal(switched.body.profile.id, fixture.first.id);
+assert.match(switched.body.credentials.accessToken, /^teaching_access_v1\./);
+
 const source = (await call('resources?resourceID=' + fixture.resource, first)).body.resources[0];
 assert.equal(source.resourceType, 'PRACTICE_QUESTIONS');
 assert.equal(source.resourceIndex, 1);
@@ -52,7 +70,7 @@ data(await admin.from('classes').insert({
   status: 'ACTIVE', session_start_date: '2026-01-01', session_end_date: '2026-12-31',
   long_name: 'Fictional document sync class',
 }));
-async function classSession(hoursAgo) {
+async function classSession(hoursAgo, coAssigned = true) {
   const id = randomUUID();
   const start = Date.now() - hoursAgo * 3_600_000;
   data(await admin.from('sessions').insert({
@@ -61,7 +79,7 @@ async function classSession(hoursAgo) {
   }));
   data(await admin.from('sessions_staff').insert([
     { session_id: id, staff_id: fixture.first.id, type: 'MAIN_TUTOR' },
-    { session_id: id, staff_id: fixture.second.id, type: 'SECONDARY_TUTOR' },
+    ...(coAssigned ? [{ session_id: id, staff_id: fixture.second.id, type: 'SECONDARY_TUTOR' }] : []),
   ]));
   return id;
 }
@@ -110,5 +128,25 @@ const history = (await call(previousLesson, secondDevice)).body;
 assert.equal(history.sessionID, previous);
 assert.equal(history.workspace[0].item.id, item.id);
 assert.deepEqual((await call(previousLesson, coTutor)).body.workspace, []);
+const actualPrevious = await classSession(-12, false);
+data(await admin.rpc('save_session_lesson_plan', {
+  p_session_id: actualPrevious, p_actor_id: fixture.first.id, p_expected_revision: 0,
+  p_topic_ids: [], p_file_ids: [fixture.resource],
+}));
+// Save the plan while the fixture is future, then let that meeting become history.
+const actualPreviousStart = Date.now() - 12 * 3_600_000;
+data(await admin.from('sessions').update({
+  start_at: new Date(actualPreviousStart).toISOString(), end_at: new Date(actualPreviousStart + 1_800_000).toISOString(),
+}).eq('id', actualPrevious));
+data(await admin.from('staff_subjects').insert({ staff_id: fixture.second.id, subject_id: source.subjectID }));
+try {
+  const substitute = await call(previousLesson, coTutor);
+  assert.equal(substitute.status, 200, substitute.body.error);
+  assert.equal(substitute.body.sessionID, actualPrevious, 'a substitute receives the true prior class occurrence');
+  assert.deepEqual(substitute.body.workspace, [], 'private originals require prior tutor access');
+  assert.equal(substitute.body.catalog[0]?.id, fixture.resource, 'the substitute can reuse an accessible catalog attachment');
+} finally {
+  data(await admin.from('staff_subjects').delete().eq('staff_id', fixture.second.id).eq('subject_id', source.subjectID));
+}
 assert.equal((await call('prints', first, { artifactID: worksheetArtifactID, copies: 1 })).status, 403, 'workspace assets cannot be repurposed as print artifacts');
 console.log(JSON.stringify({ ownedProject: proof.project_id, previousClassSession: true, twoTutorSessions: true, coTutorIsolation: true, exactOriginals: true, atomicRetry: true }));

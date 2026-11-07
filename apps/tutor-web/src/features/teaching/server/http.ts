@@ -3,6 +3,7 @@ import { listLessonDocuments, lessonDocumentURL, LessonDocumentError } from '@al
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import * as Sentry from '@sentry/nextjs';
 import { authenticateTeaching, teachingClient, TeachingError } from './auth';
+import { isTeachingCredential, openTeachingDevice, teachingDeviceCredentials } from './device-credentials';
 import { authSchema, readTeachingBody, teachingLogSchema, teachingStudentSchema } from './validation';
 import { teachingPrintOptions, enqueueTeachingPrint, teachingPrintJob } from './printing';
 import { completeTeachingUpload, stageTeachingUpload } from './uploads';
@@ -21,17 +22,26 @@ async function exchangeCredentials(request: Request) {
   if (!parsed.success) throw new TeachingError(400, 'Enter valid sign-in details.');
   const input = parsed.data;
   const client = teachingClient();
-  const result = input.action === 'signIn'
-    ? await client.auth.signInWithPassword({ email: input.email, password: input.password })
-    : await client.auth.refreshSession({ refresh_token: input.refreshToken });
+  const isDeviceRefresh = input.action === 'refresh' && isTeachingCredential(input.refreshToken);
+  const device = input.action === 'refresh' && isDeviceRefresh ? openTeachingDevice(input.refreshToken) : null;
+  if (isDeviceRefresh && !device) throw new TeachingError(401, 'Please sign in again.');
+  const result = input.action === 'refresh'
+    ? await client.auth.refreshSession({ refresh_token: device?.token ?? input.refreshToken })
+    : await client.auth.signInWithPassword({ email: input.email, password: input.password });
   if (result.error || !result.data.session) {
     const unavailable = (result.error?.status ?? 0) >= 500 || result.error?.name === 'AuthRetryableFetchError';
     throw new TeachingError(unavailable ? 503 : result.error?.status === 429 ? 429 : 401, unavailable
       ? 'Sign-in services are temporarily unavailable.'
-      : input.action === 'signIn' ? 'Could not sign in. Check your email and password.' : 'Please sign in again.', unavailable ? result.error : undefined);
+      : input.action === 'refresh' ? 'Please sign in again.' : 'Could not sign in. Check your email and password.', unavailable ? result.error : undefined);
   }
   const session = result.data.session;
   const { profile } = await authenticateTeaching(new Request(request.url, { headers: { Authorization: `Bearer ${session.access_token}` } }));
+  if (input.action === 'enrollDevice' || device) {
+    if (!profile.canSubmitLogs || (device && profile.id !== device.staffID)) {
+      throw new TeachingError(403, 'An active staff account is required for a Teaching PIN.');
+    }
+    return teachingJSON({ profile, credentials: teachingDeviceCredentials(session, profile.id, device?.expiresAt) });
+  }
   return teachingJSON({ profile, credentials: {
     accessToken: session.access_token, refreshToken: session.refresh_token,
     expiresAt: session.expires_at ?? Math.floor(Date.now() / 1000) + session.expires_in,

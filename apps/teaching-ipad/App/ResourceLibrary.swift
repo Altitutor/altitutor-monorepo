@@ -57,6 +57,7 @@ struct ResourceLibrary: View {
     @State private var query = ""
 
     var body: some View {
+        let filesByTopic = Dictionary(grouping: pdfResources, by: \.topicID)
         VStack(spacing: 0) {
             HStack(alignment: .top) {
                 Text("Resource library").font(.title3.bold())
@@ -91,7 +92,7 @@ struct ResourceLibrary: View {
                                 Divider().padding(.vertical, 8)
                             }
                             ForEach(subjectIDs, id: \.self) { subject in
-                                ForEach(nodes(subject: subject, parent: nil, ancestors: [])) { node in
+                                ForEach(nodes(subject: subject, parent: nil, ancestors: [], filesByTopic: filesByTopic)) { node in
                                     TopicFolder(node: node, model: model, preview: preview)
                                 }
                             }
@@ -129,7 +130,7 @@ struct ResourceLibrary: View {
         return topics.compactMap { seen.insert($0.subjectID).inserted ? $0.subjectID : nil }
     }
 
-    private func nodes(subject: UUID, parent: UUID?, ancestors: Set<UUID>) -> [LibraryTopicNode] {
+    private func nodes(subject: UUID, parent: UUID?, ancestors: Set<UUID>, filesByTopic: [UUID: [TeachingResource]]) -> [LibraryTopicNode] {
         let topics = model.libraryTopics.filter { $0.subjectID == subject }
         let ids = Set(topics.map(\.id))
         return topics.filter { topic in
@@ -137,8 +138,8 @@ struct ResourceLibrary: View {
         }.sorted { lhs, rhs in
             lhs.index == rhs.index ? lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending : lhs.index < rhs.index
         }.compactMap { topic in
-            let children = nodes(subject: subject, parent: topic.id, ancestors: ancestors.union([topic.id]))
-            let files = pdfResources.filter { $0.topicID == topic.id }
+            let children = nodes(subject: subject, parent: topic.id, ancestors: ancestors.union([topic.id]), filesByTopic: filesByTopic)
+            let files = filesByTopic[topic.id, default: []]
             if files.isEmpty && children.isEmpty { return nil }
             return LibraryTopicNode(id: topic.id, name: topic.name, children: children, resources: files)
         }
