@@ -2,6 +2,22 @@ import Foundation
 import Testing
 @testable import TeachingCore
 
+@MainActor @Test func unavailableSyncedOriginalDefersOnlyItsCatalogSlot() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = try LessonStore(root: root, tutorID: UUID())
+    func resource(_ name: String) -> TeachingResource {
+        TeachingResource(id: UUID(), topicID: UUID(), topicName: name, subjectID: UUID(), subjectName: "Mathematics",
+            worksheet: TeachingDocument(id: UUID(), title: name + ".pdf", mimeType: "application/pdf", externalURL: nil), solutions: nil)
+    }
+    let delayed = resource("Functions"), available = resource("Algebra")
+    let plan = SessionLessonPlan(sessionID: UUID(), revision: 1, topics: [], resources: [delayed, available])
+    let partial = try await store.importPlan(plan, excluding: [delayed.id]) { _ in Data([1]) }
+    #expect(partial.resources.map(\.resource?.id) == [available.id])
+    let complete = try await store.importPlan(plan) { _ in Data([2]) }
+    #expect(complete.resources.map(\.resource?.id) == [available.id, delayed.id])
+}
+
 @MainActor @Test func reopeningPlanImportsOnlyNewResourcesAndPreservesLocalTeaching() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }
