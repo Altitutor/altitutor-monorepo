@@ -8,7 +8,7 @@ import { requireUUID } from './validation';
 
 const id = z.string().guid().transform(value => value.toLowerCase());
 const uploadSchema = z.object({
-  sessionID: id, documentID: id, purpose: z.enum(['print', 'lesson']),
+  sessionID: id, documentID: id, purpose: z.enum(['print', 'lesson', 'workspace']),
   canonicalResourceID: id.optional(), filename: z.string().trim().min(1).max(180),
   sizeBytes: z.number().int().min(1).max(50 * 1024 * 1024),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
@@ -18,6 +18,9 @@ export async function stageTeachingUpload(client: SupabaseClient<Database>, owne
   const parsed = uploadSchema.safeParse(body);
   if (!parsed.success) throw new TeachingError(400, 'Choose a PDF smaller than 50 MB.');
   const input = parsed.data;
+  if (input.purpose === 'workspace' && input.canonicalResourceID) {
+    throw new TeachingError(400, 'Choose an original lesson PDF.');
+  }
   const session = await client.from('vtutor_operational_session_detail').select('session_id')
     .eq('session_id', input.sessionID).maybeSingle();
   if (session.error) throw new TeachingError(503, 'Could not verify lesson access.', session.error);

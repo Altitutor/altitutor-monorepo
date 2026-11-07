@@ -57,6 +57,7 @@ struct ResourceLibrary: View {
     @State private var query = ""
 
     var body: some View {
+        let filesByTopic = Dictionary(grouping: pdfResources, by: \.topicID)
         VStack(spacing: 0) {
             HStack(alignment: .top) {
                 Text("Resource library").font(.title3.bold())
@@ -82,8 +83,8 @@ struct ResourceLibrary: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            ForEach(model.catalog) { resource in LibraryFile(model: model, resource: resource, preview: preview) }
-                            if model.catalog.isEmpty && !model.libraryBusy { Text("No matching resources.").foregroundStyle(.secondary) }
+                            ForEach(pdfResources) { resource in LibraryFile(model: model, resource: resource, preview: preview) }
+                            if pdfResources.isEmpty && !model.libraryBusy { Text("No matching resources.").foregroundStyle(.secondary) }
                         } else {
                             if !suggested.isEmpty {
                                 Text("Suggested").font(.headline)
@@ -91,13 +92,13 @@ struct ResourceLibrary: View {
                                 Divider().padding(.vertical, 8)
                             }
                             ForEach(subjectIDs, id: \.self) { subject in
-                                ForEach(nodes(subject: subject, parent: nil, ancestors: [])) { node in
+                                ForEach(nodes(subject: subject, parent: nil, ancestors: [], filesByTopic: filesByTopic)) { node in
                                     TopicFolder(node: node, model: model, preview: preview)
                                 }
                             }
                         }
                             if model.libraryBusy { ProgressView().frame(maxWidth: .infinity) }
-                            if query.isEmpty && model.libraryTopics.isEmpty && !model.libraryBusy { Text("No accessible topics.").foregroundStyle(.secondary) }
+                            if query.isEmpty && pdfResources.isEmpty && !model.libraryBusy { Text("No PDFs in this subject.").foregroundStyle(.secondary) }
                         }.padding(.bottom, 20)
                     }.refreshable { await model.search(query); await model.loadSuggestions() }
                 }.padding(20)
@@ -115,8 +116,10 @@ struct ResourceLibrary: View {
         Array(Set(model.librarySubjects.map(\.yearLevel))).sorted { ($0 ?? Int.max) < ($1 ?? Int.max) }
     }
 
+    private var pdfResources: [TeachingResource] { model.catalog.filter { $0.worksheet.isPDF } }
+
     private var suggested: [TeachingResource] {
-        model.suggestions.filter { candidate in candidate.subjectID == model.librarySubjectID && model.lesson?.resources.contains { $0.resource?.id == candidate.id } != true }
+        model.suggestions.filter { candidate in candidate.worksheet.isPDF && candidate.subjectID == model.librarySubjectID && model.lesson?.resources.contains { $0.resource?.id == candidate.id } != true }
     }
     private var suggestionKey: String {
         (model.lesson?.resources.compactMap { $0.resource?.id.uuidString }.joined(separator: ",") ?? "") + (model.activeResourceID?.uuidString ?? "")
@@ -127,7 +130,7 @@ struct ResourceLibrary: View {
         return topics.compactMap { seen.insert($0.subjectID).inserted ? $0.subjectID : nil }
     }
 
-    private func nodes(subject: UUID, parent: UUID?, ancestors: Set<UUID>) -> [LibraryTopicNode] {
+    private func nodes(subject: UUID, parent: UUID?, ancestors: Set<UUID>, filesByTopic: [UUID: [TeachingResource]]) -> [LibraryTopicNode] {
         let topics = model.libraryTopics.filter { $0.subjectID == subject }
         let ids = Set(topics.map(\.id))
         return topics.filter { topic in
@@ -135,9 +138,9 @@ struct ResourceLibrary: View {
         }.sorted { lhs, rhs in
             lhs.index == rhs.index ? lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending : lhs.index < rhs.index
         }.compactMap { topic in
-            let children = nodes(subject: subject, parent: topic.id, ancestors: ancestors.union([topic.id]))
-            let files = model.catalog.filter { $0.topicID == topic.id }.sorted { $0.worksheet.title.localizedStandardCompare($1.worksheet.title) == .orderedAscending }
-            if !query.isEmpty && files.isEmpty && children.isEmpty { return nil }
+            let children = nodes(subject: subject, parent: topic.id, ancestors: ancestors.union([topic.id]), filesByTopic: filesByTopic)
+            let files = filesByTopic[topic.id, default: []]
+            if files.isEmpty && children.isEmpty { return nil }
             return LibraryTopicNode(id: topic.id, name: topic.name, children: children, resources: files)
         }
     }
@@ -179,6 +182,15 @@ private struct TopicFolder: View {
     @ObservedObject var model: TeachingModel
     let preview: (TeachingResource) -> Void
     @State private var expanded = false
+    private var groups: [String: [TeachingResource]] {
+        Dictionary(grouping: node.resources) { $0.resourceType ?? "PDFs" }
+    }
+    private func resourceOrder(_ lhs: TeachingResource, _ rhs: TeachingResource) -> Bool {
+        let left = lhs.resourceIndex ?? Int.max, right = rhs.resourceIndex ?? Int.max
+        if left != right { return left < right }
+        let titleOrder = lhs.worksheet.displayTitle.localizedStandardCompare(rhs.worksheet.displayTitle)
+        return titleOrder == .orderedSame ? lhs.id.uuidString < rhs.id.uuidString : titleOrder == .orderedAscending
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         DisclosureGroup(isExpanded: Binding(get: { expanded }, set: { value in
@@ -188,11 +200,16 @@ private struct TopicFolder: View {
                 ForEach(node.children) { child in
                     AnyView(TopicFolder(node: child, model: model, preview: preview))
                 }
-                ForEach(node.resources) { resource in
-                    LibraryFile(model: model, resource: resource, preview: preview)
-                }
-                if node.resources.isEmpty && node.children.isEmpty {
-                    Text(model.libraryBusy ? "Loading files…" : "No files in this topic.").font(.caption).foregroundStyle(.secondary)
+                ForEach(groups.keys.sorted(), id: \.self) { type in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(groups[type, default: []].sorted(by: resourceOrder)) { resource in
+                                LibraryFile(model: model, resource: resource, preview: preview)
+                            }
+                        }.padding(.top, 8)
+                    } label: {
+                        Text(type.replacingOccurrences(of: "_", with: " ").capitalized).font(.subheadline.weight(.semibold))
+                    }
                 }
             }.padding(.leading, 10).padding(.vertical, 8)
         } label: {
@@ -276,7 +293,7 @@ struct LibraryPreview: View {
     }
 }
 
-private struct LibraryPDFPreview: UIViewRepresentable {
+struct LibraryPDFPreview: UIViewRepresentable {
     let document: PDFDocument
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()

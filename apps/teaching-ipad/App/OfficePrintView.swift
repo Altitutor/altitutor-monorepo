@@ -101,6 +101,103 @@ struct OfficePrintView: View {
     }
 }
 
+struct BulkOfficePrintView: View {
+    @ObservedObject var model: TeachingModel
+    let sessionID: UUID
+    @Environment(\.dismiss) private var dismiss
+    @State private var copies: [UUID: Int] = [:]
+    @State private var outcomes: [UUID: String] = [:]
+    @State private var options: OfficePrintOptions?
+    @State private var loadingFailure: String?
+    @State private var submitting = false
+
+    private var documents: [CachedDocument] {
+        (model.lesson?.resources ?? []).flatMap { item in
+            [item.worksheet, item.solutions].compactMap { $0 }
+        }
+    }
+    private var canSubmit: Bool {
+        !submitting && !model.offline && options?.online == true && options?.allowed == true
+            && documents.contains { copies[$0.id, default: 0] > 0 }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(documents) { document in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(model.title(document.source))
+                            if document.source.isPDF && document.source.externalURL == nil {
+                                Stepper("Copies: \(copies[document.id, default: 0])",
+                                        value: Binding(get: { copies[document.id, default: 0] }, set: { copies[document.id] = $0 }),
+                                        in: 0...20)
+                                    .accessibilityLabel("Copies of \(model.title(document.source))")
+                            } else {
+                                Text("Only downloaded PDFs can be printed.").font(.footnote).foregroundStyle(.secondary)
+                            }
+                            if let outcome = outcomes[document.id] {
+                                Text(outcome).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } footer: {
+                    Text("Prints the original PDFs. Black & white, A4, double-sided and stapled.")
+                }.disabled(submitting)
+                if let loadingFailure {
+                    Text(loadingFailure).foregroundStyle(.red)
+                } else if let options {
+                    if !options.online { Text("Office printer offline").foregroundStyle(.red) }
+                    if !options.allowed { Text("Office printing is unavailable for this account right now.").foregroundStyle(.red) }
+                } else { ProgressView("Checking office printer…") }
+            }
+            .navigationTitle("Bulk print")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.disabled(submitting) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(submitting ? "Sending…" : "Print selected") { Task { await submit() } }.disabled(!canSubmit)
+                }
+            }
+        }
+        .interactiveDismissDisabled(submitting)
+        .task {
+            do { options = try await model.api.request("print-options") }
+            catch { if !Task.isCancelled { loadingFailure = error.localizedDescription } }
+        }
+    }
+
+    private func submit() async {
+        guard canSubmit, model.selectedSessionID == sessionID, let store = model.store,
+              let tutorID = model.profile?.id else { return }
+        struct Input: Encodable { let artifactID: UUID; let copies: Int }
+        submitting = true
+        defer { submitting = false }
+        for document in documents {
+            guard let count = copies[document.id], count > 0 else { continue }
+            guard model.profile?.id == tutorID, model.selectedSessionID == sessionID else { return }
+            do {
+                let original = try TeachingPDFSnapshots.original(document, sessionID: sessionID, store: store)
+                let artifactID = try await model.api.upload(original, sessionID: sessionID, document: document,
+                    purpose: "print", canonicalResourceID: nil)
+                guard model.profile?.id == tutorID, model.selectedSessionID == sessionID else { return }
+                let job: OfficePrintJob = try await model.api.request("prints",
+                    body: JSONEncoder().encode(Input(artifactID: artifactID, copies: count)))
+                guard model.profile?.id == tutorID, model.selectedSessionID == sessionID else { return }
+                outcomes[document.id] = "Queued · \(job.copies) \(job.copies == 1 ? "copy" : "copies")"
+                copies[document.id] = 0
+                model.watchPrint(job)
+            } catch {
+                if error is CancellationError { return }
+                if let failure = error as? APIError, failure.status == 401 { model.report(error); return }
+                outcomes[document.id] = error is URLError
+                    ? "Couldn’t confirm printing. Check the tray before retrying."
+                    : error.localizedDescription
+            }
+        }
+    }
+}
+
 private struct PrintPDFPreview: UIViewRepresentable {
     let url: URL
     func makeUIView(context: Context) -> PDFView {

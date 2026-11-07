@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct LessonBoard: View {
     @ObservedObject var model: TeachingModel
     let addResource: () -> Void
+    let previewPrevious: (PreviousLessonPDF) -> Void
     @State private var dragging: UUID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -41,8 +42,28 @@ struct LessonBoard: View {
                             .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])) }
                     }.buttonStyle(.plain).accessibilityIdentifier("teaching-add-document")
                 }.padding(28)
+                if !model.previousLesson.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Previous lesson documents").font(.headline)
+                        ForEach(model.previousLesson) { previous in
+                            Button { previewPrevious(previous) } label: {
+                                HStack {
+                                    Label(model.title(previous.document), systemImage: "doc.richtext")
+                                    Spacer()
+                                    Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                                }.padding(14).background(.background, in: RoundedRectangle(cornerRadius: 14))
+                            }.buttonStyle(.plain)
+                                .accessibilityHint("Preview or add this PDF to the current lesson")
+                        }
+                    }.padding(.horizontal, 28).padding(.bottom, 28)
+                }
+                if let error = model.lessonRefreshError {
+                    Label(error, systemImage: "arrow.clockwise").font(.footnote).foregroundStyle(.secondary)
+                        .padding(.horizontal, 28).padding(.bottom, 28)
+                }
             }
         }.background(TeachingColors.background)
+            .refreshable { await model.refreshLesson() }
             .onDrop(of: [LessonReorder.type, .pdf], delegate: LessonReorder(model: model, target: nil, animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
             .onDisappear { dragging = nil }
     }

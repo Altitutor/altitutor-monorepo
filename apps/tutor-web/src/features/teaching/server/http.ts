@@ -3,12 +3,14 @@ import { listLessonDocuments, lessonDocumentURL, LessonDocumentError } from '@al
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import * as Sentry from '@sentry/nextjs';
 import { authenticateTeaching, teachingClient, TeachingError } from './auth';
+import { isTeachingCredential, openTeachingDevice, teachingDeviceCredentials } from './device-credentials';
 import { authSchema, readTeachingBody, teachingLogSchema, teachingStudentSchema } from './validation';
 import { teachingPrintOptions, enqueueTeachingPrint, teachingPrintJob } from './printing';
 import { completeTeachingUpload, stageTeachingUpload } from './uploads';
 import { teachingStaffDirectory } from './staff-directory';
 import { teachingSuggestions } from './suggestions';
 import { teachingStudents, addTeachingStudent } from './students';
+import { previousTeachingLesson, readTeachingWorkspace, registerTeachingWorkspace, teachingWorkspaceDownload } from './workspace';
 import { teachingDocumentURL, teachingLog, teachingResources, teachingSessions } from './queries';
 
 export function teachingJSON(body: unknown, status = 200): Response {
@@ -20,17 +22,26 @@ async function exchangeCredentials(request: Request) {
   if (!parsed.success) throw new TeachingError(400, 'Enter valid sign-in details.');
   const input = parsed.data;
   const client = teachingClient();
-  const result = input.action === 'signIn'
-    ? await client.auth.signInWithPassword({ email: input.email, password: input.password })
-    : await client.auth.refreshSession({ refresh_token: input.refreshToken });
+  const isDeviceRefresh = input.action === 'refresh' && isTeachingCredential(input.refreshToken);
+  const device = input.action === 'refresh' && isDeviceRefresh ? openTeachingDevice(input.refreshToken) : null;
+  if (isDeviceRefresh && !device) throw new TeachingError(401, 'Please sign in again.');
+  const result = input.action === 'refresh'
+    ? await client.auth.refreshSession({ refresh_token: device?.token ?? input.refreshToken })
+    : await client.auth.signInWithPassword({ email: input.email, password: input.password });
   if (result.error || !result.data.session) {
     const unavailable = (result.error?.status ?? 0) >= 500 || result.error?.name === 'AuthRetryableFetchError';
     throw new TeachingError(unavailable ? 503 : result.error?.status === 429 ? 429 : 401, unavailable
       ? 'Sign-in services are temporarily unavailable.'
-      : input.action === 'signIn' ? 'Could not sign in. Check your email and password.' : 'Please sign in again.', unavailable ? result.error : undefined);
+      : input.action === 'refresh' ? 'Please sign in again.' : 'Could not sign in. Check your email and password.', unavailable ? result.error : undefined);
   }
   const session = result.data.session;
   const { profile } = await authenticateTeaching(new Request(request.url, { headers: { Authorization: `Bearer ${session.access_token}` } }));
+  if (input.action === 'enrollDevice' || device) {
+    if (!profile.canSubmitLogs || (device && profile.id !== device.staffID)) {
+      throw new TeachingError(403, 'An active staff account is required for a Teaching PIN.');
+    }
+    return teachingJSON({ profile, credentials: teachingDeviceCredentials(session, profile.id, device?.expiresAt) });
+  }
   return teachingJSON({ profile, credentials: {
     accessToken: session.access_token, refreshToken: session.refresh_token,
     expiresAt: session.expires_at ?? Math.floor(Date.now() / 1000) + session.expires_in,
@@ -56,6 +67,9 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
       if (/^\/prints\/[^/]+$/.test(path)) return teachingJSON(await teachingPrintJob(client, path.split('/')[2]));
       if (path === '/lesson-documents') return teachingJSON(await listLessonDocuments(client, url.searchParams.get('sessionID') ?? '', 'tutor'));
       if (/^\/lesson-documents\/[^/]+$/.test(path)) return teachingJSON(await lessonDocumentURL(client, getServiceRoleClient(), path.split('/')[2], 'tutor'));
+      if (path === '/workspace') return teachingJSON(await readTeachingWorkspace(client, url.searchParams.get('sessionID') ?? ''));
+      if (/^\/workspace\/[^/]+$/.test(path)) return teachingJSON(await teachingWorkspaceDownload(client, profile.id, path.split('/')[2]));
+      if (path === '/previous-lesson') return teachingJSON(await previousTeachingLesson(client, url.searchParams.get('sessionID') ?? ''));
       if (path === '/profile') return teachingJSON(profile);
       if (path === '/sessions') return teachingJSON(await teachingSessions(client, url.searchParams.get('day') ?? ''));
       if (path === '/session-plan') return teachingJSON(await readSessionLessonPlan(client, url.searchParams.get('sessionID') ?? ''));
@@ -70,6 +84,10 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
     if (request.method === 'POST' && path === '/uploads') {
       if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may upload lesson PDFs.');
       return teachingJSON(await stageTeachingUpload(client, profile.id, await readTeachingBody(request)), 201);
+    }
+    if (request.method === 'POST' && path === '/workspace') {
+      if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may sync lesson PDFs.');
+      return teachingJSON(await registerTeachingWorkspace(client, profile.id, await readTeachingBody(request)), 201);
     }
     if (request.method === 'POST' && path === '/prints') return teachingJSON(await enqueueTeachingPrint(client, await readTeachingBody(request)), 201);
     if (request.method === 'POST' && path === '/suggestions') return teachingJSON(await teachingSuggestions(client, await readTeachingBody(request)));

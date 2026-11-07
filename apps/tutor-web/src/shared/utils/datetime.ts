@@ -1,4 +1,25 @@
+import { BUSINESS_TIMEZONE } from '@altitutor/shared';
 import { formatDistanceToNow } from 'date-fns';
+
+const adelaideOffset = new Intl.DateTimeFormat('en-AU', { timeZone: BUSINESS_TIMEZONE, timeZoneName: 'longOffset' });
+
+export function readCalendarDay(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(+date) && date.toISOString().slice(0, 10) === value ? date : null;
+}
+
+/** Interpret the UTC date components as an Adelaide calendar day. */
+export function adelaideMidnight(day: Date) {
+  // At this probe the Adelaide clock is still on the evening before midnight.
+  const probe = new Date(+day - 12 * 60 * 60 * 1000);
+  const zone = adelaideOffset.formatToParts(probe).find(({ type }) => type === 'timeZoneName')?.value;
+  const offset = zone?.match(/^GMT([+-])(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!offset) throw new Error('Adelaide time offset is unavailable.');
+  const [, sign, hours, minutes, seconds] = offset;
+  const offsetSeconds = (sign === '-' ? -1 : 1) * (Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds ?? 0));
+  return new Date(+day - offsetSeconds * 1000).toISOString();
+}
 
 // Utilities for formatting dates/times and working with day-of-week values
 

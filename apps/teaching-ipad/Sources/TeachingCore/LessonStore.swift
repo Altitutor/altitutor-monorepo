@@ -20,7 +20,9 @@ public final class LessonStore {
         var record = try lesson(sessionID: sessionID)
         if !freshCopy && record.resources.contains(where: { $0.resource?.id == resource.id }) { return record }
         if !freshCopy, let index = record.archivedResources.lastIndex(where: { $0.resource?.id == resource.id }) {
-            record.resources.append(record.archivedResources.remove(at: index))
+            let restored = record.archivedResources.remove(at: index)
+            record.resources.append(restored)
+            if restored.canSync { record.pendingWorkspaceIDs.insert(restored.syncID) }
             try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
             return record
         }
@@ -30,14 +32,18 @@ public final class LessonStore {
         try files.createDirectory(at: target, withIntermediateDirectories: true)
         try write(worksheet, to: target.appendingPathComponent(primary.id.uuidString + ".pdf"))
         if let answer, let solutions { try write(solutions, to: target.appendingPathComponent(answer.id.uuidString + ".pdf")) }
-        record.resources.append(LessonResource(id: UUID(), resource: resource, worksheet: primary, solutions: answer))
+        let itemID = UUID()
+        let item = LessonResource(id: itemID, workspaceID: freshCopy ? itemID : nil,
+            resource: resource, worksheet: primary, solutions: answer)
+        record.resources.append(item)
+        if item.canSync { record.pendingWorkspaceIDs.insert(item.syncID) }
         try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
         return record
     }
 
     /// Reopening imports additions, while local removals, draft choices and pinned ink remain authoritative.
     @MainActor @discardableResult
-    public func importPlan(_ plan: SessionLessonPlan,
+    public func importPlan(_ plan: SessionLessonPlan, excluding resourceIDs: Set<UUID> = [],
                            download: @MainActor (TeachingDocument) async throws -> Data) async throws -> LessonRecord {
         try Task.checkCancellation()
         var record = try lesson(sessionID: plan.sessionID)
@@ -47,7 +53,7 @@ public final class LessonStore {
         record.importedPlanResourceIDs.formUnion((record.resources + record.archivedResources).compactMap { $0.resource?.id })
         try files.createDirectory(at: folder(plan.sessionID), withIntermediateDirectories: true)
         try write(JSONEncoder().encode(record), to: folder(plan.sessionID).appendingPathComponent("lesson.json"))
-        for resource in plan.resources where !record.importedPlanResourceIDs.contains(resource.id) {
+        for resource in plan.resources where !record.importedPlanResourceIDs.contains(resource.id) && !resourceIDs.contains(resource.id) {
             try Task.checkCancellation()
             let worksheet = try await download(resource.worksheet)
             let solutions: Data?
@@ -80,7 +86,9 @@ public final class LessonStore {
         let url = target.appendingPathComponent(document.id.uuidString + ".pdf")
         do {
             try write(pdf, to: url)
-            record.resources.append(LessonResource(id: UUID(), resource: nil, worksheet: document, solutions: nil))
+            let item = LessonResource(id: UUID(), resource: nil, worksheet: document, solutions: nil)
+            record.resources.append(item)
+            record.pendingWorkspaceIDs.insert(item.syncID)
             try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
             return record
         } catch {
@@ -89,11 +97,54 @@ public final class LessonStore {
         }
     }
 
+    /// Imports an immutable original, while preserving any existing local edits for this slot.
+    @discardableResult
+    public func addOriginal(_ item: LessonResource, to sessionID: UUID, worksheet: Data, solutions: Data?,
+                            restoreArchived: Bool = false) throws -> LessonRecord {
+        var record = try lesson(sessionID: sessionID)
+        if record.resources.contains(where: { $0.syncID == item.syncID }) { return record }
+        let target = folder(sessionID)
+        let manifest = target.appendingPathComponent("lesson.json")
+        if let archived = record.archivedResources.lastIndex(where: { $0.syncID == item.syncID }) {
+            guard restoreArchived else { return record }
+            record.resources.append(record.archivedResources.remove(at: archived))
+            record.pendingWorkspaceIDs.insert(item.syncID)
+            try write(JSONEncoder().encode(record), to: manifest)
+            return record
+        }
+        guard !worksheet.isEmpty, (item.solutions == nil) == (solutions == nil) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let documentIDs = (record.resources + record.archivedResources).flatMap { [$0.worksheet.id, $0.solutions?.id].compactMap { $0 } }
+        let newIDs = [item.worksheet.id, item.solutions?.id].compactMap { $0 }
+        guard Set(newIDs).count == newIDs.count, Set(newIDs).isDisjoint(with: documentIDs),
+              !(record.resources + record.archivedResources).contains(where: { $0.id == item.id }) else {
+            throw CocoaError(.fileWriteFileExists)
+        }
+        try files.createDirectory(at: target, withIntermediateDirectories: true)
+        let primary = target.appendingPathComponent(item.worksheet.id.uuidString + ".pdf")
+        let answer = item.solutions.map { target.appendingPathComponent($0.id.uuidString + ".pdf") }
+        do {
+            try write(worksheet, to: primary)
+            if let answer, let solutions { try write(solutions, to: answer) }
+            record.resources.append(item)
+            if restoreArchived && item.canSync { record.pendingWorkspaceIDs.insert(item.syncID) }
+            try write(JSONEncoder().encode(record), to: manifest)
+            return record
+        } catch {
+            try? files.removeItem(at: primary)
+            if let answer { try? files.removeItem(at: answer) }
+            throw error
+        }
+    }
+
     @discardableResult
     public func remove(_ resourceID: UUID, from sessionID: UUID) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
         guard let index = record.resources.firstIndex(where: { $0.id == resourceID }) else { throw CocoaError(.fileReadNoPermission) }
-        record.archivedResources.append(record.resources.remove(at: index))
+        let item = record.resources.remove(at: index)
+        record.archivedResources.append(item)
+        record.pendingWorkspaceIDs.remove(item.syncID)
         record.draft.excludedResources.remove(resourceID)
         record.draft.excludedAnnotations.remove(resourceID)
         record.draft.studentAssignments.removeValue(forKey: resourceID)
@@ -118,6 +169,16 @@ public final class LessonStore {
             throw CocoaError(.fileReadNoPermission)
         }
         let url = try documentFolder(sessionID: sessionID, document: document).appendingPathComponent(document.id.uuidString + ".pdf")
+        guard files.fileExists(atPath: url.path) else { throw CocoaError(.fileNoSuchFile) }
+        return url
+    }
+
+    public func originalDocumentURL(sessionID: UUID, document: CachedDocument) throws -> URL {
+        let record = try lesson(sessionID: sessionID)
+        guard record.resources.contains(where: { $0.worksheet.id == document.id || $0.solutions?.id == document.id }) else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        let url = folder(sessionID).appendingPathComponent(document.id.uuidString + ".pdf")
         guard files.fileExists(atPath: url.path) else { throw CocoaError(.fileNoSuchFile) }
         return url
     }
@@ -226,6 +287,21 @@ public final class LessonStore {
         return LogSuggestions(topics: topicStudents.map { TopicSelection(topicId: $0.key,
             studentIds: $0.value.sorted { $0.uuidString < $1.uuidString }) }.sorted { $0.topicId.uuidString < $1.topicId.uuidString },
             topicFiles: selectedFiles.values.sorted { $0.topicsFilesId.uuidString < $1.topicsFilesId.uuidString })
+    }
+
+    public func pendingWorkspaceSessions() throws -> [UUID] {
+        try files.contentsOfDirectory(atPath: directory.path).compactMap { name in
+            guard let id = UUID(uuidString: name),
+                  let record = try? lesson(sessionID: id), !record.pendingWorkspaceIDs.isEmpty else { return nil }
+            return id
+        }
+    }
+
+    public func markWorkspaceSynced(sessionID: UUID, ids: Set<UUID>) throws {
+        var record = try lesson(sessionID: sessionID)
+        guard !record.pendingWorkspaceIDs.isDisjoint(with: ids) else { return }
+        record.pendingWorkspaceIDs.subtract(ids)
+        try write(JSONEncoder().encode(record), to: folder(sessionID).appendingPathComponent("lesson.json"))
     }
 
     public func saveSessions(_ data: Data) throws { try write(data, to: directory.appendingPathComponent("sessions.json")) }
