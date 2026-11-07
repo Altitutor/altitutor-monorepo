@@ -26,6 +26,16 @@ struct TeachingPDFSnapshot {
         }
         return false
     }
+    static func original(_ document: CachedDocument, sessionID: UUID, store: LessonStore) throws -> TeachingPDFSnapshot {
+        let url = try store.originalDocumentURL(sessionID: sessionID, document: document)
+        let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard bytes.count <= 50 * 1024 * 1024,
+              let pdf = PDFDocument(data: bytes), !pdf.isLocked, pdf.pageCount > 0 else {
+            throw APIError(status: 0, message: "Choose a readable PDF smaller than 50 MB.")
+        }
+        return snapshot(url, bytes: bytes, metadata: Metadata(pageCount: pdf.pageCount, visiblePageCount: pdf.pageCount))
+    }
+
     static func prepare(_ document: CachedDocument, sessionID: UUID, store: LessonStore, namespace: String,
                         tutorID: UUID, annotations: Bool, blankPages: Bool) throws -> TeachingPDFSnapshot {
         let source = try Data(contentsOf: store.documentURL(sessionID: sessionID, document: document))

@@ -10,7 +10,7 @@ an Xcode build setting; Debug also accepts the process environment override.
 
 The first login on each office iPad uses an active staff account's email and
 password once to set up its staff picker. Thereafter choose a name and enter that
-person's password. **Update staff list** opens the setup login again if a new
+person's password or their enrolled Teaching PIN. **Update staff list** opens the setup login again if a new
 staff member is missing. Every successful login refreshes the active staff list;
 deactivated accounts are rejected by server authentication even if an old picker
 entry remains. The directory contains only names, IDs and login emails for active,
@@ -18,8 +18,15 @@ linked Tutor/AdminStaff accounts; deleted/unlinked staff are excluded.
 
 The directory endpoint requires an authenticated active staff bearer session.
 The app keeps the directory in backend-scoped, device-only, unlocked Keychain
-storage across logout. It retains no setup account session after logout, stores
-no passwords, and grants no access to lessons through the directory itself.
+storage across logout. The directory grants no lesson access by itself.
+
+A tutor can set a four-digit Teaching PIN from the menu after confirming their
+account password. Each iPad can remember several tutors in its device-only
+Keychain, with one workspace active at a time. Log out to switch tutors. The PIN
+is verified locally, and signing in with it refreshes the tutor’s online staff
+access. Five incorrect attempts, 30 days, or revoked access require password
+sign-in. Tutors set up the PIN independently on each iPad. TutorWeb continues
+to require the account’s normal sign-in credentials.
 
 ## Workspace
 
@@ -72,11 +79,11 @@ respects the system Reduce Motion preference.
 
 ## Storage and classroom display
 
-Session tokens use device-only Keychain storage. Passwords are never stored by
-this app. Original downloads, ink, viewports, cached timetable and editable log
+Active sessions and optional remembered PIN grants use device-only Keychain
+storage. The app stores no passwords. Original downloads, ink, viewports, cached timetable and editable log
 drafts live in Application Support with complete file protection, excluded from
-backup, partitioned by backend, tutor and session. Sign-out removes the session
-and clears the classroom display, while retaining that tutor's local lessons.
+backup, partitioned by backend, tutor and session. Sign-out removes the active session and clears the classroom display. It retains
+that tutor’s local lessons and any separately enrolled PIN grant.
 Reinstalling the app or erasing the device loses these local-only annotations.
 
 Adding a resource pins its worksheet and solutions bytes. Re-adding opens the
@@ -145,8 +152,12 @@ through the Storage API, retries failures with backoff, and preserves metadata.
 Unsubmitted uploads expire after 24 hours. Published lesson bytes expire after one
 year. Print bytes expire 24 hours after all jobs reach a terminal result; queued
 or claimed jobs never expire. Cleanup and enqueue lock the same snapshot row.
-Local originals and editable ink remain on the iPad; protected snapshot caches are
-purgeable and contain no signed URLs or session credentials.
+Pull to refresh on the lesson board syncs pinned PDF originals for the signed-in
+tutor and shows available documents from the preceding session of the same
+class. The server keeps immutable originals in private storage for up to one
+year. Each iPad keeps its own editable ink, page revisions, order, and removals.
+Protected snapshot caches are purgeable and contain no signed URLs or session
+credentials.
 
 ## Verification
 
@@ -177,7 +188,10 @@ purgeable and contain no signed URLs or session credentials.
   `private-storage-api.mjs` through `pnpm dev:isolated exec`, passing the protected
   fixture receipt path. These exercise actual upload/completion, queue, atomic
   log/retry, role download, assignment correction, supported retirement and
-  cleanup APIs with fictional PDFs only. They also prove a permissive legacy
+  cleanup APIs with fictional PDFs only. `Verification/workspace-api.mjs` checks
+same-tutor access from a second sign-in, the same-class previous lesson, exact
+worksheet and solutions bytes, and denial for a co-assigned tutor. The private
+storage tests also prove a permissive legacy
   Storage policy cannot grant direct reads/writes and missing guard configuration
   fails closed. No physical print connector is used.
 

@@ -19,11 +19,14 @@ public struct TeachingResource: Codable, Identifiable, Equatable, Sendable {
     public let topicName: String
     public let subjectID: UUID
     public let subjectName: String
+    public let resourceType: String?
+    public let resourceIndex: Int?
     public let worksheet: TeachingDocument
     public let solutions: TeachingDocument?
     public init(id: UUID, topicID: UUID, topicName: String, subjectID: UUID, subjectName: String,
-                worksheet: TeachingDocument, solutions: TeachingDocument?) {
+                worksheet: TeachingDocument, solutions: TeachingDocument?, resourceType: String? = nil, resourceIndex: Int? = nil) {
         self.id = id; self.topicID = topicID; self.topicName = topicName; self.subjectID = subjectID
+        self.resourceType = resourceType; self.resourceIndex = resourceIndex
         self.subjectName = subjectName; self.worksheet = worksheet; self.solutions = solutions
     }
 }
@@ -55,10 +58,17 @@ public struct CachedDocument: Codable, Identifiable, Equatable, Sendable {
 
 public struct LessonResource: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
+    public let workspaceID: UUID?
+    public var syncID: UUID { workspaceID ?? resource?.id ?? id }
     /// Absent for imported and blank local documents; never invent catalog identity.
     public let resource: TeachingResource?
     public let worksheet: CachedDocument
     public let solutions: CachedDocument?
+
+    init(id: UUID, workspaceID: UUID? = nil, resource: TeachingResource?, worksheet: CachedDocument, solutions: CachedDocument?) {
+        self.id = id; self.workspaceID = workspaceID; self.resource = resource
+        self.worksheet = worksheet; self.solutions = solutions
+    }
 }
 
 public struct LessonRecord: Codable, Sendable {

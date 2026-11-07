@@ -18,20 +18,30 @@ struct TeachingNavigation: View {
     @State private var log = false
     @State private var importing = false
     @State private var preview: TeachingResource?
-    @State private var signingOut = false
+    @State private var previousPreview: PreviousLessonPDF?
+    @State private var settings = false
+    @State private var bulkPrinting = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         NavigationStack(path: $model.route) {
             SessionDayView(model: model)
                 .navigationTitle("Your teaching day").navigationBarTitleDisplayMode(.large)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { TeachingPrivacyLink() }
-                    ToolbarItem(placement: .topBarTrailing) { Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right") { signingOut = true } }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Menu", systemImage: "line.3.horizontal") { settings = true }
+                            .accessibilityIdentifier("teaching-menu")
+                    }
                 }
                 .navigationDestination(for: TeachingRoute.self) { route in
                     Group {
                         switch route {
-                        case .lesson: surface { LessonBoard(model: model) { library = true } }
+                        case .lesson:
+                            surface {
+                                LessonBoard(model: model, addResource: { library = true }, previewPrevious: {
+                                    model.showLessonInformation()
+                                    previousPreview = $0
+                                })
+                            }
                         case .document: surface { LessonWorkspace(model: model) }
                         }
                     }.navigationTitle(model.session?.title ?? "Lesson").navigationBarTitleDisplayMode(.inline)
@@ -46,6 +56,11 @@ struct TeachingNavigation: View {
             }
         }
         .onChange(of: model.route) { _, _ in library = false; model.navigationChanged() }
+        .sheet(isPresented: $bulkPrinting, onDismiss: { model.allowActiveWorksheet() }) {
+            if let sessionID = model.selectedSessionID {
+                BulkOfficePrintView(model: model, sessionID: sessionID)
+            }
+        }
         .sheet(item: $model.printRequest, onDismiss: { model.allowActiveWorksheet() }) { request in
             OfficePrintView(model: model, request: request)
         }
@@ -61,19 +76,40 @@ struct TeachingNavigation: View {
         .sheet(isPresented: $log, onDismiss: { model.allowActiveWorksheet() }) {
             if let session = model.session { TutorLogView(model: model, session: session) }
         }
+        .sheet(item: $previousPreview, onDismiss: { model.allowActiveWorksheet() }) { previous in
+            PreviousLessonPreview(model: model, previous: previous)
+        }
         .sheet(item: $preview, onDismiss: { model.allowActiveWorksheet() }) { resource in
             LibraryPreview(model: model, resource: resource) { preview = nil }
         }
         .sheet(isPresented: Binding(get: { model.sharedURL != nil }, set: { if !$0 { model.finishSharing() } })) {
             if let url = model.sharedURL { NativeShareSheet(url: url) { model.finishSharing() } }
         }
-        .confirmationDialog("Sign out of this teaching iPad?", isPresented: $signingOut) { Button("Sign out", role: .destructive) { model.signOut() } }
-        message: { Text("Your local lesson annotations stay on this iPad for your next sign-in.") }
+        .sheet(isPresented: $settings) {
+            TeachingSettings(model: model) {
+                settings = false
+                model.signOut()
+            }
+        }
     }
     @ToolbarContentBuilder private var lessonControls: some ToolbarContent {
         if let session = model.session {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if model.viewer, let item = model.activeResource {
+                    Button {
+                        library = false; model.showLessonInformation(); bulkPrinting = true
+                    } label: { Label("Bulk print", systemImage: "printer.filled.and.paper") }
+                        .disabled(model.offline || model.lesson?.resources.isEmpty != false)
+                        .accessibilityIdentifier("teaching-bulk-print")
+                    if item.worksheet.source.isPDF || (model.solutions && item.solutions?.source.isPDF == true) {
+                        Button {
+                            model.laserPointer.toggle()
+                        } label: {
+                            Label("Laser pointer", systemImage: model.laserPointer ? "scope" : "dot.scope")
+                        }.tint(model.laserPointer ? .red : nil)
+                            .accessibilityAddTraits(model.laserPointer ? .isSelected : [])
+                            .accessibilityIdentifier("teaching-laser")
+                    }
                     Button { library = false; model.presentPrint(item.worksheet) } label: { Label("Print to office", systemImage: "printer") }
                         .disabled(model.offline || item.worksheet.source.externalURL != nil || !item.worksheet.source.isPDF)
                 }
@@ -109,6 +145,89 @@ struct TeachingNavigation: View {
     }
 }
 
+private struct TeachingSettings: View {
+    @ObservedObject var model: TeachingModel
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("teaching-theme") private var theme = TeachingTheme.light
+    @State private var confirmingLogout = false
+    let logOut: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("Theme", selection: $theme) {
+                    ForEach(TeachingTheme.allCases) { option in
+                        Text(option.rawValue.capitalized).tag(option)
+                    }
+                }
+                if let staff = model.staffDirectory.first(where: { $0.id == model.profile?.id }) {
+                    NavigationLink("Teaching PIN") { TeachingPINSettings(api: model.api, staff: staff) }
+                }
+                Button("Log out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                    confirmingLogout = true
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .confirmationDialog("Log out of this teaching iPad?", isPresented: $confirmingLogout) {
+                Button("Log out", role: .destructive, action: logOut)
+            } message: {
+                Text("Your local lesson annotations stay on this iPad for your next sign-in.")
+            }
+        }
+        .preferredColorScheme(theme.colorScheme)
+    }
+}
+
+private struct TeachingPINSettings: View {
+    let api: TeachingAPI
+    let staff: StaffLogin
+    @State private var pin = ""
+    @State private var password = ""
+    @State private var saving = false
+    @State private var feedback: String?
+    @State private var enrolled = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("New 4-digit PIN", text: $pin).keyboardType(.numberPad)
+                    .onChange(of: pin) { _, value in
+                        pin = String(decoding: value.utf8.filter { (48...57).contains($0) }.prefix(4), as: UTF8.self)
+                    }
+                SecureField("Account password", text: $password).textContentType(.password)
+                Button("Save PIN") { Task { await savePIN() } }
+                    .disabled(pin.utf8.count != 4 || password.isEmpty)
+            } footer: {
+                Text("This PIN works on this iPad for 30 days. Use your account password on TutorWeb and to set up another iPad.")
+            }
+            if enrolled {
+                Button("Remove PIN", role: .destructive) {
+                    do { try api.removePIN(for: staff.id); enrolled = false; feedback = "PIN removed from this iPad." }
+                    catch { feedback = error.localizedDescription }
+                }
+            }
+            if let feedback { Text(feedback).accessibilityAddTraits(.updatesFrequently) }
+        }
+        .disabled(saving)
+        .navigationTitle("Teaching PIN")
+        .onAppear { enrolled = api.hasPIN(for: staff.id) }
+    }
+
+    private func savePIN() async {
+        saving = true
+        defer { saving = false; password = ""; pin = "" }
+        do {
+            try await api.setPIN(pin, password: password, staff: staff)
+            enrolled = true
+            feedback = "PIN saved for this iPad."
+        } catch { feedback = error.localizedDescription }
+    }
+}
+
 struct SessionDayView: View {
     @ObservedObject var model: TeachingModel
     var body: some View {
@@ -122,10 +241,9 @@ struct SessionDayView: View {
                     Spacer()
                     DatePicker("Teaching date", selection: $model.selectedDate, displayedComponents: .date).labelsHidden()
                         .environment(\.timeZone, TeachingModel.calendar.timeZone)
-                    Button { Task { await model.loadSessions() } } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Refresh sessions")
                 }
                 if model.sessions.isEmpty && !model.busy {
-                    ContentUnavailableView("No sessions on this date", systemImage: "calendar", description: Text(model.offline ? "No cached sessions for this date. Reconnect to load your timetable." : "Choose another date or refresh your timetable."))
+                    ContentUnavailableView("No sessions on this date", systemImage: "calendar", description: Text(model.offline ? "No cached sessions for this date. Reconnect to load your timetable." : "Choose another date or pull down to refresh."))
                 }
                 ForEach(model.sessions) { session in
                     Button { model.choose(session) } label: {
@@ -154,13 +272,14 @@ struct SessionDayView: View {
 struct LessonWorkspace: View {
     @ObservedObject var model: TeachingModel
     @State private var dragging: UUID?
+    @State private var solutionsWidth: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ZStack(alignment: .top) {
             if let item = model.activeResource, let store = model.store, let session = model.session {
                 PDFWorkspace(model: model, resource: item, sessionID: session.id, store: store)
             }
-            HStack(spacing: 8) {
+            ZStack(alignment: .trailing) {
                 ScrollViewReader { reader in
                     ScrollView(.horizontal, showsIndicators: false) {
                         GlassEffectContainer(spacing: 8) {
@@ -169,6 +288,7 @@ struct LessonWorkspace: View {
                             }.padding(.leading, 16).padding(.vertical, 8)
                         }
                     }
+                    .contentMargins(.trailing, solutionsWidth + 24, for: .scrollContent)
                     .onDrop(of: [LessonReorder.type], delegate: LessonReorder(model: model, target: nil,
                         animation: TeachingMotion.panel(reduceMotion: reduceMotion), dragging: $dragging))
                     .onAppear { if let id = model.activeResourceID { reader.scrollTo(id, anchor: .trailing) } }
@@ -185,10 +305,12 @@ struct LessonWorkspace: View {
                                 .padding(.horizontal, 12).padding(.vertical, 8)
                         }.buttonStyle(.glass)
                     }
-                }.font(.subheadline.weight(.semibold)).fixedSize().padding(.trailing, 16)
+                }.font(.subheadline.weight(.semibold)).fixedSize()
+                    .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { solutionsWidth = $0 }
+                    .padding(.trailing, 16)
                     .accessibilityIdentifier("teaching-solutions")
             }.frame(height: 60)
-        }.background(TeachingColors.background)
+        }.scrollEdgeEffectStyle(.soft, for: .top).background(TeachingColors.background)
             .onDisappear { dragging = nil }
     }
     private func tab(_ item: LessonResource) -> some View {
@@ -258,7 +380,7 @@ struct DocumentPane: View {
                 ContentUnavailableView { Label("External resource", systemImage: "link") } description: { Text(document.source.title) } actions: { Link("Open resource", destination: external).buttonStyle(.borderedProminent) }
             } else if document.source.isPDF {
                 PDFEditorView(document: document, sessionID: sessionID, store: store, isWorksheet: worksheet,
-                    fingerDrawing: model.fingerDrawing, sidebar: worksheet ? $model.pageSidebar : $solutionsSidebar,
+                    fingerDrawing: model.fingerDrawing, laserPointer: model.laserPointer, sidebar: worksheet ? $model.pageSidebar : $solutionsSidebar,
                     onEdit: { model.documentRevision = UUID() }, onError: model.report)
             } else if let url = try? store.documentURL(sessionID: sessionID, document: document), let image = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: image).resizable().scaledToFit().padding()

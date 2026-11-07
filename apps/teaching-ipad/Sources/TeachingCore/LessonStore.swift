@@ -30,7 +30,9 @@ public final class LessonStore {
         try files.createDirectory(at: target, withIntermediateDirectories: true)
         try write(worksheet, to: target.appendingPathComponent(primary.id.uuidString + ".pdf"))
         if let answer, let solutions { try write(solutions, to: target.appendingPathComponent(answer.id.uuidString + ".pdf")) }
-        record.resources.append(LessonResource(id: UUID(), resource: resource, worksheet: primary, solutions: answer))
+        let itemID = UUID()
+        record.resources.append(LessonResource(id: itemID, workspaceID: freshCopy ? itemID : nil,
+            resource: resource, worksheet: primary, solutions: answer))
         try write(JSONEncoder().encode(record), to: target.appendingPathComponent("lesson.json"))
         return record
     }
@@ -89,6 +91,45 @@ public final class LessonStore {
         }
     }
 
+    /// Imports an immutable original, while preserving any existing local edits for this slot.
+    @discardableResult
+    public func addOriginal(_ item: LessonResource, to sessionID: UUID, worksheet: Data, solutions: Data?,
+                            restoreArchived: Bool = false) throws -> LessonRecord {
+        var record = try lesson(sessionID: sessionID)
+        if record.resources.contains(where: { $0.syncID == item.syncID }) { return record }
+        let target = folder(sessionID)
+        let manifest = target.appendingPathComponent("lesson.json")
+        if let archived = record.archivedResources.lastIndex(where: { $0.syncID == item.syncID }) {
+            guard restoreArchived else { return record }
+            record.resources.append(record.archivedResources.remove(at: archived))
+            try write(JSONEncoder().encode(record), to: manifest)
+            return record
+        }
+        guard !worksheet.isEmpty, (item.solutions == nil) == (solutions == nil) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let documentIDs = (record.resources + record.archivedResources).flatMap { [$0.worksheet.id, $0.solutions?.id].compactMap { $0 } }
+        let newIDs = [item.worksheet.id, item.solutions?.id].compactMap { $0 }
+        guard Set(newIDs).count == newIDs.count, Set(newIDs).isDisjoint(with: documentIDs),
+              !(record.resources + record.archivedResources).contains(where: { $0.id == item.id }) else {
+            throw CocoaError(.fileWriteFileExists)
+        }
+        try files.createDirectory(at: target, withIntermediateDirectories: true)
+        let primary = target.appendingPathComponent(item.worksheet.id.uuidString + ".pdf")
+        let answer = item.solutions.map { target.appendingPathComponent($0.id.uuidString + ".pdf") }
+        do {
+            try write(worksheet, to: primary)
+            if let answer, let solutions { try write(solutions, to: answer) }
+            record.resources.append(item)
+            try write(JSONEncoder().encode(record), to: manifest)
+            return record
+        } catch {
+            try? files.removeItem(at: primary)
+            if let answer { try? files.removeItem(at: answer) }
+            throw error
+        }
+    }
+
     @discardableResult
     public func remove(_ resourceID: UUID, from sessionID: UUID) throws -> LessonRecord {
         var record = try lesson(sessionID: sessionID)
@@ -118,6 +159,16 @@ public final class LessonStore {
             throw CocoaError(.fileReadNoPermission)
         }
         let url = try documentFolder(sessionID: sessionID, document: document).appendingPathComponent(document.id.uuidString + ".pdf")
+        guard files.fileExists(atPath: url.path) else { throw CocoaError(.fileNoSuchFile) }
+        return url
+    }
+
+    public func originalDocumentURL(sessionID: UUID, document: CachedDocument) throws -> URL {
+        let record = try lesson(sessionID: sessionID)
+        guard record.resources.contains(where: { $0.worksheet.id == document.id || $0.solutions?.id == document.id }) else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        let url = folder(sessionID).appendingPathComponent(document.id.uuidString + ".pdf")
         guard files.fileExists(atPath: url.path) else { throw CocoaError(.fileNoSuchFile) }
         return url
     }

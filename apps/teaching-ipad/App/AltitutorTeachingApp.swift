@@ -17,11 +17,13 @@ import SwiftUI
 
 struct TeachingRootView: View {
     @ObservedObject var model: TeachingModel
+    @AppStorage("teaching-theme") private var theme = TeachingTheme.light
     var body: some View {
         Group {
             if model.profile == nil { SignInView(model: model) }
             else { TeachingNavigation(model: model) }
         }
+        .preferredColorScheme(theme.colorScheme)
         .tint(TeachingColors.accent)
         .task { await model.start() }
         .alert("Teaching", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
@@ -36,12 +38,17 @@ struct SignInView: View {
     @State private var password = ""
     @State private var staffID: UUID?
     @State private var setup = false
+    @State private var usePassword = false
     @FocusState private var passwordFocused: Bool
     private var needsSetup: Bool { setup || model.staffDirectory.isEmpty }
     private var selectedEmail: String {
         needsSetup ? email : model.staffDirectory.first { $0.id == staffID }?.email ?? ""
     }
-    private var canSignIn: Bool { !model.busy && !selectedEmail.isEmpty && !password.isEmpty }
+    private var hasPIN: Bool { !needsSetup && staffID.map { model.api.hasPIN(for: $0) } == true }
+    private var pinSignIn: Bool { hasPIN && !usePassword }
+    private var canSignIn: Bool {
+        !model.busy && !selectedEmail.isEmpty && (pinSignIn ? password.utf8.count == 4 : !password.isEmpty)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -60,7 +67,7 @@ struct SignInView: View {
                     } else {
                         Menu {
                             ForEach(model.staffDirectory) { staff in
-                                Button(staff.name) { staffID = staff.id; password = ""; passwordFocused = true }
+                                Button(staff.name) { staffID = staff.id; password = ""; usePassword = false; passwordFocused = true }
                             }
                         } label: {
                             HStack {
@@ -74,9 +81,14 @@ struct SignInView: View {
                 }.padding(16).glassEffect(.regular, in: .rect(cornerRadius: 16))
                 HStack(spacing: 12) {
                     Image(systemName: "lock").foregroundStyle(.secondary).accessibilityHidden(true)
-                    SecureField("Password", text: $password).textContentType(.password)
+                    SecureField(pinSignIn ? "4-digit PIN" : "Password", text: $password)
+                        .textContentType(pinSignIn ? nil : .password)
+                        .keyboardType(pinSignIn ? .numberPad : .default)
                         .focused($passwordFocused).submitLabel(.go).onSubmit { signIn() }
-                        .accessibilityIdentifier("teaching-password")
+                        .accessibilityIdentifier(pinSignIn ? "teaching-pin" : "teaching-password")
+                        .onChange(of: password) { _, value in
+                            if pinSignIn { password = String(decoding: value.utf8.filter { (48...57).contains($0) }.prefix(4), as: UTF8.self) }
+                        }
                 }.padding(16).glassEffect(.regular, in: .rect(cornerRadius: 16))
             }.textFieldStyle(.plain)
             Button(action: signIn) {
@@ -86,6 +98,11 @@ struct SignInView: View {
                 }
             }.buttonStyle(.glassProminent).controlSize(.large).disabled(!canSignIn)
                 .accessibilityIdentifier("teaching-sign-in")
+            if hasPIN {
+                Button(pinSignIn ? "Use password" : "Use PIN") {
+                    usePassword.toggle(); password = ""; passwordFocused = true
+                }.font(.subheadline).disabled(model.busy)
+            }
             if !model.staffDirectory.isEmpty {
                 Button(needsSetup ? "Back to staff list" : "Update staff list") {
                     setup.toggle(); password = ""; email = ""; passwordFocused = false
@@ -99,20 +116,35 @@ struct SignInView: View {
     private func signIn() {
         guard canSignIn else { return }
         let loginEmail = selectedEmail, loginPassword = password
+        let pinStaffID = pinSignIn ? staffID : nil
         passwordFocused = false
         Task {
-            await model.signIn(email: loginEmail, password: loginPassword)
+            if let pinStaffID { await model.signIn(staffID: pinStaffID, pin: loginPassword) }
+            else { await model.signIn(email: loginEmail, password: loginPassword) }
             password = ""
         }
     }
 }
 
 struct TeachingPrivacyLink: View {
-    // A fixed HTTPS URL shared by the sign-in screen and teaching-day toolbar.
+    // Accessible before authentication, including on an unprovisioned iPad.
     private let policyURL = URL(string: "https://altitutor.com/mobile-privacy/#teaching")!
     var body: some View {
         Link("Privacy policy", destination: policyURL)
             .accessibilityIdentifier("teaching-privacy")
+    }
+}
+
+enum TeachingTheme: String, CaseIterable, Identifiable {
+    case light, dark, automatic
+
+    var id: Self { self }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .light: .light
+        case .dark: .dark
+        case .automatic: nil
+        }
     }
 }
 

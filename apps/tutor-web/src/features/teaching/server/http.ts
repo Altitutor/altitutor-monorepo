@@ -9,6 +9,7 @@ import { completeTeachingUpload, stageTeachingUpload } from './uploads';
 import { teachingStaffDirectory } from './staff-directory';
 import { teachingSuggestions } from './suggestions';
 import { teachingStudents, addTeachingStudent } from './students';
+import { previousTeachingLesson, readTeachingWorkspace, registerTeachingWorkspace, teachingWorkspaceDownload } from './workspace';
 import { teachingDocumentURL, teachingLog, teachingResources, teachingSessions } from './queries';
 
 export function teachingJSON(body: unknown, status = 200): Response {
@@ -56,6 +57,9 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
       if (/^\/prints\/[^/]+$/.test(path)) return teachingJSON(await teachingPrintJob(client, path.split('/')[2]));
       if (path === '/lesson-documents') return teachingJSON(await listLessonDocuments(client, url.searchParams.get('sessionID') ?? '', 'tutor'));
       if (/^\/lesson-documents\/[^/]+$/.test(path)) return teachingJSON(await lessonDocumentURL(client, getServiceRoleClient(), path.split('/')[2], 'tutor'));
+      if (path === '/workspace') return teachingJSON(await readTeachingWorkspace(client, url.searchParams.get('sessionID') ?? ''));
+      if (/^\/workspace\/[^/]+$/.test(path)) return teachingJSON(await teachingWorkspaceDownload(client, profile.id, path.split('/')[2]));
+      if (path === '/previous-lesson') return teachingJSON(await previousTeachingLesson(client, url.searchParams.get('sessionID') ?? ''));
       if (path === '/profile') return teachingJSON(profile);
       if (path === '/sessions') return teachingJSON(await teachingSessions(client, url.searchParams.get('day') ?? ''));
       if (path === '/session-plan') return teachingJSON(await readSessionLessonPlan(client, url.searchParams.get('sessionID') ?? ''));
@@ -70,6 +74,10 @@ export async function handleTeachingRequest(request: Request): Promise<Response>
     if (request.method === 'POST' && path === '/uploads') {
       if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may upload lesson PDFs.');
       return teachingJSON(await stageTeachingUpload(client, profile.id, await readTeachingBody(request)), 201);
+    }
+    if (request.method === 'POST' && path === '/workspace') {
+      if (!profile.canSubmitLogs) throw new TeachingError(403, 'Only active staff may sync lesson PDFs.');
+      return teachingJSON(await registerTeachingWorkspace(client, profile.id, await readTeachingBody(request)), 201);
     }
     if (request.method === 'POST' && path === '/prints') return teachingJSON(await enqueueTeachingPrint(client, await readTeachingBody(request)), 201);
     if (request.method === 'POST' && path === '/suggestions') return teachingJSON(await teachingSuggestions(client, await readTeachingBody(request)));

@@ -13,6 +13,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
     let store: LessonStore
     let isWorksheet: Bool
     let fingerDrawing: Bool
+    let laserPointer: Bool
     let navigation: PDFPageNavigation
     let onEdit: () -> Void
     let onError: (Error) -> Void
@@ -27,15 +28,18 @@ struct PDFDocumentSurface: UIViewRepresentable {
     }
     func updateUIView(_ view: PDFView, context: Context) {
         context.coordinator.parent = self
-        for canvas in context.coordinator.canvases.values { canvas.drawingPolicy = fingerDrawing ? .anyInput : .pencilOnly }
+        context.coordinator.updateInputMode()
     }
     static func dismantleUIView(_ view: PDFView, coordinator: Coordinator) { coordinator.stop() }
 
-    @MainActor final class Coordinator: NSObject, @MainActor PDFPageOverlayViewProvider, PKCanvasViewDelegate {
+    @MainActor final class Coordinator: NSObject, @MainActor PDFPageOverlayViewProvider, PKCanvasViewDelegate, UIGestureRecognizerDelegate {
         var parent: PDFDocumentSurface
         weak var view: PDFView?
         var canvases: [Int: PKCanvasView] = [:]
         private let toolPicker = PKToolPicker()
+        private lazy var fitTap = UITapGestureRecognizer(target: self, action: #selector(zoomToFit(_:)))
+        private lazy var laserGesture = UILongPressGestureRecognizer(target: self, action: #selector(pointLaser(_:)))
+        private let laserDot = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 14))
         private var timer: Timer?
         private weak var scrollingView: UIScrollView?
         private var toolPresentation = 0
@@ -59,6 +63,19 @@ struct PDFDocumentSurface: UIViewRepresentable {
         init(_ parent: PDFDocumentSurface) { self.parent = parent }
         func attach(_ view: PDFView) {
             self.view = view
+            fitTap.numberOfTapsRequired = 2
+            fitTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+            fitTap.delegate = self
+            view.addGestureRecognizer(fitTap)
+            laserGesture.minimumPressDuration = 0
+            laserGesture.delegate = self
+            view.addGestureRecognizer(laserGesture)
+            laserDot.backgroundColor = .systemRed
+            laserDot.layer.cornerRadius = 7
+            laserDot.layer.borderColor = UIColor.white.cgColor
+            laserDot.layer.borderWidth = 2
+            laserDot.isUserInteractionEnabled = false
+            updateInputMode()
             do {
                 let url = try parent.store.documentURL(sessionID: parent.sessionID, document: parent.document)
                 guard let pdf = PDFDocument(url: url), !pdf.isLocked, pdf.pageCount > 0 else { throw APIError(status: 0, message: "This PDF could not be opened or needs a password.") }
@@ -77,7 +94,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
                     }
                 }
                 pauseObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingPausePDF"), object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.persist(); self?.toolsPaused = true; self?.hideTools() }
+                    MainActor.assumeIsolated { self?.persist(); self?.toolsPaused = true; self?.hideTools(); self?.clearLaser() }
                 }
                 resumeObserver = NotificationCenter.default.addObserver(forName: Notification.Name("TeachingResumePDF"), object: nil, queue: .main) { [weak self] event in
                     let documentID = event.object as? UUID
@@ -100,6 +117,58 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 }
             } catch { parent.onError(error) }
         }
+        func updateInputMode() {
+            if laserGesture.isEnabled != parent.laserPointer { laserGesture.isEnabled = parent.laserPointer }
+            fitTap.isEnabled = !parent.laserPointer
+            for canvas in canvases.values {
+                canvas.drawingPolicy = parent.fingerDrawing ? .anyInput : .pencilOnly
+                canvas.drawingGestureRecognizer.isEnabled = !parent.laserPointer
+            }
+            if !parent.laserPointer { clearLaser() }
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            gestureRecognizer === fitTap && (otherGestureRecognizer as? UITapGestureRecognizer)?.numberOfTapsRequired == 2
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            gestureRecognizer === laserGesture && otherGestureRecognizer is UIPinchGestureRecognizer
+        }
+
+        @objc private func zoomToFit(_ gesture: UITapGestureRecognizer) {
+            guard active, let view, let pdf = view.document,
+                  let page = view.page(for: gesture.location(in: view), nearest: false) else { return }
+            let fit = view.scaleFactorForSizeToFit
+            guard fit.isFinite, fit > 0 else { return }
+            view.autoScales = false
+            view.scaleFactor = fit
+            view.go(to: page)
+            view.scaleFactor = fit
+            parent.navigation.activity(page: pdf.index(for: page), count: pdf.pageCount)
+        }
+
+        @objc private func pointLaser(_ gesture: UILongPressGestureRecognizer) {
+            guard active, let view, let pdf = view.document, gesture.state == .began || gesture.state == .changed else {
+                clearLaser(); return
+            }
+            let point = gesture.location(in: view)
+            guard let page = view.page(for: point, nearest: false) else { clearLaser(); return }
+            if laserDot.superview == nil { view.addSubview(laserDot) }
+            view.bringSubviewToFront(laserDot)
+            laserDot.center = point
+            if parent.isWorksheet {
+                ClassroomState.shared.pointLaser(documentID: parent.document.id, page: pdf.index(for: page),
+                    location: view.convert(point, to: page))
+            }
+        }
+
+        private func clearLaser() {
+            laserDot.removeFromSuperview()
+            if parent.isWorksheet { ClassroomState.shared.clearLaser(documentID: parent.document.id) }
+        }
+
         private func restore(_ viewport: DocumentViewport) {
             guard let view, let pdf = view.document, let page = pdf.page(at: min(max(viewport.page, 0), pdf.pageCount - 1)) else { return }
             view.autoScales = false
@@ -204,6 +273,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
             guard active else { return }
             if persistChanges { persist() }
             active = false; timer?.invalidate(); timer = nil
+            clearLaser()
             scrollingView?.panGestureRecognizer.removeTarget(self, action: #selector(scrollGesture(_:))); scrollingView = nil
             parent.navigation.stop()
             if let backgroundObserver { NotificationCenter.default.removeObserver(backgroundObserver) }
@@ -292,6 +362,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
             let canvas = TeachingCanvasView(frame: page.bounds(for: .cropBox))
             canvas.isOpaque = false; canvas.backgroundColor = .clear; canvas.isScrollEnabled = false
             canvas.drawingPolicy = parent.fingerDrawing ? .anyInput : .pencilOnly
+            canvas.drawingGestureRecognizer.isEnabled = !parent.laserPointer
             canvas.tool = PKInkingTool(.pen, color: .systemBlue, width: 2)
             do {
                 if let data = try parent.store.drawing(sessionID: parent.sessionID, document: parent.document, page: index) { canvas.drawing = try PKDrawing(data: data) }

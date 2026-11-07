@@ -29,6 +29,22 @@ struct TeachingSession: Codable, Identifiable {
 }
 struct Credentials: Codable { let accessToken: String; let refreshToken: String; let expiresAt: Double }
 struct AuthEnvelope: Codable { let profile: TutorProfile; let credentials: Credentials }
+
+private struct TeachingPINGrant: Codable {
+    let salt: UUID
+    let verifier: Data
+    let expiresAt: Date
+    var failedAttempts = 0
+    var session: AuthEnvelope
+
+    static func accepts(_ pin: String) -> Bool {
+        pin.utf8.count == 4 && pin.utf8.allSatisfy { (48...57).contains($0) }
+    }
+
+    static func digest(_ pin: String, salt: UUID) -> Data {
+        Data(SHA256.hash(data: Data((salt.uuidString + pin).utf8)))
+    }
+}
 struct LibraryTopic: Decodable, Identifiable {
     let id: UUID
     let name: String
@@ -131,6 +147,73 @@ struct TeachingKeychain {
         try keychain.save(result); session = result
         return result.profile
     }
+    private func pinKeychain(_ staffID: UUID) -> TeachingKeychain {
+        TeachingKeychain(account: namespace + ":pin:" + staffID.uuidString)
+    }
+
+    func hasPIN(for staffID: UUID) -> Bool {
+        guard let grant = try? pinKeychain(staffID).load(TeachingPINGrant.self) else { return false }
+        return grant.expiresAt > Date() && grant.failedAttempts < 5
+    }
+
+    func setPIN(_ pin: String, password: String, staff: StaffLogin) async throws {
+        guard TeachingPINGrant.accepts(pin), session?.profile.id == staff.id else {
+            throw APIError(status: 400, message: "Enter a four-digit PIN.")
+        }
+        let epoch = generation
+        // A fresh password check also creates a separate device credential for this
+        // remembered tutor. An unattended active workspace cannot enroll a PIN.
+        let verified = try await exchange(["action": "signIn", "email": staff.email, "password": password])
+        guard epoch == generation, session?.profile.id == staff.id else { throw CancellationError() }
+        guard verified.profile.id == staff.id, verified.profile.canSubmitLogs else {
+            throw APIError(status: 403, message: "An active staff account is required to set a PIN.")
+        }
+        let salt = UUID()
+        try pinKeychain(staff.id).save(TeachingPINGrant(salt: salt, verifier: TeachingPINGrant.digest(pin, salt: salt),
+            expiresAt: Date().addingTimeInterval(30 * 24 * 60 * 60), session: verified))
+    }
+
+    func removePIN(for staffID: UUID) throws {
+        try pinKeychain(staffID).remove()
+    }
+
+    func signIn(staffID: UUID, pin: String) async throws -> TutorProfile {
+        let key = pinKeychain(staffID)
+        let usePassword = APIError(status: 401, message: "Sign in with your password to set a new PIN on this iPad.")
+        guard TeachingPINGrant.accepts(pin), var grant = try key.load(TeachingPINGrant.self),
+              grant.session.profile.id == staffID, grant.expiresAt > Date(), grant.failedAttempts < 5 else { throw usePassword }
+        guard grant.verifier == TeachingPINGrant.digest(pin, salt: grant.salt) else {
+            grant.failedAttempts += 1
+            try key.save(grant)
+            if grant.failedAttempts == 5 {
+                try key.remove()
+                throw usePassword
+            }
+            throw APIError(status: 400, message: "Incorrect PIN. Try again or use your password.")
+        }
+        let epoch = generation
+        let verified: AuthEnvelope
+        do {
+            // A remembered user must still pass the server's active-staff check.
+            verified = try await exchange(["action": "refresh", "refreshToken": grant.session.credentials.refreshToken])
+        } catch let failure as APIError where failure.status == 401 || failure.status == 403 {
+            guard epoch == generation else { throw CancellationError() }
+            try key.remove()
+            throw usePassword
+        }
+        guard epoch == generation else { throw CancellationError() }
+        guard verified.profile.id == staffID, verified.profile.canSubmitLogs else {
+            try key.remove()
+            throw usePassword
+        }
+        grant.failedAttempts = 0
+        grant.session = verified
+        try key.save(grant)
+        try keychain.save(verified)
+        session = verified
+        return verified.profile
+    }
+
     func signOut() throws {
         try keychain.remove()
         generation += 1; refreshTask?.cancel(); refreshTask = nil; session = nil
@@ -150,6 +233,12 @@ struct TeachingKeychain {
         defer { if epoch == generation { self.refreshTask = nil } }
         let refreshed = try await refreshTask.value
         guard epoch == generation, refreshed.profile.id == current.profile.id else { throw CancellationError() }
+        let remembered = pinKeychain(current.profile.id)
+        if var grant = try remembered.load(TeachingPINGrant.self),
+           grant.session.credentials.refreshToken == current.credentials.refreshToken {
+            grant.session = refreshed
+            try remembered.save(grant)
+        }
         try keychain.save(refreshed); session = refreshed
         return refreshed.credentials
     }
@@ -223,6 +312,15 @@ struct TeachingKeychain {
     func download(_ source: TeachingDocument, sessionID: UUID? = nil) async throws -> Data {
         if source.externalURL != nil { return Data() }
         let link: DownloadLink = try await request("documents/" + source.id.uuidString, query: sessionID.map { [.init(name: "sessionID", value: $0.uuidString)] } ?? [])
+        return try await downloadPDF(link)
+    }
+
+    func downloadWorkspacePDF(_ artifactID: UUID) async throws -> Data {
+        let link: DownloadLink = try await request("workspace/" + artifactID.uuidString)
+        return try await downloadPDF(link)
+    }
+
+    private func downloadPDF(_ link: DownloadLink) async throws -> Data {
         guard !link.external, link.url.scheme == "https" || link.url.host == "127.0.0.1" || link.url.host == "localhost" else {
             throw APIError(status: 0, message: "This resource is an external link.")
         }

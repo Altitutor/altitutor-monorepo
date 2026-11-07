@@ -2,6 +2,31 @@ import Foundation
 import Testing
 @testable import TeachingCore
 
+@Test func syncingOriginalsPreservesDeviceEditsAndDeliberateRemovals() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let tutor = UUID(), session = UUID()
+    let first = try LessonStore(root: root.appendingPathComponent("first"), tutorID: tutor)
+    let second = try LessonStore(root: root.appendingPathComponent("second"), tutorID: tutor)
+    let original = Data([1, 2]), edited = Data([1, 2, 3])
+    let item = try #require(first.addLocalDocument(title: "Worksheet.pdf", to: session, pdf: original).resources.first)
+    _ = try first.editPages(.insertBlank(at: 1), pdf: edited, pageCount: 2, sessionID: session, document: item.worksheet)
+    try first.saveDrawing(Data([4]), sessionID: session, document: item.worksheet, page: 0)
+
+    let pinned = try Data(contentsOf: first.originalDocumentURL(sessionID: session, document: item.worksheet))
+    #expect(pinned == original)
+    #expect(try Data(contentsOf: first.documentURL(sessionID: session, document: item.worksheet)) == edited)
+    _ = try second.addOriginal(item, to: session, worksheet: pinned, solutions: nil)
+    _ = try second.addOriginal(item, to: session, worksheet: pinned, solutions: nil)
+    #expect(try second.lesson(sessionID: session).resources.map(\.id) == [item.id])
+    #expect(try Data(contentsOf: second.documentURL(sessionID: session, document: item.worksheet)) == original)
+    #expect(try second.drawing(sessionID: session, document: item.worksheet, page: 0) == nil)
+
+    _ = try second.remove(item.id, from: session)
+    #expect(try second.addOriginal(item, to: session, worksheet: pinned, solutions: nil).resources.isEmpty)
+    #expect(try second.addOriginal(item, to: session, worksheet: pinned, solutions: nil, restoreArchived: true).resources.map(\.id) == [item.id])
+}
+
 @Test func importedDocumentsReopenWithoutBecomingTutorLogSuggestions() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: root) }

@@ -9,29 +9,43 @@ struct ClassroomWorksheet: Equatable {
     let id: UUID; let url: URL; let page: Int; let visibleRect: CGRect; let rotation: Int; let drawings: [Int: Data]
 }
 
+struct ClassroomLaser: Equatable {
+    let documentID: UUID
+    let page: Int
+    let location: CGPoint
+}
+
 /// The audience model has no roster, notes, log draft or solutions field.
 @MainActor final class ClassroomState: ObservableObject {
     static let shared = ClassroomState()
     @Published private(set) var lesson: ClassroomLesson?
     @Published private(set) var worksheet: ClassroomWorksheet?
+    @Published private(set) var laser: ClassroomLaser?
     private var allowedWorksheet: UUID?
     func showLesson(title: String, time: String, room: String, tutor: String) {
-        allowedWorksheet = nil; worksheet = nil; lesson = ClassroomLesson(title: title, time: time, room: room, tutor: tutor)
+        laser = nil; allowedWorksheet = nil; worksheet = nil; lesson = ClassroomLesson(title: title, time: time, room: room, tutor: tutor)
     }
-    func allowWorksheet(_ id: UUID) { allowedWorksheet = id; worksheet = nil }
+    func allowWorksheet(_ id: UUID) { laser = nil; allowedWorksheet = id; worksheet = nil }
     func publishWorksheet(id: UUID, url: URL, page: Int, visibleRect: CGRect, rotation: Int, drawings: [Int: Data]) {
         guard allowedWorksheet == id else { return }
         let next = ClassroomWorksheet(id: id, url: url, page: page, visibleRect: visibleRect, rotation: rotation, drawings: drawings)
         if next != worksheet { worksheet = next }
     }
-    func clear() { allowedWorksheet = nil; worksheet = nil; lesson = nil }
+    func pointLaser(documentID: UUID, page: Int, location: CGPoint) {
+        guard allowedWorksheet == documentID else { return }
+        laser = ClassroomLaser(documentID: documentID, page: page, location: location)
+    }
+    func clearLaser(documentID: UUID) {
+        if laser?.documentID == documentID { laser = nil }
+    }
+    func clear() { laser = nil; allowedWorksheet = nil; worksheet = nil; lesson = nil }
 }
 
 struct ClassroomView: View {
     @ObservedObject var state = ClassroomState.shared
     var body: some View {
         Group {
-            if let worksheet = state.worksheet { AudiencePDF(worksheet: worksheet) }
+            if let worksheet = state.worksheet { AudiencePDF(worksheet: worksheet, laser: state.laser) }
             else if let lesson = state.lesson {
                 VStack(spacing: 25) {
                     Text("ALTITUTOR").font(.headline).tracking(5).foregroundStyle(.white.opacity(0.65))
@@ -48,19 +62,47 @@ struct ClassroomView: View {
 
 struct AudiencePDF: UIViewRepresentable {
     let worksheet: ClassroomWorksheet
+    let laser: ClassroomLaser?
     func makeUIView(context: Context) -> ClassroomPDFCanvas { ClassroomPDFCanvas() }
-    func updateUIView(_ view: ClassroomPDFCanvas, context: Context) { view.show(worksheet) }
+    func updateUIView(_ view: ClassroomPDFCanvas, context: Context) { view.show(worksheet, laser: laser) }
 }
 
 /// A read-only projection of the worksheet's exact page-space region. No PDF navigation or private pane exists here.
 @MainActor final class ClassroomPDFCanvas: UIView {
     private var worksheet: ClassroomWorksheet?
     private var pdf: PDFDocument?
-    func show(_ next: ClassroomWorksheet) {
-        if worksheet?.id != next.id || worksheet?.url != next.url { pdf = PDFDocument(url: next.url) }
-        guard worksheet != next else { return }
-        worksheet = next; isOpaque = true; backgroundColor = .black; isUserInteractionEnabled = false
-        contentMode = .redraw; setNeedsDisplay()
+    private var laser: ClassroomLaser?
+    private var projectLaser: ((ClassroomLaser) -> CGPoint?)?
+    private let laserDot = CALayer()
+
+    func show(_ next: ClassroomWorksheet, laser: ClassroomLaser?) {
+        self.laser = laser
+        if worksheet != next {
+            if worksheet?.id != next.id || worksheet?.url != next.url { pdf = PDFDocument(url: next.url) }
+            worksheet = next
+            projectLaser = nil
+            isOpaque = true; backgroundColor = .black; isUserInteractionEnabled = false
+            contentMode = .redraw; setNeedsDisplay()
+        }
+        updateLaser()
+    }
+
+    private func updateLaser() {
+        if laserDot.superlayer == nil {
+            laserDot.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
+            laserDot.cornerRadius = 7
+            laserDot.backgroundColor = UIColor.systemRed.cgColor
+            laserDot.borderColor = UIColor.white.cgColor
+            laserDot.borderWidth = 2
+            layer.addSublayer(laserDot)
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let laser, let point = projectLaser?(laser) {
+            laserDot.position = point
+            laserDot.isHidden = false
+        } else { laserDot.isHidden = true }
+        CATransaction.commit()
     }
     override func draw(_ rect: CGRect) {
         guard let graphics = UIGraphicsGetCurrentContext() else { return }
@@ -87,6 +129,15 @@ struct AudiencePDF: UIViewRepresentable {
         let ink = worksheet.drawings[worksheet.page].flatMap { try? PKDrawing(data: $0) }
         TeachingPageRenderer.draw(page, ink: ink, in: graphics)
         graphics.restoreGState()
+        let height = bounds.height
+        projectLaser = { laser in
+            guard laser.documentID == worksheet.id, laser.page == worksheet.page else { return nil }
+            let point = laser.location.applying(pageTransform)
+            guard displayRegion.contains(point) else { return nil }
+            return CGPoint(x: target.minX + (point.x - displayRegion.minX) * scale,
+                           y: height - target.minY - (point.y - displayRegion.minY) * scale)
+        }
+        updateLaser()
     }
 }
 
