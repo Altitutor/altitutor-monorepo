@@ -11,6 +11,7 @@ import {
 } from "@altitutor/ui";
 import { Check, ChevronDown, MessageSquare } from "lucide-react";
 import { cn } from "@/shared/utils";
+import { useActivityHistorySearch } from "../hooks/useActivityHistorySearch";
 import { useChildrenActivity } from "../hooks/useChildrenActivity";
 import { CommunicationSourceFilter } from "./CommunicationSourceFilter";
 import { useEntityEmails } from "@/features/email/api/client";
@@ -364,6 +365,30 @@ function EntityCommunicationContent({
     childrenActivity.error?.message ||
     "";
 
+  const hasMore = Boolean(
+    (showEmails && emails.hasNextPage) ||
+    (showMessages && messages.hasNextPage) ||
+    (showOwnActivity && activity.hasNextPage) ||
+    childrenActivity.hasMore
+  );
+  const loadMore = () => {
+    if (showEmails && emails.hasNextPage) void emails.fetchNextPage();
+    if (showMessages && messages.hasNextPage) void messages.fetchNextPage();
+    if (showOwnActivity && activity.hasNextPage) activity.fetchNextPage();
+    if (childrenActivity.hasMore) childrenActivity.loadMore();
+  };
+  const { filtering, searching } = useActivityHistorySearch({
+    filters, search: feedSearch, matches: visible.length + entries.length,
+    cursor: [
+      emails.data?.pages.length, messages.data?.pages.length, activity.data?.events.length,
+      ...childrenActivity.feeds.map(({ data }) => data.events.length),
+    ].join(":"),
+    hasMore: hasMore && !errorMessage,
+    pending: waiting || emails.isFetchingNextPage || messages.isFetchingNextPage ||
+      activity.isFetchingNextPage || childrenActivity.isLoading,
+    loadMore,
+  });
+
   function recipientSourceId(id: string) {
     const groupConversation = conversations.find(
       (conversation) => conversation.id === id && conversation.is_group_chat,
@@ -501,7 +526,7 @@ function EntityCommunicationContent({
         }}
         search={feedSearch}
         onSearchChange={setFeedSearch}
-        communication
+        kind="communication"
         timeBasis={timeSort}
         onTimeBasisChange={setTimeSort}
         direction="asc"
@@ -531,23 +556,10 @@ function EntityCommunicationContent({
             key: `${entityType}:${entityId}:${timeSort}:${sources.join(",")}`,
             messages: visible,
             entries,
-            emptyLabel: feedSearch.trim() || Object.values(filters).some((values) => values.length)
-              ? "No matching activity in the loaded history."
-              : "No activity yet.",
+            emptyLabel: searching ? "Searching earlier activity…" : filtering ? "No matching activity." : "No activity yet.",
             loadMoreLabel: "Load earlier activity",
-            hasMore: Boolean(
-              (showEmails && emails.hasNextPage) ||
-                (showMessages && messages.hasNextPage) ||
-                (showOwnActivity && activity.hasNextPage) ||
-                childrenActivity.hasMore,
-            ),
-            loadMore: () => {
-              if (showEmails && emails.hasNextPage) void emails.fetchNextPage();
-              if (showMessages && messages.hasNextPage) void messages.fetchNextPage();
-              if (showOwnActivity && activity.hasNextPage)
-                activity.fetchNextPage();
-              if (childrenActivity.hasMore) childrenActivity.loadMore();
-            },
+            hasMore: hasMore && !searching,
+            loadMore,
             showConversationLabels:
               new Set(visible.map((message) => message.conversation_id)).size >
               1,

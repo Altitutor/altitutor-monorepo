@@ -447,7 +447,8 @@ function SessionDetailView({ id }: { id: string }) {
       >
 
 
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
+        {(activeTab === "details" || isEditing) && (
+          <div className={activeTab === "details" ? "space-y-6" : "hidden"}>
         <SessionDetailsTab
             key={`session-details-${id}-${isEditing}`}
             session={session}
@@ -657,7 +658,8 @@ function SessionDetailView({ id }: { id: string }) {
             }
           />
           {meetingMode && <SessionFiles sessionId={id} />}
-        </SegmentedTabPanelContent>
+          </div>
+        )}
 
         <SegmentedTabPanelContent
           when="activity"

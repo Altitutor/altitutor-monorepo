@@ -61,11 +61,10 @@ export function ActivityFeedToolbar({
   onViewApply,
   search,
   onSearchChange,
-  communication = false,
+  kind = "events",
   timeBasis,
   onTimeBasisChange,
   direction,
-  onDirectionChange,
   className,
 }: {
   filters: ActivityFilters;
@@ -73,21 +72,29 @@ export function ActivityFeedToolbar({
   onViewApply?: (filters: ActivityFilters) => void;
   search: string;
   onSearchChange: (search: string) => void;
-  communication?: boolean;
-  timeBasis: CommunicationTimeSort;
-  onTimeBasisChange: (basis: CommunicationTimeSort) => void;
+  kind?: "events" | "communication" | "messages";
+  timeBasis?: CommunicationTimeSort;
+  onTimeBasisChange?: (basis: CommunicationTimeSort) => void;
   direction: "asc" | "desc";
-  onDirectionChange?: (direction: "asc" | "desc") => void;
   className?: string;
 }) {
-  const target = communication ? "communication-activity-feed" : viewTarget;
+  const target = kind === "events" ? viewTarget : `${kind}-activity-feed`;
   const { data: savedViews = [] } = useQuickFilters(target);
-  const builtInViews = communication ? presets : presets.slice(0, 1);
+  const builtInViews = presets.slice(
+    0,
+    kind === "events" ? 1 : kind === "messages" ? 2 : 3,
+  );
+  const types =
+    kind === "events"
+      ? activityTypes
+      : kind === "messages"
+        ? communicationTypes.filter(({ value }) => value.startsWith("message:"))
+        : [...activityTypes, ...communicationTypes];
 
   return (
     <DataTableToolbar
       className={className}
-      compact={communication}
+      compact={kind !== "events"}
       viewTarget={target}
       quickFilters={[...builtInViews, ...savedViews]}
       state={{
@@ -102,45 +109,31 @@ export function ActivityFeedToolbar({
       }}
       onSearchChange={onSearchChange}
       onFiltersChange={onFiltersChange}
-      onSortChange={(field, sortDirection) => {
-        onTimeBasisChange(field === "effective" ? "effective" : "logged");
-        onDirectionChange?.(sortDirection);
-      }}
+      onSortChange={() => {}}
       onGroupByChange={() => {}}
       onVisibleColumnsChange={() => {}}
       onQuickFilterApply={(view) => {
         const settings = getViewSettings(view.config);
         if (!settings) return;
         (onViewApply ?? onFiltersChange)(settings.filters);
-        onTimeBasisChange(
+        onTimeBasisChange?.(
           settings.sortBy === "effective" ? "effective" : "logged",
         );
-        onDirectionChange?.(settings.sortDirection);
       }}
       onReset={() => {
         onFiltersChange({});
-        onTimeBasisChange("logged");
+        onTimeBasisChange?.("logged");
       }}
       filterDefinitions={[
         {
           key: "type",
           label: "Activity type",
-          options: communication
-            ? [...activityTypes, ...communicationTypes]
-            : activityTypes,
+          options: types,
         },
         dateFilter,
       ]}
-      sortOptions={
-        onDirectionChange
-          ? [
-              { key: "logged", label: "Time logged" },
-              { key: "effective", label: "Effective time" },
-            ]
-          : undefined
-      }
       viewContent={
-        communication ? (
+        onTimeBasisChange ? (
           <div
             className="flex flex-wrap gap-2 px-4 py-2"
             role="group"

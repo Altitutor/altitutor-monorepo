@@ -199,7 +199,8 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
           { value: 'activity', label: 'Activity' },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="flex min-h-0 flex-1 flex-col gap-6">
+        {(activeTab === "details" || isEditing) && (
+          <div className={activeTab === "details" ? "flex min-h-0 flex-1 flex-col gap-6" : "hidden"}>
         <ClassInfoTab
           classData={classData}
           subject={subject || undefined}
@@ -228,7 +229,8 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
             allowStudentEnrollment={classData.session_type === 'CLASS'}
           />
         </div>}
-        </SegmentedTabPanelContent>
+          </div>
+        )}
 
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="min-h-0 min-w-0 flex-1">
           {classData && (

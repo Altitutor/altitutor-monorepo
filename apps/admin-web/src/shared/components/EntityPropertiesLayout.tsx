@@ -140,7 +140,8 @@ export function EntityPropertiesLayout({
               id={id}
               primary={children}
               secondary={properties}
-              secondaryHidden={!expanded}
+              secondaryHidden={collapsible ? !expanded : undefined}
+              onSecondaryHiddenChange={collapsible ? (hidden) => setExpanded(!hidden) : undefined}
               primaryMinSize={primaryMinSize}
               secondaryMinSize={secondaryMinSize}
               secondaryMaxSize={520}

@@ -57,6 +57,7 @@ function IssueLiveTagsPanels({
   isOpen,
   onClose,
   descriptionRef,
+  sidebarToggleTarget,
 }: {
   form: UseFormReturn<IssueFormData>;
   issue: IssueWithTags;
@@ -64,6 +65,7 @@ function IssueLiveTagsPanels({
   isOpen: boolean;
   onClose: () => void;
   descriptionRef: React.RefObject<RichTextEditorRef | null>;
+  sidebarToggleTarget: HTMLDivElement | null;
 }) {
   const liveTags = useLiveIssueTags({
     form,
@@ -72,7 +74,7 @@ function IssueLiveTagsPanels({
 
   return (
     <EntityResizablePanels
-      toggleInTitle
+      toggleTarget={sidebarToggleTarget}
       id={`issue-${issue.id}-panels`}
       main={
         <IssuePropertiesPanel
@@ -117,6 +119,7 @@ export function IssueDetailView({
   onIssueUpdated: _onIssueUpdated,
   variant,
 }: IssueDetailViewProps) {
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: queriedIssue, isLoading } = useIssue(issueId, enabled);
   const [loadedIssue, setLoadedIssue] = useState<IssueWithTags | null>(null);
   if (loadedIssue && loadedIssue.id !== issueId) setLoadedIssue(null);
@@ -182,6 +185,7 @@ export function IssueDetailView({
                   {
                     <>
                       <EditorControls editor={editor} />
+                      <div ref={setSidebarToggleTarget} className="empty:hidden" />
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
@@ -224,6 +228,7 @@ export function IssueDetailView({
                   >
                     <fieldset disabled={!editor.editable} className="contents">
                       <IssueLiveTagsPanels
+                        sidebarToggleTarget={sidebarToggleTarget}
                         form={form}
                         issue={issue}
                         notes={notes}

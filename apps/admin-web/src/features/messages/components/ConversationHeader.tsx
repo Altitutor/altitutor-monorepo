@@ -488,9 +488,9 @@ export function ConversationHeader({
                 getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
                 allowClear clearLabel="Unassigned" searchPlaceholder="Search admin staff..."
                 trigger={
-                  <EmailIconButton label="Assign conversation" className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
+                  <EmailIconButton label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
                     <User className="h-4 w-4" />
-                    {assigneeId && <span className="whitespace-nowrap text-xs">{assigneeName || "Assigned"}</span>}
+                    {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assigneeName || "Assigned"}</span>}
                   </EmailIconButton>
                 }
               /></EmailActionGroup>}

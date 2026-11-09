@@ -7,6 +7,7 @@ import {
   Separator,
   type GroupProps,
   type PanelProps,
+  usePanelRef,
   type SeparatorProps,
 } from "react-resizable-panels"
 
@@ -71,6 +72,7 @@ interface ResponsiveResizablePanelsProps {
   primary: React.ReactNode
   secondary: React.ReactNode
   secondaryHidden?: boolean
+  onSecondaryHiddenChange?: (hidden: boolean) => void
   mobilePanel?: "primary" | "secondary"
   breakpoint?: keyof typeof BREAKPOINT_QUERIES
   stackOnNarrow?: boolean
@@ -87,7 +89,8 @@ function ResponsiveResizablePanels({
   id,
   primary,
   secondary,
-  secondaryHidden = false,
+  secondaryHidden,
+  onSecondaryHiddenChange,
   mobilePanel = "primary",
   breakpoint = "md",
   stackOnNarrow = false,
@@ -102,6 +105,13 @@ function ResponsiveResizablePanels({
   const isResizable = useMediaQuery(BREAKPOINT_QUERIES[breakpoint]);
 
   const stacked = !isResizable && stackOnNarrow;
+  const secondaryPanel = usePanelRef();
+  React.useEffect(() => {
+    const panel = secondaryPanel.current;
+    if (stacked || secondaryHidden === undefined || !panel) return;
+    if (secondaryHidden && !panel.isCollapsed()) panel.collapse();
+    if (!secondaryHidden && panel.isCollapsed()) panel.expand();
+  }, [isResizable, secondaryHidden, secondaryPanel, stacked]);
   if (!isResizable && !stackOnNarrow) {
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
@@ -145,7 +155,13 @@ function ResponsiveResizablePanels({
         defaultSize={secondaryDefaultSize}
         minSize={stacked ? 0 : secondaryMinSize}
         maxSize={stacked ? undefined : secondaryMaxSize}
-        className={cn("min-w-0", stackedPanel, secondaryHidden && "hidden")}
+        inert={secondaryHidden || undefined}
+        panelRef={secondaryHidden === undefined ? undefined : secondaryPanel}
+        collapsible={!stacked && secondaryHidden !== undefined}
+        onResize={onSecondaryHiddenChange ? (size) => {
+          onSecondaryHiddenChange(size.asPercentage === 0);
+        } : undefined}
+        className={cn("min-w-0", stackedPanel)}
       >
         {secondary}
       </ResizablePanel>

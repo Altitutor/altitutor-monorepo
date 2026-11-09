@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Tables, TablesUpdate } from "@altitutor/shared";
 import { Button, useToast } from "@altitutor/ui";
@@ -35,7 +36,9 @@ function availabilityFromStaff(staff: Tables<"staff">): StaffAvailabilityDraft {
 
 export function StaffAvailabilityDetails({
   staff,
+  footerTarget,
 }: {
+  footerTarget: HTMLDivElement | null;
   staff: Tables<"staff">;
 }) {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -108,29 +111,28 @@ export function StaffAvailabilityDetails({
           showSessionTypes
         />
       </div>
-      {isEditMode && (
-        <div className="sticky bottom-0 z-10 border-t bg-background py-3">
-          <div className="flex w-full justify-end">
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                type="button"
-                disabled={saving}
-                onClick={handleCancelEdit}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                disabled={saving}
-                onClick={() => void handleSave()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {isEditMode &&
+        footerTarget &&
+        createPortal(
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={saving}
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              disabled={saving}
+              onClick={() => void handleSave()}
+            >
+              Save
+            </Button>
+          </div>,
+          footerTarget,
+        )}
     </section>
   );
 }

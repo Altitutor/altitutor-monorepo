@@ -79,6 +79,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const searchParams = useSearchParams();
   const accountFromDirectory = searchParams.get('account') === 'open';
   const sidebarForm = useRef<HTMLDivElement>(null);
+  const [sectionFooter, setSectionFooter] = useState<HTMLDivElement | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const { data: journeys = [] } = useOnboardingJourneys();
   const queryClient = useQueryClient();
@@ -299,7 +300,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
           addParentButton={editFlow.isEditing ? <ParentSearchPopover allParents={allParents} selectedParents={editFlow.tempStudentParents} onSelectParent={editFlow.assignParent} onCreateNewParent={() => setIsAddParentModalOpen(true)} /> : undefined}
         />
-        {!editFlow.isEditing && <StudentEducationDetails student={student} />}
+        {!editFlow.isEditing && <StudentEducationDetails footerTarget={sectionFooter} student={student} />}
         {!editFlow.isEditing && (
           <section className="space-y-2 border-t pt-4" aria-label="Account">
             <h3 className="text-base font-medium">Account</h3>
@@ -308,6 +309,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         )}
       {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
         </div>
+        <div ref={setSectionFooter} className="shrink-0 border-t bg-background p-4 empty:hidden" />
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>

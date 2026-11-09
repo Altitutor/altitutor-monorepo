@@ -19,6 +19,7 @@ export const communicationTypes = [
   { value: "message:parent", label: "Parent messages" },
   { value: "message:staff", label: "Staff messages" },
   { value: "message:group", label: "Group messages" },
+  { value: "message:other", label: "Other messages" },
   { value: "email:student", label: "Student emails" },
   { value: "email:parent", label: "Parent emails" },
   { value: "email:staff", label: "Staff emails" },

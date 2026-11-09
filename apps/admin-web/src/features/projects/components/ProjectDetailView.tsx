@@ -43,7 +43,6 @@ import { useProject } from "../api/queries";
 import type { ProjectFormData } from "../types";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
 import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
-import { EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
 import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
@@ -87,6 +86,7 @@ export function ProjectDetailView({
   onClose,
   variant,
 }: ProjectDetailViewProps) {
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: project, isLoading } = useProject(projectId, enabled);
   useAccessoryTitle(project?.name);
   const { data: projectNotes = [] } = useNotes(
@@ -242,6 +242,7 @@ export function ProjectDetailView({
               {
                 <>
                   <EditorControls editor={editor} />
+                  <div ref={setSidebarToggleTarget} className="empty:hidden" />
                   <ActionsMenu
                     type="project"
                     entityId={projectId}
@@ -282,7 +283,7 @@ export function ProjectDetailView({
                 >
                   <fieldset disabled={!editor.editable} className="contents">
                     <EntityResizablePanels
-                      toggleInTitle
+                      toggleTarget={sidebarToggleTarget}
                       id={`project-${projectId}-panels`}
                       main={
                         <div
@@ -301,16 +302,11 @@ export function ProjectDetailView({
                             ]}
                           >
                             <SegmentedTabPanelContent when="overview" activeTab={section} className="space-y-6">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <div className="min-w-0 flex-1">
                             <ProjectTitleField
                               form={form}
                               onEnter={handleTitleEnter}
                               titleRef={titleFieldRef}
                             />
-                              </div>
-                              <EntityPropertiesToggle />
-                            </div>
                             <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
                             <ProjectDescriptionField
                               form={form}

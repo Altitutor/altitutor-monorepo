@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { useActivityHistorySearch } from "../hooks/useActivityHistorySearch";
 import { ActivityFeedToolbar } from "./ActivityFeedToolbar";
 import { matchesActivityItem, type ActivityFilters } from "../lib/activityFeedFilters";
 import { ActivityItem } from "./ActivityItem";
@@ -54,18 +55,21 @@ export function ActivityFeed({
   const { toast } = useToast();
   const [filters, setFilters] = useState<ActivityFilters>({});
   const [search, setSearch] = useState("");
-  const [basis, setBasis] = useState(timeBasis);
-  const [direction, setDirection] = useState<"asc" | "desc">(chronological ? "asc" : "desc");
-  const isChronological = withToolbar ? direction === "asc" : chronological;
-  const activeBasis = withToolbar ? basis : timeBasis;
   const activities = useMemo(() => {
     if (!data && !notes) return [];
     return mapActivityEventsToDisplay(
       data ?? { events: [], relatedEntities: {}, total: 0, hasMore: false },
-      { chronological: isChronological, timeBasis: activeBasis, notes },
+      { chronological, timeBasis, notes },
     ).filter((item) => !withToolbar || matchesActivityItem(item, filters, search));
-  }, [data, isChronological, activeBasis, notes, withToolbar, filters, search]);
+  }, [data, chronological, timeBasis, notes, withToolbar, filters, search]);
 
+  const { filtering, searching } = useActivityHistorySearch({
+    filters, search, matches: activities.length,
+    cursor: data?.events.length ?? 0,
+    hasMore: withToolbar && hasNextPage && !error,
+    pending: isLoading || isFetchingNextPage,
+    loadMore: onLoadMore,
+  });
   const toolbar = withToolbar && (
     <ActivityFeedToolbar
       className="mb-4"
@@ -73,10 +77,7 @@ export function ActivityFeed({
       onFiltersChange={setFilters}
       search={search}
       onSearchChange={setSearch}
-      timeBasis={basis}
-      onTimeBasisChange={setBasis}
-      direction={direction}
-      onDirectionChange={setDirection}
+      direction={chronological ? "asc" : "desc"}
     />
   );
 
@@ -169,7 +170,7 @@ export function ActivityFeed({
   return (
     <div className={cn("space-y-0", className)}>
       {toolbar}
-      {isChronological && hasNextPage && onLoadMore ? (
+      {chronological && hasNextPage && !searching && onLoadMore ? (
         <div className="flex justify-center pb-3">
           <Button
             variant="outline"
@@ -183,9 +184,7 @@ export function ActivityFeed({
       ) : null}
       {activities.length === 0 && (
         <p className="py-8 text-center text-muted-foreground">
-          {search.trim() || Object.values(filters).some((values) => values.length)
-            ? "No matching activity in the loaded history"
-            : "No activity yet"}
+          {searching ? "Searching earlier activity…" : filtering ? "No matching activity" : "No activity yet"}
         </p>
       )}
       {activities.map((activity) => (
@@ -202,7 +201,7 @@ export function ActivityFeed({
         />
       ))}
 
-      {!isChronological && hasNextPage && onLoadMore ? (
+      {!chronological && hasNextPage && !searching && onLoadMore ? (
         <div className="flex justify-center pt-2">
           <Button
             type="button"

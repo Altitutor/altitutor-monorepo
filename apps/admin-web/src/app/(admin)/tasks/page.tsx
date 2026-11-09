@@ -5,8 +5,7 @@ import { useAdminPageViewParam } from "@/shared/hooks/useAdminPageViewParam";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
-import { Button, ToolbarViewProvider } from "@altitutor/ui";
-import { Plus } from "lucide-react";
+import { Button, EntityChipIcon, ToolbarViewProvider } from "@altitutor/ui";
 
 export default function TasksPage() {
   const [view, setView] = useAdminPageViewParam(["list", "board"] as const, "board");
@@ -14,7 +13,7 @@ export default function TasksPage() {
   return (
     <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: (next) => { if (next === "list" || next === "board") setView(next); } }}>
       <ListSettingsMenu list="tasks" />
-      <AdminPageActions><Button onClick={() => openCreateTaskDialog()}><Plus />Add task</Button></AdminPageActions>
+      <AdminPageActions><Button variant="outline" size="icon" className="h-8 w-8 rounded-full" aria-label="Add task" title="Add task" onClick={() => openCreateTaskDialog()}><EntityChipIcon entityType="task" /></Button></AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><TasksCollection mode={view} /></div>
     </ToolbarViewProvider>
   );

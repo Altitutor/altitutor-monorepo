@@ -6,7 +6,6 @@ import { Separator, SegmentedTabPanel, SegmentedTabPanelContent } from "@altitut
 import { UseFormReturn } from "react-hook-form";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { IssueActivityTab } from "@/features/issues/components/IssueActivityTab";
-import { EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
 import { IssueDueDateField } from "../fields/IssueDueDateField";
 import { IssuePriorityField } from "../fields/IssuePriorityField";
 import { IssueStatusField } from "../fields/IssueStatusField";
@@ -74,12 +73,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
         data-rich-text-toolbar-container
       >
         <div className="p-6 space-y-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <IssueTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
-            </div>
-            {issue && <EntityPropertiesToggle />}
-          </div>
+          <IssueTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
           {issue && (
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <IssueStatusField form={form} />

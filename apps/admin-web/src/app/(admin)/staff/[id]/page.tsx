@@ -57,6 +57,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const { id } = params;
   const router = useRouter();
   const sidebarForm = useRef<HTMLDivElement>(null);
+  const [sectionFooter, setSectionFooter] = useState<HTMLDivElement | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
@@ -194,7 +195,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           onViewSubject={entityModals.openSubject}
           addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
         />
-        {!editFlow.isEditing && <StaffAvailabilityDetails staff={staffMember} />}
+        {!editFlow.isEditing && <StaffAvailabilityDetails footerTarget={sectionFooter} staff={staffMember} />}
         {!editFlow.isEditing && (
           <section className="space-y-2 border-t pt-4" aria-label="Account">
             <h3 className="text-base font-medium">Account</h3>
@@ -202,6 +203,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           </section>
         )}
         </div>
+        <div ref={setSectionFooter} className="shrink-0 border-t bg-background p-4 empty:hidden" />
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
       </div>
 </>}>
