@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -16,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -37,7 +36,6 @@ import {
   groupStudentClassesBySubject,
   isScheduledClassEnrolment,
 } from '@/features/students/utils/classEnrollments';
-type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -60,7 +58,7 @@ export function ClassesTab({
   const studentSubjects = useMemo(() => studentWithSubjects?.subjects || [], [studentWithSubjects?.subjects]);
   const classes = useMemo(() => classesData, [classesData]);
   
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [showTimetable, setShowTimetable] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
   // Modal state for class viewing
@@ -458,18 +456,20 @@ export function ClassesTab({
                 Show previous enrollments
               </Label>
             </div>
-            <SegmentedControl
-              value={viewMode}
-              onValueChange={(v) => setViewMode(v as ViewMode)}
-              options={[
-                { value: 'table', label: 'Table' },
-                { value: 'calendar', label: 'Calendar' },
-              ]}
-            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-pressed={showTimetable}
+              onClick={() => setShowTimetable((visible) => !visible)}
+            >
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Class timetable
+            </Button>
           </div>
         </div>
 
-        {viewMode === 'table' ? (
+        {!showTimetable ? (
               <div className="space-y-4 pb-6">
                 {classesBySubject.map((group) => {
                   if (group.subjectId === '__no_subject__') {
