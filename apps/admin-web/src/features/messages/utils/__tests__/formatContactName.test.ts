@@ -95,7 +95,7 @@ describe('formatContactName', () => {
   });
 
   describe('PARENT contacts', () => {
-    it('lists every linked student in the conversation title', () => {
+    it('keeps linked students out of the conversation title', () => {
       const conversation: Pick<ConversationWithRelations, 'contacts'> = {
         contacts: {
           id: 'contact-1',
@@ -115,7 +115,7 @@ describe('formatContactName', () => {
         },
       };
 
-      expect(formatContactName(conversation)).toBe('Jane Smith (parent of Alice Smith, Bob Smith)');
+      expect(formatContactName(conversation)).toBe('Jane Smith');
     });
 
     it('should format parent name', () => {
@@ -150,7 +150,7 @@ describe('formatContactName', () => {
       expect(formatContactName(conversation)).toBe('Jane Smith');
     });
 
-    it('should include student name when parent has linked students', () => {
+    it('should keep only the parent name when a student is linked', () => {
       const conversation: ConversationWithRelations = {
         id: 'conv-1',
         status: 'ACTIVE',
@@ -187,7 +187,7 @@ describe('formatContactName', () => {
         },
       };
 
-      expect(formatContactName(conversation)).toBe('Jane Smith (parent of Alice Smith)');
+      expect(formatContactName(conversation)).toBe('Jane Smith');
     });
 
     it('should use phone number when parent data is missing', () => {

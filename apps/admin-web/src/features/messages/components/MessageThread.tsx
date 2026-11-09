@@ -1,5 +1,8 @@
 'use client';
 
+import { ActivityFeedToolbar, messageActivityFilters } from "@/features/activity/components/ActivityFeedToolbar";
+import { useActivityHistorySearch } from "@/features/activity/hooks/useActivityHistorySearch";
+import { matchesActivityFilters, type ActivityFilters } from "@/features/activity/lib/activityFeedFilters";
 import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
 import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -80,11 +83,14 @@ interface Props {
     messages: ThreadMessage[];
     entries: ThreadFeedEntry[];
     hasMore: boolean;
+    emptyLabel?: string;
+    loadMoreLabel?: string;
     loadMore: () => void;
     showConversationLabels?: boolean;
     labelForConversation?: (id: string) => string | undefined;
   };
 
+  activityMessageType?: "student" | "parent" | "staff" | "group" | "other";
   referenceFocus?: string | null;
   targetMessageId?: string | null;
   contactId?: string | null;
@@ -448,6 +454,7 @@ function partyNameParts(name: string): { firstName: string; lastName: string } {
 }
 
 export function MessageThread({
+  activityMessageType,
   referenceFocus,
   targetMessageId,
   feed,
@@ -473,6 +480,8 @@ export function MessageThread({
   );
   const fetchNextPage = feed?.loadMore ?? query.fetchNextPage;
   const hasNextPage = feed?.hasMore ?? query.hasNextPage;
+  const [activityFilters, setActivityFilters] = useState<ActivityFilters>(messageActivityFilters);
+  const [activitySearch, setActivitySearch] = useState("");
   const qc = useQueryClient();
   const channelNonce = useId().replace(/:/g, "");
   const { data: availableSenders = [] } = useAvailableSenders();
@@ -672,8 +681,14 @@ export function MessageThread({
       };
     };
 
-    const visibleItems = items.filter(
-      (message) => !attachedReactionIds.has(message.id),
+    const visibleItems = items.filter((message) =>
+      message.id === targetMessageId || (
+        !attachedReactionIds.has(message.id) &&
+        (!activityMessageType || matchesActivityFilters(
+          activityFilters, activitySearch, `message:${activityMessageType}`,
+          message.created_at ?? "", message.body,
+        ))
+      ),
     );
 
     if (!isSearching || !searchTerm.trim()) {
@@ -687,7 +702,7 @@ export function MessageThread({
     let hiddenCount = 0;
 
     visibleItems.forEach((message, index) => {
-      const matches = message.body.toLowerCase().includes(search);
+      const matches = message.id === targetMessageId || message.body.toLowerCase().includes(search);
 
       if (matches) {
         if (hiddenCount > 0) {
@@ -709,7 +724,17 @@ export function MessageThread({
     }
 
     return filtered;
-  }, [data, isSearching, searchTerm]);
+  }, [activityFilters, activityMessageType, activitySearch, data, isSearching, searchTerm, targetMessageId]);
+
+  const activityHistory = useActivityHistorySearch({
+    filters: activityFilters,
+    search: activitySearch,
+    matches: activityMessageType && processedMessages.some((item) => item.type === "message") ? 1 : 0,
+    cursor: query.data?.pages.length ?? 0,
+    hasMore: Boolean(activityMessageType && hasNextPage && !targetMessageId && !query.error),
+    pending: query.isLoading || query.isFetchingNextPage,
+    loadMore: activityMessageType ? () => { void fetchNextPage(); } : undefined,
+  });
 
   // Render oldest -> newest so native wheel direction behaves normally.
   const renderedMessages = useMemo(() => {
@@ -941,6 +966,17 @@ export function MessageThread({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
+      {activityMessageType && (
+        <ActivityFeedToolbar
+          kind="messages"
+          className="shrink-0 border-b px-3 py-2"
+          filters={activityFilters}
+          onFiltersChange={setActivityFilters}
+          search={activitySearch}
+          onSearchChange={setActivitySearch}
+          direction="asc"
+        />
+      )}
       {/* Search bar */}
       {isSearching && (
         <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2 flex-shrink-0 bg-background sticky top-0 z-10">
@@ -967,16 +1003,16 @@ export function MessageThread({
         }}
         className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
       >
-        {hasNextPage && (
+        {hasNextPage && !activityHistory.searching && (
           <button
             className="text-xs text-blue-600 hover:underline mb-2 py-2"
             onClick={() => fetchNextPage()}
           >
-            Load older messages
+            {feed?.loadMoreLabel ?? "Load older messages"}
           </button>
         )}
         {renderedMessages.length === 0 && !isSearching ? (
-          <div className="text-xs text-muted-foreground">No messages yet.</div>
+          <div className="text-xs text-muted-foreground">{feed?.emptyLabel ?? (activityHistory.searching ? "Searching earlier messages…" : activityMessageType && activityHistory.filtering ? (hasNextPage ? "No matching messages in the loaded history." : "No matching messages.") : "No messages yet.")}</div>
         ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">
             No messages found.

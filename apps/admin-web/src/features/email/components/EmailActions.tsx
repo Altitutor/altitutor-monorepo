@@ -9,14 +9,12 @@ import {
   Reply,
   ReplyAll,
   Forward,
-  CheckSquare,
   Search,
   MoreHorizontal,
-  AlertTriangle,
 } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, SearchableSelect } from "@altitutor/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -267,7 +265,7 @@ export function EmailActions({
               })
             }
           >
-            <CheckSquare className="h-4 w-4" />
+            <EntityChipIcon entityType="task" />
           </EmailIconButton>
         )}
         {level === "message" && onReply && (
@@ -318,8 +316,8 @@ export function EmailActions({
         {level === "thread" && <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
           <DropdownMenuTrigger asChild><EmailIconButton label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><CheckSquare className="mr-2 h-4 w-4" />Create task<span className="ml-auto text-xs text-muted-foreground">T</span></DropdownMenuItem>
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><AlertTriangle className="mr-2 h-4 w-4" />Create issue<span className="ml-auto text-xs text-muted-foreground">I</span></DropdownMenuItem>
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="task" />Create task<span className="ml-auto text-xs text-muted-foreground">T</span></DropdownMenuItem>
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="issue" />Create issue<span className="ml-auto text-xs text-muted-foreground">I</span></DropdownMenuItem>
             {moreMenuItems}
             <DropdownMenuSeparator />
             <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder</DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>

@@ -1,13 +1,13 @@
 import { encodeViewConfig, type DisplaySettings, type QuickFilter } from "@altitutor/shared";
 
-export const CONVERSATION_LIST_COLUMNS = ["avatar", "name", "sender", "preview", "timestamp"] as const;
+export const CONVERSATION_LIST_COLUMNS = ["avatar", "name", "sender", "preview", "timestamp", "assignee"] as const;
 
 export const conversationListDefaults: DisplaySettings = {
   filters: {},
   sortBy: "latest",
   sortDirection: "desc",
   groupBy: null,
-  visibleColumns: [...CONVERSATION_LIST_COLUMNS],
+  visibleColumns: CONVERSATION_LIST_COLUMNS.filter((column) => column !== "sender"),
 };
 
 function view(id: string, name: string, filters: Record<string, unknown[]>): QuickFilter {

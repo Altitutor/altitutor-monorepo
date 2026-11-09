@@ -23,7 +23,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { matchesConversationListQuery } from '../utils/conversationListQuery';
-import { CONVERSATION_LIST_COLUMNS, conversationListViews } from '../utils/conversationListViews';
+import { CONVERSATION_LIST_COLUMNS, conversationListDefaults, conversationListViews } from '../utils/conversationListViews';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -62,7 +62,7 @@ export function ConversationList({
   } = useDataTable({
     defaultFilters: {},
     defaultSort: { field: 'latest', direction: 'desc' },
-    defaultVisibleColumns: [...CONVERSATION_LIST_COLUMNS],
+    defaultVisibleColumns: conversationListDefaults.visibleColumns,
     filterKeys: ['read', 'reply', 'followUp', 'assignee', 'recipient', 'from'],
     skipUrlSync: true,
   });
@@ -230,7 +230,7 @@ export function ConversationList({
           columnDefinitions={CONVERSATION_LIST_COLUMNS.map((key) => ({
             key,
             label: key === 'timestamp' ? 'Time' : key[0].toUpperCase() + key.slice(1),
-            visibleByDefault: true,
+            visibleByDefault: key !== 'sender',
           }))}
           searchPlaceholder="Search conversations"
         />
@@ -284,6 +284,7 @@ export function ConversationList({
                           staff={adminStaff}
                           staffLoading={adminStaffLoading}
                           assigneeId={aggregated.assignedStaffId}
+                          showAssignee={show('assignee')}
                           onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
                           onMarkRead={() => {
                             const lastMessageId = aggregated.latestMessage?.id;
@@ -338,6 +339,7 @@ export function ConversationList({
                         staff={adminStaff}
                         staffLoading={adminStaffLoading}
                         assigneeId={aggregated.assignedStaffId}
+                          showAssignee={show('assignee')}
                         onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
                         onMarkRead={() => {
                           const lastMessageId = aggregated.latestMessage?.id;

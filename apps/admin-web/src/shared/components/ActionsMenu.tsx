@@ -1,5 +1,6 @@
 "use client";
 
+import { EntityChipIcon } from "@altitutor/ui";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { Button } from "@altitutor/ui";
 import {
@@ -257,6 +258,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     </DropdownMenuItem>
   ) : null;
 
+  const canAddRelatedWork = reference && !["task", "project", "issue"].includes(props.type);
   const actions = recordMenuActions(props, {
     copy: props.entityId
       ? () => {
@@ -269,10 +271,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
         }
       : undefined,
     messageDisabled: messageAction.isOpening,
-    addIssue: reference
+    addIssue: canAddRelatedWork
       ? () => quickActions.openCreateIssueDialog(reference)
       : undefined,
-    addTask: reference
+    addTask: canAddRelatedWork
       ? () => quickActions.openCreateTaskDialog(reference)
       : undefined,
   }).filter((action) => !(props.detailsInSidebar && action.id === "edit"));
@@ -292,6 +294,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             size="icon"
             className="shrink-0"
             disabled={props.isLoadingAction}
+            aria-label="Invoice actions"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -400,7 +403,9 @@ export function ActionsMenu(props: ActionsMenuProps) {
           : undefined
       }
     >
-      <action.icon className="h-4 w-4 mr-2" />
+      {action.id === "add-task" || action.id === "add-issue"
+        ? <EntityChipIcon entityType={action.id === "add-task" ? "task" : "issue"} />
+        : <action.icon className="h-4 w-4 mr-2" />}
       {action.title}
     </DropdownMenuItem>
   );
@@ -415,9 +420,8 @@ export function ActionsMenu(props: ActionsMenuProps) {
     <div className="flex items-center gap-2">
       <EmailActionGroup label="Common record actions">
           {actions.filter((action) => action.primaryOnly).map((action) => (
-            <Button key={action.id} type="button" variant="outline" size="sm" className="h-8" aria-label={action.title} onClick={action.action}>
-              <action.icon className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">{action.title}</span>
+            <Button key={action.id} type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" aria-label={action.title} title={action.title} onClick={action.action}>
+              <EntityChipIcon entityType={action.id === "add-task" ? "task" : "issue"} />
             </Button>
           ))}
       <DropdownMenu>

@@ -43,6 +43,7 @@ import { useProject } from "../api/queries";
 import type { ProjectFormData } from "../types";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
 import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
+import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { useNotes } from "@/features/notes/api/queries";
@@ -85,6 +86,7 @@ export function ProjectDetailView({
   onClose,
   variant,
 }: ProjectDetailViewProps) {
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: project, isLoading } = useProject(projectId, enabled);
   useAccessoryTitle(project?.name);
   const { data: projectNotes = [] } = useNotes(
@@ -240,6 +242,7 @@ export function ProjectDetailView({
               {
                 <>
                   <EditorControls editor={editor} />
+                  <div ref={setSidebarToggleTarget} className="empty:hidden" />
                   <ActionsMenu
                     type="project"
                     entityId={projectId}
@@ -280,6 +283,7 @@ export function ProjectDetailView({
                 >
                   <fieldset disabled={!editor.editable} className="contents">
                     <EntityResizablePanels
+                      toggleTarget={sidebarToggleTarget}
                       id={`project-${projectId}-panels`}
                       main={
                         <div
@@ -303,6 +307,7 @@ export function ProjectDetailView({
                               onEnter={handleTitleEnter}
                               titleRef={titleFieldRef}
                             />
+                            <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
                             <ProjectDescriptionField
                               form={form}
                               descriptionRef={descriptionFieldRef}

@@ -120,7 +120,7 @@ export function EmailParticipant({
   if (person.data?.person) {
     const target = person.data.person;
     return (
-      <span className="inline-flex flex-wrap items-center gap-1">
+      <span className={includeStudents ? "inline-flex shrink-0 items-center gap-1 [&>button]:shrink-0" : "inline-flex flex-wrap items-center gap-1"}>
       <EntityChip
         entityType={target.type}
         entityId={target.id}

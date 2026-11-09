@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccountClassBadge, Badge, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker, DurationPicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
+import { AccountClassBadge, Badge, EntityChip, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker, DurationPicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -519,13 +519,12 @@ export function SessionDetailsTab({
             classLabel={session.admin_shift_id && !session.class_id ? 'Admin shift:' : undefined}
             classNode={
               session.type === 'CLASS' && classData && session.class_id ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenClass(session.class_id!)}
-                  className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
-                >
-                  {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
-                </button>
+                <EntityChip
+                  entityType="class"
+                  entityId={session.class_id}
+                  label={classData.long_name?.trim() || "Class"}
+                  onClick={() => onOpenClass(classData.id)}
+                />
               ) : session.admin_shift_id && onOpenAdminShift ? (
                 <button
                   type="button"

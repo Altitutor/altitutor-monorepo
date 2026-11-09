@@ -19,7 +19,7 @@ export function WorkItemActivity({ kind, entityId, ...feed }: Props) {
   return (
     <section className="space-y-4" aria-label="Activity">
       <h3 className="text-lg font-semibold">Activity</h3>
-      <ActivityFeed {...feed} chronological />
+      <ActivityFeed {...feed} chronological withToolbar />
       <ActivityNoteComposer {...composer} />
     </section>
   );

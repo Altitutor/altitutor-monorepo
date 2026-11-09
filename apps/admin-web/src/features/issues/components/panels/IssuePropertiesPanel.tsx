@@ -6,6 +6,9 @@ import { Separator, SegmentedTabPanel, SegmentedTabPanelContent } from "@altitut
 import { UseFormReturn } from "react-hook-form";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { IssueActivityTab } from "@/features/issues/components/IssueActivityTab";
+import { IssueDueDateField } from "../fields/IssueDueDateField";
+import { IssuePriorityField } from "../fields/IssuePriorityField";
+import { IssueStatusField } from "../fields/IssueStatusField";
 import { IssueTitleField } from "@/features/issues/components/fields/IssueTitleField";
 import { IssueDescriptionField } from "@/features/issues/components/fields/IssueDescriptionField";
 import type { RichTextEditorRef } from "@altitutor/ui";
@@ -70,16 +73,17 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
         data-rich-text-toolbar-container
       >
         <div className="p-6 space-y-6">
-          {/* Title */}
-          <div className="space-y-4">
-            <IssueTitleField
-              form={form}
-              onEnter={handleTitleEnter}
-              titleRef={titleFieldRef}
-            />
-          </div>
+          <IssueTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
+          {issue && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <IssueStatusField form={form} />
+              <IssuePriorityField form={form} />
+              <IssueDueDateField form={form} />
+            </div>
+          )}
 
           <SegmentedTabPanel
+            className="gap-4"
             value={section}
             onValueChange={(value) => {
               if (value === "overview" || value === "tasks") setSection(value);

@@ -1,16 +1,14 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, TablesUpdate } from "@altitutor/shared";
+import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Pencil, X } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
-import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
 import { useStaffClasses, type StaffClass } from '@/features/staff/hooks/useStaffClasses';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
 import { useStaffWithSubjectsById } from '@/features/staff/hooks/useStaffQuery';
@@ -23,33 +21,10 @@ import { getDayOfWeek } from '@/shared/utils/datetime';
 import { AssignStaffModal } from '@/features/enrollments';
 import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
-type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   staff: Tables<'staff'>;
   onStaffUpdated?: () => void;
-}
-
-type StaffAvailabilityDraft = Pick<
-  TablesUpdate<'staff'>,
-  AvailabilitySlotKey
->;
-
-function availabilityFromStaff(staff: Tables<'staff'>): StaffAvailabilityDraft {
-  return {
-    availability_monday: Boolean(staff.availability_monday),
-    availability_tuesday: Boolean(staff.availability_tuesday),
-    availability_wednesday: Boolean(staff.availability_wednesday),
-    availability_thursday: Boolean(staff.availability_thursday),
-    availability_friday: Boolean(staff.availability_friday),
-    availability_saturday_am: Boolean(staff.availability_saturday_am),
-    availability_saturday_pm: Boolean(staff.availability_saturday_pm),
-    availability_sunday_am: Boolean(staff.availability_sunday_am),
-    availability_sunday_pm: Boolean(staff.availability_sunday_pm),
-    drafting_availability: Boolean(staff.drafting_availability),
-    trial_session_availability: Boolean(staff.trial_session_availability),
-    subsidy_interview_availability: Boolean(staff.subsidy_interview_availability),
-  };
 }
 
 const sortClasses = (classes: StaffClass[]): StaffClass[] => {
@@ -91,18 +66,11 @@ export function ClassesTab({
   const staffSubjects = useMemo(() => (staffWithSubjects?.subjects || []) as Tables<'subjects'>[], [staffWithSubjects?.subjects]);
   
   const [assigningClasses] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [showTimetable, setShowTimetable] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [availability, setAvailability] = useState<StaffAvailabilityDraft>(() => availabilityFromStaff(staff));
   const { data: subjectsListData } = useSubjectsList({ limit: 100, offset: 0 });
   const initialFilteredSubjects = subjectsListData?.subjects ?? [];
 
-  useEffect(() => {
-    if (!isEditMode) {
-      setAvailability(availabilityFromStaff(staff));
-    }
-  }, [staff, isEditMode]);
-  
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
@@ -215,43 +183,6 @@ export function ClassesTab({
     }
   };
 
-  const handleCancelEdit = () => {
-    setAvailability(availabilityFromStaff(staff));
-    setIsEditMode(false);
-  };
-
-  const handleSave = async () => {
-    try {
-      await staffApi.updateStaff(staff.id, {
-        first_name: staff.first_name,
-        last_name: staff.last_name,
-        email: staff.email,
-        phone_number: staff.phone_number,
-        birthday: staff.birthday,
-        role: staff.role,
-        status: staff.status,
-        notes: staff.notes,
-        office_key_number: staff.office_key_number,
-        has_parking_remote: staff.has_parking_remote,
-        ...availability,
-      });
-      await invalidateStaffDetail(queryClient, staff.id);
-      onStaffUpdated?.();
-      setIsEditMode(false);
-      toast({
-        title: 'Success',
-        description: 'Availability updated successfully.',
-      });
-    } catch (error) {
-      console.error('Failed to update availability:', error);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating availability. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const renderClassCard = (staffClass: StaffClass, keyPrefix = '') => {
     const students = allClassesWithDetailsData?.classStudents?.[staffClass.class.id] || [];
     return (
@@ -320,33 +251,17 @@ export function ClassesTab({
 
   return (
     <>
-      <div className="flex-1 h-full min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="min-h-0 min-w-0">
           <div className="space-y-5 mb-6">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold">Availability</h3>
-                {!isEditMode && (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                )}
-              </div>
-              <AvailabilityFields
-                isEditing={isEditMode}
-                getValue={(key) => Boolean(
-                  isEditMode ? availability[key] : staff[key]
-                )}
-                onCheckedChange={(key, checked) => {
-                  setAvailability((current) => ({ ...current, [key]: checked }));
-                }}
-                showSessionTypes
-              />
-            </div>
-            <Separator />
             <div className="space-y-2">
-              <h3 className="text-base font-medium">Subjects</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-medium">Subjects</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(!isEditMode)}>
+                  {!isEditMode && <Pencil className="mr-2 h-4 w-4" />}
+                  {isEditMode ? 'Done' : 'Edit subjects'}
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {staffSubjects.length > 0 ? (
                   staffSubjects.map((subject) => {
@@ -395,14 +310,16 @@ export function ClassesTab({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <SegmentedControl
-                value={viewMode}
-                onValueChange={(v) => setViewMode(v as ViewMode)}
-                options={[
-                  { value: 'table', label: 'Table' },
-                  { value: 'calendar', label: 'Calendar' },
-                ]}
-              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={showTimetable}
+                onClick={() => setShowTimetable((visible) => !visible)}
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                Class timetable
+              </Button>
               {currentStaff && (
                 <Button
                   variant="outline"
@@ -417,7 +334,7 @@ export function ClassesTab({
             </div>
           </div>
 
-          {viewMode === 'table' ? (
+          {!showTimetable ? (
                 <div className="space-y-6 pb-6">
                   {Array.from(assigningClasses).map((classId) => {
                     const classData = allClasses.find((c) => c.class.id === classId);
@@ -452,21 +369,6 @@ export function ClassesTab({
               </div>
             )}
         </div>
-
-        {isEditMode && (
-          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
-              <div className="flex space-x-2">
-                <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                  Cancel
-                </Button>
-                <Button variant="default" onClick={() => void handleSave()}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {selectedClassId && (
           <ViewClassModal

@@ -426,8 +426,6 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
-                defaultShowActivity={false}
-                defaultShowEmail={false}
                 renderHeader={tabScope ? renderConversationHeader : undefined}
                 isSearching={isSearching}
                 searchTerm={searchTerm}
@@ -437,6 +435,7 @@ export function MessagesView() {
             ) : activeContactId || activeGroup ? (
               <>
                 <MessageThread
+                  activityMessageType={tabScope ? (activeGroup ? "group" : linkedEntity?.type ?? "other") : undefined}
                   referenceFocus={searchParams.get("focus")}
                   targetMessageId={targetMessageId}
                   contactId={activeContactId}

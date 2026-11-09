@@ -1,11 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, TablesUpdate, ClassWithExpandedSubject } from "@altitutor/shared";
+import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Separator } from "@altitutor/ui";
-import { Input, Label, Switch } from "@altitutor/ui";
+import { Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import {
   AlertDialog,
@@ -17,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal, CalendarView } from '@/features/classes';
@@ -28,8 +26,6 @@ import { useStudentClasses, type StudentClass } from '@/features/students/hooks/
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getErrorMessage, getSubjectColorStyle } from '@/shared/utils';
-import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
-import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import {
   invalidateStudentClassSurfaces,
@@ -40,7 +36,6 @@ import {
   groupStudentClassesBySubject,
   isScheduledClassEnrolment,
 } from '@/features/students/utils/classEnrollments';
-type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -63,24 +58,9 @@ export function ClassesTab({
   const studentSubjects = useMemo(() => studentWithSubjects?.subjects || [], [studentWithSubjects?.subjects]);
   const classes = useMemo(() => classesData, [classesData]);
   
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [showTimetable, setShowTimetable] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
-  const [inPersonDetails, setInPersonDetails] = useState<TablesUpdate<'students'>>({
-    school: student.school,
-    curriculum: student.curriculum,
-    year_level: student.year_level,
-    availability_monday: student.availability_monday,
-    availability_tuesday: student.availability_tuesday,
-    availability_wednesday: student.availability_wednesday,
-    availability_thursday: student.availability_thursday,
-    availability_friday: student.availability_friday,
-    availability_saturday_am: student.availability_saturday_am,
-    availability_saturday_pm: student.availability_saturday_pm,
-    availability_sunday_am: student.availability_sunday_am,
-    availability_sunday_pm: student.availability_sunday_pm,
-  });
-  
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -407,41 +387,6 @@ export function ClassesTab({
     }
   };
 
-  const handleCancelEdit = () => {
-    setInPersonDetails({
-      school: student.school,
-      curriculum: student.curriculum,
-      year_level: student.year_level,
-      availability_monday: student.availability_monday,
-      availability_tuesday: student.availability_tuesday,
-      availability_wednesday: student.availability_wednesday,
-      availability_thursday: student.availability_thursday,
-      availability_friday: student.availability_friday,
-      availability_saturday_am: student.availability_saturday_am,
-      availability_saturday_pm: student.availability_saturday_pm,
-      availability_sunday_am: student.availability_sunday_am,
-      availability_sunday_pm: student.availability_sunday_pm,
-    });
-    setIsEditMode(false);
-  };
-
-  const handleSave = async () => {
-    try {
-      await studentsApi.updateStudent(student.id, inPersonDetails);
-      await invalidateStudentDetail(queryClient, student.id);
-      onStudentUpdated?.();
-      setIsEditMode(false);
-      toast({ title: 'Success', description: 'In-person details updated successfully.' });
-    } catch (error) {
-      console.error('Failed to update in-person details:', error);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the in-person details. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
@@ -491,61 +436,16 @@ export function ClassesTab({
 
   return (
     <>
-      <div className="flex-1 h-full min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="space-y-5 mb-6">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-base font-medium">Details</h3>
-              {!isEditMode && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} disabled={!!student.deleted_at}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-            </div>
-            <PropertyForm>
-              <PropertyFormRow label="School" htmlFor={isEditMode ? 'in-person-school' : undefined}>
-                {isEditMode ? (
-                  <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
-                ) : <div>{student.school || '—'}</div>}
-              </PropertyFormRow>
-              <PropertyFormRow label="Curriculum" htmlFor={isEditMode ? 'in-person-curriculum' : undefined}>
-                {isEditMode ? (
-                  <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
-                    <option value="">Not set</option>
-                    {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                ) : <div>{student.curriculum || '—'}</div>}
-              </PropertyFormRow>
-              <PropertyFormRow label="Year level" htmlFor={isEditMode ? 'in-person-year-level' : undefined}>
-                {isEditMode ? (
-                  <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
-                ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
-              </PropertyFormRow>
-            </PropertyForm>
-          </div>
-          <Separator />
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Availability</h3>
-            <AvailabilityFields
-              isEditing={isEditMode}
-              getValue={(key) => Boolean(
-                isEditMode
-                  ? inPersonDetails[key as keyof TablesUpdate<'students'>]
-                  : student[key as keyof Tables<'students'>]
-              )}
-              onCheckedChange={(key: AvailabilitySlotKey, checked) => {
-                setInPersonDetails((current) => ({ ...current, [key]: checked }));
-              }}
-            />
-          </div>
-          <Separator />
-        </div>
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="min-h-0 min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-base font-medium">Classes</h3>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => setIsEditMode(!isEditMode)} disabled={!!student.deleted_at}>
+              {!isEditMode && <Pencil className="mr-2 h-4 w-4" />}
+              {isEditMode ? 'Done' : 'Edit subjects'}
+            </Button>
             <div className="flex items-center gap-2">
               <Switch
                 id="show-previous-enrollments"
@@ -556,18 +456,20 @@ export function ClassesTab({
                 Show previous enrollments
               </Label>
             </div>
-            <SegmentedControl
-              value={viewMode}
-              onValueChange={(v) => setViewMode(v as ViewMode)}
-              options={[
-                { value: 'table', label: 'Table' },
-                { value: 'calendar', label: 'Calendar' },
-              ]}
-            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-pressed={showTimetable}
+              onClick={() => setShowTimetable((visible) => !visible)}
+            >
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Class timetable
+            </Button>
           </div>
         </div>
 
-        {viewMode === 'table' ? (
+        {!showTimetable ? (
               <div className="space-y-4 pb-6">
                 {classesBySubject.map((group) => {
                   if (group.subjectId === '__no_subject__') {
@@ -708,21 +610,6 @@ export function ClassesTab({
           )}
         </div>
 
-        {isEditMode && (
-          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
-              <div className="flex space-x-2">
-                <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                  Cancel
-                </Button>
-                <Button variant="default" onClick={() => void handleSave()}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      
         {/* Class Modal */}
         {selectedClassId && (
           <ViewClassModal

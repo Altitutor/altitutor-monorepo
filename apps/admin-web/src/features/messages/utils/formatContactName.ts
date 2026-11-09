@@ -17,11 +17,7 @@ export function formatContactName(conversation: ConversationWithRelations | { co
     case 'PARENT': {
       const parent = contact.parents;
       if (parent) {
-        const studentNames = (parent.parents_students ?? [])
-          .map(({ students }) => students ? `${students.first_name} ${students.last_name}`.trim() : '')
-          .filter(Boolean)
-          .join(', ');
-        return `${parent.first_name} ${parent.last_name}${studentNames ? ` (parent of ${studentNames})` : ''}`.trim();
+        return `${parent.first_name} ${parent.last_name}`.trim();
       }
       return messagingHandle(contact) ?? 'Unknown';
     }
