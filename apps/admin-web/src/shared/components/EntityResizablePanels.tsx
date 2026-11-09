@@ -14,6 +14,7 @@ interface EntityResizablePanelsProps {
   primaryMinSize?: number;
   secondaryMinSize?: number;
   inDialog?: boolean;
+  toggleInTitle?: boolean;
 }
 
 export function EntityResizablePanels({
@@ -23,17 +24,19 @@ export function EntityResizablePanels({
   primaryMinSize,
   secondaryMinSize,
   inDialog = false,
+  toggleInTitle = false,
 }: EntityResizablePanelsProps) {
   return (
     <EntityPropertiesLayout
       id={`${id}-properties-sidebar`}
       sidebar={sidebar}
       resizable
+      collapsible={toggleInTitle}
       narrowAt={inDialog ? 768 : undefined}
       primaryMinSize={primaryMinSize}
       secondaryMinSize={secondaryMinSize}
     >
-      {inDialog ? (
+      {toggleInTitle ? main : inDialog ? (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex shrink-0 justify-end px-3 pt-3 empty:hidden">
             <EntityPropertiesToggle />

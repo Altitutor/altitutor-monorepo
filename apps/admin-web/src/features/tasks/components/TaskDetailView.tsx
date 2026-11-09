@@ -262,6 +262,7 @@ export function TaskDetailView({
                   >
                     <fieldset disabled={!editor.editable} className="contents">
                       <EntityResizablePanels
+                        toggleInTitle
                         id={`task-${taskId}-panels`}
                         main={
                           <TaskContentPanel

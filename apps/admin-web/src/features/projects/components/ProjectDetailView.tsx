@@ -43,6 +43,8 @@ import { useProject } from "../api/queries";
 import type { ProjectFormData } from "../types";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
 import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
+import { EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
+import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { useNotes } from "@/features/notes/api/queries";
@@ -280,6 +282,7 @@ export function ProjectDetailView({
                 >
                   <fieldset disabled={!editor.editable} className="contents">
                     <EntityResizablePanels
+                      toggleInTitle
                       id={`project-${projectId}-panels`}
                       main={
                         <div
@@ -298,11 +301,17 @@ export function ProjectDetailView({
                             ]}
                           >
                             <SegmentedTabPanelContent when="overview" activeTab={section} className="space-y-6">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="min-w-0 flex-1">
                             <ProjectTitleField
                               form={form}
                               onEnter={handleTitleEnter}
                               titleRef={titleFieldRef}
                             />
+                              </div>
+                              <EntityPropertiesToggle />
+                            </div>
+                            <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
                             <ProjectDescriptionField
                               form={form}
                               descriptionRef={descriptionFieldRef}

@@ -80,6 +80,8 @@ interface Props {
     messages: ThreadMessage[];
     entries: ThreadFeedEntry[];
     hasMore: boolean;
+    emptyLabel?: string;
+    loadMoreLabel?: string;
     loadMore: () => void;
     showConversationLabels?: boolean;
     labelForConversation?: (id: string) => string | undefined;
@@ -972,11 +974,11 @@ export function MessageThread({
             className="text-xs text-blue-600 hover:underline mb-2 py-2"
             onClick={() => fetchNextPage()}
           >
-            Load older messages
+            {feed?.loadMoreLabel ?? "Load older messages"}
           </button>
         )}
         {renderedMessages.length === 0 && !isSearching ? (
-          <div className="text-xs text-muted-foreground">No messages yet.</div>
+          <div className="text-xs text-muted-foreground">{feed?.emptyLabel ?? "No messages yet."}</div>
         ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">
             No messages found.

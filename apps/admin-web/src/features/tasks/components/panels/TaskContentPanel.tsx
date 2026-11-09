@@ -4,6 +4,8 @@ import { Separator } from "@altitutor/ui";
 import { UseFormReturn } from "react-hook-form";
 import { useCallback, useRef, useEffect } from "react";
 import { TaskTitleField, TaskDescriptionField } from "../fields";
+import { TaskPropertyPills } from "../fields/TaskPropertyPills";
+import { EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
 import { TaskActivityTab } from "@/features/activity/components/tabs/TaskActivityTab";
 import type { RichTextEditorRef } from "@altitutor/ui";
 import type { TaskFormData, TaskStatus } from "../../types";
@@ -35,10 +37,10 @@ export function TaskContentPanel({
   notes,
   isOpen,
   showActivity = true,
-  selectedAssignee: _selectedAssignee,
-  onAssigneeChange: _onAssigneeChange,
-  taskStatus: _taskStatus,
-  enabled: _enabled = true,
+  selectedAssignee,
+  onAssigneeChange,
+  taskStatus,
+  enabled = true,
   autoFocusTitle = false,
   descriptionRef: descriptionRefProp,
 }: TaskContentPanelProps) {
@@ -102,14 +104,21 @@ export function TaskContentPanel({
         className="h-full min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6"
         data-rich-text-toolbar-container
       >
-        {/* Title */}
-        <div className="space-y-2">
-          <TaskTitleField
-            form={form}
-            onEnter={handleTitleEnter}
-            titleRef={titleFieldRef}
-          />
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <TaskTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
+          </div>
+          {taskId && <EntityPropertiesToggle />}
         </div>
+        {taskId && onAssigneeChange && (
+          <TaskPropertyPills
+            form={form}
+            selectedAssignee={selectedAssignee ?? null}
+            onAssigneeChange={onAssigneeChange}
+            taskStatus={taskStatus}
+            enabled={enabled}
+          />
+        )}
 
         {/* Description */}
         <div className="space-y-2">

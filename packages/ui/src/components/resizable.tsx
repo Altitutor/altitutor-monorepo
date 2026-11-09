@@ -70,6 +70,7 @@ interface ResponsiveResizablePanelsProps {
   id: string
   primary: React.ReactNode
   secondary: React.ReactNode
+  secondaryHidden?: boolean
   mobilePanel?: "primary" | "secondary"
   breakpoint?: keyof typeof BREAKPOINT_QUERIES
   stackOnNarrow?: boolean
@@ -86,6 +87,7 @@ function ResponsiveResizablePanels({
   id,
   primary,
   secondary,
+  secondaryHidden = false,
   mobilePanel = "primary",
   breakpoint = "md",
   stackOnNarrow = false,
@@ -135,15 +137,15 @@ function ResponsiveResizablePanels({
       <ResizableHandle
         id={`${id}-handle`}
         aria-label={handleLabel}
-        disabled={stacked}
-        className={stacked ? "hidden" : undefined}
+        disabled={stacked || secondaryHidden}
+        className={stacked || secondaryHidden ? "hidden" : undefined}
       />
       <ResizablePanel
         id={`${id}-secondary`}
         defaultSize={secondaryDefaultSize}
         minSize={stacked ? 0 : secondaryMinSize}
         maxSize={stacked ? undefined : secondaryMaxSize}
-        className={cn("min-w-0", stackedPanel)}
+        className={cn("min-w-0", stackedPanel, secondaryHidden && "hidden")}
       >
         {secondary}
       </ResizablePanel>

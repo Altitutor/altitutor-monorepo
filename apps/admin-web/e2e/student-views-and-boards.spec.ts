@@ -95,7 +95,7 @@ test('Student properties and onboarding stay in the responsive sidebar', async (
   const properties = page.getByRole('complementary', { name: 'Properties', exact: true });
   const sidebar = page.getByRole('complementary', { name: 'Student onboarding', exact: true });
   await expect(properties).toBeVisible();
-  await expect(properties.locator('span').filter({ hasText: /^Account$/ })).toBeVisible();
+  await expect(properties.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
   await expect(sidebar).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Next actions' })).toBeVisible();
   await expect(sidebar.getByRole('heading', { name: 'Milestones' })).toBeVisible();
@@ -261,7 +261,7 @@ test('date and priority pills share their surface in board and detail views', as
     await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
   }
   await expect(dueDate).toBeVisible();
-  await expect(detail.getByRole('button', { name: 'Urgent', exact: true })).toBeVisible();
+  await expect(detail.getByRole('button', { name: 'Urgent', exact: true }).first()).toBeVisible();
 });
 
 test('Messages accessory breadcrumb returns to the primary Messages collection', async ({ page }) => {

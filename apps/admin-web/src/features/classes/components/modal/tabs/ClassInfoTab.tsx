@@ -212,7 +212,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
 
   if (isEditing) {
     return (
-      <form id="class-edit-form" className="space-y-6" onSubmit={(event) => { event.preventDefault(); void (plan ? apply() : preview()); }}>
+      <form id="class-edit-form" className="flex min-h-0 flex-1 flex-col gap-6" onSubmit={(event) => { event.preventDefault(); void (plan ? apply() : preview()); }}>
         {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
         {busy && rows.length === 0 ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? <>
           <PropertyForm className="items-center">
@@ -269,7 +269,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
           {plan.removals.length > 0 && <div className="max-h-64 divide-y overflow-y-auto rounded-md border">{plan.removals.map((removal) => <div key={removal.session_id} className="flex justify-between p-3 text-sm"><span>{new Date(removal.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })}</span><span>{removal.action.toLowerCase()}</span></div>)}</div>}
           <Button type="button" variant="outline" disabled={busy} onClick={() => { setPlan(null); setProposal(null); }}>Back to editing</Button>
         </div>}
-        <div className="flex justify-end gap-2 border-t pt-4">
+        <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex shrink-0 justify-end gap-2 border-t bg-background px-4 py-4">
           <Button type="button" variant="outline" disabled={busy} onClick={onCancelEdit}>Cancel</Button>
           <Button type="submit" disabled={busy || rows.length === 0}>
             {(previewMutation.isPending || applyMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -426,8 +426,6 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
-                defaultShowActivity={false}
-                defaultShowEmail={false}
                 renderHeader={tabScope ? renderConversationHeader : undefined}
                 isSearching={isSearching}
                 searchTerm={searchTerm}

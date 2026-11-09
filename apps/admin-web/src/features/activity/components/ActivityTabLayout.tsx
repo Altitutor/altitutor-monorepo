@@ -55,6 +55,7 @@ export function ActivityTabLayout({
       ) : null}
 
       <ActivityFeed
+        withToolbar
         data={data}
         isLoading={isLoading}
         error={error}

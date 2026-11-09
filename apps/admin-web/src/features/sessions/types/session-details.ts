@@ -12,6 +12,7 @@ export type SessionDetailsClass = Pick<
   Tables<'classes'>,
   'id' | 'day_of_week' | 'start_time' | 'end_time'
 > & {
+  long_name?: Tables<'classes'>['long_name'];
   subject?: SessionDetailsSubject | null;
 };
 

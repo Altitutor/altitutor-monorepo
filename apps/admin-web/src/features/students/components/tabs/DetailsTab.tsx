@@ -1,4 +1,5 @@
 import { EmailInput } from '@/shared/components/EmailInput';
+import { EntityChip } from "@altitutor/ui";
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -189,30 +190,27 @@ export function DetailsTab({
               <Label>Parents</Label>
               <div className="space-y-2 mt-2">
                 {parents.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                     {parents.map((parent) => (
-                      <div key={parent.id} className="flex items-center gap-1">
-                        <Badge
-                          variant="outline"
-                          className="cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1"
+                      <div key={parent.id} className="flex min-w-0 items-center gap-1">
+                        <EntityChip
+                          entityType="parent"
+                          entityId={parent.id}
+                          label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() || "Parent"}
                           onClick={() => onViewParent?.(parent.id)}
-                        >
-                          <span>
-                            {parent.first_name} {parent.last_name}
-                          </span>
-                          {onRemoveParent && (
-                            <button
-                              type="button"
-                              className="remove-parent-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveParent(parent.id);
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </Badge>
+                        />
+                        {onRemoveParent && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            aria-label={`Remove ${parent.first_name} ${parent.last_name}`}
+                            onClick={() => onRemoveParent(parent.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>

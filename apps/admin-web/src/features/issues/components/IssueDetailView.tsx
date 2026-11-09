@@ -72,6 +72,7 @@ function IssueLiveTagsPanels({
 
   return (
     <EntityResizablePanels
+      toggleInTitle
       id={`issue-${issue.id}-panels`}
       main={
         <IssuePropertiesPanel

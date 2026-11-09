@@ -22,7 +22,7 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
 
       </div>
 
-      <div className="h-[32rem] min-h-0 overflow-hidden rounded-md border bg-background">
+      <div className="h-[32rem] min-h-0 overflow-hidden">
         <TasksList layout={view} issueId={issueId} projectId={projectId} compact showIssuePill={!issueId} showProjectPill={!projectId} showLinkPill={false} noPadding />
       </div>
     </div>

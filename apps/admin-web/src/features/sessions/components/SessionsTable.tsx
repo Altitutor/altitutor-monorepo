@@ -27,7 +27,6 @@ import { cn, formatSessionType } from "@/shared/utils/index";
 import { ViewClassModal } from "@/features/classes";
 import { useCurrentStaff } from "@/shared/hooks";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
-import { useRouter } from "next/navigation";
 import { useAdminUrlSync } from "@/shared/hooks/useAdminUrlSync";
 import { useInterviewRoundEvents } from "../hooks/useInterviewRoundEvents";
 import {
@@ -189,7 +188,6 @@ export function SessionsTable({
   const isStudentAttendanceView = attendanceView === "student";
   const isStaffAttendanceView = attendanceView === "staff";
   useAdminUrlSync();
-  const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: savedViews = [] } = useQuickFilters("sessions");
   const [selectedRound, setSelectedRound] =
@@ -901,7 +899,6 @@ export function SessionsTable({
                           onSessionClick={handleSessionClick}
                           onClassClick={handleClassClick}
                           onCopySessionId={handleCopySessionId}
-                          router={router}
                           uninvoicedSessionsStudentsIds={
                             uninvoicedSessionsStudentsIds
                           }

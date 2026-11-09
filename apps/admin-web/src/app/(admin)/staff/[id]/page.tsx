@@ -1,5 +1,6 @@
 'use client';
 import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
+import { StaffAvailabilityDetails } from '@/features/staff/components/modal/tabs/StaffAvailabilityDetails';
 import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
@@ -110,7 +111,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   });
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'activity', 'tab');
+  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'activity', 'tab');
+  const activeTab = requestedTab === 'classes' ? 'sessions' : requestedTab;
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
@@ -177,11 +179,8 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
 
   return (
     <EntityPropertiesLayout id="staff-properties-sidebar" sidebar={<>
-      <div className="border-b p-4 text-sm">
-        <div className="font-medium">Properties</div>
-        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{staffMember.user_id ? 'Has account' : 'No account'}</span></div>
-      </div>
-      <div className="p-4" ref={sidebarForm}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <StaffDetailsTab
           hideAccount
           staffMember={staffMember}
@@ -195,7 +194,15 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           onViewSubject={entityModals.openSubject}
           addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
         />
-        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
+        {!editFlow.isEditing && <StaffAvailabilityDetails staff={staffMember} />}
+        {!editFlow.isEditing && (
+          <section className="space-y-2 border-t pt-4" aria-label="Account">
+            <h3 className="text-base font-medium">Account</h3>
+            <p className="text-sm text-muted-foreground">{staffMember.user_id ? 'Has account' : 'No account'}</p>
+          </section>
+        )}
+        </div>
+        {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
       </div>
 </>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
@@ -226,7 +233,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           { value: 'activity', label: 'Activity' },
           { value: 'pay-tier', label: 'Pay tier' },
           { value: 'website', label: 'Website' },
-          { value: 'classes', label: 'Classes' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
         ]}
@@ -235,17 +241,16 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           <StaffWebsiteProfile key={staffMember.id} staffId={staffMember.id} active={staffMember.status === 'ACTIVE'} />
         </SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="pay-tier" activeTab={activeTab} className="space-y-6"><StaffPayTierTab staffId={id} staffFirstName={staffMember.first_name} staffLastName={staffMember.last_name} onOpenSession={entityModals.openSession} /></SegmentedTabPanelContent>
-        <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
+        <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           <ClassesTab
             staff={staffMember}
             onStaffUpdated={handleStaffUpdated}
           />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
+          <div className="border-t pt-6">
           {staffMember && (
             <StaffSessionsTab staff={staffMember} />
           )}
+          </div>
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="files" activeTab={activeTab} className="space-y-6">

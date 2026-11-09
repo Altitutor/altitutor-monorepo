@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { ActivityFeedToolbar } from "./ActivityFeedToolbar";
+import { matchesActivityItem, type ActivityFilters } from "../lib/activityFeedFilters";
 import { ActivityItem } from "./ActivityItem";
 import { mapActivityEventsToDisplay } from "../mappers";
 import type { CommunicationTimeSort } from "../lib/entityCommunication";
@@ -28,6 +30,7 @@ interface ActivityFeedProps {
   notes?: ActivityNote[];
   chronological?: boolean;
   timeBasis?: CommunicationTimeSort;
+  withToolbar?: boolean;
 }
 
 export function ActivityFeed({
@@ -42,19 +45,40 @@ export function ActivityFeed({
   notes,
   chronological = false,
   timeBasis = "logged",
+  withToolbar = false,
 }: ActivityFeedProps) {
   const queryClient = useQueryClient();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
   const setNoteAlert = useSetNoteAlert();
   const { toast } = useToast();
+  const [filters, setFilters] = useState<ActivityFilters>({});
+  const [search, setSearch] = useState("");
+  const [basis, setBasis] = useState(timeBasis);
+  const [direction, setDirection] = useState<"asc" | "desc">(chronological ? "asc" : "desc");
+  const isChronological = withToolbar ? direction === "asc" : chronological;
+  const activeBasis = withToolbar ? basis : timeBasis;
   const activities = useMemo(() => {
     if (!data && !notes) return [];
     return mapActivityEventsToDisplay(
       data ?? { events: [], relatedEntities: {}, total: 0, hasMore: false },
-      { chronological, timeBasis, notes },
-    );
-  }, [data, chronological, timeBasis, notes]);
+      { chronological: isChronological, timeBasis: activeBasis, notes },
+    ).filter((item) => !withToolbar || matchesActivityItem(item, filters, search));
+  }, [data, isChronological, activeBasis, notes, withToolbar, filters, search]);
+
+  const toolbar = withToolbar && (
+    <ActivityFeedToolbar
+      className="mb-4"
+      filters={filters}
+      onFiltersChange={setFilters}
+      search={search}
+      onSearchChange={setSearch}
+      timeBasis={basis}
+      onTimeBasisChange={setBasis}
+      direction={direction}
+      onDirectionChange={setDirection}
+    />
+  );
 
   const refreshActivity = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: activityKeys.all });
@@ -119,6 +143,7 @@ export function ActivityFeed({
   if (isLoading) {
     return (
       <div className={cn("space-y-3", className)}>
+        {toolbar}
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="flex gap-3">
             <Skeleton className="h-5 w-5 rounded-full" />
@@ -134,23 +159,17 @@ export function ActivityFeed({
   if (error) {
     return (
       <div className={cn("py-8 text-center text-muted-foreground", className)}>
+        {toolbar}
         <p>Failed to load activity feed</p>
         <p className="mt-1 text-xs">{error.message}</p>
       </div>
     );
   }
 
-  if (activities.length === 0) {
-    return (
-      <div className={cn("py-8 text-center text-muted-foreground", className)}>
-        <p>No activity yet</p>
-      </div>
-    );
-  }
-
   return (
     <div className={cn("space-y-0", className)}>
-      {chronological && hasNextPage && onLoadMore ? (
+      {toolbar}
+      {isChronological && hasNextPage && onLoadMore ? (
         <div className="flex justify-center pb-3">
           <Button
             variant="outline"
@@ -162,6 +181,13 @@ export function ActivityFeed({
           </Button>
         </div>
       ) : null}
+      {activities.length === 0 && (
+        <p className="py-8 text-center text-muted-foreground">
+          {search.trim() || Object.values(filters).some((values) => values.length)
+            ? "No matching activity in the loaded history"
+            : "No activity yet"}
+        </p>
+      )}
       {activities.map((activity) => (
         <ActivityItem
           key={activity.id}
@@ -176,7 +202,7 @@ export function ActivityFeed({
         />
       ))}
 
-      {!chronological && hasNextPage && onLoadMore ? (
+      {!isChronological && hasNextPage && onLoadMore ? (
         <div className="flex justify-center pt-2">
           <Button
             type="button"

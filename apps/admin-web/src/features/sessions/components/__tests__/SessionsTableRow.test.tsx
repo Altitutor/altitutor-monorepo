@@ -131,9 +131,6 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
     onSessionClick: () => {},
     onClassClick: () => {},
     onCopySessionId: () => Promise.resolve(),
-    router: {
-      push: () => {},
-    },
     uninvoicedSessionsStudentsIds: undefined,
   };
 

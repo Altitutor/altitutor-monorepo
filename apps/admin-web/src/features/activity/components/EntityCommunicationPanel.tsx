@@ -7,11 +7,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { ArrowUpDown, Check, ChevronDown, MessageSquare } from "lucide-react";
+import { Check, ChevronDown, MessageSquare } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { useChildrenActivity } from "../hooks/useChildrenActivity";
 import { CommunicationSourceFilter } from "./CommunicationSourceFilter";
@@ -23,6 +21,9 @@ import {
   type ThreadFeedEntry,
 } from "@/features/messages/components/MessageThread";
 import { ActivityFeed } from "./ActivityFeed";
+import { ActivityFeedToolbar, messageActivityFilters } from "./ActivityFeedToolbar";
+import { matchesActivityFilters, matchesActivityItem, type ActivityFilters } from "../lib/activityFeedFilters";
+import { mapActivityEventsToDisplay } from "../mappers";
 import { FormResponsePicker } from "@/features/forms/components/FormResponsePicker";
 import { ComposeModeControl, type ComposeMode } from "./ComposeModeControl";
 import { NoteComposerWithTemplate } from "@/shared/components/NoteComposerWithTemplate";
@@ -54,10 +55,8 @@ import {
   communicationContactDetail,
   communicationFilterOptions,
   contactSourceId,
-  defaultCommunicationSources,
   defaultRecipientId,
   groupConversationSourceId,
-  messageSourceId,
   sourcesAfterRecipientChange,
   type CommunicationEntityType,
   type CommunicationTimeSort,
@@ -72,13 +71,15 @@ interface EntityCommunicationPanelProps {
   initialContactId?: string;
   initialDestinationAddress?: string;
   initialSenderId?: string;
-  defaultShowActivity?: boolean;
-  defaultShowEmail?: boolean;
   isSearching?: boolean;
   searchTerm?: string;
   onSearchTermChange?: (value: string) => void;
   onExitSearch?: () => void;
   renderHeader?: (filterControl: ReactNode) => ReactNode;
+}
+
+function emailAddress(value: string) {
+  return (value.match(/<([^>]+)>$/)?.[1] ?? value).trim().toLowerCase();
 }
 
 function activityQueryKey(
@@ -108,8 +109,6 @@ function EntityCommunicationContent({
   initialContactId,
   initialDestinationAddress,
   initialSenderId,
-  defaultShowActivity = true,
-  defaultShowEmail = true,
   isSearching,
   searchTerm,
   onSearchTermChange,
@@ -122,6 +121,8 @@ function EntityCommunicationContent({
   );
   const [mode, setMode] = useState<ComposeMode | "form">("message");
   const [timeSort, setTimeSort] = useState<CommunicationTimeSort>("logged");
+  const [filters, setFilters] = useState<ActivityFilters>(initialContactId ? messageActivityFilters : {});
+  const [feedSearch, setFeedSearch] = useState("");
   const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const [destination, setDestination] = useState<string | null>(null);
   const context = useEntityCommunicationContext(entityType, entityId, enabled);
@@ -133,30 +134,39 @@ function EntityCommunicationContent({
     () => context.data?.conversations ?? [],
     [context.data?.conversations],
   );
-  const messages = useEntityCommunicationMessages(conversations, enabled);
-  const messageSources = initialContactId
-    ? [
-        ...(defaultShowActivity ? [ACTIVITY_SOURCE_ID] : []),
-        ...messageConversationSources(initialContactId),
-      ]
-    : defaultCommunicationSources({ entityType, contacts }).filter(
-        (source) => defaultShowActivity || source !== ACTIVITY_SOURCE_ID,
-      );
-  const defaultSources = [
-    ...(defaultShowEmail ? [EMAIL_SOURCE_ID] : []),
-    ...messageSources,
-  ];
+  const messageOnly = filters.scope?.includes("direct");
+  const directSources = initialContactId
+    ? messageConversationSources(initialContactId)
+    : contacts.filter((contact) => contact.kind === entityType).map((contact) => contactSourceId(contact.id));
+  const defaultSources = messageOnly
+    ? directSources
+    : [
+        ACTIVITY_SOURCE_ID,
+        EMAIL_SOURCE_ID,
+        ...contacts.map((contact) => contactSourceId(contact.id)),
+        ...conversations.filter((conversation) => conversation.is_group_chat)
+          .map((conversation) => groupConversationSourceId(conversation.id)),
+      ];
+  const allowType = (prefix: string) =>
+    !filters.type?.length || filters.type.some((value) => typeof value === "string" && value.startsWith(prefix));
   const sources = sourceOverride ?? defaultSources;
-  const emails = useEntityEmails(
-    entityType,
-    entityId,
-    enabled && sources.includes(EMAIL_SOURCE_ID),
+  const messageConversations = conversations.filter((conversation) =>
+    sources.includes(conversation.is_group_chat
+      ? groupConversationSourceId(conversation.id)
+      : contactSourceId(conversation.contact_id ?? "")),
   );
+  const showMessages = allowType("message:") && messageConversations.length > 0;
+  const showEmails = sources.includes(EMAIL_SOURCE_ID) && allowType("email:");
+  const messages = useEntityCommunicationMessages(messageConversations, enabled && showMessages);
+  const emails = useEntityEmails(entityType, entityId, enabled && showEmails);
   const showActivity = hasActivitySource(sources);
-  const showOwnActivity = sources.includes(ACTIVITY_SOURCE_ID);
+  const wantsActivity = !filters.type?.length || filters.type.some((value) =>
+    typeof value === "string" && !value.startsWith("message:") && !value.startsWith("email:"),
+  );
+  const showOwnActivity = wantsActivity && sources.includes(ACTIVITY_SOURCE_ID);
   const childrenActivity = useChildrenActivity(
     context.data?.children ?? [],
-    sources,
+    wantsActivity ? sources : [],
     enabled,
   );
   const studentActivity = useStudentActivity(
@@ -245,26 +255,33 @@ function EntityCommunicationContent({
     usePersistedConversationDraft(draftKey);
 
   function sourceFor(conversationId: string) {
-    const conversation = conversations.find(
+    const conversation = messageConversations.find(
       (item) => item.id === conversationId,
     );
-    if (!conversation) return entityType;
-    return messageSourceId({
-      conversation: {
-        id: conversation.id,
-        contactId: conversation.contact_id,
-        isGroup: conversation.is_group_chat,
-      },
-      contact:
-        contacts.find((item) => item.id === conversation.contact_id) ?? null,
-    });
+    if (!conversation) return null;
+    const person = contacts.find((item) => item.id === conversation.contact_id);
+    return {
+      category: `message:${conversation.is_group_chat ? "group" : person?.kind ?? entityType}`,
+      label: person?.label ?? conversation.group_chat_name ?? "",
+    };
   }
 
   const visible = (
     messages.data?.pages.flatMap((page) => page.items) ?? []
-  ).filter((message) => sources.includes(sourceFor(message.conversation_id)));
+  ).filter((message) => {
+    const source = sourceFor(message.conversation_id);
+    return source && matchesActivityFilters(
+      filters, feedSearch, source.category, message.created_at ?? "",
+      `${source.label} ${message.body}`,
+    );
+  });
   const ownEntries: ThreadFeedEntry[] = showOwnActivity
-    ? (activity.data?.events ?? []).map((event) => ({
+    ? (activity.data?.events ?? []).filter((event) => {
+        const item = mapActivityEventsToDisplay(
+          { ...activity.data!, events: [event] }, { timeBasis: timeSort },
+        )[0];
+        return item && matchesActivityItem(item, filters, feedSearch);
+      }).map((event) => ({
         id: `event:${event.id}`,
         at: communicationActivityAt(event, timeSort),
         content: (
@@ -280,17 +297,36 @@ function EntityCommunicationContent({
 
   const seenEvents = new Set(ownEntries.map((entry) => entry.id));
   const entries: ThreadFeedEntry[] = [...ownEntries];
-  if (sources.includes(EMAIL_SOURCE_ID))
-    for (const email of emails.data?.pages.flatMap((page) => page.items) ?? [])
+  if (showEmails) {
+    for (const email of emails.data?.pages.flatMap((page) => page.items) ?? []) {
+      const participants = [email.sender, ...email.to, ...email.cc, ...email.bcc];
+      const addresses = new Set(participants.map(emailAddress));
+      const categories = new Set(
+        contacts
+          .filter((contact) => contact.email && addresses.has(emailAddress(contact.email)))
+          .map((contact) => contact.kind),
+      );
+      if (!categories.size) categories.add(entityType);
+      const at = email.sentAt ?? email.receivedAt ?? "";
+      const text = [email.subject, email.bodyText, email.senderName, ...participants].join(" ");
+      if (![...categories].some((category) =>
+        matchesActivityFilters(filters, feedSearch, `email:${category}`, at, text),
+      )) continue;
       entries.push({
         id: `email:${email.id}`,
-        at: email.sentAt ?? email.receivedAt ?? "",
+        at,
         content: <EmailCorrespondenceCard message={email} />,
       });
+    }
+  }
   for (const { child, data } of childrenActivity.feeds) {
     for (const event of data.events) {
       const id = `event:${event.id}`;
       if (seenEvents.has(id)) continue;
+      const item = mapActivityEventsToDisplay(
+        { ...data, events: [event] }, { timeBasis: timeSort },
+      )[0];
+      if (!item || !matchesActivityItem(item, filters, feedSearch)) continue;
       seenEvents.add(id);
       entries.push({
         id,
@@ -316,13 +352,14 @@ function EntityCommunicationContent({
     (context.isLoading ||
       (showOwnActivity && activity.isLoading) ||
       childrenActivity.isLoading ||
-      (messages.isLoading && conversations.length > 0)) &&
+      (showMessages && messages.isLoading) ||
+      (showEmails && emails.isLoading)) &&
     visible.length === 0 &&
     entries.length === 0;
   const errorMessage =
     context.error?.message ||
-    messages.error?.message ||
-    emails.error?.message ||
+    (showMessages ? messages.error?.message : "") ||
+    (showEmails ? emails.error?.message : "") ||
     (showOwnActivity ? activity.error?.message : "") ||
     childrenActivity.error?.message ||
     "";
@@ -355,10 +392,13 @@ function EntityCommunicationContent({
 
   const filterControl = (
     <CommunicationSourceFilter
-      compact={Boolean(renderHeader)}
       options={filterOptions}
       sources={sources}
-      onToggle={(optionId, checked) =>
+      onToggle={(optionId, checked) => {
+        if (checked && messageOnly) setFilters(({ from, to }) => ({
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+        }));
         setSourceOverride((current) => {
           const base = current ?? sources;
           return checked
@@ -366,8 +406,8 @@ function EntityCommunicationContent({
               ? base
               : [...base, optionId]
             : base.filter((item) => item !== optionId);
-        })
-      }
+        });
+      }}
     />
   );
 
@@ -438,35 +478,34 @@ function EntityCommunicationContent({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 shrink-0">
-                  <ArrowUpDown className="mr-1 h-3 w-3" />
-                  <span className="text-xs">Sort</span>
-                  <ChevronDown className="ml-1 h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuRadioGroup
-                  value={timeSort}
-                  onValueChange={(value) => {
-                    if (value === "logged" || value === "effective")
-                      setTimeSort(value);
-                  }}
-                >
-                  <DropdownMenuRadioItem value="logged">
-                    Time logged
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="effective">
-                    Effective time
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
             {filterControl}
           </div>
         </div>
       )}
+
+      <ActivityFeedToolbar
+        className="shrink-0 border-b px-3 py-2"
+        filters={filters}
+        onFiltersChange={(next) => {
+          if (next.type !== filters.type && filters.scope?.length) {
+            const withoutScope = { ...next };
+            delete withoutScope.scope;
+            setFilters(withoutScope);
+          } else {
+            setFilters(next);
+          }
+        }}
+        onViewApply={(next) => {
+          setFilters(next);
+          setSourceOverride(null);
+        }}
+        search={feedSearch}
+        onSearchChange={setFeedSearch}
+        communication
+        timeBasis={timeSort}
+        onTimeBasisChange={setTimeSort}
+        direction="asc"
+      />
 
       {errorMessage ? (
         <p
@@ -492,15 +531,19 @@ function EntityCommunicationContent({
             key: `${entityType}:${entityId}:${timeSort}:${sources.join(",")}`,
             messages: visible,
             entries,
+            emptyLabel: feedSearch.trim() || Object.values(filters).some((values) => values.length)
+              ? "No matching activity in the loaded history."
+              : "No activity yet.",
+            loadMoreLabel: "Load earlier activity",
             hasMore: Boolean(
-              emails.hasNextPage ||
-                messages.hasNextPage ||
+              (showEmails && emails.hasNextPage) ||
+                (showMessages && messages.hasNextPage) ||
                 (showOwnActivity && activity.hasNextPage) ||
                 childrenActivity.hasMore,
             ),
             loadMore: () => {
-              if (emails.hasNextPage) void emails.fetchNextPage();
-              if (messages.hasNextPage) void messages.fetchNextPage();
+              if (showEmails && emails.hasNextPage) void emails.fetchNextPage();
+              if (showMessages && messages.hasNextPage) void messages.fetchNextPage();
               if (showOwnActivity && activity.hasNextPage)
                 activity.fetchNextPage();
               if (childrenActivity.hasMore) childrenActivity.loadMore();

@@ -101,7 +101,6 @@ export interface SessionsTableRowProps {
   onSessionClick: (id: string) => void;
   onClassClick: (classId: string, e: React.MouseEvent) => void;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
-  router: { push: (path: string) => void };
   /** Set of sessions_students IDs that are uninvoiced per reconciliation view (student view only) */
   uninvoicedSessionsStudentsIds?: Set<string>;
   invoiceDetailsById?: Record<string, SessionInvoiceDetails>;
@@ -143,7 +142,6 @@ export function SessionsTableRow({
   onSessionClick,
   onClassClick,
   onCopySessionId,
-  router,
   uninvoicedSessionsStudentsIds,
   invoiceDetailsById,
   invoicePreviewsBySessionId,
@@ -410,7 +408,6 @@ export function SessionsTableRow({
             modals={modals}
             currentStaff={currentStaff}
             onCopySessionId={onCopySessionId}
-            router={router}
             toast={toast}
           />
         ) : (
@@ -430,7 +427,6 @@ export function SessionsTableRow({
             modals={modals}
             currentStaff={currentStaff}
             onCopySessionId={onCopySessionId}
-            router={router}
             toast={toast}
           />
         )}
@@ -468,7 +464,6 @@ interface SessionsTableRowStudentActionsProps {
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
-  router: { push: (path: string) => void };
   toast: ReturnType<typeof useToast>['toast'];
 }
 
@@ -488,7 +483,6 @@ function SessionsTableRowStudentActions({
   modals,
   currentStaff,
   onCopySessionId,
-  router,
   toast,
 }: SessionsTableRowStudentActionsProps) {
   const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
@@ -549,10 +543,6 @@ function SessionsTableRowStudentActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => router.push(`/sessions/${session.id}`)}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Open in page
-        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
             await onCopySessionId(session.id, getClassShortDisplayName(session) || session.id);
@@ -656,7 +646,6 @@ interface SessionsTableRowDefaultActionsProps {
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
-  router: { push: (path: string) => void };
   toast: ReturnType<typeof useToast>['toast'];
 }
 
@@ -674,7 +663,6 @@ function SessionsTableRowDefaultActions({
   modals,
   currentStaff,
   onCopySessionId,
-  router,
   toast,
 }: SessionsTableRowDefaultActionsProps) {
   const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
@@ -766,10 +754,6 @@ function SessionsTableRowDefaultActions({
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem onClick={() => router.push(`/sessions/${session.id}`)}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Open in page
-        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
             await onCopySessionId(session.id, getClassShortDisplayName(session) || session.id);

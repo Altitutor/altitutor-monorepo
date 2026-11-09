@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Calendar, Copy } from 'lucide-react';
+import { MoreVertical, Calendar, Copy } from 'lucide-react';
 import { createTagMarker } from '@/shared/utils/tagParsing';
 
 type StudentModalSessionsTableProps = {
@@ -276,12 +276,6 @@ export function StudentModalSessionsTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            window.location.href = new URL(`/sessions/${session.id}`, window.location.origin).href;
-                          }}>
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open in page
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id)}>
                             <Copy className="h-4 w-4 mr-2" />
                             Copy ID

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { SearchableSelect } from "@altitutor/ui";
-import { CheckSquare, Mail, UserRound } from "lucide-react";
+import { EntityChipIcon, SearchableSelect } from "@altitutor/ui";
+import { Mail, UserRound } from "lucide-react";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
 import { EmailIconButton } from "@/features/email/components/EmailIconButton";
 import type { AdminStaffOption } from "../api/queries";
@@ -17,6 +17,7 @@ export function ConversationRowActions({
   staff,
   staffLoading = false,
   assigneeId,
+  showAssignee = true,
   onMarkRead,
   onMarkUnread,
   onAssign,
@@ -26,6 +27,7 @@ export function ConversationRowActions({
   staff: AdminStaffOption[];
   staffLoading?: boolean;
   assigneeId: string | null;
+  showAssignee?: boolean;
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onAssign: (staffId: string | null) => void;
@@ -58,7 +60,7 @@ export function ConversationRowActions({
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
         <EmailActionGroup label="Conversation actions">
           <EmailIconButton label="Create task" shortcut="T" onClick={onCreateTask}>
-            <CheckSquare className="h-4 w-4" />
+            <EntityChipIcon entityType="task" />
           </EmailIconButton>
           <EmailIconButton
             label={unread ? "Mark as read" : "Mark as unread"}
@@ -68,6 +70,8 @@ export function ConversationRowActions({
             <Mail className="h-4 w-4" />
           </EmailIconButton>
         </EmailActionGroup>
+      </div>
+      <div className={showAssignee ? undefined : "hidden group-hover:block group-focus-within:block [@media(hover:none)]:block"}>
         <EmailActionGroup label="Conversation assignee">
           <SearchableSelect
             items={staff}
@@ -81,9 +85,12 @@ export function ConversationRowActions({
             searchPlaceholder="Search admin staff..."
             emptyMessage={staffLoading ? "Loading admin staff..." : "No admin staff found"}
             trigger={
-              <EmailIconButton label={assignee || assigneeId ? `Assign conversation, ${assignedLabel}` : "Assign conversation"}>
+              <EmailIconButton
+                label={assigneeId ? `Assign conversation, ${assignedLabel}` : "Assign conversation"}
+                className={assigneeId ? "w-auto gap-1 px-2" : undefined}
+              >
                 <UserRound className="h-4 w-4" />
-                <span className="max-w-24 truncate text-xs">{assignedLabel}</span>
+                {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assignedLabel}</span>}
               </EmailIconButton>
             }
           />
