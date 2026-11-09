@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ActivityFilters } from "../lib/activityFeedFilters";
 
-/** Continue through the existing pages until the first match or the end of history. */
+const AUTO_PAGE_LIMIT = 4;
+
+/** Check a few earlier pages automatically. The feed still offers manual paging. */
 export function useActivityHistorySearch({
   filters,
   search,
@@ -24,10 +26,13 @@ export function useActivityHistorySearch({
   const filtering = Boolean(
     search.trim() || Object.values(filters).some((values) => values.length),
   );
-  const searching = filtering && matches === 0 && hasMore && Boolean(loadMore);
-  const request = searching
-    ? JSON.stringify([filters, search.trim(), cursor])
-    : null;
+  const criteria = JSON.stringify([filters, search.trim()]);
+  const [scan, setScan] = useState({ criteria, pages: 0 });
+  const pages = scan.criteria === criteria ? scan.pages : 0;
+  const canScan = filtering && matches === 0 && hasMore && Boolean(loadMore);
+  const searching = canScan && (pending || pages < AUTO_PAGE_LIMIT);
+  const request =
+    canScan && pages < AUTO_PAGE_LIMIT ? `${criteria}:${cursor}` : null;
   const lastRequest = useRef<string | null>(null);
 
   useEffect(() => {
@@ -37,8 +42,9 @@ export function useActivityHistorySearch({
     }
     if (pending || lastRequest.current === request) return;
     lastRequest.current = request;
+    setScan({ criteria, pages: pages + 1 });
     loadMore?.();
-  }, [loadMore, pending, request]);
+  }, [criteria, loadMore, pages, pending, request]);
 
   return { filtering, searching };
 }

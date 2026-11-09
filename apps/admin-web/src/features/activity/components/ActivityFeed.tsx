@@ -184,7 +184,7 @@ export function ActivityFeed({
       ) : null}
       {activities.length === 0 && (
         <p className="py-8 text-center text-muted-foreground">
-          {searching ? "Searching earlier activity…" : filtering ? "No matching activity" : "No activity yet"}
+          {searching ? "Searching earlier activity…" : filtering ? (hasNextPage ? "No matching activity in the loaded history" : "No matching activity") : "No activity yet"}
         </p>
       )}
       {activities.map((activity) => (

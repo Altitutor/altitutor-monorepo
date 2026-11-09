@@ -28,3 +28,29 @@ it("looks through earlier pages until a filtered feed finds a match", () => {
   expect(result.current.searching).toBe(false);
   expect(loadMore).toHaveBeenCalledTimes(2);
 });
+
+it("stops automatic requests and leaves older pages available after a bounded scan", () => {
+  const loadMore = jest.fn();
+  const { result, rerender } = renderHook(
+    ({ cursor, search }) =>
+      useActivityHistorySearch({
+        filters: {},
+        search,
+        cursor,
+        matches: 0,
+        hasMore: true,
+        loadMore,
+      }),
+    { initialProps: { cursor: 0, search: "unknown term" } },
+  );
+
+  for (const cursor of [50, 100, 150, 200, 250]) {
+    rerender({ cursor, search: "unknown term" });
+  }
+
+  expect(result.current.searching).toBe(false);
+  expect(loadMore).toHaveBeenCalledTimes(4);
+  rerender({ cursor: 250, search: "another term" });
+  expect(result.current.searching).toBe(true);
+  expect(loadMore).toHaveBeenCalledTimes(5);
+});

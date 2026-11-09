@@ -556,7 +556,7 @@ function EntityCommunicationContent({
             key: `${entityType}:${entityId}:${timeSort}:${sources.join(",")}`,
             messages: visible,
             entries,
-            emptyLabel: searching ? "Searching earlier activity…" : filtering ? "No matching activity." : "No activity yet.",
+            emptyLabel: searching ? "Searching earlier activity…" : filtering ? (hasMore ? "No matching activity in the loaded history." : "No matching activity.") : "No activity yet.",
             loadMoreLabel: "Load earlier activity",
             hasMore: hasMore && !searching,
             loadMore,

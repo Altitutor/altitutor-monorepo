@@ -300,7 +300,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
           addParentButton={editFlow.isEditing ? <ParentSearchPopover allParents={allParents} selectedParents={editFlow.tempStudentParents} onSelectParent={editFlow.assignParent} onCreateNewParent={() => setIsAddParentModalOpen(true)} /> : undefined}
         />
-        {!editFlow.isEditing && <StudentEducationDetails footerTarget={sectionFooter} student={student} />}
+        <div hidden={editFlow.isEditing}>
+          <StudentEducationDetails footerTarget={editFlow.isEditing ? null : sectionFooter} student={student} />
+        </div>
         {!editFlow.isEditing && (
           <section className="space-y-2 border-t pt-4" aria-label="Account">
             <h3 className="text-base font-medium">Account</h3>

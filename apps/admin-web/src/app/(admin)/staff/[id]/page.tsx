@@ -195,7 +195,9 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           onViewSubject={entityModals.openSubject}
           addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
         />
-        {!editFlow.isEditing && <StaffAvailabilityDetails footerTarget={sectionFooter} staff={staffMember} />}
+        <div hidden={editFlow.isEditing}>
+          <StaffAvailabilityDetails footerTarget={editFlow.isEditing ? null : sectionFooter} staff={staffMember} />
+        </div>
         {!editFlow.isEditing && (
           <section className="space-y-2 border-t pt-4" aria-label="Account">
             <h3 className="text-base font-medium">Account</h3>

@@ -682,11 +682,13 @@ export function MessageThread({
     };
 
     const visibleItems = items.filter((message) =>
-      !attachedReactionIds.has(message.id) &&
-      (!activityMessageType || matchesActivityFilters(
-        activityFilters, activitySearch, `message:${activityMessageType}`,
-        message.created_at ?? "", message.body,
-      )),
+      message.id === targetMessageId || (
+        !attachedReactionIds.has(message.id) &&
+        (!activityMessageType || matchesActivityFilters(
+          activityFilters, activitySearch, `message:${activityMessageType}`,
+          message.created_at ?? "", message.body,
+        ))
+      ),
     );
 
     if (!isSearching || !searchTerm.trim()) {
@@ -700,7 +702,7 @@ export function MessageThread({
     let hiddenCount = 0;
 
     visibleItems.forEach((message, index) => {
-      const matches = message.body.toLowerCase().includes(search);
+      const matches = message.id === targetMessageId || message.body.toLowerCase().includes(search);
 
       if (matches) {
         if (hiddenCount > 0) {
@@ -722,14 +724,14 @@ export function MessageThread({
     }
 
     return filtered;
-  }, [activityFilters, activityMessageType, activitySearch, data, isSearching, searchTerm]);
+  }, [activityFilters, activityMessageType, activitySearch, data, isSearching, searchTerm, targetMessageId]);
 
   const activityHistory = useActivityHistorySearch({
     filters: activityFilters,
     search: activitySearch,
-    matches: processedMessages.filter((item) => item.type === "message").length,
+    matches: activityMessageType && processedMessages.some((item) => item.type === "message") ? 1 : 0,
     cursor: query.data?.pages.length ?? 0,
-    hasMore: Boolean(activityMessageType && hasNextPage && !query.error),
+    hasMore: Boolean(activityMessageType && hasNextPage && !targetMessageId && !query.error),
     pending: query.isLoading || query.isFetchingNextPage,
     loadMore: activityMessageType ? () => { void fetchNextPage(); } : undefined,
   });
@@ -1010,7 +1012,7 @@ export function MessageThread({
           </button>
         )}
         {renderedMessages.length === 0 && !isSearching ? (
-          <div className="text-xs text-muted-foreground">{feed?.emptyLabel ?? (activityHistory.searching ? "Searching earlier messages…" : activityMessageType && activityHistory.filtering ? "No matching messages." : "No messages yet.")}</div>
+          <div className="text-xs text-muted-foreground">{feed?.emptyLabel ?? (activityHistory.searching ? "Searching earlier messages…" : activityMessageType && activityHistory.filtering ? (hasNextPage ? "No matching messages in the loaded history." : "No matching messages.") : "No messages yet.")}</div>
         ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">
             No messages found.

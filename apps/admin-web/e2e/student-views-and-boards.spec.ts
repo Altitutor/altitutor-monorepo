@@ -281,6 +281,20 @@ test('Messages accessory breadcrumb returns to the primary Messages collection',
   await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
 });
 
+test('Right-hand Messages defaults to direct correspondence and All includes linked messages', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await page.goto('/messages');
+  await page.getByRole('button', { name: /^Alice Williams / }).click();
+  const panel = page.locator('#admin-accessory-panel');
+  const activityViews = panel.getByLabel('Views', { exact: true });
+  await expect(activityViews.getByRole('button', { name: 'Messages', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByText('Context parent browser fixture', { exact: true })).toHaveCount(0);
+  await activityViews.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(panel.getByText('Context parent browser fixture', { exact: true })).toBeVisible();
+});
+
+
 declare global {
   interface Window {
     boardDragMeasurement?: { running: boolean; lastFrame: number; frames: number[] };
