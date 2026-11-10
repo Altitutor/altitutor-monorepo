@@ -1,13 +1,13 @@
 import { encodeViewConfig, type DisplaySettings, type QuickFilter } from '@altitutor/shared';
 
-function view(entity: string, slug: string, name: string, settings: DisplaySettings) {
+function view<const Slug extends string>(entity: string, slug: Slug, name: string, settings: DisplaySettings) {
   return { entity, slug, name, settings };
 }
 
 const sessionColumns = ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
 const studentColumns = ['status', 'education', 'student', 'classes'];
 const invoiceColumns = ['invoice_number', 'date', 'student', 'items', 'amount', 'status', 'actions'];
-const sessionQueue = (slug: string, name: string) => view('sessions', slug, name, {
+const sessionQueue = <const Slug extends string>(slug: Slug, name: string) => view('sessions', slug, name, {
   layout: 'table', filters: { reconciliation: [slug] }, sortBy: 'start_at',
   sortDirection: 'desc', groupBy: null, visibleColumns: slug === 'unlogged' ? sessionColumns : [...sessionColumns, 'billing_exception'],
 });
@@ -81,4 +81,18 @@ export function operationalViewHref(entry: ReturnType<typeof view>) {
     if (values.length) params.set(key, values.map(String).join(','));
   }
   return `/${entry.entity}?${params.toString()}`;
+}
+
+export const reconciliationViewGroups = [
+  { key: 'financial', label: 'Financial', views: [operationalViews.billingAdjustments, operationalViews.uninvoiced, operationalViews.voidInvoices, operationalViews.unpaid, operationalViews.noPayment] },
+  { key: 'scheduling', label: 'Scheduling', views: [operationalViews.unlogged, operationalViews.noStaff, operationalViews.noClasses] },
+  { key: 'operations', label: 'Operations', views: [operationalViews.unassignedTasks, operationalViews.noLead] },
+] as const;
+
+type ReconciliationView = (typeof reconciliationViewGroups)[number]['views'][number];
+export type ReconciliationViewKey = ReconciliationView['slug'];
+
+export const reconciliationViews: ReconciliationView[] = reconciliationViewGroups.flatMap(({ views }) => [...views]);
+export function reconciliationViewKey(viewId: string): ReconciliationViewKey | undefined {
+  return reconciliationViews.find(({ entity, slug }) => viewId === `builtin:${entity}:${slug}`)?.slug;
 }

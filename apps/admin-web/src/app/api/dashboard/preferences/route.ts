@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { dashboardLayoutSchema, DEFAULT_DASHBOARD_LAYOUT } from '@/features/dashboard/layout';
+import { dashboardLayoutSchema, DEFAULT_DASHBOARD_LAYOUT, upgradeDashboardLayout } from '@/features/dashboard/layout';
 
 const appKey = 'admin-web';
 
@@ -25,11 +25,15 @@ export async function GET() {
   const { data, error } = await access.db.from('user_interface_preferences')
     .select('preferences').eq('auth_user_id', access.userId).eq('app_key', appKey).maybeSingle();
   if (error) return NextResponse.json({ error: 'Could not load dashboard preferences.' }, { status: 500 });
+  const preferences = data?.preferences;
   const layout = dashboardLayoutSchema.safeParse(
-    typeof data?.preferences === 'object' && data.preferences && 'dashboardLayout' in data.preferences
-      ? data.preferences.dashboardLayout : undefined,
+    typeof preferences === 'object' && preferences && 'dashboardLayout' in preferences
+      ? preferences.dashboardLayout : undefined,
   );
-  return NextResponse.json({ layout: layout.success ? layout.data : DEFAULT_DASHBOARD_LAYOUT });
+  const isCurrentLayout = preferences && typeof preferences === 'object'
+    && 'dashboardLayoutVersion' in preferences && preferences.dashboardLayoutVersion === 2;
+  const saved = layout.success ? layout.data : DEFAULT_DASHBOARD_LAYOUT;
+  return NextResponse.json({ layout: isCurrentLayout ? saved : upgradeDashboardLayout(saved) });
 }
 
 export async function PUT(request: Request) {
@@ -42,7 +46,7 @@ export async function PUT(request: Request) {
   const { error } = await access.db.from('user_interface_preferences').upsert({
     auth_user_id: access.userId,
     app_key: appKey,
-    preferences: { dashboardLayout: layout.data },
+    preferences: { dashboardLayout: layout.data, dashboardLayoutVersion: 2 },
   }, { onConflict: 'auth_user_id,app_key' });
   if (error) return NextResponse.json({ error: 'Could not save dashboard preferences.' }, { status: 500 });
   return NextResponse.json({ layout: layout.data });

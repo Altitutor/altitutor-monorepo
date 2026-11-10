@@ -16,13 +16,10 @@ export const sessionQueueOptions = [
   { value: 'billing-adjustments', label: 'Billing adjustments' },
 ];
 
-export function useReconciliationSessionIds(values: unknown[] = []) {
-  const keys = values.filter((value): value is keyof typeof queues =>
-    typeof value === 'string' && Object.hasOwn(queues, value),
-  );
-  const query = useQuery({
+export function reconciliationSessionIdsQuery(keys: (keyof typeof queues)[]) {
+  return {
     queryKey: [...reconciliationKeys.sessionQueues(), keys],
-    enabled: keys.length > 0,
+    staleTime: 120_000,
     queryFn: async () => {
       const db = getSupabaseClient();
       const ids = new Set<string>();
@@ -38,6 +35,13 @@ export function useReconciliationSessionIds(values: unknown[] = []) {
       }));
       return [...ids].sort();
     },
-  });
+  };
+}
+
+export function useReconciliationSessionIds(values: unknown[] = []) {
+  const keys = values.filter((value): value is keyof typeof queues =>
+    typeof value === 'string' && Object.hasOwn(queues, value),
+  );
+  const query = useQuery({ ...reconciliationSessionIdsQuery(keys), enabled: keys.length > 0 });
   return { ...query, active: keys.length > 0 };
 }

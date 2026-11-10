@@ -13,7 +13,6 @@ import type {
   UnassignedTask,
   VoidInvoiceSession,
   ProjectWithoutLead,
-  ReconciliationTabCounts,
   SessionBillingAdjustmentIssue,
 } from '../types';
 
@@ -427,38 +426,11 @@ async function countProjectsWithoutLeadExact(): Promise<number> {
   return count ?? 0;
 }
 
-/**
- * Parallel counts for reconciliation tab badges. Uses exact `COUNT` / head requests where possible
- * so badges do not re-fetch full reconciliation lists (scheduling counts use restored DB views).
- */
-export async function getReconciliationTabCounts(): Promise<ReconciliationTabCounts> {
-  const [
-    uninvoicedCount,
-    voidCount,
-    unpaidCount,
-    noPaymentCount,
-    unloggedCount,
-    unassignedClassesCount,
-    studentsWithoutClassesCount,
-    unassignedTasksCount,
-    projectsNoLeadCount,
-    sessionBillingAdjustmentsCount,
-  ] = await Promise.all([
-    countReconciliationViewRows('vadmin_reconciliation_uninvoiced_sessions'),
-    countReconciliationViewRows('vadmin_reconciliation_void_invoice_sessions'),
-    countUnpaidInvoicesExact(),
-    countReconciliationViewRows('vadmin_reconciliation_students_without_payment_method'),
-    countReconciliationViewRows('vadmin_reconciliation_unlogged_sessions'),
-    getUpcomingUnassignedClassIds().then((ids) => ids.size),
-    loadStudentsWithoutClasses(getSupabaseClient()).then((rows) => new Set(rows.map((row) => row.student_id)).size),
-    countUnassignedTasksExact(),
-    countProjectsWithoutLeadExact(),
-    countReconciliationViewRows('vadmin_reconciliation_session_billing_adjustments'),
-  ]);
-
-  return {
-    financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount + sessionBillingAdjustmentsCount,
-    scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount,
-    operations: unassignedTasksCount + projectsNoLeadCount,
-  };
-}
+export const reconciliationCountReaders = {
+  unpaid: countUnpaidInvoicesExact,
+  'no-payment-method': () => countReconciliationViewRows('vadmin_reconciliation_students_without_payment_method'),
+  'no-staff': () => getUpcomingUnassignedClassIds().then((ids) => ids.size),
+  'no-classes': () => loadStudentsWithoutClasses(getSupabaseClient()).then((rows) => new Set(rows.map((row) => row.student_id)).size),
+  unassigned: countUnassignedTasksExact,
+  'no-lead': countProjectsWithoutLeadExact,
+};

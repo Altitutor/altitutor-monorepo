@@ -39,6 +39,9 @@ export default function DashboardPage() {
   const queryKey = ['dashboard-layout', staff?.id];
   const preferences = useQuery({ queryKey, queryFn: () => requestLayout(), enabled: !!staff?.id });
   const layout = preferences.data ?? DEFAULT_DASHBOARD_LAYOUT;
+  const stackUpdates = layout[0]?.id === 'sessions' && layout[0].width === 'wide'
+    && layout[1]?.id === 'updates' && layout[1].width === 'standard'
+    && layout[2]?.id === 'reconciliation' && layout[2].width === 'standard';
   const [draft, setDraft] = useState<DashboardWidget[] | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const save = useMutation({
@@ -108,7 +111,16 @@ export default function DashboardPage() {
       </div>}
       {layout.length ? (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-          {layout.map(({ id, width }) => (
+          {stackUpdates && (
+            <>
+              <section className="min-w-0 lg:col-span-2">{renderWidget('sessions')}</section>
+              <div className="grid min-w-0 gap-6">
+                <section>{renderWidget('updates')}</section>
+                <section>{renderWidget('reconciliation')}</section>
+              </div>
+            </>
+          )}
+          {(stackUpdates ? layout.slice(3) : layout).map(({ id, width }) => (
             <section key={id} className={`min-w-0 ${widgetWidths[width]}`}>{renderWidget(id)}</section>
           ))}
         </div>

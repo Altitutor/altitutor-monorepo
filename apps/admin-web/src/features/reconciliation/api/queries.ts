@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { reconciliationApi, getReconciliationTabCounts } from './reconciliation';
+import { reconciliationApi } from './reconciliation';
 import { reconciliationKeys } from './queryKeys';
 
 /**
@@ -32,18 +32,6 @@ export function useVoidInvoiceSessions(enabled = true) {
     enabled,
     queryKey: reconciliationKeys.voidInvoiceSessions(),
     queryFn: () => reconciliationApi.getVoidInvoiceSessions(),
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 5,
-  });
-}
-
-/**
- * Row counts per reconciliation tab (for navigation badges).
- */
-export function useReconciliationTabCounts() {
-  return useQuery({
-    queryKey: reconciliationKeys.tabCounts(),
-    queryFn: () => getReconciliationTabCounts(),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });
