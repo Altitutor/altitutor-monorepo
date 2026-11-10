@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   interviewQuestionSegments,
   type InterviewRecording,
   type InterviewStationAttempt,
 } from "@altitutor/shared";
-import { Pause, Play } from "lucide-react";
+import { Maximize, Pause, Play } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { SearchableSelect } from "./searchable-select";
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const durationProbeTimeoutMs = 8_000;
 
 const questionColors = [
   "bg-sky-500", "bg-violet-500", "bg-teal-500", "bg-amber-500",
@@ -54,8 +55,20 @@ export function InterviewRecordingPlayer({
   const [error, setError] = useState("");
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
+  const [playbackReady, setPlaybackReady] = useState(false);
+  const frame = useRef<HTMLDivElement | null>(null);
   const player = useRef<HTMLMediaElement | null>(null);
-  const durationProbe = useRef<{ restorePosition: number } | null>(null);
+  const durationProbe = useRef<{
+    restorePosition: number;
+    timer?: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const clearDurationProbe = useCallback(() => {
+    const probe = durationProbe.current;
+    clearTimeout(probe?.timer);
+    durationProbe.current = null;
+    return probe;
+  }, []);
+  useEffect(() => () => { clearDurationProbe(); }, [clearDurationProbe]);
   const expired =
     recording.state === "expired" ||
     Date.parse(recording.expiresAt) <= Date.now();
@@ -74,7 +87,8 @@ export function InterviewRecordingPlayer({
   const activeSegment = segments.find(({ start, end }) => start <= position && position < end);
   const progressLabel = activeSegment?.questionNumber ? `Question ${activeSegment.questionNumber}` : "Between questions";
   const load = async () => {
-    durationProbe.current = null;
+    clearDurationProbe();
+    setPlaybackReady(false);
     setDuration(0);
     setPosition(0);
     setError("");
@@ -102,12 +116,12 @@ export function InterviewRecordingPlayer({
   const receiveDuration = (media: HTMLMediaElement) => {
     if (!Number.isFinite(media.duration) || media.duration <= 0) return;
     setDuration(media.duration);
-    const probe = durationProbe.current;
-    durationProbe.current = null;
+    const probe = clearDurationProbe();
     if (probe && Number.isFinite(probe.restorePosition)) {
       media.currentTime = Math.min(probe.restorePosition, media.duration);
       setPosition(media.currentTime);
     }
+    setPlaybackReady(true);
   };
   const preserveUserPosition = () => {
     if (durationProbe.current)
@@ -117,23 +131,42 @@ export function InterviewRecordingPlayer({
     "aria-label": "Interview recording",
     src: src ?? url ?? undefined,
     controls: !customControls,
-    playsInline: true,
+    playsInline: studentPlayback ? undefined : true,
     preload: studentPlayback ? "none" as const : "metadata" as const,
     onLoadedMetadata: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       const media = event.currentTarget;
+      if (customControls) {
+        media.volume = volume;
+        media.defaultPlaybackRate = playbackRate;
+        media.playbackRate = playbackRate;
+      }
       if (media.duration === Infinity) {
         // MediaRecorder WebM often omits a duration index. Seeking past EOF
         // makes the native decoder discover it without decoding through JS.
-        durationProbe.current = { restorePosition: media.currentTime };
+        clearDurationProbe();
+        const restorePosition = media.currentTime;
+        durationProbe.current = {
+          restorePosition,
+          timer: studentPlayback ? undefined : setTimeout(() => {
+            clearDurationProbe();
+            // Some browsers can play the file sequentially even if this seek stalls.
+            media.currentTime = restorePosition;
+            setPosition(restorePosition);
+            setPlaybackReady(true);
+          }, durationProbeTimeoutMs),
+        };
         media.currentTime = Number.MAX_SAFE_INTEGER;
-      } else receiveDuration(media);
+      } else {
+        receiveDuration(media);
+        setPlaybackReady(true);
+      }
     },
     onDurationChange: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       receiveDuration(event.currentTarget),
     onSeeked: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       receiveDuration(event.currentTarget),
-    onPointerDown: preserveUserPosition,
-    onKeyDown: preserveUserPosition,
+    onPointerDown: customControls ? undefined : preserveUserPosition,
+    onKeyDown: customControls ? undefined : preserveUserPosition,
     onPlay: () => {
       preserveUserPosition();
       if (customControls) setPlaying(true);
@@ -143,16 +176,19 @@ export function InterviewRecordingPlayer({
     onVolumeChange: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       if (customControls) setVolume(event.currentTarget.volume);
     },
-    onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
-      setPosition(event.currentTarget.currentTime),
+    onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) => {
+      const time = event.currentTarget.currentTime;
+      if (!durationProbe.current && Number.isFinite(time)) setPosition(time);
+    },
     onError: () => {
+      clearDurationProbe();
       setPlaying(false);
       setUrl(null);
       setError("Playback failed. Reload the recording to try again.");
     },
   };
   return (
-    <div className="space-y-3">
+    <div ref={frame} className="group space-y-3 fullscreen:overflow-auto fullscreen:bg-background fullscreen:p-4">
       {!studentPlayback && (
         <p className="text-sm text-muted-foreground">{label} · {formatInterviewRecordingAvailability(recording)}</p>
       )}
@@ -173,12 +209,12 @@ export function InterviewRecordingPlayer({
                 ref={(node) => {
                   player.current = node;
                 }}
-                className={studentPlayback ? "aspect-video w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black"}
+                className={studentPlayback ? "aspect-video w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black group-[:fullscreen]:max-h-[75vh]"}
               />
             )}
             {customControls && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button type="button" size="icon" variant="outline" disabled={Boolean(error) || (!studentPlayback && !duration)}
+                <Button type="button" size="icon" variant="outline" disabled={Boolean(error) || (!studentPlayback && !playbackReady)}
                   aria-label={`${playing ? "Pause" : "Play"} ${recording.kind}`}
                   onClick={() => {
                     const media = player.current;
@@ -216,6 +252,18 @@ export function InterviewRecordingPlayer({
                       setPlaybackRate(rate);
                     }}
                   />
+                  {recording.kind === "video" && (
+                    <Button type="button" size="icon" variant="outline" aria-label="Toggle fullscreen"
+                      onClick={() => {
+                        if (document.fullscreenElement === frame.current) {
+                          void document.exitFullscreen?.().catch(() => undefined);
+                        } else {
+                          void frame.current?.requestFullscreen?.().catch(() => undefined);
+                        }
+                      }}>
+                      <Maximize aria-hidden />
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -227,7 +275,7 @@ export function InterviewRecordingPlayer({
                 </Button>
               </div>
             )}
-            {!studentPlayback && !error && !duration && (
+            {!studentPlayback && !error && !playbackReady && (
               <p role="status" className="text-xs text-muted-foreground">
                 Preparing playback…
               </p>
