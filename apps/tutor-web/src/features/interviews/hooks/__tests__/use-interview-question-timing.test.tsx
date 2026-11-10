@@ -8,8 +8,14 @@ import { useInterviewQuestionTiming } from "../use-interview-question-timing";
 jest.mock("../../api/interviews", () => ({ sendInterviewCommand: jest.fn() }));
 jest.mock("../use-interviews", () => ({ interviewKeys: { round: (id: string) => ["interviews", "round", id] } }));
 const send = jest.mocked(sendInterviewCommand);
-const round = { id: "round", phase: "questions", pausedAt: null } as InterviewRound;
-const attempt = { id: "attempt", selectedQuestionId: "q1" } as InterviewStationAttempt;
+const progress = {
+  stationId: "station", tutorId: "tutor", studentId: "student",
+  ready: true, endedEarly: false, feedbackComplete: false,
+};
+const round = { id: "round", phase: "questions", pausedAt: null, progress: [progress] } as InterviewRound;
+const attempt = {
+  id: "attempt", stationId: "station", studentId: "student", selectedQuestionId: "q1",
+} as InterviewStationAttempt;
 function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{children}</QueryClientProvider>;
 }
@@ -68,4 +74,26 @@ test("already queued navigation finishes when the view unmounts", async () => {
  unmount();
  await act(async()=>finish?.());
  await waitFor(()=>expect(send).toHaveBeenCalledTimes(2));
+});
+
+test("browsing feedback after an early station end leaves the answering intervals closed", () => {
+  const earlyEnd = {
+    ...round,
+    progress: [{ ...progress, endedEarly: true }],
+  };
+  const { result } = renderHook(() => useInterviewQuestionTiming(earlyEnd, attempt), { wrapper });
+  act(() => result.current.onQuestionSelected("q2"));
+  expect(send).not.toHaveBeenCalled();
+});
+
+test("a station that closes while navigation is in flight does not leave a retry warning", async () => {
+  send.mockRejectedValueOnce(Object.assign(new Error("Questions are not active for this station"), { status: 400 }));
+  const { result } = renderHook(() => useInterviewQuestionTiming(round, attempt), { wrapper });
+  await act(async () => {
+    result.current.onQuestionSelected("q2");
+    result.current.onQuestionSelected("q1");
+  });
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
 });

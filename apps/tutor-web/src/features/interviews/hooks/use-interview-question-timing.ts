@@ -9,14 +9,25 @@ import { interviewKeys } from "./use-interviews";
 
 type Selection = Extract<InterviewCommand, { type: "selectQuestion" }>;
 
+function questionTimingClosed(error: unknown) {
+  return error instanceof Error && "status" in error && error.status === 400 &&
+    (error.message === "Questions are not active for this station" ||
+      error.message === "Question time has ended");
+}
+
 /** Serialise navigation separately from assessment saves; retry the same intent ID. */
 export function useInterviewQuestionTiming(
   round: InterviewRound,
   attempt: InterviewStationAttempt | undefined,
 ) {
   const client = useQueryClient();
-  const current = useRef({ round, attempt });
-  current.current = { round, attempt };
+  const progress = attempt && round.progress.find(
+    (item) => item.stationId === attempt.stationId && item.studentId === attempt.studentId,
+  );
+  const active = round.phase === "questions" && !round.pausedAt &&
+    !!progress && !progress.endedEarly && !progress.feedbackComplete;
+  const current = useRef({ roundId: round.id, attempt, active });
+  current.current = { roundId: round.id, attempt, active };
   const queue = useRef<Selection[]>([]);
   const running = useRef(false);
   const scope = useRef(attempt?.id);
@@ -28,12 +39,12 @@ export function useInterviewQuestionTiming(
     return () => { mounted.current = false; };
   }, []);
   useEffect(() => {
-    if (scope.current === attempt?.id) return;
+    if (scope.current === attempt?.id && active) return;
     scope.current = attempt?.id;
     intended.current = attempt?.selectedQuestionId;
     queue.current = [];
     setTimingError(null);
-  }, [attempt?.id, attempt?.selectedQuestionId]);
+  }, [active, attempt?.id, attempt?.selectedQuestionId]);
 
   const drain = useCallback(async () => {
     if (running.current) return;
@@ -47,9 +58,16 @@ export function useInterviewQuestionTiming(
           if (mounted.current && scope.current === command.attemptId) setTimingError(null);
           void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
         } catch (error) {
-          if (mounted.current && scope.current === command.attemptId)
-            setTimingError(error instanceof Error ? error.message : "Question timing could not save. Retry when connected.");
           if (queue.current[0] !== command) continue;
+          // A selection can arrive after the server closes the answering interval.
+          if (questionTimingClosed(error)) {
+            queue.current = [];
+            intended.current = current.current.attempt?.selectedQuestionId;
+            if (mounted.current) setTimingError(null);
+            void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+          } else if (mounted.current) {
+            setTimingError(error instanceof Error ? error.message : "Question timing could not save. Retry when connected.");
+          }
           break;
         }
       }
@@ -57,8 +75,8 @@ export function useInterviewQuestionTiming(
   }, [client]);
 
   const onQuestionSelected = useCallback((questionId: string) => {
-    const { round: active, attempt: target } = current.current;
-    if (!target || active.phase !== "questions" || active.pausedAt) return;
+    const { roundId, attempt: target, active } = current.current;
+    if (!target || !active) return;
     if (scope.current !== target.id) {
       scope.current = target.id;
       intended.current = target.selectedQuestionId;
@@ -67,7 +85,7 @@ export function useInterviewQuestionTiming(
     }
     if (intended.current === questionId) return;
     intended.current = questionId;
-    queue.current.push({ type: "selectQuestion", commandId: randomUuid(), roundId: active.id, attemptId: target.id, questionId });
+    queue.current.push({ type: "selectQuestion", commandId: randomUuid(), roundId, attemptId: target.id, questionId });
     void drain();
   }, [drain]);
 

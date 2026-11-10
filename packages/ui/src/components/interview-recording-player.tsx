@@ -45,7 +45,7 @@ export function InterviewRecordingPlayer({
   | { variant: "student"; src: string; loadUrl?: never }
 )) {
   const studentPlayback = variant === "student";
-  const studentAudio = studentPlayback && recording.kind === "audio";
+  const customControls = !studentPlayback || recording.kind === "audio";
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -67,7 +67,7 @@ export function InterviewRecordingPlayer({
       return {
         ...segment,
         questionNumber: index + 1,
-        color: studentPlayback && index >= 0 ? questionColors[index % questionColors.length] : "bg-primary/45",
+        color: index >= 0 ? questionColors[index % questionColors.length] : "bg-primary/45",
       };
     },
   );
@@ -116,7 +116,8 @@ export function InterviewRecordingPlayer({
   const mediaProps = {
     "aria-label": "Interview recording",
     src: src ?? url ?? undefined,
-    controls: true,
+    controls: !customControls,
+    playsInline: true,
     preload: studentPlayback ? "none" as const : "metadata" as const,
     onLoadedMetadata: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       const media = event.currentTarget;
@@ -135,12 +136,12 @@ export function InterviewRecordingPlayer({
     onKeyDown: preserveUserPosition,
     onPlay: () => {
       preserveUserPosition();
-      if (studentAudio) setPlaying(true);
+      if (customControls) setPlaying(true);
     },
-    onPause: () => { if (studentAudio) setPlaying(false); },
-    onEnded: () => { if (studentAudio) setPlaying(false); },
+    onPause: () => { if (customControls) setPlaying(false); },
+    onEnded: () => { if (customControls) setPlaying(false); },
     onVolumeChange: (event: React.SyntheticEvent<HTMLMediaElement>) => {
-      if (studentAudio) setVolume(event.currentTarget.volume);
+      if (customControls) setVolume(event.currentTarget.volume);
     },
     onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       setPosition(event.currentTarget.currentTime),
@@ -164,8 +165,7 @@ export function InterviewRecordingPlayer({
                 ref={(node) => {
                   player.current = node;
                 }}
-                controls={!studentAudio}
-                className={studentAudio ? "hidden" : "w-full"}
+                className="hidden"
               />
             ) : (
               <video
@@ -176,10 +176,10 @@ export function InterviewRecordingPlayer({
                 className={studentPlayback ? "aspect-video w-full rounded-xl bg-black" : "max-h-80 w-full rounded-xl bg-black"}
               />
             )}
-            {studentAudio && (
+            {customControls && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button type="button" size="icon" variant="outline" disabled={Boolean(error)}
-                  aria-label={playing ? "Pause audio" : "Play audio"}
+                <Button type="button" size="icon" variant="outline" disabled={Boolean(error) || (!studentPlayback && !duration)}
+                  aria-label={`${playing ? "Pause" : "Play"} ${recording.kind}`}
                   onClick={() => {
                     const media = player.current;
                     if (!media) return;
@@ -227,7 +227,12 @@ export function InterviewRecordingPlayer({
                 </Button>
               </div>
             )}
-            {!error && (studentAudio || segments.length > 0) && (
+            {!studentPlayback && !error && !duration && (
+              <p role="status" className="text-xs text-muted-foreground">
+                Preparing playback…
+              </p>
+            )}
+            {!error && (customControls || segments.length > 0) && (
               <div
                 className="space-y-2"
                 aria-label="Question recording segments"
@@ -251,7 +256,7 @@ export function InterviewRecordingPlayer({
                     step={0.1}
                     value={position}
                     aria-label="Recording progress"
-                    aria-valuetext={studentPlayback ? recordingTime(position) + " · " + progressLabel : undefined}
+                    aria-valuetext={segments.length ? `${recordingTime(position)} · ${progressLabel}` : recordingTime(position)}
                     className="absolute inset-0 z-10 h-full w-full cursor-pointer appearance-none opacity-0 [&::-moz-range-thumb]:w-0 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0"
                     onChange={(event) => seek(Number(event.target.value))}
                   />
@@ -261,12 +266,10 @@ export function InterviewRecordingPlayer({
                     style={{ left: `${duration ? (position / duration) * 100 : 0}%` }}
                   />
                 </div>
-                {studentPlayback && (
-                  <p className="flex justify-between gap-2 text-xs tabular-nums text-muted-foreground">
-                    <span>{recordingTime(position)} · {progressLabel}</span>
-                    <span>{duration ? recordingTime(duration) : "—"}</span>
-                  </p>
-                )}
+                <p className="flex justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+                  <span>{recordingTime(position)}{segments.length ? ` · ${progressLabel}` : ""}</span>
+                  <span>{duration ? recordingTime(duration) : "—"}</span>
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {segments.map((segment) => (
                     <Button
@@ -275,9 +278,9 @@ export function InterviewRecordingPlayer({
                       size="sm"
                       variant="outline"
                       onClick={() => seek(segment.start)}
-                      aria-label={`${studentPlayback ? "Jump to" : "Play"} question ${segment.questionNumber || "unknown"}, segment ${segment.index + 1}`}
+                      aria-label={`Jump to question ${segment.questionNumber || "unknown"}, segment ${segment.index + 1}`}
                     >
-                      {studentPlayback && <span aria-hidden className={cn("size-2 rounded-full", segment.color)} />}
+                      <span aria-hidden className={cn("size-2 rounded-full", segment.color)} />
                       Question {segment.questionNumber || "—"} · {recordingTime(segment.start)}
                     </Button>
                   ))}

@@ -131,7 +131,15 @@ export function useInterviewCapture({
     void (
       warm
         ? Promise.resolve(warm.stream)
-        : navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        : navigator.mediaDevices.getUserMedia({
+            // Keep speech processing on without boosting quiet room and keyboard noise.
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: false,
+            },
+            video: false,
+          })
     )
       .then((next) => {
         if (cancelled) {
