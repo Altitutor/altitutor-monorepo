@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { operationalViews, operationalViewHref } from '@/features/quick-filters/config/operationalViews';
 
-import { PayTiersStaffTable } from '@/features/pay-tiers/components/PayTiersStaffTable';
-
-export default function PayTiersStaffPage() {
-  return <PayTiersStaffTable />;
+export default function LegacyPage() {
+  redirect(operationalViewHref(operationalViews.payTiers));
 }

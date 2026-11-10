@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ReconciliationFinancialTab } from '@/features/reconciliation';
-
-export default function ReconciliationFinancialPage() {
-  return <ReconciliationFinancialTab />;
+export default function LegacyPage() {
+  redirect('/dashboard');
 }

@@ -40,6 +40,7 @@ export interface UseInvoicesListParams {
   ascending?: boolean;
   /** Case-insensitive substring match on `stripe_invoice_number` (server-side). */
   invoiceNumberSearch?: string;
+  unpaidOnly?: boolean;
 }
 
 export function useInvoicesList(params: UseInvoicesListParams) {
@@ -53,6 +54,7 @@ export function useInvoicesList(params: UseInvoicesListParams) {
     orderBy = 'invoice_date',
     ascending = false,
     invoiceNumberSearch,
+    unpaidOnly = false,
   } = params || {};
 
   const normalizedInvoiceSearch = normalizeInvoiceNumberSearch(invoiceNumberSearch);
@@ -66,6 +68,7 @@ export function useInvoicesList(params: UseInvoicesListParams) {
       from || null,
       to || null,
       normalizedInvoiceSearch ?? null,
+      unpaidOnly,
       page,
       pageSize,
       orderBy,
@@ -82,6 +85,7 @@ export function useInvoicesList(params: UseInvoicesListParams) {
         orderBy,
         ascending,
         invoiceNumberSearch: normalizedInvoiceSearch,
+        unpaidOnly,
       }),
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes

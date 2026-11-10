@@ -18,6 +18,8 @@ export function invalidateStudentDetail(queryClient: QueryClient, studentId: str
 
 export function invalidateStudentClassSurfaces(queryClient: QueryClient, studentId: string) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.viewCount('no-classes')),
+    invalidate(queryClient, ['students', 'directory']),
     invalidateStudentDetail(queryClient, studentId),
     invalidate(queryClient, ['students', studentId, 'classes']),
     invalidate(queryClient, ['students', studentId, 'allClasses']),
@@ -30,6 +32,8 @@ export function invalidateClassDetail(queryClient: QueryClient, classId: string)
 
 export function invalidateClassListSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.viewCount('no-staff')),
+    invalidate(queryClient, reconciliationKeys.viewCount('no-classes')),
     invalidate(queryClient, classesKeys.minimal()),
     invalidate(queryClient, classesKeys.withDetails()),
   ]);
@@ -62,7 +66,10 @@ export function invalidateSessionDetail(queryClient: QueryClient, sessionId: str
 }
 
 export function invalidateSessionListSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, sessionsKeys.all);
+  return Promise.all([
+    invalidate(queryClient, sessionsKeys.all),
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+  ]);
 }
 
 export function invalidateSessionSurfaces(queryClient: QueryClient, sessionId: string) {
@@ -90,6 +97,7 @@ export function invalidateInvoiceDetail(queryClient: QueryClient, invoiceId: str
 
 export function invalidateInvoiceSurfaces(queryClient: QueryClient, invoiceId: string) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.viewCount('unpaid')),
     invalidateInvoiceDetail(queryClient, invoiceId),
     invalidate(queryClient, invoicesKeys.lists()),
   ]);
@@ -107,7 +115,10 @@ export function invalidateReconciliationProjectSurfaces(queryClient: QueryClient
 }
 
 export function invalidateProjectListSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, projectKeys.lists());
+  return Promise.all([
+    invalidate(queryClient, projectKeys.lists()),
+    invalidate(queryClient, reconciliationKeys.viewCount('no-lead')),
+  ]);
 }
 
 export function invalidateProjectDetailSurfaces(queryClient: QueryClient, projectId: string) {
@@ -137,28 +148,34 @@ export function invalidateCheckInSurfaces(queryClient: QueryClient) {
 
 export function invalidateUnloggedSessionSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidate(queryClient, reconciliationKeys.unloggedSessions()),
     invalidate(queryClient, reconciliationKeys.familyCheckIns()),
   ]);
 }
 
 export function invalidateTaskAssignmentSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, reconciliationKeys.unassignedTasks());
+  return Promise.all([invalidate(queryClient, reconciliationKeys.unassignedTasks()), invalidate(queryClient, reconciliationKeys.tabCounts())]);
 }
 
 export function invalidateInvoiceReconciliationSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
     invalidate(queryClient, reconciliationKeys.voidInvoiceSessions()),
   ]);
 }
 
 export function invalidateUnpaidInvoiceReconciliationSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, reconciliationKeys.unpaidInvoices());
+  return Promise.all([invalidate(queryClient, reconciliationKeys.unpaidInvoices()), invalidate(queryClient, reconciliationKeys.tabCounts())]);
 }
 
 export function invalidateSessionInvoiceSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidateSessionListSurfaces(queryClient),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
   ]);

@@ -39,6 +39,7 @@ export interface ToolbarViewDialogProps {
 
 export interface ToolbarViewsService {
   Dialog?: React.ComponentType<ToolbarViewDialogProps>;
+  ViewBadge?: React.ComponentType<{ view: SavedView }>;
   userId: string | null;
   shareLabel?: string;
   save: (
@@ -202,6 +203,7 @@ export function ToolbarSavedViews({
     }
   };
   const ViewDialog = service?.Dialog ?? DefaultToolbarViewDialog;
+  const ViewBadge = service?.ViewBadge;
   if (!views.length && !(service && target)) return null;
   return (
     <>
@@ -250,6 +252,7 @@ export function ToolbarSavedViews({
             }}
           >
             {view.name}
+            {ViewBadge && <ViewBadge view={view} />}
           </button>
         ))}
         {service && target ? (

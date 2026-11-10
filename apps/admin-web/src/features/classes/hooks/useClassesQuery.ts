@@ -1,3 +1,4 @@
+import { getUpcomingUnassignedClassIds } from '../api/unassignedClasses';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { classesApi } from '../api/classes';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
@@ -55,6 +56,7 @@ export interface UseClassesListParams {
   pageSize?: number;
   orderBy?: keyof Tables<'classes'>;
   ascending?: boolean;
+  unassignedOnly?: boolean;
 }
 
 export function useClassesMinimalPaginated(params: UseClassesListParams = {}) {
@@ -69,25 +71,27 @@ export function useClassesMinimalPaginated(params: UseClassesListParams = {}) {
     pageSize = 50,
     orderBy = 'day_of_week',
     ascending = true,
+    unassignedOnly = false,
   } = params;
 
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: classesKeys.minimal({ search, dayOfWeek, daysOfWeek, subjectIds, studentIds, staffIds, page, pageSize, orderBy, ascending }),
-    queryFn: () =>
-      classesApi.listMinimal({
-        search,
-        dayOfWeek,
-        daysOfWeek,
-        subjectIds,
-        studentIds,
-        staffIds,
-        limit: pageSize,
-        offset,
-        orderBy,
-        ascending,
-      }),
+    queryKey: classesKeys.minimal({ search, dayOfWeek, daysOfWeek, subjectIds, studentIds, staffIds, page, pageSize, orderBy, ascending, unassignedOnly }),
+    queryFn: async () => {
+      const args = { search, dayOfWeek, daysOfWeek, subjectIds, studentIds, staffIds, orderBy, ascending };
+      if (!unassignedOnly) return classesApi.listMinimal({ ...args, limit: pageSize, offset });
+      const ids = await getUpcomingUnassignedClassIds();
+      if (!ids.size) return { classes: [], total: 0 };
+      const size = 200;
+      const matches = [];
+      for (let start = 0; ; start += size) {
+        const result = await classesApi.listMinimal({ ...args, limit: size, offset: start });
+        matches.push(...result.classes.filter((row) => ids.has(row.id)));
+        if (start + size >= result.total) break;
+      }
+      return { classes: matches.slice(offset, offset + pageSize), total: matches.length };
+    },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,

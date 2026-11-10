@@ -41,7 +41,6 @@ export default function InvoicesPage() {
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('invoices');
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
 
@@ -51,6 +50,11 @@ export default function InvoicesPage() {
     () => ['invoice_number', 'date', 'student', 'items', 'amount', 'status', 'actions'],
     []
   );
+
+  const { data: quickFilters = [] } = useQuickFilters('invoices', {
+    name: 'All invoices',
+    settings: { filters: defaultFilters, sortBy: defaultSort.field, sortDirection: defaultSort.direction, groupBy: null, visibleColumns: defaultVisibleColumns },
+  });
 
   const {
     state,
@@ -67,7 +71,7 @@ export default function InvoicesPage() {
     defaultSort,
     defaultVisibleColumns,
     pageSize: 50,
-    filterKeys: ['status', 'student', 'from', 'to'],
+    filterKeys: ['status', 'student', 'from', 'to', 'payment'],
   });
 
   const from = (state.filters.from as string[] | undefined)?.[0];
@@ -87,6 +91,7 @@ export default function InvoicesPage() {
     orderBy: (state.sortBy as 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents') || 'invoice_date',
     ascending: state.sortDirection === 'asc',
     invoiceNumberSearch: state.search,
+    unpaidOnly: state.filters.payment?.includes('unpaid'),
   });
 
   const invoices = useMemo(() => data?.invoices ?? [], [data?.invoices]);
@@ -95,6 +100,7 @@ export default function InvoicesPage() {
   const { data: invoiceItemsMap = {} } = useInvoiceItems(invoiceIds);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    { key: 'payment', label: 'Payment', options: [{ value: 'unpaid', label: 'Unpaid balance' }] },
     {
       key: 'status',
       label: 'Status',

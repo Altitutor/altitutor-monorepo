@@ -1,3 +1,6 @@
+import { collectTableRows } from '@/shared/utils/tablePages';
+import { compareTimeSinceCheckIn } from '@/features/reconciliation/api/checkInDates';
+import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { keepPreviousData } from '@tanstack/react-query';
 import { parentsApi, type ParentSearchField } from '../api/parents';
@@ -26,6 +29,7 @@ export interface UseParentsListParams {
   pageSize?: number;
   orderBy?: keyof Tables<'parents'>;
   ascending?: boolean;
+  sortByCheckIn?: boolean;
 }
 
 export function useParentsList(params: UseParentsListParams) {
@@ -36,13 +40,26 @@ export function useParentsList(params: UseParentsListParams) {
     pageSize = 50,
     orderBy = 'last_name',
     ascending = true,
+    sortByCheckIn = false,
   } = params || {};
 
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
+  const checkIns = useCheckInDates('parent', sortByCheckIn);
   return useQuery({
-    queryKey: parentsKeys.list({ search, searchFields, page, pageSize, orderBy, ascending }),
-    queryFn: () => parentsApi.list({ search, searchFields, limit: pageSize, offset, orderBy, ascending }),
+    queryKey: [...parentsKeys.list({ search, searchFields, orderBy, ascending, page, pageSize }), sortByCheckIn ? checkIns.dataUpdatedAt : null],
+    enabled: !sortByCheckIn || !!checkIns.data || checkIns.isError,
+    queryFn: async () => {
+      const args = { search, searchFields, orderBy, ascending };
+      if (!sortByCheckIn) return parentsApi.list({ ...args, limit: pageSize, offset });
+      if (checkIns.error) throw checkIns.error;
+      const rows = await collectTableRows(async (offset, limit) => {
+        const result = await parentsApi.list({ ...args, orderBy: 'last_name', ascending: true, offset, limit });
+        return { rows: result.parents, total: result.total };
+      });
+      rows.sort((a, b) => compareTimeSinceCheckIn(checkIns.data?.[a.id], checkIns.data?.[b.id], ascending) || a.id.localeCompare(b.id));
+      return { parents: rows.slice(offset, offset + pageSize), total: rows.length };
+    },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 5,

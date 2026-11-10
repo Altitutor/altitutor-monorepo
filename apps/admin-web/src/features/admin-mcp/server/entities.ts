@@ -254,7 +254,6 @@ export async function findReferences(targetId: string, offset = 0) {
     "projects",
     "notes_documents",
     "notes",
-    "notes_daily",
     "rich_text_templates",
   ].map((name) => {
     const field = ["issues", "tasks", "projects"].includes(name)

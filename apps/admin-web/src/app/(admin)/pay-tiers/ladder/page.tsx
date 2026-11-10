@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { PayTiersLadderEditor } from '@/features/pay-tiers/components/PayTiersLadderEditor';
-
-export default function PayTiersLadderPage() {
-  return <PayTiersLadderEditor />;
+export default function LegacyPage() {
+  redirect('/settings/pay-tiers');
 }

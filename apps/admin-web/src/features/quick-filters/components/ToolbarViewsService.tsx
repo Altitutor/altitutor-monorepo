@@ -4,6 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ToolbarViewsProvider, type ToolbarViewsService,
   type ToolbarViewDialogProps,
 } from "@altitutor/ui";
+import type { SavedView } from '@altitutor/shared';
+import { useReconciliationCount } from '@/features/reconciliation/api/useReconciliationCounts';
+import { reconciliationViewKey, type ReconciliationViewKey } from '../config/operationalViews';
+import { RedCountBadge } from '@/shared/components/RedCountBadge';
 import { useCurrentStaff } from "@/shared/hooks";
 import { quickFiltersApi } from "../api/quick-filters";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
@@ -31,6 +35,16 @@ function AdminViewDialog({
       {children}
     </AdminDialogShell>
   );
+}
+
+function QueueCount({ queue }: { queue: ReconciliationViewKey }) {
+  const { data } = useReconciliationCount(queue);
+  return data === undefined ? null : <RedCountBadge className="ml-1.5" count={data} />;
+}
+
+function AdminViewBadge({ view }: { view: SavedView }) {
+  const queue = reconciliationViewKey(view.id);
+  return queue ? <QueueCount queue={queue} /> : null;
 }
 
 export function AdminToolbarViewsProvider({
@@ -62,6 +76,7 @@ export function AdminToolbarViewsProvider({
     () => ({ userId: staff?.id ?? null, save,
       remove,
       Dialog: AdminViewDialog,
+      ViewBadge: AdminViewBadge,
     }),
     [staff?.id, save, remove],
   );

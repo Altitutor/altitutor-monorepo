@@ -20,12 +20,14 @@ test.describe('admin access', () => {
   test('allows a seeded active admin to load the dashboard', async ({ page }) => {
     await signIn(page, 'admin@altitutor.test');
 
-    await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, {
+    await expect(page).toHaveURL(/\/dashboard$/, {
       timeout: 30_000,
     });
     await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Dashboard', {
       timeout: 30_000,
     });
+    await page.goto('/dashboard/2026-01-01');
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 
   test('redirects a seeded tutor away from admin-web', async ({ page }) => {

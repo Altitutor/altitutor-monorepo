@@ -38,7 +38,6 @@ import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
 import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
-import { format } from 'date-fns';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -109,15 +108,6 @@ function NavSectionHeading({ title }: { title: string }) {
     </button>
   );
 }
-
-const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
-
-const getNavItemHref = (item: Extract<NavItem, { type?: "link" }>) => {
-  if (item.title === "Dashboard") {
-    return getTodayDashboardHref();
-  }
-  return item.href;
-};
 
 const isNavItemActive = (
   pathname: string,
@@ -275,7 +265,7 @@ function AdminNavMenu({
           !collapsedGroups.includes(section.title);
         const links = section.items.map((item) => {
           const Icon = item.icon;
-          const itemHref = getNavItemHref(item);
+          const itemHref = item.href;
           if (item.children?.length) {
             return (
               <ExpandableNavGroup
