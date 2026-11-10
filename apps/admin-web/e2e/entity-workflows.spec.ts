@@ -8,7 +8,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill("admin@altitutor.test");
   await page.getByPlaceholder("Enter your password").fill("test-password");
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
-  await expect(page).toHaveURL(/\/dashboard\//, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/, { timeout: 30_000 });
 }
 
 test("saved views use the expandable admin dialog and can be deleted persistently", async ({
@@ -445,7 +445,7 @@ test("email and message references open the correct record and reveal the specif
   for (const result of results)
     if (result.error) throw new Error(result.error.message);
   await page.goto(`/tasks/${taskId}`);
-  await expect(page).toHaveURL(/\/dashboard\//);
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.goto("/students/10000000-0000-0000-0000-000000000001");
   await page
     .locator(`[data-mention][data-type="email"][data-id="${emailId}"]`)
