@@ -26,26 +26,27 @@ import type { OperationsSubsection, SchedulingSubsection } from './ReportsDateRa
 const TODAY = new Date().toISOString().slice(0, 10);
 const CURRENT_YEAR = new Date().getFullYear();
 
+const reportTabs = [
+  ...REPORTS_SECTION_KEYS.map((key) => ({ value: key, label: REPORTS_SECTION_LABELS[key] })),
+  { value: 'form-reports', label: 'Form reports' },
+  { value: 'form-responses', label: 'Form responses' },
+];
+
 function ReportsTabs() {
   const pathname = usePathname();
   const router = useRouter();
   const base = '/reports';
   const activeSection =
-    REPORTS_SECTION_KEYS.find((key) => {
-      const href = `${base}/${key}`;
-      return pathname === href || pathname?.startsWith(`${href}/`);
-    }) ?? REPORTS_SECTION_KEYS[0];
+    reportTabs.find(({ value }) => pathname === `${base}/${value}`)?.value
+    ?? REPORTS_SECTION_KEYS[0];
 
   return (
     <SegmentedControl
-      className="w-full max-w-3xl"
+      className="w-full max-w-5xl"
       fullWidth
       value={activeSection}
       onValueChange={(key) => router.push(`${base}/${key}`)}
-      options={REPORTS_SECTION_KEYS.map((key) => ({
-        value: key,
-        label: REPORTS_SECTION_LABELS[key],
-      }))}
+      options={reportTabs}
     />
   );
 }
@@ -242,11 +243,13 @@ function ReportsFilters() {
 }
 
 export function ReportsLayoutContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const showFilters = pathname !== '/reports/form-reports' && pathname !== '/reports/form-responses';
   return (
     <div className="space-y-6">
 
       <div className="flex flex-col gap-4">
-        <ReportsFilters />
+        {showFilters && <ReportsFilters />}
         <ReportsTabs />
       </div>
 

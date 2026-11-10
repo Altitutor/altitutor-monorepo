@@ -178,7 +178,6 @@ export function registerAdminMcpTools(server: McpServer) {
           "document",
           "note",
           "folder",
-          "daily_note",
           "template",
         ]),
         id: uuid,

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { reconciliationApi, getReconciliationTabCounts } from './reconciliation';
-import { fetchFamilyCheckInsData } from './familyCheckIns';
 import { reconciliationKeys } from './queryKeys';
 
 /**
@@ -15,8 +14,9 @@ export function useUninvoicedSessions() {
   });
 }
 
-export function useSessionBillingAdjustmentIssues() {
+export function useSessionBillingAdjustmentIssues(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: reconciliationKeys.sessionBillingAdjustments(),
     queryFn: () => reconciliationApi.getSessionBillingAdjustmentIssues(),
     staleTime: 1000 * 30,
@@ -27,106 +27,11 @@ export function useSessionBillingAdjustmentIssues() {
 /**
  * Sessions billed only on void invoices (re-invoicing may be required)
  */
-export function useVoidInvoiceSessions() {
+export function useVoidInvoiceSessions(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: reconciliationKeys.voidInvoiceSessions(),
     queryFn: () => reconciliationApi.getVoidInvoiceSessions(),
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 5,
-  });
-}
-
-/**
- * Get unpaid invoices
- */
-export function useUnpaidInvoices() {
-  return useQuery({
-    queryKey: reconciliationKeys.unpaidInvoices(),
-    queryFn: () => reconciliationApi.getUnpaidInvoices(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get unlogged sessions
- */
-export function useUnloggedSessions() {
-  return useQuery({
-    queryKey: reconciliationKeys.unloggedSessions(),
-    queryFn: () => reconciliationApi.getUnloggedSessions(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get unassigned classes
- */
-export function useUnassignedClasses() {
-  return useQuery({
-    queryKey: reconciliationKeys.unassignedClasses(),
-    queryFn: () => reconciliationApi.getUnassignedClasses(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get students without classes
- */
-export function useStudentsWithoutClasses() {
-  return useQuery({
-    queryKey: reconciliationKeys.studentsWithoutClasses(),
-    queryFn: () => reconciliationApi.getStudentsWithoutClasses(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get students without payment method
- */
-export function useStudentsWithoutPaymentMethod() {
-  return useQuery({
-    queryKey: reconciliationKeys.studentsWithoutPaymentMethod(),
-    queryFn: () => reconciliationApi.getStudentsWithoutPaymentMethod(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get unassigned tasks
- */
-export function useUnassignedTasks() {
-  return useQuery({
-    queryKey: reconciliationKeys.unassignedTasks(),
-    queryFn: () => reconciliationApi.getUnassignedTasks(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Active projects with no project lead (reconciliation / operations).
- */
-export function useProjectsWithNoLead() {
-  return useQuery({
-    queryKey: reconciliationKeys.projectsWithNoLead(),
-    queryFn: () => reconciliationApi.getProjectsWithNoLead(),
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 5,
-  });
-}
-
-/**
- * Staff / student / parent last check-in summaries for the Family reconciliation tab.
- */
-export function useFamilyCheckInsData() {
-  return useQuery({
-    queryKey: reconciliationKeys.familyCheckIns(),
-    queryFn: () => fetchFamilyCheckInsData(),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });

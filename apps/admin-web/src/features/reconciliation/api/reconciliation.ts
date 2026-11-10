@@ -1,5 +1,7 @@
+import { getUpcomingUnassignedClassIds } from '@/features/classes/api/unassignedClasses';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { loadStudentsWithoutClasses } from './studentsWithoutClasses';
 import type { Database } from '@altitutor/shared';
 import { tasksApi } from '@/features/tasks/api/tasks';
 import type {
@@ -7,7 +9,6 @@ import type {
   UnloggedSession,
   UnassignedClass,
   UnpaidInvoice,
-  StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   UnassignedTask,
   VoidInvoiceSession,
@@ -354,188 +355,6 @@ export const reconciliationApi = {
   },
 
   /**
-   * Students who should have a class per subject but do not.
-   *
-   * Subject scope matches the student profile subject list (direct `students_subjects` rows plus
-   * `students_online_access_manual` grants).
-   */
-  getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    type StudentSubjectRow = {
-      created_at?: string;
-      subject?: {
-        id: string;
-        name?: string;
-        short_name?: string | null;
-        long_name?: string | null;
-        curriculum?: string;
-        year_level?: string | number | null;
-      } | null;
-    };
-
-    // Get ACTIVE students with their subjects
-    const { data: studentsWithSubjects, error: studentsError } = await supabase
-      .from('students')
-      .select(
-        `
-        id,
-        first_name,
-        last_name,
-        status,
-        created_at,
-        updated_at,
-        students_subjects(
-          created_at,
-          subject:subjects(
-            id,
-            name,
-            short_name,
-            long_name,
-            curriculum,
-            year_level
-          )
-        )
-      `,
-      )
-      .eq('status', 'ACTIVE')
-      .order('last_name', { ascending: true })
-      .order('first_name', { ascending: true });
-
-    if (studentsError) throw studentsError;
-
-    const studentIds = (studentsWithSubjects ?? []).map((s) => s.id);
-
-    let manualSubjectRows: Array<{
-      student_id: string;
-      created_at: string | null;
-      subject: StudentSubjectRow['subject'];
-    }> = [];
-
-    if (studentIds.length > 0) {
-      const { data: manualData, error: manualError } = await supabase
-        .from('students_online_access_manual')
-        .select(
-          `
-          student_id,
-          created_at,
-          subject:subjects(
-            id,
-            name,
-            short_name,
-            long_name,
-            curriculum,
-            year_level
-          )
-        `,
-        )
-        .in('student_id', studentIds);
-
-      if (manualError) throw manualError;
-      manualSubjectRows = (manualData ?? []) as typeof manualSubjectRows;
-    }
-
-    const manualByStudentId = new Map<string, StudentSubjectRow[]>();
-    for (const row of manualSubjectRows) {
-      if (!row.subject?.id) continue;
-      const list = manualByStudentId.get(row.student_id) ?? [];
-      list.push({
-        created_at: row.created_at ?? undefined,
-        subject: row.subject,
-      });
-      manualByStudentId.set(row.student_id, list);
-    }
-
-    // Get all active class enrollments
-    const { data: classEnrollments, error: enrollmentsError } = await supabase
-      .from('classes_students')
-      .select('student_id, class_id')
-      .is('unenrolled_at', null);
-
-    if (enrollmentsError) throw enrollmentsError;
-
-    // Get class details for enrolled classes
-    const classIds = [...new Set((classEnrollments ?? []).map((e) => e.class_id))];
-    const { data: classes, error: classesError } = await supabase
-      .from('classes')
-      .select('id, subject_id, status')
-      .in('id', classIds)
-      .eq('status', 'ACTIVE');
-
-    if (classesError) throw classesError;
-
-    // Build a map of class_id -> subject_id for active classes
-    const classSubjectMap = new Map<string, string>();
-    (classes ?? []).forEach((cls) => {
-      if (cls.subject_id) {
-        classSubjectMap.set(cls.id, cls.subject_id);
-      }
-    });
-
-    // Build a map of student_id -> Set of subject_ids they have active classes for
-    const studentSubjectClasses = new Map<string, Set<string>>();
-    (classEnrollments ?? []).forEach((enrollment) => {
-      const subjectId = classSubjectMap.get(enrollment.class_id);
-      if (subjectId) {
-        const studentId = enrollment.student_id;
-        if (!studentSubjectClasses.has(studentId)) {
-          studentSubjectClasses.set(studentId, new Set());
-        }
-        studentSubjectClasses.get(studentId)!.add(subjectId);
-      }
-    });
-
-    // Build result: one row per student-subject combination where student has no active class for that subject
-    const result: StudentWithoutClasses[] = [];
-
-    (studentsWithSubjects ?? []).forEach((student) => {
-      const ssRows = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
-      const manualRowsForStudent = manualByStudentId.get(student.id) ?? [];
-
-      const mergedBySubjectId = new Map<string, StudentSubjectRow>();
-      for (const r of ssRows) {
-        const sid = r.subject?.id;
-        if (sid) mergedBySubjectId.set(sid, r);
-      }
-      for (const r of manualRowsForStudent) {
-        const sid = r.subject?.id;
-        if (sid && !mergedBySubjectId.has(sid)) mergedBySubjectId.set(sid, r);
-      }
-
-      const studentActiveSubjectIds = studentSubjectClasses.get(student.id) ?? new Set();
-
-      for (const studentSubject of mergedBySubjectId.values()) {
-        const subject = studentSubject.subject;
-        if (subject && !studentActiveSubjectIds.has(subject.id)) {
-          result.push({
-            student_id: student.id,
-            first_name: student.first_name,
-            last_name: student.last_name,
-            subject_id: subject.id,
-            subject_name: subject.name ?? '',
-            subject_short_name: subject.short_name ?? null,
-            subject_long_name: subject.long_name ?? null,
-            subject_curriculum: subject.curriculum ?? null,
-            subject_year_level: typeof subject.year_level === 'number' ? subject.year_level : null,
-            subject_added_at: studentSubject.created_at ?? null,
-            created_at: student.created_at ?? '',
-            updated_at: student.updated_at ?? '',
-          });
-        }
-      }
-    });
-
-    // Sort by last_name, then first_name
-    result.sort((a, b) => {
-      const lastNameCompare = (a.last_name || '').localeCompare(b.last_name || '');
-      if (lastNameCompare !== 0) return lastNameCompare;
-      return (a.first_name || '').localeCompare(b.first_name || '');
-    });
-
-    return result;
-  },
-
-  /**
    * ACTIVE students with no `student_payment_methods` rows (via reconciliation view).
    * RLS on underlying tables still applies; ADMINSTAFF is required for payment-method data.
    */
@@ -630,8 +449,8 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     countUnpaidInvoicesExact(),
     countReconciliationViewRows('vadmin_reconciliation_students_without_payment_method'),
     countReconciliationViewRows('vadmin_reconciliation_unlogged_sessions'),
-    countReconciliationViewRows('vadmin_reconciliation_unassigned_classes'),
-    reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
+    getUpcomingUnassignedClassIds().then((ids) => ids.size),
+    loadStudentsWithoutClasses(getSupabaseClient()).then((rows) => new Set(rows.map((row) => row.student_id)).size),
     countUnassignedTasksExact(),
     countProjectsWithoutLeadExact(),
     countReconciliationViewRows('vadmin_reconciliation_session_billing_adjustments'),

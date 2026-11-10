@@ -120,7 +120,7 @@ export function ClassesTable({
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ["day", "subject", "student", "staff", "show_admin_shifts"],
+    filterKeys: ["day", "subject", "student", "staff", "show_admin_shifts", "staffing"],
   });
 
   const { data: subjectSearchData, isFetching: isSubjectSearching } =
@@ -165,6 +165,7 @@ export function ClassesTable({
   const { data, isLoading, error, refetch, isFetching } =
     useClassesMinimalPaginated({
       search: state.search,
+      unassignedOnly: state.filters.staffing?.includes("unassigned"),
       daysOfWeek: state.filters.day as number[],
       subjectIds: (state.filters.subject as string[]) ?? undefined,
       studentIds: (state.filters.student as string[]) ?? undefined,
@@ -323,6 +324,10 @@ export function ClassesTable({
     { key: "created_at", label: "Created At" },
   ];
 
+  const availableFilters = [...filterDefinitions, {
+    key: 'staffing', label: 'Staffing', options: [{ value: 'unassigned', label: 'No staff assigned' }],
+  }];
+
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: "day", label: "Day" },
     { key: "time", label: "Time" },
@@ -462,7 +467,7 @@ export function ClassesTable({
           onVisibleColumnsChange={setVisibleColumns}
           onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
           onReset={resetFilters}
-          filterDefinitions={filterDefinitions}
+          filterDefinitions={availableFilters}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters}
@@ -512,7 +517,7 @@ export function ClassesTable({
         onVisibleColumnsChange={setVisibleColumns}
         onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
         onReset={resetFilters}
-        filterDefinitions={filterDefinitions}
+        filterDefinitions={availableFilters}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}

@@ -12,7 +12,6 @@ jest.mock('@/features/messages/hooks/useMessageSubscription', () => ({ useMessag
 jest.mock('@/shared/hooks', () => ({ useCurrentStaff: () => ({ data: null }) }));
 jest.mock('@/features/notifications', () => ({ NotificationsTray: () => null, useNotificationsRealtime: jest.fn() }));
 jest.mock('@/shared/shortcuts/ShortcutKeys', () => ({ ShortcutKeys: () => null }));
-jest.mock('../DashboardDatePicker', () => ({ DashboardDatePicker: () => null }));
 jest.mock('next/image', () => ({ __esModule: true, default: () => null }));
 jest.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
 

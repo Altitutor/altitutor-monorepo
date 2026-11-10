@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
+import { studentGroup } from '../utils/studentGroup';
+import { currentSubsidies } from '../api/currentSubsidies';
+import { loadStudentsWithoutClasses } from '@/features/reconciliation/api/studentsWithoutClasses';
+import { compareTimeSinceCheckIn, loadCheckInDates } from '@/features/reconciliation/api/checkInDates';
+import { collectTableRows } from '@/shared/utils/tablePages';
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { parseBoard } from "@/features/onboarding/lib/parseBoard";
 import {
@@ -34,6 +39,7 @@ const requestSchema = z.object({
       "last_name",
       "created_at",
       "online_since",
+      "time_since_last_check_in",
       "stage",
       "__none__",
     ])
@@ -108,15 +114,70 @@ export async function searchStudentDirectory(request: Request) {
         subject_ids: journey.evidence.subjects.map((subject) => subject.id),
       };
     });
-    const result = await db.rpc("search_student_directory_admin", {
-      p_request: parsed.data,
-      p_journeys: index,
-    });
-    if (result.error) throw result.error;
-    const payload = result.data as unknown as {
+    type DirectoryResult = {
       entries: Array<StudentDirectoryEntry & { journey_id: string | null }>;
       total: number;
     };
+    const input = parsed.data;
+    const sortByCheckIn = input.sortBy === 'time_since_last_check_in';
+    const noClasses = input.filters.reconciliation?.includes('no-classes');
+    const noPayment = input.filters.reconciliation?.includes('no-payment-method');
+    const subsidies = input.filters.subsidy?.includes('current');
+    const loadPage = async (page: number, pageSize: number) => {
+      const result = await db.rpc("search_student_directory_admin", {
+        p_request: { ...input, page, pageSize, sortBy: sortByCheckIn ? 'last_name' : input.sortBy },
+        p_journeys: index,
+      });
+      if (result.error) throw result.error;
+      return result.data as unknown as DirectoryResult;
+    };
+    let payload: DirectoryResult;
+    if (sortByCheckIn || noClasses || noPayment || subsidies) {
+      const [rows, classMatches, paymentMatches, subsidyMatches, dates] = await Promise.all([
+        collectTableRows(async (offset, limit) => {
+          const result = await loadPage(offset / limit + 1, limit);
+          return { rows: result.entries, total: result.total };
+        }),
+        noClasses ? loadStudentsWithoutClasses(db) : [],
+        noPayment ? collectTableRows(async (offset, limit) => {
+          const result = await db.from('vadmin_reconciliation_students_without_payment_method')
+            .select('student_id', { count: 'exact' }).order('student_id').range(offset, offset + limit - 1);
+          if (result.error) throw result.error;
+          return { rows: result.data, total: result.count ?? 0 };
+        }) : [],
+        subsidies ? (async () => {
+          const ids = new Set<string>();
+          const size = 500;
+          for (let offset = 0; ; offset += size) {
+            const { data, error } = await currentSubsidies(db, now.toISOString()).order('id').range(offset, offset + size - 1);
+            if (error) throw error;
+            for (const row of data) ids.add(row.student_id);
+            if (data.length < size) return ids;
+          }
+        })() : new Set<string>(),
+        sortByCheckIn ? loadCheckInDates(db, 'student') : ({} as Record<string, string>),
+      ]);
+      const reconciliationIds = new Set([...classMatches, ...paymentMatches].map((row) => row.student_id));
+      const filtered = rows.filter((row) => {
+        if (!noClasses && !noPayment && !subsidies) return true;
+        if (row.kind !== 'student') return false;
+        return (!(noClasses || noPayment) || reconciliationIds.has(row.student.id))
+          && (!subsidies || subsidyMatches.has(row.student.id));
+      });
+      if (sortByCheckIn) {
+        const groups = new Map<string, number>();
+        const group = (row: StudentDirectoryEntry) => studentGroup(row, input.groupBy ?? null);
+        for (const row of filtered) if (!groups.has(group(row))) groups.set(group(row), groups.size);
+        filtered.sort((left, right) =>
+          (groups.get(group(left)) ?? 0) - (groups.get(group(right)) ?? 0)
+          || compareTimeSinceCheckIn(dates[left.id], dates[right.id], input.sortDirection === 'asc')
+          || left.id.localeCompare(right.id));
+      }
+      const offset = (input.page - 1) * input.pageSize;
+      payload = { entries: filtered.slice(offset, offset + input.pageSize), total: filtered.length };
+    } else {
+      payload = await loadPage(input.page, input.pageSize);
+    }
     const byId = new Map(journeys.map((journey) => [journey.id, journey]));
     const page: StudentDirectoryPage = {
       total: payload.total,

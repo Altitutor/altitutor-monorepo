@@ -1,5 +1,5 @@
-import { FormResponsesPage } from '@/features/feedback/components/FormResponsesPage';
+import { redirect } from 'next/navigation';
 
-export default function FeedbackResponsesRoute() {
-  return <FormResponsesPage />;
+export default function LegacyPage() {
+  redirect('/reports/form-responses');
 }

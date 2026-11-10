@@ -18,7 +18,6 @@ import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { Search } from 'lucide-react';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
-import { DashboardDatePicker } from './DashboardDatePicker';
 
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 
@@ -93,7 +92,6 @@ export function Navbar() {
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0 justify-end">
-          {user && <DashboardDatePicker />}
 
           {/* Command palette */}
           {user && (

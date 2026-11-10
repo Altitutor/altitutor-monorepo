@@ -1,4 +1,6 @@
 'use client';
+import { checkInColumns, CheckInTableHeads, CheckInTableCells } from '@/shared/components/CheckInTableCells';
+import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 
@@ -85,19 +87,24 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
     searchFields,
     page: state.page,
     pageSize: state.pageSize,
-    orderBy: state.sortBy as keyof Tables<'parents'> || 'last_name',
+    sortByCheckIn: state.sortBy === 'time_since_last_check_in',
+    orderBy: (state.sortBy === 'time_since_last_check_in' ? 'last_name' : state.sortBy as keyof Tables<'parents'>) || 'last_name',
     ascending: state.sortDirection === 'asc',
   });
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [], []);
 
+  const checkIns = useCheckInDates('parent', checkInColumns.some((column) => state.visibleColumns.includes(column.key)));
+
   const sortOptions: DataTableSortOption[] = [
+    { key: 'time_since_last_check_in', label: 'Time since last check-in' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
     { key: 'created_at', label: 'Created At' },
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    ...checkInColumns,
     { key: 'parent', label: 'Parent' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
@@ -254,6 +261,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
               {state.visibleColumns.includes('email') && <TableHead>Email</TableHead>}
               {state.visibleColumns.includes('phone') && <TableHead>Phone</TableHead>}
               {state.visibleColumns.includes('students') && <TableHead>Students</TableHead>}
+              <CheckInTableHeads columns={state.visibleColumns} />
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -335,6 +343,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                         )}
                       </TableCell>
                     )}
+                    <CheckInTableCells columns={state.visibleColumns} date={checkIns.data?.[parent.id]} error={checkIns.isError} />
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ActionsMenu
                         type="parent"

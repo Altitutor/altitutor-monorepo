@@ -22,7 +22,7 @@ interface NoteEditorProps {
   editable?: boolean;
   minHeight?: string;
   autoHeight?: boolean;
-  /** Stretch the editor to fill a flex parent (e.g. dashboard daily note card). */
+  /** Stretch the editor to fill a flex parent. */
   fillContainer?: boolean;
   /** Default 200ms — with autosave debounce, changes persist ~0.5–0.8s after you stop typing. */
   onChangeDebounceMs?: number;

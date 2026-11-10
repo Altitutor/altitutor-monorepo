@@ -1,16 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
+import { ArrowRight, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useReconciliationTabCounts } from '../api/queries';
+import { operationalViews as views, operationalViewHref } from '@/features/quick-filters/config/operationalViews';
 
 const STAT_ROWS = [
-  { key: 'financial' as const, label: 'Financial', href: '/reconciliation/financial' },
-  { key: 'scheduling' as const, label: 'Scheduling', href: '/reconciliation/scheduling' },
-  { key: 'operations' as const, label: 'Operations', href: '/reconciliation/operations' },
-];
+  { key: 'financial', label: 'Financial', views: [views.billingAdjustments, views.uninvoiced, views.voidInvoices, views.unpaid, views.noPayment] },
+  { key: 'scheduling', label: 'Scheduling', views: [views.unlogged, views.noStaff, views.noClasses] },
+  { key: 'operations', label: 'Operations', views: [views.unassignedTasks, views.noLead] },
+] as const;
 
 function CountBubble({
   value,
@@ -63,12 +64,6 @@ export function DashboardReconciliationCard() {
     <Card className="flex h-full min-h-0 flex-col overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between gap-4 px-4 pb-2 pt-3">
         <CardTitle className="text-lg font-semibold">Reconciliation</CardTitle>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/reconciliation" className="gap-1.5">
-            <ExternalLink className="h-3.5 w-3.5" />
-            Reconciliation
-          </Link>
-        </Button>
       </CardHeader>
       <CardContent className="p-0">
         {isLoading && !counts ? (
@@ -77,15 +72,23 @@ export function DashboardReconciliationCard() {
           </div>
         ) : (
           <div className="divide-y border-t">
-            {STAT_ROWS.map(({ key, label, href }) => (
-              <Link
-                key={key}
-                href={href}
-                className="flex items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-              >
-                <span>{label}</span>
-                <CountBubble value={counts?.[key]} isLoading={isLoading} isError={isError} />
-              </Link>
+            {STAT_ROWS.map(({ key, label, views }) => (
+              <details key={key} className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                  <ChevronDown aria-hidden className="h-4 w-4 -rotate-90 group-open:rotate-0" />
+                  <span className="flex-1">{label}</span>
+                  <CountBubble value={counts?.[key]} isLoading={isLoading} isError={isError} />
+                </summary>
+                <ul className="pb-2">
+                  {views.map((view) => (
+                    <li key={view.slug}>
+                      <Link href={operationalViewHref(view)} className="flex items-center justify-between gap-2 py-2 pl-10 pr-4 text-sm hover:bg-muted/50">
+                        {view.name}<ArrowRight aria-hidden className="h-4 w-4 text-muted-foreground" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ))}
             <div className="flex items-center justify-between bg-muted/30 px-4 py-3 text-sm font-medium">
               <span>Total open items</span>

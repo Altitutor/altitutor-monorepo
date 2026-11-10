@@ -115,9 +115,12 @@ export const projectsApi = {
 
   list: async (filters?: ProjectFilters): Promise<ProjectWithLead[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { status, priority, search, member, ...otherFilters } = filters || {};
+    const { status, priority, search, member, lead, ...otherFilters } = filters || {};
 
     let query = supabase.from('projects').select(PROJECT_LIST_SELECT);
+    if (Array.isArray(lead) && lead.includes('unassigned')) {
+      query = query.is('project_lead_id', null).neq('status', 'completed');
+    }
 
     const memberIds = asIdList(member);
     if (memberIds.length > 0) {

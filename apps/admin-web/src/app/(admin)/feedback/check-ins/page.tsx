@@ -1,10 +1,5 @@
-import { CheckInsPage } from '@/features/feedback/components/CheckInsPage';
-import { ReconciliationInteractionProvider } from '@/features/reconciliation/components/ReconciliationShell';
+import { redirect } from 'next/navigation';
 
-export default function FeedbackCheckInsRoute() {
-  return (
-    <ReconciliationInteractionProvider>
-      <CheckInsPage />
-    </ReconciliationInteractionProvider>
-  );
+export default function LegacyPage() {
+  redirect('/students?sort=time_since_last_check_in&order=desc&columns=student,last_check_in,time_since_last_check_in');
 }

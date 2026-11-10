@@ -137,28 +137,34 @@ export function invalidateCheckInSurfaces(queryClient: QueryClient) {
 
 export function invalidateUnloggedSessionSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidate(queryClient, reconciliationKeys.unloggedSessions()),
     invalidate(queryClient, reconciliationKeys.familyCheckIns()),
   ]);
 }
 
 export function invalidateTaskAssignmentSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, reconciliationKeys.unassignedTasks());
+  return Promise.all([invalidate(queryClient, reconciliationKeys.unassignedTasks()), invalidate(queryClient, reconciliationKeys.tabCounts())]);
 }
 
 export function invalidateInvoiceReconciliationSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
     invalidate(queryClient, reconciliationKeys.voidInvoiceSessions()),
   ]);
 }
 
 export function invalidateUnpaidInvoiceReconciliationSurfaces(queryClient: QueryClient) {
-  return invalidate(queryClient, reconciliationKeys.unpaidInvoices());
+  return Promise.all([invalidate(queryClient, reconciliationKeys.unpaidInvoices()), invalidate(queryClient, reconciliationKeys.tabCounts())]);
 }
 
 export function invalidateSessionInvoiceSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, reconciliationKeys.sessionQueues()),
+    invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidateSessionListSurfaces(queryClient),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
   ]);

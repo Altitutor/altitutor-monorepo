@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { useReconciliationSessionIds } from '@/features/reconciliation/api/sessionQueues';
 import { choiceFilterMatches } from '@altitutor/shared';
 import type { Tables, DataTableState } from '@altitutor/shared';
 import { useSessionsWithDetails } from './useSessionsQuery';
@@ -93,6 +94,8 @@ export function useSessionsTable({
   // Use state from useDataTable if provided, otherwise default to empty/1
   const search = state?.search || '';
   const filters = useMemo(() => state?.filters ?? {}, [state?.filters]);
+  const { data: queueIds, active: queueActive, refetch: retryQueue, isLoading: queueLoading,
+    isFetching: queueFetching, error: queueError } = useReconciliationSessionIds(filters.reconciliation);
   const page = state?.page || 1;
   const pageSize = state?.pageSize || 50;
   const sortDirection = state?.sortDirection || 'desc';
@@ -160,7 +163,14 @@ export function useSessionsTable({
     types: typeFilters.some(type => type !== 'INTERVIEW') && filters.type__operator?.[0] !== 'none' ? typeFilters.filter(type => type !== 'INTERVIEW') : undefined,
     orderBy: 'start_at',
     ascending: sortDirection === 'asc',
-  }, {enabled:!(effectiveRangeStart && effectiveRangeEnd && effectiveRangeStart > effectiveRangeEnd)});
+    matchingIds: queueIds,
+    loggedOnly: showLogged && !showUnlogged,
+    exhaustPages: typeFilters.includes('ADMIN_MEETING'),
+  }, { enabled: (!queueActive || !!queueIds) && !(effectiveRangeStart && effectiveRangeEnd && effectiveRangeStart > effectiveRangeEnd) });
+  const retry = useCallback(async () => {
+    if (queueActive && !queueIds) return retryQueue();
+    return refetch();
+  }, [queueActive, queueIds, retryQueue, refetch]);
 
   // Extract data from response
   const allSessions = useMemo(() => data?.sessions || [], [data?.sessions]);
@@ -268,10 +278,10 @@ export function useSessionsTable({
     sessionStudents,
     sessionStaff,
     tutorLogs,
-    isLoading,
-    error: error as Error | null,
-    isFetching,
-    refetch,
+    isLoading: isLoading || queueLoading,
+    error: (queueError ?? error) as Error | null,
+    isFetching: isFetching || queueFetching,
+    refetch: retry,
 
     // Formatting helpers
     formatDate,

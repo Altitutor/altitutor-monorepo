@@ -33,7 +33,7 @@ export const listSettingsLinks = {
   ],
   staff: [
     { title: "Blockout dates", href: "/settings/blockouts" },
-    { title: "Pay tiers", href: "/pay-tiers/ladder" },
+    { title: "Pay tiers", href: "/settings/pay-tiers" },
     deleted("staff"),
   ],
   classes: [

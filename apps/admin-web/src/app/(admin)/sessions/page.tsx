@@ -15,7 +15,11 @@ import { useSearchParams } from 'next/navigation';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, EllipsisVertical, Plus } from 'lucide-react';
+import { Button } from '@altitutor/ui';
+import { useCurrentStaff } from '@/shared/hooks';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
@@ -23,6 +27,9 @@ export default function SessionsPage() {
   const search = useSearchParams();
   const { openCheckInModal } = useQuickActions();
   const entityModals = useEntityNavigation();
+  const { data: staff } = useCurrentStaff();
+  const [tutorLogOpen, setTutorLogOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'calendar');
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
@@ -90,8 +97,19 @@ export default function SessionsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Sessions actions"><EllipsisVertical /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={!staff} onSelect={() => setTutorLogOpen(true)}>Add tutor log</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setExportOpen(true)}>Export tutor log</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </AdminPageActions>
+      {staff && tutorLogOpen && <LogSessionModal isOpen onClose={() => setTutorLogOpen(false)} currentStaffId={staff.id} adminMode />}
+      {exportOpen && <QuickBooksExportModal isOpen onClose={() => setExportOpen(false)} />}
 
       <Suspense>
         <SessionsTable renderMode={view} toolbarView={{value:view,options:[{value:'table',label:'Table'},{value:'calendar',label:'Calendar'}],onChange:(next) => {if(next === 'table' || next === 'calendar') setView(next);}}}

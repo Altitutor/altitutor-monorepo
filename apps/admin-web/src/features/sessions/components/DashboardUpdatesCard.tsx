@@ -120,7 +120,7 @@ export function DashboardUpdatesCard({
   return (
     <Card className="flex w-full max-h-[520px] flex-col overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between gap-4 px-4 pb-2 pt-3">
-        <CardTitle className="text-lg font-semibold">Updates</CardTitle>
+        <CardTitle className="text-lg font-semibold">Updates today</CardTitle>
         <SearchableSelect<(typeof DASHBOARD_UPDATES_SORT_OPTIONS)[number]>
           items={DASHBOARD_UPDATES_SORT_OPTIONS}
           value={selectedSortOption}

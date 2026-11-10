@@ -100,12 +100,14 @@ export const tasksApi = {
       query = query.is('issue_id', null).is('project_id', null);
     }
 
-    // Assigned to filter (support both single and array, and all key names)
     const effectiveAssignedTo = assignedTo || assignee || assigned_to;
     if (effectiveAssignedTo && !unassignedOnly) {
-      const assignedToValues = Array.isArray(effectiveAssignedTo) ? effectiveAssignedTo : [effectiveAssignedTo];
-      if (assignedToValues.length > 0) {
-        query = query.in('assigned_to', assignedToValues);
+      const values = Array.isArray(effectiveAssignedTo) ? effectiveAssignedTo : [effectiveAssignedTo];
+      const ids = values.filter((value) => value !== '__null__');
+      if (values.includes('__null__')) {
+        query = ids.length ? query.or(`assigned_to.is.null,assigned_to.in.(${ids.map((id) => { if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Invalid assignee'); return id; }).join(',')})`) : query.is('assigned_to', null);
+      } else if (ids.length) {
+        query = query.in('assigned_to', ids);
       }
     }
 

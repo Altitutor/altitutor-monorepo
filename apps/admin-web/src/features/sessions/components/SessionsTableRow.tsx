@@ -19,6 +19,7 @@ import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
 import { AttendanceCell } from './AttendanceCell';
+import { DeleteVoidInvoiceButton } from '@/features/billing/components/DeleteVoidInvoiceButton';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
@@ -64,6 +65,9 @@ export interface SessionsTableRowProps {
   sessionStudents: Record<string, Tables<'students'>[]>;
   sessionStaff: Record<string, Tables<'staff'>[]>;
   tutorLogs: TutorLogMap;
+  topicsText?: string;
+  billingExceptions?: { id: string; label: string; invoiceId?: string; sessionStudentId?: string }[];
+  billingExceptionsError?: boolean;
   allSessions: Tables<'sessions'>[];
   formatDate: (dateString: string) => string;
   getTimeRange: (session: Tables<'sessions'>) => string;
@@ -124,6 +128,9 @@ export function SessionsTableRow({
   sessionStudents,
   sessionStaff,
   tutorLogs,
+  topicsText,
+  billingExceptions,
+  billingExceptionsError,
   allSessions,
   formatDate,
   getTimeRange,
@@ -378,6 +385,26 @@ export function SessionsTableRow({
           })()}
         </TableCell>
       )}
+      {visibleColumns.includes('topics') && <TableCell className="max-w-80 whitespace-normal">{topicsText || '—'}</TableCell>}
+      {visibleColumns.includes('billing_exception') && (
+        <TableCell className="max-w-80 whitespace-normal">
+          {billingExceptionsError ? 'Unavailable' : billingExceptions?.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center gap-2">
+              {item.invoiceId ? <Button variant="link" size="sm" onClick={(event) => {
+                event.stopPropagation();
+                openAdminInvoiceModal(item.invoiceId!);
+              }}>{item.label || 'Open voided invoice'}</Button> : item.label}
+              {item.invoiceId && <DeleteVoidInvoiceButton invoiceId={item.invoiceId} />}
+              {item.sessionStudentId && (
+                <Button variant="outline" size="sm" disabled={invoiceSessionMutation.isPending} onClick={(event) => {
+                  event.stopPropagation();
+                  invoiceSessionMutation.mutate(item.sessionStudentId!);
+                }}>Invoice session</Button>
+              )}
+            </div>
+          )) ?? '—'}
+        </TableCell>
+      )}
       {visibleColumns.includes('tutor_log') && (
         <TableCell>
           {tutorLogs[session.id] ? (
@@ -629,6 +656,9 @@ interface SessionsTableRowDefaultActionsProps {
   staffId?: string;
   hasTutorLog: boolean;
   tutorLogs: TutorLogMap;
+  topicsText?: string;
+  billingExceptions?: { id: string; label: string; invoiceId?: string; sessionStudentId?: string }[];
+  billingExceptionsError?: boolean;
   classesById: Record<string, Tables<'classes'>>;
   sessionShortName: string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;

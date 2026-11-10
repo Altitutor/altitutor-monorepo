@@ -9,7 +9,6 @@ import {
   Beaker,
   ClipboardList,
   UserRound,
-  TrendingUp,
   MessageSquareText,
   Mail,
   ListTodo,
@@ -39,16 +38,6 @@ export const navItems: NavItem[] = [
   },
   { title: "Messages", href: "/messages", icon: MessageSquareText },
   { title: "Mail", href: "/email", icon: Mail },
-  {
-    title: "Feedback",
-    href: "/feedback",
-    icon: MessageSquareText,
-    children: [
-      { title: "Form responses", href: "/feedback/responses" },
-      { title: "Reports", href: "/feedback/reports" },
-      { title: "Check-ins", href: "/feedback/check-ins" },
-    ],
-  },
   {
     type: "heading",
     title: "SCHEDULING",
@@ -84,11 +73,6 @@ export const navItems: NavItem[] = [
   { title: "Issues", href: "/issues", icon: AlertTriangle },
   { title: "Documents", href: "/documents", icon: FileText },
   {
-    title: "Reconciliation",
-    href: "/reconciliation",
-    icon: AlertTriangle,
-  },
-  {
     type: "heading",
     title: "FINANCIAL",
   },
@@ -98,24 +82,9 @@ export const navItems: NavItem[] = [
     icon: CreditCard,
   },
   {
-    title: "Subsidies",
-    href: "/subsidies",
-    icon: CreditCard,
-  },
-  {
     title: "Reports",
     href: "/reports",
     icon: FileText,
-  },
-  {
-    title: "Tutor logs",
-    href: "/tutor-logs",
-    icon: ClipboardList,
-  },
-  {
-    title: "Pay tiers",
-    href: "/pay-tiers",
-    icon: TrendingUp,
   },
   {
     type: "heading",

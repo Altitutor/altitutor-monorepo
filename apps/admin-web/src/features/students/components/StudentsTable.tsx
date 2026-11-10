@@ -1,4 +1,7 @@
 'use client';
+import { checkInColumns, CheckInTableHeads, CheckInTableCells } from '@/shared/components/CheckInTableCells';
+import { useStudentBillingColumns } from '../hooks/useStudentBillingColumns';
+import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { studentAccountAction } from '../utils/studentAccountAction';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -39,7 +42,8 @@ import { ViewParentModal } from './ViewParentModal';
 import { ViewClassModal } from '@/features/classes';
 import { useStudentDirectory } from '../hooks/useStudentDirectory';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
-import { StudentDirectoryBoard, studentGroupOptions, studentGroup } from './StudentDirectoryBoard';
+import { StudentDirectoryBoard, studentGroupOptions } from './StudentDirectoryBoard';
+import { studentGroup } from '../utils/studentGroup';
 import type { StudentDirectoryEntry } from '../types/directory';
 import { JourneyDetail } from '@/features/onboarding/components/JourneyDetail';
 import { defaultDeadlines, stages } from '@/features/onboarding/lib/model';
@@ -206,6 +210,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    { key: 'reconciliation', label: 'Reconciliation', options: [{ value: 'no-payment-method', label: 'No payment method' }, { value: 'no-classes', label: 'Without classes' }] },
+    { key: 'subsidy', label: 'Subsidy', options: [{ value: 'current', label: 'Current subsidy' }] },
     { key: 'relationship', label: 'Relationship', options: [{ value: 'in_person', label: 'In person' }, { value: 'online', label: 'Online' }, { value: 'trial', label: 'Trial / onboarding' }] },
     { key: 'product', label: 'Product', options: [{ value: 'UCAT_WEB', label: ONLINE_PRODUCT_NAMES.UCAT_WEB }, { value: 'STUDENT_WEB', label: ONLINE_PRODUCT_NAMES.STUDENT_WEB }] },
     { key: 'entitlement', label: 'Tier', options: [{ value: 'FREE', label: 'Free' }, { value: 'PAID', label: 'Unlimited' }] },
@@ -248,7 +254,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     },
   ], [allSubjects]);
 
+  const checkIns = useCheckInDates('student', checkInColumns.some((column) => state.visibleColumns.includes(column.key)));
+
   const sortOptions: DataTableSortOption[] = [
+    { key: 'time_since_last_check_in', label: 'Time since last check-in' },
     { key: 'status', label: 'Status' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
@@ -258,6 +267,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    ...checkInColumns,
+    { key: 'payment_method', label: 'Payment method' },
+    { key: 'subsidies', label: 'Subsidies' },
     { key: 'status', label: 'Status' },
     { key: 'education', label: 'Education' },
     { key: 'student', label: 'Student' },
@@ -274,6 +286,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
 
   const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
   const filteredStudents = useMemo(() => entries.flatMap(entry => entry.kind === 'student' ? [entry.student] : []), [entries]);
+  const billing = useStudentBillingColumns(filteredStudents.map((student) => student.id), state.visibleColumns);
   // Non-virtualized table for stability (virtualization can be re-enabled later)
   const parentRef = useRef<HTMLDivElement | null>(null);
 
@@ -493,6 +506,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               {state.visibleColumns.includes('products') && <TableHead>Products</TableHead>}
               {state.visibleColumns.includes('online_since') && <TableHead>Online since</TableHead>}
               {state.visibleColumns.includes('onboarding_status') && <TableHead>Onboarding status</TableHead>}
+              {state.visibleColumns.includes('payment_method') && <TableHead>Payment method</TableHead>}
+              {state.visibleColumns.includes('subsidies') && <TableHead>Subsidies</TableHead>}
+              <CheckInTableHeads columns={state.visibleColumns} />
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -663,6 +679,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     {state.visibleColumns.includes('products') && <TableCell><div className="flex flex-wrap gap-1">{entry.products.map(product => <Badge key={product.product} variant="secondary">{onlineProductSummary(product)}</Badge>)}</div></TableCell>}
                     {state.visibleColumns.includes('online_since') && <TableCell>{entry.online_since ? new Date(entry.online_since).toLocaleDateString('en-AU') : '—'}</TableCell>}
                     {state.visibleColumns.includes('onboarding_status') && <TableCell>{entry.stage ?? 'No onboarding'}</TableCell>}
+                    {state.visibleColumns.includes('payment_method') && <TableCell className="capitalize whitespace-nowrap">{billing.isError ? 'Unavailable' : billing.isLoading ? 'Loading…' : billing.data?.paymentById[student.id] ?? '—'}</TableCell>}
+                    {state.visibleColumns.includes('subsidies') && <TableCell>
+                      {billing.isError ? 'Unavailable' : billing.isLoading ? 'Loading…' : billing.data?.subsidiesById[student.id]?.map((rate) => <div key={rate.id}>{rate.label}</div>) ?? '—'}
+                    </TableCell>}
+                    <CheckInTableCells columns={state.visibleColumns} date={checkIns.data?.[student.id]} error={checkIns.isError} />
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <StudentRowActions
                         student={student}
