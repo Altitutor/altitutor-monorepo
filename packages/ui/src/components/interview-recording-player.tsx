@@ -56,7 +56,7 @@ export function InterviewRecordingPlayer({
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [playbackReady, setPlaybackReady] = useState(false);
-  const frame = useRef<HTMLDivElement | null>(null);
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const player = useRef<HTMLMediaElement | null>(null);
   const durationProbe = useRef<{
     restorePosition: number;
@@ -188,7 +188,7 @@ export function InterviewRecordingPlayer({
     },
   };
   return (
-    <div ref={frame} className="group space-y-3 fullscreen:overflow-auto fullscreen:bg-background fullscreen:p-4">
+    <div ref={setFrame} className="group space-y-3 fullscreen:overflow-auto fullscreen:bg-background fullscreen:p-4">
       {!studentPlayback && (
         <p className="text-sm text-muted-foreground">{label} · {formatInterviewRecordingAvailability(recording)}</p>
       )}
@@ -243,6 +243,7 @@ export function InterviewRecordingPlayer({
                     triggerVariant="outline"
                     triggerClassName="h-8 text-xs"
                     contentWidth="10rem"
+                    popoverContainer={recording.kind === "video" ? frame : undefined}
                     onValueChange={(rate) => {
                       if (rate === null) return;
                       if (player.current) {
@@ -255,10 +256,10 @@ export function InterviewRecordingPlayer({
                   {recording.kind === "video" && (
                     <Button type="button" size="icon" variant="outline" aria-label="Toggle fullscreen"
                       onClick={() => {
-                        if (document.fullscreenElement === frame.current) {
+                        if (document.fullscreenElement === frame) {
                           void document.exitFullscreen?.().catch(() => undefined);
                         } else {
-                          void frame.current?.requestFullscreen?.().catch(() => undefined);
+                          void frame?.requestFullscreen?.().catch(() => undefined);
                         }
                       }}>
                       <Maximize aria-hidden />

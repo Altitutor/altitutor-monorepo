@@ -97,3 +97,23 @@ test("a station that closes while navigation is in flight does not leave a retry
   await act(async () => result.current.retryTiming());
   expect(send).toHaveBeenCalledTimes(1);
 });
+
+test("reconciles the visible question when the round resumes before a delayed rejection arrives", async () => {
+  let rejectSelection: ((error: Error) => void) | undefined;
+  send.mockImplementationOnce(() => new Promise((_, reject) => { rejectSelection = reject; }));
+  send.mockResolvedValue({ id: "round", version: 3 });
+  const { result, rerender } = renderHook(
+    ({ version }) => useInterviewQuestionTiming({ ...round, version }, attempt),
+    { wrapper, initialProps: { version: 1 } },
+  );
+  act(() => result.current.onQuestionSelected("q2"));
+  rerender({ version: 3 });
+  act(() => result.current.onQuestionSelected("q2"));
+  expect(send).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    rejectSelection?.(Object.assign(new Error("Questions are not active for this station"), { status: 400 }));
+  });
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[1][0]).toMatchObject({ type: "selectQuestion", questionId: "q2" });
+  expect(result.current.timingError).toBeNull();
+});

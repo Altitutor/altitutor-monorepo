@@ -26,8 +26,8 @@ export function useInterviewQuestionTiming(
   );
   const active = round.phase === "questions" && !round.pausedAt &&
     !!progress && !progress.endedEarly && !progress.feedbackComplete;
-  const current = useRef({ roundId: round.id, attempt, active });
-  current.current = { roundId: round.id, attempt, active };
+  const current = useRef({ roundId: round.id, version: round.version, attempt, active });
+  current.current = { roundId: round.id, version: round.version, attempt, active };
   const queue = useRef<Selection[]>([]);
   const running = useRef(false);
   const scope = useRef(attempt?.id);
@@ -52,6 +52,7 @@ export function useInterviewQuestionTiming(
     try {
       while (queue.current.length) {
         const command = queue.current[0];
+        const versionAtSend = current.current.version;
         try {
           await sendInterviewCommand(command);
           if (queue.current[0] === command) queue.current.shift();
@@ -61,10 +62,20 @@ export function useInterviewQuestionTiming(
           if (queue.current[0] !== command) continue;
           // A selection can arrive after the server closes the answering interval.
           if (questionTimingClosed(error)) {
+            const latestSelection = queue.current.at(-1);
+            const latestRound = current.current;
             queue.current = [];
-            intended.current = current.current.attempt?.selectedQuestionId;
+            intended.current = latestRound.attempt?.selectedQuestionId;
             if (mounted.current) setTimingError(null);
             void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+            // A newer active snapshot can arrive before the closed response.
+            if (mounted.current && latestRound.active && latestRound.version > versionAtSend &&
+              latestRound.attempt?.id === command.attemptId &&
+              latestSelection && latestSelection.questionId !== intended.current) {
+              intended.current = latestSelection.questionId;
+              queue.current.push({ ...latestSelection, commandId: randomUuid() });
+              continue;
+            }
           } else if (mounted.current) {
             setTimingError(error instanceof Error ? error.message : "Question timing could not save. Retry when connected.");
           }
