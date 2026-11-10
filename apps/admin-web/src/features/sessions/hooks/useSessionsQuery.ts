@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { sessionsApi } from '../api/sessions';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 
@@ -107,6 +108,7 @@ export function useCreateSession() {
     onSuccess: (newSession) => {
       // Invalidate and refetch sessions lists
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
       
       // Optimistically add the new session to the cache
       type SessionsWithDetailsCache = { sessions: Tables<'sessions'>[]; sessionStudents: Record<string, unknown[]>; sessionStaff: Record<string, unknown[]> };
@@ -150,6 +152,7 @@ export function useUpdateSession() {
 
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
     },
   });
 }
@@ -181,6 +184,7 @@ export function useDeleteSession() {
 
       // Invalidate all session queries
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
     },
   });
 }
@@ -195,6 +199,7 @@ export function useAddStudentToSession() {
       // Invalidate session details to refetch with new student
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
       
       // Also invalidate student queries since they show session information
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -212,6 +217,7 @@ export function useRemoveStudentFromSession() {
       // Invalidate session details to refetch without the student
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
       
       // Also invalidate student queries since they show session information
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -236,6 +242,7 @@ export function useAssignStaffToSession() {
       // Invalidate session details to refetch with new staff
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
       
       // Also invalidate staff queries since they show session information
       queryClient.invalidateQueries({ queryKey: ['staff'] });
@@ -253,6 +260,7 @@ export function useRemoveStaffFromSession() {
       // Invalidate session details to refetch without the staff
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
       
       // Also invalidate staff queries since they show session information
       queryClient.invalidateQueries({ queryKey: ['staff'] });
@@ -268,6 +276,7 @@ export function useAddParentToSession() {
     onSuccess: (_, { sessionId }) => {
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
     },
   });
 }
@@ -280,6 +289,7 @@ export function useRemoveParentFromSession() {
     onSuccess: (_, { sessionId }) => {
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
       queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.sessionQueues() });
     },
   });
 }

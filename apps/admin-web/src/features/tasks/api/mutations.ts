@@ -5,6 +5,7 @@ import { tasksKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { Task, TaskInsert, TaskUpdate, TaskWithAssignee } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { activityKeys } from '@/features/activity/queryKeys';
 
 type TaskUpdateVariables = { id: string; updates: TaskUpdate };
@@ -42,6 +43,7 @@ export function useCreateTask() {
     onSuccess: (createdTask) => {
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.viewCount('unassigned') });
       if (createdTask?.id) {
         showWorkItemCreatedToast({
           toast,
@@ -108,7 +110,10 @@ export function useUpdateTask(editorSession?: string | boolean) {
         variant: 'destructive',
       });
     },
-    onSettled: (_updatedTask, _error, { id }) => {
+    onSettled: (_updatedTask, error, { id, updates }) => {
+      if (!error && ('assigned_to' in updates || 'status' in updates)) {
+        void queryClient.invalidateQueries({ queryKey: reconciliationKeys.viewCount('unassigned') });
+      }
       void queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: tasksKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: activityKeys.task(id) });
@@ -131,6 +136,7 @@ export function useDeleteTask() {
       
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: reconciliationKeys.viewCount('unassigned') });
       
       toast({
         title: 'Task deleted',

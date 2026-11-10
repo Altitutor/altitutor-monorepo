@@ -17,4 +17,5 @@ export const reconciliationKeys = {
   projectsWithNoLead: () => [...reconciliationKeys.lists(), 'projects_with_no_lead'] as const,
   familyCheckIns: () => [...reconciliationKeys.lists(), 'family_check_ins'] as const,
   tabCounts: () => [...reconciliationKeys.all, 'tab-counts'] as const,
+  viewCount: (key: string) => [...reconciliationKeys.tabCounts(), key] as const,
 };

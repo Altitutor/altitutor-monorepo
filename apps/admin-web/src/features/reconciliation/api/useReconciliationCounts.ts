@@ -15,7 +15,7 @@ function reconciliationCountOptions(key: ReconciliationViewKey): UseQueryOptions
       return { ...reconciliationSessionIdsQuery([key]), select };
     default:
       return {
-        queryKey: [...reconciliationKeys.tabCounts(), key],
+        queryKey: reconciliationKeys.viewCount(key),
         queryFn: reconciliationCountReaders[key],
         staleTime: 120_000,
         select,

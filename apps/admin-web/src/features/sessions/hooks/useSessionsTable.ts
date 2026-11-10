@@ -153,7 +153,7 @@ export function useSessionsTable({
   } = useSessionsWithDetails({
     rangeStart: effectiveRangeStart || undefined,
     rangeEnd: effectiveRangeEnd || undefined,
-    includeInactive: false,
+    includeInactive: filters.reconciliation?.includes('billing-adjustments') === true,
     search: search,
     studentId: apiStudentId,
     staffId: apiStaffId,

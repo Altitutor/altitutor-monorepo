@@ -42,6 +42,12 @@ export function useReconciliationSessionIds(values: unknown[] = []) {
   const keys = values.filter((value): value is keyof typeof queues =>
     typeof value === 'string' && Object.hasOwn(queues, value),
   );
-  const query = useQuery({ ...reconciliationSessionIdsQuery(keys), enabled: keys.length > 0 });
+  const query = useQuery({
+    ...reconciliationSessionIdsQuery(keys),
+    // A view can be opened after a badge prefetched membership. Refresh the
+    // table on entry because time alone can make a session eligible.
+    staleTime: 0,
+    enabled: keys.length > 0,
+  });
   return { ...query, active: keys.length > 0 };
 }
