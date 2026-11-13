@@ -67,10 +67,11 @@ async function appendManualOnlineSubjectsIfGranted(
 export type StudentMinimalListRow = Tables<'students'> & {
   classes?: Array<{
     id: string;
+    subject_id?: string | null;
     short_name: string | null;
     long_name: string | null;
-    day_of_week: number;
-    start_time: string;
+    day_of_week: number | null;
+    start_time: string | null;
     level: string | null;
     subject?: Tables<'subjects'> | null;
   }>;
