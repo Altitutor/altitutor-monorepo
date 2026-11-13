@@ -48,19 +48,6 @@ export function resourcePdfTest(prefix: 'STUDENT' | 'TUTOR') {
         // Sibling ordering triggers may renumber the public code after INSERT.
         const { data: resource } = await database.from('topics_files').select('code').eq('id', id).single().throwOnError();
         if (!resource) throw new Error('Resource fixture missing');
-        const { data: signed, error: signingError } = await database.storage.from('resources').createSignedUrl(storagePath, 900);
-        if (signingError || !signed) throw signingError ?? new Error('Could not sign PDF fixture');
-        // Storage policies are not installed in disposable stacks. Stub only
-        // this external signing response; render the actual stored PDF bytes.
-        const signedUrl = new URL(signed.signedUrl);
-        await page.route((url) => url.pathname.endsWith(storagePath) &&
-          url.pathname.includes('/storage/v1/object/sign/'), async (route) => {
-          if (route.request().method() === 'POST') {
-            await route.fulfill({ json: { signedURL: signedUrl.pathname.replace('/storage/v1', '') + signedUrl.search } });
-          } else {
-            await route.fallback();
-          }
-        });
         await provideResource({ href: `/resources/${encodeURIComponent(subject.short_name.toLowerCase())}/${topic.code}/${resource.code.toLowerCase()}`,
           filename, storagePath });
       } finally {
@@ -138,15 +125,15 @@ export async function readExportedPdf(bytes: Buffer) {
   try {
     const document = await task.promise;
     const texts: string[] = [];
-    let hasImage = false;
+    let imageCount = 0;
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
       texts.push(content.items.map((item) => 'str' in item ? item.str : '').join(' '));
       const operators = await page.getOperatorList();
-      hasImage ||= operators.fnArray.includes(OPS.paintImageXObject);
+      imageCount += operators.fnArray.filter((operator) => operator === OPS.paintImageXObject || operator === OPS.paintInlineImageXObject).length;
     }
-    return { pages: document.numPages, text: texts.join(' ').replace(/\s+/g, ' ').trim(), hasImage };
+    return { pages: document.numPages, text: texts.join(' ').replace(/\s+/g, ' ').trim(), hasImage: imageCount > 0, imageCount };
   } finally {
     await task.destroy();
   }
