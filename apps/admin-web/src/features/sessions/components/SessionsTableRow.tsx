@@ -548,7 +548,7 @@ function SessionsTableRowStudentActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0">
+        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -711,7 +711,7 @@ function SessionsTableRowDefaultActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0">
+        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
