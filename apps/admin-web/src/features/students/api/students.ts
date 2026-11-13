@@ -9,6 +9,7 @@ import {
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ParentPhoneConflictError } from '@/features/parents/api/errors';
+import { explainPhoneConflict, PhoneConflictError } from './phoneConflicts';
 
 /** DataTable may send both `has` and `none`; treat that as no filter. */
 function exclusiveHasNoneFilter(values: string[] | undefined): 'has' | 'none' | undefined {
@@ -879,7 +880,11 @@ export const studentsApi = {
       .insert(payload)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      const explanation = explainPhoneConflict(error);
+      if (explanation) throw new PhoneConflictError(explanation);
+      throw error;
+    }
     return created as Tables<'students'>;
   },
   
@@ -920,12 +925,16 @@ export const studentsApi = {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 409 && typeof errorData.error === 'string') {
+          throw new PhoneConflictError(errorData.error);
+        }
         throw new Error(errorData.error || `Failed to update student: ${response.statusText}`);
       }
 
       const result = await response.json();
       return result.data as Tables<'students'>;
     } catch (error) {
+      if (error instanceof PhoneConflictError) throw error;
       throw new Error(`Unexpected error updating student: ${error instanceof Error ? error.message : error}`);
     }
   },
