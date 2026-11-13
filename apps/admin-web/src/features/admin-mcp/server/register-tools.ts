@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createAdminMcpClient } from "./auth";
 import { catalogVersion, dataset, describeCatalog } from "./catalog";
 import { runReportingQuery } from "./reporting";
+import { captureReportingAuditDiagnostic } from "./reporting-audit-diagnostics";
 import {
   changeSchema,
   changeWorkItem,
@@ -94,7 +95,10 @@ export function registerAdminMcpTools(server: McpServer) {
     },
     ({ sql, rowLimit }, extra) =>
       result(async () => {
+        const queryStarted = performance.now();
         const output = await runReportingQuery(sql, rowLimit, extra.mcpReq.signal);
+        const queryMs = performance.now() - queryStarted;
+        const auditStarted = performance.now();
         const { error } = await client(extra.http?.authInfo?.token).rpc(
           "admin_record_reporting_query",
           {
@@ -103,7 +107,15 @@ export function registerAdminMcpTools(server: McpServer) {
             p_truncated: output.truncated,
           },
         );
-        if (error) throw new Error("Could not record this reporting request.");
+        if (error) {
+          captureReportingAuditDiagnostic({
+            code: error.code,
+            verifiedAt: extra.http?.authInfo?.extra?.verifiedAt,
+            queryMs,
+            auditMs: performance.now() - auditStarted,
+          });
+          throw new Error("Could not record this reporting request.");
+        }
         return output;
       }),
   );
