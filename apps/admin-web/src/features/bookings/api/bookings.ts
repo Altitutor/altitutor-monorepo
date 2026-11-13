@@ -3,6 +3,7 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isPhoneCountryCodeOnly } from '@altitutor/ui';
 import { linkStudentParents } from '@/features/students/api/linkStudentParents';
+import { explainPhoneConflict, PhoneConflictError } from '@/features/students/api/phoneConflicts';
 
 /**
  * A blank phone, or a country calling code with no number, is stored as null.
@@ -113,6 +114,8 @@ export const bookingsApi = {
       });
       
       if (error) {
+        const explanation = explainPhoneConflict(error);
+        if (explanation) throw new PhoneConflictError(explanation);
         throw new Error(error.message ?? 'Failed to create trial booking');
       }
       if (!data) throw new Error('Failed to create trial booking: no data returned');
