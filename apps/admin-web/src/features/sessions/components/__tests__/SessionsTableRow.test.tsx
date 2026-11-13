@@ -389,7 +389,7 @@ describe('SessionsTableRow - staff log / undo absence actions', () => {
     props.modals = { ...props.modals, openLogStaffAbsenceDialog };
 
     renderRow(props);
-    await user.click(screen.getByRole('button', { name: '' }));
+    await user.click(screen.getByRole('button', { name: 'Session actions' }));
 
     const logItem = screen.getByText('Log staff absence');
     expect(logItem).toBeInTheDocument();
