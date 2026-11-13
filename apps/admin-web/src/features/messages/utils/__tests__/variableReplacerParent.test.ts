@@ -200,14 +200,14 @@ describe('replaceVariablesForParent', () => {
       expect(result).toContain('- SACE 12 Mathematics Mon 2:00 PM - 4:00 PM');
     });
 
-    it('uses the canonical multi-row Class name when available', async () => {
+    it('combines the stable Class name with its separate multi-row schedule', async () => {
       const parent = createParent();
       const students = [
         createStudentWithClasses({
           classes: [
             {
               class: createClass({
-                long_name: 'SACE 12 Mathematics · Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm',
+                long_name: 'SACE 12 Mathematics',
                 schedule_summary_long:
                   'Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm',
               }),
