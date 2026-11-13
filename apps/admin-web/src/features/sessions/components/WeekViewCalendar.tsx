@@ -216,7 +216,6 @@ export function WeekViewCalendar({
                           classData={session.class || undefined}
                           subject={session.subject || undefined}
                           staff={[]}
-                          students={[]}
                           isSelecting={true}
                           isSelected={isSelected}
                           compact={true}
