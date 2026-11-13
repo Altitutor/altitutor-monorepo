@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { StudentInterviewRound } from "@altitutor/shared";
 import { StudentInterviewRoom } from "../student-interview-room";
 import { useInterviewRound } from "../../hooks/use-interviews";
@@ -72,12 +72,42 @@ function setRound(data: StudentInterviewRound) {
   } as unknown as ReturnType<typeof useInterviewRound>);
 }
 
+const fullscreenProperties = [
+  [document.documentElement, "requestFullscreen"],
+  [document, "exitFullscreen"],
+  [document, "fullscreenElement"],
+  [document, "fullscreenEnabled"],
+] as const;
+const originalFullscreenProperties = fullscreenProperties.map(([target, key]) =>
+  Object.getOwnPropertyDescriptor(target, key),
+);
+function setFullscreenProperty(target: object, key: string, value: unknown) {
+  Object.defineProperty(target, key, { configurable: true, value });
+}
+
 describe("online student interview room", () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    setFullscreenProperty(
+      document.documentElement,
+      "requestFullscreen",
+      jest.fn().mockResolvedValue(undefined),
+    );
+    setFullscreenProperty(
+      document,
+      "exitFullscreen",
+      jest.fn().mockResolvedValue(undefined),
+    );
+    setFullscreenProperty(document, "fullscreenElement", null);
+    setFullscreenProperty(document, "fullscreenEnabled", true);
   });
   afterEach(() => {
     jest.useRealTimers();
+    fullscreenProperties.forEach(([target, key], index) => {
+      const descriptor = originalFullscreenProperties[index];
+      if (descriptor) Object.defineProperty(target, key, descriptor);
+      else Reflect.deleteProperty(target, key);
+    });
   });
 
   it("shows the toolbar, camera, and reading prompt", () => {
@@ -103,6 +133,130 @@ describe("online student interview room", () => {
       screen.getByText("Choose a treatment and explain why."),
     ).toBeInTheDocument();
   });
+
+  it.each([
+    "requestFullscreen",
+    "exitFullscreen",
+    "fullscreenEnabled",
+  ] as const)("omits fullscreen when %s is unavailable", (property) => {
+    setRound(round({}));
+    const target =
+      property === "requestFullscreen" ? document.documentElement : document;
+    setFullscreenProperty(
+      target,
+      property,
+      property === "fullscreenEnabled" ? false : undefined,
+    );
+    render(<StudentInterviewRoom roundId="round-1" />);
+    expect(
+      screen.queryByRole("button", { name: "Full screen" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Camera")).toBeInTheDocument();
+  });
+
+  it("does not throw if fullscreen support disappears before the click", async () => {
+    setRound(round({}));
+    render(<StudentInterviewRoom roundId="round-1" />);
+    const button = screen.getByRole("button", { name: "Full screen" });
+    setFullscreenProperty(
+      document.documentElement,
+      "requestFullscreen",
+      undefined,
+    );
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => {
+      errors.push(event.error);
+      event.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      await act(async () => fireEvent.click(button));
+      expect(errors).toEqual([]);
+      expect(screen.getByText("Camera")).toBeInTheDocument();
+    } finally {
+      window.removeEventListener("error", onError);
+    }
+  });
+
+  it("enters and exits fullscreen using the real fullscreen state", async () => {
+    setRound(round({}));
+    render(<StudentInterviewRoom roundId="round-1" />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Full screen" })),
+    );
+    expect(document.documentElement.requestFullscreen).toHaveBeenCalledTimes(1);
+    act(() => {
+      setFullscreenProperty(
+        document,
+        "fullscreenElement",
+        document.documentElement,
+      );
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" })),
+    );
+    expect(document.exitFullscreen).toHaveBeenCalledTimes(1);
+    act(() => {
+      setFullscreenProperty(document, "fullscreenElement", null);
+      document.dispatchEvent(new Event("fullscreenchange"));
+    });
+    expect(
+      screen.getByRole("button", { name: "Full screen" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["requestFullscreen", "exitFullscreen"] as const)(
+    "handles a rejected %s without disrupting the interview",
+    async (method) => {
+      setRound(round({}));
+      const target =
+        method === "requestFullscreen" ? document.documentElement : document;
+      const invoke = jest
+        .fn()
+        .mockRejectedValue(new Error("Fullscreen denied"));
+      setFullscreenProperty(target, method, invoke);
+      if (method === "exitFullscreen")
+        setFullscreenProperty(
+          document,
+          "fullscreenElement",
+          document.documentElement,
+        );
+      render(<StudentInterviewRoom roundId="round-1" />);
+      await act(async () =>
+        fireEvent.click(screen.getByRole("button", { name: /full ?screen/i })),
+      );
+      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Camera")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
+    },
+  );
+
+  it.each(["requestFullscreen", "exitFullscreen"] as const)(
+    "handles a synchronous %s failure without disrupting the interview",
+    async (method) => {
+      setRound(round({}));
+      const target =
+        method === "requestFullscreen" ? document.documentElement : document;
+      const invoke = jest.fn(() => {
+        throw new Error("Fullscreen unavailable");
+      });
+      setFullscreenProperty(target, method, invoke);
+      if (method === "exitFullscreen")
+        setFullscreenProperty(
+          document,
+          "fullscreenElement",
+          document.documentElement,
+        );
+      render(<StudentInterviewRoom roundId="round-1" />);
+      await act(async () =>
+        fireEvent.click(screen.getByRole("button", { name: /full ?screen/i })),
+      );
+      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Camera")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
+    },
+  );
 
   it("hides the clock outside exam reading time and shows the question prompt", () => {
     setRound(round({ phase: "questions", mode: "feedback" }));
