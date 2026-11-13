@@ -1,4 +1,5 @@
 import { PATCH } from '../route';
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 
 const mockGetUser = jest.fn();
 const mockStaffSingle = jest.fn();
@@ -110,5 +111,40 @@ describe('PATCH /api/students/[id]', () => {
       error: 'Invalid account_class. Must be external or internal_test.',
     });
     expect(mockStudentUpdate).not.toHaveBeenCalled();
+  });
+
+  it('explains a duplicate Student phone as a conflict without exposing record identifiers', async () => {
+    mockUpdatedStudentSingle.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0001',
+        message: 'Phone number +61400000000 is already associated with another student (ID: 00000000-0000-0000-0000-000000000001)',
+      },
+    });
+
+    const response = await PATCH(
+      { json: async () => ({ phone: '+61400000000' }) } as never,
+      { params: Promise.resolve({ id: 'student-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'This phone number is already linked to another student. Use a different number, or check the other student\'s contact details.',
+    });
+    expect(captureApiError).not.toHaveBeenCalled();
+  });
+
+  it('keeps unexpected Student update failures visible', async () => {
+    const failure = { code: '42501', message: 'permission denied for table students' };
+    mockUpdatedStudentSingle.mockResolvedValue({ data: null, error: failure });
+
+    const response = await PATCH(
+      { json: async () => ({ first_name: 'Ada' }) } as never,
+      { params: Promise.resolve({ id: 'student-1' }) }
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'Failed to update student: permission denied for table students' });
+    expect(captureApiError).toHaveBeenCalledWith(failure, '/api/students/[id]');
   });
 });
