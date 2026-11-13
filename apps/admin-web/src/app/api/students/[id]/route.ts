@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { syncStudentToStripeCustomer } from '@/shared/lib/stripe/sync-customer';
+import { explainPhoneConflict } from '@/features/students/api/phoneConflicts';
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -162,6 +163,10 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       .single();
 
     if (updateError) {
+      const phoneConflict = explainPhoneConflict(updateError);
+      if (phoneConflict) {
+        return NextResponse.json({ error: phoneConflict }, { status: 409 });
+      }
       captureApiError(updateError, "/api/students/[id]");
       return NextResponse.json(
         { error: `Failed to update student: ${updateError.message}` },
