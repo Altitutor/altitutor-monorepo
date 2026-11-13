@@ -4,8 +4,19 @@ import type { UcatPdfGroup, UcatPdfStem } from '@/features/ucat/shared/pdf/UcatQ
 
 type RichNode = Record<string, unknown>
 
+function labelMath(value: Json | null): Json | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const node = value as RichNode
+  const attrs = node.attrs && typeof node.attrs === 'object' ? node.attrs as RichNode : {}
+  if ((node.type === 'inlineMath' || node.type === 'blockMath') && typeof attrs.latex === 'string') {
+    const text = { type: 'text', text: `[Math: ${attrs.latex}]` }
+    return node.type === 'blockMath' ? { type: 'paragraph', content: [text] } : text
+  }
+  return { ...node, ...(Array.isArray(node.content) ? { content: node.content.map(child => labelMath(child as Json)) } : {}) } as Json
+}
+
 function normalizeText(value: Json | null): string {
-  return proseMirrorToPlainText(value)
+  return proseMirrorToPlainText(labelMath(value))
     .normalize('NFC')
     .replace(/\u00ad/gu, '')
     .replace(/[\u200b-\u200d\u2060\ufeff]/gu, '')
