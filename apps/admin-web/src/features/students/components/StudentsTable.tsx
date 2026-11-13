@@ -1,4 +1,5 @@
 'use client';
+import { StudentClassesCell, type DirectoryClass } from './StudentClassesCell';
 import { checkInColumns, CheckInTableHeads, CheckInTableCells } from '@/shared/components/CheckInTableCells';
 import { useStudentBillingColumns } from '../hooks/useStudentBillingColumns';
 import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
@@ -531,7 +532,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                 if (entry.kind === 'enquiry') return <React.Fragment key={entry.id}>{heading}<TableRow key={entry.id} className="cursor-pointer" onClick={() => openEntry(entry)}>{columnDefinitions.filter(column => state.visibleColumns.includes(column.key)).map(({ key: column }) => <TableCell key={column}>{column === 'student' ? entry.label : column === 'onboarding_status' ? entry.stage : column === 'subjects' ? entry.journey?.evidence.subjects.map(subject => subject.name).join(' · ') : '—'}</TableCell>)}<TableCell /></TableRow></React.Fragment>;
                 const student = entry.student;
                 const studentWithClasses = student as Tables<'students'> & {
-                  classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
+                  classes?: DirectoryClass[];
                   subjects?: Tables<'subjects'>[];
                   parents?: Tables<'parents'>[];
                 };
@@ -640,40 +641,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     )}
                     {state.visibleColumns.includes('classes') && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        {classes.length > 0 ? (
-                          <div className="flex flex-col gap-1">
-                            {classes
-                              .sort((a, b) => {
-                                const aDay = a.day_of_week ?? 0;
-                                const bDay = b.day_of_week ?? 0;
-                                if (aDay !== bDay) return aDay - bDay;
-                                const aTime = a.start_time ?? '';
-                                const bTime = b.start_time ?? '';
-                                return aTime.localeCompare(bTime);
-                              })
-                              .map((cls) => {
-                                const shortName = cls.short_name?.trim() ?? cls.long_name?.trim() ?? '';
-                                const displayName = shortName || `Class ${cls.id.slice(0, 8)}`;
-                                return (
-                                  <Button
-                                    key={cls.id}
-                                    variant="link"
-                                    size="sm"
-                                    className="h-auto p-0 text-xs justify-start whitespace-nowrap"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleClassClick(cls.id);
-                                    }}
-                                    title={cls.long_name ?? shortName}
-                                  >
-                                    {displayName}
-                                  </Button>
-                                );
-                              })}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">No classes</span>
-                        )}
+                        <StudentClassesCell student={student} subjects={subjects} classes={classes} onOpenClass={handleClassClick} />
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('products') && <TableCell><div className="flex flex-wrap gap-1">{entry.products.map(product => <Badge key={product.product} variant="secondary">{onlineProductSummary(product)}</Badge>)}</div></TableCell>}

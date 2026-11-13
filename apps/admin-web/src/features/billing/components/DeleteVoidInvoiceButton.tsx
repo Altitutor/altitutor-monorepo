@@ -9,8 +9,12 @@ import {
 } from '@altitutor/ui';
 import { invalidateInvoiceReconciliationSurfaces } from '@/shared/lib/query-invalidation';
 
-export function DeleteVoidInvoiceButton({ invoiceId }: { invoiceId: string }) {
-  const [open, setOpen] = useState(false);
+export function DeleteVoidInvoiceButton({ invoiceId, open: controlledOpen, onOpenChange, hideTrigger = false }: {
+  invoiceId: string; open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean;
+}) {
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (next: boolean) => { setLocalOpen(next); onOpenChange?.(next); };
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const remove = useMutation({
@@ -34,7 +38,7 @@ export function DeleteVoidInvoiceButton({ invoiceId }: { invoiceId: string }) {
   });
 
   return <span onClick={(event) => event.stopPropagation()}>
-    <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Delete void invoice</Button>
+    {!hideTrigger && <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Delete void invoice</Button>}
     <AlertDialog open={open} onOpenChange={(next) => !remove.isPending && setOpen(next)}>
       <AlertDialogContent>
         <AlertDialogHeader>

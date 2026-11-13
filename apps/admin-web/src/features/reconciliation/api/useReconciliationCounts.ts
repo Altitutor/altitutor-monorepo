@@ -1,15 +1,23 @@
+import { billingChargesQuery, loadBillingCharges, type BillingCharge } from '@/features/billing/api/workQueues';
+import { reconciliationApi } from './reconciliation';
+import type { SessionBillingAdjustmentIssue } from '../types';
 import { useQueries, useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { reconciliationViews, type ReconciliationViewKey } from '@/features/quick-filters/config/operationalViews';
 import { reconciliationCountReaders } from './reconciliation';
 import { reconciliationKeys } from './queryKeys';
 import { reconciliationSessionIdsQuery } from './sessionQueues';
 
-function reconciliationCountOptions(key: ReconciliationViewKey): UseQueryOptions<number | string[], Error, number> {
-  const select = (value: number | string[]) => typeof value === 'number' ? value : value.length;
+type CountData = number | string[] | BillingCharge[] | SessionBillingAdjustmentIssue[];
+
+function reconciliationCountOptions(key: ReconciliationViewKey): UseQueryOptions<CountData, Error, number> {
+  const select = (value: CountData) => typeof value === 'number' ? value : value.length;
   switch (key) {
     case 'billing-adjustments':
-    case 'uninvoiced':
+      return { queryKey: reconciliationKeys.sessionBillingAdjustments(), queryFn: reconciliationApi.getSessionBillingAdjustmentIssues, staleTime: 30_000, select };
     case 'void-invoices':
+      return { queryKey: billingChargesQuery.queryKey, queryFn: loadBillingCharges, staleTime: 30_000, select: (value) => (value as BillingCharge[]).filter((row) => row.reason === 'voided').length };
+    case 'uninvoiced':
+      return { queryKey: billingChargesQuery.queryKey, queryFn: loadBillingCharges, staleTime: 30_000, select };
     case 'unlogged':
       // The table and badge share the same distinct session IDs and cache.
       return { ...reconciliationSessionIdsQuery([key]), select };
@@ -24,7 +32,7 @@ function reconciliationCountOptions(key: ReconciliationViewKey): UseQueryOptions
 }
 
 export function useReconciliationCount(key: ReconciliationViewKey) {
-  return useQuery<number | string[], Error, number>(reconciliationCountOptions(key));
+  return useQuery<CountData, Error, number>(reconciliationCountOptions(key));
 }
 
 export function useReconciliationCounts() {
