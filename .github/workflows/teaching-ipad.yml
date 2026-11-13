@@ -37,3 +37,15 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/teaching-ipad"
           CODE_SIGNING_ALLOWED=NO build
+
+      - name: Live worksheet casting regressions
+        run: >-
+          python3 apps/teaching-ipad/Verification/Casting/run.py
+          --output "$RUNNER_TEMP/teaching-casting"
+      - name: Preserve casting test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teaching-casting-tests
+          path: ${{ runner.temp }}/teaching-casting/results.xcresult
+          if-no-files-found: ignore
