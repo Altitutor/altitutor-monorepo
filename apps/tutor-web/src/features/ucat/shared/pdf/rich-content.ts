@@ -9,6 +9,10 @@ export function hasRichContent(value: Json | null | undefined): boolean {
   if (node.type === 'image' && typeof (node.attrs as RichNode | undefined)?.src === 'string') {
     return true
   }
+  if (node.type === 'inlineMath' || node.type === 'blockMath') {
+    const latex = (node.attrs as RichNode | undefined)?.latex
+    return typeof latex === 'string' && latex.trim().length > 0
+  }
   if (!Array.isArray(node.content)) return false
   return node.content.some((child) => hasRichContent(child as Json))
 }
