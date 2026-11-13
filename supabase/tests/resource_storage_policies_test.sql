@@ -11,10 +11,10 @@ SELECT is((SELECT cmd FROM pg_policies WHERE schemaname = 'storage' AND tablenam
 SELECT is((SELECT cmd FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
   AND policyname = 'STUDENT read authorized files'), 'SELECT', 'Student read policy remains SELECT only');
 SELECT ok((SELECT qual FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-  AND policyname = 'TUTOR read files for their subjects') LIKE '%can_tutor_read_file(name)%',
+  AND policyname = 'TUTOR read files for their subjects') LIKE '%can_tutor_read_file(objects.name)%',
   'Tutor Storage delegates to the existing resource entitlement helper');
 SELECT ok((SELECT qual FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-  AND policyname = 'STUDENT read authorized files') LIKE '%can_student_read_file(name)%',
+  AND policyname = 'STUDENT read authorized files') LIKE '%can_student_read_file(objects.name)%',
   'Student Storage delegates to the existing resource entitlement helper');
 SELECT * FROM finish();
 ROLLBACK;
