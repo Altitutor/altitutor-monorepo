@@ -82,6 +82,9 @@ bash supabase/scripts/apply-ucat-test-seed.sh
 section "Database contracts"
 supabase test db
 
+section "Study-plan generation replacement contracts"
+pnpm --filter ucat-web exec jest --runInBand --testMatch '**/generation-replacement.integration.ts'
+
 section "Student registration Auth/database contracts"
 python3 supabase/scripts/test-student-registration.py
 
