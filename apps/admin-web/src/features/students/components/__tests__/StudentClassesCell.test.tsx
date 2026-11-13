@@ -17,13 +17,13 @@ it('shows subjects beside shared class chips and opens subject-scoped enrolment 
   const user = userEvent.setup();
   render(<QueryClientProvider client={new QueryClient()}>
     <StudentClassesCell student={{ id: 'alice' } as Tables<'students'>} subjects={[maths, biology]} classes={[
-      { id: 'class', subject_id: 'maths', subject: maths, short_name: 'Monday Maths', long_name: null, day_of_week: 1, start_time: '16:00' },
+      { id: 'class', subject_id: 'maths', subject: maths, short_name: null, long_name: null, day_of_week: 1, start_time: '16:00' },
     ]} onOpenClass={openClass} />
   </QueryClientProvider>);
   expect(screen.getByText('MATH')).toBeInTheDocument();
   expect(screen.getByText('BIOL')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Add class for Mathematics' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Monday Maths' }));
+  await user.click(screen.getByRole('button', { name: 'Mon 4:00 PM' }));
   expect(openClass).toHaveBeenCalledWith('class');
   await user.click(screen.getByRole('button', { name: 'Add class for Biology' }));
   expect(screen.getByRole('dialog', { name: 'Enrol alice in biology' })).toBeInTheDocument();
