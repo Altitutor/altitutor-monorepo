@@ -56,3 +56,27 @@ test("an auth failure after a lost response cannot discard the possibly committe
   await submission.submit({ ...setup, name: "Changed" });
   expect(send.mock.calls[2][0]).toEqual(send.mock.calls[0][0]);
 });
+
+test("bulk retry recovers the same complete series after a lost response", async () => {
+  const { createRoundsSubmission } = await import("../round-submission");
+  const accepted: InterviewCommand[] = [];
+  const send = async (command: InterviewCommand) => {
+    accepted.push(command);
+    if (accepted.length === 1) throw new Error("Response lost");
+    return { id: "series", version: 1 };
+  };
+  const submission = createRoundsSubmission(send);
+  const setups = [
+    { name: "Round 1", scheduledAt: "2026-11-14T03:30:00Z" },
+    { name: "Round 2", scheduledAt: "2026-11-14T03:46:00Z" },
+  ] as InterviewRoundSetup[];
+  await expect(submission.submit(setups)).rejects.toThrow("Response lost");
+  const recovered = await submission.submit([
+    { ...setups[0], name: "Changed" },
+  ]);
+  expect(accepted[1]).toEqual(accepted[0]);
+  expect(recovered.rounds.map((round) => round.setup.name)).toEqual([
+    "Round 1",
+    "Round 2",
+  ]);
+});

@@ -1,12 +1,13 @@
 "use client";
-import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
-import { tutorDefaultDisplaySettings } from '@altitutor/shared'
+import { TutorEntityToolbar } from "@/features/quick-filters/components/TutorEntityToolbar";
+import { tutorDefaultDisplaySettings } from "@altitutor/shared";
 
 import { useMemo, useState } from "react";
 import {
   Button,
   DataTable,
   TablePagination,
+  type JSONContent,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import {
@@ -16,7 +17,15 @@ import {
   type DataTableSortOption,
   type InterviewStation,
 } from "@altitutor/shared";
-import { Archive, Copy, Pencil, Plus, RotateCcw, Upload } from "lucide-react";
+import {
+  Archive,
+  Copy,
+  Monitor,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Upload,
+} from "lucide-react";
 import { UcatRowActions } from "@/features/ucat/shared/row-actions";
 import {
   tutorBtnPrimary,
@@ -27,7 +36,8 @@ import {
   useInterviewCatalog,
   useInterviewCommand,
 } from "../hooks/use-interviews";
-import { InterviewError } from "./interview-ui";
+import { InterviewDocument, InterviewError } from "./interview-ui";
+import { InterviewStationPresenter } from "./InterviewStationPresenter";
 import { InterviewStationEditor } from "./InterviewStationEditor";
 import { InterviewStationImport } from "./InterviewStationImport";
 import { blankStation, duplicateStation } from "../lib/station-draft";
@@ -43,8 +53,13 @@ const columns: DataTableColumnDefinition[] = [
   { key: "name", label: "Station", visibleByDefault: true },
   { key: "prompt", label: "Prompt", visibleByDefault: true },
   { key: "questions", label: "Questions", visibleByDefault: true },
+  { key: "rubrics", label: "Question rubrics", visibleByDefault: false },
   { key: "category", label: "Category", visibleByDefault: true },
-  { key: "questionCount", label: "Questions (number)", visibleByDefault: false },
+  {
+    key: "questionCount",
+    label: "Questions (number)",
+    visibleByDefault: false,
+  },
   { key: "points", label: "Maximum score", visibleByDefault: true },
   { key: "updated", label: "Updated", visibleByDefault: false },
 ];
@@ -62,6 +77,7 @@ export function InterviewStationBank() {
   );
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<InterviewStation | null>(null);
+  const [presenting, setPresenting] = useState<InterviewStation | null>(null);
   const filters: DataTableFilterDefinition[] = useMemo(
     () => [
       {
@@ -81,6 +97,22 @@ export function InterviewStationBank() {
         })),
       },
       {
+        key: "interview",
+        label: "Used in interview",
+        options: (catalog?.interviews ?? []).map((interview) => ({
+          label: interview.name,
+          value: interview.id,
+        })),
+      },
+      {
+        key: "usage",
+        label: "Interview usage",
+        options: [
+          { label: "Used in an interview", value: "used" },
+          { label: "Not used in any interview", value: "unused" },
+        ],
+      },
+      {
         key: "status",
         label: "Status",
         options: [
@@ -89,11 +121,26 @@ export function InterviewStationBank() {
         ],
       },
     ],
-    [catalog?.categories, catalog?.tags],
+    [catalog?.categories, catalog?.tags, catalog?.interviews],
   );
   const rows = useMemo(() => {
     const search = table.state.search.trim().toLowerCase();
     const selectedTags = (table.state.filters.tag ?? []).map(String);
+    const selectedInterviews = (table.state.filters.interview ?? []).map(
+      String,
+    );
+    const usedStations = new Set(
+      (catalog?.interviews ?? []).flatMap((interview) =>
+        interview.stations.map((placement) => placement.stationId),
+      ),
+    );
+    const selectedStations = new Set(
+      (catalog?.interviews ?? [])
+        .filter((interview) => selectedInterviews.includes(interview.id))
+        .flatMap((interview) =>
+          interview.stations.map((placement) => placement.stationId),
+        ),
+    );
     return sortRows(
       (catalog?.stations ?? []).filter(
         (station) =>
@@ -103,6 +150,12 @@ export function InterviewStationBank() {
             station.archived ? "archived" : "active",
           ) &&
           matchesMulti(table.state.filters, "category", station.categoryId) &&
+          matchesMulti(
+            table.state.filters,
+            "usage",
+            usedStations.has(station.id) ? "used" : "unused",
+          ) &&
+          (!selectedInterviews.length || selectedStations.has(station.id)) &&
           (!selectedTags.length ||
             station.questions.some((q) =>
               selectedTags.some((id) => q.tagIds.includes(id)),
@@ -121,7 +174,7 @@ export function InterviewStationBank() {
       "updated",
       { updated: (s) => s.updatedAt, name: (s) => s.name },
     );
-  }, [catalog?.stations, table.state]);
+  }, [catalog?.stations, catalog?.interviews, table.state]);
   const paged = pageRows(rows, table.state.page, table.state.pageSize);
   const visible = new Set(table.state.visibleColumns);
   return (
@@ -160,9 +213,12 @@ export function InterviewStationBank() {
         retry={() => void query.refetch()}
       />
       <TutorEntityToolbar
-        pageKey={'interview_stations'}
+        pageKey={"interview_stations"}
         defaultViewName="Active"
-        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [], { filters: { status: ['active'] } })}
+        defaultSettings={tutorDefaultDisplaySettings(
+          table.state.defaultVisibleColumns ?? [],
+          { filters: { status: ["active"] } },
+        )}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}
@@ -244,6 +300,32 @@ export function InterviewStationBank() {
                     },
                   ]
                 : []),
+              ...(visible.has("rubrics")
+                ? [
+                    {
+                      id: "rubrics",
+                      header: "Question rubrics",
+                      cell: ({
+                        row,
+                      }: {
+                        row: { original: InterviewStation };
+                      }) => (
+                        <div className="max-w-xl space-y-5">
+                          {row.original.questions.map((question, index) => (
+                            <div key={question.id} className="space-y-2">
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                Question {index + 1}
+                              </p>
+                              <InterviewDocument
+                                value={question.rubric as JSONContent}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ),
+                    },
+                  ]
+                : []),
               ...(visible.has("category")
                 ? [
                     {
@@ -307,6 +389,11 @@ export function InterviewStationBank() {
                     <UcatRowActions
                       actions={[
                         {
+                          label: "Cast prompt",
+                          icon: <Monitor className="h-4 w-4" />,
+                          onClick: () => setPresenting(row.original),
+                        },
+                        {
                           label: "Edit",
                           icon: <Pencil className="h-4 w-4" />,
                           onClick: () => setEditing(row.original),
@@ -353,6 +440,12 @@ export function InterviewStationBank() {
             className="pt-3"
           />
         </>
+      )}
+      {presenting && (
+        <InterviewStationPresenter
+          station={presenting}
+          close={() => setPresenting(null)}
+        />
       )}
       {importing && catalog && (
         <InterviewStationImport
