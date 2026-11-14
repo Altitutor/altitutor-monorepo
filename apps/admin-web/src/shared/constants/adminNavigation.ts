@@ -77,8 +77,8 @@ export const navItems: NavItem[] = [
     title: "FINANCIAL",
   },
   {
-    title: "Invoices",
-    href: "/invoices",
+    title: "Billing",
+    href: "/billing",
     icon: CreditCard,
   },
   {

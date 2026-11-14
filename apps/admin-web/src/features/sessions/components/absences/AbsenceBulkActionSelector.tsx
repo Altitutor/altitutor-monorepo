@@ -268,7 +268,6 @@ export function AbsenceBulkActionSelector({
               classData={session.class || undefined}
               subject={session.subject || undefined}
               staff={[]}
-              students={[]}
               compact={false}
               title={getSessionCardDisplayName(session, false)}
             />
@@ -289,7 +288,6 @@ export function AbsenceBulkActionSelector({
                   classData={selectedTargetSession.class || undefined}
                   subject={selectedTargetSession.subject || undefined}
                   staff={[]}
-                  students={[]}
                   compact={false}
                   title={getSessionCardDisplayName(selectedTargetSession, false)}
                 />
@@ -311,7 +309,6 @@ export function AbsenceBulkActionSelector({
                     classData={session.class || undefined}
                     subject={session.subject || undefined}
                     staff={[]}
-                    students={[]}
                     compact={false}
                   />
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-red-50/90 dark:bg-red-950/80 rounded-lg">

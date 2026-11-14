@@ -161,9 +161,11 @@ export function invalidateTaskAssignmentSurfaces(queryClient: QueryClient) {
 
 export function invalidateInvoiceReconciliationSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, invoicesKeys.lists()),
     invalidate(queryClient, reconciliationKeys.sessionQueues()),
     invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
+    invalidate(queryClient, reconciliationKeys.billingCharges()),
     invalidate(queryClient, reconciliationKeys.voidInvoiceSessions()),
   ]);
 }
@@ -174,9 +176,11 @@ export function invalidateUnpaidInvoiceReconciliationSurfaces(queryClient: Query
 
 export function invalidateSessionInvoiceSurfaces(queryClient: QueryClient) {
   return Promise.all([
+    invalidate(queryClient, invoicesKeys.lists()),
     invalidate(queryClient, reconciliationKeys.sessionQueues()),
     invalidate(queryClient, reconciliationKeys.tabCounts()),
     invalidateSessionListSurfaces(queryClient),
     invalidate(queryClient, reconciliationKeys.uninvoicedSessions()),
+    invalidate(queryClient, reconciliationKeys.billingCharges()),
   ]);
 }

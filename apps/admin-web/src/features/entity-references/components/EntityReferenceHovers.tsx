@@ -8,7 +8,7 @@ import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -62,14 +62,15 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
             </div>
           ))}
         </dl>
-        {query.data.people?.length ? (
+        {query.data.people ? (
           <div className="mt-3 space-y-3">
             {(["Student", "Staff"] as const).map((role) => {
               const members = query.data.people?.filter((person) => person.role === role) ?? [];
-              if (!members.length) return null;
+              if (!members.length && !(role === "Student" && (type === "session" || type === "class"))) return null;
               return (
                 <section key={role} className="space-y-1.5">
-                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? "Students" : "Staff"}</h4>
+                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? `Students (${studentCount ?? members.length})` : "Staff"}</h4>
+                  {role === "Student" && (studentCount ?? members.length) === 0 ? <p className="text-xs text-muted-foreground">None</p> : null}
                   {members.map((person) => (
                     <AttendancePersonRow
                       key={`${person.role}:${person.id}`}

@@ -1,17 +1,14 @@
 import SwiftUI
 import PDFKit
-import PencilKit
 
 struct ClassroomLesson {
     let title: String; let time: String; let room: String; let tutor: String
 }
-struct ClassroomWorksheet: Equatable {
-    let id: UUID; let url: URL; let page: Int; let visibleRect: CGRect; let rotation: Int; let drawings: [Int: Data]
-}
-
-struct ClassroomLaser: Equatable {
-    let documentID: UUID
-    let trace: TeachingLaserTrace
+/// The only capturable surface is the active worksheet PDFView, never its parent or window.
+@MainActor final class ClassroomWorksheet {
+    let id: UUID
+    weak var source: PDFView?
+    init(id: UUID, source: PDFView) { self.id = id; self.source = source }
 }
 
 /// The audience model has no roster, notes, log draft or solutions field.
@@ -19,33 +16,32 @@ struct ClassroomLaser: Equatable {
     static let shared = ClassroomState()
     @Published private(set) var lesson: ClassroomLesson?
     @Published private(set) var worksheet: ClassroomWorksheet?
-    @Published private(set) var laser: ClassroomLaser?
     private var allowedWorksheet: UUID?
     func showLesson(title: String, time: String, room: String, tutor: String) {
-        laser = nil; allowedWorksheet = nil; worksheet = nil; lesson = ClassroomLesson(title: title, time: time, room: room, tutor: tutor)
+        allowedWorksheet = nil; worksheet = nil; lesson = ClassroomLesson(title: title, time: time, room: room, tutor: tutor)
     }
-    func allowWorksheet(_ id: UUID) { laser = nil; allowedWorksheet = id; worksheet = nil }
-    func publishWorksheet(id: UUID, url: URL, page: Int, visibleRect: CGRect, rotation: Int, drawings: [Int: Data]) {
+    func allowWorksheet(_ id: UUID) { allowedWorksheet = id; worksheet = nil }
+    func publishWorksheet(id: UUID, source: PDFView) {
         guard allowedWorksheet == id else { return }
-        let next = ClassroomWorksheet(id: id, url: url, page: page, visibleRect: visibleRect, rotation: rotation, drawings: drawings)
-        if next != worksheet { worksheet = next }
+        if worksheet?.id != id || worksheet?.source !== source {
+            worksheet = ClassroomWorksheet(id: id, source: source)
+        }
     }
-    func showLaser(documentID: UUID, trace: TeachingLaserTrace) {
-        guard allowedWorksheet == documentID else { return }
-        let next = trace.hasMarks ? ClassroomLaser(documentID: documentID, trace: trace) : nil
-        if next != laser { laser = next }
+    func source(for presentation: ClassroomWorksheet) -> PDFView? {
+        guard allowedWorksheet == presentation.id, worksheet === presentation else { return nil }
+        return presentation.source
     }
-    func clearLaser(documentID: UUID) {
-        if laser?.documentID == documentID { laser = nil }
+    func stopWorksheet(id: UUID, source: PDFView?) {
+        if worksheet?.id == id, worksheet?.source === source { worksheet = nil }
     }
-    func clear() { laser = nil; allowedWorksheet = nil; worksheet = nil; lesson = nil }
+    func clear() { allowedWorksheet = nil; worksheet = nil; lesson = nil }
 }
 
 struct ClassroomView: View {
     @ObservedObject var state = ClassroomState.shared
     var body: some View {
         Group {
-            if let worksheet = state.worksheet { AudiencePDF(worksheet: worksheet, laser: state.laser) }
+            if let worksheet = state.worksheet { AudiencePDF(worksheet: worksheet) }
             else if let lesson = state.lesson {
                 VStack(spacing: 25) {
                     Text("ALTITUTOR").font(.headline).tracking(5).foregroundStyle(.white.opacity(0.65))
@@ -62,72 +58,59 @@ struct ClassroomView: View {
 
 struct AudiencePDF: UIViewRepresentable {
     let worksheet: ClassroomWorksheet
-    let laser: ClassroomLaser?
     func makeUIView(context: Context) -> ClassroomPDFCanvas { ClassroomPDFCanvas() }
-    func updateUIView(_ view: ClassroomPDFCanvas, context: Context) { view.show(worksheet, laser: laser) }
+    func updateUIView(_ view: ClassroomPDFCanvas, context: Context) { view.show(worksheet) }
 }
 
-/// A read-only projection of the worksheet's exact page-space region. No PDF navigation or private pane exists here.
+/// Project rendered worksheet pixels so PencilKit's uncommitted stroke is visible too.
 @MainActor final class ClassroomPDFCanvas: UIView {
     private var worksheet: ClassroomWorksheet?
-    private var pdf: PDFDocument?
-    private var laser: ClassroomLaser?
-    private var projectLaser: ((TeachingLaserTrace.Point) -> CGPoint?)?
-    private let laserOverlay = TeachingLaserOverlay()
+    private var snapshot: UIView?
+    private var displayLink: CADisplayLink?
 
-    func show(_ next: ClassroomWorksheet, laser: ClassroomLaser?) {
-        self.laser = laser
-        if worksheet != next {
-            if worksheet?.id != next.id || worksheet?.url != next.url { pdf = PDFDocument(url: next.url) }
-            worksheet = next
-            projectLaser = nil
-            isOpaque = true; backgroundColor = .black; isUserInteractionEnabled = false
-            contentMode = .redraw; setNeedsDisplay()
-        }
-        updateLaser()
+    func show(_ next: ClassroomWorksheet) {
+        if worksheet !== next { snapshot?.removeFromSuperview(); snapshot = nil }
+        worksheet = next
+        backgroundColor = .black; clipsToBounds = true; isUserInteractionEnabled = false
     }
 
-    private func updateLaser() {
-        guard let laser, laser.documentID == worksheet?.id, let projectLaser else {
-            laserOverlay.clear()
-            return
-        }
-        laserOverlay.show(laser.trace, in: self, project: projectLaser)
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        displayLink?.invalidate(); displayLink = nil
+        guard window != nil else { snapshot?.removeFromSuperview(); snapshot = nil; return }
+        let target = ClassroomFrameTarget(); target.canvas = self
+        let link = CADisplayLink(target: target, selector: #selector(ClassroomFrameTarget.refresh(_:)))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
+        // Default-mode timers stop while UIKit tracks Pencil and pinch gestures.
+        link.add(to: .main, forMode: .common)
+        displayLink = link
     }
-    override func draw(_ rect: CGRect) {
-        guard let graphics = UIGraphicsGetCurrentContext() else { return }
-        UIColor.black.setFill(); graphics.fill(bounds)
-        guard let worksheet, let page = pdf?.page(at: worksheet.page), let reference = page.pageRef else { return }
-        let crop = reference.getBoxRect(.cropBox)
-        let quarterTurn = abs(Int(reference.rotationAngle) + worksheet.rotation) % 180 == 90
-        let size = quarterTurn ? CGSize(width: crop.height, height: crop.width) : crop.size
-        let pageTransform = reference.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size),
-                                                     rotate: Int32(worksheet.rotation), preserveAspectRatio: true)
-        let visible = worksheet.visibleRect.isEmpty || worksheet.visibleRect.isNull ? crop : worksheet.visibleRect
-        let displayRegion = visible.applying(pageTransform)
-        guard displayRegion.width > 0, displayRegion.height > 0 else { return }
-        let scale = min(bounds.width / displayRegion.width, bounds.height / displayRegion.height)
-        let target = CGRect(x: (bounds.width - displayRegion.width * scale) / 2,
-                            y: (bounds.height - displayRegion.height * scale) / 2,
-                            width: displayRegion.width * scale, height: displayRegion.height * scale)
-        graphics.saveGState()
-        graphics.translateBy(x: 0, y: bounds.height); graphics.scaleBy(x: 1, y: -1)
-        graphics.clip(to: target)
-        graphics.translateBy(x: target.minX, y: target.minY); graphics.scaleBy(x: scale, y: scale)
-        graphics.translateBy(x: -displayRegion.minX, y: -displayRegion.minY)
-        graphics.concatenate(pageTransform)
-        let ink = worksheet.drawings[worksheet.page].flatMap { try? PKDrawing(data: $0) }
-        TeachingPageRenderer.draw(page, ink: ink, in: graphics)
-        graphics.restoreGState()
-        let height = bounds.height
-        projectLaser = { sample in
-            guard sample.page == worksheet.page else { return nil }
-            let point = sample.location.applying(pageTransform)
-            guard displayRegion.contains(point) else { return nil }
-            return CGPoint(x: target.minX + (point.x - displayRegion.minX) * scale,
-                           y: height - target.minY - (point.y - displayRegion.minY) * scale)
+
+    fileprivate func refresh() {
+        guard let worksheet, let source = ClassroomState.shared.source(for: worksheet),
+              source.window?.windowScene?.activationState == .foregroundActive,
+              !source.isHidden, source.bounds.width > 0, source.bounds.height > 0,
+              bounds.width > 0, bounds.height > 0 else {
+            snapshot?.removeFromSuperview(); snapshot = nil; return
         }
-        updateLaser()
+        // Capture only this PDFView's render-server surface. Drawing data omits the stroke
+        // still under the Pencil, and rendering its layer does not capture PencilKit's ink.
+        guard let next = source.snapshotView(afterScreenUpdates: false) else { return }
+        next.bounds = CGRect(origin: .zero, size: source.bounds.size)
+        let scale = min(bounds.width / source.bounds.width, bounds.height / source.bounds.height)
+        next.transform = CGAffineTransform(scaleX: scale, y: scale)
+        next.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        addSubview(next)
+        snapshot?.removeFromSuperview(); snapshot = next
+    }
+}
+
+/// The run loop retains the display link; its target must not retain the audience view.
+@MainActor private final class ClassroomFrameTarget: NSObject {
+    weak var canvas: ClassroomPDFCanvas?
+    @objc func refresh(_ link: CADisplayLink) {
+        guard let canvas else { link.invalidate(); return }
+        canvas.refresh()
     }
 }
 

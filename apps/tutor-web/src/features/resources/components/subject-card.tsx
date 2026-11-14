@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { observeSubjectCover } from '@/shared/lib/subject-cover-diagnostics';
 import { useEffect, useState } from 'react';
 import {
   Card,
@@ -58,9 +59,9 @@ export function SubjectCard({ subject, href }: { subject: ResourceSubject; href:
     async function loadImage() {
       try {
         const supabase = getSupabaseClient();
-        const { data, error } = await supabase.storage
+        const { data, error } = await observeSubjectCover(bucket, storagePath, 'sign', () => supabase.storage
           .from(bucket)
-          .createSignedUrl(storagePath, 3600);
+          .createSignedUrl(storagePath, 3600));
         if (cancelled) return;
         if (!error && data?.signedUrl) {
           setSignedImageUrl(data.signedUrl);
