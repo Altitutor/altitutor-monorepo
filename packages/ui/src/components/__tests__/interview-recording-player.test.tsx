@@ -61,12 +61,12 @@ it("loads inline audio on demand and seeks repeated question segments against th
     audio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })),
   );
   const buttons = Array.from(
-    host.querySelectorAll<HTMLButtonElement>("button"),
+    host.querySelectorAll<HTMLButtonElement>('button[aria-label^="Jump to question"]'),
   );
   expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
-    "Play question 1, segment 1",
-    "Play question 2, segment 2",
-    "Play question 1, segment 3",
+    "Jump to question 1, segment 1",
+    "Jump to question 2, segment 2",
+    "Jump to question 1, segment 3",
   ]);
   await act(async () => buttons[2].click());
   expect(audio.currentTime).toBe(35);
@@ -125,7 +125,7 @@ it("recovers an unindexed WebM duration before exposing its question scrubber", 
       ?.getAttribute("max"),
   ).toBe("46.86");
   expect(
-    host.querySelector('button[aria-label="Play question 1, segment 1"]'),
+    host.querySelector('button[aria-label="Jump to question 1, segment 1"]'),
   ).not.toBeNull();
   await act(async () => root.unmount());
   host.remove();
@@ -138,30 +138,90 @@ it("preserves an explicit user seek while unindexed duration discovery finishes"
   await act(async () =>
     root.render(
       <InterviewRecordingPlayer
-        recording={recording}
-        loadUrl={async () => ({ url: "blob:unindexed-webm" })}
+        recording={{ ...recording, kind: "video" }}
+        src="blob:unindexed-webm"
+        variant="student"
       />,
     ),
   );
-  await act(async () => host.querySelector("button")?.click());
-  const audio = host.querySelector("audio")!;
-  Object.defineProperty(audio, "duration", {
+  const video = host.querySelector("video")!;
+  Object.defineProperty(video, "duration", {
     configurable: true,
     value: Infinity,
   });
   await act(async () =>
-    audio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })),
+    video.dispatchEvent(new Event("loadedmetadata", { bubbles: true })),
   );
-  await act(async () => fireEvent.pointerDown(audio));
-  audio.currentTime = 12;
-  Object.defineProperty(audio, "duration", {
+  await act(async () => fireEvent.pointerDown(video));
+  video.currentTime = 12;
+  Object.defineProperty(video, "duration", {
     configurable: true,
     value: 46.86,
   });
   await act(async () =>
-    audio.dispatchEvent(new Event("durationchange", { bubbles: true })),
+    video.dispatchEvent(new Event("durationchange", { bubbles: true })),
   );
-  expect(audio.currentTime).toBe(12);
+  expect(video.currentTime).toBe(12);
   await act(async () => root.unmount());
   host.remove();
+});
+
+it.each(["audio", "video"] as const)(
+  "offers the shared playback controls and an unsegmented scrubber for tutor %s",
+  async (kind) => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(
+        <InterviewRecordingPlayer
+          recording={{ ...recording, kind }}
+          loadUrl={async () => ({ url: "https://example.com/recording" })}
+        />,
+      ));
+      await act(async () => host.querySelector("button")?.click());
+      const media = host.querySelector<HTMLMediaElement>(kind)!;
+      expect(media.controls).toBe(false);
+      Object.defineProperty(media, "duration", { value: 80 });
+      await act(async () => media.dispatchEvent(new Event("loadedmetadata")));
+      const slider = host.querySelector<HTMLInputElement>('input[aria-label="Recording progress"]')!;
+      expect(slider.disabled).toBe(false);
+      expect(host.querySelector(`button[aria-label="Play ${kind}"]`)).not.toBeNull();
+      expect(host.querySelector('button[aria-label="Playback speed"]')).not.toBeNull();
+      await act(async () => fireEvent.change(slider, { target: { value: "45" } }));
+      expect(media.currentTime).toBe(45);
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+    }
+  },
+);
+
+it("allows linear playback when the browser cannot discover a WebM duration", async () => {
+  jest.useFakeTimers();
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(
+      <InterviewRecordingPlayer
+        recording={recording}
+        loadUrl={async () => ({ url: "blob:unindexed-webm" })}
+      />,
+    ));
+    await act(async () => host.querySelector("button")?.click());
+    const audio = host.querySelector("audio")!;
+    Object.defineProperty(audio, "duration", { value: Infinity });
+    await act(async () => audio.dispatchEvent(new Event("loadedmetadata")));
+    const play = host.querySelector<HTMLButtonElement>('button[aria-label="Play audio"]')!;
+    expect(play.disabled).toBe(true);
+    await act(async () => jest.runOnlyPendingTimers());
+    expect(play.disabled).toBe(false);
+    expect(audio.currentTime).toBe(0);
+    expect(host.querySelector<HTMLInputElement>('input[aria-label="Recording progress"]')?.disabled).toBe(true);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    jest.useRealTimers();
+  }
 });
