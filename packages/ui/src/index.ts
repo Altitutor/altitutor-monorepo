@@ -119,6 +119,7 @@ export {
 } from './lib/duration-picker';
 
 export * from './components/interview-media';
+export { MediaDeviceTest } from './components/media-device-test';
 
 export * from "./components/timed-calendar";
 export * from "./components/interview-round-calendar-card";
