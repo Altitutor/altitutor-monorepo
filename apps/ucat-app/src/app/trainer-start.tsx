@@ -9,6 +9,7 @@ import { TrainerDemo } from "@/features/skill-trainer/components/trainer-demo";
 import { useOpenScreen } from "@/features/navigation/use-open-screen";
 import { api } from "@/lib/api";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
+import { sheetDiagnostics } from "@/features/navigation/sheet-diagnostics-client";
 export default function TrainerStart() {
   const params = useLocalSearchParams<{
     trainerKey?: string;
@@ -74,7 +75,9 @@ export default function TrainerStart() {
             <Action
               secondary
               title="How to play"
-              onPress={() => setHowToPlay(true)}
+              onPress={() =>
+                sheetDiagnostics.requestFullHeight("trainer-start", () => setHowToPlay(true))
+              }
             />
           ) : null}
           <Action
