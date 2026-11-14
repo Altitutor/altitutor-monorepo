@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { StudentCount } from '@/shared/components/StudentCount';
 import { Users, MapPin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -101,9 +102,12 @@ export function SessionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-sm leading-5">
-                {sessionTitle}
-              </h4>
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="min-w-0 font-semibold text-sm leading-5">
+                  {sessionTitle}
+                </h4>
+                <StudentCount count={students?.length} />
+              </div>
               <div className="flex flex-col gap-0.5 mt-1">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span>{formatDate(session.start_at || '')} • {timeRange}</span>

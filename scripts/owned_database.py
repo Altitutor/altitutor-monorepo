@@ -246,6 +246,7 @@ def reset(repository, manifest_path):
     owned_manifest(manifest_path, repository)
     identifiers = container(workdir, project)
     (workdir / 'containers.json').write_text(json.dumps(identifiers))
+    install_resource_storage_policies(repository, workdir, project)
 
 
 def run_child(command, repository, environment, descriptor, *, quiet=False, stderr=None):
@@ -450,6 +451,7 @@ def consumer(repository, manifest_path, command=None, *, on_ready=None, before_c
             (workdir / 'containers.json').write_text(json.dumps(identifier))
             (workdir / 'networks.json').write_text(json.dumps(
                 [record['Id'] for record in project_networks(project)]))
+            install_resource_storage_policies(repository, workdir, project)
             # Bind every app/E2E consumer to this verified API; never inherit a
             # deployment URL or allow .env files to choose another database.
             status_result = subprocess.run([executable, '--workdir', str(workdir), 'status', '-o', 'env'],
@@ -497,7 +499,24 @@ def consumer(repository, manifest_path, command=None, *, on_ready=None, before_c
                 stop_owned(repository, workdir, project, executable, environment, descriptor)
 
 
+def install_resource_storage_policies(repository, workdir, project, *, ci=False):
+    """Install local resource policy parity only after exact container verification.
+
+    The hosted-CI exception is admitted by main() and uses its ephemeral runner
+    project. Normal local callers always use an owned disposable snapshot.
+    """
+    identifier = container(workdir, project, ci=ci)[0]
+    source = (repository if ci else workdir) / 'supabase/local/resource-storage-policies.sql'
+    with source.open('rb') as sql:
+        subprocess.run(['docker', 'exec', '-i', identifier, 'psql', '-U', 'postgres', '-d', 'postgres',
+                        '-v', 'ON_ERROR_STOP=1', '-q'], stdin=sql, check=True)
+    if container(workdir, project, ci=ci)[0] != identifier:
+        raise Blocked('Owned database container replaced during Storage policy installation')
+
+
 def seed(repository, workdir, project, *, ci=False):
+    if ci:
+        install_resource_storage_policies(repository, workdir, project, ci=True)
     identifier = container(workdir, project, ci=ci)[0]
     files = sorted((repository / 'supabase/seed/test-ucat').glob('*.sql'))
     if not files:

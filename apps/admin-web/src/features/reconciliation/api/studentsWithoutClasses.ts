@@ -35,7 +35,7 @@ export async function loadStudentsWithoutClasses(db: SupabaseClient<Database>): 
         .in('student_id', ids).order('id').range(from, to)),
       readRows(async (from, to) => db.from('classes_students')
         .select('student_id, class:classes!inner(subject_id)')
-        .in('student_id', ids).eq('class.status', 'ACTIVE').lte('enrolled_at', now)
+        .in('student_id', ids).eq('class.status', 'ACTIVE').is('class.deleted_at', null).lte('enrolled_at', now)
         .or(`unenrolled_at.is.null,unenrolled_at.gt.${now}`).order('id').range(from, to)),
     ]);
     const hasClass = new Set(enrolled.map((row) => `${row.student_id}:${row.class?.subject_id}`));

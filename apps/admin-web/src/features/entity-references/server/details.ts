@@ -156,7 +156,7 @@ export async function referenceDetails(
           field("Subject", row.subjects?.short_name || row.subjects?.name),
           field("Scheduled offerings", row.schedule_summary_long),
           field(
-            "Students",
+            students ? `Students (${students.length})` : "Students",
             list((students ?? []).map((link) => person(link.students))),
           ),
           field("Staff", list((staff ?? []).map((link) => person(link.staff)))),

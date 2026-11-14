@@ -34,6 +34,19 @@ describe('simplifyRichText', () => {
     })
   })
 
+  it('labels inline and block mathematics when rich rendering must fall back', () => {
+    const value: Json = { type: 'doc', content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Inline: ' }, { type: 'inlineMath', attrs: { latex: 'x^2' } }] },
+      { type: 'blockMath', attrs: { latex: '\\frac{7}{9}' } },
+    ] }
+    for (const includeImages of [true, false]) {
+      expect(simplifyRichText(value, includeImages)).toEqual({ type: 'doc', content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Inline: [Math: x^2]' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: '[Math: \\frac{7}{9}]' }] },
+      ] })
+    }
+  })
+
   it('can omit images for the final safe fallback', () => {
     const result = simplifyRichText(rich, false) as { content: Array<Record<string, unknown>> }
     expect(result.content).toHaveLength(1)

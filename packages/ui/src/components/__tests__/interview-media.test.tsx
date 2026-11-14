@@ -67,20 +67,22 @@ jest.mock("@daily-co/daily-js", () => ({
   default: { createCallObject: (...args: unknown[]) => mockCreate(...args) },
 }));
 
-const ticket: InterviewMediaTicket = {
-  sessionId: "private-reading-pair",
-  url: "https://example.daily.co/private",
-  token: "test-token",
-  canSend: true,
-  canReceive: false,
-  recordingEnabled: false,
-  expiresAt: "2099-10-23T10:02:00Z",
-};
+let ticket: InterviewMediaTicket;
 function response(body: InterviewMediaTicket) {
   return { ok: true, json: async () => body } as Response;
 }
 
 beforeEach(() => {
+  ticket = {
+    sessionId: "private-reading-pair",
+    url: "https://example.daily.co/private",
+    token: "test-token",
+    canSend: true,
+    canReceive: false,
+    recordingEnabled: false,
+    // Keep the default deadline within the browser's signed 32-bit timer range.
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  };
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {

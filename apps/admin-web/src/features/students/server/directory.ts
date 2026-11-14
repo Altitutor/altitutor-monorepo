@@ -178,6 +178,22 @@ export async function searchStudentDirectory(request: Request) {
     } else {
       payload = await loadPage(input.page, input.pageSize);
     }
+    // Use the same current-enrolment policy as the missing-class queue.
+    const studentIds = payload.entries.filter((row) => row.kind === 'student').map((row) => row.id);
+    if (studentIds.length) {
+      const enrollments = await collectTableRows(async (offset, limit) => {
+        const result = await db.from('classes_students')
+          .select('student_id, class:classes!inner(*, subject:subjects(*))', { count: 'exact' })
+          .in('student_id', studentIds).eq('class.status', 'ACTIVE').is('class.deleted_at', null)
+          .lte('enrolled_at', now.toISOString()).or(`unenrolled_at.is.null,unenrolled_at.gt.${now.toISOString()}`)
+          .order('id').range(offset, offset + limit - 1);
+        if (result.error) throw result.error;
+        return { rows: result.data, total: result.count ?? 0 };
+      });
+      for (const entry of payload.entries) if (entry.kind === 'student') {
+        entry.student = { ...entry.student, classes: enrollments.filter((row) => row.student_id === entry.id).map((row) => row.class) };
+      }
+    }
     const byId = new Map(journeys.map((journey) => [journey.id, journey]));
     const page: StudentDirectoryPage = {
       total: payload.total,

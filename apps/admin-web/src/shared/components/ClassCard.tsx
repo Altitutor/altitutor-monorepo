@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
+import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
@@ -53,7 +54,7 @@ export function ClassCard({
   class: classData,
   subject,
   staff,
-  students = [],
+  students: suppliedStudents,
   onClick,
   details,
   enrollment,
@@ -71,6 +72,9 @@ export function ClassCard({
   cardHeight,
   cardWidth
 }: ClassCardProps) {
+  const students = suppliedStudents ?? [];
+  const studentRoster = details?.students ?? suppliedStudents;
+
   // Measure actual card dimensions using ResizeObserver
   const [, cardSize] = useElementSize<HTMLDivElement>();
   
@@ -130,7 +134,7 @@ export function ClassCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={details?.students ?? students} staff={details?.staff ?? staff}>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={details?.staff ?? staff}>
     <div
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',
@@ -173,7 +177,7 @@ export function ClassCard({
         <div className={cn('flex-1 min-w-0', isCalendarView && 'overflow-hidden')}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     {subjectDisplay}
@@ -192,6 +196,7 @@ export function ClassCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
+                <StudentCount count={studentRoster?.length} />
                 {!shouldUseCompact && classData.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}

@@ -1,3 +1,4 @@
+import { sanitizeSubjectCoverEvent } from '@altitutor/shared';
 import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { sanitizeInterviewCallEvent, resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
@@ -28,7 +29,8 @@ Sentry.init({
   beforeSend: (event, hint) => {
     if (!collection.errors && event.type !== "feedback") return null;
     const filtered = filterExpectedTutorWebError(event, hint);
-    return filtered ? sanitizeInterviewCallEvent(filtered) : null;
+    const safe = filtered ? sanitizeInterviewCallEvent(filtered) : null;
+    return safe ? sanitizeSubjectCoverEvent(safe) : null;
   },
   tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,
