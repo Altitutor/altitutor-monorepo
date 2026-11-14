@@ -170,6 +170,75 @@ describe("tutor session middleware", () => {
       expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
     },
   );
+  it.each([false, true])("records a dependency abort with request-aborted=%s independently", async (aborted) => {
+    const controller = new AbortController();
+    if (aborted) controller.abort("private cancellation reason");
+    mockGetClaims.mockRejectedValue(new DOMException("operation aborted", "AbortError"));
+
+    const response = await middleware(request("/dashboard?token=private-query", {
+      signal: controller.signal,
+      headers: { authorization: "Bearer private-header" },
+    }));
+
+    expect(response.status).toBe(503);
+    expect(mockCaptureMessage).toHaveBeenCalledTimes(1);
+    expect(mockCaptureMessage).toHaveBeenCalledWith("Middleware dependency unavailable", expect.objectContaining({
+      tags: expect.objectContaining({ failure_kind: "dependency_abort" }),
+      extra: expect.objectContaining({ session_deadline_expired: false, request_aborted: aborted }),
+    }));
+    const captured = JSON.stringify(mockCaptureMessage.mock.calls);
+    expect(captured).not.toContain("private-query");
+    expect(captured).not.toContain("private-header");
+    expect(captured).not.toContain("private cancellation reason");
+  });
+
+  it("identifies its own deadline even when the incoming request was also aborted", async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    mockGetClaims.mockImplementation(() => new Promise(() => {}));
+    try {
+      const pending = middleware(request("/dashboard", { signal: controller.signal }));
+      controller.abort();
+      await jest.advanceTimersByTimeAsync(10_000);
+      const response = await pending;
+      expect(response.status).toBe(503);
+      expect(response.headers.get("retry-after")).toBe("5");
+      expect(mockCaptureMessage).toHaveBeenCalledTimes(1);
+      expect(mockCaptureMessage).toHaveBeenCalledWith("Middleware dependency unavailable", expect.objectContaining({
+        tags: expect.objectContaining({ failure_kind: "local_deadline" }),
+        extra: expect.objectContaining({ elapsed_ms: 10_000, session_deadline_expired: true, request_aborted: true }),
+      }));
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not label an early dependency failure as its later deadline", async () => {
+    jest.useFakeTimers();
+    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthUnknownError" } });
+    try {
+      expect((await middleware(request("/dashboard"))).status).toBe(503);
+      await jest.advanceTimersByTimeAsync(10_000);
+      expect(mockCaptureMessage).toHaveBeenCalledTimes(1);
+      expect(mockCaptureMessage).toHaveBeenCalledWith("Middleware dependency unavailable", expect.objectContaining({
+        tags: expect.objectContaining({ failure_kind: "dependency_error" }),
+        extra: expect.objectContaining({ session_deadline_expired: false, request_aborted: false }),
+      }));
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("preserves the unavailable response if diagnostic capture throws", async () => {
+    mockGetClaims.mockRejectedValue(new DOMException("operation aborted", "AbortError"));
+    mockCaptureMessage.mockImplementationOnce(() => { throw new Error("capture unavailable"); });
+    const response = await middleware(request("/dashboard"));
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("retry-after")).toBe("5");
+  });
 
   it("preserves refreshed cookie metadata", async () => {
     mockGetClaims.mockImplementation(async () => {

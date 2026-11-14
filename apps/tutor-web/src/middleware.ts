@@ -35,6 +35,7 @@ function createDeadline() {
     }, SESSION_DEADLINE_MS);
   });
   return {
+    hasExpired: () => controller.signal.aborted,
     fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
       fetch(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
@@ -63,23 +64,38 @@ function unavailable(
   error: unknown,
   cookies: CookieToSet[],
   headers: Record<string, string>,
+  deadlineExpired = false,
 ) {
-  Sentry.captureMessage("Middleware dependency unavailable", {
-    level: "error",
-    fingerprint: ["middleware-dependency-unavailable", "tutor-web", "authentication"],
-    tags: {
-      app: "tutor-web",
-      dependency_stage: "authentication",
-      http_status: "503",
-      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
-    },
-    extra: {
-      elapsed_ms: Math.max(0, Date.now() - startedAt),
-      error_message: field(error, "message"),
-      request_method: request.method,
-      request_path: request.nextUrl.pathname,
-    },
-  });
+  // These are observations, not a claim that the incoming cancellation caused
+  // the dependency error. The deadline owns a separate AbortController.
+  const failureKind = deadlineExpired
+    ? "local_deadline"
+    : field(error, "name") === "AbortError"
+      ? "dependency_abort"
+      : "dependency_error";
+  try {
+    Sentry.captureMessage("Middleware dependency unavailable", {
+      level: "error",
+      fingerprint: ["middleware-dependency-unavailable", "tutor-web", "authentication"],
+      tags: {
+        app: "tutor-web",
+        dependency_stage: "authentication",
+        http_status: "503",
+        failure_kind: failureKind,
+        supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+      },
+      extra: {
+        elapsed_ms: Math.max(0, Date.now() - startedAt),
+        session_deadline_expired: deadlineExpired,
+        request_aborted: request.signal.aborted,
+        error_message: field(error, "message"),
+        request_method: request.method,
+        request_path: request.nextUrl.pathname,
+      },
+    });
+  } catch {
+    // Diagnostics must not replace the intended retryable response.
+  }
   return applyMetadata(
     new NextResponse("Tutor services are temporarily unavailable. Please try again.", {
       status: 503,
@@ -174,11 +190,11 @@ export async function handleAuthRequest(request: NextRequest) {
           responseHeaders,
         );
       }
-      return unavailable(request, startedAt, error, cookies, responseHeaders);
+      return unavailable(request, startedAt, error, cookies, responseHeaders, deadline.hasExpired());
     }
     const missingSession = isUnauthenticatedSessionError(claims.error);
     if (claims.error && !missingSession) {
-      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders, deadline.hasExpired());
     }
     const userId = claims.data?.claims?.sub;
     if (missingSession || !userId) {
