@@ -137,7 +137,10 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
   }
 });
 
-it("shows the Adelaide time used by the dashboard grid in the interview tooltip", async () => {
+it.each([
+  { allowance: undefined, end: /2:39 pm/i },
+  { allowance: 120, end: /2:41 pm/i },
+])("shows Adelaide time and the planned duration in the interview tooltip ($allowance seconds allowance)", async ({ allowance, end }) => {
   useAuthStore.setState({ user: null, loading: true });
   const client = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
@@ -150,6 +153,7 @@ it("shows the Adelaide time used by the dashboard grid in the interview tooltip"
     [
       {
         id: "dashboard-round",
+        rotationAllowanceSeconds: allowance,
         name: "Afternoon interview",
         scheduledAt,
         startedAt: null,
@@ -180,6 +184,6 @@ it("shows the Adelaide time used by the dashboard grid in the interview tooltip"
 
   const tooltip = await screen.findByRole("tooltip");
   expect(tooltip).toHaveTextContent("2:30");
-  expect(tooltip).toHaveTextContent(/3:00 pm/i);
+  expect(tooltip).toHaveTextContent(end);
   client.clear();
 });

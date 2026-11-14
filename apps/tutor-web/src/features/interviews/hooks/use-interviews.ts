@@ -53,7 +53,9 @@ export function useInterviewCommand() {
           description: result.mediaWarning,
           variant: "destructive",
         });
-      if ("roundId" in command) {
+      if (command.type === "createRounds") {
+        await client.invalidateQueries({ queryKey: interviewKeys.rounds });
+      } else if ("roundId" in command) {
         await Promise.all([
           client.invalidateQueries({
             queryKey: interviewKeys.round(command.roundId),
@@ -113,9 +115,10 @@ export function useInterviewCalendarRounds() {
       if (loading || !user) return;
       const refreshedAccess = await access.refetch({ cancelRefetch: false });
       if (refreshedAccess.data !== true || refreshedAccess.isError) return;
-      const refreshedStaff = staff.isError || !staff.data
-        ? await staff.refetch({ cancelRefetch: false })
-        : staff;
+      const refreshedStaff =
+        staff.isError || !staff.data
+          ? await staff.refetch({ cancelRefetch: false })
+          : staff;
       if (refreshedStaff.isError || !refreshedStaff.data) return;
       await query.refetch({ cancelRefetch: false });
     },

@@ -183,7 +183,7 @@ SELECT is(public.interview_audio_capture('e8000000-0000-4000-8000-000000000030',
 SELECT lives_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}','00000000-0000-0000-0000-000000000011')$q$,'Second station claims the remaining student before anyone is ready');
 SELECT pg_temp.physical_cmd('ready','{"ready":true}');
 SELECT pg_temp.physical_cmd('ready','{"ready":true}','00000000-0000-0000-0000-000000000011');
-SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001","confirmMove":true}')$q$,'22023','Cannot select a student now','Ready station locks the arriving student');
+SELECT throws_ok($q$SELECT pg_temp.physical_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001","confirmMove":true}')$q$,'22023','Student is already at another station or not in this round','Ready station still prevents simultaneous duplicate claims');
 SELECT pg_temp.physical_cmd('startReading');
 UPDATE public.interview_rounds SET data=jsonb_set(data,'{phaseDeadline}',to_jsonb(now()-interval '1 second')) WHERE id='e8000000-0000-4000-8000-000000000030';
 SELECT pg_temp.physical_cmd('tick');
@@ -264,11 +264,8 @@ $$;
 SELECT pg_temp.missed_cmd('start');
 SELECT pg_temp.missed_cmd('ready','{"ready":true}');
 SELECT pg_temp.missed_cmd('ready','{"ready":true}','00000000-0000-0000-0000-000000000011');
-SELECT throws_ok($q$SELECT pg_temp.missed_cmd('startReading')$q$,'22023','At least one station needs a student','An all-idle rotation cannot start');
-SELECT pg_temp.missed_cmd('ready','{"ready":false}');
-SELECT pg_temp.missed_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}');
-SELECT pg_temp.missed_cmd('ready','{"ready":true}');
-SELECT lives_ok($q$SELECT pg_temp.missed_cmd('startReading')$q$,'One occupied and one explicitly idle station can start');
+SELECT lives_ok($q$SELECT pg_temp.missed_cmd('startReading')$q$,'Ready in-person tutors may begin reading before selecting students');
+SELECT lives_ok($q$SELECT pg_temp.missed_cmd('claimStudent','{"studentId":"10000000-0000-0000-0000-000000000001"}')$q$,'A ready tutor selects the arriving student during reading');
 SELECT pg_temp.missed_cmd('skipReading');
 SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId',r.id,'attemptId',a->'id','expectedAttemptVersion',a->'version',
  'score',CASE WHEN a->>'stationId'='e8000000-0000-4000-8000-000000000011' THEN to_jsonb(3) ELSE 'null'::jsonb END,

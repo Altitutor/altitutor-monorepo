@@ -51,6 +51,9 @@ export function interviewRoundFromRow(row: {
     reading,
     question,
     Array.isArray(data.stations) ? data.stations.length : 1,
+    typeof data.rotationAllowanceSeconds === "number"
+      ? data.rotationAllowanceSeconds
+      : 0,
   );
   return {
     id: row.id,

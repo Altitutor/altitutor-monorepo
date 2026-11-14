@@ -216,6 +216,7 @@ function sharedActionText(round: InterviewRound) {
   if (action.type === "resume") return `Resumed by ${name}`;
   if (action.type === "startReading") return `Reading started by ${name}`;
   if (action.type === "skipReading") return `Question time started by ${name}`;
+  if (action.type === "skipQuestions") return `Question time ended by ${name}`;
   if (action.type === "next")
     return round.phase === "completed"
       ? `Round completed by ${name}`
@@ -579,8 +580,8 @@ function StudentLock() {
         </span>
       </TooltipTrigger>
       <TooltipContent>
-        This student is locked in. You cannot change them after you are ready,
-        or once the station has started.
+        This student is locked in. You can change the student during waiting and
+        reading time, before question time starts.
       </TooltipContent>
     </Tooltip>
   );
@@ -605,7 +606,7 @@ function StationFacts({
     round.students.find((student) => student.id === item.studentId)?.name ??
     "No student selected";
   const locked =
-    Boolean(item.studentId) && (item.ready || round.phase !== "waiting");
+    Boolean(item.studentId) && !["waiting", "reading"].includes(round.phase);
   const phase = detailed
     ? stationStatusFor(round, item)
     : stationStatus(item, round.phase);
@@ -826,6 +827,7 @@ function InPersonRoundView({
   onReady,
   onStartReading,
   onSkipReading,
+  onSkipQuestions,
   onEndStation,
   onFinishFeedback,
   onRequestFinish,
@@ -855,6 +857,7 @@ function InPersonRoundView({
   onReady: () => void;
   onStartReading: () => void;
   onSkipReading: () => void;
+  onSkipQuestions: () => void;
   onEndStation: () => void;
   onFinishFeedback: () => void;
   onRequestFinish: () => void;
@@ -864,13 +867,16 @@ function InPersonRoundView({
 }) {
   const clock = usePhaseClock(round);
   const paused = Boolean(round.pausedAt);
-  const [confirm, setConfirm] = useState<null | "end" | "skip">(null);
+  const [confirm, setConfirm] = useState<
+    null | "end" | "skip" | "skipQuestions"
+  >(null);
   const actionText = sharedActionText(round);
   const phase = phaseAppearance(round);
   const detail = timerDetail(round, clock);
-  const studentLocked = Boolean(progress?.ready) || round.phase !== "waiting";
+  const studentLocked = !["waiting", "reading"].includes(round.phase);
   const online = round.delivery === "online";
-  const canSelectStudent = !online && !!station && !studentLocked;
+  const canSelectStudent =
+    !online && !!station && !studentLocked && !paused && !pending;
   const circuitComplete = round.attempts.every(
     (item) => item.completed || !!item.notAssessedReason?.trim(),
   );
@@ -892,7 +898,7 @@ function InPersonRoundView({
       : (pendingReason ??
         (!allReady
           ? "Every station must be ready before reading can start."
-          : !round.progress.some((item) => item.studentId)
+          : online && !round.progress.some((item) => item.studentId)
             ? "At least one station needs a student."
             : undefined)));
   const nextReason =
@@ -1035,11 +1041,7 @@ function InPersonRoundView({
                 disabled={Boolean(readyReason)}
                 onClick={onReady}
               >
-                {progress?.ready
-                  ? "Mark not ready"
-                  : !online && !progress?.studentId
-                    ? "Ready — idle this rotation"
-                    : "I’m ready"}
+                {progress?.ready ? "Mark not ready" : "I’m ready"}
               </ActionButton>
             )}
             {isWaiting && (
@@ -1060,6 +1062,17 @@ function InPersonRoundView({
                 onClick={() => setConfirm("skip")}
               >
                 Skip reading time
+              </ActionButton>
+            )}
+            {round.phase === "questions" && progress && !paused && (
+              <ActionButton
+                variant="outline"
+                className={tutorBtnOutline}
+                reason={pendingReason}
+                disabled={pending}
+                onClick={() => setConfirm("skipQuestions")}
+              >
+                Skip question time for everyone
               </ActionButton>
             )}
             {round.phase === "questions" &&
@@ -1320,14 +1333,26 @@ function InPersonRoundView({
       <ConfirmAction
         open={confirm !== null}
         title={
-          confirm === "skip" ? "Skip reading time?" : "End your station early?"
+          confirm === "skip"
+            ? "Skip reading time?"
+            : confirm === "skipQuestions"
+              ? "Skip question time for everyone?"
+              : "End your station early?"
         }
         description={
           confirm === "skip"
             ? "Everyone will go straight to question time. You cannot go back to reading time."
-            : "You cannot go back to question time."
+            : confirm === "skipQuestions"
+              ? `Every station will move to ${round.mode === "exam" ? "marking" : "feedback"} now. You cannot return to question time. Scores and feedback still need to be completed.`
+              : "You cannot go back to question time."
         }
-        confirmLabel={confirm === "skip" ? "Skip reading time" : "End station"}
+        confirmLabel={
+          confirm === "skip"
+            ? "Skip reading time"
+            : confirm === "skipQuestions"
+              ? "Skip for everyone"
+              : "End station"
+        }
         onOpenChange={(open) => {
           if (!open) setConfirm(null);
         }}
@@ -1335,6 +1360,7 @@ function InPersonRoundView({
           const action = confirm;
           setConfirm(null);
           if (action === "skip") onSkipReading();
+          if (action === "skipQuestions") onSkipQuestions();
           if (action === "end") onEndStation();
         }}
       />
@@ -1513,14 +1539,16 @@ export function InterviewWorkspace({ id }: { id: string }) {
           role="status"
         >
           <p>
-            This round is complete. Feedback and recordings must finish saving before
-            opening results.
+            This round is complete. Feedback and recordings must finish saving
+            before opening results.
           </p>
           <Button
             disabled={leaving}
             onClick={() => void exit(`/interviews/rounds/${id}/results`)}
           >
-            {leaving ? "Saving feedback and recordings…" : "Save and view results"}
+            {leaving
+              ? "Saving feedback and recordings…"
+              : "Save and view results"}
           </Button>
         </div>
       )}
@@ -1558,6 +1586,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
           else void run({ ...base, type: "startReading" });
         }}
         onSkipReading={() => void run({ ...base, type: "skipReading" })}
+        onSkipQuestions={() => void run({ ...base, type: "skipQuestions" })}
         onEndStation={() => void run({ ...base, type: "endStation" })}
         onFinishFeedback={() => void run({ ...base, type: "finishFeedback" })}
         onRequestFinish={requestFinish}
