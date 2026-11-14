@@ -5,8 +5,8 @@ import {
   interviewRoundRoomUrl,
 } from "../interviewRoundEvents";
 
-test("a scheduled round becomes a calendar event at least 30 minutes long", () => {
-  expect(interviewRoundDurationMinutes(60, 60)).toBe(30);
+test("a scheduled round uses its timing without an invisible duration floor", () => {
+  expect(interviewRoundDurationMinutes(60, 60)).toBe(2);
   const event = interviewRoundFromRow({
     id: "round-1",
     data: {
@@ -31,7 +31,7 @@ test("a scheduled round becomes a calendar event at least 30 minutes long", () =
     students: [{ id: "student-1", name: "Ada Lovelace" }],
   });
   expect(event && Date.parse(event.endAt) - Date.parse(event.scheduledAt)).toBe(
-    30 * 60_000,
+    10 * 60_000,
   );
 });
 
@@ -104,4 +104,19 @@ describe("interview round session filtering", () => {
       interviewRoundRoomUrl({ id: "round", phase: "waiting", startedAt: null }),
     ).toBe("/interviews/rounds/round");
   });
+});
+
+
+test("calendar estimates include the configured allowance for every rotation", () => {
+  const event = interviewRoundFromRow({
+    id: "three-stations",
+    data: {
+      scheduledAt: "2026-11-14T03:30:00Z",
+      readingTimeSeconds: 60,
+      questionTimeSeconds: 480,
+      rotationAllowanceSeconds: 120,
+      stations: [{ id: "one" }, { id: "two" }, { id: "three" }],
+    },
+  });
+  expect(event && Date.parse(event.endAt) - Date.parse(event.scheduledAt)).toBe(33 * 60_000);
 });
