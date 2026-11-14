@@ -9,6 +9,8 @@ test('invoice navigation totals unpaid invoices, charges and adjustments once', 
   expect(result.tooltip).toContain('Unpaid invoices with an outstanding balance: 2');
   expect(result.tooltip).toContain('Student/session charges to invoice (includes previously voided charges): 5');
   expect(result.tooltip).toContain('Individual billing adjustments needing attention: 6');
+  expect(result.tooltip).toContain('Not yet invoiced: 2');
+  expect(result.tooltip).toContain('Previously voided: 3');
 });
 
 test('student totals describe queue entries rather than unique students', () => {

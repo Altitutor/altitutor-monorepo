@@ -20,7 +20,14 @@ export function reconciliationCountSummary(keys: readonly ReconciliationViewKey[
   const count = keys.every((key) => counts[key] !== undefined)
     ? keys.reduce((total, key) => total + (counts[key] ?? 0), 0)
     : undefined;
-  const breakdown = keys.map((key) => `${countLabels[key]}: ${counts[key] ?? 'unavailable'}`).join('\n');
+  const breakdown = keys.map((key) => {
+    const line = `${countLabels[key]}: ${counts[key] ?? 'unavailable'}`;
+    if (key !== 'uninvoiced') return line;
+    const charges = counts.uninvoiced;
+    const voided = counts['void-invoices'];
+    const uninvoiced = charges !== undefined && voided !== undefined ? charges - voided : 'unavailable';
+    return `${line}\n  Not yet invoiced: ${uninvoiced}\n  Previously voided: ${voided ?? 'unavailable'}`;
+  }).join('\n');
   const tooltip = keys.length > 1
     ? `Reconciliation queue entries${count === undefined ? '' : `: ${count}`}\n${breakdown}\nA person or session can appear in more than one queue.`
     : breakdown;
