@@ -63,6 +63,9 @@ importers:
       typescript-eslint:
         specifier: ^8.72.1
         version: 8.72.1(eslint@10.13.0(jiti@1.21.7)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
 
   apps/admin-web:
     dependencies:

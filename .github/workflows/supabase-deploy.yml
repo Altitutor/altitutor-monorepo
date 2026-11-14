@@ -7,20 +7,45 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: supabase-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  integration-evidence:
+    name: Find verified integration tree
+    runs-on: ubuntu-latest
+    outputs:
+      reuse: ${{ steps.evidence.outputs.reuse }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Match trusted integration evidence
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verified-integration.mjs reuse
+
   verify:
     name: Verify release commit
+    needs: integration-evidence
+    if: needs.integration-evidence.outputs.reuse != 'true'
     uses: ./.github/workflows/ci.yml
     with:
       full_run: ${{ github.ref_name == 'main' }}
 
   deploy:
-    needs: verify
+    needs: [integration-evidence, verify]
+    if: >-
+      always() && !cancelled() && needs.integration-evidence.result == 'success' &&
+      ((needs.integration-evidence.outputs.reuse == 'true' && needs.verify.result == 'skipped') ||
+       needs.verify.result == 'success')
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
