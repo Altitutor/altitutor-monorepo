@@ -54,4 +54,50 @@ describe('bookingsApi', () => {
       p_student_first_name: 'Ada',
     }));
   });
+
+  it.each([
+    [
+      'another student',
+      'This phone number is already linked to another student. Use a different number, or check the other student\'s contact details.',
+    ],
+    [
+      'a parent',
+      'This phone number is already linked to a parent. Use a different number for the student, or check the parent\'s contact details.',
+    ],
+    [
+      'a student',
+      'This phone number is already linked to a student. Use a different number for the parent, or check the student contact details.',
+    ],
+  ])('explains a trial booking phone conflict with %s without exposing record identifiers', async (owner, explanation) => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: 'P0001',
+        message: `Phone number +61400000000 is already associated with ${owner} (ID: 00000000-0000-0000-0000-000000000001)`,
+      },
+    });
+    mockAuthenticatedClient(rpc);
+
+    await expect(bookingsApi.createBooking({
+      session_type: 'TRIAL_SESSION',
+      start_at: '2026-10-01T00:00:00.000Z',
+      end_at: '2026-10-01T01:00:00.000Z',
+      trial_student_data: { student_first_name: 'Ada', student_phone: '+61400000000' },
+    })).rejects.toMatchObject({ message: explanation });
+  });
+
+  it('keeps other trial booking failures visible', async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'Active AdminStaff access required' },
+    });
+    mockAuthenticatedClient(rpc);
+
+    await expect(bookingsApi.createBooking({
+      session_type: 'TRIAL_SESSION',
+      start_at: '2026-10-01T00:00:00.000Z',
+      end_at: '2026-10-01T01:00:00.000Z',
+      trial_student_data: { student_first_name: 'Ada' },
+    })).rejects.toMatchObject({ message: 'Active AdminStaff access required' });
+  });
 });

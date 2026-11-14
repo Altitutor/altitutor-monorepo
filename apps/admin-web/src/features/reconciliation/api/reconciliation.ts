@@ -65,13 +65,12 @@ async function enrichReconciliationSessionRows<T extends ReconciliationSessionRo
   ];
   if (sessionIds.length === 0) return rows;
 
-  const { data: sessionRows, error } = await supabase
-    .from('sessions')
-    .select('id, short_name, long_name')
-    .in('id', sessionIds);
-  if (error) throw error;
-
-  const byId = new Map((sessionRows ?? []).map((s) => [s.id, s]));
+  const byId = new Map<string, { id: string; short_name: string | null; long_name: string | null }>();
+  for (let offset = 0; offset < sessionIds.length; offset += 100) {
+    const { data, error } = await supabase.from('sessions').select('id, short_name, long_name').in('id', sessionIds.slice(offset, offset + 100));
+    if (error) throw error;
+    for (const session of data ?? []) byId.set(session.id, session);
+  }
 
   return rows.map((row) => {
     const s = byId.get(row.session_id);
@@ -98,18 +97,24 @@ function parseAssignedTutorsFromView(raw: unknown): UnloggedSession['assigned_tu
   return parsed as NonNullable<UnloggedSession['assigned_tutors']>;
 }
 
+async function readBillingQueue<T>(view: 'vadmin_reconciliation_uninvoiced_sessions' | 'vadmin_reconciliation_void_invoice_sessions' | 'vadmin_reconciliation_session_billing_adjustments'): Promise<T[]> {
+  const db = getSupabaseClient();
+  const rows: T[] = [];
+  const key = view === 'vadmin_reconciliation_session_billing_adjustments' ? 'adjustment_id' : 'sessions_students_id';
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await db.from(view).select('*').order(key).range(offset, offset + 499);
+    if (error) throw error;
+    rows.push(...data as unknown as T[]);
+    if (data.length < 500) return rows;
+  }
+}
+
 /**
  * Reconciliation API client for querying reconciliation views
  */
 export const reconciliationApi = {
   getSessionBillingAdjustmentIssues: async (): Promise<SessionBillingAdjustmentIssue[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await supabase
-      .from('vadmin_reconciliation_session_billing_adjustments')
-      .select('*')
-      .order('created_at', { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as SessionBillingAdjustmentIssue[];
+    return readBillingQueue<SessionBillingAdjustmentIssue>('vadmin_reconciliation_session_billing_adjustments');
   },
 
   /**
@@ -117,12 +122,7 @@ export const reconciliationApi = {
    */
   getUninvoicedSessions: async (): Promise<UninvoicedSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as unknown as SupabaseWithViews)
-      .from('vadmin_reconciliation_uninvoiced_sessions')
-      .select('*')
-      .order('session_start_at', { ascending: false });
-    if (error) throw error;
-    const rows = (data ?? []) as UninvoicedSession[];
+    const rows = await readBillingQueue<UninvoicedSession>('vadmin_reconciliation_uninvoiced_sessions');
     return enrichReconciliationSessionRows(supabase, rows);
   },
 
@@ -370,13 +370,7 @@ export const reconciliationApi = {
 
   getVoidInvoiceSessions: async (): Promise<VoidInvoiceSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await (supabase as unknown as SupabaseWithViews)
-      .from('vadmin_reconciliation_void_invoice_sessions')
-      .select('*')
-      .order('session_start_at', { ascending: false });
-    if (error) throw error;
-
-    const rows = (data ?? []) as VoidInvoiceSession[];
+    const rows = await readBillingQueue<VoidInvoiceSession>('vadmin_reconciliation_void_invoice_sessions');
     return enrichReconciliationSessionRows(supabase, rows);
   },
 };

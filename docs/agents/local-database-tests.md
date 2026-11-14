@@ -23,6 +23,16 @@ and container IDs, binds consumers to the local test API, and stops only that
 project with `--no-backup` before releasing its leases. Normal Docker host bindings
 are accepted, as Matthew approved. The API clients still use localhost.
 
+Owned startup and guarded reset install the resource bucket's four intended
+Storage policies after the CLI has finished initializing Storage ownership.
+`supabase/local/resource-storage-policies.sql` repeats the predicates from
+`20260625090416_align_student_resource_access.sql`; failures stop setup rather
+than silently leaving an unusable stack. The ephemeral hosted-CI seed path also
+installs them. No roles/ownership are changed and this file is never a hosted
+migration. Tutor and Student resource PDF tests use real Storage signing; the
+Storage integration test checks entitled reads, other-subject denials and anon
+denial through the API. Other buckets' local parity is outside this scope.
+
 Never reset, seed or stop the normal `altitutor-admin-app` stack, another
 checkout's stack or a remote database. Startup refuses an existing disposable
 project rather than adopting a leftover stack. No credentials or `.env` files

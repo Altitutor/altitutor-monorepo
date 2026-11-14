@@ -201,13 +201,10 @@ struct PDFDocumentSurface: UIViewRepresentable {
             renderLaser()
         }
 
-        private func renderLaser(publish: Bool = true) {
+        private func renderLaser() {
             guard let view, let pdf = view.document else { return }
             laserOverlay.show(laserTrace, in: view) { point in
                 pdf.page(at: point.page).map { view.convert(point.location, from: $0) }
-            }
-            if publish, parent.isWorksheet {
-                ClassroomState.shared.showLaser(documentID: parent.document.id, trace: laserTrace)
             }
         }
 
@@ -215,7 +212,6 @@ struct PDFDocumentSurface: UIViewRepresentable {
             laserFadeTask?.cancel(); laserFadeTask = nil
             laserTrace = TeachingLaserTrace()
             laserOverlay.clear()
-            if parent.isWorksheet { ClassroomState.shared.clearLaser(documentID: parent.document.id) }
         }
 
         private func restore(_ viewport: DocumentViewport) {
@@ -238,7 +234,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         private func tick() {
             guard active, let view, view.bounds.width > 0, view.bounds.height > 0, view.document != nil else { return }
             observeScrolling()
-            if laserTrace.hasMarks { renderLaser(publish: false) }
+            if laserTrace.hasMarks { renderLaser() }
             if !restored {
                 restore(lastSaved); lastSize = view.bounds.size; restored = true; lastVisible = current()
                 parent.navigation.thumbnailVersion += 1
@@ -265,19 +261,8 @@ struct PDFDocumentSurface: UIViewRepresentable {
                 lastVisible = state
                 ticks += 1
                 if ticks % 4 == 0 { persist() }
-                if parent.isWorksheet, let pdf = view.document,
-                   let page = view.page(for: CGPoint(x: view.bounds.midX, y: view.bounds.midY), nearest: true) {
-                    let pageIndex = pdf.index(for: page)
-                    let rect = view.convert(view.bounds, to: page).intersection(page.bounds(for: .cropBox))
-                    var drawings: [Int: Data] = [:]
-                    for index in [pageIndex] {
-                        drawings[index] = canvases[index]?.drawing.dataRepresentation() ?? (try? parent.store.drawing(sessionID: parent.sessionID, document: parent.document, page: index))
-                    }
-                    do {
-                        ClassroomState.shared.publishWorksheet(id: parent.document.id,
-                            url: try parent.store.documentURL(sessionID: parent.sessionID, document: parent.document),
-                            page: pageIndex, visibleRect: rect, rotation: rotation, drawings: drawings)
-                    } catch { parent.onError(error) }
+                if parent.isWorksheet {
+                    ClassroomState.shared.publishWorksheet(id: parent.document.id, source: view)
                 }
             }
         }
@@ -323,6 +308,7 @@ struct PDFDocumentSurface: UIViewRepresentable {
         func stop(persistChanges: Bool = true) {
             guard active else { return }
             if persistChanges { persist() }
+            if parent.isWorksheet { ClassroomState.shared.stopWorksheet(id: parent.document.id, source: view) }
             active = false; timer?.invalidate(); timer = nil
             clearLaser()
             scrollingView?.panGestureRecognizer.removeTarget(self, action: #selector(scrollGesture(_:))); scrollingView = nil
