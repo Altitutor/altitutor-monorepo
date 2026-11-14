@@ -73,7 +73,7 @@ function formatClassForMessage(
   subject: Tables<'subjects'> | null
 ): string {
   if (cls.schedule_summary_long && cls.long_name?.trim()) {
-    return cls.long_name.trim();
+    return [cls.long_name.trim(), cls.schedule_summary_long.trim()].filter(Boolean).join(' · ');
   }
 
   const subjectName =

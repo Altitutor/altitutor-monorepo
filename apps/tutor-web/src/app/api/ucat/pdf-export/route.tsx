@@ -16,6 +16,7 @@ import {
 } from '@/features/ucat/shared/pdf/UcatQuestionExportDocument'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { simplifyPdfGroups } from '@/features/ucat/shared/pdf/simplify-content'
+import { preparePdfMath } from '@/features/ucat/shared/pdf/math-images'
 import { embedPdfImageSource } from '@/features/ucat/shared/pdf/image-sources'
 
 export const runtime = 'nodejs'
@@ -241,7 +242,7 @@ export async function POST(request: NextRequest) {
 
   let stems: UcatPdfStem[]
   try {
-    stems = await refreshImageUrls(rawStems)
+    stems = await preparePdfMath(await refreshImageUrls(rawStems))
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Could not prepare embedded images for export.' },

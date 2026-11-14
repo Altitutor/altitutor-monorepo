@@ -35,6 +35,7 @@ import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 import { UCAT_SIGNUP_CONSENT_WORDING } from "@/features/communications/lib/communication-preferences";
 import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 import { savePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
+import { signupEmailAddressError } from "@/features/auth/lib/signup-email-address";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -54,10 +55,25 @@ function getSignupOtpUserMessage(
   ) {
     return "Too many confirmation emails were requested. Please wait several minutes, then try again.";
   }
+  if (msg.includes("error sending confirmation email")) {
+    return "We couldn't send a confirmation email to that address. Check it is typed correctly and try again.";
+  }
   if (msg.includes("api key") || msg.includes("no `apikey`")) {
     return "Sign-in could not reach the project (missing anon key). Developers: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in apps/ucat-web/.env.local and restart `pnpm dev`.";
   }
   return raw || "Something went wrong. Please try again.";
+}
+
+/** Upstream layers can answer with non-contract bodies, such as `{ error: { code, message, id } }`. */
+function accountStateField(
+  body: unknown,
+  field: "error" | "state",
+): string | undefined {
+  if (typeof body !== "object" || body === null || !(field in body)) {
+    return undefined;
+  }
+  const value: unknown = (body as Record<typeof field, unknown>)[field];
+  return typeof value === "string" ? value : undefined;
 }
 
 export function SignupForm({
@@ -175,10 +191,17 @@ export function SignupForm({
     if (!email.trim()) return;
     if (submitInFlightRef.current) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailError = signupEmailAddressError(normalizedEmail);
+    if (emailError) {
+      setErrorMessage(emailError);
+      setFormState("error");
+      return;
+    }
+
     submitInFlightRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
-    const normalizedEmail = email.trim().toLowerCase();
 
     try {
       captureUcatEvent("signup_started", {
@@ -197,17 +220,17 @@ export function SignupForm({
           body: JSON.stringify({ email: normalizedEmail }),
         },
       ).catch(() => null);
-      const accountState = (await accountStateResponse
+      const accountState: unknown = await accountStateResponse
         ?.json()
-        .catch(() => null)) as { state?: string; error?: string } | null;
+        .catch(() => null);
       if (!accountStateResponse?.ok) {
         setErrorMessage(
-          accountState?.error ??
+          accountStateField(accountState, "error") ??
             "We couldn't check this email right now. Please try again.",
         );
         return;
       }
-      if (accountState?.state === "confirmed") {
+      if (accountStateField(accountState, "state") === "confirmed") {
         savePendingLoginEmail(normalizedEmail);
         navigateAfterAuth(
           pathWithReturnIntent("/login", redirectTo, { existing: "1" }),

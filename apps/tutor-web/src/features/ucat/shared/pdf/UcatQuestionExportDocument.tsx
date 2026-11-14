@@ -184,7 +184,26 @@ function textStyle(node: RichNode) {
   }
 }
 
-function InlineNodes({ nodes }: { nodes: RichNode[] }) {
+type MathLayout = { fontSize?: number; availableWidth?: number }
+
+function MathExpression({ node, fontSize = 10, availableWidth = 480 }: { node: RichNode } & MathLayout) {
+  const attrs = node.attrs && typeof node.attrs === 'object' ? node.attrs as RichNode : {}
+  const latex = typeof attrs.latex === 'string' ? attrs.latex : ''
+  if (!latex.trim()) return null
+  const width = Number(attrs.pdfMathWidth) * fontSize
+  const height = Number(attrs.pdfMathHeight) * fontSize
+  const scale = Math.min(1, availableWidth / width)
+  if (typeof attrs.pdfMathSrc === 'string' && attrs.pdfMathSrc.startsWith('data:image/png;base64,') &&
+      Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0 && scale * fontSize >= 7) {
+    // react-pdf Image is also supported inside a Text run. Its fixed dimensions
+    // reserve space so adjacent prose, fractions and superscripts cannot overlap.
+    // eslint-disable-next-line jsx-a11y/alt-text
+    return <Image src={attrs.pdfMathSrc} style={{ width: width * scale, height: height * scale }} />
+  }
+  return <Text>[Math: {latex}]</Text>
+}
+
+function InlineNodes({ nodes, fontSize = 10, availableWidth = 480 }: { nodes: RichNode[] } & MathLayout) {
   return (
     <>
       {nodes.map((node, index) => {
@@ -195,33 +214,40 @@ function InlineNodes({ nodes }: { nodes: RichNode[] }) {
             </Text>
           )
         }
+        if (node.type === 'inlineMath' || node.type === 'blockMath') return <MathExpression key={index} node={node} fontSize={fontSize} availableWidth={availableWidth} />
         if (node.type === 'hardBreak') return <Text key={index}>{'\n'}</Text>
-        return <InlineNodes key={index} nodes={nodeChildren(node)} />
+        return <InlineNodes key={index} nodes={nodeChildren(node)} fontSize={fontSize} availableWidth={availableWidth} />
       })}
     </>
   )
 }
 
-function RichBlocks({ value }: { value: Json | null | undefined }) {
+function RichBlocks({ value, fontSize = 10, availableWidth = 480 }: { value: Json | null | undefined } & MathLayout) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const root = value as RichNode
   const nodes = root.type === 'doc' ? nodeChildren(root) : [root]
   return (
     <>
       {nodes.map((node, index) => (
-        <RichBlock key={index} node={node} />
+        <RichBlock key={index} node={node} fontSize={fontSize} availableWidth={availableWidth} />
       ))}
     </>
   )
 }
 
-function RichBlock({ node }: { node: RichNode }): ReactNode {
+function RichBlock({ node, fontSize = 10, availableWidth = 480 }: { node: RichNode } & MathLayout): ReactNode {
   const children = nodeChildren(node)
 
+  if (node.type === 'blockMath') {
+    return <View style={{ marginBottom: 7, alignItems: 'center' }}><MathExpression node={node} fontSize={fontSize} availableWidth={availableWidth} /></View>
+  }
+  if (node.type === 'inlineMath') {
+    return <Text style={styles.paragraph}><MathExpression node={node} fontSize={fontSize} availableWidth={availableWidth} /></Text>
+  }
   if (node.type === 'paragraph') {
     return (
       <Text style={styles.paragraph}>
-        <InlineNodes nodes={children} />
+        <InlineNodes nodes={children} fontSize={fontSize} availableWidth={availableWidth} />
       </Text>
     )
   }
@@ -229,7 +255,7 @@ function RichBlock({ node }: { node: RichNode }): ReactNode {
     const level = Number((node.attrs as RichNode | undefined)?.level ?? 2)
     return (
       <Text style={level === 1 ? styles.heading1 : level === 3 ? styles.heading3 : styles.heading2}>
-        <InlineNodes nodes={children} />
+        <InlineNodes nodes={children} fontSize={level === 1 ? 15 : level === 3 ? 11 : 13} availableWidth={availableWidth} />
       </Text>
     )
   }
@@ -242,7 +268,7 @@ function RichBlock({ node }: { node: RichNode }): ReactNode {
             <Text style={styles.listMarker}>{node.type === 'orderedList' ? `${start + index}.` : '•'}</Text>
             <View style={styles.listBody}>
               {nodeChildren(child).map((item, itemIndex) => (
-                <RichBlock key={itemIndex} node={item} />
+                <RichBlock key={itemIndex} node={item} fontSize={fontSize} availableWidth={availableWidth - 18} />
               ))}
             </View>
           </View>
@@ -265,7 +291,7 @@ function RichBlock({ node }: { node: RichNode }): ReactNode {
             {nodeChildren(row).map((cell, cellIndex) => (
               <View key={cellIndex} style={styles.tableCell}>
                 {nodeChildren(cell).map((content, contentIndex) => (
-                  <RichBlock key={contentIndex} node={content} />
+                  <RichBlock key={contentIndex} node={content} fontSize={fontSize} availableWidth={availableWidth / Math.max(1, nodeChildren(row).length) - 10} />
                 ))}
               </View>
             ))}
@@ -278,13 +304,13 @@ function RichBlock({ node }: { node: RichNode }): ReactNode {
   if (node.type === 'text')
     return (
       <Text style={styles.paragraph}>
-        <InlineNodes nodes={[node]} />
+        <InlineNodes nodes={[node]} fontSize={fontSize} availableWidth={availableWidth} />
       </Text>
     )
   return children.length > 0 ? (
     <>
       {children.map((child, index) => (
-        <RichBlock key={index} node={child} />
+        <RichBlock key={index} node={child} fontSize={fontSize} availableWidth={availableWidth} />
       ))}
     </>
   ) : null
@@ -294,7 +320,7 @@ function Explanation({ value }: { value: Json | null | undefined }) {
   if (!hasRichContent(value)) return null
   return (
     <View style={styles.explanation}>
-      <RichBlocks value={value} />
+      <RichBlocks value={value} fontSize={9} />
     </View>
   )
 }

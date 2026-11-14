@@ -1,4 +1,3 @@
-import { Button } from '@altitutor/ui';
 import {
   getInvoiceStatusBadge,
   type InvoiceStatusPayload,
@@ -14,18 +13,12 @@ type SessionInvoiceCellProps = {
   invoice: InvoiceStatusPayload | null;
   invoiceDetails?: SessionInvoiceDetails;
   preview?: SessionInvoicePreview;
-  canSendNow: boolean;
-  isSending: boolean;
-  onSendNow: () => void;
 };
 
 export function SessionInvoiceCell({
   invoice,
   invoiceDetails,
   preview,
-  canSendNow,
-  isSending,
-  onSendNow,
 }: SessionInvoiceCellProps) {
   if (invoice) {
     const invoiceId = invoice.invoice_id;
@@ -53,22 +46,7 @@ export function SessionInvoiceCell({
   }
 
   if (!preview) {
-    return canSendNow ? (
-      <Button
-        variant="default"
-        size="sm"
-        className="h-7 px-2 text-xs"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSendNow();
-        }}
-        disabled={isSending}
-      >
-        {isSending ? 'Invoicing…' : 'Send invoice'}
-      </Button>
-    ) : (
-      <span className="text-xs text-muted-foreground">-</span>
-    );
+    return <span className="text-xs text-muted-foreground">-</span>;
   }
 
   const balanceAdjusted = preview.creditAppliedCents > 0 || preview.balanceAddedCents > 0;
@@ -91,20 +69,7 @@ export function SessionInvoiceCell({
       <span className="text-muted-foreground">
         {preview.action === 'bill' ? 'Bills' : 'Sends'} {preview.billingDate}
       </span>
-      {canSendNow && (
-        <Button
-          variant="default"
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={(event) => {
-            event.stopPropagation();
-            onSendNow();
-          }}
-          disabled={isSending}
-        >
-          {isSending ? 'Invoicing…' : 'Send invoice'}
-        </Button>
-      )}
+
     </div>
   );
 }

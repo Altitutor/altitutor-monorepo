@@ -9,12 +9,7 @@ const queues = {
   'billing-adjustments': 'vadmin_reconciliation_session_billing_adjustments',
 } as const;
 
-export const sessionQueueOptions = [
-  { value: 'uninvoiced', label: 'Uninvoiced sessions' },
-  { value: 'unlogged', label: 'Unlogged sessions' },
-  { value: 'void-invoices', label: 'Sessions on voided invoices' },
-  { value: 'billing-adjustments', label: 'Billing adjustments' },
-];
+export const sessionQueueOptions = [{ value: 'unlogged', label: 'Unlogged sessions' }];
 
 export function reconciliationSessionIdsQuery(keys: (keyof typeof queues)[]) {
   return {
