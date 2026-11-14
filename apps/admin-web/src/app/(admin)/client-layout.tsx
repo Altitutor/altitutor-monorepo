@@ -42,7 +42,7 @@ import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
 import { useReconciliationCounts } from '@/features/reconciliation/api/useReconciliationCounts';
 import { ReconciliationCountBadge } from '@/features/reconciliation/components/ReconciliationCountBadge';
-import { sidebarReconciliationQueues, type ReconciliationCounts } from '@/features/reconciliation/utils/countSummary';
+import { reconciliationCountSummary, sidebarReconciliationQueues, type ReconciliationCounts } from '@/features/reconciliation/utils/countSummary';
 import { RedCountBadge } from '@/shared/components/RedCountBadge';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -168,7 +168,7 @@ function ExpandableNavGroup({
 
   if (collapsed) {
     return (
-      <TooltipProvider delayDuration={150}>
+      <TooltipProvider delayDuration={0}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
@@ -184,8 +184,8 @@ function ExpandableNavGroup({
               {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="absolute right-0.5 top-0 text-[10px]" />}
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10}>
-            {item.title}
+          <TooltipContent side="right" sideOffset={10} className="max-w-sm whitespace-pre-line">
+            {queues ? `${item.title}\n${reconciliationCountSummary(queues, counts).tooltip}` : item.title}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -338,11 +338,11 @@ function AdminNavMenu({
           }
 
           return (
-            <TooltipProvider key={item.href} delayDuration={150}>
+            <TooltipProvider key={item.href} delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10}>
-                  {linkLabel}
+                <TooltipContent side="right" sideOffset={10} className="max-w-sm whitespace-pre-line">
+                  {sidebarReconciliationQueues[itemHref] ? `${item.title}\n${reconciliationCountSummary(sidebarReconciliationQueues[itemHref], counts).tooltip}` : linkLabel}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
