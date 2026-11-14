@@ -1,98 +1,44 @@
 'use client';
 
 import Link from 'next/link';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { ExternalLink, Loader2 } from 'lucide-react';
-import { cn } from '@/shared/utils';
-import { useReconciliationTabCounts } from '../api/queries';
-
-const STAT_ROWS = [
-  { key: 'financial' as const, label: 'Financial', href: '/reconciliation/financial' },
-  { key: 'scheduling' as const, label: 'Scheduling', href: '/reconciliation/scheduling' },
-  { key: 'operations' as const, label: 'Operations', href: '/reconciliation/operations' },
-];
-
-function CountBubble({
-  value,
-  isLoading,
-  isError,
-}: {
-  value: number | undefined;
-  isLoading: boolean;
-  isError: boolean;
-}) {
-  if (isLoading) {
-    return (
-      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
-        …
-      </span>
-    );
-  }
-
-  if (isError || value === undefined) {
-    return (
-      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground">
-        —
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className={cn(
-        'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-semibold tabular-nums',
-        value > 0
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted text-muted-foreground'
-      )}
-    >
-      {value}
-    </span>
-  );
-}
+import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
+import { ArrowRight, ChevronDown } from 'lucide-react';
+import { ReconciliationCountBadge } from './ReconciliationCountBadge';
+import { useReconciliationCounts } from '../api/useReconciliationCounts';
+import { reconciliationViewGroups, operationalViewHref } from '@/features/quick-filters/config/operationalViews';
 
 export function DashboardReconciliationCard() {
-  const { data: counts, isLoading, isError } = useReconciliationTabCounts();
-
-  const total =
-    counts !== undefined
-      ? counts.financial + counts.scheduling + counts.operations
-      : undefined;
-
+  const counts = useReconciliationCounts();
   return (
-    <Card className="flex h-full min-h-0 flex-col overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between gap-4 px-4 pb-2 pt-3">
+    <Card className="flex min-h-0 flex-col overflow-hidden">
+      <CardHeader className="px-4 pb-2 pt-3">
         <CardTitle className="text-lg font-semibold">Reconciliation</CardTitle>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/reconciliation" className="gap-1.5">
-            <ExternalLink className="h-3.5 w-3.5" />
-            Reconciliation
-          </Link>
-        </Button>
       </CardHeader>
       <CardContent className="p-0">
-        {isLoading && !counts ? (
-          <div className="flex items-center justify-center border-t py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="divide-y border-t">
-            {STAT_ROWS.map(({ key, label, href }) => (
-              <Link
-                key={key}
-                href={href}
-                className="flex items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-              >
-                <span>{label}</span>
-                <CountBubble value={counts?.[key]} isLoading={isLoading} isError={isError} />
-              </Link>
-            ))}
-            <div className="flex items-center justify-between bg-muted/30 px-4 py-3 text-sm font-medium">
-              <span>Total open items</span>
-              <CountBubble value={total} isLoading={isLoading} isError={isError} />
-            </div>
-          </div>
-        )}
+        <div className="divide-y border-t">
+          {reconciliationViewGroups.map(({ key, label, views }) => (
+            <details key={key} className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 -rotate-90 group-open:rotate-0" />
+                <span className="flex-1">{label}</span>
+                <ReconciliationCountBadge queues={views.map((view) => view.slug)} counts={counts} />
+              </summary>
+              <ul className="pb-2">
+                {views.map((view) => (
+                  <li key={view.slug}>
+                    <Link href={operationalViewHref(view)} className="flex items-center gap-2 py-2 pl-9 pr-4 text-sm hover:bg-muted/50">
+                      <span className="flex-1">{view.name}</span>
+                      <ReconciliationCountBadge queues={[view.slug]} counts={counts} />
+                      {!!counts[view.slug] && (view.slug === 'uninvoiced' || view.slug === 'billing-adjustments') && <span className="text-xs text-muted-foreground">{view.slug === 'uninvoiced' ? 'charges' : 'adjustments'}</span>}
+                      <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+
+        </div>
       </CardContent>
     </Card>
   );

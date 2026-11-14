@@ -47,12 +47,17 @@ fixed merge-base SHA and ticket spec so review can start without another questio
 Resolve actionable findings and verify affected paths. Review new substantive
 changes after an earlier pass; avoid repeating an unchanged review.
 
-After the last implementation change, run `pnpm checkall` and fix failures. Then
-commit any remaining checked changes, push, and create/update the PR to
-`develop` with the problem/result, all issue links and concrete validation.
+Use the authoritative CI gate and local validation profiles in
+[`validation-delivery.md`](../../../../docs/agents/validation-delivery.md).
+After the last implementation change, complete the focused local checks and
+any required unique contracts, then commit checked changes, push, and
+create/update the PR to `develop` with the problem/result, issue links and
+concrete validation. A local infrastructure blocker is explicit evidence, not a
+successful or silently omitted gate. Required CI must still pass.
 Attach every created PR to the Codex task when that tool is available. Wait for
-all required GitHub checks on the exact current head; `pnpm checkall` alone is
-not evidence that remote CI passed. Keep the draft/issue In Progress while work
+all required GitHub checks on the exact source/integration identified by the
+validation plan; a local receipt alone is not evidence that remote CI passed.
+Keep the draft/issue In Progress while work
 or checks remain, then mark ready and reconcile In Review.
 
 ## Merge the selected work
@@ -66,12 +71,15 @@ hold or outstanding human decision. An answered design question clears that
 question only; verify the final implementation's acceptance before merging.
 
 Refresh the PR and `develop`: require the expected repository, base `develop`,
-reviewed head, completed human checkpoints, successful required current-head CI,
-required GitHub approvals, and mergeability. Resolve conflicts or new changes
-with corresponding checks/review before continuing. Merge via `gh-axi` with
-`--match-head-commit` set to the verified SHA, following current CLI help and
-the repo's merge method. Use normal protected-branch permissions; stop with the
-concrete missing review/check/permission if GitHub rejects the merge.
+reviewed source head, completed human checkpoints, successful required CI,
+required GitHub approvals, and merge eligibility. Follow the queue admission
+and recovery procedure in the validation policy. When the native queue is
+enabled, enqueue the verified source head and require its merge-group checks;
+the group integration SHA is distinct from the reviewed source SHA. Otherwise
+use the documented single-owner fallback and a normal head-bound merge through
+`gh-axi`, following current CLI help. Resolve conflicts or substantive changes
+with corresponding checks/review. Use normal protected-branch permissions;
+report the concrete missing review/check/permission if GitHub rejects delivery.
 
 Read the merged PR and issue states back. Publish merge SHA, exact checks,
 acceptance evidence and any remaining QA; reconcile In QA. Continue through

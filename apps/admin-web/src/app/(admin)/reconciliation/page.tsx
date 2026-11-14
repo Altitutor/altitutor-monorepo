@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function ReconciliationIndexPage() {
-  redirect('/reconciliation/financial');
+export default function LegacyPage() {
+  redirect('/dashboard');
 }

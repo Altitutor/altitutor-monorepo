@@ -32,6 +32,8 @@ import {
   AlertDialogTitle,
   type RichTextEditorRef,
   Form,
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
 } from "@altitutor/ui";
 import { Loader2 } from "lucide-react";
 import { useIssue } from "../api/queries";
@@ -39,6 +41,8 @@ import { useNotes } from "@/shared/hooks/useNotes";
 import type { Tables } from "@altitutor/shared";
 import type { IssueFormData, IssueWithTags } from "../types";
 import { IssueContentPanel } from "./panels/IssueContentPanel";
+import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
+import { IssueActivityTab } from "./IssueActivityTab";
 import { IssuePropertiesPanel } from "./panels/IssuePropertiesPanel";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
@@ -49,22 +53,25 @@ type NoteWithStaff = Tables<"notes"> & {
   staff?: Tables<"staff"> | null;
 };
 
+type IssueSection = "overview" | "tasks" | "activity";
+
 /** Keeps description watch + tag extraction off the dialog shell so typing does not re-render the header. */
 function IssueLiveTagsPanels({
   form,
   issue,
-  notes,
   isOpen,
-  onClose,
   descriptionRef,
+  sidebarToggleTarget,
 }: {
   form: UseFormReturn<IssueFormData>;
   issue: IssueWithTags;
-  notes: NoteWithStaff[];
   isOpen: boolean;
-  onClose: () => void;
   descriptionRef: React.RefObject<RichTextEditorRef | null>;
+  sidebarToggleTarget: HTMLDivElement | null;
 }) {
+  const [section, setSection] = useState<IssueSection>("overview");
+  const { data: notesData } = useNotes("issues", issue.id, isOpen && section === "activity");
+  const notes = (notesData || []) as NoteWithStaff[];
   const liveTags = useLiveIssueTags({
     form,
     initialTags: issue.tags || [],
@@ -72,17 +79,39 @@ function IssueLiveTagsPanels({
 
   return (
     <EntityResizablePanels
+      toggleTarget={sidebarToggleTarget}
       id={`issue-${issue.id}-panels`}
       main={
-        <IssuePropertiesPanel
-          form={form}
-          issue={issue}
-          tags={liveTags}
-          notes={notes}
-          isOpen={isOpen}
-          onClose={onClose}
-          descriptionRef={descriptionRef}
-        />
+        <SegmentedTabPanel<IssueSection>
+          className="h-full"
+          selectorClassName="mx-6 mt-6 w-auto"
+          value={section}
+          onValueChange={setSection}
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "tasks", label: "Tasks" },
+            { value: "activity", label: "Activity" },
+          ]}
+        >
+          <SegmentedTabPanelContent when="overview" activeTab={section} className="min-h-0 flex-1">
+            <IssuePropertiesPanel form={form} issue={issue} descriptionRef={descriptionRef} />
+          </SegmentedTabPanelContent>
+          <SegmentedTabPanelContent when="tasks" activeTab={section} className="mt-2 min-h-0 flex-1 overflow-hidden">
+            <LinkedTasksSection issueId={issue.id} />
+          </SegmentedTabPanelContent>
+          <SegmentedTabPanelContent when="activity" activeTab={section} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+            <IssueActivityTab
+              issueId={issue.id}
+              notes={notes}
+              isOpen={isOpen}
+              studentIds={liveTags.flatMap((tag) => tag.student_id ? [tag.student_id] : [])}
+              staffIds={liveTags.flatMap((tag) => tag.staff_id ? [tag.staff_id] : [])}
+              classIds={liveTags.flatMap((tag) => tag.class_id ? [tag.class_id] : [])}
+              sessionIds={liveTags.flatMap((tag) => tag.session_id ? [tag.session_id] : [])}
+              invoiceIds={liveTags.flatMap((tag) => tag.invoice_id ? [tag.invoice_id] : [])}
+            />
+          </SegmentedTabPanelContent>
+        </SegmentedTabPanel>
       }
       sidebar={
         <IssueContentPanel isOpen={isOpen} form={form} tags={liveTags} />
@@ -116,6 +145,7 @@ export function IssueDetailView({
   onIssueUpdated: _onIssueUpdated,
   variant,
 }: IssueDetailViewProps) {
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: queriedIssue, isLoading } = useIssue(issueId, enabled);
   const [loadedIssue, setLoadedIssue] = useState<IssueWithTags | null>(null);
   if (loadedIssue && loadedIssue.id !== issueId) setLoadedIssue(null);
@@ -132,9 +162,6 @@ export function IssueDetailView({
       console.error("Failed to delete issue:", error);
     }
   };
-
-  const { data: notesData } = useNotes("issues", issueId, enabled);
-  const notes = (notesData || []) as NoteWithStaff[];
 
   const form = useForm<IssueFormData, unknown, IssueFormData>({
     resolver: zodResolver(formSchema) as Resolver<IssueFormData>,
@@ -181,6 +208,7 @@ export function IssueDetailView({
                   {
                     <>
                       <EditorControls editor={editor} />
+                      <div ref={setSidebarToggleTarget} className="empty:hidden" />
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
@@ -223,11 +251,10 @@ export function IssueDetailView({
                   >
                     <fieldset disabled={!editor.editable} className="contents">
                       <IssueLiveTagsPanels
+                        sidebarToggleTarget={sidebarToggleTarget}
                         form={form}
                         issue={issue}
-                        notes={notes}
                         isOpen={enabled}
-                        onClose={onClose}
                         descriptionRef={descriptionRef}
                       />
                     </fieldset>

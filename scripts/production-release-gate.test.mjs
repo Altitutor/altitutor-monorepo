@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { auditMigrationDirectory } from "./supabase-migration-privileges.mjs";
+import { decideWebSystemTests } from "./web-system-test-paths.mjs";
 
 const APPS = [
   "admin-web",
@@ -19,6 +20,7 @@ const workflowPath = new URL(
   import.meta.url,
 );
 const ciWorkflowPath = new URL("../.github/workflows/ci.yml", import.meta.url);
+const webSuiteWorkflowPath = new URL("../.github/workflows/web-system-suite.yml", import.meta.url);
 const typesCheckWorkflowPath = new URL(
   "../.github/workflows/supabase-types-check.yml",
   import.meta.url,
@@ -102,7 +104,9 @@ test("every main push runs the migration gate before Vercel production deploys",
     workflow,
     /^    with:\n      full_run: \$\{\{ github\.ref_name == 'main' \}\}$/mu,
   );
-  assert.match(workflow, /^  deploy:\n    needs: verify$/mu);
+  assert.match(workflow, /^  deploy:\n    needs: \[integration-evidence, verify\]$/mu);
+  assert.match(workflow, /needs\.verify\.result == 'success'/u);
+  assert.match(workflow, /needs\.integration-evidence\.outputs\.reuse == 'true' && needs\.verify\.result == 'skipped'/u);
   assert.match(workflow, /^    needs: deploy$/mu);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
@@ -195,126 +199,101 @@ test("production deploys synchronize and schedule UCAT lifecycle email configura
   assert.match(deployVercel, /UCAT_LIFECYCLE_CRON_SECRET_KEY/u);
 });
 
-test("release verification is parallel, branch-scoped, and independently cached", async () => {
+test("release verification uses complete event selection and parallel task-hashed jobs", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
-  const buildJob = workflow.slice(workflow.indexOf("  build:"));
-  const cacheKeys = workflow.match(
-    /key: \$\{\{ runner\.os \}\}-turbo-\$\{\{ github\.job \}\}-\$\{\{ github\.sha \}\}/gu,
-  );
-
-  assert.match(workflow, /^  workflow_call:\n    inputs:\n      full_run:/mu);
-  assert.match(
-    workflow,
-    /github\.event_name == 'push' && inputs\.full_run == false && '\.\.\.\[HEAD\^\]'/u,
-  );
-  assert.doesNotMatch(
-    buildJob,
-    /^    needs:/mu,
-    "build should run in parallel with lint, typecheck, and test",
-  );
-  assert.equal(
-    cacheKeys?.length,
-    4,
-    "each verification job should use its own immutable Turbo cache key",
-  );
-
+  assert.match(workflow, /^  merge_group:/mu);
+  assert.match(workflow, /node scripts\/validation-plan.mjs --github-output/u);
+  for (const job of ["lint", "typecheck", "test", "build"]) {
+    const section = workflow.slice(workflow.indexOf(`  ${job}:`) + 2).split(/^  [a-z][a-z-]*:/mu)[0];
+    assert.match(section, /needs: validation-plan/u, `${job} depends only on quick selection`);
+    assert.match(section, /restore-keys:/u);
+  }
   const turboConfig = JSON.parse(await readFile(turboConfigPath, "utf8"));
-  assert.equal(
-    turboConfig.globalDependencies.includes(".github/workflows/ci.yml"),
-    false,
-    "CI orchestration changes must not invalidate application build outputs",
-  );
+  assert.equal(turboConfig.globalDependencies.includes(".github/workflows/ci.yml"), false,
+    "CI orchestration changes must not invalidate application build outputs");
 });
 
-test("production verification executes every system test boundary", async () => {
+test("production verification executes every selected system boundary", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
-  const webE2eStart = workflow.indexOf("  web-e2e:");
-  const webE2eJob = workflow.slice(
-    webE2eStart,
-    workflow.indexOf("\n  build:", webE2eStart),
-  );
-
-  assert.match(
-    workflow,
-    /^  ucat-contracts:/mu,
-    "CI must have a dedicated UCAT contract job",
-  );
-  assert.match(
-    workflow,
-    /pnpm --filter ucat-web test:coverage/u,
-    "UCAT coverage must be release-gated",
-  );
-  assert.match(
-    workflow,
-    /deno test --config supabase\/functions\/deno\.json --allow-env supabase\/functions/u,
-    "Supabase Edge Function contracts must be release-gated",
-  );
-  assert.match(
-    workflow,
-    /^  web-e2e:/mu,
-    "CI must have a dedicated web browser and database job",
-  );
-  assert.match(
-    workflow,
-    /supabase test db/u,
-    "UCAT database contracts must be release-gated",
-  );
-  assert.match(
-    workflow,
-    /^  web-system-tests-needed:/mu,
-    "browser and database tests must be skippable when the diff cannot affect them",
-  );
-  assert.match(
-    webE2eJob,
-    /^    needs: web-system-tests-needed$/mu,
-  );
-  assert.match(
-    webE2eJob,
-    /needs\.web-system-tests-needed\.outputs\.run == 'true'/u,
-  );
-  const renderTemplatesStep = webE2eJob.indexOf(
-    "bash supabase/scripts/render-email-templates.sh",
-  );
-  const startSupabaseStep = webE2eJob.indexOf(
-    "node scripts/start-local-supabase.mjs",
-  );
-  assert.ok(
-    renderTemplatesStep >= 0 && renderTemplatesStep < startSupabaseStep,
-    "UCAT verification must render gitignored Auth email templates before starting Supabase",
-  );
-  assert.doesNotMatch(
-    webE2eJob,
-    /supabase db reset/u,
-    "A fresh supabase start already applies migrations and seed; db reset would redo that work",
-  );
-  assert.match(
-    webE2eJob,
-    /node scripts\/start-local-supabase\.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
-  );
-  const applyUcatSeedStep = webE2eJob.indexOf(
-    "bash supabase/scripts/apply-ucat-test-seed.sh",
-  );
-  const databaseTestStep = webE2eJob.indexOf("supabase test db");
-  assert.ok(
-    applyUcatSeedStep >= 0 && applyUcatSeedStep < databaseTestStep,
-    "UCAT study-plan fixtures must be applied after start and before database contracts",
-  );
-  assert.match(
-    webE2eJob,
-    /needs\.web-system-tests-needed\.outputs\.database == 'true' \|\| needs\.web-system-tests-needed\.outputs\.ucat == 'true'/u,
-  );
-  assert.match(webE2eJob, /Cache Supabase Docker images/u);
-  assert.match(
-    workflow,
-    /pnpm --filter ucat-web test:e2e/u,
-    "UCAT browser journeys must be release-gated",
-  );
-  assert.match(
-    workflow,
-    /actions\/upload-artifact@v4/u,
-    "Failed browser journeys must preserve diagnostic artifacts",
-  );
+  const suite = await readFile(webSuiteWorkflowPath, "utf8");
+  assert.match(workflow, /^  ucat-contracts:/mu);
+  assert.match(workflow, /pnpm --filter ucat-web test:coverage/u);
+  assert.match(workflow, /deno test --config supabase\/functions\/deno.json --allow-env supabase\/functions/u);
+  assert.match(workflow, /^  validation-plan:/mu);
+  assert.match(workflow, /name: Web Browser and Database/u);
+  assert.match(workflow, /node scripts\/web-ci-result.mjs/u);
+  assert.match(suite, /supabase test db/u);
+  const render = suite.indexOf("bash supabase/scripts/render-email-templates.sh");
+  const start = suite.indexOf("node scripts/start-local-supabase.mjs");
+  const seed = suite.indexOf("bash supabase/scripts/apply-ucat-test-seed.sh");
+  assert.ok(render >= 0 && start > render && seed > start);
+  assert.ok(suite.indexOf("supabase test db") > seed);
+  assert.doesNotMatch(suite, /supabase db reset/u, "fresh startup applies migrations once");
+  assert.match(suite, /node scripts\/start-local-supabase.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u);
+  assert.match(suite, /Cache Supabase Docker images/u);
+  assert.match(suite, /pnpm --filter ucat-web test:e2e/u);
+  assert.match(suite, /actions\/upload-artifact@v4/u);
 });
+
+for (const [selection, changedPath, expectedApps] of [
+  [
+    "student-only",
+    "apps/student-web/src/features/interviews/components/student-interview-room.tsx",
+    ["student"],
+  ],
+  [
+    "tutor-only",
+    "apps/tutor-web/src/features/resources/components/resource-pdf-pages.tsx",
+    ["tutor"],
+  ],
+  ["UCAT-only", "apps/ucat-web/src/app/page.tsx", ["ucat"]],
+  [
+    "database",
+    "supabase/local/resource-storage-policies.sql",
+    ["admin", "student", "tutor", "ucat"],
+  ],
+]) {
+  test(`${selection} CI selection installs guarded fixtures before its browser journeys`, async () => {
+    const decision = decideWebSystemTests([changedPath]);
+    assert.deepEqual(
+      Object.keys(decision.apps).filter((app) => decision.apps[app]),
+      expectedApps,
+    );
+    assert.equal(decision.database, selection === "database");
+    const workflow = await readFile(webSuiteWorkflowPath, "utf8");
+    const steps = workflow.split(/^      - /mu);
+    const setup = steps.findIndex((step) =>
+      step.includes("run: bash supabase/scripts/apply-ucat-test-seed.sh"),
+    );
+    const startup = steps.findIndex((step) =>
+      step.includes("node scripts/start-local-supabase.mjs"),
+    );
+    assert.ok(
+      startup >= 0 && setup > startup,
+      "guarded setup must follow Supabase startup",
+    );
+    const condition = steps[setup].match(/^        if: (.+)$/mu)?.[1];
+    assert.ok(condition, "guarded setup must declare its selection condition");
+    // Evaluate the reusable workflow's actual suite selection, including its DB invocation.
+    for (const selectedSuite of selection === "database" ? ["database"] : expectedApps) {
+      const enabled = condition.split(" || ").some((clause) => {
+        const value = clause.match(/^inputs\.suite == '(\w+)'$/u)?.[1];
+        assert.ok(value, `unsupported selection clause: ${clause}`);
+        return value === selectedSuite;
+      });
+      assert.equal(enabled, true, `${selectedSuite} must run guarded setup`);
+    }
+    for (const app of expectedApps) {
+      const browser = steps.findIndex((step) =>
+        step.includes(`pnpm --filter ${app}-web test:e2e`),
+      );
+      assert.ok(
+        browser > setup,
+        `${app} browsers must run after guarded setup`,
+      );
+    }
+  });
+}
 
 test("UCAT browser verification exercises production mode and supported engines", async () => {
   const [config, uiTsconfigSource] = await Promise.all([
@@ -500,7 +479,7 @@ test("every web app runs Playwright against a production build", async () => {
 });
 
 test("browser CI uses valid readiness probes and releases build artifacts", async () => {
-  const workflow = await readFile(ciWorkflowPath, "utf8");
+  const workflow = await readFile(webSuiteWorkflowPath, "utf8");
 
   for (const app of APPS) {
     assert.match(
@@ -571,12 +550,13 @@ test("Stripe checkout E2E provides a test publishable key", async () => {
 test("the main release gate runs every web app browser suite", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
 
-  assert.match(workflow, /^  web-system-tests-needed:/mu);
-  assert.match(workflow, /node scripts\/web-system-test-paths\.mjs/u);
-  assert.match(workflow, /pnpm --filter ucat-web test:e2e:desktop/u);
+  assert.match(workflow, /^  validation-plan:/mu);
+  assert.match(workflow, /node scripts\/validation-plan\.mjs/u);
+  const suite = await readFile(webSuiteWorkflowPath, "utf8");
+  assert.match(suite, /pnpm --filter ucat-web test:e2e:desktop/u);
   for (const app of APPS.filter((app) => app !== "ucat-web")) {
     assert.match(
-      workflow,
+      suite,
       new RegExp(`pnpm --filter ${app} test:e2e`, "u"),
       `${app} browser tests must be release-gated`,
     );
@@ -651,12 +631,12 @@ test("the UCAT native app instruments Sentry and keeps manual store submit avail
 });
 
 test("marketing Safari journeys run before main", async () => {
-  const workflow = await readFile(ciWorkflowPath, "utf8");
+  const workflow = await readFile(webSuiteWorkflowPath, "utf8");
   const marketingStep = workflow.slice(
     workflow.indexOf("      - name: Run marketing browser journeys"),
     workflow.indexOf("      - name: Run student browser journeys"),
   );
-  assert.match(marketingStep, /MARKETING_E2E_FULL_BROWSER_MATRIX: "true"/u);
-  assert.match(marketingStep, /CI_RELEASE_GATE: "true"/u);
+  assert.match(marketingStep, /MARKETING_E2E_FULL_BROWSER_MATRIX: ['"]true['"]/u);
+  assert.match(marketingStep, /CI_RELEASE_GATE: ['"]true['"]/u);
   assert.match(workflow, /playwright install --with-deps chromium webkit &/u);
 });

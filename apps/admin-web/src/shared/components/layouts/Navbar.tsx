@@ -4,9 +4,7 @@ import { useAccessoryPanel } from '@/shared/contexts/AccessoryPanelContext';
 import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
 import { Button } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
-import { useUnreadConversationCount } from '@/features/messages/api/queries';
 import { useMessageSubscription } from '@/features/messages/hooks/useMessageSubscription';
-import { HeaderCountBadge } from '@/shared/components/HeaderCountBadge';
 import { PanelRight, PanelLeft } from 'lucide-react';
 import { cn, navLinkActiveStyles } from '@/shared/utils';
 import Image from 'next/image';
@@ -18,13 +16,11 @@ import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { Search } from 'lucide-react';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
-import { DashboardDatePicker } from './DashboardDatePicker';
 
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 
 export function Navbar() {
   const detailPanel = useAccessoryPanel();
-  const { data: unreadCount = 0 } = useUnreadConversationCount();
   useMessageSubscription();
   const { user } = useAuthStore();
   const { resolvedTheme } = useTheme();
@@ -93,7 +89,6 @@ export function Navbar() {
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0 justify-end">
-          {user && <DashboardDatePicker />}
 
           {/* Command palette */}
           {user && (
@@ -120,7 +115,7 @@ export function Navbar() {
               aria-label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}
               title={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}>
               <PanelRight className="h-4 w-4" />
-              <HeaderCountBadge count={unreadCount} label={`${unreadCount} unread conversations`} /><span className="absolute top-full right-0"><ShortcutKeys id="right" /></span>
+              <span className="absolute top-full right-0"><ShortcutKeys id="right" /></span>
             </Button>
           )}
 

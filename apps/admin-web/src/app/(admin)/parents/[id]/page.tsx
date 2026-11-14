@@ -141,12 +141,10 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
 
   return (
     <EntityPropertiesLayout id="parent-properties-sidebar" sidebar={<>
-      <div className="border-b p-4 text-sm">
-        <div className="font-medium">Properties</div>
-        <div className="mt-3 flex items-center justify-between gap-3"><span className="text-muted-foreground">Account</span><span>{parent.user_id ? 'Has account' : 'No account'}</span></div>
-      </div>
-      <div className="p-4" ref={sidebarForm}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <ParentDetailsTab
+          key={`${id}:${editFlow.isEditing}`}
           parent={parent}
           studentIds={students.map(s => s.id)}
           students={students}
@@ -160,7 +158,14 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           onRemoveStudent={editFlow.removeStudent}
           addStudentButton={editFlow.isEditing ? <StudentSearchPopover allStudents={allStudents} selectedStudents={editFlow.tempParentStudents} onSelectStudent={editFlow.assignStudent} /> : undefined}
         />
-        {editFlow.isEditing && <div className="flex justify-end gap-2 border-t pt-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
+        {!editFlow.isEditing && (
+          <section className="space-y-2 border-t pt-4" aria-label="Account">
+            <h3 className="text-base font-medium">Account</h3>
+            <p className="text-sm text-muted-foreground">{parent.user_id ? 'Has account' : 'No account'}</p>
+          </section>
+        )}
+        </div>
+        {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
@@ -211,8 +216,10 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} keepMounted className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            enabled={activeTab === 'activity'}
+            recordActivity
             allowForm
             className="min-h-0 flex-1"
             entityType="parent"

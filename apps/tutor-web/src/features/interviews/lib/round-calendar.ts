@@ -27,6 +27,7 @@ export function toScheduledRound(
     round.readingTimeSeconds,
     round.questionTimeSeconds,
     round.stations.length,
+    round.rotationAllowanceSeconds,
   );
   return {
     id: round.id,

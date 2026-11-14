@@ -105,6 +105,7 @@ export function TaskDetailView({
   project,
   variant,
 }: TaskDetailViewProps) {
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: task, isLoading } = useTask(taskId, enabled);
   useAccessoryTitle(task?.title);
   const [selectedAssignee, setSelectedAssignee] =
@@ -221,6 +222,7 @@ export function TaskDetailView({
               {
                 <>
                   <EditorControls editor={editor} />
+                  <div ref={setSidebarToggleTarget} className="empty:hidden" />
                   <ActionsMenu
                     type="task"
                     entityId={taskId}
@@ -262,6 +264,7 @@ export function TaskDetailView({
                   >
                     <fieldset disabled={!editor.editable} className="contents">
                       <EntityResizablePanels
+                        toggleTarget={sidebarToggleTarget}
                         id={`task-${taskId}-panels`}
                         main={
                           <TaskContentPanel

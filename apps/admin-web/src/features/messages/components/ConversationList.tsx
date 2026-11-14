@@ -23,7 +23,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { matchesConversationListQuery } from '../utils/conversationListQuery';
-import { CONVERSATION_LIST_COLUMNS, conversationListViews } from '../utils/conversationListViews';
+import { CONVERSATION_LIST_COLUMNS, conversationListDefaults, conversationListViews } from '../utils/conversationListViews';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -62,7 +62,7 @@ export function ConversationList({
   } = useDataTable({
     defaultFilters: {},
     defaultSort: { field: 'latest', direction: 'desc' },
-    defaultVisibleColumns: [...CONVERSATION_LIST_COLUMNS],
+    defaultVisibleColumns: conversationListDefaults.visibleColumns,
     filterKeys: ['read', 'reply', 'followUp', 'assignee', 'recipient', 'from'],
     skipUrlSync: true,
   });
@@ -230,7 +230,7 @@ export function ConversationList({
           columnDefinitions={CONVERSATION_LIST_COLUMNS.map((key) => ({
             key,
             label: key === 'timestamp' ? 'Time' : key[0].toUpperCase() + key.slice(1),
-            visibleByDefault: true,
+            visibleByDefault: key !== 'sender',
           }))}
           searchPlaceholder="Search conversations"
         />
@@ -265,7 +265,7 @@ export function ConversationList({
                     className={`w-full p-3 text-left hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                     onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
+                      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                         event.preventDefault();
                         onSelect({ kind: 'group', conversationId: aggregated.conversationId });
                       }
@@ -278,12 +278,14 @@ export function ConversationList({
                       preview={aggregated.latestMessage?.preview ?? null}
                       at={aggregated.latestMessageAt}
                       show={show}
+                      unread={aggregated.unreadCount > 0}
                       actions={
                         <ConversationRowActions
                           unread={aggregated.unreadCount > 0}
                           staff={adminStaff}
                           staffLoading={adminStaffLoading}
                           assigneeId={aggregated.assignedStaffId}
+                          showAssignee={show('assignee')}
                           onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
                           onMarkRead={() => {
                             const lastMessageId = aggregated.latestMessage?.id;
@@ -320,7 +322,7 @@ export function ConversationList({
                   className={`w-full text-left p-3 hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                   onClick={() => onSelect({ kind: 'contact', contactId: aggregated.contactId })}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                       e.preventDefault();
                       onSelect({ kind: 'contact', contactId: aggregated.contactId });
                     }
@@ -332,12 +334,14 @@ export function ConversationList({
                     preview={aggregated.latestMessage?.preview ?? null}
                     at={aggregated.latestMessageAt}
                     show={show}
+                    unread={isUnreadConv}
                     actions={
                       <ConversationRowActions
                         unread={isUnreadConv}
                         staff={adminStaff}
                         staffLoading={adminStaffLoading}
                         assigneeId={aggregated.assignedStaffId}
+                        showAssignee={show('assignee')}
                         onCreateTask={() => openTask(aggregated.latestMessage?.id, title)}
                         onMarkRead={() => {
                           const lastMessageId = aggregated.latestMessage?.id;
@@ -382,6 +386,7 @@ function ConversationRow({
   preview,
   at,
   show,
+  unread,
   actions,
 }: {
   title: string;
@@ -390,6 +395,7 @@ function ConversationRow({
   preview: ConversationMessagePreview | null;
   at: string | null;
   show: (column: (typeof CONVERSATION_LIST_COLUMNS)[number]) => boolean;
+  unread: boolean;
   actions: ReactNode;
 }) {
   return (
@@ -406,9 +412,12 @@ function ConversationRow({
             {subtitle ? <div className="truncate text-xs text-muted-foreground">{subtitle}</div> : null}
             {show('sender') && sender ? <div className="truncate text-xs text-muted-foreground">{sender}</div> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {show('timestamp') ? <ListTimestamp iso={at} /> : null}
+          <div className="flex h-5 shrink-0 items-center gap-2">
             {actions}
+            {show('timestamp') ? <ListTimestamp iso={at} /> : null}
+            {unread && (
+              <span role="img" aria-label="Unread" className="size-2 shrink-0 rounded-full bg-blue-500" />
+            )}
           </div>
         </div>
         {show('preview') ? <ConversationPreviewText preview={preview} /> : null}

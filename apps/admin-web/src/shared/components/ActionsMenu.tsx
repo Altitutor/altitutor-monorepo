@@ -1,5 +1,6 @@
 "use client";
 
+import { EntityChipIcon } from "@altitutor/ui";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { Button } from "@altitutor/ui";
 import {
@@ -11,6 +12,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useToast,
 } from "@altitutor/ui";
 import {
@@ -34,6 +39,7 @@ import { EmailActionGroup } from "@/features/email/components/EmailActions";
 
 interface BaseActionsMenuProps {
   detailsInSidebar?: boolean;
+  menuOnly?: boolean;
   onOpenInPage?: () => void;
   entityId?: string;
   copyTagType?: string;
@@ -257,6 +263,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     </DropdownMenuItem>
   ) : null;
 
+  const canAddRelatedWork = reference && !["task", "project", "issue"].includes(props.type);
   const actions = recordMenuActions(props, {
     copy: props.entityId
       ? () => {
@@ -269,10 +276,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
         }
       : undefined,
     messageDisabled: messageAction.isOpening,
-    addIssue: reference
+    addIssue: canAddRelatedWork
       ? () => quickActions.openCreateIssueDialog(reference)
       : undefined,
-    addTask: reference
+    addTask: canAddRelatedWork
       ? () => quickActions.openCreateTaskDialog(reference)
       : undefined,
   }).filter((action) => !(props.detailsInSidebar && action.id === "edit"));
@@ -292,6 +299,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             size="icon"
             className="shrink-0"
             disabled={props.isLoadingAction}
+            aria-label="Invoice actions"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -394,13 +402,13 @@ export function ActionsMenu(props: ActionsMenuProps) {
       key={action.id}
       disabled={action.disabled}
       onSelect={action.action}
-      className={
-        action.destructive
-          ? "!text-destructive focus:!text-destructive focus:bg-destructive/10"
-          : undefined
-      }
+      className={action.destructive ? "!text-destructive focus:!text-destructive focus:bg-destructive/10" : undefined}
     >
-      <action.icon className="h-4 w-4 mr-2" />
+      <span className="mr-2 flex size-4 shrink-0 items-center justify-center">
+        {action.id === "add-task" || action.id === "add-issue"
+          ? <EntityChipIcon entityType={action.id === "add-task" ? "task" : "issue"} />
+          : <action.icon className="size-4" />}
+      </span>
       {action.title}
     </DropdownMenuItem>
   );
@@ -414,50 +422,61 @@ export function ActionsMenu(props: ActionsMenuProps) {
   return (
     <div className="flex items-center gap-2">
       <EmailActionGroup label="Common record actions">
-          {actions.filter((action) => action.primaryOnly).map((action) => (
-            <Button key={action.id} type="button" variant="outline" size="sm" className="h-8" aria-label={action.title} onClick={action.action}>
-              <action.icon className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">{action.title}</span>
-            </Button>
+        <TooltipProvider delayDuration={0}>
+          {!props.menuOnly && actions.filter((action) => action.primaryOnly).map((action) => (
+            <Tooltip key={action.id}>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" aria-label={action.title} onClick={action.action}>
+                  <EntityChipIcon entityType={action.id === "add-task" ? "task" : "issue"} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{action.title}</TooltipContent>
+            </Tooltip>
           ))}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            aria-label="Record actions"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {actions
-            .filter((action) => !action.group && !action.destructive)
-            .map(renderAction)}
-          {"richTextTemplateConfig" in props &&
-            props.richTextTemplateConfig && (
-              <RichTextTemplateMenuItems {...props.richTextTemplateConfig} />
-            )}
-          {groups.map((group) => (
-            <DropdownMenuSub key={group}>
-              <DropdownMenuSubTrigger>
-                <Calendar className="h-4 w-4 mr-2" />
-                {group}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {actions
-                  .filter((action) => action.group === group)
-                  .map(renderAction)}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-          {actions.some((action) => action.destructive) && (
-            <DropdownMenuSeparator />
-          )}
-          {actions.filter((action) => action.destructive).map(renderAction)}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    aria-label="Record actions"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Record actions</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              {actions
+                .filter((action) => !action.group && !action.destructive)
+                .map(renderAction)}
+              {"richTextTemplateConfig" in props &&
+                props.richTextTemplateConfig && (
+                  <RichTextTemplateMenuItems {...props.richTextTemplateConfig} />
+                )}
+              {groups.map((group) => (
+                <DropdownMenuSub key={group}>
+                  <DropdownMenuSubTrigger>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {group}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {actions
+                      .filter((action) => action.group === group)
+                      .map(renderAction)}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ))}
+              {actions.some((action) => action.destructive) && (
+                <DropdownMenuSeparator />
+              )}
+              {actions.filter((action) => action.destructive).map(renderAction)}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TooltipProvider>
       </EmailActionGroup>
     </div>
   );

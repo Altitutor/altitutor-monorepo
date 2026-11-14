@@ -1,3 +1,4 @@
+import { sanitizeSubjectCoverEvent } from '@altitutor/shared';
 import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { sanitizeInterviewCallEvent, resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
@@ -69,7 +70,8 @@ Sentry.init({
       filtered.request.url = sanitizeStudentAnalyticsUrl(filtered.request.url);
     }
     attachTrialStylesheetContext(filtered, hint);
-    return sanitizeInterviewCallEvent(filtered);
+    const safe = sanitizeInterviewCallEvent(filtered);
+    return safe ? sanitizeSubjectCoverEvent(safe) : null;
   },
   beforeSendTransaction: (event) => collection.errors ? filterMobileAuthTelemetry(event) : null,
   beforeBreadcrumb: filterMobileAuthTelemetry,

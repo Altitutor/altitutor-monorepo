@@ -1,4 +1,6 @@
 'use client';
+
+import { CheckInTableCells } from '@/shared/components/CheckInTableCells';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 
@@ -33,6 +35,10 @@ interface StaffTableRowProps {
   onClassClick: (id: string) => void;
   onStaffUpdated?: () => void;
   visibleColumns: string[];
+  checkInDate?: string;
+  checkInError?: boolean;
+  tier?: { currentTierNumber: number; nextTierNumber: number | null; isEligibleForReview: boolean };
+  tierError?: boolean;
 }
 
 export const StaffTableRow = memo(function StaffTableRow({
@@ -42,6 +48,10 @@ export const StaffTableRow = memo(function StaffTableRow({
   onClassClick,
   onStaffUpdated,
   visibleColumns,
+  checkInDate,
+  checkInError,
+  tier,
+  tierError,
 }: StaffTableRowProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
@@ -240,8 +250,14 @@ export const StaffTableRow = memo(function StaffTableRow({
           )}
         </TableCell>
       )}
+      {visibleColumns.includes('tier') && <TableCell>{tierError ? 'Unavailable' : tier ? `Tier ${tier.currentTierNumber}` : '—'}</TableCell>}
+      {visibleColumns.includes('tier_status') && <TableCell>{tierError ? 'Unavailable' : tier
+        ? tier.isEligibleForReview ? 'Eligible for review' : tier.nextTierNumber ? 'In progress' : 'Top tier'
+        : '—'}</TableCell>}
+      <CheckInTableCells columns={visibleColumns} date={checkInDate} error={checkInError} />
       <TableCell onClick={(e) => e.stopPropagation()}>
         <ActionsMenu
+          menuOnly
           type="staff"
           entityId={staff.id}
           copyTagDisplayText={`${staff.first_name || ''} ${staff.last_name || ''}`.trim()}

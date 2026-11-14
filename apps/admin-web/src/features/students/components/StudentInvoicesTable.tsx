@@ -52,7 +52,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('invoices');
+  const { data: quickFilters = [] } = useQuickFilters('invoices', undefined, false);
   const owing = useStudentInvoiceOwing(studentId);
 
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);

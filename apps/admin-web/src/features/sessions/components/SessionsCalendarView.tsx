@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, startOfWeek, endOfWeek, format, isSameDay, parse, isValid } from 'date-fns';
+import { addDays, startOfWeek, endOfWeek, format, parse, isValid } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import { useInterviewRoundEvents } from '../hooks/useInterviewRoundEvents';
@@ -12,7 +12,8 @@ import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { SessionsCard } from './SessionsCard';
 import { InterviewRoundCalendarCard, InterviewRoundInfoDialog } from './InterviewRoundCalendarCard';
 import { filterInterviewRoundEvents, type InterviewRoundCalendarEvent } from '../utils/interviewRoundEvents';
-import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
+import { adelaideCalendarEndMinutes, calendarHours } from '../utils/calendarHours';
+import { isStudentAbsentInCalendar, shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button } from "@altitutor/ui";
 import { utcToAdelaideDate } from '@/features/bookings/utils/dateTimeHelpers';
 
@@ -21,6 +22,7 @@ type Props = {
   source?: CalendarSource;
   roundEvents?: InterviewRoundCalendarEvent[];
   expandToSessions?: boolean;
+  focusedStudentId?: string;
   visibleProperties?: string[];
   onRangeChange?: (from:string,to:string) => void;
   onOpenSession?: (id: string) => void;
@@ -40,7 +42,7 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ expandToSessions = false, onOpenSession, initialDate, initialViewMode, source, roundEvents: providedRounds, visibleProperties, onRangeChange, preview }: Props) {
+export function SessionsCalendarView({ expandToSessions = true, focusedStudentId, onOpenSession, initialDate, initialViewMode, source, roundEvents: providedRounds, visibleProperties, onRangeChange, preview }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
@@ -93,16 +95,28 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
 
   // Time grid similar to classes timetable
   const calendarSessions = data?.sessions ?? [];
-  const startMinutes = [...roundEvents.map(round => adelaideTimeToMinutes(round.scheduledAt)), ...calendarSessions.flatMap(session => session.start_at ? [adelaideTimeToMinutes(session.start_at)] : []), ...Array.from(previewSegments.values(), segment => segment.startMinutes)];
-  const endMinutes = [...roundEvents.map(round => adelaideTimeToMinutes(round.endAt) || 1440), ...calendarSessions.flatMap(session => session.end_at ? [adelaideTimeToMinutes(session.end_at) || 1440] : []), ...Array.from(previewSegments.values(), segment => segment.endMinutes)];
-  const firstHour = expandToSessions ? Math.floor(Math.min(9 * 60, ...startMinutes) / 60) : 9;
-  const lastHour = expandToSessions ? Math.min(24, Math.ceil(Math.max(21 * 60, ...endMinutes) / 60)) : 21;
-  const slots = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
+  const displayedDays = new Set(days.map((day) => format(day, 'yyyy-MM-dd')));
+  const { firstHour, slots } = calendarHours(expandToSessions ? [
+    ...calendarSessions.flatMap((session) =>
+      session.start_at && displayedDays.has(utcToAdelaideDate(session.start_at))
+        ? [{
+            startMinutes: adelaideTimeToMinutes(session.start_at),
+            endMinutes: session.end_at ? adelaideCalendarEndMinutes(session.start_at, session.end_at) : undefined,
+          }]
+        : [],
+    ),
+    ...roundEvents.flatMap((round) =>
+      displayedDays.has(utcToAdelaideDate(round.scheduledAt))
+        ? [{ startMinutes: adelaideTimeToMinutes(round.scheduledAt), endMinutes: adelaideCalendarEndMinutes(round.scheduledAt, round.endAt) }]
+        : [],
+    ),
+    ...previewSegments.values(),
+  ] : []);
   const slotHeight = 75; // px per hour
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
     const sessions = ((data?.sessions as Tables<'sessions'>[]) || [])
-      .filter((s: Tables<'sessions'>) => s.start_at && isSameDay(new Date(s.start_at), d));
+      .filter((s: Tables<'sessions'>) => s.start_at && utcToAdelaideDate(s.start_at) === format(d, "yyyy-MM-dd"));
     return sessions as Tables<'sessions'>[];
   };
 
@@ -113,12 +127,17 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
     return minutes - (firstHour * 60);
   };
 
+  const dimSession = (sessionId: string, students: CalendarSource['sessionStudents'][string]) => {
+    if (!focusedStudentId) return shouldDimSessionInCalendar(students);
+    const student = students.find(({ id }) => id === focusedStudentId);
+    return Boolean(student && isStudentAbsentInCalendar(student, Boolean(data?.tutorLogs?.[sessionId])));
+  };
+
   // Current time indicator
-  const now = new Date();
-  const todayDayIndex = days.findIndex(d => isSameDay(d, now));
-  // For current time indicator, use local time (user's current time)
-  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (firstHour * 60);
-  const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
+  const now = new Date().toISOString();
+  const today = utcToAdelaideDate(now);
+  const currentMinutesFromStart = minutesFromStart(now);
+  const showTodayIndicator = currentMinutesFromStart >= 0 && currentMinutesFromStart < slots.length * 60;
 
   // Calculate navigation step based on view mode
   const navigationStep = viewMode === 'day' ? 1 : 7;
@@ -136,8 +155,8 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
   };
 
   return (
-    <div className="flex flex-col gap-3" aria-label="Sessions calendar">
-      <div className="flex items-center justify-end">
+    <div className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Sessions calendar">
+      <div className="flex shrink-0 items-center justify-end">
 
 
         <div className="flex gap-2">
@@ -151,7 +170,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto relative">
+      <div className="relative min-h-0 flex-1 overflow-auto">
         <div
           className="grid gap-0 min-h-full relative bg-background"
           style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(${days.length}, minmax(150px, 1fr))` }}
@@ -159,7 +178,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
           {/* Headers */}
           <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">Time</div>
           {days.map((d) => {
-            const isToday = isSameDay(d, now);
+            const isToday = format(d, "yyyy-MM-dd") === today;
             return (
               <div key={d.toISOString()} className={cn(
                 "sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm",
@@ -177,7 +196,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                 {format(new Date(2000, 0, 1, hour, 0), 'h a')}
               </div>
               {days.map((d, _dayIdx) => {
-                const isToday = isSameDay(d, now);
+                const isToday = format(d, "yyyy-MM-dd") === today;
                 return (
                   <div key={`${d.toISOString()}-${hour}`} className={cn(
                     "relative border-b border-r h-[75px]",
@@ -210,19 +229,19 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                         // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
                         const adminShiftSessions = deduped.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
                         const regularSessions = deduped.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
-                        const dayRounds = roundEvents.filter((round) => isSameDay(new Date(round.scheduledAt), d));
+                        const dayRounds = roundEvents.filter((round) => utcToAdelaideDate(round.scheduledAt) === format(d, "yyyy-MM-dd"));
                         const dayPreview = previewSegments.get(format(d, 'yyyy-MM-dd'));
                         const dayPlacements = new Map(
                           layoutCalendarColumns([
                             ...regularSessions.flatMap((session) => session.start_at && session.end_at ? [{
                               id: session.id,
                               startMinutes: adelaideTimeToMinutes(session.start_at),
-                              endMinutes: adelaideTimeToMinutes(session.end_at),
+                              endMinutes: adelaideCalendarEndMinutes(session.start_at, session.end_at),
                             }] : []),
                             ...dayRounds.map((round) => ({
                               id: `round:${round.id}`,
                               startMinutes: adelaideTimeToMinutes(round.scheduledAt),
-                              endMinutes: adelaideTimeToMinutes(round.endAt),
+                              endMinutes: adelaideCalendarEndMinutes(round.scheduledAt, round.endAt),
                             })),
                             ...(dayPreview ? [{ id: 'meeting-preview', ...dayPreview }] : []),
                           ]).map((placement) => [placement.id, placement]),
@@ -244,12 +263,12 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             regularSessions.forEach((o: Tables<'sessions'>) => {
                               if (processed.has(o.id)) return;
                               const oStart = adelaideTimeToMinutes(o.start_at ?? '');
-                              const oEnd = adelaideTimeToMinutes(o.end_at ?? '');
+                              const oEnd = adelaideCalendarEndMinutes(o.start_at ?? '', o.end_at ?? '');
 
                               // Check if o overlaps with ANY session already in the group
                               const overlapsWithGroup = group.some((groupSession: Tables<'sessions'>) => {
                                 const gStart = adelaideTimeToMinutes(groupSession.start_at ?? '');
-                                const gEnd = adelaideTimeToMinutes(groupSession.end_at ?? '');
+                                const gEnd = adelaideCalendarEndMinutes(groupSession.start_at ?? '', groupSession.end_at ?? '');
                                 // Events that end exactly when another starts should NOT overlap
                                 // Use strict comparison: gStart < oEnd && gEnd > oStart
                                 return gStart < oEnd && gEnd > oStart;
@@ -306,7 +325,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                           const columnWidth = total > 1 ? 95 / total : 95;
                           group.forEach((s: Tables<'sessions'>, idx: number) => {
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const sEndMinutes = adelaideCalendarEndMinutes(s.start_at ?? '', s.end_at ?? '');
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
@@ -314,8 +333,8 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             const cls = data?.classesById?.[s.class_id ?? ''];
                             const subjectId = s.subject_id ?? cls?.subject_id;
                             const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
-                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []);
+                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []);
 
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
@@ -326,7 +345,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             blocks.push(
                               <div
                                 key={`admin-${d.toISOString()}-${s.id}-${idx}`}
-                                className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
+                                className={cn("absolute", dimSession(s.id, sessionStudents) && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 5, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
@@ -357,7 +376,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             const column = placement?.column ?? 0;
                             const columnWidth = total > 1 ? 95 / total : 95;
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const sEndMinutes = adelaideCalendarEndMinutes(s.start_at ?? '', s.end_at ?? '');
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = column * columnWidth + 2.5;
@@ -365,8 +384,8 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             const cls = data?.classesById?.[s.class_id ?? ''];
                             const subjectId = s.subject_id ?? cls?.subject_id;
                             const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
-                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []);
+                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []);
 
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
@@ -377,7 +396,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                             blocks.push(
                               <div
                                 key={`reg-${d.toISOString()}-${s.id}-${idx}`}
-                                className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
+                                className={cn("absolute", dimSession(s.id, sessionStudents) && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
@@ -404,7 +423,7 @@ export function SessionsCalendarView({ expandToSessions = false, onOpenSession, 
                           const column = placement?.column ?? 0;
                           const columnWidth = total > 1 ? 95 / total : 95;
                           const startMinutes = adelaideTimeToMinutes(round.scheduledAt);
-                          const endMinutes = adelaideTimeToMinutes(round.endAt);
+                          const endMinutes = adelaideCalendarEndMinutes(round.scheduledAt, round.endAt);
                           const top = Math.max(0, (minutesFromStart(round.scheduledAt) / 60) * slotHeight);
                           const height = Math.max(30, ((endMinutes - startMinutes) / 60) * slotHeight);
                           blocks.push(

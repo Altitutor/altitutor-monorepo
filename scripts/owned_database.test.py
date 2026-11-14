@@ -22,7 +22,7 @@ if name == 'pnpm' and os.environ.get('FIXTURE_CHECK_STAGE_ENV'):
   assert data.get('started'), 'app builds require the owned database to be running'
   assert os.environ.get('ALTITUTOR_OWNED_DB_INNER') == '1', 'app builds require the owned lease'
   assert os.environ.get('NEXT_PUBLIC_SUPABASE_URL') == 'http://127.0.0.1:' + data['api_port']
- elif args == ['test'] or args[:3] == ['turbo', 'run', 'test']:
+ elif args[:1] == ['test'] or args[:3] == ['turbo', 'run', 'test'] or args == ['--filter', 'ucat-web', 'test:coverage']:
   assert not os.environ.get('NEXT_PUBLIC_SUPABASE_URL'), 'unit previews must remain unconfigured'
   assert not os.environ.get('ALTITUTOR_OWNED_DB_INNER'), 'unit tests must precede database startup'
 if name == 'node' and args[:1] == ['-e']:
@@ -46,7 +46,11 @@ if name=='docker':
  elif args[:2]==['volume','ls']:
   print('\n'.join(data.get('volumes',[])))
  elif args[0]=='exec':
-  assert args[2]=='owned-db', 'foreign container seed';sys.stdin.read()
+  assert args[2]=='owned-db', 'foreign container seed'
+  sql=sys.stdin.read()
+  if 'DEV-287' in sql:
+   with open(os.environ['FIXTURE_LOG'],'a') as output:output.write(json.dumps(['storage-policies',[]])+'\n')
+   if os.environ.get('FIXTURE_STORAGE_POLICY_FAIL'):sys.exit(42)
 elif name=='pnpm' and 'next' in args:
  assert os.environ['NEXT_PUBLIC_SUPABASE_URL']==('http://127.0.0.1:'+data['api_port'] if os.environ.get('ALTITUTOR_OWNED_DB_INNER') else 'http://127.0.0.1:1')
  if os.environ.get('FIXTURE_PREVIEW_SLEEP'):time.sleep(30)
@@ -107,6 +111,9 @@ class OwnedDatabaseTests(unittest.TestCase):
         self.repo = self.base / 'repo'
         (self.repo / 'supabase/seed/test-ucat').mkdir(parents=True)
         (self.repo / 'supabase/config.toml').write_text(CONFIG)
+        (self.repo / 'supabase/local').mkdir()
+        shutil.copy2(SCRIPT.parents[1] / 'supabase/local/resource-storage-policies.sql',
+                     self.repo / 'supabase/local/resource-storage-policies.sql')
         (self.repo / 'supabase/seed/test-ucat/fixture.sql').write_text('SELECT 1;\n')
         (self.repo / 'packages/shared/src/supabase').mkdir(parents=True)
         (self.repo / 'scripts').mkdir()
@@ -158,7 +165,10 @@ class OwnedDatabaseTests(unittest.TestCase):
             'normal_database':'untouched','stopped':False}))
         self.env=dict(os.environ, PATH=str(self.bin)+os.pathsep+os.environ['PATH'],
                       FIXTURE_STATE=str(self.state),FIXTURE_LOG=str(self.log))
-        for key in ['ALTITUTOR_TEST_DB_MANIFEST','ALTITUTOR_DB_LOCK_FD','ALTITUTOR_OWNED_DB_INNER']:
+        for key in ['ALTITUTOR_TEST_DB_MANIFEST','ALTITUTOR_DB_LOCK_FD','ALTITUTOR_OWNED_DB_INNER',
+                    'ALTITUTOR_VALIDATION_RECEIPT', 'ALTITUTOR_VALIDATION_PROFILE',
+                    'ALTITUTOR_VALIDATION_REVISION', 'ALTITUTOR_VALIDATION_OWNER',
+                    'ALTITUTOR_VALIDATION_BASE']:
             self.env.pop(key,None)
 
     def tearDown(self):
@@ -172,6 +182,19 @@ class OwnedDatabaseTests(unittest.TestCase):
 
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def test_storage_policies_are_installed_before_consumers_and_after_reset(self):
+        result = self.call('run', '--manifest', str(self.manifest), '--', 'supabase', 'db', 'reset', '--local')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sum(name == 'storage-policies' for name, _ in self.calls()), 2)
+        self.assertTrue(json.loads(self.state.read_text())['stopped'])
+
+    def test_storage_install_failure_stops_owned_stack_before_any_consumer(self):
+        self.env['FIXTURE_STORAGE_POLICY_FAIL'] = '1'
+        result = self.call('run', '--manifest', str(self.manifest), '--', 'pnpm', 'must-not-run')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(['pnpm', ['must-not-run']], self.calls())
+        self.assertTrue(json.loads(self.state.read_text())['stopped'])
 
     def test_local_cli_lifecycle_works_without_home_telemetry_writes(self):
         self.env['FIXTURE_REQUIRE_NO_TELEMETRY'] = '1'
@@ -299,11 +322,15 @@ class OwnedDatabaseTests(unittest.TestCase):
         start = next(index for index, (name, args) in enumerate(actions)
                      if name == 'supabase' and args[:1] == ['start'])
         unit = next(index for index, (name, args) in enumerate(actions)
-                    if name == 'pnpm' and (args == ['test'] or args[:3] == ['turbo', 'run', 'test']))
+                    if name == 'pnpm' and args == ['test', '--filter=!ucat-web'])
+        coverage = actions.index(('pnpm', ['--filter', 'ucat-web', 'test:coverage']))
         self.assertLess(unit, start)
+        self.assertLess(unit, coverage)
+        self.assertLess(coverage, start)
         self.assertLess(start, build)
         self.assertLess(build, actions.index(('supabase', ['db', 'reset', '--local'])))
-        self.assertEqual(actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
+        database_actions = [action for action in actions if action[0] in ['supabase', 'docker']]
+        self.assertEqual(database_actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
 
     def test_type_commands_use_owned_stack_and_preserve_existing_output_on_failure(self):
         for action in ['types','committypes']:

@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ReconciliationOperationsTab } from '@/features/reconciliation';
-
-export default function ReconciliationOperationsPage() {
-  return <ReconciliationOperationsTab />;
+export default function LegacyPage() {
+  redirect('/dashboard');
 }

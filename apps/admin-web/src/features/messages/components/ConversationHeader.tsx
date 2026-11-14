@@ -16,6 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   EntityChip,
+  EntityChipIcon,
   SearchableSelect,
   SearchableSelectInline,
   Tooltip,
@@ -167,6 +168,8 @@ export function ConversationHeader({
   onAssign,
 }: Props) {
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
+  const assignee = staffOptions.find((member) => member.id === assigneeId);
+  const assigneeName = assignee ? `${assignee.first_name ?? ""} ${assignee.last_name ?? ""}`.trim() : "";
   const [selectedStudentOption, setSelectedStudentOption] =
     useState<EntityOption | null>(null);
   const [selectedParentOption, setSelectedParentOption] =
@@ -410,7 +413,7 @@ export function ConversationHeader({
           </div>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5 [&>button]:shrink-0">
             {person ? (
               <EntityChip
                 entityType={person.type}
@@ -449,25 +452,16 @@ export function ConversationHeader({
                 align="end"
                 className="w-64 data-[state=closed]:hidden"
               >
-                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("task")}>
+                <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("task")}>
+                  <EntityChipIcon entityType="task" />
                   Create task
                   <span className="ml-auto text-xs text-muted-foreground">T</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("issue")}>
+                <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("issue")}>
+                  <EntityChipIcon entityType="issue" />
                   Create issue
                   <span className="ml-auto text-xs text-muted-foreground">I</span>
                 </DropdownMenuItem>
-                {onSearchToggle && (
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onSearchToggle();
-                      setIsOverflowOpen(false);
-                    }}
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    Search
-                  </DropdownMenuItem>
-                )}
                 {extraMenuItems}
                 {onFromNumberChange && <DropdownMenuSub><DropdownMenuSubTrigger>From number</DropdownMenuSubTrigger><DropdownMenuSubContent className="w-80 p-0">{fromNumberMenu}</DropdownMenuSubContent></DropdownMenuSub>}
                 {meetings.menuItems}
@@ -493,7 +487,12 @@ export function ConversationHeader({
                 getItemId={(member) => member.id}
                 getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
                 allowClear clearLabel="Unassigned" searchPlaceholder="Search admin staff..."
-                trigger={<EmailIconButton label="Assign conversation" className="w-auto max-w-40 gap-1 px-2"><User className="h-4 w-4" /><span className="truncate text-xs">{staffOptions.find((member) => member.id === assigneeId) ? `${staffOptions.find((member) => member.id === assigneeId)?.first_name ?? ""} ${staffOptions.find((member) => member.id === assigneeId)?.last_name ?? ""}`.trim() : "Unassigned"}</span></EmailIconButton>}
+                trigger={
+                  <EmailIconButton label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
+                    <User className="h-4 w-4" />
+                    {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assigneeName || "Assigned"}</span>}
+                  </EmailIconButton>
+                }
               /></EmailActionGroup>}
               {extraActions}
               {filterControl}

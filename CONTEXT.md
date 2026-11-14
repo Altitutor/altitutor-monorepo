@@ -323,7 +323,7 @@
 - **Custom class timetable** — A Class schedule made from explicitly dated Class sessions rather than a repeating pattern.
   _Avoid_: Irregular recurrence, recurring class schedule, RRULE
 
-- **Class display label** — The canonical presentation of a Subject-derived Class name, optional Class cohort label, and compact schedule summary. Short and long variants preserve schedule-at-a-glance context wherever Classes are identified, while the underlying Class name remains stable when its schedule changes.
+- **Class display label** — The canonical presentation of a Subject-derived Class name and optional Class cohort label. Short and long variants remain stable when the Class schedule changes; the schedule is shown separately in Class details, chip hover details, and cards.
   _Avoid_: Class name, admin-only label, schedule-generated identity
 
 - **Class session exception** — A Class session deliberately moved, cancelled, or otherwise changed independently of the Class schedule. Later schedule changes preserve the exception unless ADMINSTAFF explicitly resolves it.
@@ -566,9 +566,11 @@
 
 - **Interview reading prompt** — The shared scenario or instructions belonging to a station, shown during reading time and used for that station's printed prompt. It is authored separately from the station's questions, so reordering them does not change the prompt.
 
-- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, before that tutor marks ready. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student. Claims stay locked after readiness and throughout the encounter.
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting or reading time, independently of that tutor's readiness. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student. Claims lock when question time starts and stay locked throughout the encounter.
 
-- **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness and at least one station must contain a student before reading starts. Idling does not complete any student's station attempt.
+- **Idle interview station** — An unoccupied station whose tutor explicitly acknowledges readiness for the rotation. Every tutor must acknowledge readiness before reading starts; students may arrive and be selected during reading. A station with no student when question time begins remains idle and does not complete any student's station attempt.
+
+- **Interview scheduling allowance** — Configurable time reserved for feedback and changeover in each rotation's planned duration. It contributes to calendar estimates and consecutive round start times; live feedback still ends when tutors explicitly finish.
 
 - **Interview round participation** — The live portal's liveness, authoritative-state recovery and server-deadline wakeup lifecycle. A heartbeat indicates recent server contact, independently of deliberate readiness or media connectivity. Viewing results does not constitute live participation.
 

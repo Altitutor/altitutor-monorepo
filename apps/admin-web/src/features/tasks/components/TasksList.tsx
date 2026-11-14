@@ -204,25 +204,27 @@ function TaskLinkAutocomplete({
   }, [tasks.length]);
 
   useEffect(() => {
-    if (!showDropdown || tasks.length === 0) return;
+    const input = inputRef.current;
+    if (!input || !showDropdown || tasks.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < tasks.length - 1 ? prev + 1 : prev));
+        setSelectedIndex((prev) => Math.min(prev + 1, tasks.length - 1));
       } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === "Enter" && tasks[selectedIndex]) {
-        e.preventDefault();
         onSelect(tasks[selectedIndex].id);
       } else if (e.key === "Escape") {
-        e.preventDefault();
         onClose();
+      } else {
+        return;
       }
+      e.preventDefault();
+      e.stopPropagation();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showDropdown, tasks, selectedIndex, onSelect, onClose]);
+    input.addEventListener("keydown", handleKeyDown);
+    return () => input.removeEventListener("keydown", handleKeyDown);
+  }, [inputRef, showDropdown, tasks, selectedIndex, onSelect, onClose]);
 
   useLayoutEffect(() => {
     if (!showDropdown || !inputRef?.current) {
@@ -440,7 +442,7 @@ export function TasksList({
       : { field: "priority", direction: "asc" },
     defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : "status",
     filterKeys: [...TASK_FILTER_KEYS],
-    skipUrlSync: embedLocked,
+    skipUrlSync: embedLocked || isLinkedTaskList,
   });
 
   const effectiveFilters = useMemo(
@@ -459,7 +461,13 @@ export function TasksList({
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
 
-  const { data: quickFilters = [] } = useQuickFilters("tasks");
+  const { data: quickFilters = [] } = useQuickFilters("tasks", undefined, !isLinkedTaskList);
+  const availableViews = isLinkedTaskList
+    ? quickFilters.filter((view) => {
+        const filters = getViewSettings(view.config)?.filters ?? view.config;
+        return !filters.unlinked?.includes("none");
+      })
+    : quickFilters;
   const { data: issues = [] } = useIssues();
   const { data: projects = [] } = useProjects();
 
@@ -675,10 +683,10 @@ export function TasksList({
 
   const assigneeFilterOptions = useMemo(
     () =>
-      staffList.map((s) => ({
+      [{ value: "__null__", label: "Unassigned" }, ...staffList.map((s) => ({
         value: s.id as unknown,
         label: `${s.first_name} ${s.last_name}`,
-      })),
+      }))],
     [staffList],
   );
 
@@ -765,25 +773,29 @@ export function TasksList({
             } as EntityListPillColumn<TaskWithAssignee, unknown>,
           ]
         : []),
-      {
-        key: "unlinked",
-        label: "Link",
-        visibleByDefault: false,
-        filterOnly: true,
-        getValue: (t: TaskWithAssignee) =>
-          t.issue_id || t.project_id ? "linked" : "none",
-        defaultValue: null,
-        filterOptions: [
-          {
-            value: "none" as unknown,
-            label: "Not linked to an issue or project",
-          },
-        ],
-        groupable: false,
-        sortable: false,
-        filterable: true,
-        renderPill: () => null,
-      } as EntityListPillColumn<TaskWithAssignee, unknown>,
+      ...(!isLinkedTaskList
+        ? [
+            {
+              key: "unlinked",
+              label: "Link",
+              visibleByDefault: false,
+              filterOnly: true,
+              getValue: (t: TaskWithAssignee) =>
+                t.issue_id || t.project_id ? "linked" : "none",
+              defaultValue: null,
+              filterOptions: [
+                {
+                  value: "none" as unknown,
+                  label: "Not linked to an issue or project",
+                },
+              ],
+              groupable: false,
+              sortable: false,
+              filterable: true,
+              renderPill: () => null,
+            } as EntityListPillColumn<TaskWithAssignee, unknown>
+          ]
+        : []),
       ...(showIssuePill
         ? [
             {
@@ -957,6 +969,7 @@ export function TasksList({
       showIssuePill,
       showProjectPill,
       showLinkPill,
+      isLinkedTaskList,
       handleAssigneeChange,
       handleIssueChange,
       handleProjectChange,
@@ -1133,6 +1146,7 @@ export function TasksList({
           setSelectedTaskId(t.id);
           setIsEditDialogOpen(true);
         }}
+        inlineAdd
         addButtonLabel="Add task"
         addButtonVariant="default"
         addButtonShowLabel={true}
@@ -1143,7 +1157,7 @@ export function TasksList({
         searchValue={search}
         onSearchChange={hideToolbar ? undefined : setSearch}
         searchPlaceholder="Search tasks..."
-        quickFilters={hideToolbar ? [] : quickFilters}
+        quickFilters={hideToolbar ? [] : availableViews}
         onApplyQuickFilter={hideToolbar ? undefined : handleApplyQuickFilter}
         getGroupOrder={getGroupOrder}
         getGroupLabel={(columnKey, valueKey) => {

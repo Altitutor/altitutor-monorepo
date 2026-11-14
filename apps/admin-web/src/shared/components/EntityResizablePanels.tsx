@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import {
   EntityPropertiesLayout,
@@ -14,6 +15,7 @@ interface EntityResizablePanelsProps {
   primaryMinSize?: number;
   secondaryMinSize?: number;
   inDialog?: boolean;
+  toggleTarget?: HTMLDivElement | null;
 }
 
 export function EntityResizablePanels({
@@ -23,7 +25,9 @@ export function EntityResizablePanels({
   primaryMinSize,
   secondaryMinSize,
   inDialog = false,
+  toggleTarget,
 }: EntityResizablePanelsProps) {
+  const toggleInHeader = toggleTarget !== undefined;
   return (
     <EntityPropertiesLayout
       id={`${id}-properties-sidebar`}
@@ -33,7 +37,12 @@ export function EntityResizablePanels({
       primaryMinSize={primaryMinSize}
       secondaryMinSize={secondaryMinSize}
     >
-      {inDialog ? (
+      {toggleInHeader ? (
+        <>
+          {toggleTarget && createPortal(<EntityPropertiesToggle showDocked />, toggleTarget)}
+          {main}
+        </>
+      ) : inDialog ? (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex shrink-0 justify-end px-3 pt-3 empty:hidden">
             <EntityPropertiesToggle />

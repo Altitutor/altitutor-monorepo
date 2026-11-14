@@ -31,7 +31,7 @@ test('an Admin downloads a readable published form PDF', async ({ page, printabl
   await page.getByLabel('Email').fill('admin@altitutor.test');
   await page.getByPlaceholder('Enter your password').fill('test-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
   const response = await page.request.get(`/api/forms/${printableForm}/pdf`);
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toContain('application/pdf');

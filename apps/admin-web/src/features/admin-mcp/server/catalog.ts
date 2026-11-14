@@ -28,7 +28,7 @@ export type ReportingDataset = {
   }>;
 };
 export const datasets: ReportingDataset[] =
-  registry as unknown as ReportingDataset[];
+  (registry as unknown as ReportingDataset[]).filter(({ name }) => name !== "notes_daily");
 export function dataset(name: string) {
   const found = datasets.find((entry) => entry.name === name);
   if (!found)

@@ -5,7 +5,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Email').fill('admin@altitutor.test');
   await page.getByPlaceholder('Enter your password').fill('test-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, {
+  await expect(page).toHaveURL(/\/dashboard$/, {
     timeout: 30_000,
   });
 }

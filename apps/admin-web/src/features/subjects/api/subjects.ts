@@ -1,3 +1,4 @@
+import { observeSubjectCover } from '@/shared/lib/subject-cover-diagnostics';
 import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { uploadSubjectImage, deleteFromBucket } from '@/shared/lib/supabase/storage';
@@ -162,6 +163,7 @@ export const subjectsApi = {
       throw insertError ?? new Error('Failed to create file record');
     }
 
+    let imageLinked = false;
     try {
       const { data: existing } = await supabase
         .from('subjects_files')
@@ -172,33 +174,38 @@ export const subjectsApi = {
       const oldFileId = existing?.file_id ?? null;
 
       if (existing) {
-        const { error: upErr } = await supabase
+        const { error: upErr } = await observeSubjectCover('resources', path, 'link', () => supabase
           .from('subjects_files')
           .update({
             file_id: created.id,
             updated_at: new Date().toISOString(),
           } satisfies TablesUpdate<'subjects_files'>)
-          .eq('id', existing.id);
+          .eq('id', existing.id));
         if (upErr) throw upErr;
       } else {
-        const { error: insErr } = await supabase.from('subjects_files').insert({
+        const { error: insErr } = await observeSubjectCover('resources', path, 'link', () => supabase.from('subjects_files').insert({
           subject_id: subjectId,
           file_id: created.id,
           created_by: createdBy,
-        });
+        }));
         if (insErr) throw insErr;
       }
 
+      // The new object is now visible to resource readers. A later cleanup
+      // failure must never roll it back without also restoring the link.
+      imageLinked = true;
+
       if (oldFileId && oldFileId !== created.id) {
-        const { error: softErr } = await supabase
+        const { error: softErr } = await observeSubjectCover('resources', path, 'retire_previous', () => supabase
           .from('files')
           .update({ deleted_at: new Date().toISOString() } satisfies TablesUpdate<'files'>)
-          .eq('id', oldFileId);
+          .eq('id', oldFileId));
         if (softErr) throw softErr;
       }
 
       return created as Tables<'files'>;
     } catch (err) {
+      if (imageLinked) throw err;
       try {
         await supabase
           .from('files')

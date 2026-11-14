@@ -1,5 +1,8 @@
 'use client';
 
+import { ActivityFeedToolbar, messageActivityFilters } from "@/features/activity/components/ActivityFeedToolbar";
+import { useActivityHistorySearch } from "@/features/activity/hooks/useActivityHistorySearch";
+import { matchesActivityFilters, type ActivityFilters } from "@/features/activity/lib/activityFeedFilters";
 import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
 import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -79,12 +82,16 @@ interface Props {
     key: string;
     messages: ThreadMessage[];
     entries: ThreadFeedEntry[];
+    direction?: "asc" | "desc";
     hasMore: boolean;
+    emptyLabel?: string;
+    loadMoreLabel?: string;
     loadMore: () => void;
     showConversationLabels?: boolean;
     labelForConversation?: (id: string) => string | undefined;
   };
 
+  activityMessageType?: "student" | "parent" | "staff" | "group" | "other";
   referenceFocus?: string | null;
   targetMessageId?: string | null;
   contactId?: string | null;
@@ -448,6 +455,7 @@ function partyNameParts(name: string): { firstName: string; lastName: string } {
 }
 
 export function MessageThread({
+  activityMessageType,
   referenceFocus,
   targetMessageId,
   feed,
@@ -473,6 +481,8 @@ export function MessageThread({
   );
   const fetchNextPage = feed?.loadMore ?? query.fetchNextPage;
   const hasNextPage = feed?.hasMore ?? query.hasNextPage;
+  const [activityFilters, setActivityFilters] = useState<ActivityFilters>(messageActivityFilters);
+  const [activitySearch, setActivitySearch] = useState("");
   const qc = useQueryClient();
   const channelNonce = useId().replace(/:/g, "");
   const { data: availableSenders = [] } = useAvailableSenders();
@@ -672,8 +682,14 @@ export function MessageThread({
       };
     };
 
-    const visibleItems = items.filter(
-      (message) => !attachedReactionIds.has(message.id),
+    const visibleItems = items.filter((message) =>
+      message.id === targetMessageId || (
+        !attachedReactionIds.has(message.id) &&
+        (!activityMessageType || matchesActivityFilters(
+          activityFilters, activitySearch, `message:${activityMessageType}`,
+          message.created_at ?? "", message.body,
+        ))
+      ),
     );
 
     if (!isSearching || !searchTerm.trim()) {
@@ -687,7 +703,7 @@ export function MessageThread({
     let hiddenCount = 0;
 
     visibleItems.forEach((message, index) => {
-      const matches = message.body.toLowerCase().includes(search);
+      const matches = message.id === targetMessageId || message.body.toLowerCase().includes(search);
 
       if (matches) {
         if (hiddenCount > 0) {
@@ -709,7 +725,17 @@ export function MessageThread({
     }
 
     return filtered;
-  }, [data, isSearching, searchTerm]);
+  }, [activityFilters, activityMessageType, activitySearch, data, isSearching, searchTerm, targetMessageId]);
+
+  const activityHistory = useActivityHistorySearch({
+    filters: activityFilters,
+    search: activitySearch,
+    matches: activityMessageType && processedMessages.some((item) => item.type === "message") ? 1 : 0,
+    cursor: query.data?.pages.length ?? 0,
+    hasMore: Boolean(activityMessageType && hasNextPage && !targetMessageId && !query.error),
+    pending: query.isLoading || query.isFetchingNextPage,
+    loadMore: activityMessageType ? () => { void fetchNextPage(); } : undefined,
+  });
 
   // Render oldest -> newest so native wheel direction behaves normally.
   const renderedMessages = useMemo(() => {
@@ -725,7 +751,8 @@ export function MessageThread({
           : item.type === "message"
             ? (item.created_at ?? "")
             : "";
-      return dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
+      const comparison = dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
+      return feed.direction === "desc" ? -comparison : comparison;
     });
   }, [processedMessages, feed]);
 
@@ -756,7 +783,17 @@ export function MessageThread({
     fetchNextPage,
   ]);
 
-  // Keep viewport pinned to bottom on initial contact load and while user stays near bottom.
+  const newestFirst = feed?.direction === "desc";
+  const loadOlderButton = hasNextPage && !activityHistory.searching && (
+    <button
+      className="mb-2 py-2 text-xs text-blue-600 hover:underline"
+      onClick={() => fetchNextPage()}
+    >
+      {feed?.loadMoreLabel ?? "Load older messages"}
+    </button>
+  );
+
+  // Keep the newest activity in view while the user stays near that edge.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -766,13 +803,13 @@ export function MessageThread({
       !targetMessageId &&
       (isContactSwitch || shouldStickToBottomRef.current)
     ) {
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = newestFirst ? 0 : el.scrollHeight;
     }
 
     lastRenderedContactIdRef.current = selectionKey;
-  }, [selectionKey, renderedMessages.length, targetMessageId]);
+  }, [selectionKey, renderedMessages.length, targetMessageId, newestFirst]);
 
-  // Keep pinned to bottom while dynamic content (attachments, images, etc.) settles.
+  // Keep the same edge in view while attachments and images settle.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -782,7 +819,7 @@ export function MessageThread({
       const target = scrollRef.current;
       if (!target) return;
       requestAnimationFrame(() => {
-        target.scrollTop = target.scrollHeight;
+        target.scrollTop = newestFirst ? 0 : target.scrollHeight;
       });
     });
 
@@ -792,7 +829,7 @@ export function MessageThread({
       characterData: true,
     });
     return () => observer.disconnect();
-  }, [selectionKey]);
+  }, [selectionKey, newestFirst]);
 
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
@@ -941,6 +978,17 @@ export function MessageThread({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
+      {activityMessageType && (
+        <ActivityFeedToolbar
+          kind="messages"
+          className="shrink-0 border-b px-3 py-2"
+          filters={activityFilters}
+          onFiltersChange={setActivityFilters}
+          search={activitySearch}
+          onSearchChange={setActivitySearch}
+          direction="asc"
+        />
+      )}
       {/* Search bar */}
       {isSearching && (
         <div className="p-3 border-b dark:border-brand-dark-border flex items-center gap-2 flex-shrink-0 bg-background sticky top-0 z-10">
@@ -963,20 +1011,13 @@ export function MessageThread({
           const el = e.currentTarget;
           const distanceFromBottom =
             el.scrollHeight - el.scrollTop - el.clientHeight;
-          shouldStickToBottomRef.current = distanceFromBottom < 48;
+          shouldStickToBottomRef.current = (newestFirst ? el.scrollTop : distanceFromBottom) < 48;
         }}
         className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
       >
-        {hasNextPage && (
-          <button
-            className="text-xs text-blue-600 hover:underline mb-2 py-2"
-            onClick={() => fetchNextPage()}
-          >
-            Load older messages
-          </button>
-        )}
+        {!newestFirst && loadOlderButton}
         {renderedMessages.length === 0 && !isSearching ? (
-          <div className="text-xs text-muted-foreground">No messages yet.</div>
+          <div className="text-xs text-muted-foreground">{feed?.emptyLabel ?? (activityHistory.searching ? "Searching earlier messages…" : activityMessageType && activityHistory.filtering ? (hasNextPage ? "No matching messages in the loaded history." : "No matching messages.") : "No messages yet.")}</div>
         ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">
             No messages found.
@@ -1301,6 +1342,7 @@ export function MessageThread({
             );
           })
         )}
+        {newestFirst && loadOlderButton}
       </div>
 
       <EditIssueDialog

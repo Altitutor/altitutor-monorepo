@@ -76,3 +76,51 @@ test('a Tutor exports readable questions, answers, tables, text mathematics and 
     }
   }
 });
+
+const math = (type: 'inlineMath' | 'blockMath', latex: string): Json => ({ type, attrs: { latex } });
+const mathDoc = (latex: string): Json => ({ type: 'doc', content: [math('blockMath', latex)] });
+
+test('saved inline and block maths survive the authenticated rich export with readable failure text', async ({ page, baseURL, exportStem }) => {
+  const database = ownedPdfDatabase('TUTOR', baseURL);
+  const { data: stem } = await database.from('question_stems').select('stem_text').eq('id', exportStem).single().throwOnError();
+  const original = stem?.stem_text as { content: Json[] };
+  await database.from('question_stems').update({ stem_text: { type: 'doc', content: [
+    ...original.content,
+    { type: 'paragraph', content: [{ type: 'text', text: 'Inline: ' }, math('inlineMath', 'z^3 + 17 = 42'), { type: 'text', text: ' end.' }] },
+    math('blockMath', '\\frac{7}{9}'),
+    { type: 'table', content: [{ type: 'tableRow', content: [cell('Equation'), { type: 'tableCell', content: [{ type: 'paragraph', content: [math('inlineMath', 'y=2x+3')] }] }] }] },
+    { type: 'paragraph', content: [math('inlineMath', '\\unknownPdfCommand{1}')] },
+  ] } }).eq('id', exportStem).throwOnError();
+  const { data: question } = await database.from('ucat_questions').select('id').eq('question_stem_id', exportStem).single().throwOnError();
+  if (!question) throw new Error('Export fixture question missing');
+  await database.from('ucat_questions').update({ question_text: { type: 'doc', content: [{ type: 'paragraph', content: [
+    { type: 'text', text: 'Which distance is correct? ' }, math('inlineMath', 'd=vt'),
+  ] }] }, answer_explanation: mathDoc('a^2+b^2=c^2') }).eq('id', question.id).throwOnError();
+  await database.from('question_answer_options').update({ answer_text: { type: 'doc', content: [{ type: 'paragraph', content: [
+    { type: 'text', text: '12 km ' }, math('inlineMath', 'v=12'),
+  ] }] }, answer_explanation: mathDoc('12/1=12') }).eq('question_id', question.id).eq('index', 0).throwOnError();
+  await signInForResource(page, '/classes', 'john.doe@altitutor.test');
+  for (const includeAnswers of [true, false]) {
+    const response = await page.request.post('/api/ucat/pdf-export', { data: {
+      kind: 'set', title: 'Saved mathematics regression', stemIds: [exportStem],
+      options: { includeAnswers, repeatStems: false, avoidQuestionPageBreaks: true },
+    } });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-altitutor-pdf-mode']).toBe('rich');
+    const bytes = await response.body();
+    const output = test.info().outputPath(`saved-maths-${includeAnswers ? 'answers' : 'only'}.pdf`);
+    await writeFile(output, bytes);
+    await test.info().attach('Saved mathematics PDF', { path: output, contentType: 'application/pdf' });
+    const pdf = await readExportedPdf(bytes);
+    expect(pdf.text).toContain('Which distance is correct?');
+    expect(pdf.text).toContain('Distance 12 km');
+    expect(pdf.text).toContain('Inline:');
+    expect(pdf.text).toContain('end.');
+    expect(pdf.text).toContain('[Math: \\unknownPdfCommand{1}]');
+    // One original diagram plus five equations; answers add both math-only
+    // explanations. Inspect actual PDF image operators, not renderer mocks.
+    expect(pdf.imageCount).toBe(includeAnswers ? 8 : 6);
+    expect(pdf.text.includes('Answer: A')).toBe(includeAnswers);
+    expect(pdf.text.includes('Correct option')).toBe(includeAnswers);
+  }
+});

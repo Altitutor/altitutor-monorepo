@@ -1,5 +1,8 @@
 "use client";
 
+import { useSessionTopics } from '../hooks/useSessionTopics';
+import { sessionQueueOptions } from '@/features/reconciliation/api/sessionQueues';
+
 import React, { useState, useMemo, useCallback } from "react";
 import {
   type ToolbarView,
@@ -27,7 +30,6 @@ import { cn, formatSessionType } from "@/shared/utils/index";
 import { ViewClassModal } from "@/features/classes";
 import { useCurrentStaff } from "@/shared/hooks";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
-import { useRouter } from "next/navigation";
 import { useAdminUrlSync } from "@/shared/hooks/useAdminUrlSync";
 import { useInterviewRoundEvents } from "../hooks/useInterviewRoundEvents";
 import {
@@ -189,9 +191,8 @@ export function SessionsTable({
   const isStudentAttendanceView = attendanceView === "student";
   const isStaffAttendanceView = attendanceView === "staff";
   useAdminUrlSync();
-  const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: savedViews = [] } = useQuickFilters("sessions");
+  const { data: savedViews = [] } = useQuickFilters("sessions", undefined, !!toolbarView);
   const [selectedRound, setSelectedRound] =
     useState<InterviewRoundCalendarEvent | null>(null);
   const [studentFilterSearch, setStudentFilterSearch] = useState("");
@@ -286,6 +287,7 @@ export function SessionsTable({
       "student",
       "staff",
       "tutor_log",
+      "reconciliation",
       "from",
       "to",
     ],
@@ -351,12 +353,12 @@ export function SessionsTable({
       sessionStudents,
     });
 
-  const { data: uninvoicedSessions = [] } = useUninvoicedSessions();
+  const { data: uninvoicedSessions = [] } = useUninvoicedSessions(isStudentAttendanceView);
+  const billingQueues = state.filters.reconciliation;
   const uninvoicedSessionsStudentsIds = useMemo(() => {
-    if (!studentId) return undefined;
     return new Set(
       uninvoicedSessions
-        .filter((s) => s.student_id === studentId)
+        .filter((s) => !studentId || s.student_id === studentId)
         .map((s) => s.sessions_students_id),
     );
   }, [uninvoicedSessions, studentId]);
@@ -461,6 +463,10 @@ export function SessionsTable({
     ],
   );
 
+  const availableFilters = toolbarView
+    ? [...filterDefinitions, { key: 'reconciliation', label: 'Reconciliation', options: sessionQueueOptions }]
+    : filterDefinitions;
+
   const sortOptions: DataTableSortOption[] = [
     { key: "start_at", label: "Date" },
   ];
@@ -493,6 +499,7 @@ export function SessionsTable({
       { key: "class", label: "Subject" },
       { key: "staff", label: "Staff" },
       { key: "students", label: "Students" },
+      { key: "topics", label: "Topics" },
       { key: "tutor_log", label: "Tutor Log" },
     ];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
@@ -514,7 +521,7 @@ export function SessionsTable({
 
   const { data: allRoundEvents = [], error: roundError } =
     useInterviewRoundEvents(queryRangeStart, queryRangeEnd);
-  const roundEvents = filterInterviewRoundEvents(
+  const roundEvents = billingQueues?.length ? [] : filterInterviewRoundEvents(
     allRoundEvents,
     {
       ...state.filters,
@@ -549,6 +556,13 @@ export function SessionsTable({
           (state.page - 1) * state.pageSize,
           state.page * state.pageSize,
         );
+  const topicLogIds = state.visibleColumns.includes('topics') ? displayEntries.flatMap((entry) => {
+    if (entry.kind !== 'session') return [];
+    const id = tutorLogs[entry.session.id]?.id;
+    return id ? [id] : [];
+  }) : [];
+  const { data: topicsByLog, isError: topicsFailed, isLoading: topicsLoading } = useSessionTopics(topicLogIds);
+
   const showTableChrome = !limit && !hideToolbar;
   const showPagination = !limit && !hidePagination;
 
@@ -629,7 +643,7 @@ export function SessionsTable({
             onVisibleColumnsChange={setVisibleColumns}
             onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
             onReset={resetFilters}
-            filterDefinitions={filterDefinitions}
+            filterDefinitions={availableFilters}
             sortOptions={sortOptions}
             columnDefinitions={
               renderMode === "calendar"
@@ -657,7 +671,7 @@ export function SessionsTable({
         </div>
       )}
 
-      {roundError && (
+      {roundError && !billingQueues?.length && (
         <p role="alert" className="text-sm text-destructive">
           Unable to load interview rounds. Refresh to try again.
         </p>
@@ -672,7 +686,10 @@ export function SessionsTable({
           initialDate={calendarFrom || calendarTo || initialCalendarDate}
           initialViewMode={initialCalendarMode}
           onRangeChange={changeCalendarRange}
-          visibleProperties={state.visibleColumns}
+          focusedStudentId={isStudentAttendanceView ? studentId : undefined}
+          visibleProperties={isStudentAttendanceView
+            ? [...state.visibleColumns, "staff", "students"]
+            : state.visibleColumns}
           roundEvents={roundEvents}
           source={{
             sessions: filteredSessions,
@@ -751,6 +768,7 @@ export function SessionsTable({
                   {state.visibleColumns.includes("invoice") && (
                     <TableHead>Invoice</TableHead>
                   )}
+                  {state.visibleColumns.includes("topics") && <TableHead>Topics</TableHead>}
                   {state.visibleColumns.includes("tutor_log") && (
                     <TableHead>Tutor Log</TableHead>
                   )}
@@ -758,7 +776,9 @@ export function SessionsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayEntries.length === 0 ? (
+                {isLoading && allSessions.length === 0 ? (
+                  <TableRow><TableCell colSpan={state.visibleColumns.length + 1} className="h-24 text-center">Loading sessions…</TableCell></TableRow>
+                ) : displayEntries.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={state.visibleColumns.length + 1}
@@ -837,6 +857,7 @@ export function SessionsTable({
                           "actual_attendance",
                           "absence_treatment",
                           "invoice",
+                          "topics",
                           "tutor_log",
                         ]
                           .filter(
@@ -881,6 +902,7 @@ export function SessionsTable({
                           sessionStudents={sessionStudents}
                           sessionStaff={sessionStaff}
                           tutorLogs={tutorLogs}
+                          topicsText={topicsFailed ? 'Unavailable' : topicsLoading ? 'Loading…' : topicsByLog?.[tutorLogs[session.id]?.id]?.join(', ')}
                           allSessions={allSessions}
                           formatDate={formatDate}
                           getTimeRange={getTimeRange}
@@ -901,7 +923,6 @@ export function SessionsTable({
                           onSessionClick={handleSessionClick}
                           onClassClick={handleClassClick}
                           onCopySessionId={handleCopySessionId}
-                          router={router}
                           uninvoicedSessionsStudentsIds={
                             uninvoicedSessionsStudentsIds
                           }

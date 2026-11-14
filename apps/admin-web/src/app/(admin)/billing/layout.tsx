@@ -1,11 +1,6 @@
 'use client';
-
 export default function BillingLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-auto">{children}</div>
-    </div>
-  );
+  return <div className="flex h-full min-h-0 flex-col"><div className="min-h-0 flex-1 space-y-6 overflow-auto p-6">
+    {children}
+  </div></div>;
 }
-
-

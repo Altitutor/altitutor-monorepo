@@ -8,7 +8,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill("admin@altitutor.test");
   await page.getByPlaceholder("Enter your password").fill("test-password");
   await page.getByRole("button", { name: "Sign In", exact: true }).click();
-  await expect(page).toHaveURL(/\/dashboard\//, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/, { timeout: 30_000 });
 }
 
 test("saved views use the expandable admin dialog and can be deleted persistently", async ({
@@ -445,7 +445,7 @@ test("email and message references open the correct record and reveal the specif
   for (const result of results)
     if (result.error) throw new Error(result.error.message);
   await page.goto(`/tasks/${taskId}`);
-  await expect(page).toHaveURL(/\/dashboard\//);
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
   await page.goto("/students/10000000-0000-0000-0000-000000000001");
   await page
     .locator(`[data-mention][data-type="email"][data-id="${emailId}"]`)
@@ -627,7 +627,11 @@ test("reference previews cover people, scheduling and work-item projections", as
     }),
   ])
     if (result.error) throw new Error(result.error.message);
-  const classes = await db.from("classes").select("id").limit(1).single();
+  const classes = await db
+    .from("classes")
+    .select("id")
+    .eq("id", "20000000-0000-0000-0000-000000000001")
+    .single();
   if (classes.error) throw new Error("Scheduling fixtures unavailable");
   const loggedSessionId = "50000000-0000-0000-0000-000000000001";
   await signIn(page);
@@ -637,7 +641,7 @@ test("reference previews cover people, scheduling and work-item projections", as
     [
       "class",
       classes.data.id,
-      ["Subject", "Scheduled offerings", "Students", "Staff"],
+      ["Subject", "Scheduled offerings", "Students (3)", "Staff"],
     ],
     ["session", loggedSessionId, ["Subject", "Day", "Time"]],
     ["task", taskId, ["Priority", "Assignee", "Due date"]],
@@ -808,10 +812,8 @@ test("Issues retain editable priority through create, autosave and hover preview
   expect(record.priority).toBe(1);
   await page.goto(`/issues/${record.id}`);
   const panel = page.locator("#admin-accessory-panel");
-  const urgent = panel.getByRole("button", { name: "Urgent", exact: true });
-  if (!(await urgent.isVisible())) {
-    await panel.getByRole("button", { name: "Right sidebar", exact: true }).click();
-  }
+  const urgent = panel.getByRole("button", { name: "Urgent", exact: true }).first();
+  await expect(urgent).toBeVisible();
   await urgent.click();
   await page.getByRole("option", { name: "High", exact: true }).click();
   await expect
@@ -825,11 +827,7 @@ test("Issues retain editable priority through create, autosave and hover preview
     })
     .toBe(2);
   await page.reload();
-  const high = panel.getByRole("button", { name: "High", exact: true });
-  if (!(await high.isVisible())) {
-    await panel.getByRole("button", { name: "Right sidebar", exact: true }).click();
-  }
-  await expect(high).toBeVisible();
+  await expect(panel.getByRole("button", { name: "High", exact: true }).first()).toBeVisible();
   const preview = await page.request.get(
     `/api/entity-references/issue/${record.id}`,
   );
@@ -847,14 +845,10 @@ test("Issues retain editable priority through create, autosave and hover preview
   });
   expect(invalid.error).not.toBeNull();
 
-  const sidebar = panel.getByRole("dialog", { name: "Right sidebar", exact: true });
-  if (await sidebar.isVisible()) {
-    await sidebar.getByRole("button", { name: "Close sidebar", exact: true }).click();
-    await expect(sidebar).toBeHidden();
-  }
-  await panel
-    .getByRole("button", { name: "Record actions", exact: true })
-    .click();
+  await panel.getByRole("button", { name: "Record actions", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Add issue", exact: true })).toHaveCount(0);
+  await page.goto("/students/10000000-0000-0000-0000-000000000001");
+  await page.locator("[data-admin-main]").getByRole("button", { name: "Record actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "Create Issue",

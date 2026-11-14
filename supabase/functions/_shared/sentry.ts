@@ -16,7 +16,7 @@ Sentry.init({
 });
 
 export type EdgeFunctionSentry = {
-  captureException(error: unknown): void;
+  captureException(error: unknown, context?: Parameters<typeof Sentry.captureException>[1]): void;
 };
 
 type EdgeFunctionHandler = (
@@ -60,9 +60,9 @@ export function serveWithSentry(
       setRequestContext(scope, functionName);
       let eventRecorded = false;
       const reporter: EdgeFunctionSentry = {
-        captureException(error: unknown) {
+        captureException(error, context) {
           eventRecorded = true;
-          Sentry.captureException(error);
+          Sentry.captureException(error, context);
         },
       };
 

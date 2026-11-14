@@ -34,26 +34,26 @@ const test = base.extend<{ subsidyStudentId: string }>({
   },
 });
 
-test('subsidy student filter preserves selections across searches and reloads', async ({ page, baseURL }) => {
+test('legacy Subsidies opens the current active-student view and retains it on reload', async ({ page, baseURL }) => {
   if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Owned local web server required');
-  const george = '10000000-0000-0000-0000-000000000007';
-  const alice = '10000000-0000-0000-0000-000000000001';
   await page.goto('/login');
   await page.getByLabel('Email').fill('admin@altitutor.test');
   await page.getByPlaceholder('Enter your password').fill('test-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, { timeout: 30_000 });
-  await page.goto(`/subsidies?student=${george}`);
-  await page.getByRole('button', { name: 'Display options' }).click();
-  await expect(page.getByRole('button', { name: 'Change value for Student' })).toHaveText('George Clark');
-  await page.getByRole('button', { name: 'Change value for Student' }).click();
-  await page.getByPlaceholder('Search students…').fill('Alice');
-  await page.getByRole('option', { name: 'Alice Williams', exact: true }).click();
-  await expect.poll(() => new URL(page.url()).searchParams.get('student')?.split(',').sort()).toEqual([alice, george].sort());
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
+
+  await page.goto('/subsidies');
+  const expectSubsidiesView = async () => {
+    await expect(page).toHaveURL(/\/students\?/);
+    await expect(page.getByRole('button', { name: 'Subsidies', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('table').locator('thead').getByText('Subsidies', { exact: true })).toBeVisible();
+    const params = new URL(page.url()).searchParams;
+    expect(params.get('status')).toBe('ACTIVE');
+    expect(params.get('subsidy')).toBe('current');
+  };
+  await expectSubsidiesView();
   await page.reload();
-  await page.getByRole('button', { name: 'Display options' }).click();
-  await expect(page.getByRole('button', { name: 'Change value for Student' })).toContainText('George Clark');
-  await expect(page.getByRole('button', { name: 'Change value for Student' })).toContainText('Alice Williams');
+  await expectSubsidiesView();
 });
 
 test('subsidy saves appear in Student activity once, with actor and old/new rates', async ({ page, subsidyStudentId }, testInfo) => {
@@ -64,7 +64,7 @@ test('subsidy saves appear in Student activity once, with actor and old/new rate
   await page.getByLabel('Email').fill('admin@altitutor.test');
   await page.getByPlaceholder('Enter your password').fill('test-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page).toHaveURL(/\/dashboard\/\d{4}-\d{2}-\d{2}$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
   await page.goto(`/students/${subsidyStudentId}`);
   await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await expect(page.locator('.text-sm.leading-6').filter({ hasText: /added a subsidy for Alice Williams/ })).toHaveCount(0);

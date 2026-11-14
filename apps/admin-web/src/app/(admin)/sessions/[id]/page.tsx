@@ -1,5 +1,4 @@
 "use client";
-import { EntityPropertiesLayout, EntityPropertiesToggle } from "@/shared/components/EntityPropertiesLayout";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
 import { useState, use } from "react";
@@ -196,7 +195,7 @@ function SessionDetailView({ id }: { id: string }) {
     });
 
   // UI state
-  const [activeTab, setActiveTab] = useState("activity");
+  const [activeTab, setActiveTab] = useState("details");
 
   // Session helpers
   const helpers = useSessionHelpers({
@@ -414,9 +413,42 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <EntityPropertiesLayout id="session-properties-sidebar" sidebar={<>
-      <div className="border-b p-4 text-sm font-medium">Properties</div>
-      <div className="space-y-6 p-4">
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
+
+        <IssuePill entityType="session" entityId={id} enabled />
+
+        <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
+        <ActionsMenu
+          type="session"
+          entityId={session.id}
+          copyTagDisplayText={sessionTitle || session.id}
+          {...sessionActions}
+          sessionType={session.type}
+          sessionStudents={studentsData.map(
+            (d: {
+              student: { id: string; first_name: string; last_name: string };
+            }) => ({
+              id: d.student.id,
+              name: `${d.student.first_name} ${d.student.last_name}`,
+            }),
+          )}
+          onSendBookingConfirmation={modals.openBookingConfirmationDialog}
+        />
+      </div>
+
+      {/* Sections */}
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className={isEditing ? "space-y-6 flex-1" : "space-y-6"}
+        options={[{ value: "details", label: "Details" }, { value: "activity", label: "Activity" }]}
+      >
+
+
+        {(activeTab === "details" || isEditing) && (
+          <div className={activeTab === "details" ? "space-y-6" : "hidden"}>
         <SessionDetailsTab
             key={`session-details-${id}-${isEditing}`}
             session={session}
@@ -626,7 +658,20 @@ function SessionDetailView({ id }: { id: string }) {
             }
           />
           {meetingMode && <SessionFiles sessionId={id} />}
-        {isEditing && (
+          </div>
+        )}
+
+        <SegmentedTabPanelContent
+          when="activity"
+          activeTab={activeTab}
+          className="space-y-6"
+        >
+          <SessionActivityTab sessionId={id} isOpen={true} />
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
+
+
+      {isEditing && activeTab === "details" && (
         <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex justify-end gap-2 border-t bg-background px-4 py-4">
           <Button
             variant="outline"
@@ -644,53 +689,6 @@ function SessionDetailView({ id }: { id: string }) {
           </Button>
         </div>
       )}
-      </div>
-</>}>
-    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
-      <div className="flex items-center gap-2 mb-3">
-        <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
-        <EntityPropertiesToggle />
-
-        <IssuePill entityType="session" entityId={id} enabled />
-
-        <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
-        <ActionsMenu
-          type="session"
-          entityId={session.id}
-          copyTagDisplayText={sessionTitle || session.id}
-          {...sessionActions}
-          sessionType={session.type}
-          sessionStudents={studentsData.map(
-            (d: {
-              student: { id: string; first_name: string; last_name: string };
-            }) => ({
-              id: d.student.id,
-              name: `${d.student.first_name} ${d.student.last_name}`,
-            }),
-          )}
-          onSendBookingConfirmation={modals.openBookingConfirmationDialog}
-        />
-      </div>
-
-      {/* Sections */}
-      <SegmentedTabPanel
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className={isEditing ? "space-y-6 flex-1" : "space-y-6"}
-        options={[{ value: "activity", label: "Activity" }]}
-      >
-        
-
-        <SegmentedTabPanelContent
-          when="activity"
-          activeTab={activeTab}
-          className="space-y-6"
-        >
-          <SessionActivityTab sessionId={id} isOpen={true} />
-        </SegmentedTabPanelContent>
-      </SegmentedTabPanel>
-
-      
       {/* Save confirmation dialog */}
       <AlertDialog
         open={!!pendingSaveData}
@@ -968,6 +966,6 @@ function SessionDetailView({ id }: { id: string }) {
       )}
     </div>
 
-    </EntityPropertiesLayout>
+
   );
 }

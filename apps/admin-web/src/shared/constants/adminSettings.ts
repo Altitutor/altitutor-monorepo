@@ -126,7 +126,7 @@ export const settingsSections = [
         title: "Pay tiers",
         description:
           "Configure staff pay tier ladder and advancement requirements",
-        href: "/pay-tiers/ladder",
+        href: "/settings/pay-tiers",
         icon: TrendingUp,
       },
       {

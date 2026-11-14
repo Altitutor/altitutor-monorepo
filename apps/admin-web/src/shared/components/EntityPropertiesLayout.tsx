@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -12,7 +13,6 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Button,
   ResponsiveResizablePanels,
-  useMediaQuery,
 } from "@altitutor/ui";
 import { PanelRight, X } from "lucide-react";
 import styles from "./entity-properties-layout.module.css";
@@ -21,13 +21,30 @@ type PropertiesState = {
   narrow: boolean;
   id: string;
   setAnimate: (animate: boolean) => void;
+  focusSidebar: () => void;
 };
 const PropertiesContext = createContext<PropertiesState | null>(null);
 
 /** The same control is placed in each record's own header, including accessory records. */
-export function EntityPropertiesToggle() {
+export function EntityPropertiesToggle({ showDocked = false }: { showDocked?: boolean } = {}) {
   const state = useContext(PropertiesContext);
-  if (!state?.narrow) return null;
+  if (!state || (!state.narrow && !showDocked)) return null;
+  if (!state.narrow) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9 shrink-0"
+        aria-label="Right sidebar"
+        aria-controls={state.id}
+        title="Focus right sidebar"
+        onClick={state.focusSidebar}
+      >
+        <PanelRight className="h-4 w-4" />
+      </Button>
+    );
+  }
   return (
     <DialogPrimitive.Trigger asChild>
       <Button
@@ -73,7 +90,6 @@ export function EntityPropertiesLayout({
   const [narrow, setNarrow] = useState(true);
   const [open, setOpen] = useState(false);
   const [animate, setAnimate] = useState(false);
-  const mobile = useMediaQuery("(max-width: 767px)");
   useLayoutEffect(() => {
     if (!root) return;
     let previous: boolean | undefined;
@@ -90,23 +106,26 @@ export function EntityPropertiesLayout({
     observer.observe(root);
     return () => observer.disconnect();
   }, [root, narrowAt]);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const properties = (
     <aside
       id={id}
       aria-label="Properties"
+      tabIndex={-1}
       className="h-full min-h-0 overflow-y-auto"
       ref={(node) => {
+        sidebarRef.current = node;
         if (node && sidebarHost && sidebarHost.parentNode !== node)
           node.appendChild(sidebarHost);
       }}
     />
   );
   return (
-    <PropertiesContext.Provider value={{ narrow, id, setAnimate }}>
+    <PropertiesContext.Provider value={{ narrow, id, setAnimate, focusSidebar: () => sidebarRef.current?.focus() }}>
       <DialogPrimitive.Root
         open={narrow && open}
         onOpenChange={setOpen}
-        modal={mobile}
+        modal={false}
       >
         <div
           ref={setRoot}
@@ -127,7 +146,6 @@ export function EntityPropertiesLayout({
             <>
               <div
                 className="flex min-h-0 min-w-0 flex-1 flex-col"
-                inert={narrow && open ? true : undefined}
               >
                 {children}
               </div>
@@ -140,36 +158,26 @@ export function EntityPropertiesLayout({
           )}
           {narrow && root && (
             <DialogPrimitive.Portal container={root}>
-              {open && (
-                <div
-                  className="pointer-events-auto absolute inset-0 z-30 bg-black/20"
-                  onClick={() => setOpen(false)}
-                />
-              )}
               <DialogPrimitive.Content
                 aria-describedby={undefined}
-                className={`absolute inset-y-0 right-0 z-40 flex w-[min(100%,24rem)] min-w-0 flex-col border-l bg-background shadow-xl outline-none ${styles.drawer}`}
+                className={`absolute inset-y-0 right-0 z-40 flex w-[min(100%,24rem)] min-w-0 flex-col border-l bg-background pt-10 shadow-xl outline-none ${styles.drawer}`}
                 data-motion={animate}
                 onEscapeKeyDown={() => setAnimate(false)}
                 onInteractOutside={(event) => event.preventDefault()}
               >
-                <div className="flex shrink-0 items-center justify-between border-b p-3">
-                  <DialogPrimitive.Title className="text-sm font-medium">
-                    Right sidebar
-                  </DialogPrimitive.Title>
-                  <DialogPrimitive.Close asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label="Close sidebar"
-                      onClick={(event) => setAnimate(event.detail > 0)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </DialogPrimitive.Close>
-                </div>
+                <DialogPrimitive.Title className="sr-only">Right sidebar</DialogPrimitive.Title>
+                <DialogPrimitive.Close asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-2 h-8 w-8"
+                    aria-label="Close sidebar"
+                    onClick={(event) => setAnimate(event.detail > 0)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogPrimitive.Close>
                 <div className="min-h-0 flex-1">{properties}</div>
               </DialogPrimitive.Content>
             </DialogPrimitive.Portal>

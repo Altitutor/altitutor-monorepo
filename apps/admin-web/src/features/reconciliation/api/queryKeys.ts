@@ -3,7 +3,9 @@
  */
 export const reconciliationKeys = {
   all: ['reconciliation'] as const,
+  billingCharges: () => [...reconciliationKeys.all, 'billing-charges'] as const,
   lists: () => [...reconciliationKeys.all, 'list'] as const,
+  sessionQueues: () => [...reconciliationKeys.lists(), 'session-ids'] as const,
   uninvoicedSessions: () => [...reconciliationKeys.lists(), 'uninvoiced_sessions'] as const,
   voidInvoiceSessions: () => [...reconciliationKeys.lists(), 'void_invoice_sessions'] as const,
   unpaidInvoices: () => [...reconciliationKeys.lists(), 'unpaid_invoices'] as const,
@@ -16,4 +18,5 @@ export const reconciliationKeys = {
   projectsWithNoLead: () => [...reconciliationKeys.lists(), 'projects_with_no_lead'] as const,
   familyCheckIns: () => [...reconciliationKeys.lists(), 'family_check_ins'] as const,
   tabCounts: () => [...reconciliationKeys.all, 'tab-counts'] as const,
+  viewCount: (key: string) => [...reconciliationKeys.tabCounts(), key] as const,
 };

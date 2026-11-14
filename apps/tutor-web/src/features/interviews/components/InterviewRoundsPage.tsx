@@ -1,6 +1,9 @@
 "use client";
-import { TutorEntityToolbar } from '@/features/quick-filters/components/TutorEntityToolbar'
-import { tutorDefaultDisplaySettings } from '@altitutor/shared'
+import { TutorEntityToolbar } from "@/features/quick-filters/components/TutorEntityToolbar";
+import {
+  interviewRoundDurationMinutes,
+  tutorDefaultDisplaySettings,
+} from "@altitutor/shared";
 
 import {
   useEffect,
@@ -11,19 +14,20 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  addDays,
-  format,
-  isSameDay,
-  startOfWeek,
-} from "date-fns";
+import Link from "next/link";
+import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 import {
   Badge,
   Button,
   DataTable,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Popover,
   PopoverAnchor,
   PopoverContent,
+  PopoverTrigger,
   TablePagination,
 } from "@altitutor/ui";
 import type {
@@ -33,12 +37,14 @@ import type {
   InterviewRound,
 } from "@altitutor/shared";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   DoorOpen,
   Pencil,
   Plus,
+  Printer,
 } from "lucide-react";
 import { UcatRowActions } from "@/features/ucat/shared/row-actions";
 import {
@@ -54,6 +60,8 @@ import {
 } from "../hooks/use-interviews";
 import { InterviewError } from "./interview-ui";
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
+import { InterviewBulkRoundDialog } from "./InterviewBulkRoundSetup";
+import { InterviewPrintDialog } from "./InterviewPrintDialog";
 import { InterviewPageHeader, interviewCrumbs } from "./interview-page";
 import { roundCanEdit } from "../lib/round-calendar";
 import {
@@ -70,6 +78,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: "delivery", label: "Delivery", visibleByDefault: true },
   { key: "phase", label: "Status", visibleByDefault: true },
   { key: "students", label: "Students", visibleByDefault: true },
+  { key: "results", label: "Results released", visibleByDefault: false },
 ];
 
 const sortOptions: DataTableSortOption[] = [
@@ -97,15 +106,22 @@ function whenLabel(round: InterviewRound) {
 function RoundActions({
   round,
   onEdit,
+  onPrint,
 }: {
   round: InterviewRound;
   onEdit: (round: InterviewRound) => void;
+  onPrint: (round: InterviewRound) => void;
 }) {
   const completed = round.phase === "completed";
   const started = !!round.startedAt;
   return (
     <UcatRowActions
       actions={[
+        {
+          label: "Print prompts",
+          icon: <Printer className="h-4 w-4" />,
+          onClick: () => onPrint(round),
+        },
         ...(roundCanEdit(round)
           ? [
               {
@@ -135,9 +151,7 @@ function RoundActions({
   );
 }
 
-function layoutColumns(
-  items: { id: string; start: number; end: number }[],
-) {
+function layoutColumns(items: { id: string; start: number; end: number }[]) {
   const groups: { id: string; start: number; end: number }[][] = [];
   const seen = new Set<string>();
   for (const item of items) {
@@ -189,9 +203,15 @@ function RoundDetailsTooltip({
   className,
   style,
   children,
+  compact = false,
+  onEdit,
+  onPrint,
 }: {
   round: InterviewRound;
   interviewName: string;
+  compact?: boolean;
+  onEdit: (round: InterviewRound) => void;
+  onPrint: (round: InterviewRound) => void;
   className?: string;
   style?: CSSProperties;
   children: ReactNode;
@@ -214,6 +234,13 @@ function RoundDetailsTooltip({
     }, 200);
   };
   const start = round.scheduledAt ? new Date(round.scheduledAt) : null;
+  const duration = interviewRoundDurationMinutes(
+    round.readingTimeSeconds,
+    round.questionTimeSeconds,
+    round.stations.length,
+    round.rotationAllowanceSeconds ?? 0,
+  );
+  const end = start ? new Date(start.getTime() + duration * 60_000) : null;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
@@ -221,15 +248,29 @@ function RoundDetailsTooltip({
           className={className}
           style={style}
           onMouseEnter={() => {
+            if (compact) return;
             triggerHovered.current = true;
             show();
           }}
           onMouseLeave={() => {
+            if (compact) return;
             triggerHovered.current = false;
             hide();
           }}
         >
-          {children}
+          {compact ? (
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex h-full w-full items-center overflow-hidden px-1 text-left text-xs font-medium"
+                aria-label={`View ${round.name}`}
+              >
+                <span className="truncate">{round.name}</span>
+              </button>
+            </PopoverTrigger>
+          ) : (
+            children
+          )}
         </div>
       </PopoverAnchor>
       <PopoverContent
@@ -238,17 +279,21 @@ function RoundDetailsTooltip({
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
         onMouseEnter={() => {
+          if (compact) return;
           contentHovered.current = true;
           cancel();
         }}
         onMouseLeave={() => {
+          if (compact) return;
           contentHovered.current = false;
           hide();
         }}
       >
         <div className="space-y-3">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold">{round.name}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold">{round.name}</h3>
+            </div>
             <p className="text-xs text-muted-foreground">{interviewName}</p>
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="secondary">{statusLabel(round)}</Badge>
@@ -260,7 +305,9 @@ function RoundDetailsTooltip({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              {start ? format(start, "EEE d MMM · h:mm a") : "Not scheduled"}
+              {start && end
+                ? `${format(start, "EEE d MMM · h:mm a")}–${format(end, "h:mm a")} · ${duration} min estimate`
+                : "Not scheduled"}
               {round.recordingEnabled ? " · Recording on" : ""}
             </p>
           </div>
@@ -276,6 +323,25 @@ function RoundDetailsTooltip({
               <p className="text-xs text-muted-foreground">None</p>
             )}
           </section>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              setOpen(false);
+              onPrint(round);
+            }}>
+              <Printer className="mr-2 size-4" />Print prompts
+            </Button>
+            {roundCanEdit(round) && (
+              <Button variant="outline" size="sm" onClick={() => {
+                setOpen(false);
+                onEdit(round);
+              }}>Edit round</Button>
+            )}
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/interviews/rounds/${round.id}/${round.phase === "completed" ? "results" : round.startedAt ? "live" : "waiting"}`}>
+                {round.phase === "completed" ? "Review results" : round.startedAt ? "Rejoin interview" : "Waiting room"}
+              </Link>
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -286,14 +352,18 @@ function RoundsCalendar({
   rounds,
   interviewName,
   onEdit,
+  onPrint,
 }: {
   rounds: InterviewRound[];
   interviewName: (id: string) => string;
   onEdit: (round: InterviewRound) => void;
+  onPrint: (round: InterviewRound) => void;
 }) {
   const [anchor, setAnchor] = useState(new Date());
   const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const days = Array.from({ length: 7 }, (_, index) =>
+    addDays(weekStart, index),
+  );
   const hours = Array.from(
     { length: dayEndHour - dayStartHour },
     (_, index) => dayStartHour + index,
@@ -344,7 +414,8 @@ function RoundsCalendar({
               key={day.toISOString()}
               className={cn(
                 "sticky top-0 z-20 border-b border-r bg-background p-2 text-center text-sm font-medium",
-                isSameDay(day, now) && "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
+                isSameDay(day, now) &&
+                  "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
               )}
             >
               {format(day, "EEE d MMM")}
@@ -352,7 +423,10 @@ function RoundsCalendar({
           ))}
           {hours.map((hour, hourIndex) => (
             <div key={hour} className="contents">
-              <div className="sticky left-0 z-10 flex items-center justify-center border-b border-r bg-muted/30 text-sm font-medium" style={{ height: slotHeight }}>
+              <div
+                className="sticky left-0 z-10 flex items-center justify-center border-b border-r bg-muted/30 text-sm font-medium"
+                style={{ height: slotHeight }}
+              >
                 {format(new Date(2000, 0, 1, hour, 0), "h a")}
               </div>
               {days.map((day) => {
@@ -365,12 +439,21 @@ function RoundsCalendar({
                   dayRounds.flatMap((round) => {
                     if (!round.scheduledAt) return [];
                     const start = new Date(round.scheduledAt);
-                    const startMinutes = start.getHours() * 60 + start.getMinutes();
-                    const duration = Math.max(
-                      30,
-                      (round.readingTimeSeconds + round.questionTimeSeconds) / 60,
+                    const startMinutes =
+                      start.getHours() * 60 + start.getMinutes();
+                    const duration = interviewRoundDurationMinutes(
+                      round.readingTimeSeconds,
+                      round.questionTimeSeconds,
+                      round.stations.length,
+                      round.rotationAllowanceSeconds ?? 0,
                     );
-                    return [{ id: round.id, start: startMinutes, end: startMinutes + duration }];
+                    return [
+                      {
+                        id: round.id,
+                        start: startMinutes,
+                        end: startMinutes + duration,
+                      },
+                    ];
                   }),
                 );
                 return (
@@ -378,7 +461,9 @@ function RoundsCalendar({
                     key={`${day.toISOString()}-${hour}`}
                     className={cn(
                       "relative border-b border-r",
-                      isSameDay(day, now) ? "bg-blue-50/30 dark:bg-blue-900/10" : "bg-background",
+                      isSameDay(day, now)
+                        ? "bg-blue-50/30 dark:bg-blue-900/10"
+                        : "bg-background",
                     )}
                     style={{ height: slotHeight }}
                   >
@@ -386,24 +471,37 @@ function RoundsCalendar({
                       ? dayRounds.map((round) => {
                           if (!round.scheduledAt) return null;
                           const start = new Date(round.scheduledAt);
-                          const startMinutes = start.getHours() * 60 + start.getMinutes();
-                          const duration = Math.max(
-                            30,
-                            (round.readingTimeSeconds + round.questionTimeSeconds) / 60,
+                          const startMinutes =
+                            start.getHours() * 60 + start.getMinutes();
+                          const duration = interviewRoundDurationMinutes(
+                            round.readingTimeSeconds,
+                            round.questionTimeSeconds,
+                            round.stations.length,
+                            round.rotationAllowanceSeconds ?? 0,
                           );
                           const place = placements.get(round.id);
                           const column = place?.column ?? 0;
                           const columnCount = place?.columnCount ?? 1;
                           const width = 100 / columnCount;
                           const top =
-                            ((startMinutes - dayStartHour * 60) / 60) * slotHeight;
-                          const height = Math.max(48, (duration / 60) * slotHeight);
+                            ((startMinutes - dayStartHour * 60) / 60) *
+                            slotHeight;
+                          const height = Math.max(
+                            4,
+                            (duration / 60) * slotHeight,
+                          );
                           return (
                             <RoundDetailsTooltip
                               key={round.id}
                               round={round}
                               interviewName={interviewName(round.interviewId)}
-                              className="absolute z-10 overflow-hidden rounded-lg border bg-card p-2 shadow-sm"
+                              compact={height < 48}
+                              onEdit={onEdit}
+                              onPrint={onPrint}
+                              className={cn(
+                                "absolute z-10 overflow-hidden rounded-lg border bg-card shadow-sm",
+                                height >= 48 && "p-2",
+                              )}
                               style={{
                                 top,
                                 height,
@@ -413,15 +511,22 @@ function RoundsCalendar({
                             >
                               <div className="flex items-start justify-between gap-1">
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium">{round.name}</p>
+                                  <p className="truncate text-sm font-medium">
+                                    {round.name}
+                                  </p>
                                   <p className="truncate text-xs text-muted-foreground">
-                                    {format(start, "h:mm a")} · {interviewName(round.interviewId)}
+                                    {format(start, "h:mm a")} ·{" "}
+                                    {interviewName(round.interviewId)}
                                   </p>
                                   <Badge variant="secondary" className="mt-1">
                                     {statusLabel(round)}
                                   </Badge>
                                 </div>
-                                <RoundActions round={round} onEdit={onEdit} />
+                                <RoundActions
+                                  round={round}
+                                  onEdit={onEdit}
+                                  onPrint={onPrint}
+                                />
                               </div>
                             </RoundDetailsTooltip>
                           );
@@ -450,7 +555,7 @@ function RoundsCalendar({
                     {round.students.length} students
                   </p>
                 </div>
-                <RoundActions round={round} onEdit={onEdit} />
+                <RoundActions round={round} onEdit={onEdit} onPrint={onPrint} />
               </div>
             ))}
           </div>
@@ -465,21 +570,27 @@ export function InterviewRoundsPage() {
   const searchParams = useSearchParams();
   const catalogQuery = useInterviewCatalog();
   const roundsQuery = useInterviewRounds();
-  const table = useInterviewTable(columnDefinitions.map((column) => column.key));
+  const table = useInterviewTable(
+    columnDefinitions
+      .filter((column) => column.visibleByDefault)
+      .map((column) => column.key),
+  );
   const [view, setView] = useState<"calendar" | "table">("calendar");
   const [creating, setCreating] = useState(false);
+  const [bulkCreating, setBulkCreating] = useState(false);
+  const [printing, setPrinting] = useState<InterviewRound | null>(null);
   const [editing, setEditing] = useState<InterviewRound | null>(null);
   const [dismissedEditId, setDismissedEditId] = useState<string | null>(null);
   const catalog = catalogQuery.data;
   const editRoundId = searchParams.get("edit");
   const linkedRound =
     editRoundId && dismissedEditId !== editRoundId
-      ? (roundsQuery.data ?? []).find(
+      ? ((roundsQuery.data ?? []).find(
           (round) =>
             round.id === editRoundId &&
             !round.startedAt &&
             round.phase !== "completed",
-        ) ?? null
+        ) ?? null)
       : null;
   const activeRound = editing ?? linkedRound;
   const closeRoundDialog = () => {
@@ -491,9 +602,17 @@ export function InterviewRoundsPage() {
     }
   };
   const interviewName = (id: string) =>
-    catalog?.interviews.find((interview) => interview.id === id)?.name ?? "Interview";
+    catalog?.interviews.find((interview) => interview.id === id)?.name ??
+    "Interview";
 
   const filterDefinitions: DataTableFilterDefinition[] = [
+    {
+      key: "date",
+      label: "Date",
+      type: "date-range",
+      fromKey: "from",
+      toKey: "to",
+    },
     {
       key: "delivery",
       label: "Delivery",
@@ -517,12 +636,26 @@ export function InterviewRoundsPage() {
 
   const rounds = useMemo(() => {
     const names = new Map(
-      (catalog?.interviews ?? []).map((interview) => [interview.id, interview.name]),
+      (catalog?.interviews ?? []).map((interview) => [
+        interview.id,
+        interview.name,
+      ]),
     );
     const query = table.state.search.trim().toLowerCase();
     const rows = (roundsQuery.data ?? []).filter((round) => {
-      const name = `${round.name} ${names.get(round.interviewId) ?? ""}`.toLowerCase();
+      const name =
+        `${round.name} ${names.get(round.interviewId) ?? ""}`.toLowerCase();
+      const when = new Date(
+        round.scheduledAt ?? round.startedAt ?? round.createdAt,
+      );
+      const date = Number.isFinite(when.getTime())
+        ? format(when, "yyyy-MM-dd")
+        : "";
+      const from = table.state.filters.from?.[0];
+      const to = table.state.filters.to?.[0];
       return (
+        (typeof from !== "string" || !from || (!!date && date >= from)) &&
+        (typeof to !== "string" || !to || (!!date && date <= to)) &&
         (!query || name.includes(query)) &&
         matchesMulti(table.state.filters, "delivery", round.delivery) &&
         matchesMulti(table.state.filters, "phase", round.phase)
@@ -545,10 +678,23 @@ export function InterviewRoundsPage() {
         backLabel="Back to interviews"
         breadcrumbs={interviewCrumbs("Interview rounds")}
         actions={
-          <Button className={tutorBtnPrimary} onClick={() => setCreating(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New round
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className={tutorBtnPrimary}>
+                <Plus className="mr-2 h-4 w-4" />
+                New round
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setCreating(true)}>
+                Single round
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setBulkCreating(true)}>
+                Multiple rounds
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
       <InterviewError
@@ -559,8 +705,11 @@ export function InterviewRoundsPage() {
         }}
       />
       <TutorEntityToolbar
-        pageKey={'interview_rounds'}
-        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [], { layout: 'calendar' })}
+        pageKey={"interview_rounds"}
+        defaultSettings={tutorDefaultDisplaySettings(
+          table.state.defaultVisibleColumns ?? [],
+          { layout: "calendar" },
+        )}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}
@@ -583,7 +732,8 @@ export function InterviewRoundsPage() {
             if (next === "table" || next === "calendar") setView(next);
           },
           onPresetApply: (settings) => {
-            if (settings.layout === "table" || settings.layout === "calendar") setView(settings.layout);
+            if (settings.layout === "table" || settings.layout === "calendar")
+              setView(settings.layout);
           },
         }}
         {...tutorToolbarProps}
@@ -595,6 +745,7 @@ export function InterviewRoundsPage() {
           rounds={rounds}
           interviewName={interviewName}
           onEdit={setEditing}
+          onPrint={setPrinting}
         />
       ) : paged.total === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -611,7 +762,11 @@ export function InterviewRoundsPage() {
                     {
                       id: "name",
                       header: "Round",
-                      cell: ({ row }: { row: { original: InterviewRound } }) => (
+                      cell: ({
+                        row,
+                      }: {
+                        row: { original: InterviewRound };
+                      }) => (
                         <span className="font-medium">{row.original.name}</span>
                       ),
                     },
@@ -643,7 +798,9 @@ export function InterviewRoundsPage() {
                       id: "delivery",
                       header: "Delivery",
                       cell: ({ row }: { row: { original: InterviewRound } }) =>
-                        row.original.delivery === "online" ? "Online" : "In person",
+                        row.original.delivery === "online"
+                          ? "Online"
+                          : "In person",
                     },
                   ]
                 : []),
@@ -652,8 +809,14 @@ export function InterviewRoundsPage() {
                     {
                       id: "phase",
                       header: "Status",
-                      cell: ({ row }: { row: { original: InterviewRound } }) => (
-                        <Badge variant="secondary">{statusLabel(row.original)}</Badge>
+                      cell: ({
+                        row,
+                      }: {
+                        row: { original: InterviewRound };
+                      }) => (
+                        <Badge variant="secondary">
+                          {statusLabel(row.original)}
+                        </Badge>
                       ),
                     },
                   ]
@@ -668,12 +831,41 @@ export function InterviewRoundsPage() {
                     },
                   ]
                 : []),
+              ...(visible.has("results")
+                ? [
+                    {
+                      id: "results",
+                      header: "Results released",
+                      cell: ({
+                        row,
+                      }: {
+                        row: { original: InterviewRound };
+                      }) => (
+                        <Badge
+                          variant={
+                            row.original.releasedResults.length
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {row.original.releasedResults.length
+                            ? "Released"
+                            : "Not released"}
+                        </Badge>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 id: "actions",
                 header: "Actions",
                 cell: ({ row }: { row: { original: InterviewRound } }) => (
                   <div className="flex justify-end">
-                    <RoundActions round={row.original} onEdit={setEditing} />
+                    <RoundActions
+                      round={row.original}
+                      onEdit={setEditing}
+                      onPrint={setPrinting}
+                    />
                   </div>
                 ),
               },
@@ -691,6 +883,19 @@ export function InterviewRoundsPage() {
           />
         </>
       )}
+      {catalog && bulkCreating ? (
+        <InterviewBulkRoundDialog
+          open
+          onClose={() => setBulkCreating(false)}
+          catalog={catalog}
+        />
+      ) : null}
+      {printing ? (
+        <InterviewPrintDialog
+          round={printing}
+          onClose={() => setPrinting(null)}
+        />
+      ) : null}
       {catalog && (creating || activeRound) ? (
         <InterviewRoundDialog
           key={activeRound?.id ?? "new"}

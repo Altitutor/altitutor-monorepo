@@ -51,7 +51,7 @@ describe('settings navigation', () => {
         title: 'Financial',
         items: [
           { title: 'Billing Settings', href: '/settings/billing' },
-          { title: 'Pay tiers', href: '/pay-tiers/ladder' },
+          { title: 'Pay tiers', href: '/settings/pay-tiers' },
           { title: 'Stripe Sync', href: '/settings/stripe-sync' },
         ],
       },

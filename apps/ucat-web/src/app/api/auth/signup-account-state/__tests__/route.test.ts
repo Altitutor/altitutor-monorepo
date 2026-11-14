@@ -56,6 +56,39 @@ describe("POST /api/auth/signup-account-state", () => {
     });
   });
 
+  it.each([
+    "first..last@example.com",
+    ".first@example.com",
+    "first.@example.com",
+  ])(
+    "rejects %s, which the confirmation mailer cannot address",
+    async (email) => {
+      const response = await POST(request(email));
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringMatching(/two dots in a row/),
+      });
+      expect(mockedRpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "first.last@example.com",
+    "first.last+ucat@mail.example.co.uk",
+    "o'neil@example.com",
+  ])("accepts the deliverable address %s", async (email) => {
+    mockedRpc.mockResolvedValue({ data: "available", error: null });
+
+    const response = await POST(request(email));
+
+    expect(response.status).toBe(200);
+    expect(mockedRpc).toHaveBeenCalledWith(
+      "resolve_ucat_signup_email_state",
+      expect.objectContaining({ p_email: email }),
+    );
+  });
+
   it("uses one public state for absent and unconfirmed accounts", async () => {
     mockedRpc.mockResolvedValue({ data: "available", error: null });
 

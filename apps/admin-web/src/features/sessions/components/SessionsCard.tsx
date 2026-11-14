@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
+import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Users } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
+import { isStudentAbsentInCalendar } from '../utils/attendanceDerivation';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -49,7 +51,7 @@ export function SessionsCard({
   classData,
   subject,
   staff = [],
-  students = [],
+  students: suppliedStudents,
   onClick,
   details,
   title,
@@ -62,6 +64,9 @@ export function SessionsCard({
   dimmedStudentIds,
   dimmedStaffIds,
 }: SessionsCardProps) {
+  const students = suppliedStudents ?? [];
+  const studentRoster = details?.students ?? suppliedStudents;
+
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
   
@@ -120,7 +125,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={details?.students ?? students} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(
@@ -162,7 +167,7 @@ export function SessionsCard({
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     {subjectDisplay}
@@ -181,6 +186,7 @@ export function SessionsCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
+                <StudentCount count={studentRoster?.length} />
                 {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
@@ -217,7 +223,10 @@ export function SessionsCard({
                     ? 'Swapped In' 
                     : 'Attending';
                   
-                  const isDimmed = dimmedStaffIds?.has(staffMember.id);
+                  const absent = isCalendarView && (
+                    hasTutorLog ? staffMember.actual_attended !== true : staffMember.planned_absence
+                  );
+                  const isDimmed = dimmedStaffIds?.has(staffMember.id) || absent;
                   const badge = (
                     <span
                       key={staffMember.id}
@@ -227,7 +236,7 @@ export function SessionsCard({
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
                         isDimmed && 'opacity-50',
-                        staffMember.planned_absence
+                        absent ? 'bg-muted text-muted-foreground' : staffMember.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                           : staffMember.is_swapped_in
                           ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
@@ -280,7 +289,8 @@ export function SessionsCard({
                     ? 'Attending (extra)' 
                     : 'Attending';
                   
-                  const isDimmed = dimmedStudentIds?.has(student.id);
+                  const absent = isCalendarView && isStudentAbsentInCalendar(student, hasTutorLog);
+                  const isDimmed = dimmedStudentIds?.has(student.id) || absent;
                   const badge = (
                     <span
                       key={student.id}
@@ -291,7 +301,7 @@ export function SessionsCard({
                           : 'text-xs px-2 py-0.5',
                         isDimmed && 'opacity-50',
                         // Show red for unplanned students and planned absences
-                        (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
+                        absent ? 'bg-muted text-muted-foreground' : (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                           : student.is_extra && !isUnplanned && !isUnplannedFromRPC
                           ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'

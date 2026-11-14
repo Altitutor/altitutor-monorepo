@@ -57,6 +57,7 @@ export interface SmartDatePickerPillProps {
   valueFormat?: SmartDatePickerValueFormat;
   icon?: React.ReactNode;
   emptyLabel?: string;
+  label?: string;
   overdue?: boolean;
   emptyOpacity?: boolean;
   className?: string;
@@ -320,6 +321,7 @@ export function SmartDatePickerPill({
   valueFormat = 'date',
   icon,
   emptyLabel = 'Date',
+  label,
   overdue = false,
   emptyOpacity = true,
   className,
@@ -345,6 +347,7 @@ export function SmartDatePickerPill({
       stopPropagation={stopPropagation}
     >
       <button
+        aria-label={label && (formattedDate ? `${label}: ${formattedDate}` : label)}
         data-button-variant="outline"
         data-overdue={overdue || undefined}
         type="button"

@@ -264,6 +264,26 @@ describe('lifecycle activity mapper', () => {
     expect(result.message).toBe('rescheduled Bob Taylor from Monday UCAT to Thursday UCAT');
   });
 
+  it('keeps the original session when the replacement sorts first in the database feed', () => {
+    const originalId = '20000000-0000-4000-8000-000000000031';
+    const replacementId = '10000000-0000-4000-8000-000000000032';
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_rescheduled',
+      subject_type: 'session',
+      subject_id: originalId,
+      payload: { display: { session_name: 'Medicine Interview 9:00 am - 1:00 pm' } },
+      entities: [
+        { entityType: 'session', entityId: replacementId, role: 'session_to', displayName: 'Medicine Interview 1:00 pm - 5:00 pm' },
+        { entityType: 'session', entityId: originalId, role: 'subject', displayName: 'Medicine Interview 9:00 am - 1:00 pm' },
+        { entityType: 'student', entityId: '10000000-0000-4000-8000-000000000030', role: 'related', displayName: 'Bob Taylor' },
+      ],
+    }));
+
+    expect(result.message).toBe('rescheduled Bob Taylor from Medicine Interview 9:00 am - 1:00 pm to Medicine Interview 1:00 pm - 5:00 pm');
+    expect(result.messageParts?.filter((part) => part.kind === 'entity').map((part) => part.entity.entityId))
+      .toEqual(['10000000-0000-4000-8000-000000000030', originalId, replacementId]);
+  });
+
   it('exposes the allowlisted work-item changes to the existing field renderer', () => {
     const result = mapActivityEventToDisplay(makeEvent({
       event_name: 'task.properties_changed',

@@ -39,6 +39,22 @@ PII collection. Events include only:
 - Runtime and HTTP status/method
 - Supabase region, execution ID, and deployment ID when available
 
+Billing-runner also reports uncertain operational-mail outcomes with a fixed
+fingerprint and an allowlisted `operational_mail` context: draft-create,
+draft-persist, send-request or submission-persist phase; bounded failure category;
+directly observed HTTP status; and phase elapsed milliseconds capped at five
+minutes. It does not attach the underlying error or correspondence identifiers.
+The existing collection switch and bounded error flush apply. Observer failures
+must preserve the durable uncertainty guard and must never permit a resend.
+
+This DEV-425 diagnostic supports the unresolved absence-billing investigation.
+Use event release/execution identity and time with the durable operational outbox
+to investigate a recurrence; lack of an event alone proves neither delivery nor
+failure. Verify deployment and collection before expecting evidence. Remove this
+observer after a qualifying recurrence identifies the failing boundary and its
+fix has a regression test. Existing uncertain drafts still require mailbox-owner
+reconciliation before any resend; instrumentation does not resolve them.
+
 Do not add request bodies, authorization headers, email addresses, phone
 numbers, or Supabase records to Sentry context.
 

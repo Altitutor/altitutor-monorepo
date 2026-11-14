@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ReconciliationSchedulingTab } from '@/features/reconciliation';
-
-export default function ReconciliationSchedulingPage() {
-  return <ReconciliationSchedulingTab />;
+export default function LegacyPage() {
+  redirect('/dashboard');
 }

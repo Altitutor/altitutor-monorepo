@@ -141,7 +141,7 @@ async function openActions(surface: 'detail' | 'student') {
     await waitFor(() =>
       expect(screen.getByText('Invoice Information')).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { name: 'Invoice actions' }));
   }
   return user;
 }

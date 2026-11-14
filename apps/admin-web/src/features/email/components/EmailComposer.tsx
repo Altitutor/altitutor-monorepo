@@ -80,7 +80,8 @@ export function EmailComposer({
   signature,
   initialContent,
   onClose,
-  draftReady,
+  draftReady: suppliedDraftReady,
+  prepareDraft,
   onSubjectChange,
   disabledReason,
   registerForClose,
@@ -95,6 +96,7 @@ export function EmailComposer({
   onClose: () => void;
   onSubjectChange?: (subject: string) => void;
   draftReady?: Promise<{ message?: EmailMessage }>;
+  prepareDraft?: () => Promise<{ message?: EmailMessage }>;
 }) {
   const command = useEmailCommand();
   const queryClient = useQueryClient();
@@ -108,6 +110,9 @@ export function EmailComposer({
   const [showCc, setShowCc] = useState(Boolean(draft.cc.length));
   const [showBcc, setShowBcc] = useState(Boolean(draft.bcc.length));
   const provider = useRef(draft);
+  const deferredDraft = useRef<Promise<{ message?: EmailMessage }> | null>(null);
+  const [startedDraft, setStartedDraft] = useState<Promise<{ message?: EmailMessage }> | null>(null);
+  const draftReady = suppliedDraftReady ?? startedDraft;
   const [preparing, setPreparing] = useState(Boolean(draftReady));
   const [creationError, setCreationError] = useState("");
   const scope = useAccessoryTab();
@@ -131,11 +136,11 @@ export function EmailComposer({
     bcc: draft.bcc.join(", "),
   }));
   const initialEditorContent = useRef(content);
-  const [dirty, setDirty] = useState(Boolean(signature || initialContent));
+  const [dirty, setDirty] = useState(!prepareDraft && Boolean(signature || initialContent));
   const [status, setStatus] = useState(
     draftReady
       ? "Preparing Microsoft draft… You can keep typing."
-      : "Shared draft in Microsoft",
+      : prepareDraft ? "New email" : "Shared draft in Microsoft",
   );
   const [conflict, setConflict] = useState<EmailMessage | null>(null);
   const [blockedByConflict, setBlocked] = useState(false);
@@ -177,27 +182,29 @@ export function EmailComposer({
           throw new Error("Could not create Microsoft draft.");
         provider.current = result.message;
         const prepared = result.message;
-        // Graph owns Reply-To/Reply-All semantics. Adopt its envelope only in
-        // fields the user has not deliberately changed during preparation.
-        setContent((all) => ({
-          ...all,
-          subject:
-            all.subject === initialEditorContent.current.subject
-              ? prepared.subject
-              : all.subject,
-          to:
-            all.to === initialEditorContent.current.to
-              ? prepared.to.join(", ")
-              : all.to,
-          cc:
-            all.cc === initialEditorContent.current.cc
-              ? prepared.cc.join(", ")
-              : all.cc,
-          bcc:
-            all.bcc === initialEditorContent.current.bcc
-              ? prepared.bcc.join(", ")
-              : all.bcc,
-        }));
+        // A new inline draft keeps its local envelope. Existing compose flows
+        // adopt the provider's reply defaults in fields the user hasn't edited.
+        if (!prepareDraft) {
+          setContent((all) => ({
+            ...all,
+            subject:
+              all.subject === initialEditorContent.current.subject
+                ? prepared.subject
+                : all.subject,
+            to:
+              all.to === initialEditorContent.current.to
+                ? prepared.to.join(", ")
+                : all.to,
+            cc:
+              all.cc === initialEditorContent.current.cc
+                ? prepared.cc.join(", ")
+                : all.cc,
+            bcc:
+              all.bcc === initialEditorContent.current.bcc
+                ? prepared.bcc.join(", ")
+                : all.bcc,
+          }));
+        }
         if (prepared.cc.length) setShowCc(true);
         if (prepared.bcc.length) setShowBcc(true);
         const providerRecoveryKey = `email-draft-recovery:${mailbox.currentStaffId}:${result.message.id}`;
@@ -265,8 +272,10 @@ export function EmailComposer({
     }
   }, [content, dirty, recoveryKey]);
   async function save() {
-    if (busy.current || blocked || conflict || preparing || creationError)
-      return false;
+    if (
+      busy.current || blocked || conflict || preparing || creationError ||
+      provider.current.id.startsWith("local:")
+    ) return false;
     const snapshot = current.current;
     if (
       ![
@@ -402,8 +411,25 @@ export function EmailComposer({
       }
     });
   }
+  function startDraft() {
+    if (!prepareDraft || deferredDraft.current) return deferredDraft.current;
+    const pending = prepareDraft().then((result) => {
+      if (!result.message) throw new Error("Could not create Microsoft draft.");
+      provider.current = result.message;
+      version.current = result.message.changeKey ?? "";
+      return result;
+    });
+    deferredDraft.current = pending;
+    setPreparing(true);
+    setStatus("Preparing Microsoft draft… You can keep typing.");
+    setStartedDraft(pending);
+    setDirty(true);
+    return pending;
+  }
+
   function attachFiles(files: File[]) {
-    if (!files.length) return;
+    if (!files.length || blocked || conflict || creationError) return;
+    const pendingDraft = draftReady ?? startDraft();
     const pending = files.map((file) => ({ file, id: ++nextFile.current }));
     setUploadFiles((all) => [
       ...all,
@@ -421,7 +447,7 @@ export function EmailComposer({
         try {
           if (blocked || conflict || creationError)
             throw new Error("Resolve this draft before attaching files.");
-          if (draftReady) await draftReady;
+          if (pendingDraft) await pendingDraft;
           if (busy.current)
             await new Promise<void>((resolve) =>
               idleWaiters.current.push(resolve),
@@ -523,6 +549,7 @@ export function EmailComposer({
       sending ||
       queuedFiles > 0 ||
       preparing ||
+      provider.current.id.startsWith("local:") ||
       command.isPending ||
       Boolean(creationError) ||
       Boolean(conflict) ||
@@ -587,6 +614,7 @@ export function EmailComposer({
     }
   }
   function patch(values: Partial<Content>) {
+    startDraft();
     if (values.subject !== undefined) onSubjectChange?.(values.subject);
     setContent((all) => ({ ...all, ...values }));
     setDirty(true);
@@ -973,7 +1001,7 @@ export function EmailComposer({
     setPendingClose(() => onClose);
   }
   async function discardAndClose() {
-    if (creationError) {
+    if (creationError || (prepareDraft && !deferredDraft.current)) {
       const next = pendingClose;
       setPendingClose(null);
       next?.();
@@ -1108,7 +1136,7 @@ export function EmailComposer({
                 onClick={() => void discardAndClose()}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                {creationError ? "Close without saving" : "Delete draft"}
+                {creationError || (prepareDraft && !startedDraft) ? "Close without saving" : "Delete draft"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

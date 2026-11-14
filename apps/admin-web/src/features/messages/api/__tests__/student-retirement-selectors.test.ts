@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getAllClasses, getStudentsBySessionDate } from '../bulk';
-import { fetchFamilyCheckInsData } from '@/features/reconciliation/api/familyCheckIns';
 
 jest.mock('@/shared/lib/supabase/client', () => ({ getSupabaseClient: jest.fn() }));
 
@@ -28,9 +27,6 @@ beforeEach(() => {
 
 it('loads Class choices without filtering a nonexistent Class column', async () => {
   await expect(getAllClasses()).resolves.toEqual([]);
-});
-it('loads Family Check-ins staff without filtering a nonexistent Staff column', async () => {
-  await expect(fetchFamilyCheckInsData()).resolves.toEqual({ staff: [], students: [], parents: [] });
 });
 it('loads session-date recipients and excludes deleted Students through the Student record', async () => {
   expect((await getStudentsBySessionDate('2026-01-01')).map(student => student.id)).toEqual(['live']);

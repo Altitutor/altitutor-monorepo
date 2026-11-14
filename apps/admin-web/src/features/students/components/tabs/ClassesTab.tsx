@@ -1,11 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, TablesUpdate, ClassWithExpandedSubject } from "@altitutor/shared";
+import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Separator } from "@altitutor/ui";
-import { Input, Label, Switch } from "@altitutor/ui";
+import { Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import {
   AlertDialog,
@@ -16,11 +14,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
+import { ChevronDown, Loader2, Plus, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
-import { ViewClassModal, CalendarView } from '@/features/classes';
+import { ViewClassModal } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -28,8 +30,6 @@ import { useStudentClasses, type StudentClass } from '@/features/students/hooks/
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getErrorMessage, getSubjectColorStyle } from '@/shared/utils';
-import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
-import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import {
   invalidateStudentClassSurfaces,
@@ -40,7 +40,6 @@ import {
   groupStudentClassesBySubject,
   isScheduledClassEnrolment,
 } from '@/features/students/utils/classEnrollments';
-type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
   student: Tables<'students'>;
@@ -63,24 +62,7 @@ export function ClassesTab({
   const studentSubjects = useMemo(() => studentWithSubjects?.subjects || [], [studentWithSubjects?.subjects]);
   const classes = useMemo(() => classesData, [classesData]);
   
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [isEditMode, setIsEditMode] = useState(false);
   const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
-  const [inPersonDetails, setInPersonDetails] = useState<TablesUpdate<'students'>>({
-    school: student.school,
-    curriculum: student.curriculum,
-    year_level: student.year_level,
-    availability_monday: student.availability_monday,
-    availability_tuesday: student.availability_tuesday,
-    availability_wednesday: student.availability_wednesday,
-    availability_thursday: student.availability_thursday,
-    availability_friday: student.availability_friday,
-    availability_saturday_am: student.availability_saturday_am,
-    availability_saturday_pm: student.availability_saturday_pm,
-    availability_sunday_am: student.availability_sunday_am,
-    availability_sunday_pm: student.availability_sunday_pm,
-  });
-  
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -100,23 +82,6 @@ export function ClassesTab({
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
-  // Prepare data for timetable view (current enrollments only)
-  const currentClasses = useMemo(
-    () => classes.filter((classData) => !classData.isPreviousEnrollment),
-    [classes]
-  );
-  const timetableClasses = currentClasses.map(c => c.class);
-  const timetableSubjects: Record<string, Tables<'subjects'>> = {};
-  const timetableStaff: Record<string, Tables<'staff'>[]> = {};
-  const timetableStudents: Record<string, Tables<'students'>[]> = {};
-  currentClasses.forEach(c => {
-    if (c.subject) {
-      timetableSubjects[c.class.id] = c.subject;
-    }
-    timetableStaff[c.class.id] = c.staff;
-    timetableStudents[c.class.id] = c.students || [];
-  });
-
   const classesBySubject = useMemo(
     () => groupStudentClassesBySubject(classes, studentSubjects, showPreviousEnrollments),
     [classes, studentSubjects, showPreviousEnrollments]
@@ -407,41 +372,6 @@ export function ClassesTab({
     }
   };
 
-  const handleCancelEdit = () => {
-    setInPersonDetails({
-      school: student.school,
-      curriculum: student.curriculum,
-      year_level: student.year_level,
-      availability_monday: student.availability_monday,
-      availability_tuesday: student.availability_tuesday,
-      availability_wednesday: student.availability_wednesday,
-      availability_thursday: student.availability_thursday,
-      availability_friday: student.availability_friday,
-      availability_saturday_am: student.availability_saturday_am,
-      availability_saturday_pm: student.availability_saturday_pm,
-      availability_sunday_am: student.availability_sunday_am,
-      availability_sunday_pm: student.availability_sunday_pm,
-    });
-    setIsEditMode(false);
-  };
-
-  const handleSave = async () => {
-    try {
-      await studentsApi.updateStudent(student.id, inPersonDetails);
-      await invalidateStudentDetail(queryClient, student.id);
-      onStudentUpdated?.();
-      setIsEditMode(false);
-      toast({ title: 'Success', description: 'In-person details updated successfully.' });
-    } catch (error) {
-      console.error('Failed to update in-person details:', error);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the in-person details. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
@@ -491,61 +421,12 @@ export function ClassesTab({
 
   return (
     <>
-      <div className="flex-1 h-full min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="space-y-5 mb-6">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-base font-medium">Details</h3>
-              {!isEditMode && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} disabled={!!student.deleted_at}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              )}
-            </div>
-            <PropertyForm>
-              <PropertyFormRow label="School" htmlFor={isEditMode ? 'in-person-school' : undefined}>
-                {isEditMode ? (
-                  <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
-                ) : <div>{student.school || '—'}</div>}
-              </PropertyFormRow>
-              <PropertyFormRow label="Curriculum" htmlFor={isEditMode ? 'in-person-curriculum' : undefined}>
-                {isEditMode ? (
-                  <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
-                    <option value="">Not set</option>
-                    {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                ) : <div>{student.curriculum || '—'}</div>}
-              </PropertyFormRow>
-              <PropertyFormRow label="Year level" htmlFor={isEditMode ? 'in-person-year-level' : undefined}>
-                {isEditMode ? (
-                  <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
-                ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
-              </PropertyFormRow>
-            </PropertyForm>
-          </div>
-          <Separator />
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Availability</h3>
-            <AvailabilityFields
-              isEditing={isEditMode}
-              getValue={(key) => Boolean(
-                isEditMode
-                  ? inPersonDetails[key as keyof TablesUpdate<'students'>]
-                  : student[key as keyof Tables<'students'>]
-              )}
-              onCheckedChange={(key: AvailabilitySlotKey, checked) => {
-                setInPersonDetails((current) => ({ ...current, [key]: checked }));
-              }}
-            />
-          </div>
-          <Separator />
-        </div>
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="min-h-0 min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-base font-medium">Classes</h3>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch
                 id="show-previous-enrollments"
@@ -556,173 +437,145 @@ export function ClassesTab({
                 Show previous enrollments
               </Label>
             </div>
-            <SegmentedControl
-              value={viewMode}
-              onValueChange={(v) => setViewMode(v as ViewMode)}
-              options={[
-                { value: 'table', label: 'Table' },
-                { value: 'calendar', label: 'Calendar' },
-              ]}
-            />
           </div>
         </div>
 
-        {viewMode === 'table' ? (
-              <div className="space-y-4 pb-6">
-                {classesBySubject.map((group) => {
-                  if (group.subjectId === '__no_subject__') {
-                    return (
-                      <div key={group.subjectId} className="space-y-2">
-                        {group.classes.map(renderClassCard)}
-                      </div>
-                    );
-                  }
+        <div className="space-y-4 pb-6">
+          {classesBySubject.map((group) => {
+            if (group.subjectId === '__no_subject__') {
+              return (
+                <div key={group.subjectId} className="space-y-2">
+                  {group.classes.map(renderClassCard)}
+                </div>
+              );
+            }
 
-                  const subject = group.subject;
-                  if (!subject) return null;
+            const subject = group.subject;
+            if (!subject) return null;
 
-                  const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
-                  const { style, textColorClass } = getSubjectColorStyle(subject);
-                  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                  const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
+            const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+            const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
 
-                  return (
-                    <div key={group.subjectId} className="flex items-start gap-4">
-                      <div className="flex-shrink-0 pt-2">
-                        <Badge
-                          className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
-                          style={style.backgroundColor ? style : undefined}
-                        >
-                          <span>{shortName}</span>
-                          {isEditMode && group.isAssignedSubject && (
-                            <button
-                              type="button"
-                              className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleRemoveSubject(group.subjectId);
-                              }}
-                              title="Remove subject"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </Badge>
-                      </div>
-
-                      <div className="flex-1 space-y-2 min-w-0">
-                        {group.classes.map(renderClassCard)}
-                        {group.isAssignedSubject && (
-                          <div
-                            className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
-                              student.status === 'ACTIVE'
-                                ? 'hover:border-primary/50 cursor-pointer'
-                                : 'opacity-50 cursor-not-allowed'
-                            }`}
-                            onClick={() => {
-                              handleAddClassClick(
-                                group.subjectId,
-                                currentClassCount,
-                                subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
-                              );
-                            }}
-                          >
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="flex items-center gap-2"
-                              disabled={!!student.deleted_at || student.status !== 'ACTIVE'}
-                            >
-                              <Plus className="h-4 w-4" />
-                              <span>Add Class</span>
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 pt-2">
-                    <SubjectSearchPopover
-                      selectedSubjects={studentSubjects}
-                      onSelectSubject={handleAddSubject}
-                      trigger={
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                        >
-                          <Plus className="h-3 w-3" />
-                          Add subject
+            return (
+              <div key={group.subjectId} className="flex items-start gap-4">
+                <div className="flex-shrink-0 pt-2">
+                  {group.isAssignedSubject && !student.deleted_at ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="rounded-full" aria-label={`${shortName} subject actions`}>
+                          <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>
+                            {shortName}
+                            <ChevronDown className="ml-1 size-3" />
+                          </Badge>
                         </button>
-                      }
-                    />
-                  </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          disabled={currentClassCount > 0}
+                          onSelect={() => void handleRemoveSubject(group.subjectId)}
+                        >
+                          Remove subject
+                        </DropdownMenuItem>
+                        {currentClassCount > 0 && (
+                          <p className="max-w-48 px-2 py-1 text-xs text-muted-foreground">
+                            End the current enrolment before removing this subject.
+                          </p>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>{shortName}</Badge>
+                  )}
                 </div>
 
-                {studentSubjects.length === 0 && classesBySubject.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No subjects assigned. Add a subject to get started.</p>
-                  </div>
-                )}
-
-                {isEditMode && student.status === 'DISCONTINUED' && (
-                  <div className="mt-8 pt-6 border-t">
-                    <h4 className="text-sm font-medium mb-4">Actions</h4>
-                    <div className="flex gap-2">
+                <div className="flex-1 space-y-2 min-w-0">
+                  {group.classes.map(renderClassCard)}
+                  {group.isAssignedSubject && (
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
+                        student.status === 'ACTIVE'
+                          ? 'hover:border-primary/50 cursor-pointer'
+                          : 'opacity-50 cursor-not-allowed'
+                      }`}
+                      onClick={() => {
+                        handleAddClassClick(
+                          group.subjectId,
+                          currentClassCount,
+                          subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
+                        );
+                      }}
+                    >
                       <Button
-                        variant="default"
+                        type="button"
+                        variant="ghost"
                         size="sm"
-                        onClick={handleReEnroll}
-                        disabled={isReEnrolling}
+                        className="flex items-center gap-2"
+                        disabled={!!student.deleted_at || student.status !== 'ACTIVE'}
                       >
-                        {isReEnrolling ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Re-enrolling...
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            Re-enroll
-                          </>
-                        )}
+                        <Plus className="h-4 w-4" />
+                        <span>Add Class</span>
                       </Button>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-          ) : (
-            <div className="h-[min(70dvh,640px)] min-h-[360px]">
-              <CalendarView
-                classes={timetableClasses}
-                classSubjects={timetableSubjects}
-                classStaff={timetableStaff}
-                classStudents={timetableStudents}
-                onClassClick={(cls) => handleClassClick(cls.id)}
-                showFilters={false}
+            );
+          })}
+
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 pt-2">
+              <SubjectSearchPopover
+                selectedSubjects={studentSubjects}
+                onSelectSubject={handleAddSubject}
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add subject
+                  </button>
+                }
               />
+            </div>
+          </div>
+
+          {studentSubjects.length === 0 && classesBySubject.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No subjects assigned. Add a subject to get started.</p>
+            </div>
+          )}
+
+          {!student.deleted_at && student.status === 'DISCONTINUED' && (
+            <div className="mt-8 pt-6 border-t">
+              <h4 className="text-sm font-medium mb-4">Actions</h4>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleReEnroll}
+                  disabled={isReEnrolling}
+                >
+                  {isReEnrolling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Re-enrolling...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Re-enroll
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>
+        </div>
 
-        {isEditMode && (
-          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
-              <div className="flex space-x-2">
-                <Button variant="outline" type="button" onClick={handleCancelEdit}>
-                  Cancel
-                </Button>
-                <Button variant="default" onClick={() => void handleSave()}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      
         {/* Class Modal */}
         {selectedClassId && (
           <ViewClassModal

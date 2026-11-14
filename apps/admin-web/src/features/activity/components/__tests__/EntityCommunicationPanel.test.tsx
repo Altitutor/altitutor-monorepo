@@ -90,8 +90,7 @@ function renderPanel(defaultShowActivity = true) {
       <EntityCommunicationPanel
         entityType="parent"
         entityId="parent"
-        initialContactId="parent-contact"
-        defaultShowActivity={defaultShowActivity}
+        initialContactId={defaultShowActivity ? undefined : "parent-contact"}
       />
     </QueryClientProvider>,
   );
@@ -138,7 +137,6 @@ it("places the filter in the conversation header without a second toolbar", asyn
         entityType="parent"
         entityId="parent"
         initialContactId="parent-contact"
-        defaultShowActivity={false}
         renderHeader={(filter) => (
           <header aria-label="Conversation header">
             {filter}

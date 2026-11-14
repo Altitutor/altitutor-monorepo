@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - 'apps/teaching-ipad/**'
+      - 'scripts/validation-plan.mjs'
+      - 'scripts/web-system-test-paths.mjs'
       - '.github/workflows/teaching-ipad.yml'
   push:
     branches: [develop]
     paths:
       - 'apps/teaching-ipad/**'
       - '.github/workflows/teaching-ipad.yml'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -20,8 +24,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  native:
-    name: Native lesson tests and simulator build
+  plan:
+    name: Select native validation
+    runs-on: ubuntu-latest
+    outputs:
+      selected: ${{ steps.selection.outputs.teaching_ipad }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Select checks from the complete event range
+        id: selection
+        run: node scripts/validation-plan.mjs --github-output >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Run native lesson tests and simulator build
+    needs: [plan]
+    if: ${{ needs.plan.outputs.selected == 'true' }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -37,3 +59,34 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/teaching-ipad"
           CODE_SIGNING_ALLOWED=NO build
+
+      - name: Live worksheet casting regressions
+        run: >-
+          python3 apps/teaching-ipad/Verification/Casting/run.py
+          --output "$RUNNER_TEMP/teaching-casting"
+      - name: Preserve casting test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teaching-casting-tests
+          path: ${{ runner.temp }}/teaching-casting/results.xcresult
+          if-no-files-found: ignore
+
+  native:
+    name: Native lesson tests and simulator build
+    if: ${{ always() }}
+    needs: [plan, validate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report auxiliary validation result
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SELECTED: ${{ needs.plan.outputs.selected }}
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+        run: |
+          echo "Selection: $SELECTED; plan: $PLAN_RESULT; validation: $VALIDATION_RESULT"
+          test "$PLAN_RESULT" = success || exit 1
+          case "$SELECTED:$VALIDATION_RESULT" in
+            true:success|false:skipped) exit 0 ;;
+            *) echo "::error::Auxiliary validation did not satisfy its plan"; exit 1 ;;
+          esac

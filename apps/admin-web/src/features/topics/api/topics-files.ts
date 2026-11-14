@@ -62,9 +62,9 @@ export const topicsFilesApi = {
       .from('topics_files')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Failed to get topic file:', error);
       throw error;
     }

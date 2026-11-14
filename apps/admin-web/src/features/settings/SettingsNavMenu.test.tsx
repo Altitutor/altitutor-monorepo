@@ -24,7 +24,7 @@ describe('SettingsNavMenu', () => {
     const openingHours = screen.getByRole('link', { name: 'Opening Hours' });
     expect(openingHours).toHaveAttribute('href', '/settings/opening-hours');
     expect(openingHours).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Pay tiers' })).toHaveAttribute('href', '/pay-tiers/ladder');
+    expect(screen.getByRole('link', { name: 'Pay tiers' })).toHaveAttribute('href', '/settings/pay-tiers');
     expect(screen.getByRole('link', { name: 'Blockout Dates' })).not.toHaveAttribute('aria-current');
   });
 
