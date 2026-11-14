@@ -72,6 +72,9 @@ function setup(v: unknown): boolean {
     ["online", "in_person"].includes(String(v.delivery)) &&
     ["exam", "feedback"].includes(String(v.mode)) &&
     typeof v.recordingEnabled === "boolean" &&
+    (v.rotationAllowanceSeconds === undefined ||
+      (number(v.rotationAllowanceSeconds, 0, 7200) &&
+        Number.isInteger(v.rotationAllowanceSeconds))) &&
     (v.scheduledAt === null ||
       (typeof v.scheduledAt === "string" &&
         /^\d{4}-\d{2}-\d{2}T/.test(v.scheduledAt) &&
@@ -79,7 +82,7 @@ function setup(v: unknown): boolean {
     array(v.studentIds, uuid, 6) &&
     Array.isArray(v.studentIds) &&
     v.studentIds.length > 0 &&
-    unique(v.studentIds) &&
+    unique(v.studentIds.map((id: string) => id.toLowerCase())) &&
     array(
       v.assignments,
       (a) => record(a) && uuid(a.stationId) && uuid(a.tutorId),
@@ -131,6 +134,25 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         typeof i.recordingEnabled === "boolean" &&
         typeof i.archived === "boolean" &&
         array(i.stations, station, 6)
+      );
+    }
+    case "createRounds": {
+      if (
+        !array(
+          value.rounds,
+          (round) => record(round) && uuid(round.roundId) && setup(round.setup),
+          100,
+        ) ||
+        !Array.isArray(value.rounds) ||
+        value.rounds.length === 0
+      ) return false;
+      const rounds = value.rounds as {
+        roundId: string;
+        setup: { studentIds: string[] };
+      }[];
+      return (
+        unique(rounds.map((round) => round.roundId.toLowerCase())) &&
+        unique(rounds.flatMap((round) => round.setup.studentIds.map((id) => id.toLowerCase())))
       );
     }
     case "createRound":
@@ -186,6 +208,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
     case "pause":
     case "resume":
     case "skipReading":
+    case "skipQuestions":
     case "next":
     case "release":
     case "endStation":

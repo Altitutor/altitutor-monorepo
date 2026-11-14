@@ -1,11 +1,17 @@
 'use client';
 
-import { Ban, User } from 'lucide-react';
+import { Ban, User, Video } from 'lucide-react';
 import { ClickableNavCard } from '@altitutor/ui';
 import { TutorPageContainer } from '@/shared/components/layouts';
 import { tutorCardCn } from '@/shared/lib/tutor-visual';
 
 const SETTINGS_LINKS = [
+  {
+    href: '/settings/audio-video',
+    label: 'Audio & video',
+    description: 'Test your camera, microphone, and a recording of your voice',
+    icon: Video,
+  },
   {
     href: '/settings/profile',
     label: 'My profile',

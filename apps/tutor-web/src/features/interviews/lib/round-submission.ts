@@ -5,35 +5,34 @@ import type {
 } from "@altitutor/shared";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 
-export function createRoundSubmission(
-  send: (command: InterviewCommand) => Promise<InterviewCommandResult>,
+type Send = (command: InterviewCommand) => Promise<InterviewCommandResult>;
+
+/** Retain an unknown outcome's exact identity and payload until recovery. */
+function createSubmission<Input, Command extends InterviewCommand, Result>(
+  send: Send,
+  build: (input: Input) => Command,
+  result: (command: Command) => Result,
 ) {
-  let pending: Extract<InterviewCommand, { type: "createRound" }> | null = null;
+  let pending: Command | null = null;
   let outcomeUnknown = false;
-  let flight: Promise<{ roundId: string; setup: InterviewRoundSetup }> | null =
-    null;
+  let flight: Promise<Result> | null = null;
   return {
     get pending() {
       return pending !== null;
     },
-    submit(setup: InterviewRoundSetup) {
+    submit(input: Input): Promise<Result> {
       if (flight) return flight;
-      const command = (pending ??= {
-        type: "createRound",
-        commandId: randomUuid(),
-        roundId: randomUuid(),
-        setup: JSON.parse(JSON.stringify(setup)) as InterviewRoundSetup,
-      });
+      const command = (pending ??= build(input));
       flight = Promise.resolve()
         .then(() => send(command))
         .then(() => {
           pending = null;
           outcomeUnknown = false;
-          return { roundId: command.roundId, setup: command.setup };
+          return result(command);
         })
         .catch((error: unknown) => {
-          // A later auth/validation rejection cannot disprove an earlier
-          // committed write whose response was lost.
+          // A later auth rejection cannot disprove an earlier committed write
+          // whose response was lost. Keep that original request recoverable.
           const rejected =
             error instanceof Error &&
             "status" in error &&
@@ -51,4 +50,36 @@ export function createRoundSubmission(
       return flight;
     },
   };
+}
+
+export function createRoundSubmission(send: Send) {
+  return createSubmission(
+    send,
+    (
+      setup: InterviewRoundSetup,
+    ): Extract<InterviewCommand, { type: "createRound" }> => ({
+      type: "createRound",
+      commandId: randomUuid(),
+      roundId: randomUuid(),
+      setup: JSON.parse(JSON.stringify(setup)) as InterviewRoundSetup,
+    }),
+    (command) => ({ roundId: command.roundId, setup: command.setup }),
+  );
+}
+
+export function createRoundsSubmission(send: Send) {
+  return createSubmission(
+    send,
+    (
+      setups: InterviewRoundSetup[],
+    ): Extract<InterviewCommand, { type: "createRounds" }> => ({
+      type: "createRounds",
+      commandId: randomUuid(),
+      rounds: setups.map((setup) => ({
+        roundId: randomUuid(),
+        setup: JSON.parse(JSON.stringify(setup)) as InterviewRoundSetup,
+      })),
+    }),
+    (command) => ({ rounds: command.rounds }),
+  );
 }

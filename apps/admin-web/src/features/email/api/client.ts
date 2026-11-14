@@ -116,6 +116,18 @@ export async function mailRequest(
   }
   return value;
 }
+const unreadMailCountKey = ["email", "unread-count"] as const;
+const unreadMailCountSchema = z.object({ count: z.number().int().nonnegative() });
+
+export function useUnreadMailCount() {
+  return useQuery({
+    queryKey: unreadMailCountKey,
+    queryFn: async () => unreadMailCountSchema.parse(await mailRequest("/unread-count")).count,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
+
 export function useMailbox(
   params: {
     folder?: string;
@@ -234,6 +246,8 @@ export function useEmailCommand() {
       void client.invalidateQueries({ queryKey: ["email", "mailbox"] });
       void client.invalidateQueries({ queryKey: ["email", "thread"] });
       void client.invalidateQueries({ queryKey: ["email", "correspondence"] });
+      if (command.action === "read" || command.action === "move" || command.action === "undo")
+        void client.invalidateQueries({ queryKey: unreadMailCountKey });
       if (command.action === "assign")
         void client.invalidateQueries({ queryKey: ["notifications"] });
     },
@@ -244,6 +258,7 @@ export function useSyncMailbox() {
   return useMutation({
     mutationFn: () => mailRequest("/sync", {}),
     onSettled: () => {
+      void client.invalidateQueries({ queryKey: unreadMailCountKey });
       void client.invalidateQueries({ queryKey: ["email", "mailbox"] });
       void client.invalidateQueries({ queryKey: ["email", "thread"] });
       void client.invalidateQueries({ queryKey: ["email", "correspondence"] });

@@ -66,6 +66,51 @@ function missingFeedback(
 
 const feedbackLock = "You can't start typing feedback until reading time.";
 
+function InterviewQuestionTab({
+  index,
+  selected,
+  unanswered,
+  questionText,
+  onSelect,
+}: {
+  index: number;
+  selected: boolean;
+  unanswered: boolean;
+  questionText: string;
+  onSelect: () => void;
+}) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn("relative", selected && "bg-muted")}
+            aria-current={selected ? "true" : undefined}
+            aria-label={
+              unanswered
+                ? `Question ${index + 1}, unanswered`
+                : `Question ${index + 1}`
+            }
+            onClick={onSelect}
+          >
+            Question {index + 1}
+            {unanswered && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 size-2.5 rounded-full bg-destructive ring-2 ring-background"
+              />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-md whitespace-pre-wrap">
+          {questionText}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function LockedEntry({
   locked,
   children,
@@ -303,6 +348,8 @@ export function AttemptEditor({
     selectedQuestionId,
     round.phase,
     round.pausedAt,
+    // A refetch can observe a newer round after both pause and resume.
+    round.version,
   ]);
   const response = draft.feedback.find(
     (feedback) => feedback.placementId === question?.id,
@@ -519,29 +566,14 @@ export function AttemptEditor({
               )?.value ?? null,
             ).trim();
             return (
-              <Button
-                variant="ghost"
-                className={cn(
-                  "relative",
-                  index === questionIndex && "bg-muted",
-                )}
+              <InterviewQuestionTab
                 key={item.id}
-                aria-current={index === questionIndex ? "true" : undefined}
-                aria-label={
-                  unanswered
-                    ? `Question ${index + 1}, unanswered`
-                    : `Question ${index + 1}`
-                }
-                onClick={() => setQuestionIndex(index)}
-              >
-                Question {index + 1}
-                {unanswered && (
-                  <span
-                    aria-hidden
-                    className="absolute -right-1 -top-1 size-2.5 rounded-full bg-destructive ring-2 ring-background"
-                  />
-                )}
-              </Button>
+                index={index}
+                selected={index === questionIndex}
+                unanswered={unanswered}
+                questionText={interviewText(item.question)}
+                onSelect={() => setQuestionIndex(index)}
+              />
             );
           })}
         </div>
@@ -649,20 +681,14 @@ export function StationMaterials({
       <InterviewPanel title="Question feedback" className="space-y-5">
         <div className="flex flex-wrap gap-2 px-1 pt-1">
           {station.questions.map((item, index) => (
-            <Button
-              variant="ghost"
-              className={cn("relative", index === questionIndex && "bg-muted")}
+            <InterviewQuestionTab
               key={item.id}
-              aria-current={index === questionIndex ? "true" : undefined}
-              aria-label={`Question ${index + 1}, unanswered`}
-              onClick={() => setQuestionIndex(index)}
-            >
-              Question {index + 1}
-              <span
-                aria-hidden
-                className="absolute -right-1 -top-1 size-2.5 rounded-full bg-destructive ring-2 ring-background"
-              />
-            </Button>
+              index={index}
+              selected={index === questionIndex}
+              unanswered
+              questionText={interviewText(item.question)}
+              onSelect={() => setQuestionIndex(index)}
+            />
           ))}
         </div>
         {question && (

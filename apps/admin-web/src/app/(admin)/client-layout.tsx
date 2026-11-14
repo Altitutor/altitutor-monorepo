@@ -2,6 +2,8 @@
 
 import { AdminToolbarViewsProvider } from '@/features/quick-filters/components/ToolbarViewsService';
 import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
+import { useUnreadConversationCount } from '@/features/messages/api/queries';
+import { useUnreadMailCount } from '@/features/email/api/client';
 import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
 import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
 import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
@@ -38,6 +40,10 @@ import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
 import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
+import { useReconciliationCounts } from '@/features/reconciliation/api/useReconciliationCounts';
+import { ReconciliationCountBadge } from '@/features/reconciliation/components/ReconciliationCountBadge';
+import { reconciliationCountSummary, sidebarReconciliationQueues, type ReconciliationCounts } from '@/features/reconciliation/utils/countSummary';
+import { RedCountBadge } from '@/shared/components/RedCountBadge';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -81,7 +87,7 @@ function SidebarExpandablePanel({
         expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
       )}
     >
-      <div className="min-h-0 overflow-hidden">
+      <div className="min-h-0 overflow-hidden" inert={!expanded}>
         <div className="flex flex-col gap-1">{children}</div>
       </div>
     </div>
@@ -145,36 +151,41 @@ function ExpandableNavGroup({
   item,
   pathname,
   collapsed = false,
+  counts,
 }: {
   item: Extract<NavItem, { type?: "link" }> & {
     children: { title: string; href: string }[];
   };
   pathname: string;
   collapsed?: boolean;
+  counts: ReconciliationCounts;
 }) {
-  const [expanded, toggleExpanded] = useSectionExpanded(pathname, item.href);
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const activePath = item.href === '/billing' && pathname.startsWith('/invoices/') ? '/billing/invoices' : pathname;
+  const [expanded, toggleExpanded] = useSectionExpanded(activePath, item.href);
+  const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
   const Icon = item.icon;
+  const queues = sidebarReconciliationQueues[item.href];
 
   if (collapsed) {
     return (
-      <TooltipProvider delayDuration={150}>
+      <TooltipProvider delayDuration={0}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
               href={item.href}
               prefetch={false}
               className={cn(
-                "flex items-center justify-center rounded-md px-0 py-2 text-sm",
+                "relative flex items-center justify-center rounded-md px-0 py-2 text-sm",
                 active ? navLinkActiveStyles : navLinkInactiveStyles,
               )}
             >
               <Icon className="h-6 w-6" />
               <span className="sr-only">{item.title}</span>
+              {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="absolute right-0.5 top-0 text-[10px]" />}
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10}>
-            {item.title}
+          <TooltipContent side="right" sideOffset={10} className="max-w-sm whitespace-pre-line">
+            {queues ? `${item.title}\n${reconciliationCountSummary(queues, counts).tooltip}` : item.title}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -196,6 +207,7 @@ function ExpandableNavGroup({
         >
           <Icon className="h-5 w-5 shrink-0" />
           <span className="truncate">{item.title}</span>
+          {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="ml-auto" />}
         </Link>
         <button
           type="button"
@@ -223,12 +235,13 @@ function ExpandableNavGroup({
               prefetch={false}
               className={cn(
                 "flex items-center rounded-md px-2 py-1.5 text-sm",
-                childNavActive(pathname, item.href, child.href)
+                childNavActive(activePath, item.href, child.href)
                   ? navLinkActiveStyles
                   : navLinkInactiveStyles,
               )}
             >
               {child.title}
+              {sidebarReconciliationQueues[child.href] && <ReconciliationCountBadge queues={sidebarReconciliationQueues[child.href]} counts={counts} className="ml-auto" />}
             </Link>
           ))}
         </div>
@@ -247,6 +260,9 @@ function AdminNavMenu({
   const { router: paneRouter } = usePaneNavigation();
   const { collapsedGroups } = useAdminShell();
   const pathname = usePathname();
+  const { data: unreadMessages = 0 } = useUnreadConversationCount();
+  const { data: unreadMail = 0 } = useUnreadMailCount();
+  const counts = useReconciliationCounts();
   const sections = groupNavItems(navItems);
 
   const openAccessory = (event: React.MouseEvent, href: string) => {
@@ -273,24 +289,31 @@ function AdminNavMenu({
                 item={{ ...item, children: item.children }}
                 pathname={pathname}
                 collapsed={collapsed}
+                counts={counts}
               />
             );
           }
 
+          const count = item.href === "/messages" ? unreadMessages : item.href === "/email" ? unreadMail : 0;
+          const countLabel = item.href === "/messages"
+            ? (count === 1 ? "unread conversation" : "unread conversations")
+            : (count === 1 ? "unread Inbox email" : "unread Inbox emails");
+          const linkLabel = count > 0 ? `${item.title}, ${count} ${countLabel}` : item.title;
           const link = (
             <Link
               href={itemHref}
               onClick={(event) => openAccessory(event, itemHref)}
               prefetch={false}
+              aria-label={linkLabel}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm",
                 isNavItemActive(pathname, item)
                   ? navLinkActiveStyles
                   : navLinkInactiveStyles,
                 collapsed && "justify-center px-0",
               )}
             >
-              <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+              <Icon className={cn("size-5 shrink-0", collapsed && "size-6")} aria-hidden />
               {collapsed ? (
                 <span className="sr-only">{item.title}</span>
               ) : (
@@ -298,6 +321,15 @@ function AdminNavMenu({
                   {item.title}
                 </span>
               )}
+              {count > 0 ? (
+                <RedCountBadge
+                  count={collapsed && count > 99 ? '99+' : count}
+                  tooltip={`${count} ${countLabel}`}
+                  className={cn(
+                    collapsed ? "absolute right-0.5 top-0 text-[10px]" : "ml-auto",
+                  )}
+                />
+              ) : sidebarReconciliationQueues[itemHref] ? <ReconciliationCountBadge queues={sidebarReconciliationQueues[itemHref]} counts={counts} className={collapsed ? "absolute right-0.5 top-0 text-[10px]" : "ml-auto"} /> : null}
             </Link>
           );
 
@@ -306,11 +338,11 @@ function AdminNavMenu({
           }
 
           return (
-            <TooltipProvider key={item.href} delayDuration={150}>
+            <TooltipProvider key={item.href} delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10}>
-                  {item.title}
+                <TooltipContent side="right" sideOffset={10} className="max-w-sm whitespace-pre-line">
+                  {sidebarReconciliationQueues[itemHref] ? `${item.title}\n${reconciliationCountSummary(sidebarReconciliationQueues[itemHref], counts).tooltip}` : linkLabel}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
