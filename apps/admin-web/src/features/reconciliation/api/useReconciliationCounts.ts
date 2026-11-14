@@ -6,6 +6,7 @@ import { reconciliationViews, type ReconciliationViewKey } from '@/features/quic
 import { reconciliationCountReaders } from './reconciliation';
 import { reconciliationKeys } from './queryKeys';
 import { reconciliationSessionIdsQuery } from './sessionQueues';
+import type { ReconciliationCounts } from '../utils/countSummary';
 
 type CountData = number | string[] | BillingCharge[] | SessionBillingAdjustmentIssue[];
 
@@ -35,11 +36,24 @@ export function useReconciliationCount(key: ReconciliationViewKey) {
   return useQuery<CountData, Error, number>(reconciliationCountOptions(key));
 }
 
-export function useReconciliationCounts() {
-  const results = useQueries({
-    queries: reconciliationViews.map(({ slug }) => reconciliationCountOptions(slug)),
+const allCountKeys = [...reconciliationViews.map(({ slug }) => slug), 'void-invoices'] as const;
+
+export function useReconciliationCounts(keys: readonly ReconciliationViewKey[] = allCountKeys) {
+  // Both charge counts observe the same raw result so a breakdown cannot mix
+  // different snapshots, and useQueries never receives duplicate cache keys.
+  const { data: charges } = useQuery({
+    queryKey: billingChargesQuery.queryKey,
+    queryFn: loadBillingCharges,
+    staleTime: 30_000,
+    enabled: keys.includes('uninvoiced') || keys.includes('void-invoices'),
   });
-  return Object.fromEntries(reconciliationViews.map(({ slug }, index) => [
-    slug, results[index].data,
-  ])) as Record<ReconciliationViewKey, number | undefined>;
+  const otherKeys = keys.filter((key) => key !== 'uninvoiced' && key !== 'void-invoices');
+  const results = useQueries({
+    queries: otherKeys.map((key) => reconciliationCountOptions(key)),
+  });
+  return Object.fromEntries(keys.map((key) => {
+    if (key === 'uninvoiced') return [key, charges?.length];
+    if (key === 'void-invoices') return [key, charges?.filter((row) => row.reason === 'voided').length];
+    return [key, results[otherKeys.indexOf(key)].data];
+  })) as ReconciliationCounts;
 }

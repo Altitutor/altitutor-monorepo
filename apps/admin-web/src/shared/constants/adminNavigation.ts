@@ -77,9 +77,14 @@ export const navItems: NavItem[] = [
     title: "FINANCIAL",
   },
   {
-    title: "Billing",
+    title: "Invoices",
     href: "/billing",
     icon: CreditCard,
+    children: [
+      { title: "All invoices", href: "/billing/invoices" },
+      { title: "To invoice", href: "/billing/to-invoice" },
+      { title: "Adjustments", href: "/billing/adjustments" },
+    ],
   },
   {
     title: "Reports",

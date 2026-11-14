@@ -60,10 +60,20 @@ export function useInterviewQuestionTiming(
           void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
         } catch (error) {
           if (queue.current[0] !== command) continue;
+          const latestRound = current.current;
+          // A group action can close answering before its effects clear the queue.
+          if (!latestRound.active || latestRound.roundId !== command.roundId ||
+            latestRound.attempt?.id !== command.attemptId) {
+            queue.current = [];
+            intended.current = latestRound.attempt?.selectedQuestionId;
+            if (mounted.current) setTimingError(null);
+            if (questionTimingClosed(error))
+              void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+            break;
+          }
           // A selection can arrive after the server closes the answering interval.
           if (questionTimingClosed(error)) {
             const latestSelection = queue.current.at(-1);
-            const latestRound = current.current;
             queue.current = [];
             intended.current = latestRound.attempt?.selectedQuestionId;
             if (mounted.current) setTimingError(null);
@@ -76,7 +86,7 @@ export function useInterviewQuestionTiming(
               queue.current.push({ ...latestSelection, commandId: randomUuid() });
               continue;
             }
-          } else if (mounted.current) {
+          } else if (mounted.current && scope.current === command.attemptId) {
             setTimingError(error instanceof Error ? error.message : "Question timing could not save. Retry when connected.");
           }
           break;

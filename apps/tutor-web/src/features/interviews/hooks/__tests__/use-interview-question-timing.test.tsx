@@ -47,6 +47,45 @@ test("an unknown network outcome retries the same command identity", async () =>
   expect(result.current.timingError).toBeNull();
 });
 
+test.each(["Questions are not active for this station", "Offline"])(
+  "a group skip discards late rejected navigation (%s) without a retry error", async (message) => {
+  let rejectSelection: ((error: Error) => void) | undefined;
+  send.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSelection = reject; }));
+  const { result, rerender } = renderHook(
+    ({ value }) => useInterviewQuestionTiming(value, attempt),
+    { wrapper, initialProps: { value: round } },
+  );
+  act(() => {
+    result.current.onQuestionSelected("q2");
+    result.current.onQuestionSelected("q3");
+  });
+  rerender({ value: { ...round, phase: "feedback" } });
+  await act(async () => rejectSelection?.(Object.assign(
+    new Error(message),
+    { status: message === "Offline" ? 503 : 400 },
+  )));
+
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+test("a group skip clears an earlier network error once feedback is rendered", async () => {
+  const message = "Offline";
+  send.mockRejectedValueOnce(new Error(message));
+  const { result, rerender } = renderHook(
+    ({ value }) => useInterviewQuestionTiming(value, attempt),
+    { wrapper, initialProps: { value: round } },
+  );
+  act(() => result.current.onQuestionSelected("q2"));
+  await waitFor(() => expect(result.current.timingError).toBe(message));
+
+  rerender({ value: { ...round, phase: "feedback" } });
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
 test("paused and non-question phases cannot extend answering time", () => {
   const {result} = renderHook(() => useInterviewQuestionTiming({...round,pausedAt:"2026-11-05T10:00:00Z"},attempt),{wrapper});
   act(() => result.current.onQuestionSelected("q2"));

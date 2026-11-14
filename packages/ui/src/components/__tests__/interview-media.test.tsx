@@ -1377,7 +1377,7 @@ it("records the assigned student when a receive-only observer is listed first", 
   );
 });
 
-it("keeps mute and camera choices when a waiting-room device test closes", async () => {
+it.each(["close", "reading"])("keeps waiting-room preferences when a device test ends via %s", async (ending) => {
   jest.mocked(fetch).mockResolvedValue(response({
     ...ticket, expiresAt: new Date(Date.now() + 60_000).toISOString(),
   }));
@@ -1386,7 +1386,12 @@ it("keeps mute and camera choices when a waiting-room device test closes", async
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Turn camera off"]')?.click());
   await act(async () => [...container.querySelectorAll("button")].find((button) => button.textContent === "Test audio & video")?.click());
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-  await act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Close")?.click());
+  if (ending === "close") {
+    await act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Close")?.click());
+  } else {
+    await render(<InterviewMedia roundId="round" phase="reading" delivery="online" role="student" enabled />);
+  }
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(container.querySelector('[aria-label="Unmute"]')).not.toBeNull();
   expect(container.querySelector('[aria-label="Turn camera on"]')).not.toBeNull();
 });
