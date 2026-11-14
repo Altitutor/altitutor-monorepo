@@ -132,6 +132,30 @@ stop repeated churn and coordinate the active owners instead of bypassing rules.
 
 ## Native queue activation runbook
 
+### Rollout record — 14 November 2026
+
+[PR #376](https://github.com/Altitutor/altitutor-monorepo/pull/376) delivered
+the queue-compatible workflows as develop commit `838af8275`. Its source tree
+passed the independent full local profile (15m22s) and all required CI checks
+(19m00s for the full CI workflow). These are initial measurements, not a
+multi-ticket throughput benchmark.
+
+The authorized administrator activated develop's queue and independently read
+back its effective rules. The settings in step 3 below are now active; all seven
+required check/app bindings, review/security requirements and bypass policy
+were preserved. Main and repository-wide settings were unchanged. See
+[DEV-433](https://linear.app/altitutor/issue/DEV-433/reduce-validation-latency-and-automate-protected-develop-integration)
+for the authoritative activation receipt, current recovery owner and live-test
+outcome. Read current effective rules before making any later settings change.
+
+At this record's publication, live queued-PR verification remains pending.
+The rollout owner admits the reviewed documentation follow-up through normal
+queue permissions, verifies step 4, then records the advisory target-window
+release in Linear. Subsequent ready PRs use native queue admission rather than
+reserving develop while waiting for CI. Keep local machine permits separate.
+
+### Activation and recovery procedure
+
 The repository is public and owned by an organization, so GitHub's public-org
 merge queue eligibility applies; private-org Enterprise requirements are not
 the blocker here. Configuration still requires the authorized administration
