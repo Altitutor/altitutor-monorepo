@@ -58,11 +58,21 @@ function useBrowserOnline() {
 
 function FullscreenButton() {
   const [active, setActive] = useState(false);
+  const [supported, setSupported] = useState(false);
   useEffect(() => {
-    const sync = () => setActive(document.fullscreenElement !== null);
+    const sync = () => {
+      setActive(Boolean(document.fullscreenElement));
+      setSupported(
+        document.fullscreenEnabled !== false &&
+          typeof document.documentElement.requestFullscreen === "function" &&
+          typeof document.exitFullscreen === "function",
+      );
+    };
+    sync();
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
+  if (!supported) return null;
   return (
     <Button
       type="button"
@@ -70,12 +80,21 @@ function FullscreenButton() {
       size="icon"
       className={studentBtnIconOutline}
       aria-label={active ? "Exit fullscreen" : "Full screen"}
-      onClick={() => {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else
-          void document.documentElement
-            .requestFullscreen()
-            .catch(() => undefined);
+      onClick={async () => {
+        try {
+          if (document.fullscreenElement) {
+            if (typeof document.exitFullscreen === "function") {
+              await document.exitFullscreen();
+            }
+          } else if (
+            document.fullscreenEnabled !== false &&
+            typeof document.documentElement.requestFullscreen === "function"
+          ) {
+            await document.documentElement.requestFullscreen();
+          }
+        } catch {
+          // Fullscreen is optional; denied or unavailable APIs must not interrupt the interview.
+        }
       }}
     >
       {active ? (
