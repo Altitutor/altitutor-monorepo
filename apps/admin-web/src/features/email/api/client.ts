@@ -268,6 +268,7 @@ export function useSyncMailbox() {
 export function useEntityEmails(
   type: "student" | "parent" | "staff",
   id: string,
+  enabled = true,
 ) {
   return useInfiniteQuery({
     queryKey: ["email", "correspondence", type, id],
