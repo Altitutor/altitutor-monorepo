@@ -1,3 +1,6 @@
+import { replaceStudyPlanGeneration } from "./generation-replacement";
+import { profileInput, planningDateFor } from "./preparation-profile";
+import { persistPreparationProgression } from "./preparation-progression";
 import { isLearningModuleJourneyPlacement } from "@altitutor/shared";
 import "server-only";
 
@@ -37,11 +40,7 @@ import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
-import {
-  addDays,
-  midpointDate,
-  todayIso,
-} from "@/features/study-plan/lib/dates";
+import { todayIso } from "@/features/study-plan/lib/dates";
 import {
   generateExtraStudyTasks,
   reviewTask,
@@ -95,14 +94,6 @@ import type {
   StudyPlanTimingEvidenceSession,
 } from "@/features/study-plan/model/types";
 
-type StudyPlanReason =
-  | "onboarding"
-  | "weekly"
-  | "profile_changed"
-  | "mock_completed"
-  | "significant_activity"
-  | "manual";
-
 type ProfileRow =
   Database["public"]["Tables"]["ucat_student_study_plan_profiles"]["Row"];
 type GenerationRow =
@@ -150,37 +141,6 @@ function taskStatus(value: string): StudyPlanTaskStatus {
   return "planned";
 }
 
-function parseAvailability(
-  value: Json,
-): StudyPlanProfileInput["availableDays"] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const weekday = item.weekday;
-    if (typeof weekday !== "number" || weekday < 0 || weekday > 6) return [];
-    return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6 }];
-  });
-}
-
-function profileInput(profile: ProfileRow): StudyPlanProfileInput {
-  return {
-    studyPlanEnabled: profile.study_plan_enabled,
-    targetScore: profile.target_score,
-    testYear: profile.test_year,
-    testDate: profile.test_date,
-    availableDays: parseAvailability(profile.available_days),
-    preferredMockWeekday: profile.preferred_mock_weekday as
-      | 0
-      | 1
-      | 2
-      | 3
-      | 4
-      | 5
-      | 6,
-    sjtPreference: normalizeSjtPreference(profile.sjt_preference),
-  };
-}
-
 async function resolveStudentId(userId: string): Promise<string> {
   return (await resolveStudent(userId)).id;
 }
@@ -200,27 +160,6 @@ async function resolveStudent(
     id: data.id,
     timezone: data.timezone || "Australia/Adelaide",
   };
-}
-
-async function planningDateFor(profile: ProfileRow): Promise<{
-  planningDate: string;
-  provisional: boolean;
-}> {
-  if (profile.test_date)
-    return { planningDate: profile.test_date, provisional: false };
-  const admin = requireAdmin();
-  const { data } = await admin
-    .from("ucat_study_plan_test_windows")
-    .select("testing_starts_on, testing_ends_on")
-    .eq("test_year", profile.test_year)
-    .maybeSingle();
-  if (data) {
-    return {
-      planningDate: midpointDate(data.testing_starts_on, data.testing_ends_on),
-      provisional: true,
-    };
-  }
-  return { planningDate: `${profile.test_year}-07-15`, provisional: true };
 }
 
 type PreloadedRow = Record<string, unknown>;
@@ -1389,173 +1328,6 @@ export async function loadDevelopmentCatalogSandboxCase(
   };
 }
 
-async function persistPreparationProgression(
-  studentId: string,
-  testYear: number,
-  preparation: PreparationEngineResult,
-): Promise<void> {
-  const graduationEvents = preparation.progressionEvents.filter(
-    (event) => event.type === "learning_graduated",
-  );
-  const rows = graduationEvents.map((event) => ({
-    student_id: studentId,
-    test_year: testYear,
-    section_id: event.sectionId,
-    learning_graduated_at: event.occurredAt,
-    learning_graduation_route: event.route,
-    policy_version: event.policyVersion,
-    evidence_snapshot: {
-      assessment: preparation.assessment.sections.find(
-        (section) => section.sectionId === event.sectionId,
-      ),
-      score: preparation.currentScore.sections.find(
-        (section) => section.sectionId === event.sectionId,
-      ),
-    },
-  }));
-  const admin = requireAdmin();
-  if (rows.length) {
-    const { error } = await admin
-      .from("ucat_student_preparation_section_states")
-      .upsert(rows, {
-        onConflict: "student_id,test_year,section_id",
-        ignoreDuplicates: true,
-      });
-    if (error) throw error;
-  }
-  const timingEvents = preparation.progressionEvents.filter(
-    (event) => event.type === "timing_pace_changed",
-  );
-  await Promise.all(
-    timingEvents.map(async (event) => {
-      const { error } = await admin
-        .from("ucat_student_preparation_section_states")
-        .update({
-          prescribed_pace: event.toPace,
-          prescribed_pace_set_at: event.occurredAt,
-          pace_policy_version: event.policyVersion,
-          timing_evidence_snapshot: {
-            reason: event.reason,
-            assessment: preparation.assessment.sections.find(
-              (section) => section.sectionId === event.sectionId,
-            ),
-          },
-        })
-        .eq("student_id", studentId)
-        .eq("test_year", testYear)
-        .eq("section_id", event.sectionId);
-      if (error) throw error;
-    }),
-  );
-}
-
-async function persistGeneration(
-  studentId: string,
-  profile: ProfileRow,
-  planningDate: string,
-  preparation: PreparationEngineResult,
-  reason: StudyPlanReason,
-  completedMockCount: number,
-  signals: StudyPlanSectionSignal[],
-  today: string,
-  preserveThrough: string | null,
-  refreshRequestVersion?: number,
-): Promise<void> {
-  const admin = requireAdmin();
-  const result = preparation.plan;
-  const generatedAt = preparation.generatedAt;
-  if (preserveThrough) {
-    const { data: activeGeneration, error: generationError } = await admin
-      .from("ucat_student_study_plan_generations")
-      .select("id")
-      .eq("student_id", studentId)
-      .is("superseded_at", null)
-      .maybeSingle();
-    if (generationError) throw generationError;
-    if (activeGeneration) {
-      const { error: missedWorkError } = await admin
-        .from("ucat_student_study_plan_tasks")
-        .update({
-          status: "skipped",
-          skipped_at: generatedAt,
-          skipped_reason: "rollover",
-        })
-        .eq("generation_id", activeGeneration.id)
-        .lt("scheduled_date", preserveThrough)
-        .in("status", ["planned", "partial"]);
-      if (missedWorkError) throw missedWorkError;
-    }
-  }
-  const preparedTasks = prepareStudyPlanTasks(
-    result.tasks,
-    preserveThrough,
-    randomUUID,
-  );
-  const taskRows = preparedTasks.map((task) => ({
-    id: task.id,
-    scheduled_date: task.scheduledDate,
-    sort_order: task.sortOrder,
-    task_type: task.taskType,
-    title: task.title,
-    description: task.description,
-    rationale: task.rationale,
-    estimated_minutes: task.estimatedMinutes,
-    target_units: task.targetUnits,
-    section_id: task.sectionId,
-    question_stem_category_id: task.questionStemCategoryId,
-    question_tag_id: task.questionTagId,
-    learning_module_id: task.learningModuleId,
-    question_set_id: task.questionSetId,
-    mock_id: task.mockId,
-    skill_trainer_id: task.skillTrainerId,
-    launch_path: task.launchPath,
-    launch_config: task.launchConfig,
-    source_task_id: task.sourceTaskId,
-  }));
-  const replacementParams = {
-    p_student_id: studentId,
-    p_profile_id: profile.id,
-    p_reason: reason,
-    p_planning_date: planningDate,
-    p_starts_on: today,
-    p_ends_on: result.endsOn,
-    p_input_snapshot: {
-      seed: preparation.seed,
-      versions: preparation.versions,
-      timingProfile: preparation.timingProfile,
-      targetScore: profile.target_score,
-      testYear: profile.test_year,
-      testDate: profile.test_date,
-      availableDays: profile.available_days,
-      preferredMockWeekday: profile.preferred_mock_weekday,
-      sjtPreference: normalizeSjtPreference(profile.sjt_preference),
-      completedMockCount,
-    },
-    p_projection_snapshot: {
-      versions: preparation.versions,
-      sectionTargets: result.sectionTargets,
-      sectionSignals: signals,
-      readiness: result.readiness,
-      currentScore: preparation.currentScore,
-      trajectory: preparation.trajectory,
-      explanationTrace: preparation.explanationTrace,
-    },
-    p_capacity_risk: result.capacityRisk as unknown as Json,
-    p_tasks: taskRows as unknown as Json,
-    p_next_weekly_replan_on: addDays(today, 7),
-    p_setup_completed_at: profile.setup_completed_at ?? generatedAt,
-    p_preserve_through: preserveThrough ?? undefined,
-  };
-  const { error } = refreshRequestVersion
-    ? await admin.rpc("replace_ucat_study_plan_generation_for_refresh", {
-        ...replacementParams,
-        p_preserve_through: preserveThrough ?? today,
-        p_refresh_request_version: refreshRequestVersion,
-      })
-    : await admin.rpc("replace_ucat_study_plan_generation", replacementParams);
-  if (error) throw error;
-}
-
 async function loadForecastEvidence(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -1762,101 +1534,31 @@ async function runCanonicalPreparation(input: {
   });
 }
 
-async function generateForProfile(
-  supabase: SupabaseClient<Database>,
-  studentId: string,
-  profile: ProfileRow,
-  reason: StudyPlanReason,
-  refreshRequestVersion?: number,
-): Promise<void> {
-  const { planningDate } = await planningDateFor(profile);
-  const inputs = await loadGenerationInputs(
-    supabase,
-    studentId,
-    profile.test_year,
-  );
-  const now = new Date();
-  const { data: student, error: studentError } = await requireAdmin()
-    .from("students")
-    .select("timezone")
-    .eq("id", studentId)
-    .single();
-  if (studentError) throw studentError;
-  const today = todayIso(now, student.timezone || "Australia/Adelaide");
-  const preserveThrough = reason === "onboarding" ? null : today;
-  const { data: activeGeneration, error: activeGenerationError } =
-    preserveThrough
-      ? await requireAdmin()
-          .from("ucat_student_study_plan_generations")
-          .select("id")
-          .eq("student_id", studentId)
-          .is("superseded_at", null)
-          .maybeSingle()
-      : { data: null, error: null };
-  if (activeGenerationError) throw activeGenerationError;
-  // Replacement retains today's tasks and earlier active work. Reserve those
-  // general lessons without treating missed tasks or lessons as complete.
-  const { data: preservedGeneralTasks, error: preservedGeneralTasksError } =
-    preserveThrough && activeGeneration
-      ? await requireAdmin()
-          .from("ucat_student_study_plan_tasks")
-          .select("learning_module_id, scheduled_date, status")
-          .eq("student_id", studentId)
-          .eq("generation_id", activeGeneration.id)
-          .eq("task_type", "learn")
-          .is("section_id", null)
-          .in("status", ["planned", "partial", "in_progress"])
-          .lte("scheduled_date", preserveThrough)
-      : { data: [], error: null };
-  if (preservedGeneralTasksError) throw preservedGeneralTasksError;
-  const preservedGeneralLessonIds = (preservedGeneralTasks ?? []).flatMap(
-    (task) =>
-      task.learning_module_id &&
-      (task.scheduled_date === preserveThrough || task.status === "in_progress")
-        ? [task.learning_module_id]
-        : [],
-  );
-  const generatedPreparation = await runCanonicalPreparation({
-    supabase,
-    studentId,
-    preservePlanThrough: preserveThrough,
-    preservedGeneralLessonIds,
-    profile: { ...profileInput(profile), studyPlanEnabled: true },
-    planningDate,
-    inputs,
-    today,
-    now: now.toISOString(),
-    seed: `study-plan:${studentId}:${reason}:${today}`,
-  });
-  const preparation: PreparationEngineResult = {
-    ...generatedPreparation,
-    trajectory: {
-      ...generatedPreparation.trajectory,
-      history: mergeCurrentPreparationHistory(
-        generatedPreparation.trajectory.history,
-        generatedPreparation.currentScore,
-        today,
-        generatedPreparation.versions.trajectoryModel,
-      ),
-    },
+function generationDependencies(supabase: SupabaseClient<Database>) {
+  return {
+    admin: requireAdmin(),
+    now: () => new Date(),
+    createId: randomUUID,
+    loadInputs: (studentId: string, testYear: number) =>
+      loadGenerationInputs(supabase, studentId, testYear),
+    prepare: (context: {
+      studentId: string;
+      profile: StudyPlanProfileInput;
+      planningDate: string;
+      today: string;
+      now: string;
+      seed: string;
+      preserveThrough: string | null;
+      preservedGeneralLessonIds: string[];
+      inputs: CanonicalPreparationInputs;
+    }) =>
+      runCanonicalPreparation({
+        ...context,
+        supabase,
+        studentId: context.studentId,
+        preservePlanThrough: context.preserveThrough,
+      }),
   };
-  await persistPreparationProgression(
-    studentId,
-    profile.test_year,
-    preparation,
-  );
-  await persistGeneration(
-    studentId,
-    profile,
-    planningDate,
-    preparation,
-    reason,
-    inputs.completedMockCount,
-    inputs.signals,
-    today,
-    preserveThrough,
-    refreshRequestVersion,
-  );
 }
 
 export async function getCurrentPreparation(
@@ -1877,7 +1579,7 @@ export async function getCurrentPreparation(
   if (studentError) throw studentError;
 
   const [{ planningDate }, inputs] = await Promise.all([
-    planningDateFor(profile),
+    planningDateFor(requireAdmin(), profile),
     loadGenerationInputs(supabase, profile.student_id, profile.test_year),
   ]);
   const now = new Date();
@@ -1905,6 +1607,7 @@ export async function getCurrentPreparation(
     },
   };
   await persistPreparationProgression(
+    requireAdmin(),
     profile.student_id,
     profile.test_year,
     preparation,
@@ -2416,12 +2119,9 @@ export async function regenerateStudyPlanDuringScheduledMaintenance(
   }
   if (today > cycleEndsOn) return;
   const studentClient = await loadScheduledStudentClient(studentId);
-  await generateForProfile(
-    studentClient,
-    studentId,
-    profile,
-    "weekly",
-    refreshRequestVersion,
+  await replaceStudyPlanGeneration(
+    { studentId, profile, reason: "weekly", refreshRequestVersion },
+    generationDependencies(studentClient),
   );
 }
 
@@ -2840,7 +2540,7 @@ async function loadNextStepBuildInput(
       .select("skill_trainer_id")
       .eq("student_id", studentId)
       .not("completed_at", "is", null),
-    planningDateFor(profile),
+    planningDateFor(requireAdmin(), profile),
   ]);
   if (trainerAttempts.error) throw trainerAttempts.error;
   const trainerAttemptCounts = new Map<string, number>();
@@ -2975,6 +2675,7 @@ async function getOrRefreshNextSteps(
     },
   });
   await persistPreparationProgression(
+    requireAdmin(),
     studentId,
     profile.test_year,
     preparation,
@@ -3151,11 +2852,13 @@ export async function saveStudyPlanProfile(
     if (clearStepsError) throw clearStepsError;
   }
   if (transition.generateFreshPlan) {
-    await generateForProfile(
-      supabase,
-      studentId,
-      profile,
-      profile.last_generated_at ? "profile_changed" : "onboarding",
+    await replaceStudyPlanGeneration(
+      {
+        studentId,
+        profile,
+        reason: profile.last_generated_at ? "profile_changed" : "onboarding",
+      },
+      generationDependencies(supabase),
     );
   } else if (transition.retireFuturePlan) {
     const { error: retirePlanError } = await admin
@@ -3405,17 +3108,19 @@ export async function getStudyPlan(
       !profile.next_weekly_replan_on ||
       profile.next_weekly_replan_on <= today)
   ) {
-    await generateForProfile(
-      supabase,
-      studentId,
-      profile,
-      !generation
-        ? "onboarding"
-        : preparationVersionChanged
-          ? "significant_activity"
-          : mockCompletedSinceGeneration
-            ? "mock_completed"
-            : "weekly",
+    await replaceStudyPlanGeneration(
+      {
+        studentId,
+        profile,
+        reason: !generation
+          ? "onboarding"
+          : preparationVersionChanged
+            ? "significant_activity"
+            : mockCompletedSinceGeneration
+              ? "mock_completed"
+              : "weekly",
+      },
+      generationDependencies(supabase),
     );
     const [profileResult, generationResult] = await Promise.all([
       admin
@@ -3466,11 +3171,9 @@ export async function getStudyPlan(
         options.allowAutomaticReplan !== false &&
         completedBenchmarkSinceGeneration
       ) {
-        await generateForProfile(
-          supabase,
-          studentId,
-          profile,
-          "significant_activity",
+        await replaceStudyPlanGeneration(
+          { studentId, profile, reason: "significant_activity" },
+          generationDependencies(supabase),
         );
         const [nextProfileResult, nextGenerationResult] = await Promise.all([
           admin
@@ -3501,7 +3204,7 @@ export async function getStudyPlan(
     }
   }
   const [planning, scheduledAssetNames] = await Promise.all([
-    planningDateFor(profile),
+    planningDateFor(requireAdmin(), profile),
     loadScheduledAssetNames(supabase, taskRows),
   ]);
   const tasks = taskRows.map((task) => mapTask(task, scheduledAssetNames));
@@ -3528,7 +3231,7 @@ export async function getStudyPlan(
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
-      availableDays: parseAvailability(profile.available_days),
+      availableDays: profileInput(profile).availableDays,
       preferredMockWeekday: profile.preferred_mock_weekday as
         | 0
         | 1

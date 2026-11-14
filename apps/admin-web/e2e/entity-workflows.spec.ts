@@ -627,7 +627,11 @@ test("reference previews cover people, scheduling and work-item projections", as
     }),
   ])
     if (result.error) throw new Error(result.error.message);
-  const classes = await db.from("classes").select("id").limit(1).single();
+  const classes = await db
+    .from("classes")
+    .select("id")
+    .eq("id", "20000000-0000-0000-0000-000000000001")
+    .single();
   if (classes.error) throw new Error("Scheduling fixtures unavailable");
   const loggedSessionId = "50000000-0000-0000-0000-000000000001";
   await signIn(page);
@@ -637,7 +641,7 @@ test("reference previews cover people, scheduling and work-item projections", as
     [
       "class",
       classes.data.id,
-      ["Subject", "Scheduled offerings", "Students", "Staff"],
+      ["Subject", "Scheduled offerings", "Students (3)", "Staff"],
     ],
     ["session", loggedSessionId, ["Subject", "Day", "Time"]],
     ["task", taskId, ["Priority", "Assignee", "Due date"]],

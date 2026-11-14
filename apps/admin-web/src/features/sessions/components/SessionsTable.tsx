@@ -1,7 +1,6 @@
 "use client";
 
 import { useSessionTopics } from '../hooks/useSessionTopics';
-import { useSessionBillingAdjustmentIssues, useVoidInvoiceSessions } from '@/features/reconciliation/api/queries';
 import { sessionQueueOptions } from '@/features/reconciliation/api/sessionQueues';
 
 import React, { useState, useMemo, useCallback } from "react";
@@ -354,40 +353,12 @@ export function SessionsTable({
       sessionStudents,
     });
 
-  const { data: uninvoicedSessions = [] } = useUninvoicedSessions();
+  const { data: uninvoicedSessions = [] } = useUninvoicedSessions(isStudentAttendanceView);
   const billingQueues = state.filters.reconciliation;
-  const showBillingException = state.visibleColumns.includes('billing_exception');
-  const adjustments = useSessionBillingAdjustmentIssues(showBillingException && billingQueues?.includes('billing-adjustments') === true);
-  const voidInvoices = useVoidInvoiceSessions(showBillingException && billingQueues?.includes('void-invoices') === true);
-  const billingExceptionBySession = useMemo(() => {
-    const items: Record<string, { id: string; label: string; invoiceId?: string; sessionStudentId?: string }[]> = {};
-    if (!showBillingException) return items;
-    if (billingQueues?.includes('billing-adjustments') === true) for (const row of adjustments.data ?? []) {
-      (items[row.session_id] ??= []).push({
-        id: row.adjustment_id, label: `${row.status} · ${row.last_error ?? row.issue.replaceAll('_', ' ')}`,
-      });
-    }
-    if (billingQueues?.includes('void-invoices') === true) for (const row of voidInvoices.data ?? []) {
-      (items[row.session_id] ??= []).push({
-        id: row.sessions_students_id,
-        label: [row.student_first_name, row.student_last_name, row.void_stripe_invoice_number].filter(Boolean).join(' '),
-        invoiceId: row.void_invoice_id,
-      });
-    }
-    if (billingQueues?.includes('uninvoiced') === true) for (const row of uninvoicedSessions) {
-      (items[row.session_id] ??= []).push({
-        id: row.sessions_students_id,
-        label: [row.student_first_name, row.student_last_name].filter(Boolean).join(' ') || 'Student',
-        sessionStudentId: row.sessions_students_id,
-      });
-    }
-    return items;
-  }, [adjustments.data, voidInvoices.data, uninvoicedSessions, billingQueues, showBillingException]);
   const uninvoicedSessionsStudentsIds = useMemo(() => {
-    if (!studentId) return undefined;
     return new Set(
       uninvoicedSessions
-        .filter((s) => s.student_id === studentId)
+        .filter((s) => !studentId || s.student_id === studentId)
         .map((s) => s.sessions_students_id),
     );
   }, [uninvoicedSessions, studentId]);
@@ -529,7 +500,6 @@ export function SessionsTable({
       { key: "staff", label: "Staff" },
       { key: "students", label: "Students" },
       { key: "topics", label: "Topics" },
-      { key: "billing_exception", label: "Billing exception" },
       { key: "tutor_log", label: "Tutor Log" },
     ];
   }, [isStaffAttendanceView, isStudentAttendanceView]);
@@ -796,7 +766,6 @@ export function SessionsTable({
                     <TableHead>Invoice</TableHead>
                   )}
                   {state.visibleColumns.includes("topics") && <TableHead>Topics</TableHead>}
-                  {state.visibleColumns.includes("billing_exception") && <TableHead>Billing exception</TableHead>}
                   {state.visibleColumns.includes("tutor_log") && (
                     <TableHead>Tutor Log</TableHead>
                   )}
@@ -886,7 +855,6 @@ export function SessionsTable({
                           "absence_treatment",
                           "invoice",
                           "topics",
-                          "billing_exception",
                           "tutor_log",
                         ]
                           .filter(
@@ -931,8 +899,6 @@ export function SessionsTable({
                           sessionStudents={sessionStudents}
                           sessionStaff={sessionStaff}
                           tutorLogs={tutorLogs}
-                          billingExceptions={billingExceptionBySession[session.id]}
-                          billingExceptionsError={adjustments.isError || voidInvoices.isError}
                           topicsText={topicsFailed ? 'Unavailable' : topicsLoading ? 'Loading…' : topicsByLog?.[tutorLogs[session.id]?.id]?.join(', ')}
                           allSessions={allSessions}
                           formatDate={formatDate}

@@ -1,4 +1,5 @@
 import React from "react";
+import { AuthRetryableFetchError } from "@supabase/supabase-js";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SignupForm } from "@/features/auth/components/signup-form";
 import { savePendingSignupEmail } from "@/features/auth/lib/pending-signup-email";
@@ -229,6 +230,116 @@ describe("SignupForm", () => {
     expect(
       screen.getByRole("button", { name: "Continue with code" }),
     ).toBeEnabled();
+  });
+
+  describe("confirmation-email failures (DEV-297)", () => {
+    const providerRejection = () =>
+      new AuthRetryableFetchError("Error sending confirmation email", 500);
+
+    beforeEach(() => {
+      // Auth's mailer rejects recipients whose local part is not a dot-atom.
+      signInWithOtp.mockImplementation(async ({ email }: { email: string }) =>
+        /^\.|\.\.|\.@/.test(email)
+          ? { error: providerRejection() }
+          : { error: null },
+      );
+    });
+
+    function submitEmail(value: string) {
+      fireEvent.change(screen.getByLabelText("Email address"), {
+        target: { value },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Register" }));
+    }
+
+    it.each([
+      "first..last@example.com",
+      ".first@example.com",
+      "first.@example.com",
+    ])(
+      "rejects %s before requesting a confirmation email",
+      async (address) => {
+        (global.fetch as jest.Mock).mockResolvedValue({
+          ok: true,
+          json: async () => ({ state: "available" }),
+        });
+
+        render(<SignupForm />);
+        submitEmail(address);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          /two dots in a row/i,
+        );
+        expect(signInWithOtp).not.toHaveBeenCalled();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(screen.getByLabelText("Email address")).toBeEnabled();
+      },
+    );
+
+    it("still sends a confirmation email for a valid dotted address", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ state: "available" }),
+      });
+
+      render(<SignupForm />);
+      submitEmail("first.last@example.com");
+
+      expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
+      expect(signInWithOtp).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "first.last@example.com" }),
+      );
+    });
+
+    it("explains a provider rejection without leaving the form unusable", async () => {
+      signInWithOtp.mockResolvedValue({ error: providerRejection() });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ state: "available" }),
+      });
+
+      render(<SignupForm />);
+      submitEmail("student@example.com");
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "We couldn't send a confirmation email to that address. Check it is typed correctly and try again.",
+      );
+      expect(screen.getByRole("button", { name: "Register" })).toBeEnabled();
+    });
+
+    it("renders a safe message when the retry gets a structured 403 envelope", async () => {
+      signInWithOtp.mockResolvedValue({ error: providerRejection() });
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ state: "available" }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          json: async () => ({
+            error: {
+              code: "forbidden",
+              message: "Request blocked",
+              id: "syd1::abc123",
+            },
+          }),
+        });
+
+      render(<SignupForm />);
+      submitEmail("student@example.com");
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "We couldn't check this email right now. Please try again.",
+        ),
+      );
+      expect(signInWithOtp).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("button", { name: "Register" })).toBeEnabled();
+    });
   });
 
   it("keeps the founder gift in OTP return intent without routing straight to checkout", async () => {

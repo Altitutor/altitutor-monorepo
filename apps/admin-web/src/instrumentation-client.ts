@@ -1,3 +1,4 @@
+import { sanitizeSubjectCoverEvent } from '@altitutor/shared';
 import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
@@ -24,7 +25,7 @@ Sentry.init({
   environment: collection.environment,
   sendClientReports: collection.errors,
   ...sentryWebCompatibilityOptions(),
-  beforeSend: (event) => collection.errors || event.type === "feedback" ? event : null,
+  beforeSend: (event) => collection.errors || event.type === "feedback" ? sanitizeSubjectCoverEvent(event) : null,
   beforeSendTransaction: (event) => collection.errors ? event : null,
   tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,

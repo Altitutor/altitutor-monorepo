@@ -2,7 +2,7 @@
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { SessionsTable } from '@/features/sessions';
 import {
   DropdownMenu,
@@ -11,12 +11,11 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { AdminPageActionButton } from '@/shared/components';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
-import { ChevronDown, EllipsisVertical, Plus } from 'lucide-react';
-import { Button } from '@altitutor/ui';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
@@ -25,6 +24,20 @@ import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 export default function SessionsPage() {
   const search = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const queues = search.get('reconciliation')?.split(',') ?? [];
+    const query = new URLSearchParams();
+    for (const key of ['student', 'from', 'to', 'search']) {
+      const value = search.get(key);
+      if (value) query.set(key, value);
+    }
+    if (queues.includes('void-invoices') && !queues.includes('uninvoiced')) query.set('reason', 'voided');
+    const target = queues.includes('billing-adjustments') ? '/billing/adjustments'
+      : queues.some((key) => key === 'uninvoiced' || key === 'void-invoices') ? '/billing/to-invoice' : null;
+    if (target) router.replace(`${target}${query.size ? `?${query}` : ''}`);
+  }, [search, router]);
+
   const { openCheckInModal } = useQuickActions();
   const entityModals = useEntityNavigation();
   const { data: staff } = useCurrentStaff();
@@ -36,7 +49,10 @@ export default function SessionsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <ListSettingsMenu list="sessions" />
+      <ListSettingsMenu list="sessions">
+        <DropdownMenuItem disabled={!staff} onSelect={() => setTutorLogOpen(true)}>Add tutor log</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setExportOpen(true)}>Export tutor log</DropdownMenuItem>
+      </ListSettingsMenu>
       <AdminPageActions>
 
         <div className="flex items-center gap-4">
@@ -97,15 +113,7 @@ export default function SessionsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Sessions actions"><EllipsisVertical /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled={!staff} onSelect={() => setTutorLogOpen(true)}>Add tutor log</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setExportOpen(true)}>Export tutor log</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+
         </div>
       </AdminPageActions>
       {staff && tutorLogOpen && <LogSessionModal isOpen onClose={() => setTutorLogOpen(false)} currentStaffId={staff.id} adminMode />}
