@@ -13,6 +13,8 @@ on:
   # Required checks must report for every PR, including documentation-only work.
   # Browser/database jobs retain their existing path-based selection below.
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
@@ -29,22 +31,53 @@ env:
   SENTRY_DSN: ''
   NEXT_PUBLIC_SENTRY_DSN: ''
   EXPO_PUBLIC_SENTRY_DSN: ''
-  # PRs compare with their base branch; development calls compare with the prior commit.
-  # An empty filter is reserved for full production verification and manual runs.
-  TURBO_FILTER: ${{ github.event_name == 'pull_request' && format('...[origin/{0}]', github.base_ref) || (github.event_name == 'push' && inputs.full_run == false && '...[HEAD^]' || '') }}
 
 jobs:
+  validation-plan:
+    name: Detect web system tests
+    runs-on: ubuntu-latest
+    outputs:
+      turbo_filter: ${{ steps.plan.outputs.turbo_filter }}
+      apps: ${{ steps.plan.outputs.apps }}
+      run: ${{ steps.plan.outputs.run }}
+      database: ${{ steps.plan.outputs.database }}
+      ucat_coverage: ${{ steps.plan.outputs.ucat_coverage }}
+      edge: ${{ steps.plan.outputs.edge }}
+      base: ${{ steps.plan.outputs.base }}
+      head: ${{ steps.plan.outputs.head }}
+      profile: ${{ steps.plan.outputs.profile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Select checks from the complete event range
+        id: plan
+        env:
+          INPUT_FULL_RUN: ${{ inputs.full_run == true && 'true' || 'false' }}
+        run: |
+          node scripts/validation-plan.mjs > validation-plan.json
+          node scripts/validation-plan.mjs --github-output >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-plan
+          path: validation-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
   lint:
+    needs: validation-plan
+    env:
+      TURBO_FILTER: ${{ needs.validation-plan.outputs.turbo_filter }}
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Fetch base branch for Turborepo affected
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --no-tags
 
       - uses: pnpm/action-setup@v4
 
@@ -53,12 +86,17 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Check production release gate
         run: |
-          node --test scripts/teaching-release.test.mjs scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs
+          node --test scripts/teaching-release.test.mjs scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs scripts/browser-ci-workflow.test.mjs scripts/web-ci-result.test.mjs scripts/validation-plan.test.mjs scripts/validation-receipt.test.mjs scripts/verified-integration.test.mjs scripts/auxiliary-queue-contracts.test.mjs scripts/validation-preflight.test.mjs scripts/verify-ucat-test-inventory.test.mjs scripts/checkall-profiles.test.mjs secrets/scripts/deploy-runtime.test.mjs
+          python3 scripts/owned_database.test.py
+          python3 scripts/worktree_dev.test.py
 
       - name: Require a new native runtime for native changes
-        run: node scripts/check-expo-runtime-version.mjs "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^' }}"
+        run: node scripts/check-expo-runtime-version.mjs "${{ needs.validation-plan.outputs.base || 'HEAD^' }}"
 
       - uses: actions/cache@v4
         with:
@@ -66,9 +104,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+            ${{ runner.os }}-turbo-
 
       - name: Check generated email artifacts
         run: pnpm email:check
@@ -96,16 +132,15 @@ jobs:
           fi
 
   typecheck:
+    needs: validation-plan
+    env:
+      TURBO_FILTER: ${{ needs.validation-plan.outputs.turbo_filter }}
     name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Fetch base branch for Turborepo affected
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --no-tags
 
       - uses: pnpm/action-setup@v4
 
@@ -120,6 +155,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -130,22 +166,21 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
+            pnpm exec turbo run typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm typecheck --concurrency=1
+            pnpm exec turbo run typecheck --concurrency=1
           fi
 
   test:
+    needs: validation-plan
+    env:
+      TURBO_FILTER: ${{ needs.validation-plan.outputs.turbo_filter }}
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Fetch base branch for Turborepo affected
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --no-tags
 
       - uses: pnpm/action-setup@v4
 
@@ -160,6 +195,7 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -168,252 +204,137 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run test --concurrency=2 --filter="${{ env.TURBO_FILTER }}"
+            pnpm turbo run test --concurrency=2 --filter='!ucat-web' --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm test
+            pnpm turbo run test --concurrency=2 --filter='!ucat-web'
           fi
 
   ucat-contracts:
+    needs: validation-plan
     name: UCAT Contracts
     runs-on: ubuntu-latest
     steps:
+      - name: Validate contract selection
+        env:
+          COVERAGE: ${{ needs.validation-plan.outputs.ucat_coverage }}
+          EDGE: ${{ needs.validation-plan.outputs.edge }}
+        run: |
+          case "$COVERAGE:$EDGE" in
+            true:true|true:false|false:true|false:false) ;;
+            *) echo 'Invalid contract selection' >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v4
+        if: needs.validation-plan.outputs.ucat_coverage == 'true' || needs.validation-plan.outputs.edge == 'true'
 
       - uses: pnpm/action-setup@v4
+        if: needs.validation-plan.outputs.ucat_coverage == 'true' || needs.validation-plan.outputs.edge == 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.validation-plan.outputs.ucat_coverage == 'true' || needs.validation-plan.outputs.edge == 'true'
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
 
       - uses: denoland/setup-deno@v2
+        if: needs.validation-plan.outputs.edge == 'true'
         with:
-          deno-version: v2.x
+          deno-version: v2.9.6
 
       - name: Install dependencies
+        if: needs.validation-plan.outputs.ucat_coverage == 'true' || needs.validation-plan.outputs.edge == 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Verify coverage retains the unit test inventory
+        if: needs.validation-plan.outputs.ucat_coverage == 'true'
+        run: node scripts/verify-ucat-test-inventory.mjs
+
       - name: Enforce UCAT application coverage
+        if: needs.validation-plan.outputs.ucat_coverage == 'true'
         run: pnpm --filter ucat-web test:coverage
 
       - name: Test Supabase Edge Function contracts
+        if: needs.validation-plan.outputs.edge == 'true'
         run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
-  web-system-tests-needed:
-    name: Detect web system tests
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.detect.outputs.run }}
-      database: ${{ steps.detect.outputs.database }}
-      admin: ${{ steps.detect.outputs.admin }}
-      marketing: ${{ steps.detect.outputs.marketing }}
-      student: ${{ steps.detect.outputs.student }}
-      tutor: ${{ steps.detect.outputs.tutor }}
-      ucat: ${{ steps.detect.outputs.ucat }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  web-browser:
+    name: Browser (${{ matrix.app }})
+    needs: validation-plan
+    if: needs.validation-plan.outputs.apps != '[]'
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        app: ${{ fromJSON(needs.validation-plan.outputs.apps || '[]') }}
+    uses: ./.github/workflows/web-system-suite.yml
+    with:
+      suite: ${{ matrix.app }}
+      registration: ${{ matrix.app == 'student' && needs.validation-plan.outputs.database != 'true' }}
+      production: ${{ github.ref_name == 'main' || github.event_name == 'workflow_dispatch' || inputs.full_run == true }}
 
-      - name: Fetch base branch for path detection
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --no-tags
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Decide which browser and database tests are needed
-        id: detect
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.full_run }}" = "true" ]; then
-            node scripts/web-system-test-paths.mjs --all >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            range="origin/${{ github.base_ref }}...HEAD"
-          else
-            range="HEAD^..HEAD"
-          fi
-          node scripts/web-system-test-paths.mjs --git-diff "$range" | tee -a "$GITHUB_OUTPUT"
+  database-contracts:
+    name: Database contracts
+    needs: validation-plan
+    if: needs.validation-plan.outputs.database == 'true'
+    uses: ./.github/workflows/web-system-suite.yml
+    with:
+      suite: database
+      production: false
 
   web-e2e:
     name: Web Browser and Database
-    needs: web-system-tests-needed
-    if: needs.web-system-tests-needed.outputs.run == 'true'
-    # Playwright 1.56 supports Ubuntu 24.04; latest can roll to an unsupported OS.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    env:
-      NODE_OPTIONS: --max-old-space-size=4096
+    needs: [validation-plan, lint, typecheck, test, ucat-contracts, build, web-browser, database-contracts]
+    if: always()
+    runs-on: ubuntu-latest
     steps:
-      # This job runs web builds only. Supabase images, their cache archive,
-      # browsers and Next build artifacts otherwise exhaust the hosted disk.
-      - name: Reclaim unused native SDK space
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
-          df -h /
-
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "pnpm"
-
+      - name: Require every core and selected suite to succeed
+        env:
+          WEB_CI_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/web-ci-result.mjs
+      # Publish evidence before this required check can release the merge group.
+      - uses: pnpm/action-setup@v4
+        if: github.event_name == 'merge_group'
+      - uses: denoland/setup-deno@v2
+        if: github.event_name == 'merge_group'
+        with:
+          deno-version: v2.9.6
       - uses: supabase/setup-cli@v2
+        if: github.event_name == 'merge_group'
         with:
           version: 2.107.0
-
-      - uses: denoland/setup-deno@v2
-        if: needs.web-system-tests-needed.outputs.database == 'true'
+      - name: Bind successful validation to its integration tree
+        if: github.event_name == 'merge_group'
+        env:
+          WEB_CI_NEEDS: ${{ toJSON(needs) }}
+        run: |
+          CI_REQUIRED_RESULTS="$(node scripts/web-ci-result.mjs --receipt-results)"
+          export CI_REQUIRED_RESULTS
+          node scripts/validation-plan.mjs > validation-plan.json
+          node scripts/verified-integration.mjs create --plan validation-plan.json --output integration-receipt.json
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'merge_group'
         with:
-          deno-version: v2.x
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Cache Supabase Docker images
-        id: supabase-docker-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-docker-images.tar
-          key: ${{ runner.os }}-supabase-docker-2.107.0-${{ hashFiles('supabase/config.toml') }}
-
-      - name: Load cached Supabase Docker images
-        if: steps.supabase-docker-cache.outputs.cache-hit == 'true'
-        continue-on-error: true
-        run: |
-          trap 'rm -f /tmp/supabase-docker-images.tar' EXIT
-          docker load -i /tmp/supabase-docker-images.tar
-
-      - name: Render email templates
-        run: bash supabase/scripts/render-email-templates.sh
-
-      - name: Start local Supabase and install browsers
-        run: |
-          set -euo pipefail
-          # A fresh `supabase start` applies migrations and the cheap automatic
-          # seed. Do not follow it with `db reset` — that recreates the
-          # database and reapplies everything. Studio, image proxy, analytics,
-          # and mail UI are unused by pgTAP and Playwright.
-          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
-          else
-            pnpm --filter ucat-web exec playwright install --with-deps chromium webkit &
-          fi
-          playwright_pid=$!
-          node scripts/start-local-supabase.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
-          wait "$playwright_pid"
-
-      - name: Save Supabase Docker images
-        if: steps.supabase-docker-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          docker images --format '{{.Repository}}:{{.Tag}}' \
-            | grep -i supabase \
-            | grep -v '<none>' \
-            | xargs docker save -o /tmp/supabase-docker-images.tar
-
-      - name: Apply resource policies and UCAT study-plan fixtures
-        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.ucat == 'true' || needs.web-system-tests-needed.outputs.student == 'true' || needs.web-system-tests-needed.outputs.tutor == 'true'
-        run: bash supabase/scripts/apply-ucat-test-seed.sh
-
-      - name: Test database contracts
-        if: needs.web-system-tests-needed.outputs.database == 'true'
-        run: supabase test db
-
-      - name: Test Student registration with real Auth
-        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.student == 'true'
-        run: python3 supabase/scripts/test-student-registration.py
-
-      - name: Test inbound iMessage identity and replay contracts
-        if: needs.web-system-tests-needed.outputs.database == 'true'
-        run: python3 scripts/owned_database.py run -- python3 scripts/test-imessage-inbound.py
-
-      - name: Run admin browser journeys
-        if: needs.web-system-tests-needed.outputs.admin == 'true'
-        env:
-          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-          NODE_OPTIONS: --max-old-space-size=3072
-        run: |
-          trap 'rm -rf apps/admin-web/.next-e2e' EXIT
-          pnpm --filter admin-web test:e2e
-
-      - name: Run marketing browser journeys
-        if: needs.web-system-tests-needed.outputs.marketing == 'true'
-        env:
-          CI_RELEASE_GATE: "true"
-          MARKETING_E2E_FULL_BROWSER_MATRIX: "true"
-        run: |
-          trap 'rm -rf apps/marketing-web/.next-e2e' EXIT
-          pnpm --filter marketing-web test:e2e
-
-      - name: Run student browser journeys
-        if: needs.web-system-tests-needed.outputs.student == 'true'
-        env:
-          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-          STUDENT_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: |
-          trap 'rm -rf apps/student-web/.next-e2e' EXIT
-          pnpm --filter student-web test:e2e
-
-      - name: Run tutor browser journeys
-        if: needs.web-system-tests-needed.outputs.tutor == 'true'
-        env:
-          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: |
-          trap 'rm -rf apps/tutor-web/.next-e2e' EXIT
-          pnpm --filter tutor-web test:e2e
-
-      - name: Run UCAT desktop browser journeys
-        if: needs.web-system-tests-needed.outputs.ucat == 'true' && github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
-        run: |
-          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
-          pnpm --filter ucat-web test:e2e:desktop
-
-      - name: Run UCAT production browser matrix
-        if: needs.web-system-tests-needed.outputs.ucat == 'true' && (github.ref_name == 'main' || github.event_name == 'workflow_dispatch')
-        env:
-          UCAT_E2E_FULL_BROWSER_MATRIX: "true"
-          CI_RELEASE_GATE: "true"
-        run: |
-          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
-          pnpm --filter ucat-web test:e2e
-
-      - name: Preserve Playwright diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-playwright-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            apps/admin-web/playwright-report
-            apps/admin-web/test-results
-            apps/marketing-web/playwright-report
-            apps/marketing-web/test-results
-            apps/student-web/playwright-report
-            apps/student-web/test-results
-            apps/tutor-web/playwright-report
-            apps/tutor-web/test-results
-            apps/ucat-web/playwright-report
-            apps/ucat-web/test-results
-          if-no-files-found: ignore
+          name: ci-integration-receipt
+          path: integration-receipt.json
+          if-no-files-found: error
           retention-days: 14
 
   build:
+    needs: validation-plan
+    env:
+      TURBO_FILTER: ${{ needs.validation-plan.outputs.turbo_filter }}
     name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Fetch base branch for Turborepo affected
-        if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }} --no-tags
 
       - uses: pnpm/action-setup@v4
 
@@ -426,6 +347,9 @@ jobs:
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.job }}-
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

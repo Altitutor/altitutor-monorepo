@@ -1,0 +1,211 @@
+name: Isolated web system suite
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        required: true
+        type: string
+      production:
+        required: false
+        default: false
+        type: boolean
+      registration:
+        required: false
+        default: false
+        type: boolean
+
+env:
+  SENTRY_DISABLED: 'true'
+  NEXT_PUBLIC_SENTRY_DISABLED: 'true'
+  EXPO_PUBLIC_SENTRY_DISABLED: 'true'
+  SENTRY_TEST_OPT_IN: 'false'
+  NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'false'
+  EXPO_PUBLIC_SENTRY_TEST_OPT_IN: 'false'
+  SENTRY_DSN: ''
+  NEXT_PUBLIC_SENTRY_DSN: ''
+  EXPO_PUBLIC_SENTRY_DSN: ''
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  suite:
+    name: ${{ inputs.suite }}
+    # Each invocation owns a separate runner, database, fixture set and server.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Validate the selected suite
+        env:
+          SUITE: ${{ inputs.suite }}
+        run: |
+          case "$SUITE" in
+            admin|marketing|student|tutor|ucat|database) ;;
+            *) echo 'Unknown system suite' >&2; exit 1 ;;
+          esac
+
+      - name: Reclaim unused native SDK space
+        if: inputs.suite != 'marketing'
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet
+          df -h /
+
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: supabase/setup-cli@v2
+        if: inputs.suite != 'marketing'
+        with:
+          version: 2.107.0
+      - uses: denoland/setup-deno@v2
+        if: inputs.suite == 'database'
+        with:
+          deno-version: v2.9.6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore task-hashed dependency builds
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-system-${{ inputs.suite }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-system-${{ inputs.suite }}-
+            ${{ runner.os }}-turbo-
+
+      - name: Cache Supabase Docker images
+        if: inputs.suite != 'marketing'
+        id: supabase-docker-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-images.tar
+          key: ${{ runner.os }}-supabase-docker-2.107.0-${{ hashFiles('supabase/config.toml') }}
+
+      - name: Load cached Supabase Docker images
+        if: inputs.suite != 'marketing' && steps.supabase-docker-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: |
+          trap 'rm -f /tmp/supabase-docker-images.tar' EXIT
+          docker load -i /tmp/supabase-docker-images.tar
+
+      - name: Render email templates
+        if: inputs.suite != 'marketing'
+        run: bash supabase/scripts/render-email-templates.sh
+
+      - name: Start this runner's database and install selected browsers
+        env:
+          SUITE: ${{ inputs.suite }}
+          PRODUCTION: ${{ inputs.production }}
+        run: |
+          set -euo pipefail
+          browser_pid=''
+          if [ "$SUITE" != database ]; then
+            if [ "$PRODUCTION" = true ]; then
+              pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
+            elif [ "$SUITE" = marketing ]; then
+              pnpm --filter ucat-web exec playwright install --with-deps chromium webkit &
+            else
+              pnpm --filter ucat-web exec playwright install --with-deps chromium &
+            fi
+            browser_pid=$!
+          fi
+          if [ "$SUITE" != marketing ]; then
+            node scripts/start-local-supabase.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
+          fi
+          if [ -n "$browser_pid" ]; then wait "$browser_pid"; fi
+
+      - name: Save Supabase Docker images
+        if: inputs.suite != 'marketing' && steps.supabase-docker-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -i supabase | grep -v '<none>' \
+            | xargs docker save -o /tmp/supabase-docker-images.tar
+
+      - name: Apply resource policies and UCAT study-plan fixtures
+        if: inputs.suite == 'database' || inputs.suite == 'ucat' || inputs.suite == 'student' || inputs.suite == 'tutor'
+        run: bash supabase/scripts/apply-ucat-test-seed.sh
+
+      - name: Test database contracts
+        if: inputs.suite == 'database'
+        run: supabase test db
+
+      - name: Test Student registration with real Auth
+        if: inputs.suite == 'database' || inputs.registration
+        run: python3 supabase/scripts/test-student-registration.py
+
+      - name: Test owned HTTP and migration contracts
+        if: inputs.suite == 'database'
+        run: |
+          python3 scripts/owned_database.py run -- bash -euo pipefail -c '
+            bash supabase/scripts/apply-ucat-test-seed.sh
+            pnpm exec turbo run build --filter=ucat-web^...
+            pnpm --filter ucat-web exec jest --runInBand --testMatch "**/generation-replacement.integration.ts"
+            python3 scripts/test-imessage-inbound.py
+            python3 supabase/scripts/test-interview-station-upgrade.py
+            python3 supabase/scripts/test-interview-concurrency.py
+          '
+
+      - name: Run admin browser journeys
+        if: inputs.suite == 'admin'
+        env:
+          CI_RELEASE_GATE: ${{ inputs.production && 'true' || 'false' }}
+          NODE_OPTIONS: --max-old-space-size=3072
+        run: |
+          trap 'rm -rf apps/admin-web/.next-e2e' EXIT
+          pnpm --filter admin-web test:e2e
+
+      - name: Run marketing browser journeys
+        if: inputs.suite == 'marketing'
+        env:
+          CI_RELEASE_GATE: 'true'
+          MARKETING_E2E_FULL_BROWSER_MATRIX: 'true'
+        run: |
+          trap 'rm -rf apps/marketing-web/.next-e2e' EXIT
+          pnpm --filter marketing-web test:e2e
+
+      - name: Run student browser journeys
+        if: inputs.suite == 'student'
+        env:
+          CI_RELEASE_GATE: ${{ inputs.production && 'true' || 'false' }}
+          STUDENT_E2E_FULL_BROWSER_MATRIX: ${{ inputs.production && 'true' || 'false' }}
+        run: |
+          trap 'rm -rf apps/student-web/.next-e2e' EXIT
+          pnpm --filter student-web test:e2e
+
+      - name: Run tutor browser journeys
+        if: inputs.suite == 'tutor'
+        env:
+          CI_RELEASE_GATE: ${{ inputs.production && 'true' || 'false' }}
+        run: |
+          trap 'rm -rf apps/tutor-web/.next-e2e' EXIT
+          pnpm --filter tutor-web test:e2e
+
+      - name: Run UCAT desktop browser journeys
+        if: inputs.suite == 'ucat' && !inputs.production
+        run: |
+          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
+          pnpm --filter ucat-web test:e2e:desktop
+
+      - name: Run UCAT production browser matrix
+        if: inputs.suite == 'ucat' && inputs.production
+        env:
+          UCAT_E2E_FULL_BROWSER_MATRIX: 'true'
+          CI_RELEASE_GATE: 'true'
+        run: |
+          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
+          pnpm --filter ucat-web test:e2e
+
+      - name: Preserve Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-playwright-${{ inputs.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/*-web/playwright-report
+            apps/*-web/test-results
+          if-no-files-found: ignore
+          retention-days: 14

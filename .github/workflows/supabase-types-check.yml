@@ -6,7 +6,12 @@ on:
   pull_request:
     paths:
       - 'supabase/migrations/**'
+      - 'scripts/validation-plan.mjs'
+      - 'scripts/web-system-test-paths.mjs'
+      - '.github/workflows/supabase-types-check.yml'
       - 'packages/shared/src/supabase/generated.ts'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
@@ -14,8 +19,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-types:
-    name: Verify generated.ts matches schema
+  plan:
+    name: Select schema type validation
+    runs-on: ubuntu-latest
+    outputs:
+      selected: ${{ steps.selection.outputs.supabase_types }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Select checks from the complete event range
+        id: selection
+        run: node scripts/validation-plan.mjs --github-output >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Regenerate and compare Supabase types
+    needs: [plan]
+    if: ${{ needs.plan.outputs.selected == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,3 +96,22 @@ jobs:
             exit 1
           fi
           echo "Committed types match local schema from migrations"
+
+  verify-types:
+    name: Verify generated.ts matches schema
+    if: ${{ always() }}
+    needs: [plan, validate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report auxiliary validation result
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SELECTED: ${{ needs.plan.outputs.selected }}
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+        run: |
+          echo "Selection: $SELECTED; plan: $PLAN_RESULT; validation: $VALIDATION_RESULT"
+          test "$PLAN_RESULT" = success || exit 1
+          case "$SELECTED:$VALIDATION_RESULT" in
+            true:success|false:skipped) exit 0 ;;
+            *) echo "::error::Auxiliary validation did not satisfy its plan"; exit 1 ;;
+          esac

@@ -72,11 +72,12 @@ Handle a small, obvious, reversible edit directly. For everything else, follow
 [`implement`](../implement/SKILL.md), including TDD at useful seams and its final
 code review. The commit gates here apply to commits made by routed skills too.
 
-Run focused tests/type checks during development. Before each coherent commit,
-run `pnpm check`; resolve failures and warnings, then commit only this work with
-the issue reference. Reserve builds and `pnpm checkall` for the final shipping
-gate, unless a build is needed to reproduce or verify the actual problem.
-Publish decisions and material progress in Linear.
+Run focused tests, lint and type checks for the changed behavior before each
+coherent implementation commit. Resolve failures, then commit only this work
+with the issue reference. Use the validation profiles and evidence rules in
+[`validation-delivery.md`](../../../docs/agents/validation-delivery.md) for shared
+changes, integration updates and full local reproduction. Publish the exact
+candidate and validation scope in Linear.
 
 **Ready:** the agreed behavior is implemented, meaningful checks pass, and the
 commits cover only the selected work.
@@ -98,8 +99,9 @@ or a successful automated test does not answer a human question.
 ## 6. Verify and deliver
 
 Follow [delivery.md](references/delivery.md): assess merge risk, complete any
-missing review, run `pnpm checkall`, and require current-head GitHub CI before
-merging the selected PR into `develop`. Use `gh-axi` for GitHub operations and
+missing review and required validation-plan gates, and require successful GitHub
+CI for the tested integration before merging the selected PR into `develop`.
+Use `gh-axi` for GitHub operations and
 `chrome-devtools-axi` for real-browser verification, reading their installed
 skills and current CLI help when first used.
 
