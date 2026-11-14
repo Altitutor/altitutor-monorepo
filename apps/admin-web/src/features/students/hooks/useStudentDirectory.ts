@@ -19,6 +19,8 @@ export function useStudentDirectory(request: StudentDirectoryRequest) {
       return response.json();
     },
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000,
+    refetchInterval: request.sortBy === 'time_since_last_check_in'
+      || request.filters.reconciliation?.length || request.filters.subsidy?.length
+      ? false : 30_000,
   });
 }

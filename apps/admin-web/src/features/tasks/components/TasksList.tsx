@@ -459,7 +459,7 @@ export function TasksList({
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
 
-  const { data: quickFilters = [] } = useQuickFilters("tasks");
+  const { data: quickFilters = [] } = useQuickFilters("tasks", undefined, !isLinkedTaskList);
   const { data: issues = [] } = useIssues();
   const { data: projects = [] } = useProjects();
 
@@ -675,10 +675,10 @@ export function TasksList({
 
   const assigneeFilterOptions = useMemo(
     () =>
-      staffList.map((s) => ({
+      [{ value: "__null__", label: "Unassigned" }, ...staffList.map((s) => ({
         value: s.id as unknown,
         label: `${s.first_name} ${s.last_name}`,
-      })),
+      }))],
     [staffList],
   );
 

@@ -55,7 +55,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Email').fill('admin@altitutor.test');
   await page.getByPlaceholder('Enter your password').fill('test-password');
   await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page).toHaveURL(/\/dashboard\//, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/, { timeout: 30_000 });
 }
 
 test('Student views share one directory and open the Student page', async ({ page }) => {

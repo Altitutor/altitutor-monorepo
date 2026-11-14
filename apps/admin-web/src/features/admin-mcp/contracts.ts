@@ -86,12 +86,6 @@ export const operationSchemas = {
   folder: z
     .object({ name: text, parent_id: id.nullable().optional() })
     .strict(),
-  daily_note: z
-    .object({
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      content: richText.optional(),
-    })
-    .strict(),
   template: z.object({ name: text, content: richText }).strict(),
 };
 export type WorkItemKind = keyof typeof operationSchemas;
@@ -102,14 +96,11 @@ export const workItemTables: Record<WorkItemKind, string> = {
   document: "notes_documents",
   note: "notes",
   folder: "notes_folders",
-  daily_note: "notes_daily",
   template: "rich_text_templates",
 };
 
 export function changeSchema(kind: WorkItemKind) {
   if (kind === "note")
     return operationSchemas.note.pick({ note: true, is_alert: true }).partial();
-  if (kind === "daily_note")
-    return operationSchemas.daily_note.pick({ content: true }).partial();
   return operationSchemas[kind].partial();
 }

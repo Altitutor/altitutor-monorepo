@@ -32,9 +32,10 @@ export function usePayTierRequirementCounts(tierNumbers: number[]) {
   });
 }
 
-export function usePayTiersStaffSummaries() {
+export function usePayTiersStaffSummaries(enabled = true) {
   return useQuery({
     queryKey: payTiersKeys.staffSummaries(),
+    enabled,
     queryFn: async () => {
       const data = await payTiersClient.getStaffSummaries();
       return data.staff;

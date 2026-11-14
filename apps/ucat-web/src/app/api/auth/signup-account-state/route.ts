@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { signupEmailAddressError } from "@/features/auth/lib/signup-email-address";
 
 type SignupAccountState = "available" | "confirmed";
 
@@ -39,8 +40,9 @@ export async function POST(request: NextRequest) {
   } | null;
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  if (!email || !email.includes("@") || email.length > 320) {
-    return response({ error: "Enter a valid email address." }, 400);
+  const emailError = signupEmailAddressError(email);
+  if (emailError) {
+    return response({ error: emailError }, 400);
   }
 
   const { data, error } = await supabaseAdmin.rpc(

@@ -3,7 +3,7 @@
 import { encodeViewConfig, type DisplaySettings, type QuickFilter } from '@altitutor/shared';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
-export const STUDENT_FILTER_KEYS = ['relationship', 'status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass', 'product', 'entitlement', 'accountClass', 'queue', 'onboardingStatus'];
+export const STUDENT_FILTER_KEYS = ['relationship', 'status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass', 'product', 'entitlement', 'accountClass', 'queue', 'onboardingStatus', 'reconciliation', 'subsidy'];
 export const STUDENT_VIEW_DEFAULTS = {
   in_person: { layout: 'list', filters: { relationship: ['in_person'], status: ['ACTIVE'] }, sortBy: 'status', sortDirection: 'desc', groupBy: null, visibleColumns: ['status', 'education', 'student', 'classes'] },
   online: { layout: 'list', filters: { relationship: ['online'], accountClass: ['external'] }, sortBy: 'last_name', sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'products', 'online_since'] },

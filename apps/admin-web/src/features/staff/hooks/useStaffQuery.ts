@@ -1,3 +1,6 @@
+import { collectTableRows } from '@/shared/utils/tablePages';
+import { compareTimeSinceCheckIn } from '@/features/reconciliation/api/checkInDates';
+import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { staffApi, type StaffSearchField } from '../api/staff';
 import type { Tables } from '@altitutor/shared';
@@ -34,6 +37,7 @@ export interface UseStaffListParams {
   pageSize?: number;
   orderBy?: keyof Tables<'staff'>;
   ascending?: boolean;
+  sortByCheckIn?: boolean;
 }
 
 export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
@@ -49,26 +53,26 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
     pageSize = 50,
     orderBy = 'last_name',
     ascending = true,
+    sortByCheckIn = false,
   } = params;
 
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
+  const checkIns = useCheckInDates('staff', sortByCheckIn);
   return useQuery({
-    queryKey: staffKeys.minimal({ search, searchFields, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
-    queryFn: () =>
-      staffApi.listMinimal({
-        search,
-        searchFields,
-        role,
-        status,
-        roles,
-        statuses,
-        subjectIds,
-        limit: pageSize,
-        offset,
-        orderBy,
-        ascending,
-      }),
+    queryKey: [...staffKeys.minimal({ search, searchFields, role, status, roles, statuses, subjectIds, orderBy, ascending, page, pageSize }), sortByCheckIn ? checkIns.dataUpdatedAt : null],
+    enabled: !sortByCheckIn || !!checkIns.data || checkIns.isError,
+    queryFn: async () => {
+      const args = { search, searchFields, role, status, roles, statuses, subjectIds, orderBy, ascending };
+      if (!sortByCheckIn) return staffApi.listMinimal({ ...args, limit: pageSize, offset });
+      if (checkIns.error) throw checkIns.error;
+      const rows = await collectTableRows(async (offset, limit) => {
+        const result = await staffApi.listMinimal({ ...args, orderBy: 'last_name', ascending: true, offset, limit });
+        return { rows: result.staff, total: result.total };
+      });
+      rows.sort((a, b) => compareTimeSinceCheckIn(checkIns.data?.[a.id], checkIns.data?.[b.id], ascending) || a.id.localeCompare(b.id));
+      return { staff: rows.slice(offset, offset + pageSize), total: rows.length };
+    },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5,

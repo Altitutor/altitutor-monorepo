@@ -96,6 +96,7 @@ export const billingApi = {
     orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
     ascending?: boolean;
     invoiceNumberSearch?: string;
+    unpaidOnly?: boolean;
   }): Promise<{ invoices: (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]; total: number }> {
     const { 
       statuses = [], 
@@ -107,10 +108,26 @@ export const billingApi = {
       orderBy = 'invoice_date',
       ascending = false,
       invoiceNumberSearch,
+      unpaidOnly,
     } = params || {};
     
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
+    if (unpaidOnly) {
+      let query = supabase.from('invoices')
+        .select('*, student:students!invoices_student_id_fkey(id, first_name, last_name)', { count: 'exact' })
+        .is('deleted_at', null).not('status', 'in', '(paid,void,uncollectible)').gt('amount_due_cents', 0);
+      if (statuses.length) query = query.in('status', statuses);
+      if (studentIds.length) query = query.in('student_id', studentIds);
+      if (from) query = query.gte('invoice_date', from);
+      if (to) query = query.lte('invoice_date', to);
+      if (invoiceNumberSearch) query = query.ilike('stripe_invoice_number', `%${invoiceNumberSearch.replace(/[\\%_]/g, '\\$&')}%`);
+      const { data, error, count } = await query.order(orderBy, { ascending }).order('id')
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      return { invoices: (data ?? []) as Awaited<ReturnType<typeof billingApi.listInvoices>>['invoices'], total: count ?? 0 };
+    }
+
     // Call RPC function
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_invoices_admin', {
       p_date_from: from || undefined,

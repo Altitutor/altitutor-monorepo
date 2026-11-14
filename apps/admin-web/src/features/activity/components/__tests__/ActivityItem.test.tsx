@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ActivityEventDisplay } from '../../types';
+import type { ActivityEvent, ActivityEventDisplay } from '../../types';
+import { mapActivityEventToDisplay } from '../../mappers/activityEventMapper';
 import { ActivityItem } from '../ActivityItem';
 
 const openEntity = jest.fn();
@@ -73,6 +74,30 @@ describe('ActivityItem', () => {
       'session',
       '10000000-0000-4000-8000-000000000002'
     );
+  });
+
+  it('opens distinct original and replacement sessions from a database-shaped reschedule', async () => {
+    const originalId = '20000000-0000-4000-8000-000000000031';
+    const replacementId = '10000000-0000-4000-8000-000000000032';
+    const event: ActivityEvent = {
+      id: '10000000-0000-4000-8000-000000000033',
+      event_name: 'session.student_rescheduled', event_version: 1,
+      subject_type: 'session', subject_id: originalId,
+      payload: {}, actor_staff_id: null,
+      recorded_at: '2026-11-05T09:51:00.000Z', effective_at: '2026-11-05T09:51:00.000Z',
+      correlation_id: null, idempotency_key: null, source: 'application', is_backfilled: false,
+      entities: [
+        { entityType: 'session', entityId: replacementId, role: 'session_to', displayName: 'Medicine Interview 1:00 pm - 5:00 pm' },
+        { entityType: 'session', entityId: originalId, role: 'subject', displayName: 'Medicine Interview 9:00 am - 1:00 pm' },
+      ],
+    };
+    const user = userEvent.setup();
+    render(<ActivityItem activity={mapActivityEventToDisplay(event)} />);
+
+    await user.click(screen.getByRole('button', { name: 'Open session Medicine Interview 9:00 am - 1:00 pm' }));
+    expect(openEntity).toHaveBeenLastCalledWith('session', originalId);
+    await user.click(screen.getByRole('button', { name: 'Open session Medicine Interview 1:00 pm - 5:00 pm' }));
+    expect(openEntity).toHaveBeenLastCalledWith('session', replacementId);
   });
 
   it('edits and deletes note cards from the activity feed', async () => {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { quickFiltersApi } from "../api/quick-filters";
 import { useMemo } from "react";
+import { operationalViewFilters } from "../config/operationalViews";
 import {
   encodeViewConfig,
   type DisplaySettings,
@@ -16,6 +17,7 @@ const quickFiltersKeys = {
 export function useQuickFilters(
   entity?: string,
   defaultView?: { name: string; settings: DisplaySettings },
+  includeOperationalViews = true,
 ) {
   const query = useQuery({
     queryKey: entity ? quickFiltersKeys.list(entity) : quickFiltersKeys.lists(),
@@ -23,7 +25,9 @@ export function useQuickFilters(
       entity ? quickFiltersApi.list(entity) : quickFiltersApi.listAll(),
   });
   const data = useMemo(() => {
-    if (!defaultView || !entity) return query.data;
+    if (!entity) return query.data;
+    const presets = includeOperationalViews ? operationalViewFilters(entity) : [];
+    if (!defaultView) return [...presets, ...(query.data ?? [])];
     const builtIn: QuickFilter = {
       id: `builtin:${entity}:default`,
       name: defaultView.name,
@@ -33,8 +37,8 @@ export function useQuickFilters(
       updated_at: "",
       config: encodeViewConfig(defaultView.settings),
     };
-    return [builtIn, ...(query.data ?? [])];
-  }, [query.data, entity, defaultView]);
+    return [builtIn, ...presets, ...(query.data ?? [])];
+  }, [query.data, entity, defaultView, includeOperationalViews]);
   return { ...query, data };
 }
 

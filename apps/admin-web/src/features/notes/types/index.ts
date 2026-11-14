@@ -30,12 +30,10 @@ export type NoteUpdate = TablesUpdate<'notes_documents'>;
 /**
  * Daily note type from database
  */
-export type DailyNote = Tables<'notes_daily'>;
 
 /**
  * Daily note update type
  */
-export type DailyNoteUpdate = TablesUpdate<'notes_daily'>;
 
 /**
  * Folder type from database

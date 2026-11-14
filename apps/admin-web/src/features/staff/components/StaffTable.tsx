@@ -1,4 +1,7 @@
 'use client';
+import { checkInColumns, CheckInTableHeads } from '@/shared/components/CheckInTableCells';
+import { usePayTiersStaffSummaries } from '@/features/pay-tiers/hooks/usePayTiers';
+import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 
 import { useState, useCallback, memo, useMemo } from 'react';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
@@ -73,7 +76,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     subjectIds: state.filters.subject as string[],
     page: state.page,
     pageSize: state.pageSize,
-    orderBy: state.sortBy as keyof Tables<'staff'> || 'role',
+    sortByCheckIn: state.sortBy === 'time_since_last_check_in',
+    orderBy: (state.sortBy === 'time_since_last_check_in' ? 'last_name' : state.sortBy as keyof Tables<'staff'>) || 'role',
     ascending: state.sortDirection === 'asc',
   });
 
@@ -105,7 +109,15 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     },
   ], [allSubjects]);
 
+  const showTier = state.visibleColumns.some((column) => column === 'tier' || column === 'tier_status');
+  const tiers = usePayTiersStaffSummaries(showTier);
+  const tierByStaff = useMemo(() => new Map(tiers.data?.map((tier) => [tier.staffId, tier])), [tiers.data]);
+  const useTierCheckIn = showTier && state.sortBy !== 'time_since_last_check_in'
+    && !state.visibleColumns.includes('time_since_last_check_in');
+  const checkIns = useCheckInDates('staff', !useTierCheckIn && checkInColumns.some((column) => state.visibleColumns.includes(column.key)));
+
   const sortOptions: DataTableSortOption[] = [
+    { key: 'time_since_last_check_in', label: 'Time since last check-in' },
     { key: 'status', label: 'Status' },
     { key: 'role', label: 'Role' },
     { key: 'first_name', label: 'First Name' },
@@ -113,6 +125,9 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    ...checkInColumns,
+    { key: 'tier', label: 'Tier' },
+    { key: 'tier_status', label: 'Tier status' },
     { key: 'status', label: 'Status' },
     { key: 'role', label: 'Role' },
     { key: 'staff', label: 'Staff member' },
@@ -311,6 +326,9 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
               {state.visibleColumns.includes('office_keys') && <TableHead>Office Keys</TableHead>}
               {state.visibleColumns.includes('subjects') && <TableHead>Subjects</TableHead>}
               {state.visibleColumns.includes('classes') && <TableHead>Classes</TableHead>}
+              {state.visibleColumns.includes('tier') && <TableHead>Tier</TableHead>}
+              {state.visibleColumns.includes('tier_status') && <TableHead>Tier status</TableHead>}
+              <CheckInTableHeads columns={state.visibleColumns} />
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -337,6 +355,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                   onClassClick={handleClassClick}
                   onStaffUpdated={handleStaffUpdated}
                   visibleColumns={state.visibleColumns}
+                  checkInDate={useTierCheckIn ? tierByStaff.get(staff.id)?.lastCheckIn?.startAt : checkIns.data?.[staff.id]}
+                  checkInError={useTierCheckIn ? tiers.isError : checkIns.isError}
+                  tier={tierByStaff.get(staff.id)}
+                  tierError={tiers.isError}
                 />
               ))
             )}

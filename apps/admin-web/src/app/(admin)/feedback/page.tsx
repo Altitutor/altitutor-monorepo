@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function FeedbackPage() {
-  redirect('/feedback/responses');
+export default function LegacyPage() {
+  redirect('/reports/form-responses');
 }

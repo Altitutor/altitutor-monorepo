@@ -1,3 +1,4 @@
+import { operationalViews, operationalViewHref } from '@/features/quick-filters/config/operationalViews';
 /**
  * Command Palette Configuration
  *
@@ -141,14 +142,14 @@ export const additionalPages: CommandPalettePage[] = [
   {
     id: 'settings-pay-tiers',
     title: 'Pay tiers ladder',
-    href: '/pay-tiers/ladder',
+    href: '/settings/pay-tiers',
     icon: CreditCard,
     keywords: ['pay', 'tier', 'staff', 'salary', 'wage'],
   },
   {
     id: 'pay-tiers',
     title: 'Pay tiers',
-    href: '/pay-tiers',
+    href: operationalViewHref(operationalViews.payTiers),
     icon: CreditCard,
     keywords: ['pay', 'tier', 'staff', 'promotion', 'review'],
   },

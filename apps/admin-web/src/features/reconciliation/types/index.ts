@@ -227,13 +227,6 @@ export interface ProjectWithoutLead {
   } | null;
 }
 
-/** Row counts per reconciliation tab (for nav badges). */
-export interface ReconciliationTabCounts {
-  financial: number;
-  scheduling: number;
-  operations: number;
-}
-
 /** One row for staff / student / parent check-in reconciliation tables. */
 export interface FamilyCheckInRow {
   entityId: string;

@@ -7,6 +7,8 @@ import { InPersonStatusBadge } from "./InPersonStatusBadge";
 import { clickableCardInteractiveCn, cn } from "@/shared/utils";
 import type { StudentDirectoryEntry } from "../types/directory";
 
+import { studentGroup } from '../utils/studentGroup';
+
 export const studentGroupOptions = [
   { key: "stage", label: "Onboarding status" },
   { key: "status", label: "In-person status" },
@@ -14,22 +16,6 @@ export const studentGroupOptions = [
   { key: "year_level", label: "Year level" },
   { key: "account_class", label: "Account class" },
 ];
-export function studentGroup(
-  entry: StudentDirectoryEntry,
-  group: string | null,
-) {
-  if (group === "stage") return entry.stage ?? "No onboarding";
-  if (group === "status") return entry.student?.status ?? "No in-person status";
-  if (group === "curriculum")
-    return entry.student?.curriculum ?? "No curriculum";
-  if (group === "year_level")
-    return entry.student?.year_level
-      ? `Year ${entry.student.year_level}`
-      : "No year level";
-  if (group === "account_class")
-    return entry.student?.account_class ?? "Enquiries";
-  return "Students";
-}
 export function StudentDirectoryBoard({
   entries,
   groupBy,

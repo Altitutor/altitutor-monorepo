@@ -39,6 +39,7 @@ const PROJECT_FILTER_KEYS = [
   "start_date",
   "target_date",
   "member",
+  "lead",
 ] as const;
 
 export interface ProjectsListProps {
@@ -316,6 +317,17 @@ export function ProjectsList({
             }}
           />
         ),
+      },
+      {
+        key: "lead",
+        label: "Lead assignment",
+        visibleByDefault: false,
+        filterOnly: true,
+        getValue: (p) => p.project_lead_id ? "assigned" : "unassigned",
+        defaultValue: null,
+        filterOptions: [{ value: "unassigned", label: "No lead" }],
+        filterable: true,
+        renderPill: () => null,
       },
       {
         key: "member",

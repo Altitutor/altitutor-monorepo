@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { createPaletteSearchApi } from "../search";
@@ -8,7 +8,8 @@ import { createPaletteSearchApi } from "../search";
 const localDatabaseTest =
   process.env.COMMAND_PALETTE_DATABASE_TEST === "1" ? describe : describe.skip;
 localDatabaseTest("palette search against its owned local database", () => {
-  const ids = Array.from({ length: 5 }, () => randomUUID());
+  const ids = Array.from({ length: 7 }, () => randomUUID());
+  const phone = `+614${String(randomInt(100000000)).padStart(8, "0")}`;
   const marker = `Palette${randomUUID().replaceAll("-", "")}`;
   const url = process.env.SUPABASE_URL ?? "";
   const db = createClient<Database>(
@@ -30,30 +31,51 @@ localDatabaseTest("palette search against its owned local database", () => {
     const { error } = await db.from("students").insert([
       {
         id: ids[0],
+        account_class: "external",
         first_name: marker,
         last_name: "A Closed",
         status: "DISCONTINUED",
       },
       {
         id: ids[1],
+        account_class: "external",
         first_name: marker,
         last_name: "B Online",
         status: "DISCONTINUED",
       },
       {
         id: ids[2],
+        account_class: "external",
         first_name: marker,
         last_name: "C Inperson",
         status: "ACTIVE",
       },
       {
         id: ids[3],
+        account_class: "external",
         first_name: marker,
         last_name: "D OnlineOnly",
         status: null,
       },
       {
+        id: ids[5],
+        first_name: marker,
+        last_name: "A Internal Inperson",
+        status: "ACTIVE",
+        account_class: "internal_test",
+        email: `${marker}-internal@example.test`,
+        phone,
+      },
+      {
+        id: ids[6],
+        first_name: marker,
+        last_name: "A Internal Online",
+        status: null,
+        account_class: "internal_test",
+      },
+      {
         id: ids[4],
+        account_class: "external",
         first_name: marker,
         last_name: "E Deleted",
         status: "DISCONTINUED",
@@ -63,6 +85,11 @@ localDatabaseTest("palette search against its owned local database", () => {
     const relationships = await db
       .from("student_online_product_relationships")
       .insert([
+        {
+          student_id: ids[6],
+          product: "UCAT_WEB",
+          started_at: "2026-01-01T00:00:00Z",
+        },
         {
           student_id: ids[0],
           product: "UCAT_WEB",
@@ -101,7 +128,7 @@ localDatabaseTest("palette search against its owned local database", () => {
       .in("student_id", ids);
     await db.from("students").delete().in("id", ids);
   });
-  it("includes either active relationship and excludes closed/deleted Students before the limit", async () => {
+  it("includes external active relationships and excludes internal, closed and deleted Students before pagination", async () => {
     const result = await api.search({
       type: "student",
       search: marker,
@@ -126,6 +153,17 @@ localDatabaseTest("palette search against its owned local database", () => {
       limit: 2,
     });
     expect(onlineOnly.results.map((student) => student.id)).toEqual([ids[3]]);
+  });
+  it("hides internal students when matching their name, email or phone", async () => {
+    for (const search of [
+      `${marker} Internal`,
+      `${marker}-internal@example.test`,
+      phone,
+    ]) {
+      const result = await api.search({ type: "student", search, limit: 20 });
+      expect(result.results).toEqual([]);
+      expect(result.hasMore).toBe(false);
+    }
   });
   it("searches matching Inbox messages before grouping and pagination", async () => {
     const folders = ["inbox", "archive", "custom"].map((folder) => ({

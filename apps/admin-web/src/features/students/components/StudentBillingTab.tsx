@@ -1,5 +1,7 @@
 'use client';
 
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
+
 import { useState } from 'react';
 import type { Tables, Database } from '@altitutor/shared';
 import { Button, SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
@@ -61,6 +63,12 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
     queryFn: () => fetchStudentPaymentMethods(student.id),
   });
 
+  const refreshPaymentQueue = () => {
+    void queryClient.invalidateQueries({ queryKey: ['students', 'billing-columns'] });
+    void queryClient.invalidateQueries({ queryKey: ['students', 'directory'] });
+    void queryClient.invalidateQueries({ queryKey: reconciliationKeys.viewCount('no-payment-method') });
+  };
+
   const handleSetDefault = async (methodId: string) => {
     setLoadingMethodId(methodId);
     setLoadingAction('setDefault');
@@ -71,6 +79,7 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
         description: 'Default payment method updated',
       });
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
+      refreshPaymentQueue();
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -108,6 +117,7 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
         description: 'Payment method removed',
       });
       queryClient.invalidateQueries({ queryKey: studentPaymentMethodsKeys.student(student.id) });
+      refreshPaymentQueue();
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -133,6 +143,8 @@ function PaymentMethodsTab({ student }: PaymentMethodsTabProps) {
       
       if (attempts < maxAttempts) {
         setTimeout(poll, pollInterval);
+      } else {
+        refreshPaymentQueue();
       }
     };
     

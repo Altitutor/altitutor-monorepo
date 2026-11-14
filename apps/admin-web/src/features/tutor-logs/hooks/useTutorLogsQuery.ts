@@ -1,3 +1,4 @@
+import { invalidateUnloggedSessionSurfaces } from '@/shared/lib/query-invalidation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tutorLogsApi } from '../api/tutor-logs';
 import { sessionsKeys } from '../../sessions/hooks/useSessionsQuery';
@@ -121,6 +122,9 @@ export function useCreateTutorLog() {
       
       // Invalidate sessions queries since they show log status (using proper key constants)
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void invalidateUnloggedSessionSurfaces(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['tutor-log-topics'] });
+      void queryClient.invalidateQueries({ queryKey: ['students', 'directory'] });
       
       // Set the new log in cache
       queryClient.setQueryData(tutorLogsKeys.detail(newLog.id), newLog);
@@ -144,6 +148,9 @@ export function useUpdateTutorLog() {
       
       // Invalidate sessions queries since they show log status
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void invalidateUnloggedSessionSurfaces(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['tutor-log-topics'] });
+      void queryClient.invalidateQueries({ queryKey: ['students', 'directory'] });
       
       // Invalidate the specific tutor log detail
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.detail(variables.id) });
@@ -168,6 +175,9 @@ export function useDeleteTutorLog() {
       
       // Invalidate sessions queries (using proper key constants)
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      void invalidateUnloggedSessionSurfaces(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['tutor-log-topics'] });
+      void queryClient.invalidateQueries({ queryKey: ['students', 'directory'] });
     },
   });
 }

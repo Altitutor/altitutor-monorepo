@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { MoreVertical } from "lucide-react";
 import {
   Button,
@@ -8,12 +9,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
   DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
 } from "@altitutor/ui";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { listSettingsLinks, type ListSettingsKey } from "@/shared/constants/listSettings";
 
-export function ListSettingsMenu({ list }: { list: ListSettingsKey }) {
+export function ListSettingsMenu({ list, children }: { list: ListSettingsKey; children?: ReactNode }) {
   const items = listSettingsLinks[list];
 
   return (
@@ -26,6 +28,7 @@ export function ListSettingsMenu({ list }: { list: ListSettingsKey }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {items.length === 1 ? <DropdownMenuItem asChild><Link href={items[0].href}>Go to settings</Link></DropdownMenuItem> : <DropdownMenuSub><DropdownMenuSubTrigger>Go to settings</DropdownMenuSubTrigger><DropdownMenuSubContent>{items.map((item) => <DropdownMenuItem key={item.href} asChild><Link href={item.href}>{item.title}</Link></DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>}
+          {children && <><DropdownMenuSeparator />{children}</>}
         </DropdownMenuContent>
       </DropdownMenu>
     </AdminPageActions>

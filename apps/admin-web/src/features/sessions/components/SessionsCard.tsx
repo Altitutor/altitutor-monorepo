@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
+import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Users } from 'lucide-react';
@@ -49,7 +50,7 @@ export function SessionsCard({
   classData,
   subject,
   staff = [],
-  students = [],
+  students: suppliedStudents,
   onClick,
   details,
   title,
@@ -62,6 +63,9 @@ export function SessionsCard({
   dimmedStudentIds,
   dimmedStaffIds,
 }: SessionsCardProps) {
+  const students = suppliedStudents ?? [];
+  const studentRoster = details?.students ?? suppliedStudents;
+
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
   
@@ -120,7 +124,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={details?.students ?? students} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(
@@ -162,7 +166,7 @@ export function SessionsCard({
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     {subjectDisplay}
@@ -181,6 +185,7 @@ export function SessionsCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
+                <StudentCount count={studentRoster?.length} />
                 {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
