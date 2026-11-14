@@ -10,6 +10,7 @@ const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/auth', 
 
 const isPublicPath = (pathname: string): boolean => {
   return (
+    pathname === '/interview-display' || pathname === '/interview-display/' ||
     PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/form/')
