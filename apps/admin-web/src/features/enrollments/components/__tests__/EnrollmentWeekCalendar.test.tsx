@@ -71,6 +71,28 @@ describe('EnrollmentWeekCalendar', () => {
     expect(screen.queryByText(/^potential-/)).not.toBeInTheDocument();
   });
 
+  it('places an old class returned as HH:mm:ss exactly where the HH:mm schedule goes', () => {
+    const placeOldClass = (start: string, end: string) => {
+      const view = render(
+        <EnrollmentWeekCalendar
+          studentId="student-1"
+          enrollmentDate="2026-10-28"
+          selectedClass={{ ...selectedClass, id: 'new-class' }}
+          isChangeClassMode
+          oldClass={{ id: 'old-class', day_of_week: 1, start_time: start, end_time: end } as Tables<'classes'>}
+        />,
+      );
+      const block = screen.getByText(/^old-class-2026-10-26-/).parentElement;
+      const placement = { top: block?.style.top, height: block?.style.height };
+      view.unmount();
+      return placement;
+    };
+
+    const hhmm = placeOldClass('16:00', '17:30');
+    expect(hhmm.height).toBe('112.5px');
+    expect(placeOldClass('16:00:00', '17:30:00')).toEqual(hhmm);
+  });
+
   it('stacks sessions that meet at an endpoint instead of giving each its own column', () => {
     render(
       <EnrollmentWeekCalendar
