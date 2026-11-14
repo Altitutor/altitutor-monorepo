@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { auditMigrationDirectory } from "./supabase-migration-privileges.mjs";
+import { decideWebSystemTests } from "./web-system-test-paths.mjs";
 
 const APPS = [
   "admin-web",
@@ -315,6 +316,78 @@ test("production verification executes every system test boundary", async () => 
     "Failed browser journeys must preserve diagnostic artifacts",
   );
 });
+
+for (const [selection, changedPath, expectedApps] of [
+  [
+    "student-only",
+    "apps/student-web/src/features/interviews/components/student-interview-room.tsx",
+    ["student"],
+  ],
+  [
+    "tutor-only",
+    "apps/tutor-web/src/features/resources/components/resource-pdf-pages.tsx",
+    ["tutor"],
+  ],
+  ["UCAT-only", "apps/ucat-web/src/app/page.tsx", ["ucat"]],
+  [
+    "database",
+    "supabase/local/resource-storage-policies.sql",
+    ["admin", "student", "tutor", "ucat"],
+  ],
+]) {
+  test(`${selection} CI selection installs guarded fixtures before its browser journeys`, async () => {
+    const decision = decideWebSystemTests([changedPath]);
+    assert.deepEqual(
+      Object.keys(decision.apps).filter((app) => decision.apps[app]),
+      expectedApps,
+    );
+    assert.equal(decision.database, selection === "database");
+    const outputs = { database: decision.database, ...decision.apps };
+    const workflow = await readFile(ciWorkflowPath, "utf8");
+    const webE2eStart = workflow.indexOf("  web-e2e:");
+    const webE2eJob = workflow.slice(
+      webE2eStart,
+      workflow.indexOf("\n  build:", webE2eStart),
+    );
+    const steps = webE2eJob.split(/^      - /mu);
+    const setup = steps.findIndex((step) =>
+      step.includes("run: bash supabase/scripts/apply-ucat-test-seed.sh"),
+    );
+    const startup = steps.findIndex((step) =>
+      step.includes("node scripts/start-local-supabase.mjs"),
+    );
+    assert.ok(
+      startup >= 0 && setup > startup,
+      "guarded setup must follow Supabase startup",
+    );
+    const condition = steps[setup].match(/^        if: (.+)$/mu)?.[1];
+    assert.ok(condition, "guarded setup must declare its selection condition");
+    // Evaluate the workflow's actual output disjunction, not a duplicate selection rule.
+    const enabled = condition
+      .split(" || ")
+      .map((clause) => {
+        const output = clause.match(
+          /^needs\.web-system-tests-needed\.outputs\.(\w+) == 'true'$/u,
+        )?.[1];
+        assert.ok(
+          output && Object.hasOwn(outputs, output),
+          `unsupported selection clause: ${clause}`,
+        );
+        return outputs[output];
+      })
+      .some(Boolean);
+    assert.equal(enabled, true, `${selection} must run the guarded setup`);
+    for (const app of expectedApps) {
+      const browser = steps.findIndex((step) =>
+        step.includes(`pnpm --filter ${app}-web test:e2e`),
+      );
+      assert.ok(
+        browser > setup,
+        `${app} browsers must run after guarded setup`,
+      );
+    }
+  });
+}
 
 test("UCAT browser verification exercises production mode and supported engines", async () => {
   const [config, uiTsconfigSource] = await Promise.all([

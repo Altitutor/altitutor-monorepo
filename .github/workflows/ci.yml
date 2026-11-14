@@ -318,8 +318,8 @@ jobs:
             | grep -v '<none>' \
             | xargs docker save -o /tmp/supabase-docker-images.tar
 
-      - name: Apply UCAT study-plan fixtures
-        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.ucat == 'true'
+      - name: Apply resource policies and UCAT study-plan fixtures
+        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.ucat == 'true' || needs.web-system-tests-needed.outputs.student == 'true' || needs.web-system-tests-needed.outputs.tutor == 'true'
         run: bash supabase/scripts/apply-ucat-test-seed.sh
 
       - name: Test database contracts
