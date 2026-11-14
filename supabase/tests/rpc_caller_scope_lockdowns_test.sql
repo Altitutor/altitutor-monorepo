@@ -1,6 +1,21 @@
 BEGIN;
 
-SELECT plan(17);
+SELECT plan(20);
+
+UPDATE public.staff
+SET status = 'INACTIVE'
+WHERE id = '00000000-0000-0000-0000-000000000002';
+
+INSERT INTO public.student_subscriptions (
+  student_id, subject_id, stripe_subscription_id, status, plan_tier, billing_interval
+) VALUES (
+  '10000000-0000-0000-0000-000000000002',
+  public.get_ucat_subject_id(),
+  'sub_rpc_caller_scope_lockdowns',
+  'trialing',
+  'unlimited',
+  'year'
+);
 
 -- Class enrolment: active AdminStaff through the user client, or the service role.
 SELECT ok(
@@ -10,6 +25,15 @@ SELECT ok(
     'EXECUTE'
   ),
   'admin-web can still reach enroll_student_in_class with its user client'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
+    'anon',
+    'public.enroll_student_in_class(uuid, uuid, timestamp with time zone, uuid)',
+    'EXECUTE'
+  ),
+  'anonymous callers cannot execute enroll_student_in_class'
 );
 
 SET LOCAL ROLE authenticated;
@@ -51,6 +75,26 @@ SELECT throws_ok(
   '42501',
   NULL,
   'a tutor cannot enrol a student in a Class'
+);
+
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}',
+  true
+);
+
+SELECT throws_ok(
+  $$
+    SELECT public.enroll_student_in_class(
+      '20000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000009',
+      NOW(),
+      '00000000-0000-0000-0000-000000000002'
+    )
+  $$,
+  '42501',
+  NULL,
+  'inactive ADMINSTAFF cannot enrol a student in a Class'
 );
 
 SELECT set_config(
@@ -151,7 +195,7 @@ SELECT throws_ok(
   $$,
   '42501',
   NULL,
-  'a student cannot log absences for another student'
+  'a signed-in student cannot call log_student_absences_self, even for another student'
 );
 
 RESET ROLE;
@@ -212,20 +256,23 @@ SELECT throws_ok(
   $$,
   '42501',
   NULL,
-  'a student cannot read another student''s UCAT Pro subscription status'
+  'a signed-in student cannot call student_has_ucat_pro_subscription, even for another student'
 );
 
 RESET ROLE;
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-SELECT lives_ok(
-  $$
-    SELECT public.student_has_ucat_pro_subscription(
-      '10000000-0000-0000-0000-000000000002'
-    )
-  $$,
-  'the service role can read UCAT Pro subscription status'
+SELECT is(
+  public.student_has_ucat_pro_subscription('10000000-0000-0000-0000-000000000002'),
+  true,
+  'the service role sees a trialing UCAT Pro subscription'
+);
+
+SELECT is(
+  public.student_has_ucat_pro_subscription('10000000-0000-0000-0000-000000000003'),
+  false,
+  'the service role sees no UCAT Pro subscription for an unsubscribed student'
 );
 
 RESET ROLE;

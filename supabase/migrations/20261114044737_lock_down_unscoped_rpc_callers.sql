@@ -1,7 +1,7 @@
--- These SECURITY DEFINER RPCs accepted caller-supplied student/staff IDs without
--- binding them to the caller. Class enrolment stays an active-AdminStaff command;
--- student absence logging and UCAT Pro status lookups are server-only, called
--- with the service role after the server resolves the caller's identity.
+-- None of these functions binds its student/staff ID arguments to the caller,
+-- so only active ADMINSTAFF or the service role may execute them. The
+-- student-web absences route resolves current_student_id() before its
+-- service-role call.
 
 CREATE OR REPLACE FUNCTION public.enroll_student_in_class(
   p_class_id UUID,
@@ -12,7 +12,7 @@ CREATE OR REPLACE FUNCTION public.enroll_student_in_class(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_enrollment_id UUID;
@@ -25,7 +25,7 @@ BEGIN
   END IF;
 
   SELECT status INTO v_student_status
-  FROM students
+  FROM public.students
   WHERE id = p_student_id;
 
   IF NOT FOUND THEN
@@ -36,7 +36,7 @@ BEGIN
     RAISE EXCEPTION 'Student must be active to enrol in a class';
   END IF;
 
-  INSERT INTO classes_students (
+  INSERT INTO public.classes_students (
     id,
     class_id,
     student_id,
