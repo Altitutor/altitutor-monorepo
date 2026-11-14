@@ -54,7 +54,7 @@ export async function verifyAdminMcpToken(
       token,
       clientId: claims.client_id,
       scopes: ["admin:read", "admin:operations"],
-      extra: { userId: claims.sub },
+      extra: { userId: claims.sub, verifiedAt: Date.now() },
     };
   } catch {
     return undefined;
