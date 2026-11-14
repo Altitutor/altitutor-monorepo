@@ -14,6 +14,7 @@ import { getAdelaideDateString } from './utils.ts';
 import { buildRestorationBillingContext, buildSessionCreditNoteCommand } from './session-billing-adjustment-policy.ts';
 import { buildCreditNoteNotificationEmail } from '../../_shared/email.generated.ts';
 import { operationalMailboxConfigured, sendOperationalEdgeEmail } from '../../_shared/operational-mail.ts';
+import type { OperationalMailDiagnostic } from '../../../../packages/email/src/operational-mail-diagnostic.ts';
 
 interface StoredCreditNoteCommand {
   idempotencyKey: string;
@@ -66,6 +67,7 @@ export interface ProcessSessionBillingAdjustmentsOptions {
   resendApiKey?: string;
   limit?: number;
   adjustmentIds?: string[];
+  onUncertainOutcome?: (diagnostic: OperationalMailDiagnostic) => void;
 }
 
 export interface ProcessSessionBillingAdjustmentsResult {
@@ -259,6 +261,7 @@ async function issueCreditNote(
   stripe: Stripe,
   adjustment: SessionBillingAdjustment,
   notification: {
+    onUncertainOutcome?: (diagnostic: OperationalMailDiagnostic) => void;
     resendApiKey?: string;
     billingByStudent: Record<string, {
       invoice_email_to_student?: boolean;
@@ -329,6 +332,7 @@ async function issueCreditNote(
           to: [recipient],
           email,
           idempotencyKey: `core-credit-note/${creditNote.id}/${recipient}`,
+          onUncertainOutcome: notification.onUncertainOutcome,
         });
       } catch (emailError) {
         failedRecipients.push(recipient);
@@ -461,6 +465,7 @@ export async function processSessionBillingAdjustments(
       if (adjustment.kind === 'credit_note') {
         await issueCreditNote(supabase, stripe, adjustment, {
           resendApiKey: options.resendApiKey,
+          onUncertainOutcome: options.onUncertainOutcome,
           billingByStudent,
           parentEmailsByStudent,
           studentEmailById,
