@@ -9,10 +9,11 @@ describe('getBookMeetingOptions', () => {
     ]);
   });
 
-  it('offers check in and drafting for a student', () => {
+  it('offers check in, drafting and subsidy interviews for a student', () => {
     expect(getBookMeetingOptions({ students: { id: 's-1', first_name: 'Ada' } })).toEqual([
       { kind: 'check-in', label: 'Check in', requiresPhoneOwner: false },
       { kind: 'drafting', label: 'Drafting session', requiresPhoneOwner: false },
+      { kind: 'subsidy', label: 'Subsidy interview', requiresPhoneOwner: false },
     ]);
   });
 

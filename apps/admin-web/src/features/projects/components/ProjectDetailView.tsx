@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   Form,
   Button,
-  Separator,
+  Skeleton,
   SegmentedTabPanel,
   SegmentedTabPanelContent,
   Input,
@@ -47,6 +47,9 @@ import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { useNotes } from "@/features/notes/api/queries";
+import { NotesSearchResults } from "@/features/notes/components/NotesSearchResults";
+import { DocumentsToolbar } from "@/features/notes/components/DocumentsToolbar";
+import { defaultDocumentOrder } from "@/features/notes/utils/documentOrder";
 import { useCreateNote } from "@/features/notes/hooks/useNoteMutations";
 import { EditDocumentDialog } from "@/features/notes/components/EditDocumentDialog";
 import { WorkItemActivity } from "@/features/activity/components/WorkItemActivity";
@@ -73,6 +76,8 @@ const formSchema = z.object({
   targetDate: z.union([z.string(), z.null()]).default(null),
 });
 
+type ProjectSection = "overview" | "tasks" | "documents" | "activity";
+
 export interface ProjectDetailViewProps {
   projectId: string;
   enabled?: boolean;
@@ -89,18 +94,26 @@ export function ProjectDetailView({
   const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   const { data: project, isLoading } = useProject(projectId, enabled);
   useAccessoryTitle(project?.name);
-  const { data: projectNotes = [] } = useNotes(
-    { projectId: projectId && projectId.trim() ? projectId : undefined },
-    enabled,
+  const [section, setSection] = useState<ProjectSection>("overview");
+  const [documentSearch, setDocumentSearch] = useState("");
+  const [documentOrder, setDocumentOrder] = useState(defaultDocumentOrder);
+  const search = documentSearch.trim();
+  const documents = useNotes(
+    { projectId },
+    enabled && Boolean(projectId) && (section !== "documents" || !search),
   );
+  const documentResults = useNotes(
+    { projectId, search },
+    enabled && Boolean(projectId && search) && section === "documents",
+  );
+  const visibleDocuments = search ? documentResults : documents;
   const { data: progressNotesData = [] } = useEntityNotes(
     "projects",
     projectId,
-    enabled,
+    enabled && section === "activity",
   );
   const createNote = useCreateNote();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [section, setSection] = useState<"overview" | "tasks">("overview");
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null,
@@ -116,7 +129,7 @@ export function ProjectDetailView({
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useProjectActivity(projectId, enabled, 100);
+  } = useProjectActivity(projectId, enabled && section === "activity", 100);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
@@ -163,6 +176,7 @@ export function ProjectDetailView({
 
   const handleAddDocument = useCallback(
     async (title: string) => {
+      if (createNote.isPending) return;
       try {
         const created = await createNote.mutateAsync({
           title: title.trim() || "Untitled",
@@ -180,54 +194,42 @@ export function ProjectDetailView({
     [projectId, createNote],
   );
 
-  const documentsList = (
-    <div className="space-y-0.5">
-      {projectNotes.map((doc) => (
-        <button
-          type="button"
-          key={doc.id}
-          className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 text-left text-sm"
-          onClick={() => {
-            setSelectedDocumentId(doc.id);
-            setIsDocumentDialogOpen(true);
-          }}
-        >
-          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="flex-1 truncate">{doc.title}</span>
-          <span className="text-xs text-muted-foreground flex-shrink-0">
-            {new Date(doc.updated_at).toLocaleDateString()}
-          </span>
-        </button>
-      ))}
-      <div className="flex items-center gap-2 py-2 px-2 rounded-md text-sm">
-        <FileText className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
-        <Input
-          placeholder="Create new document..."
-          value={newDocumentTitle}
-          onChange={(e) => setNewDocumentTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAddDocument(newDocumentTitle);
-            }
-          }}
-          className="flex-1 min-w-0 h-8 text-sm placeholder:opacity-70 border-0 bg-transparent shadow-none focus-visible:ring-1 focus-visible:ring-ring"
-        />
-        <Button
-          type="button"
-          variant="default"
-          size="icon"
-          className="h-8 w-8 flex-shrink-0"
-          disabled={createNote.isPending}
-          onClick={() => handleAddDocument(newDocumentTitle)}
-        >
-          {createNote.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
+  const openDocument = (id: string) => {
+    setSelectedDocumentId(id);
+    setIsDocumentDialogOpen(true);
+  };
+
+  const createDocumentRow = (
+    <div className="flex items-center gap-2 rounded-md px-2 py-2 text-sm">
+      <FileText className="size-4 shrink-0 text-muted-foreground" />
+      <Input
+        aria-label="New document title"
+        placeholder="Create new document..."
+        value={newDocumentTitle}
+        onChange={(e) => setNewDocumentTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void handleAddDocument(newDocumentTitle);
+          }
+        }}
+        className="h-8 min-w-0 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-1 focus-visible:ring-ring"
+      />
+      <Button
+        type="button"
+        variant="default"
+        size="icon"
+        className="size-8 shrink-0"
+        aria-label="Create document"
+        disabled={createNote.isPending}
+        onClick={() => void handleAddDocument(newDocumentTitle)}
+      >
+        {createNote.isPending ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Plus className="size-4" />
+        )}
+      </Button>
     </div>
   );
 
@@ -286,34 +288,65 @@ export function ProjectDetailView({
                       toggleTarget={sidebarToggleTarget}
                       id={`project-${projectId}-panels`}
                       main={
-                        <div
-                          className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
-                          data-rich-text-toolbar-container
+                        <SegmentedTabPanel<ProjectSection>
+                          className="h-full"
+                          selectorClassName="mx-6 mt-6 w-auto"
+                          value={section}
+                          onValueChange={setSection}
+                          options={[
+                            { value: "overview", label: "Overview" },
+                            { value: "tasks", label: "Tasks" },
+                            { value: "documents", label: "Documents" },
+                            { value: "activity", label: "Activity" },
+                          ]}
                         >
-                          <div className="p-6 space-y-6">
-                          <SegmentedTabPanel
-                            value={section}
-                            onValueChange={(value) => {
-                              if (value === "overview" || value === "tasks") setSection(value);
-                            }}
-                            options={[
-                              { value: "overview", label: "Overview" },
-                              { value: "tasks", label: "Tasks" },
-                            ]}
-                          >
-                            <SegmentedTabPanelContent when="overview" activeTab={section} className="space-y-6">
-                            <ProjectTitleField
-                              form={form}
-                              onEnter={handleTitleEnter}
-                              titleRef={titleFieldRef}
+                          <SegmentedTabPanelContent when="overview" activeTab={section} className="min-h-0 flex-1">
+                            <div className="h-full space-y-6 overflow-y-auto overscroll-contain p-6" data-rich-text-toolbar-container>
+                              <ProjectTitleField
+                                form={form}
+                                onEnter={handleTitleEnter}
+                                titleRef={titleFieldRef}
+                              />
+                              <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
+                              <ProjectDescriptionField
+                                form={form}
+                                descriptionRef={descriptionFieldRef}
+                              />
+                            </div>
+                          </SegmentedTabPanelContent>
+                          <SegmentedTabPanelContent when="tasks" activeTab={section} className="mt-2 min-h-0 flex-1 overflow-hidden">
+                            <LinkedTasksSection projectId={projectId} />
+                          </SegmentedTabPanelContent>
+                          <SegmentedTabPanelContent when="documents" activeTab={section} className="flex min-h-0 flex-1 flex-col gap-2 px-6 pb-6 pt-4">
+                            <DocumentsToolbar
+                              project
+                              search={documentSearch}
+                              onSearchChange={setDocumentSearch}
+                              order={documentOrder}
+                              onOrderChange={setDocumentOrder}
                             />
-                            <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
-                            <ProjectDescriptionField
-                              form={form}
-                              descriptionRef={descriptionFieldRef}
-                            />
-
-                            <Separator />
+                            <div className="min-h-0 flex-1 overflow-y-auto">
+                              {visibleDocuments.isLoading ? (
+                                <div role="status" aria-label="Loading documents" className="space-y-2 py-2">
+                                  <Skeleton className="h-8 w-full" />
+                                  <Skeleton className="h-8 w-full" />
+                                </div>
+                              ) : visibleDocuments.error ? (
+                                <p role="alert" className="p-2 text-sm text-destructive">Could not load project documents.</p>
+                              ) : visibleDocuments.data?.length || search ? (
+                                <NotesSearchResults
+                                  notes={visibleDocuments.data ?? []}
+                                  searchQuery={search}
+                                  order={documentOrder}
+                                  onNoteClick={openDocument}
+                                />
+                              ) : (
+                                <p className="p-2 text-sm text-muted-foreground">No documents in this project yet.</p>
+                              )}
+                              {!search && createDocumentRow}
+                            </div>
+                          </SegmentedTabPanelContent>
+                          <SegmentedTabPanelContent when="activity" activeTab={section} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
                             <WorkItemActivity
                               kind="project"
                               entityId={projectId}
@@ -325,13 +358,8 @@ export function ProjectDetailView({
                               isFetchingNextPage={isFetchingNextPage}
                               onLoadMore={fetchNextPage}
                             />
-                            </SegmentedTabPanelContent>
-                            <SegmentedTabPanelContent when="tasks" activeTab={section} className="space-y-6">
-                              <LinkedTasksSection projectId={projectId} />
-                            </SegmentedTabPanelContent>
-                          </SegmentedTabPanel>
-                          </div>
-                        </div>
+                          </SegmentedTabPanelContent>
+                        </SegmentedTabPanel>
                       }
                       sidebar={
                         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -351,7 +379,19 @@ export function ProjectDetailView({
                               value="documents"
                               title="Documents"
                             >
-                              {documentsList}
+                              {documents.data?.map((doc) => (
+                                <button
+                                  key={doc.id}
+                                  type="button"
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted/50"
+                                  onClick={() => openDocument(doc.id)}
+                                >
+                                  <FileText className="size-4 shrink-0 text-muted-foreground" />
+                                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                                  <span className="shrink-0 text-xs text-muted-foreground">{new Date(doc.updated_at).toLocaleDateString()}</span>
+                                </button>
+                              ))}
+                              {section !== "documents" && createDocumentRow}
                             </EntitySidebarCard>
                           </EntitySidebarCards>
                         </div>

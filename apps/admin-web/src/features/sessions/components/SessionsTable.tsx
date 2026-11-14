@@ -686,7 +686,10 @@ export function SessionsTable({
           initialDate={calendarFrom || calendarTo || initialCalendarDate}
           initialViewMode={initialCalendarMode}
           onRangeChange={changeCalendarRange}
-          visibleProperties={state.visibleColumns}
+          focusedStudentId={isStudentAttendanceView ? studentId : undefined}
+          visibleProperties={isStudentAttendanceView
+            ? [...state.visibleColumns, "staff", "students"]
+            : state.visibleColumns}
           roundEvents={roundEvents}
           source={{
             sessions: filteredSessions,

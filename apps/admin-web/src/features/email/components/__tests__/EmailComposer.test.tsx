@@ -1140,3 +1140,45 @@ it("shows chunk upload progress and blocks send until Microsoft confirms the com
   expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
   expect(commands).toHaveLength(0);
 });
+
+it("starts an inline draft on edit and saves its prefilled recipient", async () => {
+  const prepareDraft = jest.fn(async () => ({ message: { ...draft, to: [] } }));
+  const saveDraft = jest.fn();
+  global.fetch = jest.fn(async (_input, init) => {
+    if (!init?.body)
+      return { ok: true, json: async () => ({ person: null }) } as Response;
+    const command = JSON.parse(String(init.body));
+    if (command.action === "save") saveDraft(command);
+    return {
+      ok: true,
+      json: async () => ({ state: "saved", message: draft }),
+    } as Response;
+  });
+
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <EmailComposer
+          draft={{ ...draft, id: "local:activity", subject: "", bodyText: "" }}
+          mailbox={mailbox}
+          prepareDraft={prepareDraft}
+          onClose={() => {}}
+        />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+
+  expect(prepareDraft).not.toHaveBeenCalled();
+  const subject = screen.getByRole("textbox", { name: "Email subject" });
+  fireEvent.change(subject, { target: { value: "Class reminder" } });
+  fireEvent.change(subject, { target: { value: "Tomorrow’s class" } });
+
+  await waitFor(() => expect(saveDraft).toHaveBeenCalledWith(expect.objectContaining({
+    id: draft.id,
+    content: expect.objectContaining({
+      subject: "Tomorrow’s class",
+      to: ["parent@example.test"],
+    }),
+  })), { timeout: 3000 });
+  expect(prepareDraft).toHaveBeenCalledTimes(1);
+});

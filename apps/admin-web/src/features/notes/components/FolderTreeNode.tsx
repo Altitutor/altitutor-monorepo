@@ -8,7 +8,10 @@ import { DraggableFolder } from './DraggableFolder';
 import { DroppableFolder } from './DroppableFolder';
 import { FolderInlineCreateDocument } from './FolderInlineCreateDocument';
 
+import { defaultDocumentOrder, sortDocuments, type DocumentOrder } from '../utils/documentOrder';
+
 interface FolderTreeNodeProps {
+  order?: DocumentOrder;
   folder: FolderTreeItem;
   level?: number;
   onNoteClick?: (noteId: string) => void;
@@ -23,6 +26,7 @@ interface FolderTreeNodeProps {
 export function FolderTreeNode({
   folder,
   level = 0,
+  order = defaultDocumentOrder,
   onNoteClick,
   onNoteCreated,
   onProjectClick,
@@ -69,7 +73,7 @@ export function FolderTreeNode({
         {isExpanded && (
           <div>
             {/* Notes in this folder */}
-            {folder.notes.map((note) => {
+            {sortDocuments(folder.notes, order).map((note) => {
               const project = note.project_id
                 ? projects.find((p) => p.id === note.project_id)
                 : null;
@@ -90,6 +94,7 @@ export function FolderTreeNode({
               <FolderTreeNode
                 key={childFolder.id}
                 folder={childFolder}
+                order={order}
                 level={level + 1}
                 onNoteClick={onNoteClick}
                 onNoteCreated={onNoteCreated}

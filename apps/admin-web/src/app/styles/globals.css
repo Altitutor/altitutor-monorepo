@@ -250,6 +250,12 @@
 [data-button-variant="outline"][data-overdue] { border-color: hsl(var(--destructive)); }
 /* Work-item property pills share an icon scale across native and Button triggers. */
 button[data-button-variant="outline"].rounded-full svg { width: .875rem; height: .875rem; }
+/* Keep empty property pills clickable while dimming their labels and icons. */
+button[data-property-empty] > * {
+  color: hsl(var(--muted-foreground));
+  opacity: .4;
+}
+button[data-property-empty]:is(:hover, :focus-visible) > * { opacity: 1; }
 /* Detail pages already pair record breadcrumbs and actions in one row. */
 [data-admin-main] div:has(> nav[data-primary-breadcrumb]) {
   margin-inline: -1.5rem;

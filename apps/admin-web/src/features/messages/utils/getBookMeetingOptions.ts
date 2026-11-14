@@ -26,6 +26,7 @@ export function getBookMeetingOptions(contact: BookMeetingContact): BookMeetingO
     return [
       { kind: 'check-in', label: 'Check in', requiresPhoneOwner: false },
       { kind: 'drafting', label: 'Drafting session', requiresPhoneOwner: false },
+      { kind: 'subsidy', label: 'Subsidy interview', requiresPhoneOwner: false },
     ];
   }
 

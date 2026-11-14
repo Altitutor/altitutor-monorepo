@@ -33,14 +33,13 @@ export function EntityResizablePanels({
       id={`${id}-properties-sidebar`}
       sidebar={sidebar}
       resizable
-      collapsible={toggleInHeader}
       narrowAt={inDialog ? 768 : undefined}
       primaryMinSize={primaryMinSize}
       secondaryMinSize={secondaryMinSize}
     >
       {toggleInHeader ? (
         <>
-          {toggleTarget && createPortal(<EntityPropertiesToggle />, toggleTarget)}
+          {toggleTarget && createPortal(<EntityPropertiesToggle showDocked />, toggleTarget)}
           {main}
         </>
       ) : inDialog ? (

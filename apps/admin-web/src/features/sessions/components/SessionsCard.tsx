@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
+import { isStudentAbsentInCalendar } from '../utils/attendanceDerivation';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -222,7 +223,10 @@ export function SessionsCard({
                     ? 'Swapped In' 
                     : 'Attending';
                   
-                  const isDimmed = dimmedStaffIds?.has(staffMember.id);
+                  const absent = isCalendarView && (
+                    hasTutorLog ? staffMember.actual_attended !== true : staffMember.planned_absence
+                  );
+                  const isDimmed = dimmedStaffIds?.has(staffMember.id) || absent;
                   const badge = (
                     <span
                       key={staffMember.id}
@@ -232,7 +236,7 @@ export function SessionsCard({
                           ? 'text-[10px] px-1 py-0.5' 
                           : 'text-xs px-2 py-0.5',
                         isDimmed && 'opacity-50',
-                        staffMember.planned_absence
+                        absent ? 'bg-muted text-muted-foreground' : staffMember.planned_absence
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                           : staffMember.is_swapped_in
                           ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
@@ -285,7 +289,8 @@ export function SessionsCard({
                     ? 'Attending (extra)' 
                     : 'Attending';
                   
-                  const isDimmed = dimmedStudentIds?.has(student.id);
+                  const absent = isCalendarView && isStudentAbsentInCalendar(student, hasTutorLog);
+                  const isDimmed = dimmedStudentIds?.has(student.id) || absent;
                   const badge = (
                     <span
                       key={student.id}
@@ -296,7 +301,7 @@ export function SessionsCard({
                           : 'text-xs px-2 py-0.5',
                         isDimmed && 'opacity-50',
                         // Show red for unplanned students and planned absences
-                        (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
+                        absent ? 'bg-muted text-muted-foreground' : (isUnplanned || isUnplannedFromRPC) || (student.planned_absence && !student.is_extra)
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                           : student.is_extra && !isUnplanned && !isUnplannedFromRPC
                           ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
