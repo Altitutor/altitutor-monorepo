@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Checkbox,
@@ -17,6 +12,7 @@ import {
   interviewText,
   type InterviewCatalog,
   type InterviewRichText,
+  type InterviewRound,
   type InterviewTemplate,
 } from "@altitutor/shared";
 import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
@@ -41,7 +37,9 @@ function pagesFor(
   catalog: InterviewCatalog,
 ): PrintPage[] {
   return interview.stations.flatMap((placement, index) => {
-    const station = catalog.stations.find((item) => item.id === placement.stationId);
+    const station = catalog.stations.find(
+      (item) => item.id === placement.stationId,
+    );
     if (!station) return [];
     return [
       {
@@ -209,7 +207,10 @@ function ScaledSheet({
   const heightPx = ((heightMm * 96) / 25.4) * scale;
   return (
     <div ref={ref} className="w-full">
-      <div className="mx-auto shadow-md" style={{ width: widthPx, height: heightPx }}>
+      <div
+        className="mx-auto shadow-md"
+        style={{ width: widthPx, height: heightPx }}
+      >
         <div
           style={{
             width: `${widthMm}mm`,
@@ -228,10 +229,12 @@ function ScaledSheet({
 export function InterviewPrintDialog({
   interview,
   catalog,
+  round,
   onClose,
 }: {
-  interview: InterviewTemplate | null;
-  catalog: InterviewCatalog;
+  interview?: InterviewTemplate | null;
+  catalog?: InterviewCatalog;
+  round?: InterviewRound | null;
   onClose: () => void;
 }) {
   const [textSize, setTextSize] = useState(30);
@@ -242,11 +245,21 @@ export function InterviewPrintDialog({
   const [showName, setShowName] = useState(false);
   const [orientation, setOrientation] = useState<Orientation>("landscape");
   const [fitted, setFitted] = useState<Record<string, number>>({});
-  const pages = interview ? pagesFor(interview, catalog) : [];
+  const pages: PrintPage[] = round
+    ? round.stations.map((station, index) => ({
+        placementId: station.id,
+        number: index + 1,
+        name: station.name,
+        prompt: station.prompt,
+      }))
+    : interview && catalog
+      ? pagesFor(interview, catalog)
+      : [];
   const box = pageBox(orientation);
   const onFitted = (placementId: string, size: number) => {
     setFitted((current) =>
-      current[placementId] != null && Math.abs(current[placementId] - size) < 0.4
+      current[placementId] != null &&
+      Math.abs(current[placementId] - size) < 0.4
         ? current
         : { ...current, [placementId]: size },
     );
@@ -270,10 +283,10 @@ export function InterviewPrintDialog({
   );
   return (
     <UcatDialogShell
-      open={!!interview}
+      open={!!interview || !!round}
       onClose={onClose}
       title="Print prompts"
-      subtitle={interview?.name || "Interview prompts"}
+      subtitle={round?.name || interview?.name || "Interview prompts"}
       onSave={() => window.print()}
       saveLabel="Print"
       saveDisabled={!pages.length}
@@ -302,7 +315,10 @@ export function InterviewPrintDialog({
         </div>
         <aside className="w-80 shrink-0 space-y-5 overflow-y-auto border-l p-4">
           <div className="space-y-2">
-            <label className="block text-sm font-medium" htmlFor="print-text-size">
+            <label
+              className="block text-sm font-medium"
+              htmlFor="print-text-size"
+            >
               Text size
             </label>
             <div className="flex items-center gap-2">
@@ -387,9 +403,12 @@ export function InterviewPrintDialog({
           </div>
         </aside>
       </div>
-      {interview && typeof document !== "undefined"
+      {(interview || round) && typeof document !== "undefined"
         ? createPortal(
-            <div id="interview-print-mount" className="pointer-events-none absolute left-[-10000px] top-0">
+            <div
+              id="interview-print-mount"
+              className="pointer-events-none absolute left-[-10000px] top-0"
+            >
               <style>
                 {`@page { size: ${box.size}; margin: 0; }
 @media print {
