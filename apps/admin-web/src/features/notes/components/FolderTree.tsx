@@ -231,6 +231,7 @@ export function FolderTree({
             <FolderTreeNode
               key={folder.id}
               folder={folder}
+              order={order}
               level={0}
               onNoteClick={onNoteClick}
               onNoteCreated={onNoteCreated}

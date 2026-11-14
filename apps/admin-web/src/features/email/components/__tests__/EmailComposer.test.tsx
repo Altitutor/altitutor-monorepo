@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TooltipProvider } from "@altitutor/ui";
+import { SegmentedTabPanelContent, TooltipProvider } from "@altitutor/ui";
 import { useMailbox } from "../../api/client";
 import { EmailComposer } from "../EmailComposer";
 import type { EmailMessage, MailboxData } from "../../types";
@@ -1180,5 +1180,45 @@ it("starts an inline draft on edit and saves its prefilled recipient", async () 
       to: ["parent@example.test"],
     }),
   })), { timeout: 3000 });
+  expect(prepareDraft).toHaveBeenCalledTimes(1);
+});
+
+it("keeps an activity draft and saves its latest text when a record tab changes during preparation", async () => {
+  jest.useFakeTimers();
+  localStorage.clear();
+  let resolveDraft!: (value: { message: EmailMessage }) => void;
+  const preparation = new Promise<{ message: EmailMessage }>((resolve) => { resolveDraft = resolve; });
+  const prepareDraft = jest.fn(() => preparation);
+  const saved: Array<{ content: { subject: string } }> = [];
+  global.fetch = jest.fn(async (_input, init) => {
+    if (!init?.body) return { ok: true, json: async () => ({ person: null }) } as Response;
+    const command = JSON.parse(String(init.body));
+    if (command.action === "save") saved.push(command);
+    return { ok: true, json: async () => ({ state: "saved", message: draft }) } as Response;
+  });
+  const client = new QueryClient();
+  const page = (activeTab: string) => (
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} keepMounted>
+          <EmailComposer draft={{ ...draft, id: "local:activity:retained", subject: "", bodyText: "" }}
+            mailbox={mailbox} prepareDraft={prepareDraft} onClose={() => {}} />
+        </SegmentedTabPanelContent>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+  const { rerender } = render(page("activity"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Email subject" }), { target: { value: "Keep this latest edit" } });
+  expect(prepareDraft).toHaveBeenCalledTimes(1);
+  rerender(page("sessions"));
+  expect(screen.queryByRole("textbox", { name: "Email subject" })).not.toBeInTheDocument();
+  await act(async () => {
+    resolveDraft({ message: draft });
+    await preparation;
+  });
+  await act(async () => { await jest.advanceTimersByTimeAsync(1100); });
+  expect(saved).toEqual([expect.objectContaining({ content: expect.objectContaining({ subject: "Keep this latest edit" }) })]);
+  rerender(page("activity"));
+  expect(screen.getByRole("textbox", { name: "Email subject" })).toHaveValue("Keep this latest edit");
   expect(prepareDraft).toHaveBeenCalledTimes(1);
 });

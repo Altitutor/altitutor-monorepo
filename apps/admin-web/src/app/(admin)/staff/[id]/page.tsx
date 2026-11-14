@@ -268,8 +268,9 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           <StaffFiles staffId={id} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} keepMounted className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            enabled={activeTab === 'activity'}
             recordActivity
             allowForm
             entityType="staff"
