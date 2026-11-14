@@ -1,3 +1,4 @@
+import { observeSubjectCover } from '../subject-cover-diagnostics';
 import { getSupabaseClient } from './client';
 
 /**
@@ -39,12 +40,12 @@ export async function uploadToBucket(
 ): Promise<UploadFileResult> {
   const supabase = getSupabaseClient();
   
-  const { data, error } = await supabase.storage
+  const { data, error } = await observeSubjectCover(bucket, path, 'upload', () => supabase.storage
     .from(bucket)
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false,
-    });
+    }));
   
   if (error) {
     console.error('Storage upload error:', error);
@@ -72,9 +73,9 @@ export async function getSignedUrlFromBucket(
 ): Promise<string> {
   const supabase = getSupabaseClient();
   
-  const { data, error } = await supabase.storage
+  const { data, error } = await observeSubjectCover(bucket, path, 'sign', () => supabase.storage
     .from(bucket)
-    .createSignedUrl(path, expiresIn);
+    .createSignedUrl(path, expiresIn));
   
   if (error) {
     console.error('Failed to create signed URL:', error);
@@ -93,9 +94,9 @@ export async function deleteFromBucket(
 ): Promise<void> {
   const supabase = getSupabaseClient();
   
-  const { error } = await supabase.storage
+  const { error } = await observeSubjectCover(bucket, path, 'delete', () => supabase.storage
     .from(bucket)
-    .remove([path]);
+    .remove([path]));
   
   if (error) {
     console.error('Failed to delete file:', error);

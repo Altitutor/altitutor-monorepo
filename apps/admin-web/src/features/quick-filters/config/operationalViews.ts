@@ -5,19 +5,22 @@ function view<const Slug extends string>(entity: string, slug: Slug, name: strin
 }
 
 const sessionColumns = ['date', 'time', 'class', 'staff', 'students', 'tutor_log'];
-const studentColumns = ['status', 'education', 'student', 'classes'];
 const invoiceColumns = ['invoice_number', 'date', 'student', 'items', 'amount', 'status', 'actions'];
 const sessionQueue = <const Slug extends string>(slug: Slug, name: string) => view('sessions', slug, name, {
   layout: 'table', filters: { reconciliation: [slug] }, sortBy: 'start_at',
-  sortDirection: 'desc', groupBy: null, visibleColumns: slug === 'unlogged' ? sessionColumns : [...sessionColumns, 'billing_exception'],
+  sortDirection: 'desc', groupBy: null, visibleColumns: sessionColumns,
 });
 
 export const operationalViews = {
-  billingAdjustments: sessionQueue('billing-adjustments', 'Billing adjustments'),
-  uninvoiced: sessionQueue('uninvoiced', 'Uninvoiced sessions'),
-  voidInvoices: sessionQueue('void-invoices', 'Sessions on voided invoices'),
+  billingAdjustments: view('billing-adjustments', 'billing-adjustments', 'Billing adjustments', { filters: {}, sortBy: 'date', sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'session', 'date', 'amount', 'issue'] }),
+  uninvoiced: view('billing-charges', 'uninvoiced', 'To invoice', { filters: {}, sortBy: 'date', sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'session', 'date', 'amount', 'issue'] }),
+  voidInvoices: view('billing-charges', 'void-invoices', 'Previously voided', { filters: { reason: ['voided'] }, sortBy: 'date', sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'session', 'date', 'amount', 'issue'] }),
   unpaid: view('invoices', 'unpaid', 'Unpaid invoices', {
     filters: { payment: ['unpaid'] }, sortBy: 'invoice_date', sortDirection: 'desc',
+    groupBy: null, visibleColumns: invoiceColumns,
+  }),
+  voidedInvoices: view('invoices', 'voided', 'Voided invoices', {
+    filters: { status: ['void'] }, sortBy: 'invoice_date', sortDirection: 'desc',
     groupBy: null, visibleColumns: invoiceColumns,
   }),
   noPayment: view('students', 'no-payment-method', 'Students without a payment method', {
@@ -31,7 +34,7 @@ export const operationalViews = {
   }),
   noClasses: view('students', 'no-classes', 'Students without classes', {
     layout: 'list', filters: { reconciliation: ['no-classes'] }, sortBy: 'last_name',
-    sortDirection: 'asc', groupBy: null, visibleColumns: studentColumns,
+    sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'classes'],
   }),
   unassignedTasks: view('tasks', 'unassigned', 'Unassigned tasks', {
     layout: 'list', filters: { assignee: ['__null__'], status: ['backlog', 'todo', 'in_progress', 'in_review'] },
@@ -80,19 +83,20 @@ export function operationalViewHref(entry: ReturnType<typeof view>) {
   for (const [key, values] of Object.entries(filters)) {
     if (values.length) params.set(key, values.map(String).join(','));
   }
-  return `/${entry.entity}?${params.toString()}`;
+  const path = entry.entity === 'billing-charges' ? '/billing/to-invoice' : entry.entity === 'billing-adjustments' ? '/billing/adjustments' : entry.entity === 'invoices' ? '/billing/invoices' : `/${entry.entity}`;
+  return `${path}?${params.toString()}`;
 }
 
 export const reconciliationViewGroups = [
-  { key: 'financial', label: 'Financial', views: [operationalViews.billingAdjustments, operationalViews.uninvoiced, operationalViews.voidInvoices, operationalViews.unpaid, operationalViews.noPayment] },
+  { key: 'financial', label: 'Financial', views: [operationalViews.billingAdjustments, operationalViews.uninvoiced, operationalViews.unpaid, operationalViews.noPayment] },
   { key: 'scheduling', label: 'Scheduling', views: [operationalViews.unlogged, operationalViews.noStaff, operationalViews.noClasses] },
   { key: 'operations', label: 'Operations', views: [operationalViews.unassignedTasks, operationalViews.noLead] },
 ] as const;
 
 type ReconciliationView = (typeof reconciliationViewGroups)[number]['views'][number];
-export type ReconciliationViewKey = ReconciliationView['slug'];
+export type ReconciliationViewKey = ReconciliationView['slug'] | typeof operationalViews.voidInvoices.slug;
 
 export const reconciliationViews: ReconciliationView[] = reconciliationViewGroups.flatMap(({ views }) => [...views]);
 export function reconciliationViewKey(viewId: string): ReconciliationViewKey | undefined {
-  return reconciliationViews.find(({ entity, slug }) => viewId === `builtin:${entity}:${slug}`)?.slug;
+  return [...reconciliationViews, operationalViews.voidInvoices].find(({ entity, slug }) => viewId === `builtin:${entity}:${slug}`)?.slug;
 }

@@ -19,7 +19,6 @@ import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
 import { AttendanceCell } from './AttendanceCell';
-import { DeleteVoidInvoiceButton } from '@/features/billing/components/DeleteVoidInvoiceButton';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
@@ -66,8 +65,6 @@ export interface SessionsTableRowProps {
   sessionStaff: Record<string, Tables<'staff'>[]>;
   tutorLogs: TutorLogMap;
   topicsText?: string;
-  billingExceptions?: { id: string; label: string; invoiceId?: string; sessionStudentId?: string }[];
-  billingExceptionsError?: boolean;
   allSessions: Tables<'sessions'>[];
   formatDate: (dateString: string) => string;
   getTimeRange: (session: Tables<'sessions'>) => string;
@@ -105,7 +102,7 @@ export interface SessionsTableRowProps {
   onSessionClick: (id: string) => void;
   onClassClick: (classId: string, e: React.MouseEvent) => void;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
-  /** Set of sessions_students IDs that are uninvoiced per reconciliation view (student view only) */
+  /** Set of sessions_students IDs that are uninvoiced per reconciliation view (all eligible student assignments) */
   uninvoicedSessionsStudentsIds?: Set<string>;
   invoiceDetailsById?: Record<string, SessionInvoiceDetails>;
   invoicePreviewsBySessionId?: Record<string, SessionInvoicePreview>;
@@ -129,8 +126,6 @@ export function SessionsTableRow({
   sessionStaff,
   tutorLogs,
   topicsText,
-  billingExceptions,
-  billingExceptionsError,
   allSessions,
   formatDate,
   getTimeRange,
@@ -162,6 +157,17 @@ export function SessionsTableRow({
     ...session,
     class: session.class_id ? classesById[session.class_id] : undefined,
   });
+
+  const invoiceableStudents = hideBilling || !isStudentAttendanceView ? [] : studentList.filter((student) =>
+    (!studentId || student.id === studentId) && student.sessions_students_id
+    && uninvoicedSessionsStudentsIds?.has(student.sessions_students_id)
+  );
+  const invoiceActions = invoiceableStudents.map((student) => (
+    <DropdownMenuItem key={student.sessions_students_id} disabled={invoiceSessionMutation.isPending}
+      onSelect={() => invoiceSessionMutation.mutate(student.sessions_students_id!)}>
+      {invoiceableStudents.length === 1 ? 'Invoice session' : `Invoice session · ${student.first_name} ${student.last_name}`}
+    </DropdownMenuItem>
+  ));
 
   const showClass = visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn;
   const showStaff = visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView;
@@ -363,9 +369,6 @@ export function SessionsTableRow({
           {(() => {
             const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
             const invoicePayload = selectedStudent?.invoice_status_payload ?? null;
-            const sessionsStudentsId = selectedStudent?.sessions_students_id;
-            const isUninvoiced =
-              isStudentAttendanceView && sessionsStudentsId && uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
             const invoiceDetails = invoicePayload?.invoice_id
               ? invoiceDetailsById?.[invoicePayload.invoice_id]
               : undefined;
@@ -375,36 +378,12 @@ export function SessionsTableRow({
                 invoice={invoicePayload}
                 invoiceDetails={invoiceDetails}
                 preview={invoicePreviewsBySessionId?.[session.id]}
-                canSendNow={!!isUninvoiced}
-                isSending={invoiceSessionMutation.isPending}
-                onSendNow={() => {
-                  if (sessionsStudentsId) invoiceSessionMutation.mutate(sessionsStudentsId);
-                }}
               />
             );
           })()}
         </TableCell>
       )}
       {visibleColumns.includes('topics') && <TableCell className="max-w-80 whitespace-normal">{topicsText || '—'}</TableCell>}
-      {visibleColumns.includes('billing_exception') && (
-        <TableCell className="max-w-80 whitespace-normal">
-          {billingExceptionsError ? 'Unavailable' : billingExceptions?.map((item) => (
-            <div key={item.id} className="flex flex-wrap items-center gap-2">
-              {item.invoiceId ? <Button variant="link" size="sm" onClick={(event) => {
-                event.stopPropagation();
-                openAdminInvoiceModal(item.invoiceId!);
-              }}>{item.label || 'Open voided invoice'}</Button> : item.label}
-              {item.invoiceId && <DeleteVoidInvoiceButton invoiceId={item.invoiceId} />}
-              {item.sessionStudentId && (
-                <Button variant="outline" size="sm" disabled={invoiceSessionMutation.isPending} onClick={(event) => {
-                  event.stopPropagation();
-                  invoiceSessionMutation.mutate(item.sessionStudentId!);
-                }}>Invoice session</Button>
-              )}
-            </div>
-          )) ?? '—'}
-        </TableCell>
-      )}
       {visibleColumns.includes('tutor_log') && (
         <TableCell>
           {tutorLogs[session.id] ? (
@@ -420,6 +399,7 @@ export function SessionsTableRow({
       <TableCell onClick={(e) => e.stopPropagation()}>
         {isStudentAttendanceView ? (
           <SessionsTableRowStudentActions
+            invoiceActions={invoiceActions}
             session={session}
             studentList={studentList}
             studentId={studentId}
@@ -439,6 +419,7 @@ export function SessionsTableRow({
           />
         ) : (
           <SessionsTableRowDefaultActions
+            invoiceActions={invoiceActions}
             session={session}
             staffList={staffList}
             staffId={staffId}
@@ -464,6 +445,7 @@ export function SessionsTableRow({
 
 // --- Student attendance view: dropdown actions ---
 interface SessionsTableRowStudentActionsProps {
+  invoiceActions?: React.ReactNode;
   session: Tables<'sessions'>;
   studentList: SessionTableStudent[];
   studentId?: string;
@@ -495,6 +477,7 @@ interface SessionsTableRowStudentActionsProps {
 }
 
 function SessionsTableRowStudentActions({
+  invoiceActions,
   session,
   studentList,
   studentId,
@@ -565,11 +548,12 @@ function SessionsTableRowStudentActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0">
+        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {invoiceActions}
         <DropdownMenuItem
           onClick={async () => {
             await onCopySessionId(session.id, getClassShortDisplayName(session) || session.id);
@@ -651,14 +635,13 @@ function SessionsTableRowStudentActions({
 
 // --- Default view: dropdown actions (log session, edit tutor log, reschedule, remove staff) ---
 interface SessionsTableRowDefaultActionsProps {
+  invoiceActions?: React.ReactNode;
   session: Tables<'sessions'>;
   staffList: SessionTableStaff[];
   staffId?: string;
   hasTutorLog: boolean;
   tutorLogs: TutorLogMap;
   topicsText?: string;
-  billingExceptions?: { id: string; label: string; invoiceId?: string; sessionStudentId?: string }[];
-  billingExceptionsError?: boolean;
   classesById: Record<string, Tables<'classes'>>;
   sessionShortName: string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
@@ -680,6 +663,7 @@ interface SessionsTableRowDefaultActionsProps {
 }
 
 function SessionsTableRowDefaultActions({
+  invoiceActions,
   session,
   staffList,
   staffId,
@@ -727,11 +711,12 @@ function SessionsTableRowDefaultActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0">
+        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {invoiceActions}
         {staffId && !loggedStaffAbsence && (
           <>
             <DropdownMenuItem
