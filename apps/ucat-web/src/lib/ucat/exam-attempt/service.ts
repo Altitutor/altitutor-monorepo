@@ -247,6 +247,7 @@ function rowToActiveAttempt(
 export type GetActiveExamAttemptOptions = {
   exam?: QuestionEngineExam | null;
   readerClient?: SupabaseClient;
+  onSlotTiming?: (durationMs: number) => void;
 };
 
 export async function getActiveExamAttempt(
@@ -257,7 +258,7 @@ export async function getActiveExamAttempt(
   const resolvedOptions: GetActiveExamAttemptOptions =
     options != null &&
     typeof options === "object" &&
-    ("readerClient" in options || "exam" in options)
+    ("readerClient" in options || "exam" in options || "onSlotTiming" in options)
       ? options
       : { exam: options as QuestionEngineExam | null | undefined };
   const slotClient = admin as unknown as {
@@ -269,10 +270,21 @@ export async function getActiveExamAttempt(
       error: { message: string } | null;
     }>;
   };
-  const { data: activeSlots, error: activeSlotError } = await slotClient.rpc(
-    "get_ucat_active_exam_attempt_slot",
-    { p_student_id: studentId },
-  );
+  const slotStarted = performance.now();
+  const { data: activeSlots, error: activeSlotError } = await (async () => {
+    try {
+      return await slotClient.rpc(
+        "get_ucat_active_exam_attempt_slot",
+        { p_student_id: studentId },
+      );
+    } finally {
+      try {
+        resolvedOptions.onSlotTiming?.(performance.now() - slotStarted);
+      } catch {
+        // Diagnostic observers cannot change attempt resolution.
+      }
+    }
+  })();
   if (activeSlotError) throw new Error(activeSlotError.message);
   const activeSlot = activeSlots?.[0] ?? null;
   if (!activeSlot) return null;

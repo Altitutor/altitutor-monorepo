@@ -2,6 +2,7 @@ import {
   deliverOperationalMailboxEmail,
   resolveMailboxPolicy,
 } from "./email.generated.ts";
+import type { OperationalMailDiagnostic } from "../../../packages/email/src/operational-mail-diagnostic.ts";
 
 type OperationalEmail = {
   subject: string;
@@ -38,6 +39,7 @@ export async function sendOperationalEdgeEmail(input: {
   idempotencyKey: string;
   links: Array<{ type: string; id: string }>;
   actorStaffId?: string;
+  onUncertainOutcome?: (diagnostic: OperationalMailDiagnostic) => void;
 }): Promise<{ providerMessageId: string; state: "submitted" | "sent" }> {
   const serviceUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
