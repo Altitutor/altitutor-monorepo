@@ -26,3 +26,12 @@ Keep browser recovery optional to authoritative assessment saving. Storage
 failure exposes degraded recovery while serial saves, version conflicts and
 stable retry identities continue. Round creation likewise retains its submitted
 identity and details across an unknown response outcome.
+
+## DEV-375 amendment — 13 November 2026
+
+Matthew confirmed that in-person readiness is independent of selecting the
+arriving student. Reading may begin when every tutor is ready even if every
+station is still unselected. Tutors may select or correct their student during
+reading; claims lock when question time begins. A station left unselected is
+idle and assesses nobody. This replaces the earlier all-idle reading restriction
+without treating readiness, liveness or navigation as assessment completion.

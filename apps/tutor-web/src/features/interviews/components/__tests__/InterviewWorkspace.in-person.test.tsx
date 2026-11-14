@@ -543,6 +543,64 @@ describe("in-person interview round", () => {
     );
   });
 
+  it("requires confirmation before ending question time for every station", async () => {
+    currentRound = roundFixture("in_person");
+    mockMutateAsync.mockClear();
+    render(<InterviewWorkspace id="round-1" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Skip question time for everyone" }),
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Every station will move to feedback now.",
+    );
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Skip question time for everyone" }),
+    );
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Skip for everyone" }),
+      );
+    });
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "skipQuestions",
+        roundId: "round-1",
+        expectedVersion: 3,
+      }),
+    );
+  });
+
+  it("starts in-person reading before students arrive once every tutor is ready", async () => {
+    const waiting = roundFixture("in_person");
+    currentRound = {
+      ...waiting,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: waiting.progress.map((item) => ({
+        ...item,
+        studentId: null,
+        ready: true,
+      })),
+    };
+    mockMutateAsync.mockClear();
+    render(<InterviewWorkspace id="round-1" />);
+    const startReading = screen.getByRole("button", {
+      name: "Start reading",
+    });
+    expect(startReading).not.toBeDisabled();
+    await act(async () => {
+      fireEvent.click(startReading);
+    });
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "startReading" }),
+    );
+  });
+
   it("makes a paused round obvious and offers resume", () => {
     currentRound = {
       ...roundFixture("in_person"),
@@ -590,7 +648,7 @@ describe("in-person interview round", () => {
     expect(screen.getAllByLabelText("All feedback saved")).toHaveLength(2);
   });
 
-  it("holds the arriving student until the station is ready, then locks them", () => {
+  it("allows an arriving student through readiness and reading, then locks question time", async () => {
     const waiting = roundFixture("in_person");
     currentRound = {
       ...waiting,
@@ -599,11 +657,12 @@ describe("in-person interview round", () => {
       students: [
         { id: "student-1", name: "Sam Student" },
         { id: "student-2", name: "Alex Student" },
+        { id: "student-3", name: "Other Student" },
       ],
-      studentIds: ["student-1", "student-2"],
-      progress: waiting.progress.map((item) => ({
+      studentIds: ["student-1", "student-2", "student-3"],
+      progress: waiting.progress.map((item, index) => ({
         ...item,
-        studentId: null,
+        studentId: index === 1 ? "student-3" : null,
         ready: false,
       })),
       attempts: [
@@ -622,7 +681,7 @@ describe("in-person interview round", () => {
     const view = render(<InterviewWorkspace id="round-1" />);
 
     expect(
-      screen.getByRole("button", { name: "Ready — idle this rotation" }),
+      screen.getByRole("button", { name: "I’m ready" }),
     ).not.toBeDisabled();
     expect(
       screen.getByRole("option", {
@@ -632,6 +691,24 @@ describe("in-person interview round", () => {
     expect(
       screen.getByRole("option", { name: "Alex Student" }),
     ).not.toBeDisabled();
+    expect(
+      screen.getByRole("option", { name: "Other Student" }),
+    ).toBeDisabled();
+    mockMutateAsync.mockClear();
+    await act(async () => {
+      fireEvent.change(
+        screen.getByRole("combobox", { name: "Select arriving student" }),
+        {
+          target: { value: "student-2" },
+        },
+      );
+    });
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "claimStudent",
+        studentId: "student-2",
+      }),
+    );
     expect(
       screen.queryByRole("button", { name: "End my station early" }),
     ).not.toBeInTheDocument();
@@ -660,6 +737,34 @@ describe("in-person interview round", () => {
     };
     view.rerender(<InterviewWorkspace id="round-1" />);
     expect(
+      screen.getByRole("combobox", { name: "Select arriving student" }),
+    ).toHaveValue("student-2");
+    expect(
+      screen.getByRole("button", { name: "Mark not ready" }),
+    ).not.toBeDisabled();
+
+    currentRound = {
+      ...currentRound,
+      phase: "reading",
+      phaseDeadline: "2099-10-23T01:15:00.000Z",
+    };
+    view.rerender(<InterviewWorkspace id="round-1" />);
+    expect(
+      screen.getByRole("combobox", { name: "Select arriving student" }),
+    ).toHaveValue("student-2");
+    expect(
+      screen.getByRole("option", { name: "Other Student" }),
+    ).toBeDisabled();
+
+    currentRound = { ...currentRound, pausedAt: "2026-10-23T01:07:00.000Z" };
+    view.rerender(<InterviewWorkspace id="round-1" />);
+    expect(
+      screen.queryByRole("combobox", { name: "Select arriving student" }),
+    ).not.toBeInTheDocument();
+
+    currentRound = { ...currentRound, pausedAt: null, phase: "questions" };
+    view.rerender(<InterviewWorkspace id="round-1" />);
+    expect(
       screen.queryByRole("combobox", { name: "Select arriving student" }),
     ).not.toBeInTheDocument();
     expect(
@@ -668,9 +773,6 @@ describe("in-person interview round", () => {
     expect(screen.getAllByLabelText("Student locked").length).toBeGreaterThan(
       0,
     );
-    expect(
-      screen.getByRole("button", { name: "Mark not ready" }),
-    ).not.toBeDisabled();
   });
 
   it("keeps an unstarted round in the waiting room until every tutor has joined", async () => {

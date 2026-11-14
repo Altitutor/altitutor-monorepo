@@ -150,6 +150,27 @@ describe("tutor session middleware", () => {
     },
   );
 
+  it.each(["/interview-display", "/interview-display/"])(
+    "loads the blank audience page without authenticating at %s",
+    async (path) => {
+      mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+      const response = await middleware(request(path));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(mockCreateServerClient).not.toHaveBeenCalled();
+      expect(mockFrom).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["/interview-display/private", "/interview-display-admin"])(
+    "keeps nearby paths protected at %s",
+    async (path) => {
+      mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+      const response = await middleware(request(path));
+      expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
+    },
+  );
+
   it("preserves refreshed cookie metadata", async () => {
     mockGetClaims.mockImplementation(async () => {
       mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(

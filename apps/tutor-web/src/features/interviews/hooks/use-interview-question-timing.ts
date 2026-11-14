@@ -28,12 +28,12 @@ export function useInterviewQuestionTiming(
     return () => { mounted.current = false; };
   }, []);
   useEffect(() => {
-    if (scope.current === attempt?.id) return;
+    if (scope.current === attempt?.id && round.phase === "questions") return;
     scope.current = attempt?.id;
     intended.current = attempt?.selectedQuestionId;
     queue.current = [];
     setTimingError(null);
-  }, [attempt?.id, attempt?.selectedQuestionId]);
+  }, [attempt?.id, attempt?.selectedQuestionId, round.phase]);
 
   const drain = useCallback(async () => {
     if (running.current) return;
@@ -47,9 +47,21 @@ export function useInterviewQuestionTiming(
           if (mounted.current && scope.current === command.attemptId) setTimingError(null);
           void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
         } catch (error) {
+          if (queue.current[0] !== command) continue;
+          const latest = current.current;
+          // A group action can close answering while this selection is in flight.
+          if (
+            latest.round.id !== command.roundId ||
+            latest.round.phase !== "questions" || latest.round.pausedAt ||
+            latest.attempt?.id !== command.attemptId
+          ) {
+            queue.current = [];
+            intended.current = latest.attempt?.selectedQuestionId;
+            if (mounted.current) setTimingError(null);
+            break;
+          }
           if (mounted.current && scope.current === command.attemptId)
             setTimingError(error instanceof Error ? error.message : "Question timing could not save. Retry when connected.");
-          if (queue.current[0] !== command) continue;
           break;
         }
       }

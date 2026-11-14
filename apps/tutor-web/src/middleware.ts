@@ -110,6 +110,8 @@ export async function handleAuthRequest(request: NextRequest) {
   if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   const isPublic =
+    pathname === "/interview-display" ||
+    pathname === "/interview-display/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
