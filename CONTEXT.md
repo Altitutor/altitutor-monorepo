@@ -323,7 +323,7 @@
 - **Custom class timetable** — A Class schedule made from explicitly dated Class sessions rather than a repeating pattern.
   _Avoid_: Irregular recurrence, recurring class schedule, RRULE
 
-- **Class display label** — The canonical presentation of a Subject-derived Class name, optional Class cohort label, and compact schedule summary. Short and long variants preserve schedule-at-a-glance context wherever Classes are identified, while the underlying Class name remains stable when its schedule changes.
+- **Class display label** — The canonical presentation of a Subject-derived Class name and optional Class cohort label. Short and long variants remain stable when the Class schedule changes; the schedule is shown separately in Class details, chip hover details, and cards.
   _Avoid_: Class name, admin-only label, schedule-generated identity
 
 - **Class session exception** — A Class session deliberately moved, cancelled, or otherwise changed independently of the Class schedule. Later schedule changes preserve the exception unless ADMINSTAFF explicitly resolves it.

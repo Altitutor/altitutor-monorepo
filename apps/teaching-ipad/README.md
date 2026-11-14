@@ -97,8 +97,10 @@ share sheet closes or on the next launch. Worksheet and solutions exports are
 separate actions.
 
 Connect an external display through AirPlay or a cable. The external scene
-receives only the active worksheet page, visible region, rotation and ink.
-Solutions never enter its model. The lesson board and log review show safe
+projects only the rendered worksheet pane at up to 30 frames per second,
+including its visible pages, in-progress Pencil strokes, pinch/scroll gestures
+and the laser. It never captures the iPad window or the solutions pane. The
+lesson board and log review show safe
 lesson information: subject/session kind, time, room and tutor. Resource previews
 also keep this lesson information on the external scene. Screen mirroring by
 unrelated tools is
@@ -164,6 +166,14 @@ Protected snapshot caches are purgeable and contain no signed URLs or session
 credentials.
 
 ## Verification
+
+- `python3 apps/teaching-ipad/Verification/Casting/run.py --output /tmp/teaching-casting-<unique-name>`
+  runs offline native integration tests for ink before lift, zoom during UIKit
+  tracking, and solutions privacy. It builds a disposable copy with a synthetic
+  worksheet entry point; the shipped app has no test entry point. The runner
+  creates and deletes its own iPad simulator, retaining artifacts at the supplied
+  new directory. `--simulator <UDID>` reuses a caller-owned device and leaves it
+  running. Real Pencil and AirPlay/cable latency still require physical-device QA.
 
 - `swift test --package-path apps/teaching-ipad` exercises the tutor/session
   lesson-store boundary without iOS frameworks.

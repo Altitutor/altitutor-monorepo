@@ -63,7 +63,6 @@ export function StaffAbsenceBulkActionSelector({
               classData={session.class || undefined}
               subject={session.subject || undefined}
               staff={[]}
-              students={[]}
               compact={false}
             />
           </div>

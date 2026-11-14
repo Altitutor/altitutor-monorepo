@@ -155,7 +155,7 @@ describe('SessionsTableRow - invoice column', () => {
     jest.clearAllMocks();
   });
 
-  it('shows Send invoice button when session is uninvoiced for the student', async () => {
+  it('invoices an eligible student from the row actions menu', async () => {
     const mutate = jest.fn();
     mockUseInvoiceSessionMutation.mockReturnValue({
       mutate,
@@ -164,18 +164,21 @@ describe('SessionsTableRow - invoice column', () => {
 
     const user = userEvent.setup();
     const props = createBaseProps({
+      visibleColumns: ['date'],
       uninvoicedSessionsStudentsIds: new Set(['ss-1']),
     });
 
     renderRow(props);
 
-    const button = await screen.findByRole('button', { name: /send invoice/i });
-    await user.click(button);
+    expect(screen.queryByRole('button', { name: /send invoice/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /session actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /^invoice session$/i }));
 
     expect(mutate).toHaveBeenCalledWith('ss-1');
   });
 
-  it('does not show Send invoice button when session is not in uninvoiced set', () => {
+  it('does not offer invoicing when the assignment is not eligible', async () => {
+    const user = userEvent.setup();
     const mutate = jest.fn();
     mockUseInvoiceSessionMutation.mockReturnValue({
       mutate,
@@ -188,7 +191,8 @@ describe('SessionsTableRow - invoice column', () => {
 
     renderRow(props);
 
-    expect(screen.queryByRole('button', { name: /send invoice/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /session actions/i }));
+    expect(screen.queryByRole('menuitem', { name: /invoice session/i })).not.toBeInTheDocument();
   });
 
   it('shows the upcoming amount and bill date when an invoice has not been created', () => {
@@ -385,7 +389,7 @@ describe('SessionsTableRow - staff log / undo absence actions', () => {
     props.modals = { ...props.modals, openLogStaffAbsenceDialog };
 
     renderRow(props);
-    await user.click(screen.getByRole('button', { name: '' }));
+    await user.click(screen.getByRole('button', { name: 'Session actions' }));
 
     const logItem = screen.getByText('Log staff absence');
     expect(logItem).toBeInTheDocument();

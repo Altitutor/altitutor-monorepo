@@ -26,6 +26,11 @@ describe('hasRichContent', () => {
     expect(hasRichContent(doc([{ type: 'image', attrs: { src: 'https://example.test/image.png' } }]))).toBe(true)
   })
 
+  it.each(['inlineMath', 'blockMath'])('recognises saved %s without text children', (type) => {
+    expect(hasRichContent(doc([{ type, attrs: { latex: 'x^2 + 1 = 5' } }]))).toBe(true)
+    expect(hasRichContent(doc([{ type, attrs: { latex: '   ' } }]))).toBe(false)
+  })
+
   it('rejects empty documents', () => {
     expect(hasRichContent(doc([{ type: 'paragraph', content: [{ type: 'text', text: '   ' }] }]))).toBe(false)
     expect(hasRichContent(null)).toBe(false)

@@ -248,7 +248,14 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
   const session = formatSession(event, payload);
   const staffOut = sentenceName(entityNameByRole(event, 'staff_out'), staff);
   const staffIn = sentenceName(entityNameByRole(event, 'staff_in'), 'the replacement staff member');
-  const sessionFrom = sentenceName(entityNameByRole(event, 'session_from'), session);
+  // The database keeps the original session's subject role when links overlap.
+  const sessionFrom = sentenceName(
+    entityNameByRole(event, 'session_from')
+      || event.entities.find((entity) => entity.entityType === 'session'
+        && event.subject_type === 'session' && entity.entityId === event.subject_id)?.displayName
+      || text(asRecord(payload.display).session_name),
+    'the original session',
+  );
   const sessionTo = sentenceName(entityNameByRole(event, 'session_to'), 'the replacement session');
   const invoiceNumber = displayName(event, payload, 'invoice');
   const invoice = invoiceNumber ? `invoice ${invoiceNumber}` : 'the invoice';

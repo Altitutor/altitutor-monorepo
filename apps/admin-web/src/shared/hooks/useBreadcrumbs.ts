@@ -42,6 +42,8 @@ const pathLabelMap: Record<string, string> = {
   documents: 'Documents',
   settings: 'Settings',
   billing: 'Billing',
+  'to-invoice': 'To invoice',
+  adjustments: 'Adjustments',
   payments: 'Payments',
   pricing: 'Pricing',
   reconciliation: 'Reconciliation',

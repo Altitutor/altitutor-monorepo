@@ -104,6 +104,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
               "id,first_name,last_name,school,online:student_online_product_relationships()",
             )
             .is("deleted_at", null)
+            .eq("account_class", "external")
             .is("online.closed_at", null)
             .or("status.in.(ACTIVE,TRIAL),online.not.is.null");
           const data = await rows(

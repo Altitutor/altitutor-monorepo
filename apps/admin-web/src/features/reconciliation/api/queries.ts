@@ -5,8 +5,9 @@ import { reconciliationKeys } from './queryKeys';
 /**
  * Get uninvoiced sessions
  */
-export function useUninvoicedSessions() {
+export function useUninvoicedSessions(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: reconciliationKeys.uninvoicedSessions(),
     queryFn: () => reconciliationApi.getUninvoicedSessions(),
     staleTime: 1000 * 60 * 2, // 2 minutes
