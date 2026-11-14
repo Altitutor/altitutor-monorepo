@@ -4,7 +4,7 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 // Select only calendar/recipient metadata. Whole station snapshots contain large
 // prompts, rubrics and live assessment data which these lists never display.
 const SUMMARY_FIELDS =
-  "id,round_name:data->name,scheduled_at:data->scheduledAt,started_at:data->startedAt,phase:data->phase,delivery:data->delivery,mode:data->mode,recording_enabled:data->recordingEnabled,students:data->students,tutors:data->tutors,student_ids:data->studentIds,reading_time:data->readingTimeSeconds,question_time:data->questionTimeSeconds,assignments:data->assignments" as const;
+  "id,round_name:data->name,scheduled_at:data->scheduledAt,started_at:data->startedAt,phase:data->phase,delivery:data->delivery,mode:data->mode,recording_enabled:data->recordingEnabled,students:data->students,tutors:data->tutors,student_ids:data->studentIds,reading_time:data->readingTimeSeconds,question_time:data->questionTimeSeconds,assignments:data->assignments,rotation_allowance:data->rotationAllowanceSeconds" as const;
 const PAGE_SIZE = 1000;
 export async function readInterviewRoundSummaries(
   options: {
@@ -61,6 +61,7 @@ export async function readInterviewRoundSummaries(
           studentIds: row.student_ids,
           readingTimeSeconds: row.reading_time,
           questionTimeSeconds: row.question_time,
+          rotationAllowanceSeconds: row.rotation_allowance,
           // The round setup requires one tutor assignment for every station.
           stations: row.assignments,
         },
