@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -20,15 +21,14 @@ type PropertiesState = {
   narrow: boolean;
   id: string;
   setAnimate: (animate: boolean) => void;
-  expanded: boolean;
-  toggleExpanded?: () => void;
+  focusSidebar: () => void;
 };
 const PropertiesContext = createContext<PropertiesState | null>(null);
 
 /** The same control is placed in each record's own header, including accessory records. */
-export function EntityPropertiesToggle() {
+export function EntityPropertiesToggle({ showDocked = false }: { showDocked?: boolean } = {}) {
   const state = useContext(PropertiesContext);
-  if (!state || (!state.narrow && !state.toggleExpanded)) return null;
+  if (!state || (!state.narrow && !showDocked)) return null;
   if (!state.narrow) {
     return (
       <Button
@@ -38,8 +38,8 @@ export function EntityPropertiesToggle() {
         className="h-9 w-9 shrink-0"
         aria-label="Right sidebar"
         aria-controls={state.id}
-        aria-expanded={state.expanded}
-        onClick={state.toggleExpanded}
+        title="Focus right sidebar"
+        onClick={state.focusSidebar}
       >
         <PanelRight className="h-4 w-4" />
       </Button>
@@ -68,7 +68,6 @@ export function EntityPropertiesLayout({
   sidebar,
   children,
   resizable = false,
-  collapsible = false,
   narrowAt = 1000,
   primaryMinSize = 480,
   secondaryMinSize = 280,
@@ -77,7 +76,6 @@ export function EntityPropertiesLayout({
   sidebar: ReactNode;
   children: ReactNode;
   resizable?: boolean;
-  collapsible?: boolean;
   narrowAt?: number;
   primaryMinSize?: number;
   secondaryMinSize?: number;
@@ -92,7 +90,6 @@ export function EntityPropertiesLayout({
   const [narrow, setNarrow] = useState(true);
   const [open, setOpen] = useState(false);
   const [animate, setAnimate] = useState(false);
-  const [expanded, setExpanded] = useState(true);
   useLayoutEffect(() => {
     if (!root) return;
     let previous: boolean | undefined;
@@ -109,22 +106,22 @@ export function EntityPropertiesLayout({
     observer.observe(root);
     return () => observer.disconnect();
   }, [root, narrowAt]);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const properties = (
     <aside
       id={id}
       aria-label="Properties"
+      tabIndex={-1}
       className="h-full min-h-0 overflow-y-auto"
       ref={(node) => {
+        sidebarRef.current = node;
         if (node && sidebarHost && sidebarHost.parentNode !== node)
           node.appendChild(sidebarHost);
       }}
     />
   );
   return (
-    <PropertiesContext.Provider value={{
-      narrow, id, setAnimate, expanded,
-      toggleExpanded: collapsible ? () => setExpanded((value) => !value) : undefined,
-    }}>
+    <PropertiesContext.Provider value={{ narrow, id, setAnimate, focusSidebar: () => sidebarRef.current?.focus() }}>
       <DialogPrimitive.Root
         open={narrow && open}
         onOpenChange={setOpen}
@@ -140,8 +137,6 @@ export function EntityPropertiesLayout({
               id={id}
               primary={children}
               secondary={properties}
-              secondaryHidden={collapsible ? !expanded : undefined}
-              onSecondaryHiddenChange={collapsible ? (hidden) => setExpanded(!hidden) : undefined}
               primaryMinSize={primaryMinSize}
               secondaryMinSize={secondaryMinSize}
               secondaryMaxSize={520}

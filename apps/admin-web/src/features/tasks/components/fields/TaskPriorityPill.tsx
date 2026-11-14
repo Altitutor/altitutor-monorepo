@@ -41,6 +41,7 @@ export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
                 trigger={
                   <Button
                     type="button"
+                    data-property-empty={priorityValue === 0 || undefined}
                     variant="outline"
                     className="h-8 rounded-full px-3 text-xs"
                   >

@@ -48,6 +48,8 @@ export type SegmentedTabPanelContentProps = {
   when: string
   activeTab: string
   className?: string
+  /** Preserve editors and pending saves while another panel is visible. */
+  keepMounted?: boolean
   children: ReactNode
 }
 
@@ -55,8 +57,10 @@ export function SegmentedTabPanelContent({
   when,
   activeTab,
   className,
+  keepMounted = false,
   children,
 }: SegmentedTabPanelContentProps) {
-  if (activeTab !== when) return null
-  return <div className={className}>{children}</div>
+  const active = activeTab === when
+  if (!active && !keepMounted) return null
+  return <div className={cn(className, !active && 'hidden')} hidden={!active} inert={!active}>{children}</div>
 }

@@ -144,6 +144,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <ParentDetailsTab
+          key={`${id}:${editFlow.isEditing}`}
           parent={parent}
           studentIds={students.map(s => s.id)}
           students={students}
@@ -215,8 +216,10 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} keepMounted className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            enabled={activeTab === 'activity'}
+            recordActivity
             allowForm
             className="min-h-0 flex-1"
             entityType="parent"

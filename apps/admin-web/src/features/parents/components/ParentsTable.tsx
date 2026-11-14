@@ -346,6 +346,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                     <CheckInTableCells columns={state.visibleColumns} date={checkIns.data?.[parent.id]} error={checkIns.isError} />
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ActionsMenu
+                        menuOnly
                         type="parent"
                         entityId={parent.id}
                         copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}

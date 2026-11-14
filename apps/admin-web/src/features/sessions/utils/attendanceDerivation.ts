@@ -328,6 +328,12 @@ export function isPlannedSessionStudent(
   return !isUnplanned;
 }
 
+export function isStudentAbsentInCalendar(student: StudentAttendanceInput, hasTutorLog: boolean): boolean {
+  return hasTutorLog
+    ? student.actual_attended !== true
+    : isPlannedSessionStudent(student) && Boolean(student.planned_absence);
+}
+
 /** Dim calendar sessions only when every planned student has a planned absence. */
 export function shouldDimSessionInCalendar(students: StudentAttendanceInput[]): boolean {
   const plannedStudents = students.filter(isPlannedSessionStudent);

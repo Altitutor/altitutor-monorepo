@@ -1,4 +1,6 @@
 'use client';
+
+import type { TablesUpdate } from "@altitutor/shared";
 import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
 import { StudentEducationDetails } from '@/features/students/components/tabs/StudentEducationDetails';
 import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
@@ -79,7 +81,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const searchParams = useSearchParams();
   const accountFromDirectory = searchParams.get('account') === 'open';
   const sidebarForm = useRef<HTMLDivElement>(null);
-  const [sectionFooter, setSectionFooter] = useState<HTMLDivElement | null>(null);
+  const [sectionDraft, setSectionDraft] = useState<TablesUpdate<"students"> | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const { data: journeys = [] } = useOnboardingJourneys();
   const queryClient = useQueryClient();
@@ -154,7 +156,8 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
       {
         toAdd: editFlow.parentsToAdd,
         toRemove: editFlow.parentsToRemove,
-      }
+      },
+      sectionDraft ?? undefined,
     );
   };
 
@@ -225,13 +228,16 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
+  const startDetailsEdit = () => {
+    setSectionDraft({});
+    editFlow.startEdit();
+  };
+
   // Centralized action handlers
   const studentActions = useStudentActions({
     studentId: id,
     student,
-    onEditDetails: () => {
-      editFlow.startEdit();
-    },
+    onEditDetails: startDetailsEdit,
     onPasswordResetOrRegistration: canOpenAccount ? () => setAccountOpen(true) : undefined,
     passwordResetLabel: accountAction?.label,
     onLogAbsence: modals.openLogAbsence,
@@ -287,11 +293,12 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <DetailsTab
+          key={`${id}:${editFlow.isEditing}`}
           hideAccount
           student={student}
           isEditing={editFlow.isEditing}
           isLoading={mutations.isUpdatingDetails}
-          onEdit={editFlow.startEdit}
+          onEdit={startDetailsEdit}
           onCancelEdit={editFlow.cancelEdit}
           onSubmit={handleDetailsSubmit}
           studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
@@ -300,9 +307,11 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
           addParentButton={editFlow.isEditing ? <ParentSearchPopover allParents={allParents} selectedParents={editFlow.tempStudentParents} onSelectParent={editFlow.assignParent} onCreateNewParent={() => setIsAddParentModalOpen(true)} /> : undefined}
         />
-        <div hidden={editFlow.isEditing}>
-          <StudentEducationDetails footerTarget={editFlow.isEditing ? null : sectionFooter} student={student} />
-        </div>
+        <StudentEducationDetails
+          student={student}
+          draft={editFlow.isEditing ? sectionDraft : null}
+          onChange={(patch) => setSectionDraft((current) => ({ ...current, ...patch }))}
+        />
         {!editFlow.isEditing && (
           <section className="space-y-2 border-t pt-4" aria-label="Account">
             <h3 className="text-base font-medium">Account</h3>
@@ -311,7 +320,6 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         )}
       {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
         </div>
-        <div ref={setSectionFooter} className="shrink-0 border-t bg-background p-4 empty:hidden" />
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>
@@ -367,8 +375,10 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           <StudentBillingTab student={student} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} keepMounted className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <EntityCommunicationPanel
+            enabled={activeTab === 'activity'}
+            recordActivity
             allowForm={!student.deleted_at}
             entityType="student"
             entityId={id}

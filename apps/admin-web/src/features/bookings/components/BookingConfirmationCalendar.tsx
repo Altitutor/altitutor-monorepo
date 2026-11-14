@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
+import { sessionCalendarHours } from "@/features/sessions/utils/calendarHours";
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { calculateSessionOverlapGroups, calculateSessionPosition } from '../utils/sessionOverlap';
 import type { Tables } from '@altitutor/shared';
@@ -71,10 +72,8 @@ export function BookingConfirmationCalendar({
     return calculateSessionOverlapGroups(allSessions, sessionDate);
   }, [allSessions, sessionDate]);
 
-  // Time grid: 9am to 8pm
-  const slots = Array.from({ length: 12 }, (_, i) => 9 + i);
+  const { firstHour: startHour, slots } = sessionCalendarHours(overlapGroups.flat());
   const slotHeight = 75; // px per hour
-  const startHour = 9;
 
   return (
     <div className="flex-1 overflow-auto relative border rounded-lg">

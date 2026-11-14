@@ -1,5 +1,6 @@
 "use client";
 
+import { calendarHours } from '@/features/sessions/utils/calendarHours';
 import { useState, useMemo } from "react";
 import { Card, Button, Input, Switch, Label } from "@altitutor/ui";
 import { expandProjectedClassScheduleRows } from "@altitutor/shared";
@@ -229,43 +230,17 @@ export function CalendarView({
     return hours * 60 + minutes;
   };
 
-  // Calculate dynamic time range based on filtered classes and admin shifts
-  const calculateTimeRange = (): { startHour: number; endHour: number } => {
-    const allItems = [...timetableClasses, ...filteredAdminShifts];
-
-    if (allItems.length === 0) {
-      // Default to 9am-8pm if no items
-      return { startHour: 9, endHour: 20 };
-    }
-
-    let earliestStartMinutes = Infinity;
-    let latestEndMinutes = -Infinity;
-
-    allItems.forEach((item) => {
-      const startMinutes = timeToMinutes(item.start_time);
-      const endMinutes = timeToMinutes(item.end_time);
-
-      earliestStartMinutes = Math.min(earliestStartMinutes, startMinutes);
-      latestEndMinutes = Math.max(latestEndMinutes, endMinutes);
-    });
-
-    // Add 1 hour buffer before earliest start and after latest end
-    const startHour = Math.max(0, Math.floor(earliestStartMinutes / 60) - 1);
-    // Add 60 minutes (1 hour) to latest end time, then convert to hours
-    // Use Math.floor to get the hour slot that contains the end time + 1 hour
-    // Example: class ends at 7:15 PM → 7:15 + 1hr = 8:15 PM → hour slot = 8:00 PM
-    const endHourWithBuffer = latestEndMinutes + 60;
-    const endHour = Math.min(23, Math.floor(endHourWithBuffer / 60));
-
-    return { startHour, endHour };
-  };
-
-  const { startHour, endHour } = calculateTimeRange();
+  const { firstHour: startHour, slots: hours } = calendarHours(
+    [...timetableClasses, ...filteredAdminShifts].map((item) => ({
+      startMinutes: item.start_time ? timeToMinutes(item.start_time) : undefined,
+      endMinutes: item.end_time ? timeToMinutes(item.end_time) : undefined,
+    })),
+  );
 
   // Generate time slots dynamically based on class times
   const generateTimeSlots = (): TimeSlot[] => {
     const slots: TimeSlot[] = [];
-    for (let hour = startHour; hour <= endHour; hour++) {
+    for (const hour of hours) {
       const ampm = hour >= 12 ? "PM" : "AM";
       const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
       const label = `${displayHour}:00 ${ampm}`;

@@ -1,4 +1,5 @@
 import type { RenderedEmail } from "./render-email";
+import type { OperationalMailDiagnostic } from "./operational-mail-diagnostic";
 import { assertMailboxRecipients, type MailboxPolicy } from "./mailbox-policy";
 export const OPERATIONAL_MAIL_PROPERTY =
   "String {b257c4a8-842d-48f5-a740-9bb850be94dc} Name AltitutorOperationalMail";
@@ -29,10 +30,16 @@ export type OperationalMailInput = {
     contentBytes: string;
   }>;
   fetchImpl?: typeof fetch;
+  onUncertainOutcome?: (diagnostic: OperationalMailDiagnostic) => void;
 };
 class MicrosoftOperationalError extends Error {
   constructor(readonly status: number) {
     super(`Microsoft operational email request failed (${status}).`);
+  }
+}
+class MailboxRegistryError extends Error {
+  constructor(readonly status: number) {
+    super(`Mailbox delivery registry failed (${status}).`);
   }
 }
 type Operation = {
@@ -46,11 +53,19 @@ type Operation = {
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+function diagnosticErrorName(error: unknown): unknown {
+  try {
+    return record(error) ? error.name : null;
+  } catch {
+    return null;
+  }
+}
 /** Shared by Node and Edge. Content and eligibility stay with domain callers. */
 export async function deliverOperationalMailboxEmail(
   input: OperationalMailInput,
 ): Promise<{ providerMessageId: string; state: "submitted" | "sent" }> {
   const fetchImpl = input.fetchImpl ?? fetch;
+  let phaseHttpStatus: number | null = null;
   assertMailboxRecipients(input.mailbox, { to: input.to });
   if (
     !["admin@altitutor.com", input.mailbox.address].includes(
@@ -85,8 +100,9 @@ export async function deliverOperationalMailboxEmail(
         signal: AbortSignal.timeout(15_000),
       },
     );
+    phaseHttpStatus = response.status || null;
     if (!response.ok)
-      throw new Error(`Mailbox delivery registry failed (${response.status}).`);
+      throw new MailboxRegistryError(response.status);
     return response.json();
   }
   const value = await rpc("email_operational_prepare", {
@@ -140,6 +156,7 @@ export async function deliverOperationalMailboxEmail(
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(15_000),
     });
+    phaseHttpStatus = response.status || null;
     if (!response.ok) throw new MicrosoftOperationalError(response.status);
     return response;
   }
@@ -166,10 +183,18 @@ export async function deliverOperationalMailboxEmail(
   let externalRequestStarted = false;
   let draftId = operation.draftId;
   let changeKey = operation.changeKey;
+  let phase: OperationalMailDiagnostic["phase"] = "draft_create";
+  let phaseStartedAt = performance.now();
+  function enterPhase(next: OperationalMailDiagnostic["phase"]) {
+    phase = next;
+    phaseStartedAt = performance.now();
+    phaseHttpStatus = null;
+  }
   try {
     token = await input.getAccessToken();
     if (!draftId) {
       externalRequestStarted = true;
+      enterPhase("draft_create");
       const response: unknown = await (
         await graph("/messages", "POST", {
           subject: input.email.subject,
@@ -205,6 +230,7 @@ export async function deliverOperationalMailboxEmail(
         throw new Error("Microsoft omitted the operational draft identity.");
       draftId = response.id;
       changeKey = response.changeKey;
+      enterPhase("draft_persist");
       await update("creating", "ready", draftId, changeKey);
       stage = "ready";
       externalRequestStarted = false;
@@ -223,6 +249,7 @@ export async function deliverOperationalMailboxEmail(
     await update("ready", "sending");
     stage = "sending";
     externalRequestStarted = true;
+    enterPhase("send_request");
     const accepted = await graph(
       `/messages/${encodeURIComponent(draftId)}/send`,
       "POST",
@@ -231,6 +258,7 @@ export async function deliverOperationalMailboxEmail(
       throw new Error(
         "Microsoft did not confirm operational email submission. Check the shared mailbox before retrying.",
       );
+    enterPhase("submission_persist");
     await update("sending", "submitted");
     return { providerMessageId: draftId, state: "submitted" };
   } catch (error) {
@@ -243,6 +271,24 @@ export async function deliverOperationalMailboxEmail(
       externalRequestStarted &&
       !definiteRejection &&
       (stage === "creating" || stage === "sending");
+    const errorName = diagnosticErrorName(error);
+    const diagnostic: OperationalMailDiagnostic = {
+      phase,
+      failure_kind:
+        error instanceof MicrosoftOperationalError || error instanceof MailboxRegistryError
+          ? "http_error"
+          : errorName === "TimeoutError"
+            ? "timeout"
+            : errorName === "AbortError"
+              ? "aborted"
+              : errorName === "SyntaxError"
+                ? "invalid_json"
+                : errorName === "TypeError"
+                  ? "type_error"
+                  : "other",
+      http_status: phaseHttpStatus,
+      elapsed_ms: Math.min(300_000, Math.max(0, Math.round(performance.now() - phaseStartedAt))),
+    };
     try {
       await update(
         stage,
@@ -255,10 +301,16 @@ export async function deliverOperationalMailboxEmail(
     } catch {
       /* Durable creating/sending ownership still blocks blind resubmission. */
     }
-    if (unresolved)
+    if (unresolved) {
+      try {
+        input.onUncertainOutcome?.(diagnostic);
+      } catch {
+        // Diagnostic delivery cannot change durable uncertainty or permit a resend.
+      }
       throw new Error(
         `Operational email ${operation.id} has an unresolved outcome. Check the shared mailbox before sending another copy.`,
       );
+    }
     throw error;
   }
 }

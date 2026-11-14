@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Button,
   FormControl,
   FormField,
   FormItem,
@@ -20,11 +21,12 @@ import {
 
 interface IssueStatusFieldProps {
   form: UseFormReturn<IssueFormData>;
+  pill?: boolean;
 }
 
 type StatusOption = (typeof ISSUE_STATUS_OPTIONS)[number];
 
-export function IssueStatusField({ form }: IssueStatusFieldProps) {
+export function IssueStatusField({ form, pill = false }: IssueStatusFieldProps) {
   return (
     <FormField
       control={form.control}
@@ -46,13 +48,18 @@ export function IssueStatusField({ form }: IssueStatusFieldProps) {
                 onValueChange={(item) => field.onChange(item ? item.value : 'open')}
                 getItemLabel={(option) => option.label}
                 getItemId={(option) => option.value}
-                fullWidth
-                trigger={
+                fullWidth={!pill}
+                trigger={pill ? (
+                  <Button type="button" variant="outline" className="h-8 rounded-full px-3 text-xs">
+                    <StatusIcon className={cn('size-3', iconColor)} />
+                    <span>{label}</span>
+                  </Button>
+                ) : (
                   <SearchableSelectFieldTrigger>
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span>{label}</span>
                   </SearchableSelectFieldTrigger>
-                }
+                )}
               />
             </FormControl>
             <FormMessage />

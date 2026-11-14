@@ -56,9 +56,9 @@ export function BookMeetingMenu({
         });
         return;
       case 'subsidy':
-        openBookingModal('SUBSIDY_INTERVIEW', {
-          createNewStudent: phone ? { phone, phoneOwner: phoneOwner ?? 'student' } : undefined,
-        });
+        openBookingModal('SUBSIDY_INTERVIEW', contact?.students?.id
+          ? { initialStudentId: contact.students.id }
+          : { createNewStudent: phone ? { phone, phoneOwner: phoneOwner ?? 'student' } : undefined });
         return;
       case 'staff-interview':
         openBookingModal('STAFF_INTERVIEW', {

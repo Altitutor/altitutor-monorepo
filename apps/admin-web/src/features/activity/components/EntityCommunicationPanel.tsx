@@ -2,19 +2,13 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
-import { Check, ChevronDown, MessageSquare } from "lucide-react";
+import { ComposerRecipientSelector } from "@/features/messages/components/ComposerRecipientSelector";
 import { cn } from "@/shared/utils";
 import { useActivityHistorySearch } from "../hooks/useActivityHistorySearch";
 import { useChildrenActivity } from "../hooks/useChildrenActivity";
 import { CommunicationSourceFilter } from "./CommunicationSourceFilter";
 import { useEntityEmails } from "@/features/email/api/client";
+import { ActivityEmailComposer } from "./ActivityEmailComposer";
 import { EmailCorrespondenceCard } from "@/features/email/components/EmailCorrespondenceCard";
 import { Composer } from "@/features/messages/components/Composer";
 import {
@@ -68,6 +62,7 @@ interface EntityCommunicationPanelProps {
   entityId: string;
   enabled?: boolean;
   allowForm?: boolean;
+  recordActivity?: boolean;
   className?: string;
   initialContactId?: string;
   initialDestinationAddress?: string;
@@ -106,6 +101,7 @@ function EntityCommunicationContent({
   entityId,
   enabled = true,
   allowForm = false,
+  recordActivity = false,
   className,
   initialContactId,
   initialDestinationAddress,
@@ -122,6 +118,7 @@ function EntityCommunicationContent({
   );
   const [mode, setMode] = useState<ComposeMode | "form">("message");
   const [timeSort, setTimeSort] = useState<CommunicationTimeSort>("logged");
+  const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [filters, setFilters] = useState<ActivityFilters>(initialContactId ? messageActivityFilters : {});
   const [feedSearch, setFeedSearch] = useState("");
   const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
@@ -151,6 +148,9 @@ function EntityCommunicationContent({
   const allowType = (prefix: string) =>
     !filters.type?.length || filters.type.some((value) => typeof value === "string" && value.startsWith(prefix));
   const sources = sourceOverride ?? defaultSources;
+  const emailOnly = recordActivity && Boolean(filters.type?.length) &&
+    filters.type?.every((value) => typeof value === "string" && value.startsWith("email:"));
+  const emailRecipient = contacts.find((person) => person.kind === entityType && person.isCurrent && person.email)?.email ?? undefined;
   const messageConversations = conversations.filter((conversation) =>
     sources.includes(conversation.is_group_chat
       ? groupConversationSourceId(conversation.id)
@@ -239,9 +239,6 @@ function EntityCommunicationContent({
         })),
     ],
     [contacts, conversations, entityType],
-  );
-  const selectedRecipient = recipients.find(
-    (recipient) => recipient.id === selected,
   );
 
   const draftKey =
@@ -436,6 +433,12 @@ function EntityCommunicationContent({
     />
   );
 
+  const recipientSelection = {
+    options: recipients,
+    selectedId: selected,
+    onSelect: selectRecipient,
+  };
+
   const invalidateActivity = () => {
     void queryClient.invalidateQueries({
       queryKey: activityQueryKey(entityType, entityId),
@@ -448,65 +451,11 @@ function EntityCommunicationContent({
     >
       {renderHeader ? (
         renderHeader(filterControl)
-      ) : (
-        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b bg-background px-3 py-2">
-          <div className="flex min-w-0 items-center gap-2">
-            {recipients.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 max-w-full"
-                  >
-                    <MessageSquare className="mr-1 h-3 w-3 shrink-0" />
-                    <span className="truncate text-xs">
-                      {selectedRecipient?.label ?? "Select phone"}
-                    </span>
-                    {selectedRecipient?.detail ? (
-                      <span className="ml-1 truncate text-xs text-muted-foreground">
-                        • {selectedRecipient.detail}
-                      </span>
-                    ) : null}
-                    <ChevronDown className="ml-1 h-3 w-3 shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-72">
-                  {recipients.map((recipient) => (
-                    <DropdownMenuItem
-                      key={recipient.id}
-                      onClick={() => selectRecipient(recipient.id)}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <MessageSquare className="h-4 w-4 shrink-0" />
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-sm font-medium">
-                            {recipient.label}
-                          </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {recipient.detail}
-                          </span>
-                        </div>
-                      </div>
-                      {selected === recipient.id ? (
-                        <Check className="ml-2 h-4 w-4 shrink-0" />
-                      ) : null}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <span className="truncate text-xs text-muted-foreground">
-                No phone number
-              </span>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {filterControl}
-          </div>
+      ) : !recordActivity ? (
+        <div className="flex shrink-0 justify-end border-b bg-background px-3 py-2">
+          {filterControl}
         </div>
-      )}
+      ) : null}
 
       <ActivityFeedToolbar
         className="shrink-0 border-b px-3 py-2"
@@ -528,8 +477,17 @@ function EntityCommunicationContent({
         onSearchChange={setFeedSearch}
         kind="communication"
         timeBasis={timeSort}
-        onTimeBasisChange={setTimeSort}
-        direction="asc"
+        onSortChange={(basis, order) => {
+          setTimeSort(basis);
+          setDirection(order);
+        }}
+        direction={direction}
+        displayContent={recordActivity ? (
+          <div className="flex items-center justify-between gap-2 px-4 py-2">
+            <span className="text-sm">Activity sources</span>
+            {filterControl}
+          </div>
+        ) : undefined}
       />
 
       {errorMessage ? (
@@ -553,7 +511,8 @@ function EntityCommunicationContent({
           onExitSearch={onExitSearch}
           onResentViaSms={setPreferredSenderId}
           feed={{
-            key: `${entityType}:${entityId}:${timeSort}:${sources.join(",")}`,
+            key: `${entityType}:${entityId}:${timeSort}:${direction}:${sources.join(",")}`,
+            direction,
             messages: visible,
             entries,
             emptyLabel: searching ? "Searching earlier activity…" : filtering ? (hasMore ? "No matching activity in the loaded history." : "No matching activity.") : "No activity yet.",
@@ -578,7 +537,9 @@ function EntityCommunicationContent({
         />
       )}
 
-      {showActivity && mode === "form" && allowForm ? (
+      {recordActivity && <ActivityEmailComposer visible={Boolean(emailOnly)} recipient={emailRecipient} />}
+
+      {!emailOnly && (showActivity && mode === "form" && allowForm ? (
         <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t bg-background p-3">
           {modeControl}
           <FormResponsePicker respondent={{ type: entityType, id: entityId }} onSaved={invalidateActivity} />
@@ -612,6 +573,7 @@ function EntityCommunicationContent({
             messages.
           </p>
           {modeControl}
+          <ComposerRecipientSelector recipients={recipientSelection} />
         </div>
       ) : selected && (contact || group) ? (
         <Composer
@@ -630,6 +592,7 @@ function EntityCommunicationContent({
           onDraftChange={onDraftChange}
           onDraftClear={onDraftClear}
           toolbarBeforeTemplate={modeControl}
+          recipients={recipientSelection}
           onQueued={() => {
             void context.refetch();
             void messages.refetch();
@@ -641,8 +604,9 @@ function EntityCommunicationContent({
             Add a phone number to send a text.
           </p>
           {modeControl}
+          <ComposerRecipientSelector recipients={recipientSelection} />
         </div>
-      )}
+      ))}
 
       <FormResponseDialog
         response={selectedResponse}
