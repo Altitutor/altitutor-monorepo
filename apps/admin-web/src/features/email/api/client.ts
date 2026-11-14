@@ -138,6 +138,7 @@ export function useMailbox(
     sort?: string;
     direction?: string;
   } = {},
+  enabled = true,
 ) {
   const query = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -146,6 +147,7 @@ export function useMailbox(
   );
   return useQuery({
     queryKey: ["email", "mailbox", params],
+    enabled,
     queryFn: async () => mailboxSchema.parse(await mailRequest(`?${query}`)),
     staleTime: 10_000,
     refetchInterval: 15_000,

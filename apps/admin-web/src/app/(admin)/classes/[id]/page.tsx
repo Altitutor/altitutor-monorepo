@@ -192,7 +192,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className="flex-1 gap-6"
+        className={activeTab === "details" ? "shrink-0 gap-6" : "flex-1 gap-6"}
         options={[
           { value: 'details', label: 'Details' },
           { value: 'sessions', label: 'Sessions' },
@@ -200,7 +200,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         ]}
       >
         {(activeTab === "details" || isEditing) && (
-          <div className={activeTab === "details" ? "flex min-h-0 flex-1 flex-col gap-6" : "hidden"}>
+          <div className={activeTab === "details" ? "flex flex-col gap-6" : "hidden"}>
         <ClassInfoTab
           classData={classData}
           subject={subject || undefined}

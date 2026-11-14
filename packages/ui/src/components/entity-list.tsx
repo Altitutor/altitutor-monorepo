@@ -149,6 +149,8 @@ export interface EntityListProps<TItem> {
   addButtonVariant?: 'ghost' | 'default';
   /** When true, show "+ Add" text next to the icon in the add button */
   addButtonShowLabel?: boolean;
+  /** Reveal the add row inside the scrollable list. */
+  inlineAdd?: boolean;
   /** Custom add row (e.g. with task-search autocomplete). Receives same props as default add row plus state/refs. */
   renderAddRow?: (props: EntityListAddRowRenderProps<TItem>) => React.ReactNode;
 }
@@ -172,6 +174,7 @@ export interface EntityListAddRowRenderProps<TItem> {
   isDescriptionVisible: boolean;
   setIsDescriptionVisible: (v: boolean) => void;
   handleAddSubmit: () => void;
+  onCancelAdd?: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   descriptionRef: React.RefObject<{ focusToEnd?: () => void; getEditor?: () => unknown } | null>;
   isAddFocused: boolean;
@@ -251,6 +254,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     compact: compactProp = false,
     addButtonVariant,
     addButtonShowLabel = false,
+    inlineAdd = false,
     renderAddRow,
   } = props;
 
@@ -270,7 +274,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   const [addName, setAddName] = React.useState('');
   const [addDescription, setAddDescription] = React.useState<JSONContent | string>('');
   const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
-  const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
+  const getAddDefaults = React.useCallback(() => {
     const defaults: Record<string, unknown> = {};
     if (statusColumn?.defaultValue !== undefined) {
       defaults[statusColumn.key] = statusColumn.defaultValue;
@@ -281,35 +285,39 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
       }
     });
     return defaults;
-  });
+  }, [statusColumn, rightPills]);
+  const [addValues, setAddValues] = React.useState(getAddDefaults);
+  const [isAdding, setIsAdding] = React.useState(false);
   const [isAddFocused, setIsAddFocused] = React.useState(false);
   const addRowInputRef = React.useRef<HTMLInputElement>(null);
   const addRowDescriptionRef = React.useRef<{ focusToEnd?: () => void; getEditor?: () => unknown } | null>(null);
+
+  const resetAddRow = React.useCallback(() => {
+    setAddName('');
+    setAddDescription('');
+    setIsDescriptionVisible(false);
+    setAddValues(getAddDefaults());
+  }, [getAddDefaults]);
+
+  const addTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const restoreAddFocus = React.useRef(false);
+  React.useEffect(() => {
+    if (!inlineAdd) return;
+    if (isAdding) addRowInputRef.current?.focus();
+    else if (restoreAddFocus.current) {
+      restoreAddFocus.current = false;
+      addTriggerRef.current?.focus();
+    }
+  }, [inlineAdd, isAdding]);
 
   const handleAddSubmit = React.useCallback(() => {
     if (!onAdd) return;
     const name = addName.trim();
     if (!name) return;
-    onAdd({
-      name,
-      description: addDescription as string,
-      ...addValues,
-    });
-    setAddName('');
-    setAddDescription('');
-    setIsDescriptionVisible(false);
-    const defaults: Record<string, unknown> = {};
-    if (statusColumn?.defaultValue !== undefined) {
-      defaults[statusColumn.key] = statusColumn.defaultValue;
-    }
-    rightPills.forEach((p) => {
-      if (p.defaultValue !== undefined) {
-        defaults[p.key] = p.defaultValue;
-      }
-    });
-    setAddValues(defaults);
+    onAdd({ name, description: addDescription as string, ...addValues });
+    resetAddRow();
     addRowInputRef.current?.focus();
-  }, [onAdd, addName, addDescription, addValues, statusColumn, rightPills]);
+  }, [onAdd, addName, addDescription, addValues, resetAddRow]);
   const groupBy = controlledGroupBy !== undefined ? controlledGroupBy : internalGroupBy;
   const setGroupBy = onGroupByChange ?? setInternalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
@@ -407,6 +415,52 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     }));
   }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel, getGroupOrder]);
 
+  const addRow = onAdd && (inlineAdd && !isAdding ? (
+    <button
+      ref={addTriggerRef}
+      type="button"
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+      onClick={() => {
+        resetAddRow();
+        setIsAdding(true);
+      }}
+    >
+      <Plus className="size-4" aria-hidden />
+      {addButtonLabel}
+    </button>
+  ) : (() => {
+    const addRowProps: EntityListAddRowRenderProps<TItem> = {
+      onAdd,
+      statusColumn,
+      rightPills,
+      visiblePillKeys,
+      addButtonLabel,
+      addButtonVariant,
+      addButtonShowLabel,
+      descriptionConfig,
+      compact,
+      addName,
+      setAddName,
+      addDescription,
+      setAddDescription,
+      addValues,
+      setAddValues,
+      isDescriptionVisible,
+      setIsDescriptionVisible,
+      handleAddSubmit,
+      onCancelAdd: inlineAdd ? () => {
+        resetAddRow();
+        restoreAddFocus.current = true;
+        setIsAdding(false);
+      } : undefined,
+      inputRef: addRowInputRef,
+      descriptionRef: addRowDescriptionRef,
+      isAddFocused,
+      setIsAddFocused,
+    };
+    return renderAddRow ? renderAddRow(addRowProps) : <EntityListAddRow {...addRowProps} />;
+  })());
+
   return (
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {!hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
@@ -428,7 +482,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : grouped.every((g) => g.items.length === 0) ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">{emptyMessage}</div>
+            emptyMessage ? <div className="py-8 text-center text-muted-foreground text-sm">{emptyMessage}</div> : null
           ) : (
             grouped.map((group) => (
               <div key={group.key ?? 'all'} className="mb-4 w-full">
@@ -458,37 +512,11 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
               </div>
             ))
           )}
+          {inlineAdd && !isLoading && addRow}
         </div>
       </ScrollArea>
 
-      {/* Add row */}
-      {onAdd && (() => {
-        const addRowProps: EntityListAddRowRenderProps<TItem> = {
-          onAdd,
-          statusColumn,
-          rightPills,
-          visiblePillKeys,
-          addButtonLabel,
-          addButtonVariant,
-          addButtonShowLabel,
-          descriptionConfig,
-          compact,
-          addName,
-          setAddName,
-          addDescription,
-          setAddDescription,
-          addValues,
-          setAddValues,
-          isDescriptionVisible,
-          setIsDescriptionVisible,
-          handleAddSubmit,
-          inputRef: addRowInputRef,
-          descriptionRef: addRowDescriptionRef,
-          isAddFocused,
-          setIsAddFocused,
-        };
-        return renderAddRow ? renderAddRow(addRowProps) : <EntityListAddRow {...addRowProps} />;
-      })()}
+      {!inlineAdd && addRow}
     </div>
   );
 }
@@ -512,6 +540,7 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
     isDescriptionVisible,
     setIsDescriptionVisible,
     handleAddSubmit,
+    onCancelAdd,
     inputRef,
     descriptionRef,
     isAddFocused,
@@ -521,7 +550,8 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
   return (
     <div
       className={cn(
-        'flex flex-col border-t flex-shrink-0 w-full',
+        'flex flex-col shrink-0 w-full',
+        onCancelAdd ? 'rounded-md' : 'border-t',
         isAddFocused && 'bg-muted/30'
       )}
     >
@@ -593,6 +623,11 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
           })}
         </div>
 
+        {onCancelAdd && (
+          <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2" onClick={onCancelAdd}>
+            Cancel
+          </Button>
+        )}
         <Button
           type="button"
           variant={addButtonVariant}

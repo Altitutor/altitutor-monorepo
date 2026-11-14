@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, DataTableToolbar } from "@altitutor/ui";
+import type { ReactNode } from "react";
+import { DataTableToolbar } from "@altitutor/ui";
 import {
   getViewSettings,
   type DataTableFilterDefinition,
@@ -63,7 +64,8 @@ export function ActivityFeedToolbar({
   onSearchChange,
   kind = "events",
   timeBasis,
-  onTimeBasisChange,
+  onSortChange,
+  displayContent,
   direction,
   className,
 }: {
@@ -74,7 +76,8 @@ export function ActivityFeedToolbar({
   onSearchChange: (search: string) => void;
   kind?: "events" | "communication" | "messages";
   timeBasis?: CommunicationTimeSort;
-  onTimeBasisChange?: (basis: CommunicationTimeSort) => void;
+  onSortChange?: (basis: CommunicationTimeSort, direction: "asc" | "desc") => void;
+  displayContent?: ReactNode;
   direction: "asc" | "desc";
   className?: string;
 }) {
@@ -100,7 +103,7 @@ export function ActivityFeedToolbar({
       state={{
         search,
         filters,
-        sortBy: timeBasis === "effective" ? "effective" : null,
+        sortBy: onSortChange ? timeBasis ?? "logged" : null,
         sortDirection: direction,
         groupBy: null,
         page: 1,
@@ -109,20 +112,28 @@ export function ActivityFeedToolbar({
       }}
       onSearchChange={onSearchChange}
       onFiltersChange={onFiltersChange}
-      onSortChange={() => {}}
+      sortOptions={onSortChange ? [
+        { key: "logged", label: "Time logged" },
+        { key: "effective", label: "Effective time" },
+      ] : undefined}
+      onSortChange={(key, order) =>
+        onSortChange?.(key === "effective" ? "effective" : "logged", order)
+      }
+      displayTooltip="Display options"
       onGroupByChange={() => {}}
       onVisibleColumnsChange={() => {}}
       onQuickFilterApply={(view) => {
         const settings = getViewSettings(view.config);
         if (!settings) return;
         (onViewApply ?? onFiltersChange)(settings.filters);
-        onTimeBasisChange?.(
+        onSortChange?.(
           settings.sortBy === "effective" ? "effective" : "logged",
+          settings.sortDirection,
         );
       }}
       onReset={() => {
-        onFiltersChange({});
-        onTimeBasisChange?.("logged");
+        (onViewApply ?? onFiltersChange)({});
+        onSortChange?.("logged", "asc");
       }}
       filterDefinitions={[
         {
@@ -132,34 +143,7 @@ export function ActivityFeedToolbar({
         },
         dateFilter,
       ]}
-      viewContent={
-        onTimeBasisChange ? (
-          <div
-            className="flex flex-wrap gap-2 px-4 py-2"
-            role="group"
-            aria-label="Activity time"
-          >
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={timeBasis === "logged"}
-              onClick={() => onTimeBasisChange("logged")}
-            >
-              Time logged
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={timeBasis === "effective"}
-              onClick={() => onTimeBasisChange("effective")}
-            >
-              Effective time
-            </Button>
-          </div>
-        ) : undefined
-      }
+      viewContent={displayContent}
       searchPlaceholder="Search activity…"
     />
   );

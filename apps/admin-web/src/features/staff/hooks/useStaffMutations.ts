@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@altitutor/shared";
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -21,7 +22,7 @@ interface UseStaffMutationsReturn {
   isDeleting: boolean;
   
   // Mutations
-  updateDetails: (data: StaffDetailsFormData, subjectChanges: { toAdd: string[]; toRemove: string[] }) => Promise<void>;
+  updateDetails: (data: StaffDetailsFormData, subjectChanges: { toAdd: string[]; toRemove: string[] }, availability?: TablesUpdate<"staff">) => Promise<void>;
   deleteStaff: () => Promise<void>;
 }
 
@@ -45,13 +46,15 @@ export function useStaffMutations({
 
   const updateDetails = async (
     data: StaffDetailsFormData,
-    subjectChanges: { toAdd: string[]; toRemove: string[] }
+    subjectChanges: { toAdd: string[]; toRemove: string[] },
+    availability?: TablesUpdate<"staff">,
   ) => {
     try {
       setIsUpdatingDetails(true);
       
       // Map form data to staff update
       const updateData = {
+        ...availability,
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email || undefined,

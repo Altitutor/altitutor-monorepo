@@ -65,6 +65,7 @@ export function ProjectSearchSelect({
         const defaultTrigger = (
           <button
             type="button"
+            data-property-empty={(variant === 'pill' && !field.value) || undefined}
             disabled={!editable}
             onPointerDown={(event) => {
               if (!editable) {

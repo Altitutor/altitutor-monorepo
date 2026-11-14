@@ -6,6 +6,7 @@ import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQue
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
+import { adelaideCalendarEndMinutes, sessionCalendarHours } from '@/features/sessions/utils/calendarHours';
 import { layoutCalendarColumns } from '@/features/sessions/utils/calendarLayout';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from "@altitutor/ui";
@@ -37,7 +38,7 @@ export function StaffSessionsCalendarView({
   });
 
   // Time grid similar to classes timetable
-  const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
+  const { firstHour, slots } = sessionCalendarHours(data?.sessions ?? []);
   const slotHeight = 75; // px per hour
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
@@ -53,14 +54,14 @@ export function StaffSessionsCalendarView({
   // Use Adelaide timezone for consistent calculations
   const minutesFromStart = (isoString: string) => {
     const minutes = adelaideTimeToMinutes(isoString);
-    return minutes - (9 * 60);
+    return minutes - (firstHour * 60);
   };
 
   // Current time indicator
   const now = new Date();
   const todayDayIndex = days.findIndex(d => isSameDay(d, now));
   // For current time indicator, use local time (user's current time)
-  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (9 * 60);
+  const currentMinutesFromStart = (now.getHours() * 60 + now.getMinutes()) - (firstHour * 60);
   const showTodayIndicator = todayDayIndex >= 0 && currentMinutesFromStart >= 0 && currentMinutesFromStart < (slots.length * 60);
 
   return (
@@ -140,12 +141,12 @@ export function StaffSessionsCalendarView({
                             regularSessions.forEach((o: Tables<'sessions'>) => {
                               if (processed.has(o.id)) return;
                               const oStart = adelaideTimeToMinutes(o.start_at ?? '');
-                              const oEnd = adelaideTimeToMinutes(o.end_at ?? '');
+                              const oEnd = adelaideCalendarEndMinutes(o.start_at ?? '', o.end_at ?? '');
                               
                               // Check if o overlaps with ANY session already in the group
                               const overlapsWithGroup = group.some((groupSession: Tables<'sessions'>) => {
                                 const gStart = adelaideTimeToMinutes(groupSession.start_at ?? '');
-                                const gEnd = adelaideTimeToMinutes(groupSession.end_at ?? '');
+                                const gEnd = adelaideCalendarEndMinutes(groupSession.start_at ?? '', groupSession.end_at ?? '');
                                 // Events that end exactly when another starts should NOT overlap
                                 // Use strict comparison: gStart < oEnd && gEnd > oStart
                                 return gStart < oEnd && gEnd > oStart;
@@ -176,7 +177,7 @@ export function StaffSessionsCalendarView({
                           const columnWidth = total > 1 ? 95 / total : 95;
                           group.forEach((s: Tables<'sessions'>, idx: number) => {
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const sEndMinutes = adelaideCalendarEndMinutes(s.start_at ?? '', s.end_at ?? '');
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
@@ -224,7 +225,7 @@ export function StaffSessionsCalendarView({
                               group.map((session) => ({
                                 id: session.id,
                                 startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
-                                endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
+                                endMinutes: adelaideCalendarEndMinutes(session.start_at ?? '', session.end_at ?? ''),
                               })),
                             ).map((placement) => [placement.id, placement]),
                           );
@@ -234,7 +235,7 @@ export function StaffSessionsCalendarView({
                             const column = placement?.column ?? 0;
                             const columnWidth = total > 1 ? 95 / total : 95;
                             const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const sEndMinutes = adelaideCalendarEndMinutes(s.start_at ?? '', s.end_at ?? '');
                             const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = column * columnWidth + 2.5;
