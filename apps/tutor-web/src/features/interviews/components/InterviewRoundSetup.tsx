@@ -35,7 +35,6 @@ import { useInterviewCommand } from "../hooks/use-interviews";
 import {
   InterviewError,
   InterviewField,
-  InterviewSearch,
   InterviewSelect,
 } from "./interview-ui";
 import {
@@ -47,7 +46,10 @@ import {
 } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
 
+import { InterviewStudentPicker } from "./InterviewStudentPicker";
+
 import { createRoundSubmission } from "../lib/round-submission";
+import { nextInterviewRoundSchedule } from "../lib/round-defaults";
 
 const roundSteps = ["Details", "Students", "Tutor assignments"];
 
@@ -78,6 +80,7 @@ function SetupEditor({
   const [submitNewRound] = useState(() =>
     createRoundSubmission(command.mutateAsync),
   );
+  const [defaultSchedule] = useState(() => nextInterviewRoundSchedule());
   const [roundVersion] = useState(existingRound?.version ?? 0);
   const [setup, setSetup] = useState<RoundSetup>(
     existingRound
@@ -87,6 +90,7 @@ function SetupEditor({
           delivery: existingRound.delivery,
           mode: existingRound.mode,
           recordingEnabled: existingRound.recordingEnabled,
+          rotationAllowanceSeconds: existingRound.rotationAllowanceSeconds ?? 0,
           scheduledAt: existingRound.scheduledAt,
           studentIds: existingRound.studentIds,
           assignments: existingRound.assignments,
@@ -94,9 +98,10 @@ function SetupEditor({
       : {
           interviewId: interview.id,
           name: interview.name,
-          delivery: "online",
-          mode: "exam",
-          recordingEnabled: interview.recordingEnabled,
+          delivery: "in_person",
+          mode: "feedback",
+          recordingEnabled: true,
+          rotationAllowanceSeconds: 120,
           scheduledAt: null,
           studentIds: [],
           assignments: resolveInterviewStations(
@@ -109,38 +114,38 @@ function SetupEditor({
         },
   );
   const [schedule, setSchedule] = useState(() =>
-    existingRound?.scheduledAt &&
-    Date.parse(existingRound.scheduledAt) > Date.now()
+    !existingRound ||
+    (existingRound.scheduledAt &&
+      Date.parse(existingRound.scheduledAt) > Date.now())
       ? "later"
       : "now",
   );
   const [date, setDate] = useState<string | null>(() => {
-    if (!existingRound?.scheduledAt) return null;
-    const value = new Date(existingRound.scheduledAt);
+    if (existingRound && !existingRound.scheduledAt) return null;
+    const value = existingRound?.scheduledAt
+      ? new Date(existingRound.scheduledAt)
+      : defaultSchedule;
     return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   });
   const [time, setTime] = useState(() =>
     existingRound?.scheduledAt
       ? new Date(existingRound.scheduledAt).toTimeString().slice(0, 5)
-      : "09:00",
+      : defaultSchedule.toTimeString().slice(0, 5),
   );
-  const [search, setSearch] = useState("");
-  const [classId, setClassId] = useState<string | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
-  const students = catalog.students.filter(
-    (student) =>
-      (!classId || student.classIds.includes(classId)) &&
-      student.name.toLowerCase().includes(search.toLowerCase()),
-  );
-  const selectedStudents = catalog.students.filter((student) =>
-    setup.studentIds.includes(student.id),
-  );
+  const selectedStudents = setup.studentIds.flatMap((id) => {
+    const student = catalog.students.find((item) => item.id === id);
+    return student ? [student] : [];
+  });
   const started = !!existingRound?.startedAt;
   const canSubmit =
     !started &&
     !!setup.name.trim() &&
     (schedule === "now" || !!date) &&
     setup.studentIds.length > 0 &&
+    Number.isInteger(setup.rotationAllowanceSeconds ?? 0) &&
+    (setup.rotationAllowanceSeconds ?? 0) >= 0 &&
+    (setup.rotationAllowanceSeconds ?? 0) <= 7200 &&
     setup.assignments.every((assignment) => !!assignment.tutorId) &&
     new Set(setup.assignments.map((assignment) => assignment.tutorId)).size ===
       interview.stations.length;
@@ -287,6 +292,30 @@ function SetupEditor({
                 </span>
               </span>
             </label>
+            <InterviewField label="Feedback and transition allowance per rotation (minutes)">
+              <Input
+                type="number"
+                min={0}
+                max={120}
+                step={1}
+                aria-label="Allowance per rotation (minutes)"
+                value={
+                  Number.isFinite(setup.rotationAllowanceSeconds ?? 0)
+                    ? (setup.rotationAllowanceSeconds ?? 0) / 60
+                    : ""
+                }
+                onChange={(event) =>
+                  setSetup({
+                    ...setup,
+                    rotationAllowanceSeconds: event.target.valueAsNumber * 60,
+                  })
+                }
+              />
+              <p className="mt-1 text-sm text-muted-foreground">
+                Used to estimate calendar time. Feedback still ends when tutors
+                finish.
+              </p>
+            </InterviewField>
             <InterviewField label="When">
               <InterviewSelect
                 label="Start time"
@@ -334,69 +363,12 @@ function SetupEditor({
                 {setup.studentIds.length} / {interview.stations.length}
               </Badge>
             </div>
-            <InterviewSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Search students…"
-            >
-              <div className="w-52">
-                <InterviewSelect
-                  label="Filter by class"
-                  clear
-                  value={classId}
-                  options={catalog.classes.map((item) => ({
-                    id: item.id,
-                    label: item.name,
-                  }))}
-                  onChange={setClassId}
-                />
-              </div>
-            </InterviewSearch>
-            <div className="max-h-96 overflow-y-auto">
-              {students.map((student) => (
-                <label
-                  key={student.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl p-3",
-                    setup.studentIds.includes(student.id) && "bg-muted",
-                  )}
-                >
-                  <Checkbox
-                    checked={setup.studentIds.includes(student.id)}
-                    disabled={
-                      !setup.studentIds.includes(student.id) &&
-                      setup.studentIds.length >= interview.stations.length
-                    }
-                    onCheckedChange={(checked) =>
-                      setSetup({
-                        ...setup,
-                        studentIds: checked
-                          ? [...setup.studentIds, student.id]
-                          : setup.studentIds.filter((id) => id !== student.id),
-                      })
-                    }
-                  />
-                  <span className="text-sm">
-                    {student.name}
-                    <span className="block text-xs text-muted-foreground">
-                      {student.classIds
-                        .map(
-                          (id) =>
-                            catalog.classes.find((item) => item.id === id)
-                              ?.name,
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
-                    </span>
-                  </span>
-                </label>
-              ))}
-              {!students.length && (
-                <p className="p-4 text-sm text-muted-foreground">
-                  No eligible students match.
-                </p>
-              )}
-            </div>
+            <InterviewStudentPicker
+              students={catalog.students}
+              selectedIds={setup.studentIds}
+              maxStudents={interview.stations.length}
+              onChange={(studentIds) => setSetup({ ...setup, studentIds })}
+            />
             <p className="text-sm text-muted-foreground">
               Fewer students than stations is supported. Empty stations are idle
               in each online rotation.
@@ -471,7 +443,9 @@ function SetupEditor({
               <div>
                 <p className="text-sm">
                   {interview.readingTimeSeconds} seconds reading ·{" "}
-                  {interview.questionTimeSeconds} seconds answering
+                  {interview.questionTimeSeconds} seconds answering ·{" "}
+                  {(setup.rotationAllowanceSeconds ?? 0) / 60} minutes allowance
+                  per rotation
                 </p>
                 <p className="text-sm">
                   {setup.studentIds.length} students ·{" "}

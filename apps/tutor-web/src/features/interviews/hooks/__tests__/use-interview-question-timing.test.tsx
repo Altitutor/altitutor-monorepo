@@ -8,8 +8,14 @@ import { useInterviewQuestionTiming } from "../use-interview-question-timing";
 jest.mock("../../api/interviews", () => ({ sendInterviewCommand: jest.fn() }));
 jest.mock("../use-interviews", () => ({ interviewKeys: { round: (id: string) => ["interviews", "round", id] } }));
 const send = jest.mocked(sendInterviewCommand);
-const round = { id: "round", phase: "questions", pausedAt: null } as InterviewRound;
-const attempt = { id: "attempt", selectedQuestionId: "q1" } as InterviewStationAttempt;
+const progress = {
+  stationId: "station", tutorId: "tutor", studentId: "student",
+  ready: true, endedEarly: false, feedbackComplete: false,
+};
+const round = { id: "round", phase: "questions", pausedAt: null, progress: [progress] } as InterviewRound;
+const attempt = {
+  id: "attempt", stationId: "station", studentId: "student", selectedQuestionId: "q1",
+} as InterviewStationAttempt;
 function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{children}</QueryClientProvider>;
 }
@@ -41,6 +47,45 @@ test("an unknown network outcome retries the same command identity", async () =>
   expect(result.current.timingError).toBeNull();
 });
 
+test.each(["Questions are not active for this station", "Offline"])(
+  "a group skip discards late rejected navigation (%s) without a retry error", async (message) => {
+  let rejectSelection: ((error: Error) => void) | undefined;
+  send.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSelection = reject; }));
+  const { result, rerender } = renderHook(
+    ({ value }) => useInterviewQuestionTiming(value, attempt),
+    { wrapper, initialProps: { value: round } },
+  );
+  act(() => {
+    result.current.onQuestionSelected("q2");
+    result.current.onQuestionSelected("q3");
+  });
+  rerender({ value: { ...round, phase: "feedback" } });
+  await act(async () => rejectSelection?.(Object.assign(
+    new Error(message),
+    { status: message === "Offline" ? 503 : 400 },
+  )));
+
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+test("a group skip clears an earlier network error once feedback is rendered", async () => {
+  const message = "Offline";
+  send.mockRejectedValueOnce(new Error(message));
+  const { result, rerender } = renderHook(
+    ({ value }) => useInterviewQuestionTiming(value, attempt),
+    { wrapper, initialProps: { value: round } },
+  );
+  act(() => result.current.onQuestionSelected("q2"));
+  await waitFor(() => expect(result.current.timingError).toBe(message));
+
+  rerender({ value: { ...round, phase: "feedback" } });
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
 test("paused and non-question phases cannot extend answering time", () => {
   const {result} = renderHook(() => useInterviewQuestionTiming({...round,pausedAt:"2026-11-05T10:00:00Z"},attempt),{wrapper});
   act(() => result.current.onQuestionSelected("q2"));
@@ -68,4 +113,46 @@ test("already queued navigation finishes when the view unmounts", async () => {
  unmount();
  await act(async()=>finish?.());
  await waitFor(()=>expect(send).toHaveBeenCalledTimes(2));
+});
+
+test("browsing feedback after an early station end leaves the answering intervals closed", () => {
+  const earlyEnd = {
+    ...round,
+    progress: [{ ...progress, endedEarly: true }],
+  };
+  const { result } = renderHook(() => useInterviewQuestionTiming(earlyEnd, attempt), { wrapper });
+  act(() => result.current.onQuestionSelected("q2"));
+  expect(send).not.toHaveBeenCalled();
+});
+
+test("a station that closes while navigation is in flight does not leave a retry warning", async () => {
+  send.mockRejectedValueOnce(Object.assign(new Error("Questions are not active for this station"), { status: 400 }));
+  const { result } = renderHook(() => useInterviewQuestionTiming(round, attempt), { wrapper });
+  await act(async () => {
+    result.current.onQuestionSelected("q2");
+    result.current.onQuestionSelected("q1");
+  });
+  expect(result.current.timingError).toBeNull();
+  await act(async () => result.current.retryTiming());
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+test("reconciles the visible question when the round resumes before a delayed rejection arrives", async () => {
+  let rejectSelection: ((error: Error) => void) | undefined;
+  send.mockImplementationOnce(() => new Promise((_, reject) => { rejectSelection = reject; }));
+  send.mockResolvedValue({ id: "round", version: 3 });
+  const { result, rerender } = renderHook(
+    ({ version }) => useInterviewQuestionTiming({ ...round, version }, attempt),
+    { wrapper, initialProps: { version: 1 } },
+  );
+  act(() => result.current.onQuestionSelected("q2"));
+  rerender({ version: 3 });
+  act(() => result.current.onQuestionSelected("q2"));
+  expect(send).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    rejectSelection?.(Object.assign(new Error("Questions are not active for this station"), { status: 400 }));
+  });
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[1][0]).toMatchObject({ type: "selectQuestion", questionId: "q2" });
+  expect(result.current.timingError).toBeNull();
 });

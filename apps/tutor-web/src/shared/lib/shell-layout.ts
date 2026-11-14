@@ -6,6 +6,7 @@ const HIDE_NAVBAR_EXACT_PATHS = new Set([
 
 export function isInterviewFullscreenPath(pathname: string): boolean {
   return (
+    /^\/interview-display\/?$/.test(pathname) ||
     /^\/interviews\/[^/]+\/print\/?$/.test(pathname) ||
     /^\/interviews\/rounds\/[^/]+\/(waiting|live)\/?$/.test(pathname)
   );

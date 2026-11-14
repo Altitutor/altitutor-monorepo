@@ -116,3 +116,60 @@ test('question selection is a bounded command independent of assessment saves', 
  expect(isInterviewCommand(selection)).toBe(true);
  expect(isInterviewCommand({...selection,questionId:'unknown'})).toBe(false);
 });
+
+const roundSetup = {
+  interviewId: command.station.categoryId,
+  name: "Afternoon circuit",
+  delivery: "in_person",
+  mode: "feedback",
+  recordingEnabled: true,
+  scheduledAt: "2026-11-14T03:30:00.000Z",
+  rotationAllowanceSeconds: 120,
+  studentIds: ["10000000-0000-0000-0000-000000000001"],
+  assignments: [{ stationId, tutorId: "00000000-0000-0000-0000-000000000010" }],
+};
+
+test("bulk creation validates a bounded, distinct set of rounds and students", () => {
+  const bulk = {
+    type: "createRounds",
+    commandId: command.commandId,
+    rounds: [
+      { roundId: question.id, setup: roundSetup },
+      { roundId: stationId, setup: { ...roundSetup, studentIds: ["10000000-0000-0000-0000-000000000002"] } },
+    ],
+  };
+  expect(isInterviewCommand(bulk)).toBe(true);
+  expect(isInterviewCommand({ ...bulk, rounds: [] })).toBe(false);
+  expect(isInterviewCommand({ ...bulk, rounds: [bulk.rounds[0], bulk.rounds[0]] })).toBe(false);
+  expect(isInterviewCommand({ ...bulk, rounds: [bulk.rounds[0], { ...bulk.rounds[1], setup: roundSetup }] })).toBe(false);
+});
+
+test("round commands bound scheduling allowance without changing legacy payloads", () => {
+  const create = { type: "createRound", commandId: command.commandId, roundId: question.id, setup: roundSetup };
+  expect(isInterviewCommand({ ...create, setup: { ...roundSetup, rotationAllowanceSeconds: undefined } })).toBe(true);
+  expect(isInterviewCommand({ ...create, setup: { ...roundSetup, rotationAllowanceSeconds: 0 } })).toBe(true);
+  for (const allowance of [-1, 0.5, 7201, null, "120"]) {
+    expect(isInterviewCommand({ ...create, setup: { ...roundSetup, rotationAllowanceSeconds: allowance } })).toBe(false);
+  }
+  expect(isInterviewCommand({ type: "skipQuestions", commandId: command.commandId, roundId: stationId, expectedVersion: 3 })).toBe(true);
+  expect(isInterviewCommand({ type: "skipQuestions", commandId: command.commandId, roundId: stationId })).toBe(false);
+});
+
+test("bulk identities compare UUID values regardless of hex letter casing", () => {
+  const bulk = {
+    type: "createRounds",
+    commandId: command.commandId,
+    rounds: [
+      { roundId: question.id, setup: roundSetup },
+      { roundId: question.id.toUpperCase(), setup: { ...roundSetup, studentIds: ["10000000-0000-0000-0000-000000000002"] } },
+    ],
+  };
+  expect(isInterviewCommand(bulk)).toBe(false);
+  expect(isInterviewCommand({
+    ...bulk,
+    rounds: [
+      { roundId: question.id, setup: { ...roundSetup, studentIds: ["a0000000-0000-4000-8000-000000000001"] } },
+      { roundId: stationId, setup: { ...roundSetup, studentIds: ["A0000000-0000-4000-8000-000000000001"] } },
+    ],
+  })).toBe(false);
+});

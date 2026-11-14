@@ -3,7 +3,7 @@ import { ensureMailboxIdentity } from "./identity";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
-export async function emailAccess() {
+export async function emailStaffAccess() {
   const db = await createClient();
   const {
     data: { user },
@@ -22,9 +22,15 @@ export async function emailAccess() {
   const admin = getServerSupabaseAdmin();
   if (staff.error || !staff.data || !admin)
     return { error: "Server configuration unavailable", status: 503 } as const;
+  return { db, admin, staff: staff.data };
+}
+
+export async function emailAccess() {
+  const access = await emailStaffAccess();
+  if (access.error !== undefined) return { error: access.error, status: access.status };
   try {
-    const mailbox = await ensureMailboxIdentity(admin);
-    return { db, admin, staff: staff.data, mailbox };
+    const mailbox = await ensureMailboxIdentity(access.admin);
+    return { ...access, mailbox };
   } catch {
     return {
       error:
