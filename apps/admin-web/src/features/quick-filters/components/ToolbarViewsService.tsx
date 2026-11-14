@@ -7,7 +7,7 @@ import { ToolbarViewsProvider, type ToolbarViewsService,
 import type { SavedView } from '@altitutor/shared';
 import { useReconciliationCount } from '@/features/reconciliation/api/useReconciliationCounts';
 import { reconciliationViewKey, type ReconciliationViewKey } from '../config/operationalViews';
-import { RedCountBadge } from '@/shared/components/RedCountBadge';
+import { ReconciliationCountBadge } from '@/features/reconciliation/components/ReconciliationCountBadge';
 import { useCurrentStaff } from "@/shared/hooks";
 import { quickFiltersApi } from "../api/quick-filters";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
@@ -39,7 +39,7 @@ function AdminViewDialog({
 
 function QueueCount({ queue }: { queue: ReconciliationViewKey }) {
   const { data } = useReconciliationCount(queue);
-  return data === undefined ? null : <RedCountBadge className="ml-1.5" count={data} />;
+  return data === undefined ? null : <ReconciliationCountBadge className="ml-1.5" queues={[queue]} counts={{ [queue]: data }} />;
 }
 
 function AdminViewBadge({ view }: { view: SavedView }) {
