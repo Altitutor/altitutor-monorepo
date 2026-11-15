@@ -1,4 +1,5 @@
 import { deliverOperationalMailboxEmail } from "../operational-mailbox";
+import type { OperationalMailDiagnostic } from "../operational-mail-diagnostic";
 import { renderEmail } from "../render-email";
 it("submits canonical operational email through a durable draft and shared Sent workflow", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -78,6 +79,7 @@ it("submits canonical operational email through a durable draft and shared Sent 
   );
 });
 it("preserves an ambiguous operational send and does not repeat it on a domain retry", async () => {
+  const observe = jest.fn();
   let state = "creating",
     claimed = false,
     sends = 0;
@@ -129,6 +131,7 @@ it("preserves an ambiguous operational send and does not repeat it on a domain r
     to: ["parent@example.test"],
     email,
     idempotencyKey: "registration-fixture",
+    onUncertainOutcome: observe,
     links: [],
     fetchImpl,
   };
@@ -140,8 +143,11 @@ it("preserves an ambiguous operational send and does not repeat it on a domain r
   );
   expect(state).toBe("uncertain_send");
   expect(sends).toBe(1);
+  expect(observe).toHaveBeenCalledTimes(1);
+  expect(observe.mock.calls[0][0]).toMatchObject({ phase: 'send_request', failure_kind: 'other', http_status: null });
 });
 it("keeps a definite Microsoft rejection retryable without mislabelling it as an ambiguous send", async () => {
+  const observe = jest.fn();
   let state = "creating";
   const email = renderEmail({
     brand: "altitutor",
@@ -181,11 +187,13 @@ it("keeps a definite Microsoft rejection retryable without mislabelling it as an
       to: ["parent@example.test"],
       email,
       idempotencyKey: "rejected-fixture",
+      onUncertainOutcome: observe,
       links: [],
       fetchImpl,
     }),
   ).rejects.toThrow("403");
   expect(state).toBe("failed");
+  expect(observe).not.toHaveBeenCalled();
 });
 it("refuses to create provider mail when the registry omits its ownership token", async () => {
   const email = renderEmail({
@@ -317,4 +325,66 @@ it("blocks non-test recipients before recording or contacting Microsoft in devel
     }),
   ).rejects.toThrow("configured test recipients");
   expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+it.each([
+  { failure: 'timeout', expected: 'timeout', phase: 'draft_create', status: null },
+  { failure: 'http', expected: 'http_error', phase: 'draft_create', status: 503 },
+  { failure: 'persist', expected: 'http_error', phase: 'draft_persist', status: 500 },
+  { failure: 'sink', expected: 'timeout', phase: 'draft_create', status: null },
+  { failure: 'abort', expected: 'aborted', phase: 'draft_create', status: null },
+  { failure: 'type', expected: 'type_error', phase: 'draft_create', status: null },
+  { failure: 'json', expected: 'invalid_json', phase: 'draft_create', status: 200 },
+  { failure: 'missing_identity', expected: 'other', phase: 'draft_create', status: 201 },
+  { failure: 'send_status', expected: 'other', phase: 'send_request', status: 200 },
+  { failure: 'submission_persist', expected: 'http_error', phase: 'submission_persist', status: 500 },
+  { failure: 'submission_transport', expected: 'type_error', phase: 'submission_persist', status: null },
+])('observes only bounded evidence for unresolved $failure outcomes', async ({ failure, expected, phase, status }) => {
+  let state = 'creating';
+  let graphRequests = 0;
+  const observe = jest.fn<void, [OperationalMailDiagnostic]>(() => {
+    if (failure === 'sink') throw new Error('diagnostic sink unavailable');
+  });
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith('email_operational_prepare')) {
+      return Response.json({ id: 'private-operation', token: 'private-lease', proceed: state === 'creating', state, draftId: null, changeKey: null });
+    }
+    if (url.endsWith('email_operational_update')) {
+      const next = JSON.parse(String(init?.body)).p_state;
+      if (failure === 'persist' && next === 'ready') return new Response(null, { status: 500 });
+      if (failure === 'submission_persist' && next === 'submitted') return new Response(null, { status: 500 });
+      if (failure === 'submission_transport' && next === 'submitted') throw new TypeError('private provider payload');
+      state = next;
+      return Response.json(true);
+    }
+    graphRequests++;
+    if (failure === 'timeout' || failure === 'sink') throw new DOMException('private provider payload', 'TimeoutError');
+    if (failure === 'abort') throw new DOMException('private provider payload', 'AbortError');
+    if (failure === 'type') throw new TypeError('private provider payload');
+    if (failure === 'json') return new Response('private provider payload');
+    if (failure === 'http') return new Response('private provider payload', { status: 503 });
+    if (failure === 'missing_identity') return Response.json({}, { status: 201 });
+    if (url.endsWith('/send')) return new Response(null, { status: failure === 'send_status' ? 200 : 202 });
+    if (init?.method === 'POST') return Response.json({ id: 'private-draft', changeKey: 'private-version' }, { status: 201 });
+    return Response.json({ id: 'private-draft', changeKey: 'private-version', isDraft: true });
+  };
+  const input = {
+    mailbox: { environment: 'production' as const, address: 'admin@altitutor.com', allowedRecipients: [] },
+    serviceUrl: 'https://private.example.test', serviceKey: 'private-service-key',
+    getAccessToken: async () => 'private-access-token', to: ['private@example.test'],
+    email: renderEmail({ brand: 'altitutor', subject: 'private subject', previewText: 'private preview', heading: 'private heading', bodyHtml: 'private html', bodyText: 'private body' }),
+    idempotencyKey: 'private-key', links: [], fetchImpl, onUncertainOutcome: observe,
+  };
+  await expect(deliverOperationalMailboxEmail(input)).rejects.toThrow('unresolved');
+  const reachedSend = phase === 'send_request' || phase === 'submission_persist';
+  expect(state).toBe(reachedSend ? 'uncertain_send' : 'uncertain_create');
+  expect(observe).toHaveBeenCalledTimes(1);
+  expect(observe.mock.calls[0][0]).toEqual({ phase, failure_kind: expected, http_status: status, elapsed_ms: expect.any(Number) });
+  expect(observe.mock.calls[0][0].elapsed_ms).toBeGreaterThanOrEqual(0);
+  expect(observe.mock.calls[0][0].elapsed_ms).toBeLessThanOrEqual(300_000);
+  expect(JSON.stringify(observe.mock.calls)).not.toContain('private');
+  await expect(deliverOperationalMailboxEmail(input)).rejects.toThrow('unresolved');
+  expect(graphRequests).toBe(reachedSend ? 3 : 1);
+  expect(observe).toHaveBeenCalledTimes(1);
 });

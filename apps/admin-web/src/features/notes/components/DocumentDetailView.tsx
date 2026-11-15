@@ -80,6 +80,7 @@ export function DocumentDetailView({
   const [instance, setInstance] = useState<Editor | null>(null);
   const [linkedId, setLinkedId] = useState<string | null>(null);
   const [saveTemplate, setSaveTemplate] = useState(false);
+  const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   useFitDocumentTitle(titleRef, form.watch("title"));
   const mentions = useMentionSuggestions({
     types: DOCUMENT_NOTE_MENTION_TYPES,
@@ -97,6 +98,7 @@ export function DocumentDetailView({
             {
               <>
                 <EditorControls editor={editor} />
+                <div ref={setSidebarToggleTarget} className="empty:hidden" />
                 <ActionsMenu
                   type="document"
                   entityId={noteId}
@@ -134,6 +136,7 @@ export function DocumentDetailView({
               }}
             >
               <EntityResizablePanels
+                toggleTarget={sidebarToggleTarget}
                 id={`document-${noteId}-panels`}
                 main={
                   <div className="flex h-full min-h-0 flex-col overflow-hidden">

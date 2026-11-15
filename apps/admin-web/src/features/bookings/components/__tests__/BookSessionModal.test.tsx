@@ -220,6 +220,41 @@ it("only shows staff participant controls when booking a staff interview", () =>
   ).not.toBeInTheDocument();
 });
 
+it("keeps the last valid staff interview time when a partial time is typed", async () => {
+  const uncaught: unknown[] = [];
+  const onError = (event: ErrorEvent) => {
+    uncaught.push(event.error);
+  };
+  window.addEventListener("error", onError);
+  try {
+    renderWithProviders(
+      <ManualMeetingModal
+        isOpen
+        onClose={jest.fn()}
+        sessionType="STAFF_INTERVIEW"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const trigger = await screen.findByRole("button", { name: "Start time" });
+    expect(trigger).toHaveTextContent("9:00 am");
+    fireEvent.click(trigger);
+    const search = await screen.findByPlaceholderText(
+      "Type a time, e.g. 4, 415, or 1615",
+    );
+    for (const partial of ["", "09:", "25:99", "--"]) {
+      fireEvent.change(search, { target: { value: partial } });
+      fireEvent.blur(search);
+      expect(trigger).toHaveTextContent("9:00 am");
+    }
+    fireEvent.change(search, { target: { value: "1617" } });
+    fireEvent.click(await screen.findByRole("option", { name: "4:17 pm" }));
+    expect(trigger).toHaveTextContent("4:17 pm");
+    expect(uncaught).toEqual([]);
+  } finally {
+    window.removeEventListener("error", onError);
+  }
+});
+
 it("previews the Adelaide start time and duration as separate properties", async () => {
   mockOriginalSession.mockResolvedValue({
     session: {

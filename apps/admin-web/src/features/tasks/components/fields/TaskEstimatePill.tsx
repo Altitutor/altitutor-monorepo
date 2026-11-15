@@ -48,6 +48,7 @@ export function TaskEstimatePill({ form }: TaskEstimatePillProps) {
                 trigger={
                   <Button
                     variant="outline"
+                    data-property-empty={estimateValue == null || undefined}
                     className="h-8 px-3 text-xs border rounded-full w-auto"
                   >
                     <div className="flex items-center gap-1.5">

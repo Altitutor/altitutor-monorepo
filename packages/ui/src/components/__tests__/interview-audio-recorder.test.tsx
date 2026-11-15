@@ -231,7 +231,10 @@ describe("in-person recorder boundaries", () => {
   it("prepares the microphone automatically and records only server-enabled answer phases", async () => {
     jest.mocked(fetch).mockResolvedValue(policy("attempt-1", false));
     await render("reading");
-    expect(getUserMedia).toHaveBeenCalledWith({ audio: true, video: false });
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+      video: false,
+    });
     expect(instances).toHaveLength(0);
     expect(container.textContent).toContain(
       "Recording starts during question time",

@@ -24,7 +24,7 @@ Altitutor monorepo (pnpm + Turborepo).
 ## Quality
 
 - Zero lint warnings; no `any`
-- Full gate when shipping: `/check-and-commit` (`pnpm checkall`)
+- Validation and shipping: follow `docs/agents/validation-delivery.md` for focused local checks, authoritative CI integration gates, full local profiles and queue admission.
 - **Sentry fixes**: before committing or opening a PR for a Sentry-tracked bug,
   follow §4 of `docs/agents/sentry-morning-maintenance.md`.
 

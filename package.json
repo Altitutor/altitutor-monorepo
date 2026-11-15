@@ -16,8 +16,8 @@
     "lint:fix": "bash scripts/run-lint.sh lint:fix",
     "test": "turbo run test --concurrency=2",
     "test:coverage": "turbo run test:coverage",
-    "typecheck": "turbo run typecheck",
-    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "typecheck": "turbo run typecheck --concurrency=2",
+    "check": "bash scripts/checkall.sh --profile check",
     "checkall": "bash scripts/checkall.sh",
     "db:types": "python3 scripts/owned_database.py types",
     "db:seed:ucat": "bash supabase/scripts/apply-ucat-test-seed.sh",
@@ -25,18 +25,21 @@
     "email:check": "pnpm --filter @altitutor/email check:auth",
     "email:preview": "node supabase/scripts/watch-ucat-email-previews.mjs",
     "ucat:email-preview": "pnpm email:preview",
-    "db:committypes": "python3 scripts/owned_database.py committypes"
+    "db:committypes": "python3 scripts/owned_database.py committypes",
+    "check:preflight": "node scripts/validation-preflight.mjs check",
+    "checkall:preflight": "node scripts/validation-preflight.mjs full"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
     "eslint": "^10.13.0",
     "eslint-config-next": "16.4.3",
+    "globals": "^17.13.0",
     "supabase": "^2.108.0",
     "turbo": "^2.10.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
-    "globals": "^17.13.0"
+    "yaml": "2.9.0"
   },
   "packageManager": "pnpm@11.28.9",
   "repository": {

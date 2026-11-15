@@ -1,5 +1,6 @@
 'use client';
 
+import { sessionCalendarHours } from '@/features/sessions/utils/calendarHours';
 import { useMemo, useState, useEffect } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -238,37 +239,10 @@ export function EnrollmentWeekCalendar({
   }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, inclusiveLastOldClassDate, isUnenrollMode, unenrollingClassId, finalSessionDate, oldClass, enrollmentDateObj]);
 
   // Calculate dynamic time range based on sessions
-  const { startHour, slots } = useMemo(() => {
-    if (allSessions.length === 0) {
-      // Default range if no sessions
-      return { startHour: 9, slots: Array.from({ length: 12 }, (_, i) => 9 + i) };
-    }
-
-    let earliestStart = Infinity;
-    let latestEnd = -Infinity;
-
-    allSessions.forEach((s) => {
-      if (s.start_at) {
-        const startMinutes = adelaideTimeToMinutes(s.start_at);
-        earliestStart = Math.min(earliestStart, startMinutes);
-      }
-      if (s.end_at) {
-        const endMinutes = adelaideTimeToMinutes(s.end_at);
-        latestEnd = Math.max(latestEnd, endMinutes);
-      }
-    });
-
-    // Add 1 hour buffer before earliest and after latest
-    const startHour = Math.max(0, Math.floor(earliestStart / 60) - 1);
-    const endHourWithBuffer = latestEnd + 60; // Add 1 hour in minutes
-    const endHour = Math.min(23, Math.floor(endHourWithBuffer / 60));
-
-    // Generate slots for the range
-    const slotCount = endHour - startHour + 1;
-    const slots = Array.from({ length: slotCount }, (_, i) => startHour + i);
-
-    return { startHour, slots };
-  }, [allSessions]);
+  const { firstHour: startHour, slots } = useMemo(
+    () => sessionCalendarHours(allSessions),
+    [allSessions],
+  );
 
   const slotHeight = 75; // px per hour
   const headerHeight = 40; // px for header row

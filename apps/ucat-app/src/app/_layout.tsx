@@ -1,4 +1,5 @@
 import { Sentry } from "@/lib/sentry-client";
+import { sheetDiagnostics } from "@/features/navigation/sheet-diagnostics-client";
 import {
   SheetNavigationProvider,
   useSheetTransition,
@@ -104,6 +105,7 @@ function Navigation() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {ready && <AttemptBanner />}
       <Stack
+        screenListeners={({ route }) => sheetDiagnostics.listeners(route.name)}
         unstable_nativeProps={{ onFinishTransitioning: finishSheetTransition }}
         screenOptions={{
           headerTransparent: Platform.OS === "ios",

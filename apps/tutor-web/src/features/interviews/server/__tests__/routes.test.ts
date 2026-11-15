@@ -4,6 +4,7 @@ import { GET as getAccess } from "@/app/api/interviews/access/route";
 import { GET as getRounds } from "@/app/api/interviews/rounds/route";
 import { createClient as createCookieClient } from "@/shared/lib/supabase/server-ssr";
 import { createClient } from "@supabase/supabase-js";
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import {
   resolveInterviewActor,
   createInterviewServiceClient,
@@ -148,6 +149,47 @@ describe("tutor interview HTTP boundary", () => {
     expect(from).toHaveBeenCalledWith("vtutor_interview_rounds");
     expect(await response.json()).toEqual([{ id: roundId }]);
   });
+});
+
+describe("committed command media reconciliation", () => {
+  it.each(["closed", "open", "read failure"])(
+    "preserves the committed pause and reports only uncertain shutdown (%s)",
+    async (state) => {
+      const previousKey = process.env.DAILY_API_KEY;
+      process.env.DAILY_API_KEY = "provider-test-key";
+      const committed = { id: roundId, version: 3 };
+      serviceRpc.mockImplementation(async (name: string) => ({
+        data: name === "interview_command"
+          ? committed
+          : name === "interview_media_state"
+            ? { id: roundId, phase: "questions", pausedAt: "2026-11-15T00:24:00Z", progress: [], recordings: [] }
+            : [],
+        error: null,
+      }));
+      const service = {
+        rpc: serviceRpc,
+        from: () => ({ select: () => ({ eq: async () => ({
+          data: [{ kind: "video", closed_at: state === "closed" ? "2026-11-15T00:24:00Z" : null }],
+          error: state === "read failure" ? new Error("Database unavailable") : null,
+        }) }) }),
+      };
+      jest.mocked(createClient).mockReturnValue(service as unknown as ReturnType<typeof createClient>);
+      try {
+        const response = await POST(request({ type: "pause", commandId, roundId, expectedVersion: 2 }));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toContain("no-store");
+        expect(await response.json()).toEqual(state === "closed" ? committed : {
+          ...committed,
+          mediaWarning: "Interview state saved, but video shutdown could not be confirmed. Disconnect your call; the server will retry.",
+        });
+        if (state === "closed") expect(captureApiError).not.toHaveBeenCalled();
+        else expect(captureApiError).toHaveBeenCalledWith(expect.any(Error), "/api/interviews/commands/media");
+      } finally {
+        if (previousKey === undefined) delete process.env.DAILY_API_KEY;
+        else process.env.DAILY_API_KEY = previousKey;
+      }
+    },
+  );
 });
 
 describe("fresh authenticated interview reads", () => {

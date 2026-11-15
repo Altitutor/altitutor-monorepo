@@ -2,14 +2,15 @@
 
 import { useCallback, useState } from "react";
 import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
-import { Input } from "@altitutor/ui";
-import { Search } from "lucide-react";
+import { DocumentsToolbar } from "./DocumentsToolbar";
+import { defaultDocumentOrder } from "../utils/documentOrder";
 import { FolderTree } from "@/features/notes/components/FolderTree";
 import { EditProjectDialog } from "@/features/projects/components/EditProjectDialog";
 import { useUrlQueryParam } from "@/shared/hooks/useUrlQueryParam";
 
 export function DocumentsView() {
   const [searchQuery, setSearchQuery] = useUrlQueryParam("search");
+  const [order, setOrder] = useState(defaultDocumentOrder);
   const { router } = usePaneNavigation();
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 
@@ -20,21 +21,13 @@ export function DocumentsView() {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div data-pane-toolbar className="flex-shrink-0 px-4 py-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search documents by title or content..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
+        <DocumentsToolbar search={searchQuery} onSearchChange={setSearchQuery} order={order} onOrderChange={setOrder} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         <FolderTree
           searchQuery={searchQuery.trim()}
+          order={order}
           onNoteClick={(noteId) => openDocument(noteId)}
           onNoteCreated={(noteId) => openDocument(noteId)}
           onProjectClick={(projectId) => setEditProjectId(projectId)}

@@ -8,40 +8,34 @@ import { navLinkInactiveStyles } from '@altitutor/ui';
 import { proseMirrorToPlainText } from '../utils/rich-text';
 import { highlightSearchTerms, getSearchTerms } from '../utils/highlight';
 import type { Note } from '../types';
+import { defaultDocumentOrder, sortDocuments, type DocumentOrder } from '../utils/documentOrder';
 
 const CONTENT_SNIPPET_LENGTH = 120;
 
 interface NotesSearchResultsProps {
   notes: Note[];
   searchQuery: string;
+  order?: DocumentOrder;
   onNoteClick?: (noteId: string) => void;
   onProjectClick?: (projectId: string) => void;
   projects?: Array<{ id: string; name: string | null }>;
 }
 
-/** Sort notes: title matches first, then content-only matches, then alphabetically by title */
-function sortNotesByRelevance(notes: Note[], searchQuery: string): Note[] {
-  const terms = getSearchTerms(searchQuery).map((t) => t.toLowerCase());
-  if (terms.length === 0) return [...notes].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+function sortNotesByRelevance(notes: Note[], searchQuery: string, order: DocumentOrder): Note[] {
+  const sorted = sortDocuments(notes, order);
+  const terms = getSearchTerms(searchQuery).map((term) => term.toLowerCase());
+  if (order.field !== "title" || terms.length === 0) return sorted;
 
-  return [...notes].sort((a, b) => {
-    const aTitle = (a.title ?? '').toLowerCase();
-    const bTitle = (b.title ?? '').toLowerCase();
-    const aTitleMatch = terms.some((t) => aTitle.includes(t));
-    const bTitleMatch = terms.some((t) => bTitle.includes(t));
-
-    if (aTitleMatch && !bTitleMatch) return -1;
-    if (!aTitleMatch && bTitleMatch) return 1;
-    return (a.title ?? '').localeCompare(b.title ?? '', undefined, { sensitivity: 'base' });
-  });
+  const titleMatches = (note: Note) => terms.some((term) => (note.title ?? "").toLowerCase().includes(term));
+  return [...sorted.filter(titleMatches), ...sorted.filter((note) => !titleMatches(note))];
 }
 
 /**
  * Displays search results with highlighted matches in title and content snippet
  */
-export function NotesSearchResults({ notes, searchQuery, onNoteClick, onProjectClick, projects = [] }: NotesSearchResultsProps) {
+export function NotesSearchResults({ notes, searchQuery, order = defaultDocumentOrder, onNoteClick, onProjectClick, projects = [] }: NotesSearchResultsProps) {
   const { router } = usePaneNavigation();
-  const sortedNotes = useMemo(() => sortNotesByRelevance(notes, searchQuery), [notes, searchQuery]);
+  const sortedNotes = useMemo(() => sortNotesByRelevance(notes, searchQuery, order), [notes, searchQuery, order]);
 
   const handleNoteClick = (noteId: string) => {
     if (onNoteClick) {

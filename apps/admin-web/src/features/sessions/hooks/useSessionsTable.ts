@@ -4,6 +4,7 @@ import { choiceFilterMatches } from '@altitutor/shared';
 import type { Tables, DataTableState } from '@altitutor/shared';
 import { useSessionsWithDetails } from './useSessionsQuery';
 import { useStudentSearchForFilter } from './useStudentSearchForFilter';
+import type { StudentAttendanceInput } from '../utils/attendanceDerivation';
 import { useStaffSearchForFilter } from './useStaffSearchForFilter';
 import {
   formatSessionTableDate,
@@ -48,13 +49,14 @@ export interface UseSessionsTableReturn {
   sessionStudents: Record<string, Array<Tables<'students'> & {
     planned_absence?: boolean;
     actual_attended?: boolean | null;
+    actual_was_trial?: boolean | null;
     sessions_students_id?: string | null;
     is_extra?: boolean;
     was_trial?: boolean;
     is_rescheduled?: boolean;
     is_credited?: boolean;
     absence_credited_at?: string | null;
-    rescheduled_session?: unknown;
+    rescheduled_session?: StudentAttendanceInput['rescheduled_session'];
   }>>;
   sessionStaff: Record<string, Array<Tables<'staff'> & {
     planned_absence?: boolean;

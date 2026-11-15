@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { serveWithSentry } from '../_shared/sentry.ts';
+import type { OperationalMailDiagnostic } from '../../../packages/email/src/operational-mail-diagnostic.ts';
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -219,6 +220,19 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
   });
   const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
   const runId = crypto.randomUUID();
+  const onUncertainOutcome = (diagnostic: OperationalMailDiagnostic) => {
+    sentry.captureException(new Error('Operational mailbox outcome uncertain'), {
+      fingerprint: ['billing-runner-operational-mail-uncertain'],
+      contexts: {
+        operational_mail: {
+          phase: diagnostic.phase,
+          failure_kind: diagnostic.failure_kind,
+          http_status: diagnostic.http_status,
+          elapsed_ms: diagnostic.elapsed_ms,
+        },
+      },
+    });
+  };
   let lockAcquired = false;
   let startIso = 'unknown';
   let endIso = 'unknown';
@@ -264,6 +278,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
           resendApiKey,
           adjustmentIds,
           limit: adjustmentIds.length,
+          onUncertainOutcome,
         }),
       );
 
@@ -280,6 +295,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       isStripeTestKey,
       isStripeLiveKey,
       resendApiKey,
+      onUncertainOutcome,
     });
     if (adjustmentResult.claimed > 0) {
       console.log(

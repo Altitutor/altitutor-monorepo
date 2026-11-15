@@ -70,6 +70,8 @@ export interface SearchableSelectProps<T> {
   side?: "top" | "bottom" | "left" | "right";
   /** Popover content width */
   contentWidth?: string;
+  /** Keep the menu inside a fullscreen or otherwise isolated surface. */
+  popoverContainer?: HTMLElement | null;
   /** For server-side search: parent controls items, we pass search to parent */
   onSearchChange?: (query: string) => void;
   /** Custom render for each item */
@@ -122,6 +124,7 @@ export function SearchableSelect<T>({
   align = "start",
   side = "bottom",
   contentWidth,
+  popoverContainer,
   onSearchChange,
   renderItem,
   getItemDisabled,
@@ -277,6 +280,7 @@ export function SearchableSelect<T>({
         </PopoverTrigger>
       </span>
       <PopoverContent
+        container={popoverContainer}
         enableModalScroll={enableModalScroll}
         className={cn(
           !contentWidth && "w-[280px]",

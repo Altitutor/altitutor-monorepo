@@ -285,9 +285,6 @@ export function CreateIssueDialog({
               main={
                 <IssuePropertiesPanel
                   form={form}
-                  notes={[]}
-                  isOpen={isOpen}
-                  onClose={handleClose}
                   descriptionRef={descriptionRef}
                 />
               }

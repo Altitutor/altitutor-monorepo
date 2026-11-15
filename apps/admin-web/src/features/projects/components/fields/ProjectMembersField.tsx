@@ -90,14 +90,13 @@ export function ProjectMembersField({
         {variant === 'pills' ? (
           <Button
             type="button"
-            variant="field"
+            variant="outline"
+            data-property-empty={selectedMembers.length === 0 || undefined}
             disabled={!enabled}
-            className="h-8 rounded-full px-3 text-xs"
+            className="h-8 max-w-full rounded-full px-3 text-xs"
           >
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Users className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              <span className="truncate text-left">{summary}</span>
-            </div>
+            <Users className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate">{summary}</span>
           </Button>
         ) : (
           <SearchableSelectFieldTrigger disabled={!enabled}>
@@ -140,7 +139,7 @@ export function ProjectMembersField({
         control={form.control}
         name="memberIds"
         render={() => (
-          <FormItem>
+          <FormItem className="min-w-0 max-w-full">
             <FormControl>{picker}</FormControl>
           </FormItem>
         )}

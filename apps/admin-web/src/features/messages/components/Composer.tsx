@@ -31,6 +31,7 @@ import { useContactClasses } from '../hooks/useContactClasses';
 import { useVariableReplacement } from '../hooks/useVariableReplacement';
 import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
+import { ComposerRecipientSelector, type ComposerRecipientSelection } from './ComposerRecipientSelector';
 import { ComposerControlTooltip } from './ComposerControlTooltip';
 import { isMessageComposerSendShortcut } from '../utils/composerShortcut';
 import { getLinkCopyBody } from '../utils/getLinkCopyBody';
@@ -51,6 +52,7 @@ interface Props {
   onDraftClear?: () => void;
   /** Sits immediately before the template button in the bottom toolbar. */
   toolbarBeforeTemplate?: ReactNode;
+  recipients?: ComposerRecipientSelection;
 }
 
 export function Composer({
@@ -68,6 +70,7 @@ export function Composer({
   onDraftChange,
   onDraftClear,
   toolbarBeforeTemplate,
+  recipients,
 }: Props) {
   // Use controlled draft if provided, otherwise fall back to internal state
   const [internalText, setInternalText] = useState('');
@@ -189,6 +192,18 @@ export function Composer({
 
   // Fetch contact data to get student/parent info for variable replacement
   const { data: contactData } = useContactForTemplate(contactId);
+  const recipient = contactData?.students ?? contactData?.parents ?? contactData?.staff;
+  const recipientName = recipient ? [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') : undefined;
+  const addresses = isIMessageSender && messagingAddresses?.phone && messagingAddresses.email ? {
+    value: destinationAddress,
+    onChange: setDestinationAddress,
+    options: [
+      { value: '', label: `Automatic: ${outboundMessageDestination({ ...messagingAddresses, provider: 'IMESSAGE' })}` },
+      { value: messagingAddresses.phone, label: `Phone: ${messagingAddresses.phone}` },
+      { value: messagingAddresses.email, label: `Apple ID: ${messagingAddresses.email}` },
+    ],
+  } : undefined;
+
 
   // Fetch classes for students/staff to determine if class variables can be shown (React Query)
   const { studentHasClasses, staffHasClasses } = useContactClasses(contactData ?? null);
@@ -513,23 +528,6 @@ export function Composer({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {isIMessageSender && messagingAddresses?.phone && messagingAddresses.email && (
-          <label className="flex items-center gap-2 text-sm">
-            <span className="shrink-0">Send to</span>
-            <select
-              aria-label="Message destination"
-              className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
-              value={destinationAddress}
-              onChange={(event) => setDestinationAddress(event.target.value)}
-              disabled={send.isPending}
-            >
-              <option value="">Automatic: {outboundMessageDestination({ ...messagingAddresses, provider: 'IMESSAGE' })}</option>
-              <option value={messagingAddresses.phone}>Phone: {messagingAddresses.phone}</option>
-              <option value={messagingAddresses.email}>Apple ID: {messagingAddresses.email}</option>
-            </select>
-          </label>
-        )}
-
         {/* Textarea row */}
         <div className="relative">
           <textarea
@@ -659,11 +657,13 @@ export function Composer({
             )}
           </div>
 
-          {/* Right side: Send button */}
-          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-            {send.isPending && (
-              <span className="text-xs text-muted-foreground">Sending...</span>
-            )}
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
+            <ComposerRecipientSelector
+              name={recipientName}
+              recipients={recipients}
+              addresses={addresses}
+              disabled={send.isPending}
+            />
             <button
               className={`px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 ${
                 isIMessageSender
@@ -680,7 +680,7 @@ export function Composer({
                 (!text.trim() && !(isIMessageSender && hasAttachments))
               }
             >
-              Send
+              {send.isPending ? 'Sending…' : 'Send'}
             </button>
           </div>
         </div>

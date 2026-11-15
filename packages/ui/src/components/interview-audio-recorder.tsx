@@ -12,6 +12,7 @@ export function InterviewAudioRecorder(props: {
   enabled: boolean;
   plain?: boolean;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
+  microphonePreference?: React.MutableRefObject<boolean>;
 }) {
   const { phase, enabled, plain = false } = props;
   const {

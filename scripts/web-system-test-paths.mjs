@@ -65,13 +65,46 @@ export function allWebSystemTests() {
 }
 
 export function changedFilesForGitRange(range) {
-  const output = execFileSync("git", ["diff", "--name-only", range], {
+  if (!range || range.startsWith("-")) throw new Error("A Git range is required");
+  const output = execFileSync("git", ["diff", "--name-only", "--no-renames", "-z", range, "--"], {
     encoding: "utf8",
   });
   return output
-    .split("\n")
-    .map((line) => line.trim())
+    .split("\0")
     .filter(Boolean);
+}
+
+// CI's domain closure is deliberately broader than an individual browser suite.
+// Unclassified runtime paths request the full gate until their dependencies are known.
+export function decideValidationDomains(changedFiles) {
+  const decision = decideWebSystemTests(changedFiles);
+  let edge = false;
+  let coverage = decision.apps.ucat;
+  let reason = "classified-paths";
+  for (const file of changedFiles) {
+    const auth = /(?:^|\/)(?:auth|authentication|authorization|permissions?|policies|rls|supabase|consent)(?:[./_-]|$)/iu.test(file)
+      || /(?:^|\/)middleware\.[cm]?[jt]sx?$/u.test(file);
+    if (auth || /^supabase\//u.test(file)) {
+      decision.database = true;
+      for (const app of ["admin", "student", "tutor", "ucat"]) decision.apps[app] = true;
+      coverage = true;
+      edge = true;
+      continue;
+    }
+    if (/^packages\/ui\//u.test(file)) {
+      for (const app of Object.keys(decision.apps)) decision.apps[app] = true;
+      coverage = true;
+      continue;
+    }
+    if (Object.values(APP_PATHS).some((pattern) => pattern.test(file))) continue;
+    if (/^apps\/(?:(?:student|tutor|ucat)-app|teaching-ipad)\//u.test(file)) continue;
+    if (/^docs\//u.test(file) || /\.md$/u.test(file) && /^\.agents\//u.test(file) || /^(?:README|CONTRIBUTING|AGENTS|CONTEXT|CODING_STANDARDS)\.md$/u.test(file)) continue;
+    Object.assign(decision, allWebSystemTests());
+    edge = true;
+    coverage = true;
+    reason = "unclassified-or-shared-runtime";
+  }
+  return { ...decision, run: decision.database || Object.values(decision.apps).some(Boolean), ucat_coverage: coverage, edge, reason };
 }
 
 function printGithubOutputs(decision) {

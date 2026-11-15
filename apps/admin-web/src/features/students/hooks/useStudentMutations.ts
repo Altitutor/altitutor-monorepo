@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@altitutor/shared";
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -24,7 +25,7 @@ interface UseStudentMutationsReturn {
   isDeleting: boolean;
   
   // Mutations
-  updateDetails: (data: DetailsFormData, subjectChanges: { toAdd: string[]; toRemove: string[] }, parentChanges: { toAdd: string[]; toRemove: string[] }) => Promise<void>;
+  updateDetails: (data: DetailsFormData, subjectChanges: { toAdd: string[]; toRemove: string[] }, parentChanges: { toAdd: string[]; toRemove: string[] }, education?: TablesUpdate<"students">) => Promise<void>;
   deleteStudent: () => Promise<void>;
 }
 
@@ -51,13 +52,14 @@ export function useStudentMutations({
   const updateDetails = async (
     data: DetailsFormData,
     subjectChanges: { toAdd: string[]; toRemove: string[] },
-    parentChanges: { toAdd: string[]; toRemove: string[] }
+    parentChanges: { toAdd: string[]; toRemove: string[] },
+    education?: TablesUpdate<"students">,
   ) => {
     try {
       setIsUpdatingDetails(true);
       
       // Update student basic info
-      const payload = mapDetailsFormToStudentUpdate(data);
+      const payload = { ...mapDetailsFormToStudentUpdate(data), ...education };
       await updateStudentMutation.mutateAsync({ id: studentId, data: payload });
       
       // Apply subject changes

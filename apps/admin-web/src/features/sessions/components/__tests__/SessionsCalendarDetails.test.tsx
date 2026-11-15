@@ -98,3 +98,44 @@ it("updates an unsaved meeting preview across midnight and calendar navigation",
   ).toHaveLength(2);
   client.clear();
 });
+
+it("expands the default hours and dims the student’s session without hiding its roster", () => {
+  const client = new QueryClient();
+  const session = (id: string, start: string, end: string) => ({
+    id, long_name: id, type: "CLASS", start_at: start, end_at: end,
+  } as Tables<"sessions">);
+  const absent = {
+    id: "alice", first_name: "Alice", last_name: "Williams", planned_absence: true,
+  } as Tables<"students"> & { planned_absence: boolean };
+  const peer = { id: "bob", first_name: "Bob", last_name: "Taylor" } as Tables<"students">;
+  const tutor = { id: "jo", first_name: "Jo", last_name: "Chan" } as Tables<"staff">;
+
+  render(
+    <QueryClientProvider client={client}>
+      <SessionsCalendarView
+        initialDate="2026-11-03"
+        focusedStudentId={absent.id}
+        source={{
+          sessions: [
+            session("Early class", "2026-11-02T22:00:00Z", "2026-11-02T23:00:00Z"),
+            session("Late class", "2026-11-03T10:30:00Z", "2026-11-03T11:00:00Z"),
+          ],
+          classesById: {},
+          subjectsById: {},
+          sessionStudents: { "Early class": [absent, peer] },
+          sessionStaff: { "Early class": [tutor] },
+          tutorLogs: {},
+        }}
+      />
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByText("8 AM")).toBeVisible();
+  expect(screen.getByText("9 PM")).toBeVisible();
+  const card = screen.getByLabelText("Early class details");
+  expect(card.closest(".absolute")).toHaveClass("opacity-50");
+  expect(within(card).getByText("Alice Williams")).toHaveClass("opacity-50");
+  expect(within(card).getByText("Bob Taylor")).toBeVisible();
+  expect(within(card).getByText("Jo Chan")).toBeVisible();
+  client.clear();
+});

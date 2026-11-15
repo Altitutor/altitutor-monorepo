@@ -61,6 +61,7 @@ const mockCall = {
 };
 jest.mock("../../hooks/use-interview-capture", () => ({
   useInterviewCapture: jest.fn(),
+  releaseWaitingInterviewMicrophone: jest.fn(),
 }));
 jest.mock("@daily-co/daily-js", () => ({
   __esModule: true,
@@ -1374,4 +1375,23 @@ it("records the assigned student when a receive-only observer is listed first", 
       }),
     ),
   );
+});
+
+it.each(["close", "reading"])("keeps waiting-room preferences when a device test ends via %s", async (ending) => {
+  jest.mocked(fetch).mockResolvedValue(response({
+    ...ticket, expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  }));
+  await render(<InterviewMedia roundId="round" phase="waiting" delivery="online" role="student" enabled />);
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Mute"]')?.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Turn camera off"]')?.click());
+  await act(async () => [...container.querySelectorAll("button")].find((button) => button.textContent === "Test audio & video")?.click());
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  if (ending === "close") {
+    await act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "Close")?.click());
+  } else {
+    await render(<InterviewMedia roundId="round" phase="reading" delivery="online" role="student" enabled />);
+  }
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Unmute"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Turn camera on"]')).not.toBeNull();
 });

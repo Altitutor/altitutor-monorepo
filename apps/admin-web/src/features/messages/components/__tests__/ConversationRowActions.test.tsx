@@ -17,7 +17,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = jest.fn();
 });
 
-it('marks a read conversation unread and keeps the unread dot off', async () => {
+it('marks a read conversation unread', async () => {
   const onMarkUnread = jest.fn();
   render(
     <div data-conversation-row>
@@ -33,12 +33,11 @@ it('marks a read conversation unread and keeps the unread dot off', async () => 
     </div>,
   );
 
-  expect(screen.queryByLabelText('Unread')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Mark as unread' }));
   expect(onMarkUnread).toHaveBeenCalledTimes(1);
 });
 
-it('shows an unread dot and assigns from a separate chip', async () => {
+it('marks an unread conversation read and assigns from a separate chip', async () => {
   const user = userEvent.setup();
   const onMarkRead = jest.fn();
   const onAssign = jest.fn();
@@ -54,7 +53,6 @@ it('shows an unread dot and assigns from a separate chip', async () => {
     />,
   );
 
-  expect(screen.getByLabelText('Unread')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Mark as read' }));
   expect(onMarkRead).toHaveBeenCalledTimes(1);
   await user.click(screen.getByRole('button', { name: 'Assign conversation, Ada Admin' }));

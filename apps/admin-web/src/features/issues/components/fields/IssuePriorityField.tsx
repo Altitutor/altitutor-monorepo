@@ -6,8 +6,10 @@ import type { IssueFormData } from "../../types";
 
 export function IssuePriorityField({
   form,
+  pill = false,
 }: {
   form: UseFormReturn<IssueFormData>;
+  pill?: boolean;
 }) {
   return (
     <FormField
@@ -17,6 +19,7 @@ export function IssuePriorityField({
         <FormItem>
           <FormControl>
             <PrioritySelect
+              pill={pill}
               value={field.value ?? 0}
               onValueChange={field.onChange}
             />

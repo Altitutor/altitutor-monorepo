@@ -14,11 +14,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { CalendarDays, Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
+import { ChevronDown, Loader2, Plus, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
-import { ViewClassModal, CalendarView } from '@/features/classes';
+import { ViewClassModal } from '@/features/classes';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -58,8 +62,6 @@ export function ClassesTab({
   const studentSubjects = useMemo(() => studentWithSubjects?.subjects || [], [studentWithSubjects?.subjects]);
   const classes = useMemo(() => classesData, [classesData]);
   
-  const [showTimetable, setShowTimetable] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -80,23 +82,6 @@ export function ClassesTab({
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
-  // Prepare data for timetable view (current enrollments only)
-  const currentClasses = useMemo(
-    () => classes.filter((classData) => !classData.isPreviousEnrollment),
-    [classes]
-  );
-  const timetableClasses = currentClasses.map(c => c.class);
-  const timetableSubjects: Record<string, Tables<'subjects'>> = {};
-  const timetableStaff: Record<string, Tables<'staff'>[]> = {};
-  const timetableStudents: Record<string, Tables<'students'>[]> = {};
-  currentClasses.forEach(c => {
-    if (c.subject) {
-      timetableSubjects[c.class.id] = c.subject;
-    }
-    timetableStaff[c.class.id] = c.staff;
-    timetableStudents[c.class.id] = c.students || [];
-  });
-
   const classesBySubject = useMemo(
     () => groupStudentClassesBySubject(classes, studentSubjects, showPreviousEnrollments),
     [classes, studentSubjects, showPreviousEnrollments]
@@ -442,10 +427,6 @@ export function ClassesTab({
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-base font-medium">Classes</h3>
           <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => setIsEditMode(!isEditMode)} disabled={!!student.deleted_at}>
-              {!isEditMode && <Pencil className="mr-2 h-4 w-4" />}
-              {isEditMode ? 'Done' : 'Edit subjects'}
-            </Button>
             <div className="flex items-center gap-2">
               <Switch
                 id="show-previous-enrollments"
@@ -456,158 +437,143 @@ export function ClassesTab({
                 Show previous enrollments
               </Label>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={showTimetable}
-              onClick={() => setShowTimetable((visible) => !visible)}
-            >
-              <CalendarDays className="mr-2 h-4 w-4" />
-              Class timetable
-            </Button>
           </div>
         </div>
 
-        {!showTimetable ? (
-              <div className="space-y-4 pb-6">
-                {classesBySubject.map((group) => {
-                  if (group.subjectId === '__no_subject__') {
-                    return (
-                      <div key={group.subjectId} className="space-y-2">
-                        {group.classes.map(renderClassCard)}
-                      </div>
-                    );
-                  }
+        <div className="space-y-4 pb-6">
+          {classesBySubject.map((group) => {
+            if (group.subjectId === '__no_subject__') {
+              return (
+                <div key={group.subjectId} className="space-y-2">
+                  {group.classes.map(renderClassCard)}
+                </div>
+              );
+            }
 
-                  const subject = group.subject;
-                  if (!subject) return null;
+            const subject = group.subject;
+            if (!subject) return null;
 
-                  const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
-                  const { style, textColorClass } = getSubjectColorStyle(subject);
-                  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                  const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
+            const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+            const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
 
-                  return (
-                    <div key={group.subjectId} className="flex items-start gap-4">
-                      <div className="flex-shrink-0 pt-2">
-                        <Badge
-                          className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
-                          style={style.backgroundColor ? style : undefined}
-                        >
-                          <span>{shortName}</span>
-                          {isEditMode && group.isAssignedSubject && (
-                            <button
-                              type="button"
-                              className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleRemoveSubject(group.subjectId);
-                              }}
-                              title="Remove subject"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </Badge>
-                      </div>
-
-                      <div className="flex-1 space-y-2 min-w-0">
-                        {group.classes.map(renderClassCard)}
-                        {group.isAssignedSubject && (
-                          <div
-                            className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
-                              student.status === 'ACTIVE'
-                                ? 'hover:border-primary/50 cursor-pointer'
-                                : 'opacity-50 cursor-not-allowed'
-                            }`}
-                            onClick={() => {
-                              handleAddClassClick(
-                                group.subjectId,
-                                currentClassCount,
-                                subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
-                              );
-                            }}
-                          >
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="flex items-center gap-2"
-                              disabled={!!student.deleted_at || student.status !== 'ACTIVE'}
-                            >
-                              <Plus className="h-4 w-4" />
-                              <span>Add Class</span>
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 pt-2">
-                    <SubjectSearchPopover
-                      selectedSubjects={studentSubjects}
-                      onSelectSubject={handleAddSubject}
-                      trigger={
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                        >
-                          <Plus className="h-3 w-3" />
-                          Add subject
+            return (
+              <div key={group.subjectId} className="flex items-start gap-4">
+                <div className="flex-shrink-0 pt-2">
+                  {group.isAssignedSubject && !student.deleted_at ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="rounded-full" aria-label={`${shortName} subject actions`}>
+                          <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>
+                            {shortName}
+                            <ChevronDown className="ml-1 size-3" />
+                          </Badge>
                         </button>
-                      }
-                    />
-                  </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          disabled={currentClassCount > 0}
+                          onSelect={() => void handleRemoveSubject(group.subjectId)}
+                        >
+                          Remove subject
+                        </DropdownMenuItem>
+                        {currentClassCount > 0 && (
+                          <p className="max-w-48 px-2 py-1 text-xs text-muted-foreground">
+                            End the current enrolment before removing this subject.
+                          </p>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>{shortName}</Badge>
+                  )}
                 </div>
 
-                {studentSubjects.length === 0 && classesBySubject.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No subjects assigned. Add a subject to get started.</p>
-                  </div>
-                )}
-
-                {isEditMode && student.status === 'DISCONTINUED' && (
-                  <div className="mt-8 pt-6 border-t">
-                    <h4 className="text-sm font-medium mb-4">Actions</h4>
-                    <div className="flex gap-2">
+                <div className="flex-1 space-y-2 min-w-0">
+                  {group.classes.map(renderClassCard)}
+                  {group.isAssignedSubject && (
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
+                        student.status === 'ACTIVE'
+                          ? 'hover:border-primary/50 cursor-pointer'
+                          : 'opacity-50 cursor-not-allowed'
+                      }`}
+                      onClick={() => {
+                        handleAddClassClick(
+                          group.subjectId,
+                          currentClassCount,
+                          subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
+                        );
+                      }}
+                    >
                       <Button
-                        variant="default"
+                        type="button"
+                        variant="ghost"
                         size="sm"
-                        onClick={handleReEnroll}
-                        disabled={isReEnrolling}
+                        className="flex items-center gap-2"
+                        disabled={!!student.deleted_at || student.status !== 'ACTIVE'}
                       >
-                        {isReEnrolling ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Re-enrolling...
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            Re-enroll
-                          </>
-                        )}
+                        <Plus className="h-4 w-4" />
+                        <span>Add Class</span>
                       </Button>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-          ) : (
-            <div className="h-[min(70dvh,640px)] min-h-[360px]">
-              <CalendarView
-                classes={timetableClasses}
-                classSubjects={timetableSubjects}
-                classStaff={timetableStaff}
-                classStudents={timetableStudents}
-                onClassClick={(cls) => handleClassClick(cls.id)}
-                showFilters={false}
+            );
+          })}
+
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 pt-2">
+              <SubjectSearchPopover
+                selectedSubjects={studentSubjects}
+                onSelectSubject={handleAddSubject}
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add subject
+                  </button>
+                }
               />
             </div>
+          </div>
+
+          {studentSubjects.length === 0 && classesBySubject.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No subjects assigned. Add a subject to get started.</p>
+            </div>
           )}
+
+          {!student.deleted_at && student.status === 'DISCONTINUED' && (
+            <div className="mt-8 pt-6 border-t">
+              <h4 className="text-sm font-medium mb-4">Actions</h4>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleReEnroll}
+                  disabled={isReEnrolling}
+                >
+                  {isReEnrolling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Re-enrolling...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Re-enroll
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Class Modal */}

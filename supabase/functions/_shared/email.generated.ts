@@ -675,11 +675,25 @@ var MicrosoftOperationalError = class extends Error {
     this.status = status;
   }
 };
+var MailboxRegistryError = class extends Error {
+  constructor(status) {
+    super(`Mailbox delivery registry failed (${status}).`);
+    this.status = status;
+  }
+};
 function record(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+function diagnosticErrorName(error) {
+  try {
+    return record(error) ? error.name : null;
+  } catch {
+    return null;
+  }
+}
 async function deliverOperationalMailboxEmail(input) {
   const fetchImpl = input.fetchImpl ?? fetch;
+  let phaseHttpStatus = null;
   assertMailboxRecipients(input.mailbox, { to: input.to });
   if (!["admin@altitutor.com", input.mailbox.address].includes(
     input.email.replyTo.toLowerCase()
@@ -709,8 +723,9 @@ async function deliverOperationalMailboxEmail(input) {
         signal: AbortSignal.timeout(15e3)
       }
     );
+    phaseHttpStatus = response.status || null;
     if (!response.ok)
-      throw new Error(`Mailbox delivery registry failed (${response.status}).`);
+      throw new MailboxRegistryError(response.status);
     return response.json();
   }
   const value = await rpc("email_operational_prepare", {
@@ -749,6 +764,7 @@ async function deliverOperationalMailboxEmail(input) {
       ...body === void 0 ? {} : { body: JSON.stringify(body) },
       signal: AbortSignal.timeout(15e3)
     });
+    phaseHttpStatus = response.status || null;
     if (!response.ok) throw new MicrosoftOperationalError(response.status);
     return response;
   }
@@ -770,10 +786,18 @@ async function deliverOperationalMailboxEmail(input) {
   let externalRequestStarted = false;
   let draftId = operation.draftId;
   let changeKey = operation.changeKey;
+  let phase = "draft_create";
+  let phaseStartedAt = performance.now();
+  function enterPhase(next) {
+    phase = next;
+    phaseStartedAt = performance.now();
+    phaseHttpStatus = null;
+  }
   try {
     token = await input.getAccessToken();
     if (!draftId) {
       externalRequestStarted = true;
+      enterPhase("draft_create");
       const response = await (await graph("/messages", "POST", {
         subject: input.email.subject,
         body: { contentType: "HTML", content: input.email.html },
@@ -801,6 +825,7 @@ async function deliverOperationalMailboxEmail(input) {
         throw new Error("Microsoft omitted the operational draft identity.");
       draftId = response.id;
       changeKey = response.changeKey;
+      enterPhase("draft_persist");
       await update("creating", "ready", draftId, changeKey);
       stage = "ready";
       externalRequestStarted = false;
@@ -813,6 +838,7 @@ async function deliverOperationalMailboxEmail(input) {
     await update("ready", "sending");
     stage = "sending";
     externalRequestStarted = true;
+    enterPhase("send_request");
     const accepted = await graph(
       `/messages/${encodeURIComponent(draftId)}/send`,
       "POST"
@@ -821,11 +847,19 @@ async function deliverOperationalMailboxEmail(input) {
       throw new Error(
         "Microsoft did not confirm operational email submission. Check the shared mailbox before retrying."
       );
+    enterPhase("submission_persist");
     await update("sending", "submitted");
     return { providerMessageId: draftId, state: "submitted" };
   } catch (error) {
     const definiteRejection = error instanceof MicrosoftOperationalError && error.status >= 400 && error.status < 500 && error.status !== 408;
     const unresolved = externalRequestStarted && !definiteRejection && (stage === "creating" || stage === "sending");
+    const errorName = diagnosticErrorName(error);
+    const diagnostic = {
+      phase,
+      failure_kind: error instanceof MicrosoftOperationalError || error instanceof MailboxRegistryError ? "http_error" : errorName === "TimeoutError" ? "timeout" : errorName === "AbortError" ? "aborted" : errorName === "SyntaxError" ? "invalid_json" : errorName === "TypeError" ? "type_error" : "other",
+      http_status: phaseHttpStatus,
+      elapsed_ms: Math.min(3e5, Math.max(0, Math.round(performance.now() - phaseStartedAt)))
+    };
     try {
       await update(
         stage,
@@ -833,10 +867,15 @@ async function deliverOperationalMailboxEmail(input) {
       );
     } catch {
     }
-    if (unresolved)
+    if (unresolved) {
+      try {
+        input.onUncertainOutcome?.(diagnostic);
+      } catch {
+      }
       throw new Error(
         `Operational email ${operation.id} has an unresolved outcome. Check the shared mailbox before sending another copy.`
       );
+    }
     throw error;
   }
 }

@@ -3,6 +3,78 @@ import type { Database } from "../../supabase/generated";
 import { reconcileInterviewMedia } from "../server/maintenance";
 
 describe("independent interview recovery jobs", () => {
+  it("does not warn about shutdown when a completed round has no media job or rooms", async () => {
+    const rpc = jest.fn(async (name: string) => ({
+      data: name === "interview_media_state"
+        ? { id: "round", phase: "completed", progress: [], recordings: [] }
+        : [],
+      error: null,
+    }));
+    const client = {
+      rpc,
+      from: () => ({ select: () => ({ eq: async () => ({ data: [], error: null }) }) }),
+    } as unknown as SupabaseClient<Database>;
+
+    await expect(reconcileInterviewMedia(client, "key", "round")).resolves.toBe(0);
+  });
+
+  it.each([
+    ["closed video room", "video", "2026-11-15T00:24:00Z"],
+    ["browser capture anchor", "audio", null],
+  ])("does not require provider shutdown for a %s after another worker claims the job", async (_name, kind, closedAt) => {
+    const client = {
+      rpc: async (name: string) => ({
+        data: name === "interview_media_state"
+          ? { id: "round", phase: "completed", progress: [], recordings: [] }
+          : [],
+        error: null,
+      }),
+      from: () => ({ select: () => ({ eq: async () => ({
+        data: [{ id: "session", kind, closed_at: closedAt }], error: null,
+      }) }) }),
+    } as unknown as SupabaseClient<Database>;
+    await expect(reconcileInterviewMedia(client, "key", "round")).resolves.toBe(0);
+  });
+
+  it.each(["2099-01-01T00:00:00Z", "2020-01-01T00:00:00Z"])(
+    "retains the warning for an unconfirmed video room even when its expiry is %s",
+    async (expiresAt) => {
+      const client = {
+        rpc: async (name: string) => ({
+          data: name === "interview_media_state"
+            ? { id: "round", phase: "completed", progress: [], recordings: [] }
+            : [],
+          error: null,
+        }),
+        from: () => ({ select: () => ({ eq: async () => ({
+          data: [{ id: "session", kind: "video", closed_at: null, expires_at: expiresAt }], error: null,
+        }) }) }),
+      } as unknown as SupabaseClient<Database>;
+      const request = jest.spyOn(globalThis, "fetch");
+      try {
+        await expect(reconcileInterviewMedia(client, "key", "round"))
+          .rejects.toThrow("Video shutdown is not yet confirmed.");
+        expect(request).not.toHaveBeenCalled();
+      } finally { request.mockRestore(); }
+    },
+  );
+
+  it.each(["round", "sessions"])("does not turn a failed %s read into confirmed shutdown", async (failedRead) => {
+    const error = new Error("Database unavailable");
+    const client = {
+      rpc: async (name: string) => ({
+        data: name === "interview_media_state"
+          ? { id: "round", phase: "completed", progress: [], recordings: [] }
+          : [],
+        error: name === "interview_media_state" && failedRead === "round" ? error : null,
+      }),
+      from: () => ({ select: () => ({ eq: async () => ({
+        data: [], error: failedRead === "sessions" ? error : null,
+      }) }) }),
+    } as unknown as SupabaseClient<Database>;
+    await expect(reconcileInterviewMedia(client, "key", "round")).rejects.toThrow(error);
+  });
+
   it("backs off a failed room shutdown and still recovers the next round", async () => {
     const jobs = [
       { round_id: "broken", revision: 1, lease_token: "lease1" },

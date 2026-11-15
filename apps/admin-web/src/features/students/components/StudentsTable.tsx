@@ -125,6 +125,7 @@ function StudentRowActions({
 
   return (
     <ActionsMenu
+      menuOnly
       type="student"
       entityId={student.id}
       copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
@@ -404,7 +405,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   // Loading state
   if (isLoading && entries.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-4">
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
         <div className="text-sm text-muted-foreground">
           Loading students...

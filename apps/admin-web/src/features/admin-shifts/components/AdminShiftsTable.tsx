@@ -327,6 +327,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                       )}
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <ActionsMenu
+                          menuOnly
                           type="adminShift"
                           entityId={shift.id}
                           onOpenInPage={() => {

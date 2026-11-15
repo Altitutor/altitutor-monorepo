@@ -257,6 +257,7 @@ export const StaffTableRow = memo(function StaffTableRow({
       <CheckInTableCells columns={visibleColumns} date={checkInDate} error={checkInError} />
       <TableCell onClick={(e) => e.stopPropagation()}>
         <ActionsMenu
+          menuOnly
           type="staff"
           entityId={staff.id}
           copyTagDisplayText={`${staff.first_name || ''} ${staff.last_name || ''}`.trim()}

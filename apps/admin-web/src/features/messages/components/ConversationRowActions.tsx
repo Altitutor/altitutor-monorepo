@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EntityChipIcon, SearchableSelect } from "@altitutor/ui";
 import { Mail, UserRound } from "lucide-react";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
@@ -34,6 +34,7 @@ export function ConversationRowActions({
   onCreateTask: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   const assignee = staff.find((member) => member.id === assigneeId) ?? null;
   const assignedLabel = assignee ? staffName(assignee) : assigneeId ? "Assigned" : "Unassigned";
   const createTask = useRef(onCreateTask);
@@ -56,14 +57,14 @@ export function ConversationRowActions({
 
   return (
     <div ref={root} className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-      {unread ? <span aria-label="Unread" className="h-2 w-2 shrink-0 rounded-full bg-blue-500" /> : null}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 [@media(hover:none)]:opacity-100">
         <EmailActionGroup label="Conversation actions">
-          <EmailIconButton label="Create task" shortcut="T" onClick={onCreateTask}>
+          <EmailIconButton label="Create task" shortcut="T" className="size-6" onClick={onCreateTask}>
             <EntityChipIcon entityType="task" />
           </EmailIconButton>
           <EmailIconButton
             label={unread ? "Mark as read" : "Mark as unread"}
+            className="size-6"
             data-unread={unread ? "true" : undefined}
             onClick={unread ? onMarkRead : onMarkUnread}
           >
@@ -71,9 +72,11 @@ export function ConversationRowActions({
           </EmailIconButton>
         </EmailActionGroup>
       </div>
-      <div className={showAssignee ? undefined : "hidden group-hover:block group-focus-within:block [@media(hover:none)]:block"}>
+      <div className={(showAssignee && assigneeId) || assigneeOpen ? undefined : "hidden group-hover:block group-has-[:focus-visible]:block [@media(hover:none)]:block"}>
         <EmailActionGroup label="Conversation assignee">
           <SearchableSelect
+            open={assigneeOpen}
+            onOpenChange={setAssigneeOpen}
             items={staff}
             value={assignee}
             onValueChange={(member) => onAssign(member?.id ?? null)}
@@ -87,7 +90,7 @@ export function ConversationRowActions({
             trigger={
               <EmailIconButton
                 label={assigneeId ? `Assign conversation, ${assignedLabel}` : "Assign conversation"}
-                className={assigneeId ? "w-auto gap-1 px-2" : undefined}
+                className={assigneeId ? "h-6 w-auto gap-1 px-2" : "size-6"}
               >
                 <UserRound className="h-4 w-4" />
                 {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assignedLabel}</span>}

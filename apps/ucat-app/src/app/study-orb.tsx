@@ -17,6 +17,7 @@ import { StudyGoal } from "@/features/study-plan/components/study-goal";
 import { useLaunchActivity } from "@/features/study-plan/use-launch-activity";
 import { openWebSettings } from "@/features/settings/open-web-settings";
 import { withHaptic } from "@/lib/haptics";
+import { sheetDiagnostics } from "@/features/navigation/sheet-diagnostics-client";
 
 export default function StudyCompanion() {
   const { query, next } = useStudyCompanion();
@@ -107,7 +108,9 @@ export default function StudyCompanion() {
             <Action
               secondary
               title="View study plan"
-              onPress={() => setExpanded(true)}
+              onPress={() =>
+                sheetDiagnostics.requestFullHeight("study-orb", () => setExpanded(true))
+              }
             />
           )}
           {expanded && query.data && (

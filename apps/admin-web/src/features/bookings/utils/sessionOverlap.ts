@@ -1,4 +1,5 @@
 import { parseISO, isSameDay } from 'date-fns';
+import { adelaideCalendarEndMinutes } from '@/features/sessions/utils/calendarHours';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 
 export interface SessionItem {
@@ -39,12 +40,12 @@ export function calculateSessionOverlapGroups(
       daySessions.forEach((o) => {
         if (processed.has(o.id)) return;
         const oStart = adelaideTimeToMinutes(o.start_at);
-        const oEnd = adelaideTimeToMinutes(o.end_at);
+        const oEnd = adelaideCalendarEndMinutes(o.start_at, o.end_at);
         
         // Check if o overlaps with ANY session already in the group
         const overlapsWithGroup = group.some((groupSession) => {
           const gStart = adelaideTimeToMinutes(groupSession.start_at);
-          const gEnd = adelaideTimeToMinutes(groupSession.end_at);
+          const gEnd = adelaideCalendarEndMinutes(groupSession.start_at, groupSession.end_at);
           // Events that end exactly when another starts should NOT overlap
           // Use strict comparison: gStart < oEnd && gEnd > oStart
           return gStart < oEnd && gEnd > oStart;
@@ -74,7 +75,7 @@ export function calculateSessionPosition(
   slotHeight: number = 75
 ): { top: number; height: number } {
   const sStartMinutes = adelaideTimeToMinutes(session.start_at);
-  const sEndMinutes = adelaideTimeToMinutes(session.end_at);
+  const sEndMinutes = adelaideCalendarEndMinutes(session.start_at, session.end_at);
   
   const minutesFromStart = sStartMinutes - (startHour * 60);
   

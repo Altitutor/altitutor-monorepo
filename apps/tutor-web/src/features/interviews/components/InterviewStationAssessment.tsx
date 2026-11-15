@@ -348,6 +348,8 @@ export function AttemptEditor({
     selectedQuestionId,
     round.phase,
     round.pausedAt,
+    // A refetch can observe a newer round after both pause and resume.
+    round.version,
   ]);
   const response = draft.feedback.find(
     (feedback) => feedback.placementId === question?.id,

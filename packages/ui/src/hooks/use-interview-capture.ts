@@ -8,6 +8,7 @@ import {
   recoverInterviewAudio,
   saveInterviewAudio,
 } from "../lib/interview-audio-outbox";
+import { interviewMicrophoneConstraints } from "../lib/interview-microphone-constraints";
 
 import {
   createInterviewVideoCompositor,
@@ -25,6 +26,13 @@ let waitingMicrophone: {
   timer: ReturnType<typeof setTimeout>;
 } | null = null;
 
+export function releaseWaitingInterviewMicrophone(roundId: string) {
+  if (waitingMicrophone?.roundId !== roundId) return;
+  clearTimeout(waitingMicrophone.timer);
+  waitingMicrophone.stream.getTracks().forEach((track) => track.stop());
+  waitingMicrophone = null;
+}
+
 export interface InterviewOnlineCaptureSources {
   attemptId: string;
   tracks: InterviewVideoSources;
@@ -37,15 +45,17 @@ export function useInterviewCapture({
   enabled,
   registerFinalize,
   video,
+  microphonePreference,
 }: {
   roundId: string;
   phase: InterviewPhase;
   enabled: boolean;
   registerFinalize?: (finalize: (() => Promise<void>) | null) => void;
   video?: { sources: InterviewOnlineCaptureSources | null };
+  microphonePreference?: React.MutableRefObject<boolean>;
 }) {
   const online = video !== undefined;
-  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(microphonePreference?.current ?? true);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [serverRecording, setServerRecording] = useState(false);
@@ -131,7 +141,10 @@ export function useInterviewCapture({
     void (
       warm
         ? Promise.resolve(warm.stream)
-        : navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        : navigator.mediaDevices.getUserMedia({
+            audio: interviewMicrophoneConstraints,
+            video: false,
+          })
     )
       .then((next) => {
         if (cancelled) {
@@ -580,6 +593,7 @@ export function useInterviewCapture({
   }, [roundId, pendingCount, recording]);
   const toggle = () => {
     const next = !microphoneEnabled;
+    if (microphonePreference) microphonePreference.current = next;
     setMicrophoneEnabled(next);
     micStream?.getTracks().forEach((track) => {
       track.enabled = next && enabled && audible.current;

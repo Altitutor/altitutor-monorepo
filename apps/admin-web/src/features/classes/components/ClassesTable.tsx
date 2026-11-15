@@ -683,6 +683,7 @@ export function ClassesTable({
                         )}
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <ActionsMenu
+                            menuOnly
                             type="class"
                             entityId={cls.id}
                             copyTagDisplayText={cls.short_name?.trim() ?? ""}

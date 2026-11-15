@@ -280,7 +280,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     );
   }
 
-  return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
+  return <div className="space-y-6 pb-6 px-1 pt-4">
     <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
     <PropertyForm>
       <PropertyFormRow label="Offering type">

@@ -178,7 +178,7 @@ export function getAdelaideTimeComponents(isoString: string): { hours: number; m
     timeZone: 'Australia/Adelaide',
     hour: 'numeric',
     minute: 'numeric',
-    hour12: false,
+    hourCycle: 'h23',
   });
   
   const parts = formatter.formatToParts(date);

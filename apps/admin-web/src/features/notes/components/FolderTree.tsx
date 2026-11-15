@@ -23,7 +23,10 @@ import { DroppableNoFolder } from './DroppableNoFolder';
 import { useMemo } from 'react';
 import type { Note, FolderTreeItem } from '../types';
 
+import { defaultDocumentOrder, sortDocuments, type DocumentOrder } from '../utils/documentOrder';
+
 interface FolderTreeProps {
+  order?: DocumentOrder;
   searchQuery?: string;
   onNoteClick?: (noteId: string) => void;
   /** Called after inline document creation; falls back to onNoteClick / page navigation. */
@@ -37,6 +40,7 @@ interface FolderTreeProps {
  */
 export function FolderTree({
   searchQuery = '',
+  order = defaultDocumentOrder,
   onNoteClick,
   onNoteCreated,
   onProjectClick,
@@ -171,6 +175,7 @@ export function FolderTree({
       <NotesSearchResults
         notes={searchResults ?? []}
         searchQuery={searchQuery}
+        order={order}
         onNoteClick={onNoteClick}
         onProjectClick={onProjectClick}
         projects={projects}
@@ -198,7 +203,7 @@ export function FolderTree({
       <div className="space-y-1">
         {hasNotesWithoutFolder && (
           <DroppableNoFolder>
-            {notesWithoutFolder.map((note) => {
+            {sortDocuments(notesWithoutFolder, order).map((note) => {
               const project = note.project_id
                 ? projects.find((p) => p.id === note.project_id)
                 : null;
@@ -226,6 +231,7 @@ export function FolderTree({
             <FolderTreeNode
               key={folder.id}
               folder={folder}
+              order={order}
               level={0}
               onNoteClick={onNoteClick}
               onNoteCreated={onNoteCreated}

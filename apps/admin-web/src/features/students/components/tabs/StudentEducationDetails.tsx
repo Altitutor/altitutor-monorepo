@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { createPortal } from "react-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import type { Tables, TablesUpdate } from "@altitutor/shared";
-import { Button, Input, Separator, useToast } from "@altitutor/ui";
-import { Pencil } from "lucide-react";
+import { Input, Separator } from "@altitutor/ui";
 import {
   AvailabilityFields,
   type AvailabilitySlotKey,
@@ -14,69 +10,18 @@ import {
   PropertyForm,
   PropertyFormRow,
 } from "@/shared/components/PropertyForm";
-import { invalidateStudentDetail } from "@/shared/lib/query-invalidation";
-import { studentsApi } from "@/features/students/api/students";
-
-function educationFromStudent(
-  student: Tables<"students">,
-): TablesUpdate<"students"> {
-  return {
-    school: student.school,
-    curriculum: student.curriculum,
-    year_level: student.year_level,
-    availability_monday: student.availability_monday,
-    availability_tuesday: student.availability_tuesday,
-    availability_wednesday: student.availability_wednesday,
-    availability_thursday: student.availability_thursday,
-    availability_friday: student.availability_friday,
-    availability_saturday_am: student.availability_saturday_am,
-    availability_saturday_pm: student.availability_saturday_pm,
-    availability_sunday_am: student.availability_sunday_am,
-    availability_sunday_pm: student.availability_sunday_pm,
-  };
-}
 
 export function StudentEducationDetails({
   student,
-  footerTarget,
+  draft,
+  onChange,
 }: {
-  footerTarget: HTMLDivElement | null;
   student: Tables<"students">;
+  draft: TablesUpdate<"students"> | null;
+  onChange: (patch: TablesUpdate<"students">) => void;
 }) {
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [inPersonDetails, setInPersonDetails] = useState(() =>
-    educationFromStudent(student),
-  );
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [saving, setSaving] = useState(false);
-
-  const handleCancelEdit = () => {
-    setIsEditMode(false);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await studentsApi.updateStudent(student.id, inPersonDetails);
-      await invalidateStudentDetail(queryClient, student.id);
-      setIsEditMode(false);
-      toast({
-        title: "Success",
-        description: "In-person details updated successfully.",
-      });
-    } catch (error) {
-      console.error("Failed to update in-person details:", error);
-      toast({
-        title: "Update failed",
-        description:
-          "There was an error updating the in-person details. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+  const isEditMode = draft !== null;
+  const inPersonDetails = { ...student, ...draft };
 
   return (
     <section
@@ -86,21 +31,6 @@ export function StudentEducationDetails({
       <div>
         <div className="flex items-center justify-between gap-2 mb-3">
           <h3 className="text-base font-medium">Education</h3>
-          {!isEditMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Edit education"
-              onClick={() => {
-                setInPersonDetails(educationFromStudent(student));
-                setIsEditMode(true);
-              }}
-              disabled={!!student.deleted_at}
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
         </div>
         <PropertyForm>
           <PropertyFormRow
@@ -112,10 +42,9 @@ export function StudentEducationDetails({
                 id="in-person-school"
                 value={inPersonDetails.school ?? ""}
                 onChange={(event) =>
-                  setInPersonDetails((current) => ({
-                    ...current,
+                  onChange({
                     school: event.target.value || null,
-                  }))
+                  })
                 }
               />
             ) : (
@@ -132,11 +61,10 @@ export function StudentEducationDetails({
                 className="h-10 rounded-md border border-input bg-background px-3"
                 value={inPersonDetails.curriculum ?? ""}
                 onChange={(event) =>
-                  setInPersonDetails((current) => ({
-                    ...current,
+                  onChange({
                     curriculum: (event.target.value ||
                       null) as Tables<"students">["curriculum"],
-                  }))
+                  })
                 }
               >
                 <option value="">Not set</option>
@@ -159,17 +87,17 @@ export function StudentEducationDetails({
             {isEditMode ? (
               <Input
                 id="in-person-year-level"
+                form="student-edit-form"
                 type="number"
                 min={1}
                 max={13}
                 value={inPersonDetails.year_level ?? ""}
                 onChange={(event) =>
-                  setInPersonDetails((current) => ({
-                    ...current,
+                  onChange({
                     year_level: event.target.value
                       ? Number(event.target.value)
                       : null,
-                  }))
+                  })
                 }
               />
             ) : (
@@ -186,39 +114,13 @@ export function StudentEducationDetails({
         <AvailabilityFields
           isEditing={isEditMode}
           getValue={(key) =>
-            Boolean(
-              isEditMode
-                ? inPersonDetails[key as keyof TablesUpdate<"students">]
-                : student[key as keyof Tables<"students">],
-            )
+            Boolean(inPersonDetails[key as keyof Tables<"students">])
           }
           onCheckedChange={(key: AvailabilitySlotKey, checked) => {
-            setInPersonDetails((current) => ({ ...current, [key]: checked }));
+            onChange({ [key]: checked });
           }}
         />
       </div>
-      {isEditMode &&
-        footerTarget &&
-        createPortal(
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              type="button"
-              disabled={saving}
-              onClick={handleCancelEdit}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              disabled={saving}
-              onClick={() => void handleSave()}
-            >
-              Save
-            </Button>
-          </div>,
-          footerTarget,
-        )}
     </section>
   );
 }

@@ -22,7 +22,7 @@ if name == 'pnpm' and os.environ.get('FIXTURE_CHECK_STAGE_ENV'):
   assert data.get('started'), 'app builds require the owned database to be running'
   assert os.environ.get('ALTITUTOR_OWNED_DB_INNER') == '1', 'app builds require the owned lease'
   assert os.environ.get('NEXT_PUBLIC_SUPABASE_URL') == 'http://127.0.0.1:' + data['api_port']
- elif args == ['test'] or args[:3] == ['turbo', 'run', 'test']:
+ elif args[:1] == ['test'] or args[:3] == ['turbo', 'run', 'test'] or args == ['--filter', 'ucat-web', 'test:coverage']:
   assert not os.environ.get('NEXT_PUBLIC_SUPABASE_URL'), 'unit previews must remain unconfigured'
   assert not os.environ.get('ALTITUTOR_OWNED_DB_INNER'), 'unit tests must precede database startup'
 if name == 'node' and args[:1] == ['-e']:
@@ -165,7 +165,10 @@ class OwnedDatabaseTests(unittest.TestCase):
             'normal_database':'untouched','stopped':False}))
         self.env=dict(os.environ, PATH=str(self.bin)+os.pathsep+os.environ['PATH'],
                       FIXTURE_STATE=str(self.state),FIXTURE_LOG=str(self.log))
-        for key in ['ALTITUTOR_TEST_DB_MANIFEST','ALTITUTOR_DB_LOCK_FD','ALTITUTOR_OWNED_DB_INNER']:
+        for key in ['ALTITUTOR_TEST_DB_MANIFEST','ALTITUTOR_DB_LOCK_FD','ALTITUTOR_OWNED_DB_INNER',
+                    'ALTITUTOR_VALIDATION_RECEIPT', 'ALTITUTOR_VALIDATION_PROFILE',
+                    'ALTITUTOR_VALIDATION_REVISION', 'ALTITUTOR_VALIDATION_OWNER',
+                    'ALTITUTOR_VALIDATION_BASE']:
             self.env.pop(key,None)
 
     def tearDown(self):
@@ -319,11 +322,15 @@ class OwnedDatabaseTests(unittest.TestCase):
         start = next(index for index, (name, args) in enumerate(actions)
                      if name == 'supabase' and args[:1] == ['start'])
         unit = next(index for index, (name, args) in enumerate(actions)
-                    if name == 'pnpm' and (args == ['test'] or args[:3] == ['turbo', 'run', 'test']))
+                    if name == 'pnpm' and args == ['test', '--filter=!ucat-web'])
+        coverage = actions.index(('pnpm', ['--filter', 'ucat-web', 'test:coverage']))
         self.assertLess(unit, start)
+        self.assertLess(unit, coverage)
+        self.assertLess(coverage, start)
         self.assertLess(start, build)
         self.assertLess(build, actions.index(('supabase', ['db', 'reset', '--local'])))
-        self.assertEqual(actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
+        database_actions = [action for action in actions if action[0] in ['supabase', 'docker']]
+        self.assertEqual(database_actions[-1], ('supabase', ['stop', '--project-id', self.project, '--no-backup']))
 
     def test_type_commands_use_owned_stack_and_preserve_existing_output_on_failure(self):
         for action in ['types','committypes']:

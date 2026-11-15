@@ -19,6 +19,7 @@ import {
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
+import { InterviewWaitingMedia } from "./interview-waiting-media";
 import {
   useInterviewCapture,
   type InterviewOnlineCaptureSources,
@@ -443,7 +444,22 @@ function OnlineRecording({
   );
 }
 
-export function InterviewMedia({
+export function InterviewMedia(props: InterviewMediaProps) {
+  const preferences = useRef({
+    micOn: true,
+    cameraOn: true,
+    inputSelection: { current: { audio: "", video: "" } },
+    inPersonMicrophone: { current: true },
+  });
+  const media = <InterviewMediaSession {...props} preferences={preferences} />;
+  return (
+    <InterviewWaitingMedia roundId={props.roundId} available={props.phase === "waiting" && props.role !== "admin"}>
+      {media}
+    </InterviewWaitingMedia>
+  );
+}
+
+function InterviewMediaSession({
   roundId,
   phase,
   delivery,
@@ -455,20 +471,25 @@ export function InterviewMedia({
   className,
   registerFinalize,
   onCallFailure,
-}: InterviewMediaProps) {
+  preferences,
+}: InterviewMediaProps & {
+  preferences: React.RefObject<{
+    micOn: boolean;
+    cameraOn: boolean;
+    inputSelection: React.MutableRefObject<InterviewInputSelection>;
+    inPersonMicrophone: React.MutableRefObject<boolean>;
+  }>;
+}) {
   const failureReporter = useRef(onCallFailure);
   failureReporter.current = onCallFailure;
   const [devicesRequested, setDevicesRequested] = useState(role !== "admin");
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(true);
+  const [micOn, setMicOn] = useState(preferences.current.micOn);
+  const [cameraOn, setCameraOn] = useState(preferences.current.cameraOn);
   const [videoView, setVideoView] = useState<InterviewVideoView>("pip");
   const devicePreferences = useRef({ micOn, cameraOn });
   devicePreferences.current = { micOn, cameraOn };
   const callRef = useRef<DailyCall | null>(null);
-  const inputSelection = useRef<InterviewInputSelection>({
-    audio: "",
-    video: "",
-  });
+  const inputSelection = preferences.current.inputSelection;
   const closing = useRef<Promise<void>>(Promise.resolve());
   const [participants, setParticipants] = useState<DailyParticipant[]>([]);
   const [ticket, setTicket] = useState<InterviewMediaTicket | null>(null);
@@ -891,6 +912,7 @@ export function InterviewMedia({
 
   const toggleMic = () => {
     const next = !micOn;
+    preferences.current.micOn = next;
     setMicOn(next);
     callRef.current?.setLocalAudio(
       next && enabled && (!ticket?.sessionId || ticket.canSend),
@@ -898,6 +920,7 @@ export function InterviewMedia({
   };
   const toggleCamera = () => {
     const next = !cameraOn;
+    preferences.current.cameraOn = next;
     setCameraOn(next);
     callRef.current?.setLocalVideo(
       next && enabled && (!ticket?.sessionId || ticket.canSend),
@@ -911,6 +934,7 @@ export function InterviewMedia({
         enabled={enabled}
         plain={plain}
         registerFinalize={registerFinalize}
+        microphonePreference={preferences.current.inPersonMicrophone}
       />
     );
   if (delivery === "in_person")

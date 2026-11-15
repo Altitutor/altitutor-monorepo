@@ -30,6 +30,7 @@ import type {
 } from "@altitutor/shared";
 import { useDebounce } from "@altitutor/shared/hooks";
 import { Button } from "./button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 import { Input } from "./input";
 import {
   DropdownMenu,
@@ -122,6 +123,7 @@ export interface DataTableToolbarProps {
   searchAccessory?: React.ReactNode;
   /** Icon-only controls for narrow panels (e.g. editor sidebars). */
   compact?: boolean;
+  displayTooltip?: string;
   /** When true, search-from toggles appear in the View dropdown instead of beside the search field */
   searchFromInView?: boolean;
   /** Search-from options shown under the Question stems heading (after columns) */
@@ -192,6 +194,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     searchLeadingAccessory,
     searchAccessory,
     compact: compactProp = false,
+    displayTooltip,
     searchFromViewGroups,
     columnViewGroups = [],
   } = props;
@@ -720,6 +723,31 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
       ) : null}
     </>
   );
+  const displayButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={cn(
+        controlBtnClass(),
+        "relative shrink-0 overflow-visible",
+        toolbarControlStyles,
+      )}
+      aria-label="Display options"
+      title={displayTooltip ? undefined : "Change filters, sorting and visible columns"}
+    >
+      <SlidersHorizontal className={iconClass()} />
+      <span className={labelClass}>Display</span>
+      {!matchingView ? (
+        <span
+          role="img"
+          aria-label="Custom display settings"
+          title="Custom display settings"
+          className="absolute -right-1 -top-1 inline-flex h-2.5 w-2.5 rounded-full border border-background bg-primary"
+        />
+      ) : null}
+    </Button>
+  );
   if (displayInline) return <div className="min-w-0">{displayContent}</div>;
 
   return (
@@ -883,31 +911,18 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         ) : null}
 
         <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                controlBtnClass(),
-                "relative shrink-0 overflow-visible",
-                toolbarControlStyles,
-              )}
-              aria-label="Display options"
-              title="Change filters, sorting and visible columns"
-            >
-              <SlidersHorizontal className={iconClass()} />
-              <span className={labelClass}>Display</span>
-              {!matchingView ? (
-                <span
-                  role="img"
-                  aria-label="Custom display settings"
-                  title="Custom display settings"
-                  className="absolute -right-1 -top-1 inline-flex h-2.5 w-2.5 rounded-full border border-background bg-primary"
-                />
-              ) : null}
-            </Button>
-          </PopoverTrigger>
+          {displayTooltip ? (
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>{displayButton}</PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{displayTooltip}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <PopoverTrigger asChild>{displayButton}</PopoverTrigger>
+          )}
           <PopoverContent
             align="end"
             aria-label="Display options"

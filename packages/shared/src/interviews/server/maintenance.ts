@@ -117,10 +117,17 @@ export async function reconcileInterviewMedia(
     if (error) throw error;
     const job = data?.[0];
     if (!job) {
-      if (roundId)
-        throw new Error(
-          "Video update is already being reconciled. Shutdown is not yet confirmed.",
-        );
+      if (roundId) {
+        // A completed worker can retire the job before this caller claims it.
+        // Only persisted room closures prove shutdown; an empty claim alone
+        // also covers another worker's lease and must not imply success.
+        await store.round(roundId);
+        const sessions = await store.sessions(roundId);
+        if (sessions.some((session) => session.kind === "video" && !session.closedAt))
+          throw new Error(
+            "Video shutdown is not yet confirmed. The server will retry.",
+          );
+      }
       break;
     }
     attempted++;

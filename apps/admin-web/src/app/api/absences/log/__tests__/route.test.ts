@@ -1,4 +1,5 @@
 import { POST } from '../route';
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 
 const mockGetUser = jest.fn();
 const mockGetSession = jest.fn();
@@ -51,6 +52,10 @@ const rescheduleOperation = {
 };
 
 describe('POST /api/absences/log', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = mockFetch;
@@ -158,6 +163,45 @@ describe('POST /api/absences/log', () => {
       }),
     );
   });
+
+  it.each(['response_headers', 'response_body'] as const)(
+    'preserves the saved command when its deadline expires awaiting %s',
+    async (stage) => {
+      jest.useFakeTimers();
+      const aborted = new DOMException('This operation was aborted', 'AbortError');
+      mockFetch.mockImplementationOnce((_url: string, init: RequestInit) => {
+        const pending = () => new Promise<never>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(aborted), { once: true });
+        });
+        return stage === 'response_headers'
+          ? pending()
+          : Promise.resolve({ ok: true, status: 200, json: pending });
+      });
+
+      const pendingResponse = POST({
+        json: async () => ({ operations: [creditOperation], reasonCategory: 'approved_absence' }),
+      } as Request);
+      await jest.advanceTimersByTimeAsync(24_999);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const signal = mockFetch.mock.calls[0][1].signal as AbortSignal;
+      expect(signal.aborted).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+
+      const response = await pendingResponse;
+      expect(signal.aborted).toBe(true);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual(expect.objectContaining({
+        success: true,
+        data: expect.objectContaining({ billing_adjustment_ids: ['adjustment-credit', 'adjustment-replacement'] }),
+        billing: { status: 'queued' },
+        warning: 'Absence saved; billing queued for retry.',
+      }));
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(captureApiError).toHaveBeenCalledWith(aborted, '/api/absences/log/immediate-billing');
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
 
   it.each([
     {

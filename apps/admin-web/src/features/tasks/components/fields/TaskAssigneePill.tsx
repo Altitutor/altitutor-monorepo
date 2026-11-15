@@ -57,6 +57,7 @@ export function TaskAssigneePill({
       <Button
         variant="outline"
         type="button"
+        data-property-empty={!assignedTo || undefined}
         className="h-8 px-3 text-xs border rounded-full"
       >
         <div className="flex items-center gap-1.5">

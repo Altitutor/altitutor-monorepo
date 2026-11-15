@@ -452,12 +452,12 @@ export function ConversationHeader({
                 align="end"
                 className="w-64 data-[state=closed]:hidden"
               >
-                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("task")}>
+                <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("task")}>
                   <EntityChipIcon entityType="task" />
                   Create task
                   <span className="ml-auto text-xs text-muted-foreground">T</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={!messageId} onSelect={() => openReferenced("issue")}>
+                <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("issue")}>
                   <EntityChipIcon entityType="issue" />
                   Create issue
                   <span className="ml-auto text-xs text-muted-foreground">I</span>

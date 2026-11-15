@@ -10,7 +10,7 @@ import {
   SearchableSelect,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import { Calendar, User, Flag } from 'lucide-react';
+import { ArrowRight, Calendar, User, Flag } from 'lucide-react';
 import { DatePickerPill } from '@/shared/components/DatePickerPill';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { Tables } from '@altitutor/shared';
@@ -100,7 +100,7 @@ export function ProjectPropertyPills({
                   getItemLabel={(o) => o.label}
                   getItemId={(o) => String(o.value)}
                   trigger={
-                    <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
+                    <Button variant="outline" data-property-empty={priority === 0 || undefined} className="h-8 rounded-full px-3 text-xs">
                       <PriorityIcon className={cn('h-3 w-3', priorityIconColor)} />
                       <span>{getProjectPriorityLabel(priority)}</span>
                     </Button>
@@ -138,7 +138,7 @@ export function ProjectPropertyPills({
                 searchPlaceholder="Search staff..."
                 emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
                 trigger={
-                  <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
+                  <Button variant="outline" data-property-empty={!field.value || undefined} className="h-8 rounded-full px-3 text-xs">
                     <User className="h-3 w-3 mr-1" />
                     <span className="max-w-[120px] truncate">
                       {selectedLead ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() : 'Lead'}
@@ -166,40 +166,52 @@ export function ProjectPropertyPills({
         variant="pills"
       />
 
-      <FormField
-        control={form.control}
-        name="startDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <DatePickerPill
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                icon={<Calendar className="h-3 w-3 flex-shrink-0 pointer-events-none text-muted-foreground" />}
-              />
-            </FormControl>
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="targetDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <DatePickerPill
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                icon={<Flag className="h-3 w-3 flex-shrink-0 pointer-events-none text-muted-foreground" />}
-              />
-            </FormControl>
-          </FormItem>
-        )}
-      />
+      <div
+        role="group"
+        aria-label="Project dates"
+        data-button-variant="outline"
+        className="inline-flex h-8 items-center rounded-full border"
+      >
+        <FormField
+          control={form.control}
+          name="startDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <DatePickerPill
+                  label="Start date"
+                  emptyLabel="Start"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className="rounded-r-none border-0 !bg-transparent hover:!bg-muted"
+                  icon={<Calendar className="size-3 shrink-0 text-muted-foreground" />}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+        <FormField
+          control={form.control}
+          name="targetDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <DatePickerPill
+                  label="Finish date"
+                  emptyLabel="Finish"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  className="rounded-l-none border-0 !bg-transparent hover:!bg-muted"
+                  icon={<Flag className="size-3 shrink-0 text-muted-foreground" />}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      </div>
     </div>
   );
 }
-
