@@ -1,5 +1,12 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Form } from "@altitutor/ui";
+import {
+  Form,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@altitutor/ui";
 import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
 import type { TaskFormData } from "@/features/tasks/types";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -272,13 +279,11 @@ it("navigates with G then T, cancels with Escape, and never navigates while typi
 });
 
 it("uses the existing status field picker in the focused editor and leaves its search text alone", () => {
-  global.ResizeObserver = jest
-    .fn()
-    .mockImplementation(() => ({
-      observe: jest.fn(),
-      unobserve: jest.fn(),
-      disconnect: jest.fn(),
-    }));
+  global.ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    unobserve: jest.fn(),
+    disconnect: jest.fn(),
+  }));
   render(
     <AdminShortcuts>
       <main data-admin-main>
@@ -299,5 +304,80 @@ function StatusEditor() {
     <Form {...form}>
       <TaskStatusField form={form} />
     </Form>
+  );
+}
+
+it("lets an open menu search with C instead of creating a task", () => {
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <DropdownMenu defaultOpen>
+          <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Copy link</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </main>
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "c" });
+  expect(createTask).not.toHaveBeenCalled();
+  expect(screen.getByPlaceholderText("Search menu…")).toBeInTheDocument();
+});
+it("leaves Enter on nested list action buttons alone", () => {
+  const open = jest.fn();
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <div data-shortcut-list-item onClick={open}>
+          <button>Mark unread</button>
+        </div>
+      </main>
+    </AdminShortcuts>,
+  );
+  const action = screen.getByRole("button", { name: "Mark unread" });
+  action.focus();
+  expect(fireEvent.keyDown(action, { key: "Enter" })).toBe(true);
+  expect(open).not.toHaveBeenCalled();
+});
+it("searches the focused primary pane while an accessory tab is open", () => {
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <input placeholder="Primary search" />
+      </main>
+      <div data-accessory-tab="active" id="accessory-content-active">
+        <input placeholder="Accessory search" />
+      </div>
+    </AdminShortcuts>,
+  );
+  const primary = screen.getByPlaceholderText("Primary search");
+  primary.focus();
+  fireEvent.keyDown(primary, { key: "f", code: "KeyF", altKey: true });
+  expect(primary).toHaveFocus();
+});
+
+it("reveals a closed conversation search in the focused pane with Alt F", () => {
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <ConversationSearch />
+      </main>
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "f", code: "KeyF", altKey: true });
+  expect(screen.getByPlaceholderText("Search this conversation")).toHaveFocus();
+});
+function ConversationSearch() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button data-shortcut-search onClick={() => setOpen(true)}>
+        Search
+      </button>
+      {open && (
+        <input autoFocus type="search" placeholder="Search this conversation" />
+      )}
+    </>
   );
 }

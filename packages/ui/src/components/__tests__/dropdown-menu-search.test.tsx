@@ -91,3 +91,28 @@ it("opens a submenu picker from search without invoking an unavailable action", 
     expect(screen.getByRole("textbox", { name: "Folder picker" })).toBeTruthy(),
   );
 });
+
+it("starts searching the whole menu when typing inside an already-open submenu", () => {
+  render(
+    <KeyboardNavigationProvider value={true}>
+      <DropdownMenu defaultOpen>
+        <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Move</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem>Archive</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </KeyboardNavigationProvider>,
+  );
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Move" }), {
+    key: "ArrowRight",
+  });
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Archive" }), {
+    key: "a",
+  });
+  expect(screen.getByPlaceholderText("Search menu…")).toBeTruthy();
+});

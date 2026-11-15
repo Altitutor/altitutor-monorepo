@@ -203,3 +203,11 @@ it("replies to the open mail thread until a message is hovered", () => {
   expect(messageReply).toHaveBeenCalledTimes(1);
   expect(latestReply).toHaveBeenCalledTimes(1);
 });
+
+it('does not handle hovered email actions while the primary pane has keyboard focus',()=>{
+ const reply=jest.fn();
+ render(<QuickActionsProvider><QueryClientProvider client={new QueryClient()}><main data-admin-main><button>Task record</button></main><div data-accessory-tab="mail" data-email-shortcut-target><EmailActions ids={['one']} threadId="thread" read assignedStaffId={null} mailbox={mailbox} hovered onReply={reply}/></div></QueryClientProvider></QuickActionsProvider>);
+ const task=screen.getByRole('button',{name:'Task record'});task.focus();
+ fireEvent.keyDown(task,{key:'r'});
+ expect(reply).not.toHaveBeenCalled();
+});

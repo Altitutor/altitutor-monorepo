@@ -8,7 +8,7 @@ import { cn } from '../lib/cn'
 import { navHoverStyles } from '../lib/styles'
 import { useRemountPersistentState } from '../hooks/use-remount-persistent-state'
 
-import { MenuSearchRoot, MenuSearchSub, MenuSearchContent, useMenuEntry, useSubLabel, useMenuSearchEnabled, useMenuSearching, useMenuSubOpen, assignMenuRef } from './dropdown-menu-search'
+import { MenuSearchRoot, MenuSearchSub, MenuSearchContent, useMenuEntry, useSubLabel, useMenuSearchEnabled, useMenuSearching, useMenuSubOpen, useMenuSurface, assignMenuRef } from './dropdown-menu-search'
 
 const DropdownMenu = MenuSearchRoot
 
@@ -102,11 +102,13 @@ const DropdownMenuSubContent = React.forwardRef<
   const searchable = useMenuSearchEnabled()
   const searching = useMenuSearching()
   const subOpen = useMenuSubOpen()
+  const registerSurface = useMenuSurface()
+  const setRef = React.useCallback((value: HTMLDivElement | null) => { registerSurface(value); assignMenuRef(ref, value) }, [registerSurface, ref])
   return (<DropdownMenuPrimitive.Portal forceMount={searchable ? true : undefined}>
     <DropdownMenuPrimitive.SubContent
       forceMount={searchable ? true : undefined}
       hidden={searchable && (searching || !subOpen)}
-      ref={ref}
+      ref={setRef}
       className={cn(
         'z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
         className

@@ -52,3 +52,13 @@ it("does not forward shortcuts typed into fields inside received HTML", () => {
   fireEvent.keyDown(frame.contentDocument!.body, { key: "r" });
   expect(forwarded).toHaveBeenCalledTimes(1);
 });
+
+it('forwards every global navigation letter and Option modifiers from the HTML reader',()=>{
+ const keys:string[]=[];
+ render(<div onKeyDown={event=>keys.push(`${event.key}:${event.altKey}`)}><EmailBody html="<p>Reader</p>" text=""/></div>);
+ const frame=screen.getByTitle('Email content') as HTMLIFrameElement;
+ fireEvent.load(frame);
+ for(const key of ['g','d','e','h','b'])fireEvent.keyDown(frame.contentDocument!.body,{key});
+ fireEvent.keyDown(frame.contentDocument!.body,{key:'ƒ',code:'KeyF',altKey:true});
+ expect(keys).toEqual(['g:false','d:false','e:false','h:false','b:false','ƒ:true']);
+});

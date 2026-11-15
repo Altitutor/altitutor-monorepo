@@ -178,6 +178,9 @@ export function KeyboardCollection<T>({
         event.preventDefault();
         toggle(current);
       } else if (!event.shiftKey && key === "enter" && current) {
+        // Nested controls retain native Enter activation (selection, menus, links).
+        if (event.target !== records.find((row) => recordId(row) === current))
+          return;
         const item = items.find((item) => getItemId(item) === current);
         if (item && onOpen) {
           event.preventDefault();

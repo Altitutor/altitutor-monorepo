@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect } from "@altitutor/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, KeyboardShortcut } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -120,6 +120,7 @@ export function EmailActions({
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const state = current.current;
+      if (!root.current || !keyboardPane().contains(root.current)) return;
       const owner = root.current?.closest("[data-email-shortcut-target]");
       const hoveredOwner = document.querySelector(
         "[data-email-shortcut-target]:hover",
@@ -255,7 +256,7 @@ export function EmailActions({
         {enquiryEligible && messageId && (
           <EnquiryAction source={{ kind: "email", id: messageId }} active={hovered || actionsFocused} />
         )}
-        {level === "thread" && onSearchToggle && <EmailIconButton label="Search" onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
+        {level === "thread" && onSearchToggle && <EmailIconButton data-shortcut-search label="Search" shortcut={["Alt", "F"]} onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
         {level === "message" && taskMessageId && (
           <EmailIconButton
             label="Create task"
@@ -318,8 +319,8 @@ export function EmailActions({
         {level === "thread" && <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
           <DropdownMenuTrigger asChild><EmailIconButton label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="task" />Create task<span className="ml-auto text-xs text-muted-foreground">T</span></DropdownMenuItem>
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="issue" />Create issue<span className="ml-auto text-xs text-muted-foreground">I</span></DropdownMenuItem>
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="task" />Create task<KeyboardShortcut keys={["T"]} className="ml-auto" /></DropdownMenuItem>
+            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="issue" />Create issue<KeyboardShortcut keys={["I"]} className="ml-auto" /></DropdownMenuItem>
             {moreMenuItems}
             <DropdownMenuSeparator />
             <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder</DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>

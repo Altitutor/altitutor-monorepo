@@ -69,13 +69,9 @@ function IsolatedBody({ html, title }: { html: string; title: string }) {
               ))
           )
             return;
-          if (
-            key.isComposing ||
-            !["r", "f", "m", "backspace", "u", "a", "t", "i", "g", "c", "j", "k", "s", "p", "[", "]", "?", "w", "n", "enter", "escape", "alt", "shift", "control", "meta"].includes(
-              key.key.toLowerCase(),
-            )
-          )
-            return;
+          // Forward all non-editing keys so every global sequence and Option
+          // character reaches the parent. Only handled events cancel the original.
+          if (key.isComposing) return;
           const forwarded = new KeyboardEvent(key.type, {
             key: key.key,
             code: key.code,

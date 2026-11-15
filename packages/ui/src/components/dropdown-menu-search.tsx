@@ -11,6 +11,7 @@ type Entry = {
 };
 function createMenuStore() {
   const entries = new Map<HTMLElement, Entry>();
+  const menus = new Set<HTMLElement>();
   const listeners = new Set<() => void>();
   let version = 0;
   const emit = () => {
@@ -19,6 +20,15 @@ function createMenuStore() {
   };
   return {
     entries,
+    menus,
+    registerMenu(node: HTMLElement) {
+      menus.add(node);
+      emit();
+      return () => {
+        menus.delete(node);
+        emit();
+      };
+    },
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => {
@@ -131,6 +141,23 @@ export function useMenuEntry(
     };
   }, [store, node]);
 }
+/** Submenu portals are separate DOM trees but belong to the same search scope. */
+export function useMenuSurface() {
+  const store = React.useContext(MenuContext);
+  const registered = React.useRef<{
+    node: HTMLElement;
+    cleanup: () => void;
+  } | null>(null);
+  return React.useCallback(
+    (node: HTMLElement | null) => {
+      if (registered.current?.node === node) return;
+      registered.current?.cleanup();
+      registered.current =
+        node && store ? { node, cleanup: store.registerMenu(node) } : null;
+    },
+    [store],
+  );
+}
 export function useMenuSearchEnabled() {
   return React.useContext(MenuContext) !== null;
 }
@@ -229,9 +256,14 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
         setQuery((value) => value + event.key);
       }
     };
-    menu?.addEventListener("keydown", keydown as EventListener, true);
+    const menus = new Set([...store.menus, ...(menu ? [menu] : [])]);
+    menus.forEach((menu) =>
+      menu.addEventListener("keydown", keydown as EventListener, true),
+    );
     return () =>
-      menu?.removeEventListener("keydown", keydown as EventListener, true);
+      menus.forEach((menu) =>
+        menu.removeEventListener("keydown", keydown as EventListener, true),
+      );
   });
   if (!store) return <>{children}</>;
   return (

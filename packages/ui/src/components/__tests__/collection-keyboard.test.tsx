@@ -1,5 +1,11 @@
 /** @jest-environment jsdom */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { KeyboardCollection, CollectionRecord } from "../collection-keyboard";
 import { KeyboardNavigationProvider } from "../keyboard-navigation";
 it("selects two records with the keyboard and applies a chosen status only to those records", async () => {
@@ -95,4 +101,31 @@ it("reports partial failure and retries only failed records through the keyboard
     "two",
     "one",
   ]);
+});
+
+it("leaves Enter on the selection button to its native action instead of opening the record", () => {
+  const open = jest.fn();
+  jest
+    .spyOn(HTMLElement.prototype, "getClientRects")
+    .mockReturnValue([{}] as unknown as DOMRectList);
+  render(
+    <KeyboardNavigationProvider value={true}>
+      <main data-admin-main>
+        <KeyboardCollection
+          items={[{ id: "one" }]}
+          getItemId={(item) => item.id}
+          onOpen={open}
+          actions={[
+            { key: "s", label: "Status", options: [], apply: jest.fn() },
+          ]}
+        >
+          <CollectionRecord id="one">One</CollectionRecord>
+        </KeyboardCollection>
+      </main>
+    </KeyboardNavigationProvider>,
+  );
+  const select = screen.getByRole("button", { name: "Select record" });
+  act(() => select.focus());
+  expect(fireEvent.keyDown(select, { key: "Enter" })).toBe(true);
+  expect(open).not.toHaveBeenCalled();
 });

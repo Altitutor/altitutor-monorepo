@@ -428,7 +428,7 @@ export function ConversationHeader({
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <EmailActionGroup label="Conversation actions">
-                {onSearchToggle && <EmailIconButton label="Search" onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
+                {onSearchToggle && <EmailIconButton data-shortcut-search label="Search" shortcut={["Alt", "F"]} onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
                 {onToggleRead && <EmailIconButton label={readLabel} data-unread={isUnread ? "true" : undefined} onClick={onToggleRead}><Mail className="h-4 w-4" /></EmailIconButton>}
           <DropdownMenu
               modal={false}

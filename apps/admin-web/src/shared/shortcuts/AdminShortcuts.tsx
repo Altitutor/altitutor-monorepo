@@ -24,7 +24,7 @@ import { ShortcutHelp } from "./ShortcutHelp";
 import { keyboardPane, isVisibleShortcutTarget } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import { AltHintsContext, GoHintsContext } from "./context";
-import { activeDialog, searchControl } from "./search";
+import { activeDialog, searchControl, searchTrigger } from "./search";
 import { SearchHint } from "./SearchHint";
 import { NewDocumentDialog } from "./NewDocumentDialog";
 
@@ -138,7 +138,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
               "[data-shortcut-list-item]",
             );
             const index = current ? rows.indexOf(current) : -1;
-            if (key === "enter" && current) {
+            if (key === "enter" && current && event.target === current) {
               event.preventDefault();
               event.stopPropagation();
               current.click();
@@ -213,6 +213,14 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           event.preventDefault();
           input.focus();
           input.select();
+        } else {
+          const trigger = searchTrigger(
+            panel?.expanded ? panel.activeKey : null,
+          );
+          if (trigger) {
+            event.preventDefault();
+            trigger.click();
+          }
         }
         return;
       }
