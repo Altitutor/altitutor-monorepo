@@ -19,7 +19,7 @@ const recording: InterviewRecording = {
   expiresAt: "2099-01-01T00:00:00Z",
 };
 
-it("loads inline audio on demand and seeks repeated question segments against the recording clock", async () => {
+it("loads inline audio automatically and seeks repeated question segments against the recording clock", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -52,8 +52,7 @@ it("loads inline audio on demand and seeks repeated question segments against th
       />,
     ),
   );
-  expect(loadUrl).not.toHaveBeenCalled();
-  await act(async () => host.querySelector("button")?.click());
+  expect(loadUrl).toHaveBeenCalledTimes(1);
   const audio = host.querySelector("audio")!;
   expect(audio.getAttribute("src")).toBe("https://example.com/recording.webm");
   Object.defineProperty(audio, "duration", { configurable: true, value: 55 });
@@ -223,5 +222,31 @@ it("allows linear playback when the browser cannot discover a WebM duration", as
     await act(async () => root.unmount());
     host.remove();
     jest.useRealTimers();
+  }
+});
+
+
+it("moves the playback cursor between timeupdate events without rerendering the player", async () => {
+  let tick: FrameRequestCallback | undefined;
+  const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { tick = callback; return 1; });
+  const cancel = jest.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<InterviewRecordingPlayer recording={recording} src="blob:recording" variant="student" />));
+    const audio = host.querySelector("audio")!;
+    Object.defineProperty(audio, "duration", { value: 80 });
+    await act(async () => audio.dispatchEvent(new Event("loadedmetadata")));
+    await act(async () => audio.dispatchEvent(new Event("play")));
+    audio.currentTime = 10;
+    await act(async () => tick?.(16));
+    expect(host.querySelector<HTMLElement>("[data-recording-cursor]")?.style.transform).toBe("translateX(12.5%)");
+    await act(async () => audio.dispatchEvent(new Event("pause")));
+    expect(cancel).toHaveBeenCalled();
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    raf.mockRestore(); cancel.mockRestore();
   }
 });

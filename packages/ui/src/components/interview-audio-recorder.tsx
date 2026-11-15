@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import type { InterviewPhase } from "@altitutor/shared";
 import { Mic, MicOff } from "lucide-react";
 import { Button } from "./button";
+import { MicrophoneLevel } from "./microphone-level";
 import { useInterviewCapture } from "../hooks/use-interview-capture";
 
 export function InterviewAudioRecorder(props: {
@@ -26,51 +27,6 @@ export function InterviewAudioRecorder(props: {
     toggle,
     retryCapture,
   } = useInterviewCapture(props);
-  const [level, setLevel] = useState(0);
-  useEffect(() => {
-    if (!micStream || !microphoneEnabled || !enabled) {
-      setLevel(0);
-      return;
-    }
-    const AudioCtor =
-      globalThis.AudioContext ??
-      (globalThis as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioCtor || typeof requestAnimationFrame !== "function") return;
-    let context: AudioContext | undefined;
-    let frame = 0;
-    let disposed = false;
-    try {
-      context = new AudioCtor();
-      const source = context.createMediaStreamSource(micStream);
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      const data = new Uint8Array(analyser.fftSize);
-      let last = 0;
-      const tick = (time: number) => {
-        if (disposed) return;
-        analyser.getByteTimeDomainData(data);
-        if (time - last > 80) {
-          last = time;
-          let sum = 0;
-          for (const value of data) sum += ((value - 128) / 128) ** 2;
-          setLevel(
-            Math.min(100, Math.round(Math.sqrt(sum / data.length) * 280)),
-          );
-        }
-        frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
-    } catch {
-      /* A decorative meter must never prevent recording. */
-    }
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      void context?.close().catch(() => undefined);
-    };
-  }, [micStream, microphoneEnabled, enabled]);
   const caption =
     !enabled && recording
       ? "Interview paused — the recording continues with silence"
@@ -87,20 +43,7 @@ export function InterviewAudioRecorder(props: {
       <p role="status" className="text-sm text-muted-foreground">
         {caption}
       </p>
-      <div
-        aria-label={recording ? "Recording waveform" : "Microphone preview"}
-        className="flex h-10 items-center gap-1"
-      >
-        {Array.from({ length: 24 }, (_, index) => (
-          <span
-            key={index}
-            className="w-1 rounded-full bg-neutral-900 dark:bg-neutral-100"
-            style={{
-              height: `${Math.max(8, level * (1 - Math.abs(index - 11.5) / 16))}%`,
-            }}
-          />
-        ))}
-      </div>
+      <MicrophoneLevel stream={micStream} paused={!microphoneEnabled || !enabled} />
       {pendingCount > 0 && (
         <p className="text-xs text-muted-foreground">
           {pendingCount} recording{pendingCount === 1 ? "" : "s"} waiting to

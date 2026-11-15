@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { StudentInterviewRound } from "@altitutor/shared";
 import { StudentInterviewResults } from "../student-interview-results";
 import { useInterviewRound } from "../../hooks/use-interviews";
@@ -254,4 +254,39 @@ describe("student released result boundary", () => {
     );
     expect(screen.queryByText("Medicine practice")).not.toBeInTheDocument();
   });
+});
+
+
+it("expands and transiently highlights matching feedback when a playback question is selected", () => {
+  jest.useFakeTimers();
+  setQuery({ ...round, recordingEnabled: true, result: {
+    studentId: "student-1", releasedAt: "2026-10-23T10:30:00Z", revision: 1,
+    score: 4, possiblePoints: 6, partial: false,
+    attempts: [{ id: "attempt-1", studentId: "student-1", stationId: "station-1", version: 1,
+      score: 4, notAssessedReason: null, generalFeedback: "General feedback text",
+      feedback: [{ placementId: "placement-1", value: "Specific feedback" }], completed: true,
+      updatedAt: "2026-10-23T10:20:00Z", updatedBy: "tutor-1",
+      questionIntervals: [{ questionId: "placement-1", startedAt: "2026-10-23T10:00:00Z", endedAt: "2026-10-23T10:00:20Z" }],
+    }],
+    recordings: [{ id: "recording-1", attemptId: "attempt-1", state: "ready", kind: "audio",
+      createdAt: "2026-10-23T10:00:00Z", expiresAt: "2099-01-01T00:00:00Z" }],
+  } });
+  const view = render(<StudentInterviewResults roundId="round-1" />);
+  try {
+    const audio = screen.getByLabelText("Interview recording") as HTMLMediaElement;
+    Object.defineProperty(audio, "duration", { value: 20 });
+    fireEvent.loadedMetadata(audio);
+    const question = screen.getByRole("button", { name: /^Question 1(?: |$)/ });
+    fireEvent.click(question);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    const general = screen.getByRole("button", { name: "General feedback" });
+    fireEvent.click(general);
+    expect(general).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Jump to question 1, segment 1" }));
+    expect(question).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Specific feedback").closest("[data-highlighted]")).not.toBeNull();
+    act(() => jest.advanceTimersByTime(1801));
+    expect(screen.getByText("Specific feedback").closest("[data-highlighted]")).toBeNull();
+    expect(question).toHaveAttribute("aria-expanded", "true");
+  } finally { view.unmount(); jest.useRealTimers(); }
 });

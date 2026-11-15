@@ -4,54 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { Camera, Circle, Loader2, Mic, Pause, Play, Square, Trash2 } from "lucide-react";
 import { useMediaDeviceTest } from "../hooks/use-media-device-test";
 import { Button } from "./button";
+import { MicrophoneLevel } from "./microphone-level";
 
 function clipTime(seconds: number) {
   return `0:${String(Math.floor(seconds)).padStart(2, "0")}`;
-}
-
-function MicrophoneLevel({ stream, paused }: { stream: MediaStream | null; paused: boolean }) {
-  const [level, setLevel] = useState(0);
-  useEffect(() => {
-    if (!stream || paused) { setLevel(0); return; }
-    const AudioCtor = globalThis.AudioContext ??
-      (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtor) return;
-    let context: AudioContext | undefined;
-    let frame = 0;
-    try {
-      context = new AudioCtor();
-      void context.resume().catch(() => undefined);
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      context.createMediaStreamSource(stream).connect(analyser);
-      const data = new Uint8Array(analyser.fftSize);
-      let lastUpdate = 0;
-      const tick = (time: number) => {
-        if (time - lastUpdate >= 80) {
-          lastUpdate = time;
-          analyser.getByteTimeDomainData(data);
-          let energy = 0;
-          for (const value of data) energy += ((value - 128) / 128) ** 2;
-          setLevel(Math.min(100, Math.sqrt(energy / data.length) * 300));
-        }
-        frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
-    } catch {
-      // Recording remains available when the browser cannot draw a level meter.
-    }
-    return () => {
-      cancelAnimationFrame(frame);
-      void context?.close().catch(() => undefined);
-    };
-  }, [stream, paused]);
-  return (
-    <div className="flex h-8 items-center gap-1" aria-label="Microphone input level">
-      {Array.from({ length: 24 }, (_, index) => (
-        <span key={index} aria-hidden className={`h-5 flex-1 rounded-sm ${stream && !paused && index < level * 0.24 ? "bg-emerald-500" : "bg-muted"}`} />
-      ))}
-    </div>
-  );
 }
 
 /** Local-only device check shared by portal settings and interview waiting rooms. */

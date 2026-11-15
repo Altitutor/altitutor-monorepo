@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { DailyCall, DailyParticipant } from "@daily-co/daily-js";
 import type {
   InterviewCallFailure,
@@ -12,12 +12,14 @@ import {
   Camera,
   CameraOff,
   Columns,
+  Mic,
   MicOff,
   PictureInPicture,
   Volume2,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
+import { MicrophoneLevel } from "./microphone-level";
 import { InterviewAudioRecorder } from "./interview-audio-recorder";
 import { InterviewWaitingMedia } from "./interview-waiting-media";
 import {
@@ -103,117 +105,6 @@ function captureDevices() {
     });
   }
   return deviceCapture;
-}
-
-function MicLevelIcon({
-  track,
-  muted,
-}: {
-  track: MediaStreamTrack | null;
-  muted: boolean;
-}) {
-  const clipId = React.useId().replace(/:/g, "");
-  const [level, setLevel] = useState(0);
-  useEffect(() => {
-    if (!track || muted || track.readyState !== "live") {
-      setLevel(0);
-      return;
-    }
-    const AudioContextCtor =
-      window.AudioContext ||
-      (window as Window & { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioContextCtor) return;
-    let context: AudioContext | undefined;
-    let source: MediaStreamAudioSourceNode | undefined;
-    let disposed = false;
-    let frame = 0;
-    const cleanup = () => {
-      disposed = true;
-      if (frame) cancelAnimationFrame(frame);
-      try {
-        source?.disconnect();
-      } catch {
-        /* Already disconnected. */
-      }
-      try {
-        void context?.close().catch(() => undefined);
-      } catch {
-        /* Already closed. */
-      }
-    };
-    try {
-      context = new AudioContextCtor();
-      source = context.createMediaStreamSource(new MediaStream([track]));
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const samples = new Uint8Array(analyser.fftSize);
-      let shown = 0;
-      const tick = () => {
-        if (disposed) return;
-        try {
-          analyser.getByteTimeDomainData(samples);
-          let sum = 0;
-          for (const value of samples) {
-            const sample = (value - 128) / 128;
-            sum += sample * sample;
-          }
-          const next = Math.min(1, Math.sqrt(sum / samples.length) * 4);
-          shown = next > shown ? next : shown * 0.8;
-          const bucket = Math.round(shown * 16) / 16;
-          setLevel((current) => (current === bucket ? current : bucket));
-          frame = requestAnimationFrame(tick);
-        } catch {
-          cleanup();
-        }
-      };
-      void context
-        .resume()
-        .then(() => {
-          if (!disposed) frame = requestAnimationFrame(tick);
-        })
-        .catch(cleanup);
-    } catch {
-      // The level meter is decorative; Web Audio failures must not stop calls.
-      cleanup();
-    }
-    return cleanup;
-  }, [muted, track]);
-  const filled = 10 * (muted ? 0 : level);
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-      <path
-        d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19 10v2a7 7 0 0 1-14 0v-2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12 19v3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <clipPath id={clipId}>
-        <rect x="8" y={12 - filled} width="8" height={filled} />
-      </clipPath>
-      <path
-        d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
-        clipPath={`url(#${clipId})`}
-        fill="currentColor"
-      />
-    </svg>
-  );
 }
 
 function prepareMediaDevices() {
@@ -926,6 +817,13 @@ function InterviewMediaSession({
       next && enabled && (!ticket?.sessionId || ticket.canSend),
     );
   };
+  const localAudio =
+    participants.find((participant) => participant.local)?.tracks.audio
+      .persistentTrack ?? null;
+  const microphoneStream = useMemo(
+    () => localAudio ? new MediaStream([localAudio]) : null,
+    [localAudio],
+  );
   if (delivery === "in_person" && role === "tutor")
     return (
       <InterviewAudioRecorder
@@ -949,9 +847,6 @@ function InterviewMediaSession({
         (participant) => participant.local || (enabled && ticket?.canReceive),
       )
     : [];
-  const localAudio =
-    participants.find((participant) => participant.local)?.tracks.audio
-      .persistentTrack ?? null;
   const localParticipant = visible.find((participant) => participant.local);
   const remoteParticipants = visible.filter(
     (participant) => !participant.local,
@@ -1076,7 +971,10 @@ function InterviewMediaSession({
         </div>
       </InterviewVideoStage>
       {role !== "admin" && (enabled || devicesRequested) && (
-        <div className="flex justify-center p-3">
+        <div className="flex flex-col items-center gap-2 p-3">
+          <div className="w-48">
+            <MicrophoneLevel stream={microphoneStream} paused={!micOn || !enabled} />
+          </div>
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-2">
               {enabled && !devicesRequested ? (
@@ -1095,7 +993,7 @@ function InterviewMediaSession({
                     onClick={toggleMic}
                   >
                     {micOn ? (
-                      <MicLevelIcon track={localAudio} muted={!micOn} />
+                      <Mic />
                     ) : (
                       <MicOff />
                     )}

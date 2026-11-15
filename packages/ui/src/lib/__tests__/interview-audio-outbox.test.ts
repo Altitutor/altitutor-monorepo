@@ -249,3 +249,15 @@ it("keeps an unsaved video while acknowledging later station takes", async () =>
     error: null,
   });
 });
+
+it("uploads the memory backup when IndexedDB is unavailable and trusts server acknowledgment", async () => {
+  const audio = { ...segment("storage-unavailable"), id: "memory-capture", captureId: "memory-capture", complete: true };
+  Object.defineProperty(globalThis, "indexedDB", {
+    configurable: true,
+    value: { open() { throw new Error("IndexedDB unavailable"); } },
+  });
+  await expect(saveInterviewAudio(audio)).rejects.toThrow("IndexedDB unavailable");
+  jest.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ complete: true }) } as Response);
+  expect(await flushInterviewAudio(audio.roundId, audio.actorId)).toEqual({ pending: 0, error: null });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

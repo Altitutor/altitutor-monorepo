@@ -208,7 +208,9 @@ export function flushInterviewAudio(
           let last = store.delete(acknowledged[0]!);
           for (const id of acknowledged.slice(1)) last = store.delete(id);
           return last;
-        });
+        }).catch(() => undefined);
+        // Server acknowledgment is authoritative. Failed local cleanup may
+        // leave an idempotent retry on disk, but is not an upload failure.
       } catch {
         failed++;
       }

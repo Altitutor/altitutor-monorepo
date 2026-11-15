@@ -29,7 +29,7 @@ export function formatInterviewRecordingAvailability(recording: InterviewRecordi
     : `Available until ${new Date(recording.expiresAt).toLocaleDateString()}`;
 }
 
-/** Lazy, role-authorized playback for the recording mounted by the caller. */
+/** Inline, role-authorized playback for the recording mounted by the caller. */
 export function InterviewRecordingPlayer({
   recording,
   loadUrl,
@@ -37,10 +37,12 @@ export function InterviewRecordingPlayer({
   intervals = [],
   questions = [],
   variant = "default",
+  onQuestionSelect,
 }: {
   recording: InterviewRecording;
   intervals?: NonNullable<InterviewStationAttempt["questionIntervals"]>;
   questions?: { id: string }[];
+  onQuestionSelect?: (questionId: string) => void;
 } & (
   | { variant?: "default"; loadUrl: () => Promise<{ url: string }>; src?: never }
   | { variant: "student"; src: string; loadUrl?: never }
@@ -58,6 +60,22 @@ export function InterviewRecordingPlayer({
   const [playbackReady, setPlaybackReady] = useState(false);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const player = useRef<HTMLMediaElement | null>(null);
+  const cursor = useRef<HTMLSpanElement | null>(null);
+  const urlLoader = useRef(loadUrl);
+  urlLoader.current = loadUrl;
+  useEffect(() => {
+    if (src || recording.state !== "ready" || Date.parse(recording.expiresAt) <= Date.now()) return;
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    setUrl(null);
+    void urlLoader.current?.().then(({ url: next }) => {
+      if (!cancelled) setUrl(next);
+    }).catch((reason: unknown) => {
+      if (!cancelled) setError(reason instanceof Error ? reason.message : "Unable to load recording.");
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [recording.id, recording.state, recording.expiresAt, src]);
   const durationProbe = useRef<{
     restorePosition: number;
     timer?: ReturnType<typeof setTimeout>;
@@ -69,6 +87,18 @@ export function InterviewRecordingPlayer({
     return probe;
   }, []);
   useEffect(() => () => { clearDurationProbe(); }, [clearDurationProbe]);
+  useEffect(() => {
+    if (!playing || !duration) return;
+    let animation = 0;
+    const tick = () => {
+      const time = player.current?.currentTime;
+      if (!durationProbe.current && time !== undefined && Number.isFinite(time) && cursor.current)
+        cursor.current.style.transform = `translateX(${Math.min(100, Math.max(0, time / duration * 100))}%)`;
+      animation = requestAnimationFrame(tick);
+    };
+    animation = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animation);
+  }, [playing, duration]);
   const expired =
     recording.state === "expired" ||
     Date.parse(recording.expiresAt) <= Date.now();
@@ -169,10 +199,10 @@ export function InterviewRecordingPlayer({
     onKeyDown: customControls ? undefined : preserveUserPosition,
     onPlay: () => {
       preserveUserPosition();
-      if (customControls) setPlaying(true);
+      setPlaying(true);
     },
-    onPause: () => { if (customControls) setPlaying(false); },
-    onEnded: () => { if (customControls) setPlaying(false); },
+    onPause: () => setPlaying(false),
+    onEnded: () => setPlaying(false),
     onVolumeChange: (event: React.SyntheticEvent<HTMLMediaElement>) => {
       if (customControls) setVolume(event.currentTarget.volume);
     },
@@ -310,10 +340,12 @@ export function InterviewRecordingPlayer({
                     onChange={(event) => seek(Number(event.target.value))}
                   />
                   <span
+                    ref={cursor}
+                    data-recording-cursor
                     aria-hidden
-                    className="absolute inset-y-0 w-0.5 bg-foreground"
-                    style={{ left: `${duration ? (position / duration) * 100 : 0}%` }}
-                  />
+                    className="pointer-events-none absolute inset-0"
+                    style={{ transform: `translateX(${duration ? (position / duration) * 100 : 0}%)` }}
+                  ><span className="absolute inset-y-0 left-0 w-0.5 bg-foreground" /></span>
                 </div>
                 <p className="flex justify-between gap-2 text-xs tabular-nums text-muted-foreground">
                   <span>{recordingTime(position)}{segments.length ? ` · ${progressLabel}` : ""}</span>
@@ -326,7 +358,7 @@ export function InterviewRecordingPlayer({
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => seek(segment.start)}
+                      onClick={() => { seek(segment.start); onQuestionSelect?.(segment.questionId); }}
                       aria-label={`Jump to question ${segment.questionNumber || "unknown"}, segment ${segment.index + 1}`}
                     >
                       <span aria-hidden className={cn("size-2 rounded-full", segment.color)} />
@@ -344,19 +376,15 @@ export function InterviewRecordingPlayer({
                 {error}
               </p>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loading}
-              onClick={() => void load()}
-            >
-              {loading
-                ? "Loading recording…"
-                : error
-                  ? "Retry recording"
-                  : `Load ${label.toLowerCase()}`}
-            </Button>
+            {error ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+                Retry recording
+              </Button>
+            ) : (
+              <p role="status" className="text-sm text-muted-foreground">
+                {loading ? "Loading recording…" : "Preparing playback…"}
+              </p>
+            )}
           </>
         )
       ) : !expired ? (

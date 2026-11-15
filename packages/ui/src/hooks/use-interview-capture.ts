@@ -17,6 +17,8 @@ import {
 
 const maximumBytes = 50 * 1024 * 1024;
 const stopBytes = 48 * 1024 * 1024;
+const localRecoveryMessage =
+  "Local recovery is unavailable. Keep this page open until the recording uploads.";
 const duplicateTabMessage =
   "Another tab on this device is handling this recording.";
 let waitingMicrophone: {
@@ -262,10 +264,19 @@ export function useInterviewCapture({
     };
     const flush = async () => {
       if (!actorId) return;
+      // Explicit stop clears recorder before MediaRecorder delivers its final
+      // data event. Wait for that full take before trusting an empty outbox.
+      const stopped = !recorder;
+      if (stopped) {
+        await finished;
+        await saved.catch(() => undefined);
+      }
       const result = await flushInterviewAudio(roundId, actorId);
       if (!disposed) {
         setPendingCount(result.pending);
         if (result.error) setError(result.error);
+        else if (stopped && !recorder && !result.pending)
+          setError((current) => current === localRecoveryMessage ? "" : current);
       }
       if (result.pending || result.error)
         throw new Error(
@@ -351,11 +362,13 @@ export function useInterviewCapture({
               ? saveInterviewAudio(value)
               : appendInterviewAudio(value, chunkSequence),
           );
-        void saved.catch(() => {
-          if (!disposed)
-            setError(
-              "Local recovery is unavailable. Keep this page open until the recording uploads.",
-            );
+        void saved.then(() => {
+          // Only the complete blob covers every earlier checkpoint, including
+          // chunks whose local write failed. A later chunk alone is insufficient.
+          if (complete && !disposed)
+            setError((current) => current === localRecoveryMessage ? "" : current);
+        }).catch(() => {
+          if (!disposed) setError(localRecoveryMessage);
         });
       };
       instance.ondataavailable = (event) => {
@@ -399,7 +412,9 @@ export function useInterviewCapture({
             track.enabled = false;
           });
           if (!disposed) setRecording(false);
-          void saved.then(flush).catch(() => undefined);
+          // The outbox retains an in-memory copy before attempting IndexedDB.
+          // Local recovery must not prevent uploading that complete take.
+          void saved.catch(() => undefined).then(flush).catch(() => undefined);
         }
       };
       instance.onerror = () => {
