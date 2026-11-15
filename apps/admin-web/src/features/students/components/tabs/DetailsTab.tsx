@@ -1,5 +1,6 @@
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
 import { EmailInput } from '@/shared/components/EmailInput';
-import { EntityChip } from "@altitutor/ui";
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -344,8 +345,9 @@ export function DetailsTab({
 
   return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
+      <EntitySidebarSection title="Student Information">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Student Information</h3>
+
         <Button variant="outline" size="sm" onClick={onEdit} disabled={!!student.deleted_at}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
@@ -400,12 +402,13 @@ export function DetailsTab({
           </div>
         </PropertyFormRow>
       </PropertyForm>
+      </EntitySidebarSection>
 
       <Separator className="my-6" />
 
       {/* Parents Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Parents</h3>
+      <EntitySidebarSection title="Parents">
+
         {parents.length > 0 ? (
           <div className="space-y-2">
             {parents.map((parent) => (
@@ -420,7 +423,7 @@ export function DetailsTab({
         ) : (
           <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
         )}
-      </div>
+      </EntitySidebarSection>
 
       {!hideAccount && (
         <>

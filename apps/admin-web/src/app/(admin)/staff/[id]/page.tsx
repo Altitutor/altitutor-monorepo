@@ -1,4 +1,6 @@
 'use client';
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+
 
 import type { TablesUpdate } from "@altitutor/shared";
 import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
@@ -117,7 +119,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   });
 
   // UI state
-  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'activity', 'tab');
+  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'pay-tier', 'website', 'classes', 'sessions', 'files'] as const, 'sessions', 'tab');
   const activeTab = requestedTab === 'classes' ? 'sessions' : requestedTab;
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
@@ -201,16 +203,16 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
           onViewSubject={entityModals.openSubject}
           addSubjectButton={<SubjectSearchPopover selectedSubjects={editFlow.isEditing ? editFlow.tempStaffSubjects : staffSubjects} onSelectSubject={(subject) => handleAssignSubject(subject.id)} />}
         />
-        <StaffAvailabilityDetails
+        <EntitySidebarSection title="Availability"><StaffAvailabilityDetails
           staff={staffMember}
           draft={editFlow.isEditing ? sectionDraft : null}
           onChange={(patch) => setSectionDraft((current) => ({ ...current, ...patch }))}
-        />
+        /></EntitySidebarSection>
         {!editFlow.isEditing && (
-          <section className="space-y-2 border-t pt-4" aria-label="Account">
-            <h3 className="text-base font-medium">Account</h3>
+          <EntitySidebarSection title="Account">
             <p className="text-sm text-muted-foreground">{staffMember.user_id ? 'Has account' : 'No account'}</p>
-          </section>
+          </EntitySidebarSection>
+
         )}
         </div>
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}

@@ -73,7 +73,7 @@ it("keeps the same toolbar and search input when switching collection layouts", 
   await userEvent.click(
     screen.getByRole("button", { name: "Board", pressed: false }),
   );
-  expect(screen.getByRole("button", { name: "Search" })).toBe(searchButton);
+  expect(screen.getByPlaceholderText("Search collection")).toHaveValue("Al");
   expect(screen.getByRole("button", { name: "Display options" })).toBe(display);
   expect(screen.getByText("Alpha")).toBeVisible();
   await userEvent.click(
@@ -81,7 +81,6 @@ it("keeps the same toolbar and search input when switching collection layouts", 
   );
   expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
-  await userEvent.click(searchButton);
   expect(screen.getByPlaceholderText("Search collection")).toHaveValue("Al");
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: "Expand Todo" }));

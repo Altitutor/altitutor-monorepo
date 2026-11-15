@@ -1,8 +1,10 @@
 'use client';
 
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Badge, Button } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
 import { cn, formatSessionType, getSessionTypeBadgeColor, getSubjectColorStyle } from '@/shared/utils/index';
 
 export type SessionWithOptionalSubject = Tables<'sessions'> & {
@@ -30,42 +32,6 @@ type SessionTableClassColumnProps = {
   subjectsById: Record<string, Tables<'subjects'>>;
   onClassClick: (classId: string, e: MouseEvent) => void;
 };
-
-function SubjectPill({
-  subject,
-  title,
-  interactive,
-  onClick,
-  children,
-}: {
-  subject: Tables<'subjects'>;
-  title?: string;
-  interactive: boolean;
-  onClick?: (e: MouseEvent) => void;
-  children: ReactNode;
-}) {
-  const { style, textColorClass } = getSubjectColorStyle(subject);
-  const defaultClass = !subject.color ? 'bg-muted text-foreground' : '';
-  const pillClass = cn(
-    'inline-flex max-w-[7rem] shrink-0 items-center truncate rounded-md px-2 py-0.5 text-left text-xs font-medium sm:max-w-[10rem]',
-    defaultClass || textColorClass,
-    interactive ? 'cursor-pointer hover:underline' : 'cursor-default'
-  );
-  const inlineStyle = style.backgroundColor ? style : undefined;
-
-  if (interactive && onClick) {
-    return (
-      <button type="button" title={title} className={pillClass} style={inlineStyle} onClick={onClick}>
-        {children}
-      </button>
-    );
-  }
-  return (
-    <span title={title} className={pillClass} style={inlineStyle}>
-      {children}
-    </span>
-  );
-}
 
 /**
  * Session table "class" column: session type badge + subject short name as colored pill.
@@ -99,34 +65,12 @@ export function SessionTableClassColumn({
           Homework help
         </span>
       ) : subject && label ? (
-        <SubjectPill
-          subject={subject}
-          title={title}
-          interactive={canOpenClass}
-          onClick={
-            canOpenClass
-              ? (e) => {
-                  e.stopPropagation();
-                  onClassClick(session.class_id!, e);
-                }
-              : undefined
-          }
-        >
-          <span className="truncate">{label}</span>
-        </SubjectPill>
+        <EntityActionChip entityType={canOpenClass ? 'class' : 'subject'} entityId={session.class_id || subject.id} label={label} title={title}
+          style={getSubjectColorStyle(subject).style} className={subject.color ? getSubjectColorStyle(subject).textColorClass : undefined}
+          onClick={event => { event.stopPropagation(); if (session.class_id) onClassClick(session.class_id, event); else openEntityReference('subject', subject.id); }} />
       ) : cls && session.class_id ? (
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto min-w-0 max-w-[10rem] shrink truncate p-0 text-xs font-medium"
-          title={cls.long_name?.trim() || undefined}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClassClick(session.class_id!, e);
-          }}
-        >
-          {cls.short_name?.trim() || cls.long_name || 'Class'}
-        </Button>
+        <EntityActionChip entityType="class" entityId={cls.id} label={cls.short_name?.trim() || cls.long_name || 'Class'}
+          onClick={event => { event.stopPropagation(); onClassClick(cls.id, event); }} />
       ) : null}
     </div>
   );

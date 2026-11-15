@@ -69,6 +69,7 @@ export type StudentMinimalListRow = Tables<'students'> & {
   classes?: Array<{
     id: string;
     subject_id?: string | null;
+    enrolled_at?: string | null;
     short_name: string | null;
     long_name: string | null;
     day_of_week: number | null;
@@ -1221,6 +1222,7 @@ export const studentsApi = {
         const { subject_details, ...classBase } = classWithSubject;
         const cls: ClassWithExpandedSubject = {
           ...classBase,
+          enrolled_at: row.enrolled_at,
           subject: subject_details ?? undefined,
         };
         studentClasses[sid].push(cls);

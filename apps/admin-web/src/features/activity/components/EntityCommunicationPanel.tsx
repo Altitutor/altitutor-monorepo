@@ -63,6 +63,7 @@ interface EntityCommunicationPanelProps {
   enabled?: boolean;
   allowForm?: boolean;
   recordActivity?: boolean;
+  hideHistoryToolbar?: boolean;
   className?: string;
   initialContactId?: string;
   initialDestinationAddress?: string;
@@ -102,6 +103,7 @@ function EntityCommunicationContent({
   enabled = true,
   allowForm = false,
   recordActivity = false,
+  hideHistoryToolbar = false,
   className,
   initialContactId,
   initialDestinationAddress,
@@ -457,7 +459,7 @@ function EntityCommunicationContent({
         </div>
       ) : null}
 
-      <ActivityFeedToolbar
+      {!hideHistoryToolbar && <ActivityFeedToolbar
         className="shrink-0 border-b px-3 py-2"
         filters={filters}
         onFiltersChange={(next) => {
@@ -488,7 +490,7 @@ function EntityCommunicationContent({
             {filterControl}
           </div>
         ) : undefined}
-      />
+      />}
 
       {errorMessage ? (
         <p

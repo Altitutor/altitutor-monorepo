@@ -1,4 +1,6 @@
 'use client';
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+
 import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
@@ -73,7 +75,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const modals = useParentModals();
 
   // UI state
-  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'sessions'] as const, 'activity', 'tab');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['activity', 'sessions'] as const, 'sessions', 'tab');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -159,10 +161,10 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           addStudentButton={editFlow.isEditing ? <StudentSearchPopover allStudents={allStudents} selectedStudents={editFlow.tempParentStudents} onSelectStudent={editFlow.assignStudent} /> : undefined}
         />
         {!editFlow.isEditing && (
-          <section className="space-y-2 border-t pt-4" aria-label="Account">
-            <h3 className="text-base font-medium">Account</h3>
+          <EntitySidebarSection title="Account">
             <p className="text-sm text-muted-foreground">{parent.user_id ? 'Has account' : 'No account'}</p>
-          </section>
+          </EntitySidebarSection>
+
         )}
         </div>
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}

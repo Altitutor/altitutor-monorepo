@@ -1,3 +1,4 @@
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import {
   getInvoiceStatusBadge,
   type InvoiceStatusPayload,
@@ -25,23 +26,13 @@ export function SessionInvoiceCell({
     const statusBadges = getInvoiceStatusBadge(invoice);
 
     return (
-      <button
-        type="button"
-        className="inline-flex flex-wrap items-center gap-1 text-left text-xs text-accent-foreground hover:underline disabled:cursor-default disabled:no-underline"
-        disabled={!invoiceId}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (invoiceId) openAdminInvoiceModal(invoiceId);
-        }}
-      >
-        <span className="font-medium">
-          #{invoiceDetails?.invoiceNumber || invoiceId?.slice(0, 8) || 'Invoice'}
-        </span>
+      <span className="inline-flex flex-wrap items-center gap-1 text-left text-xs">
+        {invoiceId ? <EntityActionChip entityType="invoice" entityId={invoiceId} label={invoiceDetails?.invoiceNumber || 'Invoice'} onClick={() => openAdminInvoiceModal(invoiceId)} /> : <span>Invoice</span>}
         {invoiceDetails && (
           <span>{formatCurrency(invoiceDetails.amountCents, invoiceDetails.currency)}</span>
         )}
         {statusBadges}
-      </button>
+      </span>
     );
   }
 

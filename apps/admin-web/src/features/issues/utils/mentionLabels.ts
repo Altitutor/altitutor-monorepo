@@ -173,7 +173,7 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
     (async () => {
       if (invoiceIds.length === 0) return;
       const [{ data: invoices }, { data: invoiceItems }] = await Promise.all([
-        supabase.from('invoices').select('id, invoice_date, status').in('id', invoiceIds),
+        supabase.from('invoices').select('id, invoice_date, status, stripe_invoice_number').in('id', invoiceIds),
         supabase.from('invoice_items').select('invoice_id, description').in('invoice_id', invoiceIds),
       ]);
 
@@ -186,6 +186,7 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
 
       (invoices ?? []).forEach((invoice) => {
         const label = formatInvoiceTagText({
+          invoiceNumber: invoice.stripe_invoice_number,
           invoiceDate: invoice.invoice_date,
           lineItemDescriptions: itemsByInvoiceId.get(invoice.id) ?? [],
           status: invoice.status,

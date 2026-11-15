@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
 import { useQuery } from '@tanstack/react-query';
 import { Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@altitutor/ui';
 import { studentsApi } from '../api';
@@ -21,7 +22,7 @@ export function DeletedStudentsTable() {
         <TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Deleted</TableHead></TableRow></TableHeader>
         <TableBody>
           {data?.students.map(student => <TableRow key={student.id}>
-            <TableCell><Link className="underline" href={`/students/${student.id}`}>{student.first_name} {student.last_name}</Link></TableCell>
+            <TableCell><EntityActionChip entityType="student" entityId={student.id} label={`${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student'} onClick={() => openEntityReference('student', student.id)} /></TableCell>
             <TableCell>{student.deleted_at ? new Date(student.deleted_at).toLocaleString() : ''}</TableCell>
           </TableRow>)}
           {!data?.students.length && <TableRow><TableCell colSpan={2}>{isLoading ? 'Loading…' : 'No deleted Students found.'}</TableCell></TableRow>}

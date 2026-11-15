@@ -1,10 +1,13 @@
 'use client';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+
 
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Badge, Button, EntityChip } from '@altitutor/ui';
+import { Badge, Button, } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
+import { SubjectChip } from '@/shared/components/SubjectChip';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { getDayShortName, formatTime } from '@/shared/utils/datetime';
 import { EnrollStudentModal } from '@/features/enrollments';
@@ -12,7 +15,7 @@ import { classesApi } from '@/features/classes/api/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { invalidateStudentClassSurfaces } from '@/shared/lib/query-invalidation';
 
-export type DirectoryClass = Pick<Tables<'classes'>, 'id' | 'short_name' | 'long_name' | 'day_of_week' | 'start_time' > & { subject_id?: string | null } & { subject?: Tables<'subjects'> | null };
+export type DirectoryClass = Pick<Tables<'classes'>, 'id' | 'short_name' | 'long_name' | 'day_of_week' | 'start_time' > & { subject_id?: string | null; enrolled_at?: string | null } & { subject?: Tables<'subjects'> | null };
 
 function classChipLabel(c: DirectoryClass) {
   return c.short_name?.trim() || c.long_name?.trim()
@@ -35,16 +38,15 @@ export function StudentClassesCell({ student, subjects, classes, onOpenClass }: 
   return <div className="space-y-1" onClick={(event) => event.stopPropagation()}>
     {allSubjects.map((subject) => {
       const enrolled = ordered.filter((c) => (c.subject_id ?? c.subject?.id) === subject.id);
-      const { style, textColorClass } = getSubjectColorStyle(subject);
       return <div key={subject.id} className="flex flex-wrap items-center gap-1.5">
-        <Badge className={textColorClass} style={style}>{subject.short_name || subject.name}</Badge>
-        {enrolled.map((c) => <EntityChip key={c.id} entityType="class" entityId={c.id} label={classChipLabel(c)} onClick={() => onOpenClass(c.id)} />)}
-        {!enrolled.length && <Button variant="outline" size="sm" className="h-6 rounded-full px-2 text-xs" disabled={!staff}
+        <SubjectChip subject={subject} />
+        {enrolled.map((c) => <span key={c.id} className="inline-flex items-center gap-1"><EntityChip key={c.id} entityType="class" entityId={c.id} label={classChipLabel(c)} className={c.subject?.color ? getSubjectColorStyle(c.subject).textColorClass : undefined} style={c.subject ? getSubjectColorStyle(c.subject).style : undefined} onClick={() => onOpenClass(c.id)} />{c.enrolled_at && new Date(c.enrolled_at) > new Date() && <Badge variant="outline">Future</Badge>}</span>)}
+        {!enrolled.length && <Button variant="outline" size="sm" className="h-6 rounded-full border-dashed px-2 text-xs" disabled={!staff}
           aria-label={`Add class for ${subject.name}`} onClick={() => setSubjectId(subject.id)}><Plus className="mr-1 h-3 w-3" />Add class</Button>}
       </div>;
     })}
     {ordered.filter((c) => !allSubjects.some((subject) => subject.id === (c.subject_id ?? c.subject?.id))).map((c) =>
-      <EntityChip key={c.id} entityType="class" entityId={c.id} label={classChipLabel(c)} onClick={() => onOpenClass(c.id)} />)}
+      <EntityChip key={c.id} entityType="class" entityId={c.id} label={classChipLabel(c)} className={c.subject?.color ? getSubjectColorStyle(c.subject).textColorClass : undefined} style={c.subject ? getSubjectColorStyle(c.subject).style : undefined} onClick={() => onOpenClass(c.id)} />)}
     {!allSubjects.length && !classes.length && <span className="text-xs text-muted-foreground">No subjects</span>}
     {subjectId && staff && <EnrollStudentModal isOpen onClose={() => {
       setSubjectId(null);

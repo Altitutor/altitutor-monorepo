@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@altitutor/ui';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { ReconciliationCountBadge } from './ReconciliationCountBadge';
 import { useReconciliationCounts } from '../api/useReconciliationCounts';
 import { reconciliationViewGroups, operationalViewHref } from '@/features/quick-filters/config/operationalViews';
 
+import { useUnreadConversationCount } from '@/features/messages/api/queries';
+
 export function DashboardReconciliationCard() {
+  const unread = useUnreadConversationCount();
   const counts = useReconciliationCounts();
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden">
@@ -16,6 +19,11 @@ export function DashboardReconciliationCard() {
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y border-t">
+          <Link href="/messages?read=unread" className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50">
+            <span className="flex-1">Unread messages</span>
+            {unread.data !== undefined && <Badge variant="secondary">{unread.data}</Badge>}
+            <ArrowRight aria-hidden className="h-4 w-4 text-muted-foreground" />
+          </Link>
           {reconciliationViewGroups.map(({ key, label, views }) => (
             <details key={key} className="group">
               <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50 [&::-webkit-details-marker]:hidden">

@@ -364,12 +364,19 @@ export async function referenceDetails(
           .maybeSingle(),
       );
       if (!row) return null;
+      const contacts = await read(db.from('contacts')
+        .select('phone_e164,students(first_name,last_name),parents(first_name,last_name),staff(first_name,last_name)')
+        .in('phone_e164', [row.from_number_e164, row.to_number_e164].filter((phone): phone is string => Boolean(phone))));
+      const contactName = (phone: string | null) => {
+        const contact = (contacts ?? []).find((item) => item.phone_e164 === phone);
+        return person(contact?.students ?? contact?.parents ?? contact?.staff ?? null) || phone;
+      };
       return {
         title: row.body.slice(0, 80) || "Message",
         status: row.status,
         fields: [
-          field("From", row.from_number_e164),
-          field("To", row.to_number_e164),
+          field("From", contactName(row.from_number_e164)),
+          field("To", contactName(row.to_number_e164)),
           field("Message", row.body.slice(0, 500)),
         ],
         destination: {
@@ -505,20 +512,26 @@ export async function referenceDetails(
         : null;
     }
     case "invoice": {
-      const row = await read(
-        db
-          .from("invoices")
-          .select("stripe_invoice_number,status")
-          .eq("id", id)
-          .maybeSingle(),
-      );
-      return row
-        ? {
-            title: row.stripe_invoice_number || "Invoice",
-            status: row.status,
-            fields: [],
-          }
-        : null;
+      const row = await read(db.from('invoices')
+        .select('stripe_invoice_number,status,total_cents,amount_due_cents,amount_paid_cents,currency')
+        .eq('id', id).is('deleted_at', null).maybeSingle());
+      if (!row) return null;
+      const [items, credits] = await Promise.all([
+        read(db.from('invoice_items').select('id,description,amount_cents').eq('invoice_id', id).is('deleted_at', null).order('id')),
+        read(db.from('credit_notes').select('id,amount_cents,status,reason').eq('invoice_id', id).order('id')),
+      ]);
+      const money = (cents: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: row.currency }).format(cents / 100);
+      return {
+        title: row.stripe_invoice_number || 'Invoice',
+        status: row.status,
+        fields: [
+          ...(items ?? []).map((item, index) => field(`Line item ${index + 1}`, `${item.description} — ${money(item.amount_cents)}`)),
+          field('Total', row.total_cents == null ? 'Unavailable' : money(row.total_cents)),
+          field('Amount paid', money(row.amount_paid_cents)),
+          ...(credits ?? []).map((credit, index) => field(`Credit note ${index + 1}`, `${money(credit.amount_cents)} · ${credit.status}${credit.reason ? ` · ${credit.reason}` : ''}`)),
+          ...(!credits?.length ? [field('Credit notes', 'None')] : []),
+        ],
+      };
     }
     default:
       return null;

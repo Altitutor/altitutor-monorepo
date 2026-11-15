@@ -1,4 +1,6 @@
 'use client';
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+
 
 import { EmailInput } from '@/shared/components/EmailInput';
 
@@ -56,13 +58,13 @@ export function ParentDetailsTab({
   // Determine which students to display based on edit mode
   const displayStudents = isEditing ? parentStudents : students;
   const displayStudentIds = isEditing ? parentStudents.map(s => s.id) : studentIds;
-  
+
   // Fetch subjects for all students using custom hook
   const { data: studentSubjects = {}, isLoading: isLoadingSubjects } = useStudentSubjectsForIds(
     displayStudentIds,
     displayStudentIds.length > 0
   );
-  
+
   // Copy to clipboard functionality
   const { copy, copiedField } = useCopyToClipboard();
 
@@ -165,8 +167,9 @@ export function ParentDetailsTab({
 
   return (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
+      <EntitySidebarSection title="Parent Information">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Parent Information</h3>
+
         {onEdit && (
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
@@ -221,12 +224,13 @@ export function ParentDetailsTab({
           </div>
         </PropertyFormRow>
       </PropertyForm>
+      </EntitySidebarSection>
 
       <Separator className="my-6" />
 
       {/* Students Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Students</h3>
+      <EntitySidebarSection title="Students">
+
         {isLoadingSubjects ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -245,7 +249,7 @@ export function ParentDetailsTab({
         ) : (
           <p className="text-sm text-muted-foreground">No students associated with this parent</p>
         )}
-      </div>
+      </EntitySidebarSection>
     </div>
   );
 }

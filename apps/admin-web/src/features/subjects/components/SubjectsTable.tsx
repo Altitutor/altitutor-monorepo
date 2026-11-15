@@ -31,6 +31,9 @@ import { cn, getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils/ind
 import { AdminDialogShell } from '@/shared/components';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
+import { collectTableRows } from '@/shared/utils/tablePages';
+import { SubjectChip } from '@/shared/components/SubjectChip';
+import { SubjectCover } from './SubjectCover';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
@@ -98,17 +101,27 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     refetch,
     isFetching
   } = useQuery({
-    queryKey: ['subjects-list', state.search, state.filters, state.sortBy, state.sortDirection, state.page, state.pageSize],
-    queryFn: () => subjectsApi.list({
+    queryKey: ['subjects-list', state.search, state.filters, state.sortBy, state.sortDirection, state.page, state.pageSize, layout],
+    queryFn: async () => {
+      const loadPage = (offset: number, limit: number) => subjectsApi.list({
       search: state.search || undefined,
       curriculums: (state.filters.curriculum as Enums<'subject_curriculum'>[])?.length > 0 ? (state.filters.curriculum as Enums<'subject_curriculum'>[]) : undefined,
       disciplines: (state.filters.discipline as Enums<'subject_discipline'>[])?.length > 0 ? (state.filters.discipline as Enums<'subject_discipline'>[]) : undefined,
       yearLevels: (state.filters.yearLevel as number[])?.length > 0 ? (state.filters.yearLevel as number[]) : undefined,
-      limit: state.pageSize,
-      offset: (state.page - 1) * state.pageSize,
+      limit,
+      offset,
       orderBy: (state.sortBy || 'name') as 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level',
       ascending: state.sortDirection === 'asc',
-    }),
+      });
+      if (layout === 'cards') {
+        const subjects = await collectTableRows(async (offset, limit) => {
+          const page = await loadPage(offset, limit);
+          return { rows: page.subjects, total: page.total };
+        });
+        return { subjects, total: subjects.length };
+      }
+      return loadPage((state.page - 1) * state.pageSize, state.pageSize);
+    },
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -368,6 +381,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                   className="rounded-lg border bg-card p-4 text-left hover:bg-muted/40"
                   onClick={(event) => handleSubjectClick(subject.id, event)}
                 >
+                  <SubjectCover subjectId={subject.id} />
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-medium">{subject.name || 'Untitled subject'}</p>
@@ -460,9 +474,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               subjects.map((subject) => {
                 const isSelected = selectedSubjectIds.has(subject.id);
                 const subjectColorHex = getSubjectColorHex(subject);
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
 
                 return (
                   <TableRow
@@ -506,13 +517,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                     )}
                     {state.visibleColumns.includes('code') && (
                       <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
-                          style={style.backgroundColor ? style : undefined}
-                        >
-                          {shortName}
-                        </Badge>
+                        <SubjectChip subject={subject} />
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('color') && (
@@ -541,14 +546,14 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
       )}
 
       {/* Pagination */}
-      <TablePagination
+      {layout === 'table' && <TablePagination
         page={state.page}
         pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
-      />
+      />}
 
       <ViewSubjectModal
         isOpen={isViewModalOpen}

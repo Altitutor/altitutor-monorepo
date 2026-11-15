@@ -1,4 +1,5 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 
 import React from 'react';
 import {
@@ -210,17 +211,13 @@ export function SessionsTableRow({
                 const nameClass = planned_absence ? 'text-muted-foreground line-through' : '';
                 return (
                   <div key={s.id} className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className={cn('h-auto p-0 text-xs justify-start', nameClass)}
+                    <EntityActionChip
+                      className={nameClass}
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenStaff?.(s.id);
                       }}
-                    >
-                      {s.first_name} {s.last_name}
-                    </Button>
+                     entityType="staff" entityId={s.id} label={`${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Staff'} />
                     {s.actual_attended !== null &&
                       (s.actual_attended ? (
                         <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
@@ -252,17 +249,13 @@ export function SessionsTableRow({
                 const badge = getInvoiceStatusBadge(invoicePayload, { onOpenInvoice: openAdminInvoiceModal });
                 return (
                   <div key={s.id} className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className={cn('h-auto p-0 text-xs justify-start', nameClass)}
+                    <EntityActionChip
+                      className={nameClass}
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenStudent?.(s.id);
                       }}
-                    >
-                      {s.first_name} {s.last_name}
-                    </Button>
+                     entityType="student" entityId={s.id} label={`${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Student'} />
                     {s.actual_attended !== null &&
                       (s.actual_attended ? (
                         <Check className="h-3 w-3 text-green-600 flex-shrink-0" />

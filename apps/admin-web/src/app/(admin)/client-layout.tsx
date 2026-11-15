@@ -487,6 +487,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     [actionsTarget, secondaryActionsTarget],
   );
   const showBreadcrumbs =
+    !/^\/subjects\/[^/]+\/topics\/[^/]+$/.test(pathname) &&
     !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(
       pathname,
     );

@@ -1,5 +1,8 @@
 'use client';
 
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
+
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
 import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
@@ -100,12 +103,7 @@ export function SessionsCard({
   // Determine if we should use compact mode overall
   const shouldUseCompact = forceCompact || !iconVisible;
   
-  const subjectDisplay = title
-    ?? (shouldUseCompact && subject 
-    ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
-    : subject 
-      ? (subject?.long_name ?? subject?.name ?? '') 
-      : formatSessionType(session.type));
+  const subjectDisplay = title ?? (subject?.name?.trim() || subject?.long_name?.trim() || subject?.short_name?.trim() || formatSessionType(session.type));
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at
@@ -187,6 +185,7 @@ export function SessionsCard({
                   </TooltipProvider>
                 )}
                 <StudentCount count={studentRoster?.length} />
+                {!isSelecting && /^[0-9a-f-]{36}$/i.test(session.id) && <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />}
                 {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
