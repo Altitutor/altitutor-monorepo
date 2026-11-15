@@ -30,7 +30,7 @@ export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
         const selectedItem = PRIORITY_OPTIONS.find((o) => o.value === priorityValue) ?? null;
 
         return (
-          <FormItem>
+          <FormItem data-shortcut-field="p">
             <FormControl>
               <SearchableSelect<PriorityOption>
                 items={PRIORITY_OPTIONS}

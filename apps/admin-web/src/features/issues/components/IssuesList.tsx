@@ -338,6 +338,10 @@ export function IssuesList({
   return (
     <>
       <EntityCollection<IssueWithTags>
+        keyboardActions={[
+          { key: "s", label: "Change status", options: ISSUE_STATUS_OPTIONS, apply: (item, value) => updateIssue.mutateAsync({ id: item.id, updates: { status: value as IssueStatus, ...(value === "resolved" ? { resolved_by: currentStaff?.id ?? null } : {}) } }) },
+          { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateIssue.mutateAsync({ id: item.id, updates: { priority: Number(value)  } }) },
+        ]}
         viewTarget="issues"
         quickFilters={savedViews}
         onApplyQuickFilter={(view) => applyQuickFilter(view, currentStaff?.id)}

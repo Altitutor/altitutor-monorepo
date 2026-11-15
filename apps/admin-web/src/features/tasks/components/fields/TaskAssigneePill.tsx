@@ -86,7 +86,7 @@ export function TaskAssigneePill({
       control={form.control}
       name="assignedTo"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="a">
           <SearchableSelect<Tables<'staff'>>
             items={staffList}
             value={selectedAssignee}

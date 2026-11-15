@@ -5,6 +5,7 @@ import { EntityToolbar } from './entity-toolbar';
 
 
 import * as React from 'react';
+import { CollectionRecord } from './collection-keyboard';
 import { useMediaQuery } from '../hooks/use-media-query';
 import { Button } from './button';
 import { Input } from './input';
@@ -497,8 +498,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 )}
                 {(!groupBy || !collapsedGroups.has(groupCollapseKey(group.key))) && <div className="space-y-0.5 w-full">
                   {group.items.map((item) => (
-                    <EntityListRow
-                      key={getItemId(item)}
+                    <CollectionRecord id={getItemId(item)} key={getItemId(item)}><EntityListRow
                       item={item}
                       renderName={renderName}
                       leftIcons={leftIcons}
@@ -506,7 +506,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       rightPills={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
                       onRowClick={onRowClick}
                       compact={compact}
-                    />
+                    /></CollectionRecord>
                   ))}
                 </div>}
               </div>

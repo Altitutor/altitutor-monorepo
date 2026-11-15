@@ -40,7 +40,7 @@ export function IssueStatusField({ form, pill = false }: IssueStatusFieldProps) 
           ISSUE_STATUS_OPTIONS.find((option) => option.value === value) ?? ISSUE_STATUS_OPTIONS[0];
 
         return (
-          <FormItem>
+          <FormItem data-shortcut-field="s">
             <FormControl>
               <SearchableSelect<StatusOption>
                 items={ISSUE_STATUS_OPTIONS}

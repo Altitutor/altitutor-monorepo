@@ -1,5 +1,11 @@
 "use client";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   useAccessoryPanel,
   accessoryFamily,
@@ -8,13 +14,27 @@ import { useAdminShell } from "@/shared/contexts/AdminShellContext";
 import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
-import { matchShortcut } from "./registry";
-import { AltHintsContext } from "./context";
-import { activeDialog, searchControl } from "./search";
+import {
+  isTypingTarget,
+  KeyboardNavigationProvider,
+  KeyboardHintsContext,
+} from "@altitutor/ui";
+import { usePathname, useRouter } from "next/navigation";
+import { ShortcutHelp } from "./ShortcutHelp";
+import { keyboardPane, isVisibleShortcutTarget } from "@altitutor/ui";
+import { matchShortcut, pageShortcuts } from "./registry";
+import { AltHintsContext, GoHintsContext } from "./context";
+import { activeDialog, searchControl, searchTrigger } from "./search";
 import { SearchHint } from "./SearchHint";
 import { NewDocumentDialog } from "./NewDocumentDialog";
 
 export function AdminShortcuts({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [go, setGo] = useState(false);
+  const goPending = useRef(false);
+  const goTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [help, setHelp] = useState(false);
   const [held, setHeld] = useState(false);
   const [newDocument, setNewDocument] = useState(false);
   const panel = useAccessoryPanel();
@@ -37,16 +57,144 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           : family === "documents"
             ? createDocument
             : null;
+  useEffect(() => () => clearTimeout(goTimer.current), []);
   useEffect(() => {
-    const reset = () => setHeld(false);
+    const cancelGo = () => {
+      goPending.current = false;
+      setGo(false);
+      clearTimeout(goTimer.current);
+    };
+    const reset = () => {
+      setHeld(false);
+      cancelGo();
+    };
     const keyup = (event: KeyboardEvent) => {
-      if (!event.altKey) reset();
+      if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey)
+        setHeld(false);
     };
     const keydown = (event: KeyboardEvent) => {
-      setHeld(event.altKey);
+      setHeld(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);
       if (event.defaultPrevented) return;
+      const bare =
+        !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing;
+      const typing = isTypingTarget(event.target);
+      const key = event.key.toLowerCase();
+      if (typing || activeDialog()) cancelGo();
+      if (
+        bare &&
+        !goPending.current &&
+        !typing &&
+        !event.shiftKey &&
+        !event.repeat &&
+        ["s", "p", "a"].includes(key)
+      ) {
+        const field = [
+          ...keyboardPane().querySelectorAll<HTMLButtonElement>(
+            `[data-shortcut-field="${key}"] button`,
+          ),
+        ].find(
+          (node) => isVisibleShortcutTarget(node) && !node.matches(":disabled"),
+        );
+        if (field) {
+          event.preventDefault();
+          field.click();
+          return;
+        }
+      }
+      if (bare && !typing && !activeDialog() && !event.repeat) {
+        if (goPending.current) {
+          cancelGo();
+          event.preventDefault();
+          event.stopPropagation();
+          const page = pageShortcuts.find(([letter]) => letter === key);
+          if (page) {
+            router.push(page[1]);
+            mobile.close?.();
+          }
+          return;
+        }
+        if (key === "g" && !event.shiftKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          goPending.current = true;
+          setGo(true);
+          goTimer.current = setTimeout(cancelGo, 1500);
+          return;
+        }
+        if (event.key === "?") {
+          event.preventDefault();
+          setHelp(true);
+          return;
+        }
+        if (["j", "k", "enter"].includes(key) && !event.shiftKey) {
+          const pane = keyboardPane();
+          if (!document.activeElement?.closest("[data-keyboard-collection]")) {
+            const rows = [
+              ...pane.querySelectorAll<HTMLElement>(
+                "[data-shortcut-list-item]",
+              ),
+            ].filter(isVisibleShortcutTarget);
+            const current = document.activeElement?.closest<HTMLElement>(
+              "[data-shortcut-list-item]",
+            );
+            const index = current ? rows.indexOf(current) : -1;
+            if (key === "enter" && current && event.target === current) {
+              event.preventDefault();
+              event.stopPropagation();
+              current.click();
+              return;
+            }
+            if (key !== "enter" && rows.length) {
+              const next =
+                rows[
+                  Math.max(
+                    0,
+                    Math.min(
+                      rows.length - 1,
+                      index < 0
+                        ? key === "j"
+                          ? 0
+                          : rows.length - 1
+                        : index + (key === "j" ? 1 : -1),
+                    ),
+                  )
+                ];
+              event.preventDefault();
+              event.stopPropagation();
+              next.focus();
+              next.scrollIntoView?.({ block: "nearest" });
+              return;
+            }
+          }
+        }
+        if (key === "c" && !event.shiftKey) {
+          const pane = keyboardPane();
+          const main = !pane.closest("[data-accessory-tab]");
+          const create = main
+            ? {
+                tasks: actions.openCreateTaskDialog,
+                issues: actions.openCreateIssueDialog,
+                projects: actions.openCreateProjectDialog,
+                documents: createDocument,
+              }[pathname.split("/")[1]]
+            : createNew;
+          const button = [
+            ...pane.querySelectorAll<HTMLButtonElement>(
+              "[data-shortcut-create]",
+            ),
+          ].find(isVisibleShortcutTarget);
+          if (create || button) {
+            event.preventDefault();
+            if (button) button.click();
+            else create?.();
+          }
+          return;
+        }
+      }
       const id = matchShortcut(event);
       if (!id) return;
+      if ((id === "left" || id === "right") && isTypingTarget(event.target))
+        return;
       if (event.repeat) {
         event.preventDefault();
         return;
@@ -65,6 +213,14 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           event.preventDefault();
           input.focus();
           input.select();
+        } else {
+          const trigger = searchTrigger(
+            panel?.expanded ? panel.activeKey : null,
+          );
+          if (trigger) {
+            event.preventDefault();
+            trigger.click();
+          }
         }
         return;
       }
@@ -76,13 +232,24 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (id === "close") {
+        if (panel?.expanded) {
+          const close = document.querySelector<HTMLButtonElement>(
+            `[data-close-accessory-tab="${CSS.escape(panel.activeKey ?? "")}"]`,
+          );
+          if (close) {
+            event.preventDefault();
+            close.click();
+          }
+        }
+        return;
+      }
       event.preventDefault();
       palette.close();
       if (id === "left") {
         if (window.matchMedia("(max-width: 767px)").matches) mobile.toggle();
         else shell.toggleSidebar();
       } else if (id === "right") panel?.toggle();
-
     };
     window.addEventListener("keydown", keydown, true);
     window.addEventListener("keyup", keyup, true);
@@ -94,15 +261,32 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
       window.removeEventListener("blur", reset);
       document.removeEventListener("visibilitychange", reset);
     };
-  }, [panel, shell, palette, createNew, mobile]);
+  }, [
+    panel,
+    shell,
+    palette,
+    createNew,
+    mobile,
+    router,
+    pathname,
+    actions,
+    createDocument,
+  ]);
   return (
-    <AltHintsContext.Provider value={held}>
-      {children}
-      <SearchHint activeKey={panel?.expanded ? panel.activeKey : null} />
-      <NewDocumentDialog
-        open={newDocument}
-        onClose={() => setNewDocument(false)}
-      />
-    </AltHintsContext.Provider>
+    <KeyboardNavigationProvider value={true}>
+      <KeyboardHintsContext.Provider value={held || go}>
+        <GoHintsContext.Provider value={go}>
+          <AltHintsContext.Provider value={held}>
+            {children}
+            <ShortcutHelp open={help} onOpenChange={setHelp} />
+            <SearchHint activeKey={panel?.expanded ? panel.activeKey : null} />
+            <NewDocumentDialog
+              open={newDocument}
+              onClose={() => setNewDocument(false)}
+            />
+          </AltHintsContext.Provider>
+        </GoHintsContext.Provider>
+      </KeyboardHintsContext.Provider>
+    </KeyboardNavigationProvider>
   );
 }

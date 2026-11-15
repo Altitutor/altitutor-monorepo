@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useKeyboardHints, useKeyboardNavigation } from "./keyboard-navigation";
+import { KeyboardShortcut } from "./keyboard-shortcut";
 import { Plus } from "lucide-react";
 import {
   displaySettingsMatch,
@@ -112,6 +114,8 @@ export function ToolbarSavedViews({
     onChange: (settings: DisplaySettings) => void,
   ) => React.ReactNode;
 }) {
+  const hints = useKeyboardHints();
+  const keyboardEnabled = useKeyboardNavigation();
   const service = React.useContext(ViewsContext);
   const [overrides, setOverrides] = React.useState<Record<string, SavedView>>(
     {},
@@ -211,9 +215,11 @@ export function ToolbarSavedViews({
         className="flex w-max flex-nowrap items-center gap-2"
         aria-label="Views"
       >
-        {combined.map((view) => (
+        {combined.map((view, index) => (
           <button
             key={view.id}
+            data-shortcut-view={keyboardEnabled && index < 9 ? index + 1 : undefined}
+            aria-keyshortcuts={keyboardEnabled && index < 9 ? String(index + 1) : undefined}
             type="button"
             aria-pressed={active?.id === view.id}
             title={
@@ -252,6 +258,7 @@ export function ToolbarSavedViews({
             }}
           >
             {view.name}
+            {hints && index < 9 && <KeyboardShortcut keys={[String(index + 1)]} className="ml-2" />}
             {ViewBadge && <ViewBadge view={view} />}
           </button>
         ))}
