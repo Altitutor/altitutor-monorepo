@@ -1,4 +1,6 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { SubjectChip } from '@/shared/components/SubjectChip';
 import { StudentClassesCell, type DirectoryClass } from './StudentClassesCell';
 import { checkInColumns, CheckInTableHeads, CheckInTableCells } from '@/shared/components/CheckInTableCells';
 import { useStudentBillingColumns } from '../hooks/useStudentBillingColumns';
@@ -167,6 +169,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     filterKeys: STUDENT_FILTER_KEYS,
   });
 
+  const [view, setView] = useAdminPageViewParam(['list', 'board', 'worklist'] as const, 'list');
   const {
     data,
     isLoading,
@@ -177,8 +180,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     search: state.search, searchFields, filters: state.filters,
     page: state.page, pageSize: state.pageSize,
     sortBy: state.sortBy, sortDirection: state.sortDirection, groupBy: state.groupBy,
-  });
-  const [view, setView] = useAdminPageViewParam(['list', 'board', 'worklist'] as const, 'list');
+  }, view === 'board');
+
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const selectedJourney = data?.entries.find(entry => entry.journey?.id === selectedJourneyId)?.journey;
   const openEntry = (entry: StudentDirectoryEntry) => entry.kind === 'student'
@@ -576,9 +579,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     )}
                     {state.visibleColumns.includes('student') && (
                       <TableCell>
-                        <div className="font-medium">
-                          {`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed Student'}
-                        </div>
+                        <EntityActionChip entityType="student" entityId={student.id} label={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed Student'} onClick={() => openEntry(entry)} />
                         {(student.email || student.phone) ? (
                           <div className="text-xs text-muted-foreground">
                             {[student.email, student.phone].filter(Boolean).join(' · ')}
@@ -606,9 +607,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         {subjects.length > 0 ? (
                           <div className="flex flex-col gap-1 text-xs">
                             {subjects.map((subject) => (
-                              <span key={subject.id} className="whitespace-nowrap">
-                                {subject.long_name || subject.short_name || subject.name || subject.id}
-                              </span>
+                              <SubjectChip key={subject.id} subject={subject} />
                             ))}
                           </div>
                         ) : (
@@ -621,18 +620,13 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         {parents.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {parents.map((parent) => (
-                              <Button
+                              <EntityActionChip
                                 key={parent.id}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start whitespace-nowrap"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleParentClick(parent.id);
                                 }}
-                              >
-                                {`${parent.first_name || ''} ${parent.last_name || ''}`.trim() || 'Parent'}
-                              </Button>
+                               entityType="parent" entityId={parent.id} label={`${parent.first_name || ''} ${parent.last_name || ''}`.trim() || 'Parent'} />
                             ))}
                           </div>
                         ) : (
@@ -717,14 +711,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         </Table>
       </div></div>}
 
-      <div className="shrink-0 px-6 py-3"><TablePagination
+      {view !== 'board' && <div className="shrink-0 px-6 py-3"><TablePagination
         page={state.page}
         pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
-      /></div>
+      /></div>}
       {selectedJourney && <JourneyDetail key={selectedJourney.id} journey={selectedJourney} deadlines={data?.deadlines ?? defaultDeadlines} onClose={() => setSelectedJourneyId(undefined)} />}
 
       {/* Modals ... */}

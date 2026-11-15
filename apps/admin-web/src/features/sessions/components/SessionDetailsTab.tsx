@@ -1,7 +1,11 @@
 'use client';
+import { SubjectChip } from '@/shared/components/SubjectChip';
+
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AccountClassBadge, Badge, EntityChip, Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker, DurationPicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
+import { AccountClassBadge, Badge,  Separator, Button, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField, TimePicker, DurationPicker, addMinutesToTime, durationMinutesBetween, shiftStartKeepingDuration } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +18,7 @@ import type { ProcessedStudentData } from '../utils/sessionDataProcessing';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
+import { formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getDayOfWeek, formatTime } from '@/shared/utils/datetime';
 import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
@@ -501,18 +505,7 @@ export function SessionDetailsTab({
             subjectNode={
               session.type === 'CLASS' || session.type === 'DRAFTING'
                 ? subject
-                  ? (() => {
-                      const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
-                      const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                      return (
-                        <Badge
-                          className={defaultClass || textColorClass}
-                          style={style.backgroundColor ? style : undefined}
-                        >
-                          {subject?.long_name ?? ''}
-                        </Badge>
-                      );
-                    })()
+                  ? <SubjectChip subject={subject as Tables<'subjects'>} label={subject.long_name || subject.name || undefined} />
                   : '—'
                 : undefined
             }

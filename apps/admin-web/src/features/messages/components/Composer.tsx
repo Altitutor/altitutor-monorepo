@@ -655,15 +655,15 @@ export function Composer({
                 disabled={send.isPending || (!contactId && !conversationId)}
               /></ComposerControlTooltip>
             )}
-          </div>
-
-          <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
             <ComposerRecipientSelector
               name={recipientName}
               recipients={recipients}
               addresses={addresses}
               disabled={send.isPending}
             />
+          </div>
+
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
             <button
               className={`px-4 py-2 text-sm rounded-md text-white hover:opacity-90 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed h-10 ${
                 isIMessageSender

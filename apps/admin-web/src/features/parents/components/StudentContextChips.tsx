@@ -1,6 +1,7 @@
 "use client";
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
 
-import { EntityChip } from "@altitutor/ui";
+
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 import { useParentDetails } from "../hooks/useParentsQuery";
 

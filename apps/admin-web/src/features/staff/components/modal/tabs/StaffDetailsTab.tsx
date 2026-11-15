@@ -1,3 +1,4 @@
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 import { EmailInput } from '@/shared/components/EmailInput';
 import { useState, useEffect, useRef } from 'react';
@@ -560,8 +561,9 @@ export function StaffDetailsTab({
     </>
   ) : (
     <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
+      <EntitySidebarSection title="Staff Information">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Staff Information</h3>
+
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
@@ -699,6 +701,7 @@ export function StaffDetailsTab({
           </PropertyForm>
         );
       })()}
+      </EntitySidebarSection>
 
       {!hideAccount && <>
       <Separator className="my-6" />

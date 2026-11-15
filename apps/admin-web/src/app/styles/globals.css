@@ -284,3 +284,6 @@ button[data-property-empty]:is(:hover, :focus-visible) > * { opacity: 1; }
 .admin-action-group > button[data-button-variant="ghost"]:hover { background: hsl(var(--muted)); }
 .admin-action-group > button + button { border-left: 1px solid hsl(var(--border)); }
 .admin-action-group > button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; }
+
+/* Correspondence references stay compact within prose and narrow panels. */
+[data-mention][data-type="message"] { max-width: 10rem; }

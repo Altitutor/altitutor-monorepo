@@ -276,7 +276,7 @@ describe('SessionsTableRow - invoice column', () => {
     expect(screen.getByText('Balance added')).toBeInTheDocument();
   });
 
-  it('shows invoice number, amount, and status in one clickable link', async () => {
+  it('shows an invoice chip alongside its amount and status', async () => {
     mockUseInvoiceSessionMutation.mockReturnValue({
       mutate: jest.fn(),
       isPending: false,
@@ -301,7 +301,9 @@ describe('SessionsTableRow - invoice column', () => {
 
     renderRow(props);
 
-    const link = screen.getByRole('button', { name: /ALT-1234.*\$102\.08.*Paid \(2 Jan\)/i });
+    const link = screen.getByRole('button', { name: 'ALT-1234' });
+    expect(screen.getByText('$102.08')).toBeInTheDocument();
+    expect(screen.getByText('Paid (2 Jan)')).toBeInTheDocument();
     expect(link).toBeInTheDocument();
   });
 });

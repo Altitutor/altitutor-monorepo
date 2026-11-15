@@ -1,8 +1,10 @@
+import { EntityChip } from '@altitutor/ui';
+import { SubjectChip } from '@/shared/components/SubjectChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
 import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
 import { Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import {
@@ -19,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { ChevronDown, Loader2, Plus, UserCheck } from "lucide-react";
+import { Loader2, Plus, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal } from '@/features/classes';
@@ -455,7 +457,6 @@ export function ClassesTab({
 
             const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
             const { style, textColorClass } = getSubjectColorStyle(subject);
-            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
             const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
 
             return (
@@ -464,14 +465,10 @@ export function ClassesTab({
                   {group.isAssignedSubject && !student.deleted_at ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" className="rounded-full" aria-label={`${shortName} subject actions`}>
-                          <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>
-                            {shortName}
-                            <ChevronDown className="ml-1 size-3" />
-                          </Badge>
-                        </button>
+                        <EntityChip entityType="subject" entityId={subject.id} label={shortName} className={subject.color ? textColorClass : undefined} style={style} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
+                        <DropdownMenuItem onSelect={() => openEntityReference('subject', subject.id)}>Open subject</DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={currentClassCount > 0}
                           onSelect={() => void handleRemoveSubject(group.subjectId)}
@@ -486,7 +483,7 @@ export function ClassesTab({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : (
-                    <Badge className={defaultClass || textColorClass} style={style.backgroundColor ? style : undefined}>{shortName}</Badge>
+                    <SubjectChip subject={subject} />
                   )}
                 </div>
 

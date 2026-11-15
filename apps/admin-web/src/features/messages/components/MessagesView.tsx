@@ -426,6 +426,7 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
+                hideHistoryToolbar={Boolean(tabScope)}
                 renderHeader={tabScope ? renderConversationHeader : undefined}
                 isSearching={isSearching}
                 searchTerm={searchTerm}

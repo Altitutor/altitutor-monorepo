@@ -1,4 +1,6 @@
 "use client";
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+
 
 import {
   useEffect,
@@ -15,7 +17,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  EntityChip,
+
   EntityChipIcon,
   SearchableSelect,
   SearchableSelectInline,

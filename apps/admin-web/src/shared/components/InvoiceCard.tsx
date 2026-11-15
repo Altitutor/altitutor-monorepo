@@ -51,7 +51,7 @@ export function InvoiceCard({
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="font-semibold text-sm truncate min-w-0 flex-1">
-                  Invoice {invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                  {invoice.stripe_invoice_number || 'Invoice'}
                 </h4>
                 <Badge variant="outline" className={cn("text-[10px] h-4 px-1 capitalize font-normal shrink-0", getStatusColor(status))}>
                   {status}

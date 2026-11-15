@@ -1,4 +1,4 @@
-import { EntityChip } from '@altitutor/ui';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
 import type {
   ActivityEntityReference,
   ActivityEventDisplay,

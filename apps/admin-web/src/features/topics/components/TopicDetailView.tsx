@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import {
-  PencilIcon,
   TrashIcon,
   Loader2,
   AlertTriangle,
@@ -589,12 +588,7 @@ export function TopicDetailView({
 
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={handleEdit} disabled={!topic}>
-                <PencilIcon className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            </div>
+
           </>
         )}
       </div>

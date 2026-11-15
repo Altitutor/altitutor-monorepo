@@ -1,11 +1,14 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { getSubjectColorStyle } from '@/shared/utils';
+import { SubjectChip } from '@/shared/components/SubjectChip';
 
 import { CheckInTableCells } from '@/shared/components/CheckInTableCells';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 
 import { memo, useCallback, useState } from 'react';
-import { TableCell, TableRow, Button, Label, Input } from "@altitutor/ui";
+import { TableCell, TableRow, Label, Input } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -168,9 +171,7 @@ export const StaffTableRow = memo(function StaffTableRow({
       )}
       {visibleColumns.includes('staff') && (
         <TableCell>
-          <div className="font-medium">
-            {`${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() || 'Unnamed Staff'}
-          </div>
+          <EntityActionChip entityType="staff" entityId={staff.id} label={staffFullName} onClick={handleClick} />
           {(staff.email || staff.phone_number) ? (
             <div className="text-xs text-muted-foreground">
               {[staff.email, staff.phone_number].filter(Boolean).join(' · ')}
@@ -211,9 +212,7 @@ export const StaffTableRow = memo(function StaffTableRow({
           {staff.subjects && staff.subjects.length > 0 ? (
             <div className="flex flex-col gap-1 text-xs">
               {staff.subjects.map((subject) => (
-                <span key={subject.id} className="whitespace-nowrap">
-                  {subject.long_name || subject.short_name || subject.name || subject.id}
-                </span>
+                <SubjectChip key={subject.id} subject={subject} />
               ))}
             </div>
           ) : (
@@ -228,21 +227,9 @@ export const StaffTableRow = memo(function StaffTableRow({
               {classes
                 .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
                 .map((cls) => (
-                  <Button
-                    key={cls.id}
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs justify-start whitespace-nowrap"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onClassClick(cls.id);
-                    }}
-                    title={cls.long_name?.trim() ?? ''}
-                  >
-                    {/* Default to short names, only show full on 2xl+ screens */}
-                    <span className="2xl:hidden">{cls.short_name?.trim() ?? ''}</span>
-                    <span className="hidden 2xl:inline">{cls.long_name?.trim() ?? ''}</span>
-                  </Button>
+                  <EntityActionChip key={cls.id} entityType="class" entityId={cls.id} label={cls.short_name?.trim() || cls.long_name || 'Class'}
+                    style={cls.subject ? getSubjectColorStyle(cls.subject).style : undefined} className={cls.subject?.color ? getSubjectColorStyle(cls.subject).textColorClass : undefined}
+                    onClick={event => { event.stopPropagation(); onClassClick(cls.id); }} />
                 ))}
             </div>
           ) : (

@@ -1102,3 +1102,27 @@ export function useContactMessagingAddresses(contactId: string | null) {
     staleTime: 0,
   });
 }
+
+/** Count responsibility across the full mailbox, independently of its bounded preview list. */
+export function useAssignedConversationCount(staffId: string | undefined) {
+  return useQuery({
+    queryKey: [...messagesKeys.conversationsByContactBase(), 'assigned-count', staffId],
+    enabled: Boolean(staffId),
+    queryFn: async ({ signal }) => {
+      const keys = new Set<string>();
+      const db = getSupabaseClient();
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await db.from('conversations')
+          .select('id,contact_id,is_group_chat')
+          .eq('assigned_staff_id', staffId!)
+          .in('status', ['OPEN', 'SNOOZED'])
+          .order('id').range(offset, offset + 499).abortSignal(signal);
+        if (error) throw error;
+        for (const row of data) keys.add(row.is_group_chat ? `group:${row.id}` : `contact:${row.contact_id}`);
+        if (data.length < 500) return keys.size;
+      }
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}

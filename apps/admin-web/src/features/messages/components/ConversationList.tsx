@@ -64,7 +64,7 @@ export function ConversationList({
     defaultSort: { field: 'latest', direction: 'desc' },
     defaultVisibleColumns: conversationListDefaults.visibleColumns,
     filterKeys: ['read', 'reply', 'followUp', 'assignee', 'recipient', 'from'],
-    skipUrlSync: true,
+    skipUrlSync: filterScope !== 'page',
   });
   const { data } = useConversationList(selectedOwnedNumberId);
   const qc = useQueryClient();

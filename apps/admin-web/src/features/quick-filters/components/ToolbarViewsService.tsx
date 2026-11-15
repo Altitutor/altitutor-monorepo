@@ -10,6 +10,8 @@ import { reconciliationViewKey, type ReconciliationViewKey } from '../config/ope
 import { ReconciliationCountBadge } from '@/features/reconciliation/components/ReconciliationCountBadge';
 import { useCurrentStaff } from "@/shared/hooks";
 import { quickFiltersApi } from "../api/quick-filters";
+import { Badge } from '@altitutor/ui';
+import { useUnreadConversationCount, useAssignedConversationCount } from '@/features/messages/api/queries';
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 
 function AdminViewDialog({
@@ -42,7 +44,17 @@ function QueueCount({ queue }: { queue: ReconciliationViewKey }) {
   return counts[queue] === undefined ? null : <ReconciliationCountBadge className="ml-1.5" queues={[queue]} counts={counts} />;
 }
 
+function MessageViewCount({ mine }: { mine: boolean }) {
+  const { data: staff } = useCurrentStaff();
+  const unread = useUnreadConversationCount();
+  const assigned = useAssignedConversationCount(mine ? staff?.id : undefined);
+  const count = mine ? assigned.data : unread.data;
+  return count === undefined ? null : <Badge variant="secondary" className="ml-1.5">{count}</Badge>;
+}
+
 function AdminViewBadge({ view }: { view: SavedView }) {
+  if (view.id === 'builtin:messages:unread') return <MessageViewCount mine={false} />;
+  if (view.id === 'builtin:messages:mine') return <MessageViewCount mine />;
   const queue = reconciliationViewKey(view.id);
   return queue ? <QueueCount queue={queue} /> : null;
 }

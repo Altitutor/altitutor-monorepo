@@ -1,5 +1,8 @@
 'use client';
 
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
+
 import React from 'react';
 import { StudentCount } from '@/shared/components/StudentCount';
 import { Users, MapPin } from 'lucide-react';
@@ -68,7 +71,7 @@ export function SessionCard({
 }: SessionCardProps) {
   const subjectColorHex = getSubjectColorHex(session.subject as Tables<'subjects'> | null | undefined);
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
-  const sessionTitle = title || getSessionTitle(session as SessionWithDetails) || session.subject?.name || formatSessionType(session.type || '');
+  const sessionTitle = title || session.subject?.name || session.class?.subject?.name || getSessionTitle(session as SessionWithDetails) || session.subject?.name || formatSessionType(session.type || '');
   const showFullNames = (students?.length || 0) <= 4 && (staff?.length || 0) <= 3;
   
   const timeRange = session.start_at && session.end_at
@@ -107,6 +110,7 @@ export function SessionCard({
                   {sessionTitle}
                 </h4>
                 <StudentCount count={students?.length} />
+                <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />
               </div>
               <div className="flex flex-col gap-0.5 mt-1">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

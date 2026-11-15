@@ -136,7 +136,7 @@ async function openActions(surface: 'detail' | 'student') {
   const user = userEvent.setup();
   if (surface === 'student') {
     const row = await screen.findByRole('row', { name: /TEST-001/ });
-    await user.click(within(row).getByRole('button'));
+    await user.click(within(row).getByRole('button', { name: 'Invoice actions' }));
   } else {
     await waitFor(() =>
       expect(screen.getByText('Invoice Information')).toBeInTheDocument(),

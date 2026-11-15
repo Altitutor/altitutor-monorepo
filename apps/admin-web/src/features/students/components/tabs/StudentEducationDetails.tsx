@@ -1,7 +1,8 @@
 "use client";
 
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
 import type { Tables, TablesUpdate } from "@altitutor/shared";
-import { Input, Separator } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
 import {
   AvailabilityFields,
   type AvailabilitySlotKey,
@@ -25,13 +26,10 @@ export function StudentEducationDetails({
 
   return (
     <section
-      className="space-y-4 border-t pt-4"
+      className="space-y-4"
       aria-label="Education and availability"
     >
-      <div>
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="text-base font-medium">Education</h3>
-        </div>
+      <EntitySidebarSection title="Education">
         <PropertyForm>
           <PropertyFormRow
             label="School"
@@ -107,10 +105,8 @@ export function StudentEducationDetails({
             )}
           </PropertyFormRow>
         </PropertyForm>
-      </div>
-      <Separator />
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Availability</h3>
+      </EntitySidebarSection>
+      <EntitySidebarSection title="Availability">
         <AvailabilityFields
           isEditing={isEditMode}
           getValue={(key) =>
@@ -120,7 +116,7 @@ export function StudentEducationDetails({
             onChange({ [key]: checked });
           }}
         />
-      </div>
+      </EntitySidebarSection>
     </section>
   );
 }

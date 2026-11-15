@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
+import { openEntityReference } from '@/shared/utils/entityReference';
 import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
@@ -119,7 +120,7 @@ export function ClassCard({
       : '-';
   const schedule = classData.schedule_summary_short || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onCancelEnrolment || onSendUnenrollmentLink || onUnassign);
+  const hasMenuActions = !hideActions && !isSelecting && (/^[0-9a-f-]{36}$/i.test(classData.id) || onChangeClass || onUnenroll || onCancelEnrolment || onSendUnenrollmentLink || onUnassign);
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);
@@ -223,12 +224,14 @@ export function ClassCard({
                     variant="outline" 
                     size="icon" 
                     className="h-8 w-8 flex-shrink-0"
+                    aria-label="Class actions"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" onClick={event => event.stopPropagation()}>
+                  <DropdownMenuItem onSelect={() => openEntityReference('class', classData.id)}>Open class</DropdownMenuItem>
                   {onChangeClass && (
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();

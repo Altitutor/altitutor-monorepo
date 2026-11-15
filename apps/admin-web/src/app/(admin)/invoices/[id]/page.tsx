@@ -311,6 +311,7 @@ export default function InvoiceDetailPage(
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb
           label={formatInvoiceTagText({
+          invoiceNumber: invoice.stripe_invoice_number,
             invoiceDate: invoice.invoice_date,
             lineItemDescriptions: invoiceItems.map(
               (item) => item.description || "Invoice item",
@@ -323,6 +324,7 @@ export default function InvoiceDetailPage(
           type="invoice"
           entityId={id}
           copyTagDisplayText={formatInvoiceTagText({
+          invoiceNumber: invoice.stripe_invoice_number,
             invoiceDate: invoice.invoice_date,
             lineItemDescriptions: invoiceItems.map(
               (item) => item.description || "Invoice item",

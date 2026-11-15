@@ -1,8 +1,10 @@
 'use client';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { EntityChip, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+import {  Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   DataTableToolbar, TablePagination, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { MoreVertical } from 'lucide-react';
 import { billingChargesQuery, estimateBillingCharges, loadAdjustmentPeopleAndSessions, type BillingCharge } from '../api/workQueues';

@@ -1,4 +1,6 @@
 'use client';
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+
 
 import type { TablesUpdate } from "@altitutor/shared";
 import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
@@ -121,7 +123,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const { data: studentClasses = [] } = useStudentClasses(id);
 
   // UI state
-  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'activity', 'tab');
+  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'sessions', 'tab');
   const activeTab = requestedTab === 'classes' ? 'sessions' : requestedTab;
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isHomeworkHelpOpen, setIsHomeworkHelpOpen] = useState(false);
@@ -313,12 +315,12 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           onChange={(patch) => setSectionDraft((current) => ({ ...current, ...patch }))}
         />
         {!editFlow.isEditing && (
-          <section className="space-y-2 border-t pt-4" aria-label="Account">
-            <h3 className="text-base font-medium">Account</h3>
+          <EntitySidebarSection title="Account">
             <p className="text-sm text-muted-foreground">{student.user_id ? 'Has account' : 'No account'}</p>
-          </section>
+          </EntitySidebarSection>
+
         )}
-      {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
+      {hasOnboarding && <EntitySidebarSection title="Onboarding journey"><StudentOnboardingSidebar studentId={id} /></EntitySidebarSection>}
         </div>
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>

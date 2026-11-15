@@ -88,6 +88,8 @@ export type ClassWithRelations = Tables<'classes'> & {
  * This properly handles the type conflict when overriding subject: string with subject?: Tables<'subjects'>
  */
 export type ClassWithExpandedSubject = Omit<Tables<'classes'>, 'subject'> & {
+  /** Enrolment context when this class is returned for a particular student. */
+  enrolled_at?: string | null;
   subject?: Tables<'subjects'>;
   staff?: Tables<'staff'>[];
   students?: Tables<'students'>[];

@@ -848,7 +848,17 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         </div>
         {/* Search */}
         {!hideSearch ? (
-          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+          !searchOpen && searchValue ? (
+            <div className={cn("flex h-10 min-w-0 max-w-sm items-center rounded-md border border-input px-2", searchContainerClassName)}>
+              {searchLeadingContent}
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input aria-label="Search records" placeholder={searchPlaceholder} value={searchValue}
+                onChange={event => setSearchValue(event.target.value)}
+                className={cn("h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0", searchInputClassName)} />
+              <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}><X className="h-4 w-4" /></button>
+              {searchAccessory}
+            </div>
+          ) : <Popover open={searchOpen} onOpenChange={setSearchOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
