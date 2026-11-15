@@ -1,5 +1,6 @@
 "use client";
 
+import { subjectsKeys } from "../hooks/useSubjectsQuery";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { subjectsApi } from "../api";
@@ -7,7 +8,7 @@ import { getSignedUrlFromBucket } from "@/shared/lib/supabase/storage";
 
 export function SubjectCover({ subjectId }: { subjectId: string }) {
   const { data: url } = useQuery({
-    queryKey: ["subject-cover", subjectId],
+    queryKey: subjectsKeys.cover(subjectId),
     queryFn: async () => {
       const file = await subjectsApi.getSubjectImageFile(subjectId);
       return file?.storage_path && file.bucket === "resources"

@@ -32,6 +32,7 @@ import { AdminDialogShell } from '@/shared/components';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { collectTableRows } from '@/shared/utils/tablePages';
+import { SubjectChip } from '@/shared/components/SubjectChip';
 import { SubjectCover } from './SubjectCover';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
@@ -473,9 +474,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
               subjects.map((subject) => {
                 const isSelected = selectedSubjectIds.has(subject.id);
                 const subjectColorHex = getSubjectColorHex(subject);
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
 
                 return (
                   <TableRow
@@ -519,13 +517,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                     )}
                     {state.visibleColumns.includes('code') && (
                       <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
-                          style={style.backgroundColor ? style : undefined}
-                        >
-                          {shortName}
-                        </Badge>
+                        <SubjectChip subject={subject} />
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('color') && (

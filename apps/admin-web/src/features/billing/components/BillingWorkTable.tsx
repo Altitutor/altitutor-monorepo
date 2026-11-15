@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import {  Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   DataTableToolbar, TablePagination, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { MoreVertical } from 'lucide-react';
-import { billingChargesQuery, estimateBillingCharges, loadAdjustmentPeopleAndSessions, type BillingCharge } from '../api/workQueues';
+import { billingChargesQuery, estimateBillingCharges, loadAdjustmentPeopleAndSessions, loadSessionSubjects, type BillingCharge } from '../api/workQueues';
 import { useSessionBillingAdjustmentIssues } from '@/features/reconciliation/api/queries';
 import { useInvoiceSessionMutation } from '@/features/sessions/hooks/useInvoiceSessionMutation';
 import { describeBillingAdjustment } from '../utils/sessionBillingIssue';
@@ -16,6 +16,7 @@ import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { formatCurrency } from '@/shared/utils/pricing';
 import { DeleteVoidInvoiceButton } from './DeleteVoidInvoiceButton';
 
@@ -62,6 +63,13 @@ export function BillingWorkTable({ mode }: { mode: 'charges' | 'adjustments' }) 
       sessionId: row.session_id, sessionName: labels.data?.sessions[row.session_id] || 'Session', date: row.session_start_at || row.created_at,
       ...describeBillingAdjustment(row), amountCents: row.amount_cents, currency: row.currency,
     })), [mode, charges.data, adjustments.data, labels.data, state.filters]);
+  const sessionIds = [...new Set(rows.map(row => row.sessionId))];
+  const sessionSubjects = useQuery({
+    queryKey: ['subjects', 'billing-session-subjects', sessionIds],
+    queryFn: () => loadSessionSubjects(sessionIds),
+    enabled: sessionIds.length > 0,
+    staleTime: 120_000,
+  });
   const filtered = useMemo(() => {
     const query = state.search.trim().toLocaleLowerCase();
     const result = rows.filter((row) => {
@@ -113,7 +121,7 @@ export function BillingWorkTable({ mode }: { mode: 'charges' | 'adjustments' }) 
             const voidId = row.charge && 'void_invoice_id' in row.charge ? row.charge.void_invoice_id : undefined;
             return <TableRow key={row.id}>
               {state.visibleColumns.includes('student') && <TableCell><EntityChip entityType="student" entityId={row.studentId} label={row.studentName} onClick={() => navigation.openStudent(row.studentId)} /></TableCell>}
-              {state.visibleColumns.includes('session') && <TableCell><EntityChip entityType="session" entityId={row.sessionId} label={row.sessionName} onClick={() => navigation.openSession(row.sessionId)} /></TableCell>}
+              {state.visibleColumns.includes('session') && <TableCell><EntityChip entityType="session" entityId={row.sessionId} label={row.sessionName} style={getSubjectColorStyle(sessionSubjects.data?.[row.sessionId]).style} className={sessionSubjects.data?.[row.sessionId]?.color ? getSubjectColorStyle(sessionSubjects.data[row.sessionId]).textColorClass : undefined} onClick={() => navigation.openSession(row.sessionId)} /></TableCell>}
               {state.visibleColumns.includes('date') && <TableCell className="whitespace-nowrap">{new Date(row.date).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide', dateStyle: 'medium', timeStyle: 'short' })}</TableCell>}
               {state.visibleColumns.includes('amount') && <TableCell>{amount ? formatCurrency(amount.amountCents, amount.currency) : estimates.isLoading && row.charge ? 'Loading…' : row.charge ? 'Estimate unavailable' : 'Calculated during processing'}</TableCell>}
               {state.visibleColumns.includes('issue') && <TableCell className="max-w-96 whitespace-normal"><div className="font-medium">{row.label}</div><p className="text-xs text-muted-foreground">{row.guidance}</p>

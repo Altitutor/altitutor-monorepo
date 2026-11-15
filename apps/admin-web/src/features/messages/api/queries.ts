@@ -796,6 +796,7 @@ export async function fetchConversationList(
       last_message: lastMessage,
       status: conv.status,
       needs_follow_up: conv.needs_follow_up ?? false,
+      assigned_staff_id: conv.assigned_staff_id,
     });
 
     if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {

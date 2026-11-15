@@ -32,3 +32,8 @@ it("matches a local mobile search against an international number", () => {
   expect(matchesConversationListQuery(fields, { ...query, search: "0478778288" })).toBe(true);
   expect(matchesConversationListQuery(fields, { ...query, search: "Bea" })).toBe(false);
 });
+
+it('keeps a contact assigned to me when another owned-number conversation has a different assignee', () => {
+  const mixed = { ...fields, assignedStaffId: 'another-staff', assignedStaffIds: ['ada', 'another-staff'] };
+  expect(matchesConversationListQuery(mixed, { ...query, filters: { assignee: ['mine'] } })).toBe(true);
+});
