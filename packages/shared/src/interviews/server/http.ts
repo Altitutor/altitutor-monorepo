@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../supabase/generated";
 import type { InterviewRound, StudentInterviewRound } from "../index";
 import { interviewMediaPolicy } from "../media";
+import type { InterviewMediaEvidence } from "./media-evidence";
 import { readInterviewCommandBody } from "./request";
 import { DailyInterviewProvider } from "./daily";
 import { createInterviewMediaStore } from "./media-store";
@@ -20,6 +21,7 @@ interface Dependencies {
   serviceClient(): SupabaseClient<Database>;
   apiKey(): string | undefined;
   errorResponse(error: unknown): Response;
+  diagnostic?(evidence: InterviewMediaEvidence): void;
 }
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -40,15 +42,21 @@ function json(body: unknown, status = 200): Response {
 }
 
 export function createInterviewMediaHandlers(deps: Dependencies) {
-  async function authorised(request: Request, roundId: string) {
+  async function authorised(
+    request: Request,
+    roundId: string,
+    report?: (operation: InterviewMediaEvidence["operation"], tutorId?: string) => void,
+  ) {
     if (!uuid.test(roundId))
       return { response: json({ error: "Invalid interview." }, 400) };
+    report?.("resolve_actor");
     const actor = await deps.resolveActor(request);
     if ("response" in actor) return actor;
     const view =
       deps.role === "tutor"
         ? "vtutor_interview_rounds"
         : "vstudent_interview_rounds";
+    report?.("round_view");
     const { data, error } = await actor.userClient
       .from(view)
       .select("data")
@@ -67,6 +75,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
       | StudentInterviewRound;
     let actorId: string;
     if (deps.role === "tutor") {
+      report?.("current_tutor_id");
       const { data: id, error: idError } =
         await actor.userClient.rpc("current_tutor_id");
       if (idError) throw idError;
@@ -79,17 +88,28 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
 
   return {
     async ticket(request: Request, roundId: string): Promise<Response> {
+      const captureRequested =
+        deps.role === "tutor" &&
+        new URL(request.url).searchParams.get("capture") === "1";
+      const report = (operation: InterviewMediaEvidence["operation"], tutorId?: string) => {
+        if (!uuid.test(roundId)) return;
+        try {
+          deps.diagnostic?.({ version: 1, operation, roundId,
+            ...(deps.role === "tutor" && tutorId ? { tutorId } : {}),
+            captureRequested, role: deps.role });
+        } catch {
+          // Diagnostics must never change media authorization or its response.
+        }
+      };
       try {
-        const access = await authorised(request, roundId);
+        const access = await authorised(request, roundId, report);
         if ("response" in access) return access.response;
         const client = deps.serviceClient();
         const store = createInterviewMediaStore(client);
-        const captureRequested =
-          deps.role === "tutor" &&
-          new URL(request.url).searchParams.get("capture") === "1";
         const videoCapture =
           access.round.delivery === "online" && captureRequested;
         if (access.round.delivery === "in_person" || videoCapture) {
+          report("interview_media_state", access.actorId);
           const round = await store.round(roundId);
           const policy = interviewMediaPolicy(round, access.actorId, deps.role);
           let captureId: string | undefined;
@@ -98,6 +118,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
           let finalized = false;
           let videoCaptureAllowed = false;
           if (captureRequested) {
+            report(videoCapture ? "interview_video_capture" : "interview_audio_capture", access.actorId);
             const { data: capture, error: captureError } = await client.rpc(
               videoCapture
                 ? "interview_video_capture"
@@ -161,6 +182,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
           new DailyInterviewProvider(key),
         );
         const search = new URL(request.url).searchParams;
+        report("interview_media_ticket", deps.role === "tutor" ? access.actorId : undefined);
         const ticket = await service.ticket(
           roundId,
           {

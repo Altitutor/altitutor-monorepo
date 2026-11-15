@@ -1,3 +1,5 @@
+import { sanitizeInterviewMediaEvidenceEvent } from "@altitutor/shared/interviews/server";
+import { sanitizeDependencyEvidenceEvent } from "@altitutor/shared";
 import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import { resolveSentryCollection } from "@altitutor/shared";
@@ -19,6 +21,9 @@ Sentry.init({
   enabled: collection.errors,
   environment: collection.environment,
   ...sentryWebCompatibilityOptions(),
-  beforeSend: filterExpectedTutorWebError,
+  beforeSend(event, hint) {
+    const safe = filterExpectedTutorWebError(event, hint);
+    return safe ? sanitizeDependencyEvidenceEvent(sanitizeInterviewMediaEvidenceEvent(safe, hint)) : null;
+  },
   tracesSampleRate: collection.errors ? 0.1 : 0,
 });

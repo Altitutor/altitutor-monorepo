@@ -2,6 +2,8 @@ import { getAuthCookieName } from "@/shared/lib/supabase/auth-cookie";
 import { containsMobileAuthData } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import {
+  createDependencyEvidence,
+  type DependencyEvidence,
   getClaimsWithJwtIssuedInFutureRetry,
   headersWithVerifiedUser,
   isUnauthenticatedSessionError,
@@ -71,18 +73,19 @@ function hasLegacyRouterState(request: NextRequest): boolean {
   return false;
 }
 
-function createDeadline() {
+function createDeadline(evidence: DependencyEvidence) {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout>;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
+      evidence.deadlineExpired();
       controller.abort();
       reject(new Error("Student session dependency deadline exceeded"));
     }, SESSION_DEADLINE_MS);
   });
   return {
     fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
-      fetch(input, { ...init, signal: controller.signal }),
+      evidence.fetch(fetch)(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
@@ -123,23 +126,27 @@ function unavailable(
   error: unknown,
   cookies: CookieToSet[],
   headers: Record<string, string>,
+  evidence: DependencyEvidence,
 ) {
-  Sentry.captureMessage("Middleware dependency unavailable", {
-    level: "error",
-    fingerprint: ["middleware-dependency-unavailable", "student-web", "authentication"],
-    tags: {
-      app: "student-web",
-      dependency_stage: "authentication",
-      http_status: "503",
-      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
-    },
-    extra: {
-      elapsed_ms: Math.max(0, Date.now() - startedAt),
-      error_message: field(error, "message"),
-      request_method: request.method,
-      request_path: request.nextUrl.pathname,
-    },
-  });
+  try {
+    Sentry.captureMessage("Middleware dependency unavailable", {
+      level: "error",
+      fingerprint: ["middleware-dependency-unavailable", "student-web", "authentication"],
+      tags: {
+        app: "student-web",
+        dependency_stage: "authentication",
+        http_status: "503",
+        supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+      },
+      extra: {
+        dependency_evidence: evidence.snapshot(),
+        elapsed_ms: Math.max(0, Date.now() - startedAt),
+        error_message: field(error, "message"),
+        request_method: request.method,
+        request_path: request.nextUrl.pathname,
+      },
+    });
+  } catch { /* Diagnostics must not affect the retryable response. */ }
   return applyMetadata(
     new NextResponse("Student portal services are temporarily unavailable. Please retry.", {
       status: 503,
@@ -208,11 +215,12 @@ export async function handleAuthRequest(request: NextRequest) {
   const responseHeaders: Record<string, string> = containsMobileAuthData(request.url)
     ? { "Referrer-Policy": "no-referrer" }
     : {};
+  const evidence = createDependencyEvidence({ supabaseUrl, incomingSignal: request.signal, vercelId: request.headers.get("x-vercel-id") });
   if (!supabaseUrl || !supabaseAnonKey) {
-    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders, evidence);
   }
 
-  const deadline = createDeadline();
+  const deadline = createDeadline(evidence);
   const supabase = instrumentSupabaseClient(
     createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
       cookies: {
@@ -236,7 +244,7 @@ export async function handleAuthRequest(request: NextRequest) {
     let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
       claims = await getClaimsWithJwtIssuedInFutureRetry(
-        () => deadline.race(supabase.auth.getClaims()),
+        () => deadline.race(evidence.operation("get_claims", () => supabase.auth.getClaims())),
         () =>
           deadline.race(
             new Promise((resolve) =>
@@ -253,11 +261,11 @@ export async function handleAuthRequest(request: NextRequest) {
           responseHeaders,
         );
       }
-      return unavailable(request, startedAt, error, cookies, responseHeaders);
+      return unavailable(request, startedAt, error, cookies, responseHeaders, evidence);
     }
     const missingSession = isUnauthenticatedSessionError(claims.error);
     if (claims.error && !missingSession) {
-      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders, evidence);
     }
     const userId = claims.data?.claims?.sub;
     if (missingSession || !userId) {

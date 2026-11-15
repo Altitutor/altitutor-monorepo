@@ -1,3 +1,4 @@
+import { sanitizeDependencyEvidenceEvent } from "@altitutor/shared";
 import { sentryWebCompatibilityOptions } from "@altitutor/shared";
 import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
@@ -19,7 +20,10 @@ Sentry.init({
   enabled: collection.errors,
   environment: collection.environment,
   ...sentryWebCompatibilityOptions(),
-  beforeSend: filterMobileAuthTelemetry,
+  beforeSend(event) {
+    const safe = filterMobileAuthTelemetry(event);
+    return safe ? sanitizeDependencyEvidenceEvent(safe) : null;
+  },
   beforeSendTransaction: filterMobileAuthTelemetry,
   beforeBreadcrumb: filterMobileAuthTelemetry,
   tracesSampleRate: collection.errors ? 0.1 : 0,
