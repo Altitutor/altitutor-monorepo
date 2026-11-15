@@ -34,9 +34,9 @@ export const topicsApi = {
       .from('topics')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error fetching topic:', error);
       throw error;
     }
