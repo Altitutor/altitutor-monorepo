@@ -35,6 +35,7 @@ export * from "./auth/session-verification";
 export * from './auth/student-login';
 export * from "./observability/sentry-environment";
 export * from "./observability/sentry-collection";
+export * from "./observability/dependency-evidence";
 export * from "./session-billing/obligation";
 export * from "./session-billing/adjustment";
 export * from "./session-billing/future-invoices";

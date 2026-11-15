@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { createDependencyEvidence, type DependencyEvidence } from "@altitutor/shared";
 import type { Database } from "@altitutor/shared";
 import { createServerComponentClient } from "@/shared/lib/supabase/server-component";
 
@@ -35,37 +36,42 @@ function captureUnavailable(
   stage: "authentication" | "portal_access",
   startedAt: number,
   error: unknown,
+  evidence: DependencyEvidence,
 ) {
-  Sentry.captureMessage("Portal access dependency unavailable", {
-    level: "error",
-    fingerprint: ["portal-access-unavailable", "tutor-web", stage],
-    tags: {
-      app: "tutor-web",
-      dependency_stage: stage,
-      http_status: "503",
-      supabase_error_code:
-        field(error, "code") ?? field(error, "name") ?? "unknown",
-    },
-    extra: {
-      elapsed_ms: Math.max(0, Date.now() - startedAt),
-      error_message: field(error, "message"),
-      error_status: field(error, "status"),
-    },
-  });
+  try {
+    Sentry.captureMessage("Portal access dependency unavailable", {
+      level: "error",
+      fingerprint: ["portal-access-unavailable", "tutor-web", stage],
+      tags: {
+        app: "tutor-web",
+        dependency_stage: stage,
+        http_status: "503",
+        supabase_error_code:
+          field(error, "code") ?? field(error, "name") ?? "unknown",
+      },
+      extra: {
+        dependency_evidence: evidence.snapshot(),
+        elapsed_ms: Math.max(0, Date.now() - startedAt),
+        error_message: field(error, "message"),
+        error_status: field(error, "status"),
+      },
+    });
+  } catch { /* Diagnostics must not affect portal access. */ }
 }
 
-function createDeadline() {
+function createDeadline(evidence: DependencyEvidence) {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
+      evidence.deadlineExpired();
       controller.abort();
       reject(new Error("Tutor portal access deadline exceeded"));
     }, ACCESS_DEADLINE_MS);
   });
   return {
     fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
-      fetch(input, { ...init, signal: controller.signal }),
+      evidence.fetch(fetch)(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
@@ -110,13 +116,14 @@ export const loadTutorPortalAccess = cache(
   async (verifiedUserId: string | null): Promise<TutorPortalAccess> => {
     if (!verifiedUserId) return { status: "unauthenticated" };
     const startedAt = Date.now();
-    const deadline = createDeadline();
+    const evidence = createDependencyEvidence({ supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+    const deadline = createDeadline(evidence);
     try {
       let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
       try {
-        supabase = await createServerComponentClient(deadline.fetch);
+        supabase = await evidence.operation("create_client", () => createServerComponentClient(deadline.fetch, evidence));
       } catch (error) {
-        captureUnavailable("portal_access", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error, evidence);
         return { status: "unavailable" };
       }
       const userId = verifiedUserId;
@@ -125,16 +132,16 @@ export const loadTutorPortalAccess = cache(
       try {
         profile = await deadline.race(
           queryWithClockSkewRetry(
-            () => supabase.from("vtutor_profile").select("*").maybeSingle(),
+            () => evidence.operation("tutor_profile", () => supabase.from("vtutor_profile").select("*").maybeSingle()),
             startedAt,
           ),
         );
       } catch (error) {
-        captureUnavailable("portal_access", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error, evidence);
         return { status: "unavailable" };
       }
       if (profile.error) {
-        captureUnavailable("portal_access", startedAt, profile.error);
+        captureUnavailable("portal_access", startedAt, profile.error, evidence);
         return { status: "unavailable" };
       }
       if (

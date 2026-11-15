@@ -4,3 +4,5 @@ export * from './media-store';
 export * from './http';
 export * from './maintenance';
 export * from './request';
+
+export * from './media-evidence';

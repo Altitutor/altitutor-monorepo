@@ -1,12 +1,15 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import type { Database } from "@altitutor/shared";
+import { cookies, headers } from "next/headers";
+import type { DependencyEvidence, Database } from "@altitutor/shared";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-export async function createServerComponentClient(globalFetch?: typeof fetch) {
+export async function createServerComponentClient(globalFetch?: typeof fetch, evidence?: DependencyEvidence) {
   const cookieStore = await cookies();
+  if (evidence) {
+    try { evidence.invocation((await headers()).get("x-vercel-id")); } catch { /* Optional correlation only. */ }
+  }
 
   return instrumentSupabaseClient(
     createServerClient<Database>(
