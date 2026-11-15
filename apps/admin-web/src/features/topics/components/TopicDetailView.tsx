@@ -603,9 +603,10 @@ export function TopicDetailView({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete topic and all subtopics?</AlertDialogTitle>
             <AlertDialogDescription>
               <RetainedDeletionMessage kind="Topic" name={topic?.name} />
+              {" "}All subtopics at every level will also be hidden, along with their resources. Their records and history will be retained. Restoring this topic does not automatically restore its subtopics.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

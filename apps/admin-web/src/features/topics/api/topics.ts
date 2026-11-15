@@ -34,9 +34,9 @@ export const topicsApi = {
       .from('topics')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error fetching topic:', error);
       throw error;
     }
@@ -199,7 +199,7 @@ export const topicsApi = {
   },
   
   /**
-   * Delete a topic (will cascade delete children)
+   * Hide a topic and its entire subtree, retaining their records and history
    */
   deleteTopic: async (id: string): Promise<void> => {
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
