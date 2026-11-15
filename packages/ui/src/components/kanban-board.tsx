@@ -785,6 +785,7 @@ function SortableCard<TItem>({
   animateLayoutChanges,
 }: SortableCardProps<TItem>) {
   const id = getItemId(item);
+  const contentId = React.useId();
   const {
     attributes,
     listeners,
@@ -814,8 +815,13 @@ function SortableCard<TItem>({
       )}
       {...attributes}
       {...listeners}
+      aria-labelledby={contentId}
     >
-      <CollectionRecord id={id}><CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} /></CollectionRecord>
+      <CollectionRecord id={id}>
+        <div id={contentId} className="contents">
+          <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
+        </div>
+      </CollectionRecord>
     </div>
   );
 }
