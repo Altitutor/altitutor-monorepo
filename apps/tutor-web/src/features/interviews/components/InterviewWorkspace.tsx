@@ -883,6 +883,8 @@ function InPersonRoundView({
   const pendingReason = pending
     ? "Wait for the current action to finish."
     : undefined;
+  const finishReason = pendingReason ??
+    (paused ? "Resume the round before finishing your station." : undefined);
   const assignedReason = progress
     ? undefined
     : "You are not assigned to a station.";
@@ -1081,8 +1083,8 @@ function InPersonRoundView({
                 <ActionButton
                   variant="outline"
                   className={tutorBtnOutline}
-                  reason={pendingReason}
-                  disabled={pending}
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={() => setConfirm("end")}
                 >
                   End my station early
@@ -1092,8 +1094,8 @@ function InPersonRoundView({
               (round.phase === "feedback" || progress.endedEarly) &&
               !progress.feedbackComplete && (
                 <ActionButton
-                  reason={pendingReason}
-                  disabled={pending}
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={onRequestFinish}
                 >
                   Finish feedback

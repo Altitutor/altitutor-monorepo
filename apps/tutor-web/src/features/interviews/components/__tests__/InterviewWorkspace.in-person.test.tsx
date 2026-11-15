@@ -690,6 +690,22 @@ describe("in-person interview round", () => {
     expect(container.querySelector("header")?.className).toContain(
       "bg-amber-400",
     );
+    expect(screen.getByRole("button", { name: "End my station early" })).toBeDisabled();
+  });
+
+  it("keeps feedback finishing disabled until a paused round resumes", () => {
+    currentRound = {
+      ...roundFixture("in_person"),
+      phase: "feedback",
+      pausedAt: "2026-10-23T01:07:00.000Z",
+      pausedBy: "tutor-1",
+    };
+    const { rerender } = render(<InterviewWorkspace id="round-1" />);
+    expect(screen.getByRole("button", { name: "Finish feedback" })).toBeDisabled();
+
+    currentRound = { ...currentRound, pausedAt: null, pausedBy: null };
+    rerender(<InterviewWorkspace id="round-1" />);
+    expect(screen.getByRole("button", { name: "Finish feedback" })).toBeEnabled();
   });
 
   it("uses the shared round screen with the video on the background online", () => {
