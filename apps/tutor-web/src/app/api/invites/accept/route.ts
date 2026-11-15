@@ -140,6 +140,22 @@ export async function POST(request: NextRequest) {
       .eq('id', staffMember.id)
       .eq('invite_token', input.token);
     if (profileError) {
+      // The contact trigger protects ownership across Students, parents and staff.
+      // Do not expose its phone number or record IDs to the bearer of an invite.
+      if (
+        profileError.code === 'P0001' &&
+        /^Phone number .+ is already associated with (?:a student|another staff member|a parent) \(ID: .+\)$/.test(
+          profileError.message,
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'This phone number is already in use. Enter a different phone number or contact Altitutor for help.',
+          },
+          { status: 409 },
+        );
+      }
       captureApiError(profileError, '/api/invites/accept');
       return NextResponse.json({ error: 'Failed to save onboarding details' }, { status: 500 });
     }
