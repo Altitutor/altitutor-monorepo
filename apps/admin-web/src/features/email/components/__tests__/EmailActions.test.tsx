@@ -135,13 +135,15 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   expect(reply).not.toHaveBeenCalled();
   fireEvent.keyDown(document.body, { key: "r" });
   fireEvent.keyDown(document.body, { key: "f" });
+  expect(forward).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.body, { key: "F", shiftKey: true });
   expect(reply).toHaveBeenCalledTimes(1);
   expect(forward).toHaveBeenCalledTimes(1);
   fireEvent.keyDown(document.body, { key: "m" });
   expect(
-    screen.getByRole("menuitem", { name: "Move to folder" }),
+    screen.getByPlaceholderText("Search Microsoft folders…"),
   ).toBeInTheDocument();
-  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Move to folder" }), {
+  fireEvent.keyDown(screen.getByPlaceholderText("Search Microsoft folders…"), {
     key: "r",
   });
   expect(reply).toHaveBeenCalledTimes(1);
@@ -185,7 +187,7 @@ it("replies to the open mail thread until a message is hovered", () => {
 
   fireEvent.keyDown(document.body, { key: "r" });
   fireEvent.keyDown(document.body, { key: "r", shiftKey: true });
-  fireEvent.keyDown(document.body, { key: "f" });
+  fireEvent.keyDown(document.body, { key: "F", shiftKey: true });
   expect(latestReply).toHaveBeenCalledTimes(1);
   expect(latestReplyAll).toHaveBeenCalledTimes(1);
   expect(latestForward).toHaveBeenCalledTimes(1);

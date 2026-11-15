@@ -14,7 +14,7 @@ export function TaskPriorityField({
       control={form.control}
       name="priority"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="p">
           <FormControl>
             <PrioritySelect
               value={field.value ?? 0}

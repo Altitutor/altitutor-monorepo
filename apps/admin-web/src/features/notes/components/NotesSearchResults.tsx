@@ -71,6 +71,7 @@ export function NotesSearchResults({ notes, searchQuery, order = defaultDocument
             key={note.id}
             role="button"
             tabIndex={0}
+            data-shortcut-list-item
             onClick={() => handleNoteClick(note.id)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {

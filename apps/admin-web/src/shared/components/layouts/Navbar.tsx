@@ -45,7 +45,7 @@ export function Navbar() {
             aria-pressed={isMobileMenuOpen}
             aria-expanded={isMobileMenuOpen}
             aria-controls="admin-mobile-sidebar"
-            aria-keyshortcuts="Alt+ArrowLeft"
+            aria-keyshortcuts="["
             className={cn("relative inline-flex h-9 w-9 flex-shrink-0 md:hidden", isMobileMenuOpen && navLinkActiveStyles)}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
@@ -57,7 +57,7 @@ export function Navbar() {
           <Button
             variant="outline"
             size="icon"
-            aria-keyshortcuts="Alt+ArrowLeft" onClick={toggleSidebar}
+            aria-keyshortcuts="[" onClick={toggleSidebar}
             aria-pressed={!sidebarCollapsed}
             className={cn("relative hidden h-9 w-9 flex-shrink-0 md:inline-flex", !sidebarCollapsed && navLinkActiveStyles)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -111,7 +111,7 @@ export function Navbar() {
 
           {user && detailPanel && (
             <Button variant="outline" size="icon" className={cn("relative h-9 w-9", detailPanel.expanded && navLinkActiveStyles)} aria-pressed={detailPanel.expanded}
-              aria-keyshortcuts="Alt+ArrowRight" onClick={detailPanel.toggle} aria-controls="admin-accessory-panel" aria-expanded={detailPanel.expanded}
+              aria-keyshortcuts="]" onClick={detailPanel.toggle} aria-controls="admin-accessory-panel" aria-expanded={detailPanel.expanded}
               aria-label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}
               title={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}>
               <PanelRight className="h-4 w-4" />

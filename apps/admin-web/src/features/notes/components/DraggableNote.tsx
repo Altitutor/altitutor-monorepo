@@ -76,6 +76,7 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
   return (
     <>
       <div
+        data-shortcut-list-item
         ref={setNodeRef}
         style={style}
         className={cn(

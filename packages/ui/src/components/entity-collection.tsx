@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { KeyboardCollection, type CollectionKeyboardAction } from "./collection-keyboard";
 import { EntityList, type EntityListProps } from "./entity-list";
 import { EntityToolbar } from "./entity-toolbar";
 import { KanbanBoard, type KanbanColumnDef } from "./kanban-board";
 
 export interface EntityCollectionProps<TItem> extends EntityListProps<TItem> {
+  keyboardActions?: CollectionKeyboardAction<TItem>[];
   layout?: "list" | "board";
   board?: {
     columnDefs: KanbanColumnDef<TItem>[];
@@ -65,6 +67,7 @@ export function EntityCollection<TItem>({
     hideToolbar: true,
   };
   return (
+    <KeyboardCollection items={props.items} getItemId={props.getItemId} onOpen={props.onRowClick} actions={props.keyboardActions}>
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-md bg-background">
       {!props.hideToolbar && (
         <div
@@ -126,5 +129,6 @@ export function EntityCollection<TItem>({
         )}
       </div>
     </div>
+    </KeyboardCollection>
   );
 }

@@ -83,6 +83,7 @@ export function DraggableFolder({
   return (
     <>
       <div
+        data-shortcut-list-item
         ref={setNodeRef}
         style={style}
         className={cn(

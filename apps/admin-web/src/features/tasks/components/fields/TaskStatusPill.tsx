@@ -33,7 +33,7 @@ export function TaskStatusPill({ form, taskStatus }: TaskStatusPillProps) {
           TASK_STATUS_OPTIONS[0];
 
         return (
-          <FormItem>
+          <FormItem data-shortcut-field="s">
             <FormControl>
               <SearchableSelect<StatusOption>
                 items={TASK_STATUS_OPTIONS}

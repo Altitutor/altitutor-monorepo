@@ -61,7 +61,7 @@ export function ProjectPropertyPills({
           const statusIconColor = getProjectStatusIconColor(status);
           const selected = PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ?? PROJECT_STATUS_OPTIONS[0];
           return (
-            <FormItem>
+            <FormItem data-shortcut-field="s">
               <FormControl>
                 <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
                   items={PROJECT_STATUS_OPTIONS}
@@ -91,7 +91,7 @@ export function ProjectPropertyPills({
           const priorityIconColor = getProjectPriorityIconColor(priority);
           const selected = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[0];
           return (
-            <FormItem>
+            <FormItem data-shortcut-field="p">
               <FormControl>
                 <SearchableSelect<(typeof PRIORITY_OPTIONS)[number]>
                   items={PRIORITY_OPTIONS}
@@ -116,7 +116,7 @@ export function ProjectPropertyPills({
         control={form.control}
         name="projectLeadId"
         render={({ field }) => (
-          <FormItem>
+          <FormItem data-shortcut-field="a">
             <FormControl>
               <SearchableSelect<Tables<'staff'>>
                 items={staffList}

@@ -1,3 +1,7 @@
+import { useForm } from "react-hook-form";
+import { Form } from "@altitutor/ui";
+import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
+import type { TaskFormData } from "@/features/tasks/types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
@@ -53,6 +57,7 @@ jest.mock("../NewDocumentDialog", () => ({
     open ? <div>New document dialog</div> : null,
 }));
 beforeEach(() => {
+  Element.prototype.scrollIntoView = jest.fn();
   jest.clearAllMocks();
   jest
     .spyOn(HTMLElement.prototype, "getClientRects")
@@ -93,8 +98,8 @@ it("supports Mac Option symbols, Cmd/Ctrl K, and panel toggles", () => {
   press("KeyK", { altKey: false, metaKey: true });
   press("KeyK", { altKey: false, ctrlKey: true });
   expect(togglePalette).toHaveBeenCalledTimes(3);
-  press("ArrowRight");
-  press("ArrowLeft");
+  press("BracketRight", { altKey: false, key: "]" });
+  press("BracketLeft", { altKey: false, key: "[" });
   expect(togglePanel).toHaveBeenCalledTimes(1);
   expect(toggleSidebar).toHaveBeenCalledTimes(1);
 });
@@ -144,14 +149,14 @@ it("shows key hints while Alt is held and clears them on release or blur", () =>
       <ShortcutKeys id="left" />
     </AdminShortcuts>,
   );
-  expect(screen.queryByText("←")).toBeNull();
+  expect(screen.queryByText("[")).toBeNull();
   press("AltLeft");
-  expect(screen.getByText("←")).toBeInTheDocument();
+  expect(screen.getByText("[")).toBeInTheDocument();
   fireEvent.keyUp(window, { key: "Alt", altKey: false });
-  expect(screen.queryByText("←")).toBeNull();
+  expect(screen.queryByText("[")).toBeNull();
   press("AltLeft");
   fireEvent.blur(window);
-  expect(screen.queryByText("←")).toBeNull();
+  expect(screen.queryByText("[")).toBeNull();
 });
 it("leaves non-palette dialogs and composition to their local controls", () => {
   render(
@@ -240,3 +245,59 @@ it("ignores the closed mobile palette dialog preserved on desktop", () => {
 });
 
 afterEach(() => jest.restoreAllMocks());
+
+const pushPage = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushPage }),
+  usePathname: () => "/tasks",
+}));
+it("navigates with G then T, cancels with Escape, and never navigates while typing", () => {
+  render(
+    <AdminShortcuts>
+      <input aria-label="Title" />
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "g" });
+  fireEvent.keyUp(window, { key: "g" });
+  fireEvent.keyDown(window, { key: "t" });
+  expect(pushPage).toHaveBeenCalledWith("/tasks");
+  pushPage.mockClear();
+  fireEvent.keyDown(window, { key: "g" });
+  fireEvent.keyDown(window, { key: "Escape" });
+  fireEvent.keyDown(window, { key: "t" });
+  expect(pushPage).not.toHaveBeenCalled();
+  fireEvent.keyDown(screen.getByLabelText("Title"), { key: "g" });
+  fireEvent.keyDown(screen.getByLabelText("Title"), { key: "t" });
+  expect(pushPage).not.toHaveBeenCalled();
+});
+
+it("uses the existing status field picker in the focused editor and leaves its search text alone", () => {
+  global.ResizeObserver = jest
+    .fn()
+    .mockImplementation(() => ({
+      observe: jest.fn(),
+      unobserve: jest.fn(),
+      disconnect: jest.fn(),
+    }));
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <StatusEditor />
+      </main>
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "s" });
+  expect(screen.getByRole("combobox")).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole("combobox"), { key: "s" });
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+});
+function StatusEditor() {
+  const form = useForm<TaskFormData>({
+    defaultValues: { status: "todo", priority: 0 },
+  });
+  return (
+    <Form {...form}>
+      <TaskStatusField form={form} />
+    </Form>
+  );
+}

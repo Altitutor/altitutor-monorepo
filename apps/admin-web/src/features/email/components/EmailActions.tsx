@@ -128,10 +128,10 @@ export function EmailActions({
         "[data-email-shortcut-target]",
       );
       const ownsInput = owner
-        ? hoveredOwner
-          ? owner === hoveredOwner
-          : focusedOwner
-            ? owner === focusedOwner
+        ? focusedOwner
+          ? owner === focusedOwner
+          : hoveredOwner
+            ? owner === hoveredOwner
             : state.captureWhenIdle || state.hovered
         : state.hovered;
       if (
@@ -140,6 +140,7 @@ export function EmailActions({
         !root.current?.isConnected ||
         Boolean(root.current.closest("[hidden],[inert]")) ||
         state.busy ||
+        event.repeat ||
         event.defaultPrevented ||
         event.metaKey ||
         event.ctrlKey ||
@@ -163,7 +164,8 @@ export function EmailActions({
         return;
       const action = event.key.toLowerCase();
       if (!["r", "f", "m", "backspace", "u", "a", "t", "i"].includes(action)) return;
-      if (event.shiftKey && action !== "r") return;
+      if (event.shiftKey && !["r", "f"].includes(action)) return;
+      if (action === "f" && !event.shiftKey) return;
       if (["t", "i"].includes(action) && !state.taskMessageId) return;
       if (!state.ids.length && ["m", "backspace", "u"].includes(action)) return;
       if (
@@ -182,7 +184,7 @@ export function EmailActions({
         if (action === "t") quickActions.openCreateTaskDialog(reference);
         else quickActions.openCreateIssueDialog(reference);
       }
-      if (action === "m") { if (level === "thread") setMoreOpen(true); else setMoveOpen(true); }
+      if (action === "m") setMoveOpen(true);
       if (action === "a") setAssignOpen(true);
       if (action === "u")
         mutate({ action: "read", ids: state.ids, read: !state.read });
@@ -291,7 +293,7 @@ export function EmailActions({
         {level === "message" && onForward && (
           <EmailIconButton
             label="Forward"
-            shortcut="F"
+            shortcut={["Shift", "F"]}
             disabled={command.isPending}
             onClick={onForward}
           >
@@ -324,7 +326,7 @@ export function EmailActions({
             <DropdownMenuItem disabled={!ids.length || command.isPending} className="text-destructive" onSelect={() => command.mutate({ action: "move", ids, folderId: "deleteditems" })}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>}
-        {level === "message" && <SearchableSelect items={folders} value={null} open={moveOpen} onOpenChange={setMoveOpen} getItemId={(folder) => folder.id} getItemLabel={(folder) => folder.name} searchPlaceholder="Search Microsoft folders…" disabled={!ids.length || command.isPending} onValueChange={(folder) => { if (folder) command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) }); }} trigger={<span aria-hidden="true" />} />}
+        <SearchableSelect items={folders} value={null} open={moveOpen} onOpenChange={setMoveOpen} getItemId={(folder) => folder.id} getItemLabel={(folder) => folder.name} searchPlaceholder="Search Microsoft folders…" disabled={!ids.length || command.isPending} onValueChange={(folder) => { if (folder) command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) }); }} trigger={<span aria-hidden="true" />} />
       </EmailActionGroup>
       {!hideAssignee &&
         (level === "thread" ? (

@@ -44,6 +44,8 @@ export type ToolbarFilterEditor =
   | ((context: ToolbarFilterEditorContext) => React.ReactNode);
 
 export interface ToolbarFiltersProps {
+  openOnMount?: boolean;
+  onShortcutHandled?: () => void;
   definitions: DataTableFilterDefinition[];
   filters: Record<string, unknown[]>;
   onChange: (filters: Record<string, unknown[]>) => void;
@@ -408,6 +410,9 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
     `${props.persistenceKey}:add`,
     false,
   );
+  React.useEffect(() => {
+    if (props.openOnMount) { setOpen(true); props.onShortcutHandled?.(); }
+  }, [props.openOnMount, props.onShortcutHandled, setOpen]);
   const [query, setQuery] = React.useState("");
   const [activeField, setActiveField] = useRemountPersistentState<
     string | null
@@ -436,6 +441,8 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
+          data-shortcut-add-filter
+          aria-keyshortcuts="F"
           variant="outline"
           size="sm"
           className="h-8 rounded-full text-xs"

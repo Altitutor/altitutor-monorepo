@@ -1,5 +1,6 @@
 'use client';
 
+import { CollectionRecord } from "./collection-keyboard";
 import { EntityToolbar, BoardEmptyColumnsControl } from './entity-toolbar';
 
 
@@ -814,7 +815,7 @@ function SortableCard<TItem>({
       {...attributes}
       {...listeners}
     >
-      <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
+      <CollectionRecord id={id}><CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} /></CollectionRecord>
     </div>
   );
 }

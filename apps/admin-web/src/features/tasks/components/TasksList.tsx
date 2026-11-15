@@ -1106,6 +1106,11 @@ export function TasksList({
   return (
     <>
       <EntityCollection<TaskWithAssignee>
+        keyboardActions={[
+          { key: "s", label: "Change status", options: TASK_STATUS_OPTIONS, apply: (item, value) => updateTask.mutateAsync({ id: item.id, updates: { status: value as TaskStatus } }) },
+          { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateTask.mutateAsync({ id: item.id, updates: { priority: Number(value)  } }) },
+          { key: "a", label: "Assign", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateTask.mutateAsync({id: item.id, updates: { assigned_to: value === null ? null : String(value) } }) },
+        ]}
         viewTarget="tasks"
         layout={layout}
         board={{

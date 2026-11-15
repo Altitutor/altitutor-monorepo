@@ -10,6 +10,7 @@ import {
 } from "react";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
 import { X } from "lucide-react";
+import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
 import {
   useAccessoryPanel,
   useAccessoryPanelActions,
@@ -219,6 +220,8 @@ export function AccessoryTabs() {
               </button>
               <button
                 type="button"
+                data-close-accessory-tab={tab.key}
+                aria-keyshortcuts="Alt+W"
                 aria-label={`Close ${tab.title} tab`}
                 className="mr-1 rounded p-1 hover:bg-background focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => {
@@ -229,6 +232,7 @@ export function AccessoryTabs() {
                 }}
               >
                 <X className="h-3.5 w-3.5" />
+                {tab.key === panel.activeKey && <ShortcutKeys id="close" />}
               </button>
             </div>
           ))}

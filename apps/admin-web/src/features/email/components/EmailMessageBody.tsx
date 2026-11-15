@@ -70,17 +70,19 @@ function IsolatedBody({ html, title }: { html: string; title: string }) {
           )
             return;
           if (
-            key.metaKey ||
-            key.ctrlKey ||
-            key.altKey ||
             key.isComposing ||
-            !["r", "f", "m", "backspace", "u", "a"].includes(
+            !["r", "f", "m", "backspace", "u", "a", "t", "i", "g", "c", "j", "k", "s", "p", "[", "]", "?", "w", "n", "enter", "escape", "alt", "shift", "control", "meta"].includes(
               key.key.toLowerCase(),
             )
           )
             return;
-          const forwarded = new KeyboardEvent("keydown", {
+          const forwarded = new KeyboardEvent(key.type, {
             key: key.key,
+            code: key.code,
+            altKey: key.altKey,
+            metaKey: key.metaKey,
+            ctrlKey: key.ctrlKey,
+            repeat: key.repeat,
             shiftKey: key.shiftKey,
             bubbles: true,
             cancelable: true,
@@ -88,9 +90,11 @@ function IsolatedBody({ html, title }: { html: string; title: string }) {
           if (!frame.dispatchEvent(forwarded)) key.preventDefault();
         };
         doc.addEventListener("keydown", keyboard);
+        doc.addEventListener("keyup", keyboard);
         cleanup.current = () => {
           observer?.disconnect();
           doc.removeEventListener("keydown", keyboard);
+          doc.removeEventListener("keyup", keyboard);
         };
       }}
     />

@@ -5,7 +5,7 @@ export function visibleControl<T extends HTMLElement>(
 ): T | undefined {
   return Array.from(root.querySelectorAll<T>(selector)).find(
     (node) =>
-      !node.closest('[hidden], [inert], [aria-hidden="true"]') &&
+      !node.closest('[hidden], [inert], [aria-hidden="true"], [data-state="closed"][role="dialog"], [data-state="closed"][role="menu"]') &&
       !node.matches(":disabled") &&
       node.getClientRects().length > 0,
   );
