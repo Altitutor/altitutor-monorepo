@@ -86,7 +86,7 @@ jest.mock("../interview-ui", () => ({
     </div>
   ),
   InterviewError: ({ error }: { error?: unknown }) =>
-    error ? <div role="alert">error</div> : null,
+    error ? <div role="alert">{error instanceof Error ? error.message : "error"}</div> : null,
   InterviewField: ({
     label,
     children,
@@ -332,6 +332,7 @@ function roundFixture(delivery: InterviewRound["delivery"]): InterviewRound {
 }
 
 beforeEach(() => {
+  mockMutateAsync.mockReset();
   mockFlush.mockReset().mockResolvedValue(undefined);
   mockFinalizeAudio.mockReset().mockResolvedValue(undefined);
   mockLeaveTo.mockClear();
@@ -402,6 +403,74 @@ it("keeps completed results navigation blocked while audio upload fails", async 
 });
 
 describe("in-person interview round", () => {
+  it("submits one transition when the same control is clicked while feedback is saving", async () => {
+    let finishSaving!: () => void;
+    const saving = new Promise<void>((resolve) => { finishSaving = resolve; });
+    mockFlush.mockReturnValue(saving);
+    currentRound = roundFixture("in_person");
+    let serverVersion = currentRound.version;
+    const receipts = new Set<string>();
+    mockMutateAsync.mockReset().mockImplementation(async (command: {
+      commandId: string;
+      expectedVersion: number;
+    }) => {
+      if (receipts.has(command.commandId)) return;
+      if (command.expectedVersion !== serverVersion)
+        throw Object.assign(new Error("Round changed; reload before trying again"), { status: 409 });
+      receipts.add(command.commandId);
+      serverVersion++;
+    });
+    const { rerender } = render(<InterviewWorkspace id="round-1" />);
+
+    const pause = screen.getByRole("button", { name: "Pause everyone" });
+    fireEvent.click(pause);
+    // Saving/query updates can render a fresh command identity before the RPC starts.
+    rerender(<InterviewWorkspace id="round-1" />);
+    fireEvent.click(pause);
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+
+    await act(async () => finishSaving());
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "pause", expectedVersion: 3 }),
+    );
+  });
+
+  it("keeps controls pending through feedback saving and the command response", async () => {
+    let finishSaving!: () => void;
+    let finishCommand!: () => void;
+    mockFlush.mockReturnValue(new Promise<void>((resolve) => { finishSaving = resolve; }));
+    mockMutateAsync.mockReturnValue(new Promise<void>((resolve) => { finishCommand = resolve; }));
+    currentRound = roundFixture("in_person");
+    render(<InterviewWorkspace id="round-1" />);
+
+    const pause = screen.getByRole("button", { name: "Pause everyone" });
+    fireEvent.click(pause);
+    expect(pause).toBeDisabled();
+    await act(async () => finishSaving());
+    expect(pause).toBeDisabled();
+    await act(async () => finishCommand());
+    expect(pause).toBeEnabled();
+  });
+
+  it("allows retry when feedback saving fails before a transition", async () => {
+    mockFlush.mockRejectedValueOnce(new Error("Offline"));
+    currentRound = roundFixture("in_person");
+    render(<InterviewWorkspace id="round-1" />);
+
+    const pause = screen.getByRole("button", { name: "Pause everyone" });
+    await act(async () => fireEvent.click(pause));
+    expect(screen.getByRole("alert")).toHaveTextContent("Offline");
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(pause).toBeEnabled();
+
+    await act(async () => fireEvent.click(pause));
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the fixed toolbar, station row, and combined feedback card", async () => {
     currentRound = roundFixture("in_person");
     const { container } = render(<InterviewWorkspace id="round-1" />);
@@ -621,6 +690,22 @@ describe("in-person interview round", () => {
     expect(container.querySelector("header")?.className).toContain(
       "bg-amber-400",
     );
+    expect(screen.getByRole("button", { name: "End my station early" })).toBeDisabled();
+  });
+
+  it("keeps feedback finishing disabled until a paused round resumes", () => {
+    currentRound = {
+      ...roundFixture("in_person"),
+      phase: "feedback",
+      pausedAt: "2026-10-23T01:07:00.000Z",
+      pausedBy: "tutor-1",
+    };
+    const { rerender } = render(<InterviewWorkspace id="round-1" />);
+    expect(screen.getByRole("button", { name: "Finish feedback" })).toBeDisabled();
+
+    currentRound = { ...currentRound, pausedAt: null, pausedBy: null };
+    rerender(<InterviewWorkspace id="round-1" />);
+    expect(screen.getByRole("button", { name: "Finish feedback" })).toBeEnabled();
   });
 
   it("uses the shared round screen with the video on the background online", () => {

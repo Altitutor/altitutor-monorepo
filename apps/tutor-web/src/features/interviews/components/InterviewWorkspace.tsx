@@ -883,6 +883,8 @@ function InPersonRoundView({
   const pendingReason = pending
     ? "Wait for the current action to finish."
     : undefined;
+  const finishReason = pendingReason ??
+    (paused ? "Resume the round before finishing your station." : undefined);
   const assignedReason = progress
     ? undefined
     : "You are not assigned to a station.";
@@ -1081,8 +1083,8 @@ function InPersonRoundView({
                 <ActionButton
                   variant="outline"
                   className={tutorBtnOutline}
-                  reason={pendingReason}
-                  disabled={pending}
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={() => setConfirm("end")}
                 >
                   End my station early
@@ -1092,8 +1094,8 @@ function InPersonRoundView({
               (round.phase === "feedback" || progress.endedEarly) &&
               !progress.feedbackComplete && (
                 <ActionButton
-                  reason={pendingReason}
-                  disabled={pending}
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={onRequestFinish}
                 >
                   Finish feedback
@@ -1400,6 +1402,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
       window.removeEventListener("altitutor:interview-audio-pending", listener);
   }, [id]);
   const [localError, setLocalError] = useState<Error | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const actionRunning = useRef(false);
   const [editingRound, setEditingRound] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
   const finalizeRecording = useRef<(() => Promise<void>) | null>(null);
@@ -1452,6 +1456,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
   }, [query.data?.startedAt]);
   const round = query.data;
   const run = async (action: InterviewCommand) => {
+    if (actionRunning.current) return;
+    actionRunning.current = true;
+    setActionPending(true);
     setLocalError(null);
     try {
       await flush.current?.();
@@ -1480,6 +1487,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
       setLocalError(
         error instanceof Error ? error : new Error("Unable to save changes."),
       );
+    } finally {
+      actionRunning.current = false;
+      setActionPending(false);
     }
   };
   if (!round)
@@ -1562,7 +1572,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         isWaiting={isWaiting}
         allReady={allReady}
         allFinished={allFinished}
-        pending={command.isPending}
+        pending={actionPending || command.isPending}
         registerFlush={registerFlush}
         registerFinish={registerFinish}
         registerFinalizeRecording={registerFinalizeRecording}
