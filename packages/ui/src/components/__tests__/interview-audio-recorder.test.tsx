@@ -12,6 +12,7 @@ import {
   saveInterviewAudio,
   flushInterviewAudio,
   recoverInterviewAudio,
+  appendInterviewAudio,
 } from "../../lib/interview-audio-outbox";
 
 jest.mock("../../lib/interview-video-compositor", () => ({
@@ -245,7 +246,7 @@ describe("in-person recorder boundaries", () => {
     expect(instances[0]?.options.audioBitsPerSecond).toBe(64_000);
     expect(instances[0]?.state).toBe("recording");
     expect(
-      container.querySelector("[aria-label='Recording waveform']"),
+      container.querySelector("[aria-label='Microphone input level']"),
     ).toBeTruthy();
     await enableMicrophone();
     expect(track.enabled).toBe(false);
@@ -398,4 +399,33 @@ it("records one online video take across a paused call and fresh feedback room",
     complete: true,
     blob: { type: "video/webm;codecs=vp8,opus" },
   });
+});
+
+
+it("clears a local recovery warning after the complete take is saved and uploaded", async () => {
+  jest.mocked(appendInterviewAudio).mockRejectedValueOnce(new Error("IndexedDB temporarily unavailable"));
+  await render("questions");
+  await act(async () => {
+    instances[0].ondataavailable?.({ data: new Blob(["checkpoint"], { type: "audio/webm" }) });
+  });
+  expect(container.textContent).toContain("Local recovery is unavailable");
+  await act(async () => instances[0].stop());
+  expect(flushInterviewAudio).toHaveBeenCalled();
+  expect(container.textContent).not.toContain("Local recovery is unavailable");
+});
+
+it("uploads the in-memory take immediately when final local persistence fails", async () => {
+  await render("questions");
+  jest.mocked(flushInterviewAudio).mockClear();
+  jest.mocked(saveInterviewAudio).mockRejectedValueOnce(new Error("IndexedDB unavailable"));
+  await act(async () => instances[0].stop());
+  expect(flushInterviewAudio).toHaveBeenCalledTimes(1);
+  expect(container.textContent).not.toContain("Local recovery is unavailable");
+});
+
+it("clears the recovery warning after explicit finalization uploads a memory-only take", async () => {
+  await render("questions");
+  jest.mocked(saveInterviewAudio).mockRejectedValueOnce(new Error("IndexedDB unavailable"));
+  await act(async () => finalizeAudio!());
+  expect(container.textContent).not.toContain("Local recovery is unavailable");
 });

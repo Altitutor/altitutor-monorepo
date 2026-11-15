@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useToast,
   type JSONContent,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -280,25 +281,38 @@ function TimerBreakdown({
   );
 }
 
+function unfinishedFeedback(round: InterviewRound) {
+  return round.progress.filter((item) =>
+    item.studentId && !item.feedbackComplete && !round.attempts.some((attempt) =>
+      attempt.stationId === item.stationId && attempt.studentId === item.studentId &&
+      !!attempt.notAssessedReason?.trim(),
+    ),
+  );
+}
+
 function ActionButton({
   reason,
   disabled,
   children,
   ...props
 }: React.ComponentProps<typeof Button> & { reason?: string }) {
-  const button = (
-    <Button {...props} disabled={disabled}>
+  const { toast } = useToast();
+  return (
+    <Button
+      {...props}
+      aria-disabled={disabled || undefined}
+      onClick={(event) => {
+        if (disabled) {
+          event.preventDefault();
+          if (reason) toast({ description: reason });
+          return;
+        }
+        props.onClick?.(event);
+      }}
+      className={cn(props.className, disabled && "opacity-50")}
+    >
       {children}
     </Button>
-  );
-  if (!disabled || !reason) return button;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -903,10 +917,14 @@ function InPersonRoundView({
           : online && !round.progress.some((item) => item.studentId)
             ? "At least one station needs a student."
             : undefined)));
+  const waitingTutors = unfinishedFeedback(round).map((item) =>
+    round.tutors.find((tutor) => tutor.id === item.tutorId)?.name ?? "a station tutor",
+  );
   const nextReason =
     assignedReason ??
     pendingReason ??
-    (allFinished ? undefined : "Waiting for every tutor to finish feedback.");
+    (paused ? "Resume the round before advancing." : undefined) ??
+    (allFinished ? undefined : `Waiting for feedback from ${waitingTutors.join(", ")}.`);
   const pausedBy = round.tutors.find(
     (tutor) => tutor.id === round.pausedBy,
   )?.name;
@@ -1057,8 +1075,7 @@ function InPersonRoundView({
             )}
             {round.phase === "reading" && !paused && (
               <ActionButton
-                variant="outline"
-                className={tutorBtnOutline}
+                variant="destructive"
                 reason={pendingReason}
                 disabled={pending}
                 onClick={() => setConfirm("skip")}
@@ -1068,8 +1085,7 @@ function InPersonRoundView({
             )}
             {round.phase === "questions" && progress && !paused && (
               <ActionButton
-                variant="outline"
-                className={tutorBtnOutline}
+                variant="destructive"
                 reason={pendingReason}
                 disabled={pending}
                 onClick={() => setConfirm("skipQuestions")}
@@ -1081,8 +1097,7 @@ function InPersonRoundView({
               progress &&
               !progress.endedEarly && (
                 <ActionButton
-                  variant="outline"
-                  className={tutorBtnOutline}
+                  variant="destructive"
                   reason={finishReason}
                   disabled={Boolean(finishReason)}
                   onClick={() => setConfirm("end")}
@@ -1233,7 +1248,8 @@ function InPersonRoundView({
                   />
                 )}
               {round.startedAt && round.phase !== "completed" && (
-                <Button
+                <ActionButton
+                  reason={!progress ? "You are not assigned to a station." : pendingReason}
                   variant={paused ? "default" : "outline"}
                   className={
                     paused
@@ -1244,7 +1260,7 @@ function InPersonRoundView({
                   onClick={onPause}
                 >
                   {paused ? "Resume everyone" : "Pause everyone"}
-                </Button>
+                </ActionButton>
               )}
               <Button variant="destructive" onClick={onExit}>
                 Exit
@@ -1517,17 +1533,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
     commandId: randomUuid(),
   };
   const allReady = round.progress.every((item) => item.ready);
-  const allFinished = round.progress.every(
-    (item) =>
-      item.feedbackComplete ||
-      !item.studentId ||
-      round.attempts.some(
-        (attempt) =>
-          attempt.stationId === item.stationId &&
-          attempt.studentId === item.studentId &&
-          !!attempt.notAssessedReason?.trim(),
-      ),
-  );
+  const allFinished = unfinishedFeedback(round).length === 0;
   const missingStudents = round.studentIds.filter(
     (studentId) => !round.connectedStudentIds.includes(studentId),
   );

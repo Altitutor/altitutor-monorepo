@@ -9,6 +9,7 @@ import { InterviewWorkspace } from "../InterviewWorkspace";
 
 let currentRound: InterviewRound;
 const mockMutateAsync = jest.fn();
+const mockToast = jest.fn();
 const mockFlush = jest.fn();
 const mockFinalizeAudio = jest.fn();
 const mockLeaveTo = jest.fn();
@@ -141,6 +142,7 @@ jest.mock("../interview-ui", () => ({
 }));
 
 jest.mock("@altitutor/ui", () => ({
+  useToast: () => ({ toast: mockToast }),
   InterviewRoundOverview: jest.requireActual(
     "@altitutor/ui/components/interview-round-overview",
   ).InterviewRoundOverview,
@@ -448,9 +450,9 @@ describe("in-person interview round", () => {
 
     const pause = screen.getByRole("button", { name: "Pause everyone" });
     fireEvent.click(pause);
-    expect(pause).toBeDisabled();
+    expect(pause).toHaveAttribute("aria-disabled", "true");
     await act(async () => finishSaving());
-    expect(pause).toBeDisabled();
+    expect(pause).toHaveAttribute("aria-disabled", "true");
     await act(async () => finishCommand());
     expect(pause).toBeEnabled();
   });
@@ -690,7 +692,7 @@ describe("in-person interview round", () => {
     expect(container.querySelector("header")?.className).toContain(
       "bg-amber-400",
     );
-    expect(screen.getByRole("button", { name: "End my station early" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "End my station early" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps feedback finishing disabled until a paused round resumes", () => {
@@ -701,7 +703,7 @@ describe("in-person interview round", () => {
       pausedBy: "tutor-1",
     };
     const { rerender } = render(<InterviewWorkspace id="round-1" />);
-    expect(screen.getByRole("button", { name: "Finish feedback" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Finish feedback" })).toHaveAttribute("aria-disabled", "true");
 
     currentRound = { ...currentRound, pausedAt: null, pausedBy: null };
     rerender(<InterviewWorkspace id="round-1" />);
@@ -872,10 +874,10 @@ describe("in-person interview round", () => {
       connectedStudentIds: [],
     };
     const view = render(<InterviewWorkspace id="round-1" />);
-    expect(screen.getByRole("button", { name: "Start round" })).toBeDisabled();
-    expect(
-      screen.getByText("Wait until every tutor has joined."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start round" })).toHaveAttribute("aria-disabled", "true");
+    mockToast.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Start round" }));
+    expect(mockToast).toHaveBeenCalledWith({ description: "Wait until every tutor has joined." });
     expect(screen.getByText("Tutor 1 · You")).toBeInTheDocument();
     expect(screen.getAllByText("Not joined").length).toBeGreaterThan(0);
     expect(screen.getByText("Joined")).toBeInTheDocument();
@@ -1092,4 +1094,20 @@ it("preserves answering navigation through pause, resume, and rejoining an attem
   ).toHaveAttribute("aria-current", "true");
   expect(mockQuestionSelected).toHaveBeenLastCalledWith("placement-followup");
   expect(mockQuestionSelected).not.toHaveBeenCalledWith("placement-1");
+});
+
+
+test("explains whose feedback blocks the next rotation and sends no command", async () => {
+  currentRound = { ...roundFixture("in_person"), phase: "feedback" };
+  mockMutateAsync.mockClear(); mockToast.mockClear();
+  const { rerender } = render(<InterviewWorkspace id="round-1" />);
+  const next = screen.getByRole("button", { name: "Next rotation" });
+  expect(next).toHaveAttribute("aria-disabled", "true");
+  await act(async () => fireEvent.click(next));
+  expect(mockMutateAsync).not.toHaveBeenCalled();
+  expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("Tutor 1") }));
+  currentRound = { ...currentRound, progress: currentRound.progress.map((item) => ({ ...item, feedbackComplete: true })) };
+  rerender(<InterviewWorkspace id="round-1" />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next rotation" })));
+  expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ type: "next" }));
 });
