@@ -483,6 +483,9 @@
 - **Topic** — A node in a subject's resource tree. Topics group student-facing resources for that subject and may contain child topics.
   _Avoid_: Learning module, UCAT module
 
+- **Topic deletion** — An AdminStaff action that hides a Topic and every subtopic beneath it in one operation while retaining their identities, resources and history. The confirmation explains the subtree scope. Restoring a Topic does not automatically restore its subtopics; parents must be restored before children.
+  _Avoid_: Permanent subtree deletion, parent-only deletion
+
 - **Topic resource** — A student-facing study item attached to one topic, such as a file or topic flashcards. Topic resources belong to the general student resource experience, not the UCAT Learn catalog.
   _Avoid_: Learning module block, lesson content
 

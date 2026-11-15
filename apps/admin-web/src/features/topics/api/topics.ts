@@ -199,7 +199,7 @@ export const topicsApi = {
   },
   
   /**
-   * Delete a topic (will cascade delete children)
+   * Hide a topic and its entire subtree, retaining their records and history
    */
   deleteTopic: async (id: string): Promise<void> => {
     const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
