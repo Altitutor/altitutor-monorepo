@@ -23,6 +23,7 @@ import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import { useSendMessage } from '../api/mutations';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
+import { AutomationRecoveryDialog } from './AutomationRecoveryDialog';
 import {
   AMBIGUOUS_SMS_RESEND_CONFIRM,
   UNCONFIRMED_SEND_HINT,
@@ -490,6 +491,7 @@ export function MessageThread({
   const smsSender = defaultPhoneSmsSender(availableSenders);
   const isGroupThread = Boolean(conversationId) && !contactId;
   const [activeEnquiryMessage, setActiveEnquiryMessage] = useState<string>();
+  const [recoveryMessageId, setRecoveryMessageId] = useState<string | null>(null);
   const threadItems = data?.pages.flatMap((page) => page.items) ?? [];
   const resendSourceIds = threadItems
     .filter(
@@ -1307,6 +1309,11 @@ export function MessageThread({
                             </Button>
                           );
                         })()}
+                        {direction === 'OUTBOUND' && m.error_code === 21211 && !m.created_by_staff_id &&
+                          (m.status === 'FAILED' || m.status === 'UNDELIVERED') && (
+                          <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]"
+                            onClick={() => setRecoveryMessageId(m.id)}>Review failed message</Button>
+                        )}
                         {!m.is_reaction && (
                           <ImessageMessageActions
                             messageId={m.id}
@@ -1345,6 +1352,7 @@ export function MessageThread({
         {newestFirst && loadOlderButton}
       </div>
 
+      {recoveryMessageId && <AutomationRecoveryDialog messageId={recoveryMessageId} onClose={() => setRecoveryMessageId(null)} />}
       <EditIssueDialog
         isOpen={isEditIssueOpen}
         issueId={selectedIssueId}

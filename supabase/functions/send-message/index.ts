@@ -8,6 +8,14 @@ import {
 
 type SendBody = { messageId: string };
 
+class TwilioSendError extends Error {
+  constructor(message: string, readonly code: number | null) {
+    super(message);
+  }
+}
+
+class RecoveryOutcomeUnknownError extends Error {}
+
 // ========================
 // TWILIO HANDLER
 // ========================
@@ -72,7 +80,10 @@ async function callTwilioSend(
   const json = await res.json();
   if (!res.ok) {
     console.error("[send-message] Twilio error", { status: res.status, json });
-    throw new Error(json?.message || "Twilio send error");
+    throw new TwilioSendError(
+      json?.message || "Twilio send error",
+      Number.isInteger(json?.code) ? json.code : null,
+    );
   }
 
   console.log("[send-message] Twilio success", {
@@ -93,6 +104,20 @@ async function handleTwilio(
     throw new Error("Contact phone number not found");
   }
 
+  const { data: sendClaim, error: claimError } = await supabase.rpc(
+    "claim_automation_message_send",
+    { p_message_id: messageId, p_destination: contact.phone_e164 },
+  );
+  if (claimError) throw claimError;
+  if (sendClaim?.blocked) {
+    throw new TwilioSendError("Destination rejected (21211); staff recovery required", 21211);
+  }
+  if (sendClaim?.dispatch === false) return { success: true, queued: true };
+  // Retain the actual attempted destination even when the provider rejects it.
+  const { error: destinationError } = await supabase.from("messages")
+    .update({ to_number_e164: contact.phone_e164 }).eq("id", messageId);
+  if (destinationError) throw destinationError;
+
   // Determine from value based on sender type
   const fromValue = ownedNumber.sender_type === "ALPHANUMERIC"
     ? ownedNumber.alphanumeric_sender_id
@@ -109,6 +134,7 @@ async function handleTwilio(
   const statusCallback = new URL("/functions/v1/twilio-status", supabaseUrl)
     .toString();
 
+  try {
   const tw = await callTwilioSend(
     contact.phone_e164,
     message.body,
@@ -132,6 +158,14 @@ async function handleTwilio(
   });
 
   return { success: true, sid: tw.sid };
+  } catch (error) {
+    if (sendClaim?.recovery && !(error instanceof TwilioSendError)) {
+      throw new RecoveryOutcomeUnknownError(
+        "Recovery outcome unconfirmed. Reconcile the provider outcome before sending again.",
+      );
+    }
+    throw error;
+  }
 }
 
 // ========================
@@ -276,8 +310,9 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
     if (messageId) {
       try {
         const supabase = createSupabaseClient();
-        await updateMessageStatus(supabase, messageId, "FAILED", {
+        await updateMessageStatus(supabase, messageId, e instanceof RecoveryOutcomeUnknownError ? "AMBIGUOUS" : "FAILED", {
           error_message: msg,
+          ...(e instanceof TwilioSendError ? { error_code: e.code } : {}),
         });
       } catch (updateErr) {
         console.error(
