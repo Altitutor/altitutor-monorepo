@@ -681,6 +681,49 @@ export type Database = {
           },
         ]
       }
+      automation_destination_blocks: {
+        Row: {
+          created_at: string
+          destination: string
+          failed_message_id: string
+          owned_number_id: string
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          failed_message_id: string
+          owned_number_id: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          failed_message_id?: string
+          owned_number_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_destination_blocks_failed_message_id_fkey"
+            columns: ["failed_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_destination_blocks_failed_message_id_fkey"
+            columns: ["failed_message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+          {
+            foreignKeyName: "automation_destination_blocks_owned_number_id_fkey"
+            columns: ["owned_number_id"]
+            isOneToOne: false
+            referencedRelation: "owned_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_executions: {
         Row: {
           activity_event_id: string | null
@@ -906,8 +949,12 @@ export type Database = {
           id: string
           last_error: string | null
           message_id: string | null
+          recipient_parent_id: string | null
+          recipient_student_id: string | null
+          recovery_message_id: string | null
           status: string
           student_id: string | null
+          terminal_failure: boolean
           updated_at: string
         }
         Insert: {
@@ -919,8 +966,12 @@ export type Database = {
           id?: string
           last_error?: string | null
           message_id?: string | null
+          recipient_parent_id?: string | null
+          recipient_student_id?: string | null
+          recovery_message_id?: string | null
           status?: string
           student_id?: string | null
+          terminal_failure?: boolean
           updated_at?: string
         }
         Update: {
@@ -932,8 +983,12 @@ export type Database = {
           id?: string
           last_error?: string | null
           message_id?: string | null
+          recipient_parent_id?: string | null
+          recipient_student_id?: string | null
+          recovery_message_id?: string | null
           status?: string
           student_id?: string | null
+          terminal_failure?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -973,6 +1028,62 @@ export type Database = {
             referencedColumns: ["last_message_id_detail"]
           },
           {
+            foreignKeyName: "automation_message_deliveries_recipient_parent_id_fkey"
+            columns: ["recipient_parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recipient_student_id_fkey"
+            columns: ["recipient_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recipient_student_id_fkey"
+            columns: ["recipient_student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recipient_student_id_fkey"
+            columns: ["recipient_student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recipient_student_id_fkey"
+            columns: ["recipient_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recipient_student_id_fkey"
+            columns: ["recipient_student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recovery_message_id_fkey"
+            columns: ["recovery_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_recovery_message_id_fkey"
+            columns: ["recovery_message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+          {
             foreignKeyName: "automation_message_deliveries_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -1006,6 +1117,46 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      automation_message_recovery_attempts: {
+        Row: {
+          created_at: string
+          delivery_id: string | null
+          message_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_id?: string | null
+          message_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_id?: string | null
+          message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_message_recovery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "automation_message_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_recovery_attempts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_recovery_attempts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
           },
         ]
       }
@@ -46327,6 +46478,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_automation_message_send: {
+        Args: { p_destination: string; p_message_id: string }
+        Returns: Json
+      }
       claim_imessage_commands: {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
@@ -48078,12 +48233,26 @@ export type Database = {
         }
         Returns: number
       }
+      prepare_automation_message_recovery: {
+        Args: {
+          p_contact_id: string
+          p_destination: string
+          p_expected_recovery_id?: string
+          p_message_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       prepare_teaching_print: {
         Args: { p_artifact_id: string; p_owner_staff_id: string }
         Returns: string
       }
       preview_admin_shift_schedule: {
         Args: { p_proposal: Json }
+        Returns: Json
+      }
+      preview_automation_message_recovery: {
+        Args: { p_message_id: string }
         Returns: Json
       }
       preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }

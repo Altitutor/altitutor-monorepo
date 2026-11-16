@@ -187,7 +187,7 @@ export async function loadMessageSendData(
 export async function updateMessageStatus(
   supabase: SupabaseClient,
   messageId: string,
-  status: 'FAILED' | 'SENT' | 'SENDING',
+  status: 'FAILED' | 'SENT' | 'SENDING' | 'AMBIGUOUS',
   updates?: {
     message_sid?: string | null;
     imessage_guid?: string | null;
@@ -195,6 +195,7 @@ export async function updateMessageStatus(
     from_number_e164?: string | null;
     to_number_e164?: string;
     error_message?: string;
+    error_code?: number | null;
   }
 ): Promise<void> {
   const updateData: Record<string, unknown> = {
@@ -209,6 +210,7 @@ export async function updateMessageStatus(
     if (updates.from_number_e164 !== undefined) updateData.from_number_e164 = updates.from_number_e164;
     if (updates.to_number_e164 !== undefined) updateData.to_number_e164 = updates.to_number_e164;
     if (updates.error_message !== undefined) updateData.error_message = updates.error_message;
+    if (updates.error_code !== undefined) updateData.error_code = updates.error_code;
   }
 
   const { error } = await supabase
