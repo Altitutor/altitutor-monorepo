@@ -8,8 +8,11 @@ import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 import { ReferenceActions } from './ReferenceActions';
+import { ReferenceActionList } from './ReferenceActionList';
+import { useContextualChipHoverActions } from './chipHoverActions';
+import type { RecordMenuAction } from '@/shared/components/recordMenuActions';
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate, contextualActions }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void; contextualActions?: RecordMenuAction[] }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -89,6 +92,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
         <ReferenceActions type={type} id={id} details={query.data} onActivate={onActivate} />
         </>
       )}
+      {contextualActions?.length ? <ReferenceActionList actions={contextualActions} onActivate={onActivate} /> : null}
     </div>
   );
 }
@@ -96,6 +100,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
 /** One delegated surface covers React chips and serialized mentions, including newly loaded rich text. */
 export function EntityReferenceHovers() {
   const [target, setTarget] = useState<HTMLElement | null>(null);
+  const contextualActions = useContextualChipHoverActions(target?.dataset.hoverActionsKey);
   const [content, setContent] = useState<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -117,7 +122,9 @@ export function EntityReferenceHovers() {
       clear();
       timer.current = setTimeout(
         () => {
-          if (chip.isConnected) setTarget(chip);
+          if (chip.isConnected) {
+            setTarget(chip);
+          }
         },
         event.type === "focusin" ? 0 : 300,
       );
@@ -177,6 +184,6 @@ export function EntityReferenceHovers() {
     return () => instance.destroy();
   }, [target, content]);
   return target && content
-    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} onActivate={() => setTarget(null)} />, content)
+    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setTarget(null)} />, content)
     : null;
 }

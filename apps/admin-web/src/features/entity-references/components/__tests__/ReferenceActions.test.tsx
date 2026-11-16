@@ -6,6 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { RecordActionsProvider } from "@/features/command-palette/RecordActionsContext";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { EntityActionChip } from "@/shared/components/EntityActionChip";
+import { Minus } from "lucide-react";
+import { EntityReferenceHovers } from "../EntityReferenceHovers";
 import { EntityReferencePreview } from "../EntityReferenceHovers";
 import { ReferenceActions } from "../ReferenceActions";
 import { RichTextTemplateRecordActions } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
@@ -242,4 +245,52 @@ it('keeps a requested template insertion until the destination editor initialize
   await userEvent.click(screen.getByRole('button', { name: 'Load destination editor' }));
   expect(await screen.findByText('Dear student')).toBeVisible();
   client.clear();
+});
+
+
+it("keeps subject navigation direct and exposes the guarded student-specific removal in its hover", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ title: "Maths", fields: [] }) });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const open = jest.fn();
+  const remove = jest.fn();
+  const latestRemove = jest.fn();
+  const actions = [{ id: 'remove-subject', title: 'Remove subject', icon: Minus, action: remove, disabled: true }];
+  const fixture = (disabled: boolean) => (
+    <QueryClientProvider client={queryClient}><ToastProvider><QuickActionsProvider><RecordActionsProvider>
+      <EntityReferenceHovers />
+      <EntityActionChip entityType="subject" entityId="maths" label="Maths" onClick={open} hoverActions={actions.map(action => ({ ...action, disabled, action: disabled ? remove : latestRemove }))} />
+    </RecordActionsProvider></QuickActionsProvider></ToastProvider></QueryClientProvider>
+  );
+  try {
+    const view = render(fixture(true));
+    await userEvent.hover(screen.getByRole('button', { name: 'Maths' }));
+    expect(await screen.findByRole('button', { name: 'Remove subject' })).toBeDisabled();
+    view.rerender(fixture(false));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove subject' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Remove subject' }));
+    expect(latestRemove).toHaveBeenCalledTimes(1);
+    expect(remove).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Maths' }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  } finally { globalThis.fetch = originalFetch; queryClient.clear(); }
+});
+
+
+it("retains locally owned hover actions when reference details cannot load", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({ ok: false });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const remove = jest.fn();
+  try {
+    render(<QueryClientProvider client={queryClient}><ToastProvider><QuickActionsProvider><RecordActionsProvider>
+      <EntityReferenceHovers />
+      <EntityActionChip entityType="subject" entityId="unavailable" label="Maths" hoverActions={[{ id: 'remove', title: 'Remove subject', icon: Minus, action: remove }]} />
+    </RecordActionsProvider></QuickActionsProvider></ToastProvider></QueryClientProvider>);
+    await userEvent.hover(screen.getByRole('button', { name: 'Maths' }));
+    expect(await screen.findByText('Preview unavailable')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove subject' }));
+    expect(remove).toHaveBeenCalledTimes(1);
+  } finally { globalThis.fetch = originalFetch; queryClient.clear(); }
 });

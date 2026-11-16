@@ -12,13 +12,17 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/shared/utils";
 import { Copy, ExternalLink, MoreVertical } from "lucide-react";
+import type { RecordMenuAction } from "./recordMenuActions";
+import { useChipHoverActions } from "@/features/entity-references/components/chipHoverActions";
 
 /** Chips navigate directly; explicit calendar action buttons retain their menu. */
 export function EntityActionChip({
   onClick,
   iconOnly = false,
+  hoverActions,
   ...props
-}: ComponentProps<typeof EntityChip> & { iconOnly?: boolean }) {
+}: ComponentProps<typeof EntityChip> & { iconOnly?: boolean; hoverActions?: RecordMenuAction[] }) {
+  const hoverActionsKey = useChipHoverActions(hoverActions);
   props = {
     ...props,
     className: cn(
@@ -27,7 +31,7 @@ export function EntityActionChip({
     ),
   };
   if (!iconOnly || !props.entityId || !onClick)
-    return <EntityChip {...props} onClick={onClick} />;
+    return <EntityChip {...props} onClick={onClick} data-hover-actions-key={hoverActionsKey} />;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
