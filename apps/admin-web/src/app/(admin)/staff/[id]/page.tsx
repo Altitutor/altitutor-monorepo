@@ -187,7 +187,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
   const activityLayout = activeTab === 'activity';
 
   return (
-    <EntityPropertiesLayout id="staff-properties-sidebar" sidebar={<>
+    <EntityPropertiesLayout editing={editFlow.isEditing} id="staff-properties-sidebar" sidebar={<>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <StaffDetailsTab
@@ -243,10 +243,10 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
+          { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
           { value: 'pay-tier', label: 'Pay tier' },
           { value: 'website', label: 'Website' },
-          { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
         ]}
       >

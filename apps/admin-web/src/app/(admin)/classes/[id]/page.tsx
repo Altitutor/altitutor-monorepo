@@ -182,6 +182,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
         />
         <ActionsMenu
           type="class"
+          onEditDetails={() => setIsEditing(true)}
           entityId={classData.id}
           copyTagDisplayText={classData.short_name?.trim() ?? ''}
           {...classActions}

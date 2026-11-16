@@ -560,16 +560,15 @@ export function StaffDetailsTab({
           </div>
     </>
   ) : (
-    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
-      <EntitySidebarSection title="Staff Information">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex justify-end">
 
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>
       </div>
-
+      <EntitySidebarSection title="Staff Information">
       {(() => {
         const handleCopy = async (text: string, field: string) => {
           if (!text || text === '-') return;

@@ -422,6 +422,7 @@ function SessionDetailView({ id }: { id: string }) {
         <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
         <ActionsMenu
           type="session"
+          onEditDetails={() => setIsEditing(true)}
           entityId={session.id}
           copyTagDisplayText={sessionTitle || session.id}
           {...sessionActions}

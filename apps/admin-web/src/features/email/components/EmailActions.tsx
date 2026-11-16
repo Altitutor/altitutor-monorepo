@@ -11,10 +11,12 @@ import {
   Forward,
   Search,
   MoreHorizontal,
+  Archive,
 } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, KeyboardShortcut } from "@altitutor/ui";
+import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -117,6 +119,18 @@ export function EmailActions({
     busy: command.isPending,
   };
   const mutate = command.mutate;
+  useRegisterRecordActions('email', messageId, messageLabel, [
+    ...(onReply ? [{ id: 'reply', title: 'Reply to email', icon: Reply, action: onReply, disabled: command.isPending }] : []),
+    ...(onReplyAll ? [{ id: 'reply-all', title: 'Reply all', icon: ReplyAll, action: onReplyAll, disabled: command.isPending }] : []),
+    ...(onForward ? [{ id: 'forward', title: 'Forward email', icon: Forward, action: onForward, disabled: command.isPending }] : []),
+    { id: 'mark-read', title: 'Mark as read', icon: MailOpen, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'read', ids, read: true }) },
+    { id: 'unread', title: 'Mark as unread', icon: Mail, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'read', ids, read: false }) },
+    { id: 'archive', title: 'Archive email', icon: Archive, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'move', ids, folderId: 'archive' }) },
+    { id: 'move-folder', title: 'Move to folder', icon: FolderInput, disabled: command.isPending || !ids.length, action: () => setMoveOpen(true) },
+    { id: 'assign', title: 'Assign email', icon: UserRound, disabled: command.isPending, action: () => setAssignOpen(true) },
+    { id: 'delete-email', title: 'Delete email', icon: Trash2, destructive: true, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'move', ids, folderId: 'deleteditems' }) },
+  ], { active: level === 'message', runOnly: true });
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const state = current.current;

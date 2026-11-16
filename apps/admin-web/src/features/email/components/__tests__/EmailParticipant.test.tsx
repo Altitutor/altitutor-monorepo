@@ -47,8 +47,6 @@ it("does not offer linking while resolving an existing contact and opens its ent
   expect(chip.querySelector("svg")).not.toBeNull();
   const user = userEvent.setup();
   await user.click(chip);
-  expect(openEntity).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('menuitem', { name: 'Open parent' }));
   expect(openEntity).toHaveBeenCalledWith("parent", "parent-one");
   expect(screen.queryByText("Link existing contact")).not.toBeInTheDocument();
 });

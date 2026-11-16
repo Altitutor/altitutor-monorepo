@@ -57,9 +57,7 @@ describe('ActivityItem', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open staff Casey Admin' }));
     await user.click(screen.getByRole('button', { name: 'Open student Alex Student' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Open student' }));
     await user.click(screen.getByRole('button', { name: 'Open session Tuesday UCAT' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Open session' }));
 
     expect(openEntity).toHaveBeenNthCalledWith(
       1,
@@ -97,10 +95,8 @@ describe('ActivityItem', () => {
     render(<ActivityItem activity={mapActivityEventToDisplay(event)} />);
 
     await user.click(screen.getByRole('button', { name: 'Open session Medicine Interview 9:00 am - 1:00 pm' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Open session' }));
     expect(openEntity).toHaveBeenLastCalledWith('session', originalId);
     await user.click(screen.getByRole('button', { name: 'Open session Medicine Interview 1:00 pm - 5:00 pm' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Open session' }));
     expect(openEntity).toHaveBeenLastCalledWith('session', replacementId);
   });
 

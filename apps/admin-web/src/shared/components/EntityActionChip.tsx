@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { cn } from "@/shared/utils";
 import { Copy, ExternalLink, MoreVertical } from "lucide-react";
 
-/** Keep record actions consistent while preserving each caller's navigation scope. */
+/** Chips navigate directly; explicit calendar action buttons retain their menu. */
 export function EntityActionChip({
   onClick,
   iconOnly = false,
@@ -26,7 +26,7 @@ export function EntityActionChip({
       props.entityType === "message" && "max-w-40",
     ),
   };
-  if (!props.entityId || !onClick)
+  if (!iconOnly || !props.entityId || !onClick)
     return <EntityChip {...props} onClick={onClick} />;
   return (
     <DropdownMenu>

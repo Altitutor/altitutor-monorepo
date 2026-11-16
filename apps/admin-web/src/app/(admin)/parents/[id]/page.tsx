@@ -142,7 +142,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
   const activityLayout = activeTab === 'activity';
 
   return (
-    <EntityPropertiesLayout id="parent-properties-sidebar" sidebar={<>
+    <EntityPropertiesLayout editing={editFlow.isEditing} id="parent-properties-sidebar" sidebar={<>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <ParentDetailsTab
@@ -180,6 +180,8 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         <FormResponseCommands record={{ type: "parent", id: parent.id, title: `${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="parent"
+          onEditDetails={editFlow.startEdit}
+          detailsInSidebar
           entityId={parent.id}
           copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
           onOpenInPage={() => {
@@ -210,8 +212,8 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
-          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
+          { value: 'activity', label: 'Activity' },
         ]}
       >
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">

@@ -5,6 +5,7 @@ import type { Database } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emailMessageSchema } from "@/features/email/types";
 import type { ReferenceDetails } from "../types";
+import { studentAccountAction } from "@/features/students/utils/studentAccountAction";
 import {
   deriveStaffAttendanceStatus,
   deriveStudentAttendanceStatus,
@@ -43,7 +44,7 @@ export async function referenceDetails(
       const row = await read(
         db
           .from("students")
-          .select("first_name,last_name,status,year_level")
+          .select("first_name,last_name,status,year_level,user_id,deleted_at")
           .eq("id", id)
           .maybeSingle(),
       );
@@ -58,6 +59,7 @@ export async function referenceDetails(
       return {
         title: person(row),
         status: row.status,
+        actionState: { deleted: Boolean(row.deleted_at), accountLabel: studentAccountAction(row).label, accountAvailable: !row.deleted_at && (studentAccountAction(row).type !== "details" || row.status === null) },
         fields: [
           field("Year level", row.year_level),
           field(
@@ -96,7 +98,7 @@ export async function referenceDetails(
       const row = await read(
         db
           .from("staff")
-          .select("first_name,last_name,status,role")
+          .select("first_name,last_name,status,role,user_id")
           .eq("id", id)
           .maybeSingle(),
       );
@@ -111,6 +113,7 @@ export async function referenceDetails(
       return {
         title: person(row),
         status: row.status,
+        actionState: { accountLabel: row.user_id ? "Send password reset" : "Send invite", accountAvailable: true },
         fields: [
           field("Role", row.role),
           field(
@@ -168,7 +171,7 @@ export async function referenceDetails(
         db
           .from("sessions")
           .select(
-            "short_name,long_name,status,start_at,end_at,subjects(name,short_name)",
+            "short_name,long_name,status,type,start_at,end_at,subjects(name,short_name)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -265,6 +268,7 @@ export async function referenceDetails(
       return {
         title: row.long_name || row.short_name || "Session",
         status: row.status,
+        actionState: { sessionType: row.type },
         fields: [
           field("Subject", row.subjects?.short_name || row.subjects?.name),
           field(
@@ -359,7 +363,7 @@ export async function referenceDetails(
       const row = await read(
         db
           .from("messages")
-          .select("body,status,from_number_e164,to_number_e164,conversation_id")
+          .select("body,status,from_number_e164,to_number_e164,conversation_id,imessage_guid,direction,sent_at,created_at")
           .eq("id", id)
           .maybeSingle(),
       );
@@ -374,6 +378,7 @@ export async function referenceDetails(
       return {
         title: row.body.slice(0, 80) || "Message",
         status: row.status,
+        actionState: { message: { hasImessage: Boolean(row.imessage_guid), own: row.direction === "OUTBOUND", sentAt: row.sent_at, createdAt: row.created_at } },
         fields: [
           field("From", contactName(row.from_number_e164)),
           field("To", contactName(row.to_number_e164)),
@@ -388,29 +393,22 @@ export async function referenceDetails(
       };
     }
     case "email": {
-      const row = await read(
+      let row = await read(
         db
           .from("email_messages")
-          .select("thread_id,data")
+          .select("id,thread_id,data")
           .eq("id", id)
           .maybeSingle(),
       );
+      if (!row) row = await read(db.from('email_messages').select('id,thread_id,data').eq('thread_id', id).eq('removed', false).order('occurred_at', { ascending: false, nullsFirst: false }).limit(1).maybeSingle());
       if (!row) {
-        // Existing email references identify a thread, rather than an individual message.
-        const thread = await read(
-          db.from("email_threads").select("id").eq("id", id).maybeSingle(),
-        );
-        return thread
-          ? {
-              title: "Email conversation",
-              fields: [],
-              destination: { kind: "email", id, title: "Email", query: "" },
-            }
-          : null;
+        const thread = await read(db.from('email_threads').select('id').eq('id', id).maybeSingle());
+        return thread ? { title: 'Email conversation', fields: [], actionState: { emailActionAvailable: false }, destination: { kind: 'email', id, title: 'Email', query: '' } } : null;
       }
       const email = emailMessageSchema.parse(row.data);
       return {
         title: email.subject || "No subject",
+        actionState: { emailMessageId: row.id, emailActionAvailable: true },
         fields: [
           field(
             "From",
@@ -426,7 +424,7 @@ export async function referenceDetails(
           kind: "email",
           id: row.thread_id,
           title: email.subject || "Email",
-          query: `message=${encodeURIComponent(id)}`,
+          query: `message=${encodeURIComponent(row.id)}`,
         },
       };
     }
@@ -513,7 +511,7 @@ export async function referenceDetails(
     }
     case "invoice": {
       const row = await read(db.from('invoices')
-        .select('stripe_invoice_number,status,total_cents,amount_due_cents,amount_paid_cents,currency')
+        .select('stripe_invoice_number,status,total_cents,amount_due_cents,amount_paid_cents,currency,hosted_invoice_url,stripe_invoice_id,invoice_pdf')
         .eq('id', id).is('deleted_at', null).maybeSingle());
       if (!row) return null;
       const [items, credits] = await Promise.all([
@@ -524,6 +522,7 @@ export async function referenceDetails(
       return {
         title: row.stripe_invoice_number || 'Invoice',
         status: row.status,
+        actionState: { hasPaymentPage: Boolean(row.hosted_invoice_url), hasStripeInvoice: Boolean(row.stripe_invoice_id), hasPdf: Boolean(row.invoice_pdf) },
         fields: [
           ...(items ?? []).map((item, index) => field(`Line item ${index + 1}`, `${item.description} — ${money(item.amount_cents)}`)),
           field('Total', row.total_cents == null ? 'Unavailable' : money(row.total_cents)),

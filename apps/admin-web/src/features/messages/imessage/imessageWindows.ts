@@ -42,3 +42,8 @@ export function formatImessageWindowRemaining(remainingMs: number): string {
   const minutes = Math.ceil(totalSec / 60);
   return `${minutes}m left`;
 }
+
+export const IMESSAGE_TAPBACKS = [
+  ["love", "❤️"], ["like", "👍"], ["dislike", "👎"],
+  ["laugh", "😂"], ["emphasize", "‼️"], ["question", "❓"],
+] as const;

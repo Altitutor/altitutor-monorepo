@@ -8,6 +8,9 @@ import {
   MessageSquare,
   Pencil,
   Plus,
+  Download,
+  CreditCard,
+  Receipt,
   Trash2,
   UserCheck,
   UserX,
@@ -49,6 +52,13 @@ export function recordMenuActions(
   ) => {
     if (action) actions.push({ id, title, icon, action, ...options });
   };
+  const entityLabel =
+    props.type === "adminShift"
+      ? "admin shift"
+      : props.type === "tutorLog"
+        ? "tutor log"
+        : props.type;
+  add("open", `Open ${entityLabel}`, ExternalLink, props.onOpenInPage);
   add("copy-id", "Copy ID", Copy, common.copy);
   add("message", "Message", MessageSquare, common.message, {
     disabled: common.messageDisabled,
@@ -124,6 +134,7 @@ export function recordMenuActions(
       });
       break;
     case "parent":
+      add("edit", "Edit details", Pencil, props.onEditDetails);
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",
       });
@@ -132,6 +143,7 @@ export function recordMenuActions(
       });
       break;
     case "session": {
+      add("edit", "Edit details", Pencil, props.onEditDetails);
       const booking = SESSION_QUICK_ACTIONS.find(
         (action) => action.sessionActionType === "send-booking-confirmation",
       );
@@ -170,6 +182,7 @@ export function recordMenuActions(
       break;
     case "class":
     case "adminShift":
+      add("edit", "Edit details", Pencil, props.onEditDetails);
       add(
         "delete",
         props.type === "class" ? "Delete class" : "Delete admin shift",
@@ -179,7 +192,6 @@ export function recordMenuActions(
       );
       break;
     case "tutorLog":
-      add("open", "Open session in page", ExternalLink, props.onOpenInPage);
       add("edit", "Edit tutor log", Pencil, props.onEdit);
       break;
     case "task":
@@ -191,7 +203,24 @@ export function recordMenuActions(
       });
       break;
     case "invoice":
-      break; // Billing retains its existing specialized menu.
+      add(
+        "payment-page",
+        "View payment page",
+        ExternalLink,
+        props.onViewPaymentPage,
+      );
+      add("stripe", "View in Stripe", ExternalLink, props.onViewInStripe);
+      add("pdf", "Download PDF", Download, props.onDownloadPdf);
+      add("send-invoice", "Send Invoice", Mail, props.onSendInvoice, {
+        disabled: props.isLoadingAction,
+      });
+      add("charge-card", "Charge Card", CreditCard, props.onChargeCard, {
+        disabled: props.isLoadingAction,
+      });
+      add("credit-note", "Add credit note", Receipt, props.onAddCreditNote, {
+        disabled: props.isLoadingAction || props.isAddCreditNoteDisabled,
+      });
+      break;
   }
   return actions;
 }

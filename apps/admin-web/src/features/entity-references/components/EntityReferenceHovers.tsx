@@ -7,8 +7,9 @@ import { Badge, Skeleton } from "@altitutor/ui";
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
+import { ReferenceActions } from './ReferenceActions';
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -85,6 +86,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
             })}
           </div>
         ) : null}
+        <ReferenceActions type={type} id={id} details={query.data} onActivate={onActivate} />
         </>
       )}
     </div>
@@ -140,16 +142,24 @@ export function EntityReferenceHovers() {
         setTarget(null);
       }
     };
+    const activate = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-mention]')) {
+        clear();
+        setTarget(null);
+      }
+    };
     document.addEventListener("mouseover", enter);
     document.addEventListener("focusin", enter);
     document.addEventListener("mouseout", leave);
     document.addEventListener("keydown", escape);
+    document.addEventListener('click', activate, true);
     return () => {
       clear();
       document.removeEventListener("mouseover", enter);
       document.removeEventListener("focusin", enter);
       document.removeEventListener("mouseout", leave);
       document.removeEventListener("keydown", escape);
+      document.removeEventListener('click', activate, true);
     };
   }, []);
   useEffect(() => {
@@ -167,6 +177,6 @@ export function EntityReferenceHovers() {
     return () => instance.destroy();
   }, [target, content]);
   return target && content
-    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} />, content)
+    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} onActivate={() => setTarget(null)} />, content)
     : null;
 }

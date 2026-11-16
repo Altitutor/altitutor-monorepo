@@ -291,7 +291,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const hasOnboarding = !student.deleted_at && (student.status === 'TRIAL' || journeys.some(journey => journey.student_id === id && !journey.closed_at));
 
   return (
-    <EntityPropertiesLayout id="student-properties-sidebar" sidebar={<>
+    <EntityPropertiesLayout editing={editFlow.isEditing} id="student-properties-sidebar" sidebar={<>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
         <DetailsTab
@@ -351,9 +351,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
+          { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
           ...((studentDetails?.onlineRelationships?.length ?? 0) > 0 ? [{ value: 'online' as const, label: 'Online' }] : []),
-          { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
           { value: 'billing', label: 'Billing' },
         ]}

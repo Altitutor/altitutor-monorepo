@@ -1,10 +1,16 @@
-import { render, screen, within, waitFor, act } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { ToastProvider } from "@altitutor/ui";
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
+import { render as rtlRender, screen, within, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { Tables } from "@altitutor/shared";
 import { SessionsCard } from "@/features/sessions/components/SessionsCard";
 import { ClassCard } from "../ClassCard";
 import { AdminShiftCard } from "../AdminShiftCard";
+
+function render(ui: ReactNode, options?: RenderOptions) { return rtlRender(<ToastProvider><QuickActionsProvider>{ui}</QuickActionsProvider></ToastProvider>, options); }
 
 beforeAll(() => {
   global.ResizeObserver = class {

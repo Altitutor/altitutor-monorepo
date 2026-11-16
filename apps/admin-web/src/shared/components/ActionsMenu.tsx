@@ -30,7 +30,8 @@ import {
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
-import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import { usePathname } from 'next/navigation';
+import { RichTextTemplateMenuItems, RichTextTemplateRecordActions } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
 
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
@@ -77,6 +78,7 @@ interface StaffActionsMenuProps extends BaseActionsMenuProps {
 
 interface SessionActionsMenuProps extends BaseActionsMenuProps {
   type: "session";
+  onEditDetails?: () => void;
   onLogSession?: () => void;
   hasTutorLog: boolean;
   onEditTutorLog?: () => void;
@@ -108,16 +110,19 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
 
 interface ClassActionsMenuProps extends BaseActionsMenuProps {
   type: "class";
+  onEditDetails?: () => void;
   onDelete?: () => void;
 }
 
 interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
   type: "adminShift";
+  onEditDetails?: () => void;
   onDelete?: () => void;
 }
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: "parent";
+  onEditDetails?: () => void;
   onDelete?: () => void;
   onBookCheckIn?: () => void;
 }
@@ -205,6 +210,7 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<
 };
 
 export function ActionsMenu(props: ActionsMenuProps) {
+  const pathname = usePathname();
   const { toast } = useToast();
   const quickActions = useQuickActions();
   const reference = props.entityId
@@ -264,7 +270,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
   ) : null;
 
   const canAddRelatedWork = reference && !["task", "project", "issue"].includes(props.type);
-  const actions = recordMenuActions(props, {
+  const allActions = recordMenuActions(props, {
     copy: props.entityId
       ? () => {
           void handleCopyId();
@@ -282,12 +288,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
     addTask: canAddRelatedWork
       ? () => quickActions.openCreateTaskDialog(reference)
       : undefined,
-  }).filter((action) => !(props.detailsInSidebar && action.id === "edit"));
+  });
+  const route = props.type === 'class' ? 'classes' : props.type === 'staff' ? 'staff' : props.type === 'adminShift' ? 'admin-shifts' : props.type === 'document' ? 'documents' : `${props.type}s`;
+  const isOwnPage = Boolean(props.entityId && pathname?.endsWith(`/${route}/${props.entityId}`));
+  const actions = allActions.filter((action) => !(isOwnPage && action.id === 'open') && !(props.detailsInSidebar && action.id === 'edit'));
   useRegisterRecordActions(
     props.type,
     props.entityId,
     props.copyTagDisplayText,
-    actions,
+    allActions,
   );
 
   if (props.type === "invoice") {
@@ -421,6 +430,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
   ];
   return (
     <div className="flex items-center gap-2">
+      {'richTextTemplateConfig' in props && props.richTextTemplateConfig && <RichTextTemplateRecordActions type={props.type} id={props.entityId} title={props.copyTagDisplayText} config={props.richTextTemplateConfig} />}
       <EmailActionGroup label="Common record actions">
         <TooltipProvider delayDuration={0}>
           {!props.menuOnly && actions.filter((action) => action.primaryOnly).map((action) => (

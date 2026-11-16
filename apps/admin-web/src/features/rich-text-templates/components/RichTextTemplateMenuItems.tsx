@@ -15,6 +15,7 @@ import type { Tables, Json } from '@altitutor/shared';
 import { useRichTextTemplates } from '../api/templates';
 import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import { resolveAdminImageUrls } from '@/features/rich-text-images';
+import { useRegisterRecordActions } from '@/features/command-palette/RecordActionsContext';
 
 /**
  * Extracts content nodes to insert from TipTap doc format.
@@ -63,6 +64,17 @@ interface RichTextTemplateMenuItemsProps {
   getCurrentContent: () => JSONContent | string | null;
   onSaveAsTemplateClick?: () => void;
   onClose?: () => void;
+}
+
+/** The menu and hover launcher share the same editor and save-dialog ownership. */
+export function RichTextTemplateRecordActions({ type, id, title, config }: { type: string; id?: string; title?: string; config: RichTextTemplateMenuItemsProps }) {
+  const { data: templates = [] } = useRichTextTemplates();
+  const ready = () => { const editor = config.getEditor(); return Boolean(editor && editor.isInitialized && !editor.isDestroyed && editor.isEditable); };
+  useRegisterRecordActions(type, id, title, [
+    ...(config.onSaveAsTemplateClick ? [{ id: 'save-template', title: 'Save as template', icon: Save, ready, action: config.onSaveAsTemplateClick }] : []),
+    ...templates.map(template => ({ id: `insert-template-${template.id}`, title: template.name, group: 'Insert template', icon: FileText, ready, action: () => { void insertTemplateAtEnd(config.getEditor(), template.content as JSONContent | null); } })),
+  ]);
+  return null;
 }
 
 export function RichTextTemplateMenuItems({

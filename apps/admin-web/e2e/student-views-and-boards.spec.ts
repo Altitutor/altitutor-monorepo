@@ -79,9 +79,6 @@ test('Student views share one directory and open the Student page', async ({ pag
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Alice Williams', exact: true }).click();
-  const studentMenu = page.getByRole('menu');
-  await expect(studentMenu.getByRole('menuitem').first()).toHaveText('Open student');
-  await studentMenu.getByRole('menuitem', { name: 'Open student', exact: true }).click();
   await expect(page).toHaveURL(/\/students\/[\da-f-]+/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/online-students');
