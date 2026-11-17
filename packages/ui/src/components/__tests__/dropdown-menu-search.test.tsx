@@ -1,4 +1,7 @@
 /** @jest-environment jsdom */
+import userEvent from "@testing-library/user-event";
+import { useRef } from "react";
+import { ActionSearchScope, useMenuEntry } from "../dropdown-menu-search";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { KeyboardNavigationProvider } from "../keyboard-navigation";
 import {
@@ -10,6 +13,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "../dropdown-menu";
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView = jest.fn();
+});
 it("reveals search on typing, finds an unopened submenu action, and invokes it once", async () => {
   const move = jest.fn();
   render(
@@ -29,11 +40,12 @@ it("reveals search on typing, finds an unopened submenu action, and invokes it o
     </KeyboardNavigationProvider>,
   );
   fireEvent.keyDown(screen.getByRole("menu"), { key: "a" });
-  const search = screen.getByPlaceholderText("Search menu…");
+  const search = screen.getByRole("combobox", { name: "Search menu" });
+  expect(search.closest("[cmdk-root]")).not.toBeNull();
   fireEvent.change(search, { target: { value: "archive" } });
   await waitFor(() =>
     expect(
-      screen.getByRole("menuitem", { name: "Move to folder → Archive" }),
+      screen.getByRole("option", { name: "Move to folder → Archive" }),
     ).toBeTruthy(),
   );
   fireEvent.keyDown(search, { key: "Enter" });
@@ -115,4 +127,19 @@ it("starts searching the whole menu when typing inside an already-open submenu",
     key: "a",
   });
   expect(screen.getByPlaceholderText("Search menu…")).toBeTruthy();
+});
+
+
+it("preserves native Space activation for a focused hover action", async () => {
+  const run = jest.fn();
+  function Action() {
+    const ref = useRef<HTMLButtonElement>(null);
+    useMenuEntry(ref, false);
+    return <button ref={ref} onClick={run}>Log session</button>;
+  }
+  render(<ActionSearchScope><Action /></ActionSearchScope>);
+  screen.getByRole('button', {name:'Log session'}).focus();
+  await userEvent.keyboard(' ');
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('combobox')).toBeNull();
 });

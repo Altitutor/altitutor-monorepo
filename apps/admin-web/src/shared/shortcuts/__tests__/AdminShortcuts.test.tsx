@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Form,
+  DataTableToolbar,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -9,7 +10,7 @@ import {
 } from "@altitutor/ui";
 import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
 import type { TaskFormData } from "@/features/tasks/types";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
 import { matchShortcut } from "../registry";
@@ -150,20 +151,20 @@ it("focuses only the active tab search, skipping hidden preserved tabs", () => {
   press("KeyF");
   expect(input).toHaveFocus();
 });
-it("shows key hints while Alt is held and clears them on release or blur", () => {
+it("shows modifier hints while Alt is held and clears them on release or blur", () => {
   render(
     <AdminShortcuts>
-      <ShortcutKeys id="left" />
+      <ShortcutKeys id="palette" />
     </AdminShortcuts>,
   );
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
   press("AltLeft");
-  expect(screen.getByText("[")).toBeInTheDocument();
+  expect(screen.getByText("K")).toBeInTheDocument();
   fireEvent.keyUp(window, { key: "Alt", altKey: false });
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
   press("AltLeft");
   fireEvent.blur(window);
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
 });
 it("leaves non-palette dialogs and composition to their local controls", () => {
   render(
@@ -381,3 +382,69 @@ function ConversationSearch() {
     </>
   );
 }
+
+it("shows view hints only while their bare-number shortcut can run", async () => {
+  window.matchMedia = jest
+    .fn()
+    .mockReturnValue({
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    });
+  global.structuredClone = <T,>(value: T): T =>
+    JSON.parse(JSON.stringify(value)) as T;
+  const apply = jest.fn();
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <input aria-label="Typing" />
+        <DataTableToolbar
+          state={{
+            search: "",
+            filters: {},
+            sortBy: null,
+            sortDirection: "asc",
+            groupBy: null,
+            visibleColumns: [],
+            page: 1,
+            pageSize: 50,
+          }}
+          quickFilters={[
+            {
+              id: "builtin:all",
+              name: "All sessions",
+              target_entity: "sessions",
+              user_id: null,
+              config: {},
+              created_at: "",
+              updated_at: "",
+            },
+          ]}
+          onSearchChange={jest.fn()}
+          onFiltersChange={jest.fn()}
+          onSortChange={jest.fn()}
+          onGroupByChange={jest.fn()}
+          onVisibleColumnsChange={jest.fn()}
+          onQuickFilterApply={apply}
+          onReset={jest.fn()}
+          filterDefinitions={[]}
+        />
+      </main>
+    </AdminShortcuts>,
+  );
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "g" });
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "1" });
+  expect(apply).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "Alt", altKey: true });
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.keyUp(window, { key: "Alt", altKey: false });
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.focusIn(screen.getByLabelText("Typing"));
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.focusOut(screen.getByLabelText("Typing"), {relatedTarget: null});
+  fireEvent.keyDown(document.body, { key: "1" });
+  await waitFor(() => expect(apply).toHaveBeenCalledTimes(1));
+});

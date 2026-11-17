@@ -167,7 +167,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 pt-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 pt-4 [--detail-page-gutter:1rem]">
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
         <IssuePill entityType="class" entityId={id} enabled />

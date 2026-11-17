@@ -294,3 +294,69 @@ it("retains locally owned hover actions when reference details cannot load", asy
     expect(remove).toHaveBeenCalledTimes(1);
   } finally { globalThis.fetch = originalFetch; queryClient.clear(); }
 });
+
+
+it("searches preview actions with entity-chip context and invokes the result", async () => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView = jest.fn();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest
+    .fn()
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        title: "Maths session",
+        fields: [],
+        logged: false,
+        actionState: { sessionType: "CLASS" },
+      }),
+    });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  try {
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <QuickActionsProvider>
+            <RecordActionsProvider>
+              <EntityReferenceHovers /><Fixture />
+            </RecordActionsProvider>
+          </QuickActionsProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("button", { name: "Log session" });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Search actions" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Maths session" }),
+    ).toHaveAttribute("data-type", "session");
+    await userEvent.hover(screen.getByRole('button', {name:'Maths session'}));
+    await new Promise(resolve => setTimeout(resolve, 350));
+    expect(screen.getAllByRole('dialog', {name:'Session preview'})).toHaveLength(1);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('button', {name:'Search actions'})).toHaveFocus();
+    await userEvent.keyboard(' ');
+    await userEvent.type(
+      screen.getByRole("combobox", { name: "Search menu" }),
+      "log session",
+    );
+    expect(screen.getByRole("option", { name: "Log session" })).toBeVisible();
+    expect(
+      screen.queryByRole("option", { name: "Copy ID" }),
+    ).not.toBeInTheDocument();
+    await userEvent.keyboard("{Enter}");
+    expect(
+      await screen.findByText("The requested session log opened"),
+    ).toBeVisible();
+  } finally {
+    globalThis.fetch = originalFetch;
+    client.clear();
+  }
+});

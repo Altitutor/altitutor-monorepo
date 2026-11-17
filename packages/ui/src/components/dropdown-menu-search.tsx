@@ -2,7 +2,14 @@
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-dropdown-menu";
 import { useKeyboardNavigation } from "./keyboard-navigation";
-import { Input } from "./input";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandGroup,
+  CommandItem,
+} from "./command";
+import { Search } from "lucide-react";
 type Entry = {
   node: HTMLElement;
   label: string;
@@ -70,6 +77,24 @@ export function MenuSearchRoot(
     </MenuContext.Provider>
   );
 }
+/** The same action search for non-menu surfaces such as entity previews. */
+export function ActionSearchScope({
+  children,
+  header,
+}: {
+  children: React.ReactNode;
+  header?: React.ReactNode;
+}) {
+  const [store] = React.useState(createMenuStore);
+  return (
+    <MenuContext.Provider value={store}>
+      <MenuSearchContent searchHeader={header} showSearchTrigger>
+        {children}
+      </MenuSearchContent>
+    </MenuContext.Provider>
+  );
+}
+
 export function MenuSearchSub({
   children,
   open,
@@ -165,7 +190,15 @@ export function useMenuSearching() {
   return React.useContext(SearchingContext);
 }
 const emptyStore = createMenuStore();
-export function MenuSearchContent({ children }: { children: React.ReactNode }) {
+export function MenuSearchContent({
+  children,
+  searchHeader,
+  showSearchTrigger = false,
+}: {
+  children: React.ReactNode;
+  searchHeader?: React.ReactNode;
+  showSearchTrigger?: boolean;
+}) {
   const store = React.useContext(MenuContext);
   React.useSyncExternalStore(
     store?.subscribe ?? emptyStore.subscribe,
@@ -203,15 +236,15 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
       trigger.click();
     } else if (!searching && restoreMenuFocus.current) {
       restoreMenuFocus.current = false;
-      root.current
-        ?.closest('[role="menu"]')
-        ?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
-        ?.focus();
+      const menu = root.current?.closest('[role="menu"]');
+      const target = menu?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
+        ?? root.current?.querySelector<HTMLButtonElement>('button[aria-label="Search actions"]');
+      target?.focus();
     }
   }, [searching]);
   React.useLayoutEffect(() => {
     if (!store) return;
-    const menu = root.current?.closest('[role="menu"]');
+    const menu = root.current?.closest('[role="menu"]') ?? root.current;
     const keydown = (event: KeyboardEvent) => {
       if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey)
         return;
@@ -248,6 +281,7 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
         }
         return;
       }
+      if (event.key === ' ' && target instanceof Element && target.closest('button,[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],summary')) return;
       if (event.key.length === 1 && !event.repeat) {
         event.preventDefault();
         event.stopPropagation();
@@ -268,42 +302,64 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
   if (!store) return <>{children}</>;
   return (
     <SearchingContext.Provider value={searching}>
-      <div ref={root}>
+      <div
+        ref={root}
+        className={searching && !showSearchTrigger ? "-m-1" : undefined}
+      >
+        {!searching && showSearchTrigger && (
+          <button
+            type="button"
+            aria-label="Search actions"
+            className="mt-3 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted focus-visible:bg-muted"
+            onClick={() => {
+              setActive(0);
+              setSearchOpen(true);
+            }}
+          >
+            <Search className="size-4" />
+            Search actions
+          </button>
+        )}
         {searching && (
-          <>
-            <div className="p-1">
-              <Input
-                ref={input}
-                aria-label="Search menu"
-                placeholder="Search menu…"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setActive(0);
-                }}
-              />
-            </div>
-            <div role="group" className="max-h-72 min-w-56 overflow-auto">
-              {results.map((entry, index) => (
-                <button
-                  key={entry.label + index}
-                  type="button"
-                  role="menuitem"
-                  tabIndex={-1}
-                  className={`flex w-full rounded-sm px-2 py-1.5 text-left text-sm ${index === active ? "bg-accent text-accent-foreground" : ""}`}
-                  onPointerMove={() => setActive(index)}
-                  onClick={() => select(entry)}
-                >
-                  {entry.label}
-                </button>
-              ))}
+          <Command
+            label="Search menu"
+            shouldFilter={false}
+            disablePointerSelection={false}
+            value={String(active)}
+            onValueChange={(value) => setActive(Number(value))}
+            className="min-w-56 rounded-lg border-0"
+          >
+            {searchHeader && <div className="px-3 py-2">{searchHeader}</div>}
+            <CommandInput
+              ref={input}
+              aria-label="Search menu"
+              placeholder="Search menu…"
+              value={query}
+              onValueChange={(value) => {
+                setQuery(value);
+                setActive(0);
+              }}
+            />
+            <CommandList>
+              <CommandGroup>
+                {results.map((entry, index) => (
+                  <CommandItem
+                    key={entry.label + index}
+                    value={String(index)}
+                    onSelect={() => select(entry)}
+                    className="hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted"
+                  >
+                    {entry.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
               {!results.length && (
-                <p className="px-2 py-3 text-sm text-muted-foreground">
+                <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                   No matching actions
                 </p>
               )}
-            </div>
-          </>
+            </CommandList>
+          </Command>
         )}
         <div hidden={searching}>{children}</div>
       </div>

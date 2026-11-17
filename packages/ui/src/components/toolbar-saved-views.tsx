@@ -114,7 +114,8 @@ export function ToolbarSavedViews({
     onChange: (settings: DisplaySettings) => void,
   ) => React.ReactNode;
 }) {
-  const hints = useKeyboardHints();
+  const hintRoot = React.useRef<HTMLDivElement>(null);
+  const hints = useKeyboardHints(hintRoot, "views");
   const keyboardEnabled = useKeyboardNavigation();
   const service = React.useContext(ViewsContext);
   const [overrides, setOverrides] = React.useState<Record<string, SavedView>>(
@@ -213,6 +214,7 @@ export function ToolbarSavedViews({
     <>
       <div
         className="flex w-max flex-nowrap items-center gap-2"
+        ref={hintRoot}
         aria-label="Views"
       >
         {combined.map((view, index) => (

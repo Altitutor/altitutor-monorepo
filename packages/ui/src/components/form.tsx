@@ -82,12 +82,13 @@ const FormItem = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement> & { "data-shortcut-field"?: string }
 >(({ className, children, ...props }, ref) => {
   const id = React.useId()
-  const hints = useKeyboardHints()
+  const hintRoot = React.useRef<HTMLDivElement>(null)
+  const hints = useKeyboardHints(hintRoot, "field")
   const shortcut = props["data-shortcut-field"]
 
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div ref={ref} className={cn("space-y-2", shortcut && "relative", className)} {...props}>{children}{hints && shortcut && <KeyboardShortcut keys={[shortcut.toUpperCase()]} className="absolute -right-1 -top-2 z-10" />}</div>
+      <div ref={(node) => { hintRoot.current = node; if (typeof ref === "function") ref(node); else if (ref) ref.current = node; }} className={cn("space-y-2", shortcut && "relative", className)} {...props}>{children}{hints && shortcut && <KeyboardShortcut keys={[shortcut.toUpperCase()]} className="absolute -right-1 -top-2 z-10" />}</div>
     </FormItemContext.Provider>
   )
 })

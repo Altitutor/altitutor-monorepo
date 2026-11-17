@@ -23,7 +23,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { keyboardPane, isVisibleShortcutTarget } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
-import { AltHintsContext, GoHintsContext } from "./context";
+import {
+  AltHintsContext,
+  GoHintsContext,
+  ShortcutAvailabilityContext,
+} from "./context";
 import { activeDialog, searchControl, searchTrigger } from "./search";
 import { SearchHint } from "./SearchHint";
 import { NewDocumentDialog } from "./NewDocumentDialog";
@@ -36,6 +40,21 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
   const goTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [help, setHelp] = useState(false);
   const [held, setHeld] = useState(false);
+  const [modified, setModified] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [dialogActive, setDialogActive] = useState(false);
+  useEffect(() => {
+    const update = () => setDialogActive(Boolean(activeDialog()));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["hidden", "inert", "aria-hidden", "data-state"],
+    });
+    return () => observer.disconnect();
+  }, []);
   const [newDocument, setNewDocument] = useState(false);
   const panel = useAccessoryPanel();
   const shell = useAdminShell();
@@ -66,14 +85,27 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
     };
     const reset = () => {
       setHeld(false);
+      setModified(false);
+      setTyping(false);
       cancelGo();
     };
-    const keyup = (event: KeyboardEvent) => {
-      if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey)
-        setHeld(false);
+    const updateModifiers = (event: KeyboardEvent) => {
+      setHeld(
+        event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey,
+      );
+      setModified(
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey,
+      );
     };
+    const focus = (event: FocusEvent) => {
+      const editing = isTypingTarget(event.target);
+      setTyping(editing);
+      if (editing || activeDialog()) cancelGo();
+    };
+    const focusout = (event: FocusEvent) => setTyping(isTypingTarget(event.relatedTarget));
+    const keyup = updateModifiers;
     const keydown = (event: KeyboardEvent) => {
-      setHeld(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);
+      updateModifiers(event);
       if (event.defaultPrevented) return;
       const bare =
         !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing;
@@ -251,11 +283,15 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         else shell.toggleSidebar();
       } else if (id === "right") panel?.toggle();
     };
+    document.addEventListener("focusin", focus);
+    document.addEventListener("focusout", focusout);
     window.addEventListener("keydown", keydown, true);
     window.addEventListener("keyup", keyup, true);
     window.addEventListener("blur", reset);
     document.addEventListener("visibilitychange", reset);
     return () => {
+      document.removeEventListener("focusin", focus);
+      document.removeEventListener("focusout", focusout);
       window.removeEventListener("keydown", keydown, true);
       window.removeEventListener("keyup", keyup, true);
       window.removeEventListener("blur", reset);
@@ -274,18 +310,38 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
   ]);
   return (
     <KeyboardNavigationProvider value={true}>
-      <KeyboardHintsContext.Provider value={held || go}>
-        <GoHintsContext.Provider value={go}>
-          <AltHintsContext.Provider value={held}>
-            {children}
-            <ShortcutHelp open={help} onOpenChange={setHelp} />
-            <SearchHint activeKey={panel?.expanded ? panel.activeKey : null} />
-            <NewDocumentDialog
-              open={newDocument}
-              onClose={() => setNewDocument(false)}
-            />
-          </AltHintsContext.Provider>
-        </GoHintsContext.Provider>
+      <KeyboardHintsContext.Provider value={!modified && !go && !typing}>
+        <ShortcutAvailabilityContext.Provider
+          value={{
+            left: !modified && !go && !typing && !dialogActive,
+            right: !modified && !go && !typing && !dialogActive,
+            palette: true,
+            search:
+              typeof document !== "undefined" &&
+              Boolean(
+                searchControl(panel?.expanded ? panel.activeKey : null) ||
+                  searchTrigger(panel?.expanded ? panel.activeKey : null),
+              ),
+            new: Boolean(createNew) && (!dialogActive || palette.isOpen),
+            close: Boolean(panel?.expanded) && !dialogActive,
+          }}
+        >
+          <GoHintsContext.Provider
+            value={go && !modified && !typing && !dialogActive}
+          >
+            <AltHintsContext.Provider value={held}>
+              {children}
+              <ShortcutHelp open={help} onOpenChange={setHelp} />
+              <SearchHint
+                activeKey={panel?.expanded ? panel.activeKey : null}
+              />
+              <NewDocumentDialog
+                open={newDocument}
+                onClose={() => setNewDocument(false)}
+              />
+            </AltHintsContext.Provider>
+          </GoHintsContext.Provider>
+        </ShortcutAvailabilityContext.Provider>
       </KeyboardHintsContext.Provider>
     </KeyboardNavigationProvider>
   );

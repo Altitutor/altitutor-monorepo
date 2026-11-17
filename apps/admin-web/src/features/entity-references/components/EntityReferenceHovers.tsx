@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import tippy from "tippy.js";
-import { Badge, Skeleton } from "@altitutor/ui";
+import { ActionSearchScope, EntityChip, Badge, Skeleton } from "@altitutor/ui";
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
 import { ReferenceActions } from './ReferenceActions';
 import { ReferenceActionList } from './ReferenceActionList';
 import { useContextualChipHoverActions } from './chipHoverActions';
+import { openEntityReference } from '@/shared/utils/entityReference';
 import type { RecordMenuAction } from '@/shared/components/recordMenuActions';
 
 export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate, contextualActions }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void; contextualActions?: RecordMenuAction[] }) {
@@ -36,6 +37,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
           : type.charAt(0).toUpperCase() + type.slice(1);
   return (
     <div
+      data-entity-reference-preview
       role="dialog"
       aria-label={`${label} preview`}
       className={embedded ? "text-sm" : "max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"}
@@ -89,10 +91,38 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
             })}
           </div>
         ) : null}
-        <ReferenceActions type={type} id={id} details={query.data} onActivate={onActivate} />
         </>
       )}
-      {contextualActions?.length ? <ReferenceActionList actions={contextualActions} onActivate={onActivate} /> : null}
+      {query.data || contextualActions?.length ? (
+        <ActionSearchScope
+          header={
+            <EntityChip
+              entityType={type}
+              entityId={id}
+              label={query.data?.title || fallbackTitle || "Entity"}
+              onClick={() => {
+                onActivate?.();
+                openEntityReference(type, id);
+              }}
+            />
+          }
+        >
+          {query.data && (
+            <ReferenceActions
+              type={type}
+              id={id}
+              details={query.data}
+              onActivate={onActivate}
+            />
+          )}
+          {contextualActions?.length ? (
+            <ReferenceActionList
+              actions={contextualActions}
+              onActivate={onActivate}
+            />
+          ) : null}
+        </ActionSearchScope>
+      ) : null}
     </div>
   );
 }
@@ -116,7 +146,7 @@ export function EntityReferenceHovers() {
               "[data-mention][data-id][data-type]",
             )
           : null;
-      if (!chip) return;
+      if (!chip || chip.closest("[data-entity-reference-preview]")) return;
       const previous = event instanceof MouseEvent ? event.relatedTarget : null;
       if (previous instanceof Node && chip.contains(previous)) return;
       clear();
