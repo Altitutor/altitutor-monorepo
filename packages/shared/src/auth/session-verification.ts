@@ -64,3 +64,30 @@ export async function getClaimsWithJwtIssuedInFutureRetry<
   if (!retry.error) onRecovered(first.error);
   return retry;
 }
+
+/** A verified getUser rejection, rather than a failure to reach Auth. */
+export function isUnauthenticatedUserError(error: unknown) {
+  const status = typeof error === "object" && error !== null && "status" in error
+    ? error.status : null;
+  if (
+    (typeof status === "number" && (status === 429 || status >= 500)) ||
+    ["AuthRetryableFetchError", "AuthUnknownError", "AbortError", "TimeoutError"].includes(field(error, "name") ?? "") ||
+    isJwtIssuedInFutureError(error)
+  ) return false;
+  if (isUnauthenticatedSessionError(error)) return true;
+  return ["bad_jwt", "invalid_jwt", "user_not_found"].includes(
+    field(error, "code") ?? "",
+  );
+}
+
+/** Normalise returned and thrown Auth verification failures at one boundary. */
+export async function getUserVerification<TUser>(
+  operation: () => Promise<{ data: { user: TUser | null }; error: unknown }>,
+): Promise<{ user: TUser | null; error: unknown }> {
+  try {
+    const { data, error } = await operation();
+    return { user: data.user, error };
+  } catch (error) {
+    return { user: null, error };
+  }
+}
