@@ -49,7 +49,7 @@ import { cn } from "@/shared/utils";
 import { InterviewStudentPicker } from "./InterviewStudentPicker";
 
 import { createRoundSubmission } from "../lib/round-submission";
-import { nextInterviewRoundSchedule } from "../lib/round-defaults";
+import { nextInterviewRoundSchedule, readRoundDefaults, rememberRoundDefaults } from "../lib/round-defaults";
 
 const roundSteps = ["Details", "Students", "Tutor assignments"];
 
@@ -80,7 +80,8 @@ function SetupEditor({
   const [submitNewRound] = useState(() =>
     createRoundSubmission(command.mutateAsync),
   );
-  const [defaultSchedule] = useState(() => nextInterviewRoundSchedule());
+  const [defaults] = useState(() => existingRound ? null : readRoundDefaults(catalog.actorId));
+  const [defaultSchedule] = useState(() => defaults?.scheduledAt ? new Date(defaults.scheduledAt) : nextInterviewRoundSchedule());
   const [roundVersion] = useState(existingRound?.version ?? 0);
   const [setup, setSetup] = useState<RoundSetup>(
     existingRound
@@ -98,10 +99,10 @@ function SetupEditor({
       : {
           interviewId: interview.id,
           name: interview.name,
-          delivery: "in_person",
-          mode: "feedback",
-          recordingEnabled: true,
-          rotationAllowanceSeconds: 120,
+          delivery: defaults?.delivery ?? "in_person",
+          mode: defaults?.mode ?? "feedback",
+          recordingEnabled: defaults?.recordingEnabled ?? true,
+          rotationAllowanceSeconds: defaults?.rotationAllowanceSeconds ?? 120,
           scheduledAt: null,
           studentIds: [],
           assignments: resolveInterviewStations(
@@ -113,8 +114,8 @@ function SetupEditor({
           })),
         },
   );
-  const [schedule, setSchedule] = useState(() =>
-    !existingRound ||
+  const [schedule, setSchedule] = useState<"now" | "later">(() =>
+    !existingRound ? defaults?.schedule ?? "later" :
     (existingRound.scheduledAt &&
       Date.parse(existingRound.scheduledAt) > Date.now())
       ? "later"
@@ -179,6 +180,7 @@ function SetupEditor({
       const submitted = await submitNewRound.submit({ ...setup, scheduledAt });
       roundId = submitted.roundId;
       submittedSchedule = submitted.setup.scheduledAt;
+      rememberRoundDefaults(catalog.actorId, submitted.setup, schedule);
     }
     if (submittedSchedule && Date.parse(submittedSchedule) > Date.now()) {
       onScheduled();
@@ -324,7 +326,7 @@ function SetupEditor({
                   { id: "now", label: "Start now" },
                   { id: "later", label: "Schedule for later" },
                 ]}
-                onChange={(value) => setSchedule(value ?? "now")}
+                onChange={(value) => setSchedule(value === "later" ? "later" : "now")}
               />
             </InterviewField>
             {schedule === "later" && (
@@ -541,7 +543,10 @@ export function InterviewRoundDialog({
   const [expanded, setExpanded] = useState(false);
   const [step, setStep] = useState(0);
   const [interviewId, setInterviewId] = useState<string | null>(
-    existingRound?.interviewId ?? null,
+    existingRound?.interviewId ?? (() => {
+      const saved = readRoundDefaults(catalog.actorId)?.interviewId;
+      return catalog.interviews.some((item) => item.id === saved && !item.archived) ? saved ?? null : null;
+    })(),
   );
   const [bind, setBind] = useState<RoundWizardBind>({
     canSubmit: false,

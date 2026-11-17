@@ -81,7 +81,7 @@ describe("student released result boundary", () => {
     expect(screen.queryByText("SECRET STATION NAME")).not.toBeInTheDocument();
   });
 
-  it("shows the released partial total and reason, while keeping station names and rubrics private", () => {
+  it("shows the released partial total, feedback and rubric while keeping station names private", () => {
     setQuery({
       ...round,
       result: {
@@ -121,7 +121,7 @@ describe("student released result boundary", () => {
       screen.getByText("Overall: clear empathy and structure"),
     ).toBeInTheDocument();
     expect(screen.queryByText("SECRET STATION NAME")).not.toBeInTheDocument();
-    expect(screen.queryByText("SECRET RUBRIC")).not.toBeInTheDocument();
+    expect(screen.getByText("SECRET RUBRIC")).toBeInTheDocument();
     expect(
       screen.queryByText("Your released feedback"),
     ).not.toBeInTheDocument();

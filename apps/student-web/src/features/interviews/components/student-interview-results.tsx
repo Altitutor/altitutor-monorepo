@@ -199,6 +199,10 @@ function StationFeedback({
                 className={cn("space-y-2 rounded-lg px-2 py-2 text-sm", highlightedQuestion === question.id && "bg-primary/10 ring-2 ring-primary/30")}>
                 {timing && <p className="text-xs tabular-nums text-muted-foreground lg:hidden">{timing}</p>}
                 <InterviewContent value={question.question} className="[&>p:first-child]:!mt-0" />
+                {interviewText(question.rubric).trim() && <div>
+                  <p className="font-medium">Rubric</p>
+                  <InterviewContent value={question.rubric} />
+                </div>}
                 {feedback ? (
                   <div>
                     <p className="font-medium">Tutor feedback</p>

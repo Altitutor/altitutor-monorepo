@@ -37293,6 +37293,7 @@ export type Database = {
       }
       vtutor_interview_performance_review_students: {
         Row: {
+          details: Json | null
           id: string | null
           name: string | null
         }

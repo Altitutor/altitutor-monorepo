@@ -29,7 +29,7 @@ import { sessionsApi } from "@/features/sessions/api/sessions";
 import { useInterviewCommand } from "../hooks/use-interviews";
 import { planInterviewRounds } from "../lib/bulk-rounds";
 import { createRoundsSubmission } from "../lib/round-submission";
-import { nextInterviewRoundSchedule } from "../lib/round-defaults";
+import { nextInterviewRoundSchedule, readRoundDefaults, rememberRoundDefaults } from "../lib/round-defaults";
 import {
   InterviewError,
   InterviewField,
@@ -73,12 +73,13 @@ function BulkRoundEditor({
     createRoundsSubmission(command.mutateAsync),
   );
   const [step, setStep] = useState(0);
+  const [defaults] = useState(() => readRoundDefaults(catalog.actorId));
   const interviews = catalog.interviews.filter((item) => !item.archived);
   const [interviewId, setInterviewId] = useState<string | null>(
-    interviews[0]?.id ?? null,
+    interviews.find((item) => item.id === defaults?.interviewId)?.id ?? interviews[0]?.id ?? null,
   );
   const interview = interviews.find((item) => item.id === interviewId);
-  const [start] = useState(() => nextInterviewRoundSchedule());
+  const [start] = useState(() => defaults?.scheduledAt ? new Date(defaults.scheduledAt) : nextInterviewRoundSchedule());
   const [date, setDate] = useState<string | null>(format(start, "yyyy-MM-dd"));
   const [time, setTime] = useState(format(start, "HH:mm"));
   const [sessionDate, setSessionDate] = useState<string | null>(
@@ -86,10 +87,10 @@ function BulkRoundEditor({
   );
   const [name, setName] = useState(interview?.name ?? "Interview");
   const [delivery, setDelivery] =
-    useState<InterviewRoundSetup["delivery"]>("in_person");
-  const [mode, setMode] = useState<InterviewRoundSetup["mode"]>("feedback");
-  const [recordingEnabled, setRecordingEnabled] = useState(true);
-  const [allowance, setAllowance] = useState(2);
+    useState<InterviewRoundSetup["delivery"]>(defaults?.delivery ?? "in_person");
+  const [mode, setMode] = useState<InterviewRoundSetup["mode"]>(defaults?.mode ?? "feedback");
+  const [recordingEnabled, setRecordingEnabled] = useState(defaults?.recordingEnabled ?? true);
+  const [allowance, setAllowance] = useState((defaults?.rotationAllowanceSeconds ?? 120) / 60);
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[][]>([]);
   const [assignments, setAssignments] = useState<InterviewAssignment[]>(
@@ -265,7 +266,9 @@ function BulkRoundEditor({
     if ((planError || !planned.length) && !submission.pending) return;
     setError(null);
     try {
-      await submission.submit(planned);
+      const submitted = await submission.submit(planned);
+      const first = submitted.rounds[0];
+      if (first) rememberRoundDefaults(catalog.actorId, first.setup, "later");
       onClose();
     } catch (caught) {
       setError(caught);

@@ -6,11 +6,16 @@ import type { DataTableState } from "@altitutor/shared";
 export function useInterviewTable(
   visibleColumns: string[],
   defaultFilters?: Record<string, unknown[]>,
+  defaultSort?: { sortBy: string; sortDirection: "asc" | "desc" },
 ) {
-  return useUcatTableState(visibleColumns, {
+  const table = useUcatTableState(visibleColumns, {
     defaultFilters,
     defaultPageSize: 20,
   });
+  return {
+    ...table,
+    state: !table.state.sortBy && defaultSort ? { ...table.state, ...defaultSort } : table.state,
+  };
 }
 
 export function selectedFilter(

@@ -139,3 +139,5 @@ export * from './components/interview-review-mock-history';
 
 export * from "./components/keyboard-navigation";
 export type { CollectionKeyboardAction } from "./components/collection-keyboard";
+
+export * from "./components/interview-rejoin-banner";
