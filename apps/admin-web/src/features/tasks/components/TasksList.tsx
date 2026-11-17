@@ -145,7 +145,7 @@ function TaskLinkDropdownContent({
                   className={cn(
                     "w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left",
                     isSelected
-                      ? "bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20"
+                      ? "bg-muted"
                       : "hover:bg-muted",
                   )}
                   onMouseDown={(e) => {

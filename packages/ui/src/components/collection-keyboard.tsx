@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { X } from "lucide-react";
+import { useMediaQuery } from "../hooks/use-media-query";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
@@ -64,7 +66,7 @@ export function CollectionRecord({
       }}
       className={cn(
         "group/collection-record relative flex min-w-0 items-start gap-1 rounded-md outline-none",
-        selection.active === id && "ring-1 ring-ring",
+        selection.active === id && "ring-1 ring-border",
         (selected || selection.active === id) &&
           "bg-muted [&_[data-work-item-card]]:bg-muted [&_[data-work-item-row]]:bg-muted",
       )}
@@ -111,9 +113,11 @@ export function KeyboardCollection<T>({
   renderAction?: (
     action: CollectionKeyboardAction<T>,
     item: T,
+    compact: boolean,
   ) => React.ReactNode;
 }) {
   const enabled = useKeyboardNavigation();
+  const compactActions = useMediaQuery("(max-width: 639px)");
   const root = React.useRef<HTMLDivElement>(null);
   const toolbar = React.useRef<HTMLDivElement>(null);
   const visibleOwner = React.useSyncExternalStore(
@@ -388,9 +392,12 @@ export function KeyboardCollection<T>({
             data-collection-selection-toolbar
             role="toolbar"
             aria-label="Selected records"
-            className="fixed bottom-6 left-1/2 z-[140] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg"
+            className="fixed bottom-6 left-1/2 z-[140] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-nowrap items-center gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg"
           >
-            <span className="text-sm" aria-live="polite">
+            <span
+              className="shrink-0 whitespace-nowrap text-sm"
+              aria-live="polite"
+            >
               {targetIds.length} {liveSelected.length ? "selected" : "record"}
             </span>
             {actions.map((action) => (
@@ -398,40 +405,49 @@ export function KeyboardCollection<T>({
                 key={action.key}
                 value={{
                   field: action.key === "p" ? "priority" : action.key,
+                  triggerLabel: action.label,
                   select: (id) => apply(action, id),
                   busy,
                   error,
                   container: () => toolbar.current,
                 }}
               >
-                <CollectionField field={action.key}>
-                  {renderAction?.(action, targetItem) ?? (
-                    <SearchableSelect
-                      items={action.options}
-                      value={null}
-                      getItemId={(option) => String(option.value)}
-                      getItemLabel={(option) => option.label}
-                      onValueChange={() => {}}
-                      searchPlaceholder="Search options…"
-                      trigger={
-                        <Button size="sm" variant="outline">
-                          {action.label}
-                        </Button>
-                      }
-                    />
-                  )}
-                </CollectionField>
+                <div className="min-w-0 max-w-48 [&_button]:max-w-full [&_button]:whitespace-nowrap">
+                  <CollectionField field={action.key}>
+                    {renderAction?.(action, targetItem, compactActions) ?? (
+                      <SearchableSelect
+                        items={action.options}
+                        value={null}
+                        getItemId={(option) => String(option.value)}
+                        getItemLabel={(option) => option.label}
+                        onValueChange={() => {}}
+                        searchPlaceholder="Search options…"
+                        trigger={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            aria-label={action.label}
+                          >
+                            {compactActions ? action.label[0] : action.label}
+                          </Button>
+                        }
+                      />
+                    )}
+                  </CollectionField>
+                </div>
               </CollectionPickerContext.Provider>
             ))}
             <Button
-              size="sm"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              aria-label="Clear selection"
               variant="ghost"
               onClick={() => {
                 setSelected(new Set());
                 setFallback(null);
               }}
             >
-              Clear selection
+              <X className="h-4 w-4" aria-hidden />
             </Button>
           </div>,
           host,

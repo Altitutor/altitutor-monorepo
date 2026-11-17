@@ -47,6 +47,9 @@ it("selects two records with the keyboard and applies a chosen status only to th
   fireEvent.keyDown(document.activeElement!, { key: "x" });
   fireEvent.keyDown(document.activeElement!, { key: "j", shiftKey: true });
   expect(screen.getByText("2 selected")).toBeTruthy();
+  const clear = screen.getByRole('button', { name: 'Clear selection' });
+  expect(clear.textContent).toBe('');
+  expect(screen.getByRole('toolbar', { name: 'Selected records' }).className).toContain('flex-nowrap');
   fireEvent.keyDown(document.activeElement!, { key: "s" });
   fireEvent.click(screen.getByRole("option", { name: /Done/ }));
   await waitFor(() => expect(apply).toHaveBeenCalledTimes(2));
@@ -212,6 +215,7 @@ it("opens the existing row pill and uses the same native picker for bulk changes
   await waitFor(()=>expect(native).toHaveBeenCalledWith(options[1]));
   await waitFor(()=>expect(screen.queryByRole('combobox')).toBeNull());
   fireEvent.keyDown(document.activeElement!,{key:'x'}); fireEvent.keyDown(document.activeElement!,{key:'j',shiftKey:true});
+  expect(screen.getByRole('button', { name: 'Status' })).toBeTruthy();
   fireEvent.keyDown(document.activeElement!,{key:'s'});
   fireEvent.keyDown(screen.getByRole('combobox'),{key:'2'});
   await waitFor(()=>expect(bulk).toHaveBeenCalledTimes(2));

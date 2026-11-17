@@ -294,7 +294,9 @@ export function SearchableSelect<T>({
         className={cn("flex max-w-full", fullWidth ? "w-full min-w-0" : "w-fit")}
       >
         <PopoverTrigger asChild>
-          {trigger ?? defaultTrigger}
+          {collectionPicker?.triggerLabel && React.isValidElement<{ 'aria-label'?: string }>(trigger ?? defaultTrigger)
+            ? React.cloneElement((trigger ?? defaultTrigger) as React.ReactElement<{ 'aria-label'?: string }>, { 'aria-label': collectionPicker.triggerLabel })
+            : trigger ?? defaultTrigger}
         </PopoverTrigger>
       </span>
       <PopoverContent

@@ -550,6 +550,12 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
 
   return (
     <div
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || !event.currentTarget.contains(event.target as Node) || !onCancelAdd) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onCancelAdd();
+      }}
       className={cn(
         'flex flex-col shrink-0 w-full',
         onCancelAdd ? 'rounded-md' : 'border-t',
@@ -812,6 +818,7 @@ export function EntityListStatusBubble<TItem, TValue>({
         trigger={
           <button
             type="button"
+            aria-label={compact ? `${column.label}: ${selectedOption?.label ?? ''}` : undefined}
             className={cn(
               'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
               'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 bg-background',

@@ -4,6 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 export type CollectionActionKey = "s" | "p" | "a";
 export const CollectionPickerContext = createContext<{
   field: string;
+  triggerLabel?: string;
   select?: (id: string | null) => Promise<boolean>;
   busy?: boolean;
   container?: () => HTMLElement | null;
