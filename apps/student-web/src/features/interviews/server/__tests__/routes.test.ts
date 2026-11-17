@@ -21,7 +21,7 @@ jest.mock("@/lib/sentry/capture-api-error", () => ({
   captureApiError: jest.fn(),
 }));
 jest.mock("@altitutor/shared", () =>
-  jest.requireActual("@altitutor/shared/interviews/validation"),
+  ({ ...jest.requireActual("@altitutor/shared/interviews/validation"), ...jest.requireActual("@altitutor/shared/auth/session-verification") }),
 );
 
 const actorId = "11111111-1111-4111-8111-111111111111";
@@ -68,11 +68,52 @@ beforeEach(() => {
     >);
 });
 
+describe("interview sign-in verification failures", () => {
+  it.each([
+    { name: "AuthRetryableFetchError", status: 0 },
+    { name: "AuthApiError", status: 503 },
+    { name: "AuthApiError", status: 429 },
+    { name: "AuthUnknownError" },
+    { name: "AuthApiError", status: 503, code: "bad_jwt" },
+    { name: "AuthRetryableFetchError", message: "invalid refresh token" },
+    { name: "AuthUnknownError", code: "session_expired" },
+    { code: "bad_jwt", message: "JWT issued at future" },
+  ])("reports unavailable verification rather than invalid login: %j", async (error) => {
+    getUser.mockResolvedValue({ data: { user: null }, error });
+    const response = await getAccess(new Request("https://portal.test/api/interviews/access"));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Sign-in verification is temporarily unavailable. Please try again." });
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(from).not.toHaveBeenCalled();
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+  it("handles a thrown transport failure without calling it an expired login", async () => {
+    getUser.mockRejectedValue(new TypeError("fetch failed"));
+    const response = await getAccess(new Request("https://portal.test/api/interviews/access"));
+    expect(response.status).toBe(503);
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+  it("keeps a thrown missing-session error unauthorised", async () => {
+    getUser.mockRejectedValue({ name: "AuthSessionMissingError" });
+    expect((await getAccess(new Request("https://portal.test/api/interviews/access"))).status).toBe(401);
+  });
+  it.each([
+    { name: "AuthSessionMissingError" },
+    { code: "session_expired" },
+    { code: "bad_jwt", message: "invalid token" },
+    { code: "user_not_found" },
+  ])("keeps a confirmed unusable login unauthorised: %j", async (error) => {
+    getUser.mockResolvedValue({ data: { user: null }, error });
+    expect((await getAccess(new Request("https://portal.test/api/interviews/access"))).status).toBe(401);
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("student interview HTTP boundary", () => {
   it("rejects an unauthenticated command before requesting a service client", async () => {
     getUser.mockResolvedValue({
       data: { user: null },
-      error: { message: "expired" },
+      error: { name: "AuthSessionMissingError" },
     });
     const response = await POST(request());
     expect(response.status).toBe(401);
