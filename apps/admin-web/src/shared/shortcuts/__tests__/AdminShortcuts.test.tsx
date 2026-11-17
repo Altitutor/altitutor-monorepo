@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Form,
+  EntityCollection,
   DataTableToolbar,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -75,7 +76,7 @@ beforeEach(() => {
   mobileOpen = false;
   kind = "task";
   expanded = true;
-  window.matchMedia = jest.fn().mockReturnValue({ matches: false });
+  window.matchMedia = jest.fn().mockReturnValue({ matches: false, addEventListener: jest.fn(), removeEventListener: jest.fn() });
 });
 function press(code: string, extra = {}) {
   fireEvent.keyDown(window, { code, key: code, altKey: true, ...extra });
@@ -462,4 +463,30 @@ it("closes the mobile sidebar with the same bracket shortcut while its dialog is
   view.rerender(<AdminShortcuts><div role="dialog" id="admin-mobile-sidebar">Navigation</div></AdminShortcuts>);
   fireEvent.keyDown(window, {key:'[',code:'BracketLeft'});
   expect(toggleMobile).toHaveBeenCalledTimes(2);
+});
+
+
+it('uses clicked accessory content for fields and lets a hovered primary record override it', async () => {
+  const right=jest.fn(), apply=jest.fn().mockResolvedValue(undefined);
+  render(<AdminShortcuts><main data-admin-main><EntityCollection items={[{id:'one'}]} getItemId={item=>item.id} renderName={()=>'Primary task'} rightPills={[]} keyboardActions={[{key:'s',label:'Status',options:[{value:'done',label:'Done'}],apply}]} hideToolbar /></main><aside data-accessory-tab="active"><span>Right content</span><div data-shortcut-field="s"><button onClick={right}>Right status</button></div></aside></AdminShortcuts>);
+  fireEvent.pointerDown(screen.getByText('Right content'));
+  fireEvent.keyDown(document.body,{key:'s'});
+  expect(right).toHaveBeenCalledTimes(1);
+  fireEvent.mouseEnter(screen.getByText('Primary task').closest('[data-keyboard-record]')!);
+  fireEvent.keyDown(document.body,{key:'s'});
+  fireEvent.click(screen.getByRole('option',{name:/Done/}));
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
+  expect(right).toHaveBeenCalledTimes(1);
+});
+
+it('opens contextual menus and custom filters from the focused right pane', () => {
+  const filter=jest.fn();
+  render(<AdminShortcuts><main data-admin-main><button data-shortcut-menu>Left menu</button></main><aside data-accessory-tab="active"><DropdownMenu><DropdownMenuTrigger data-shortcut-menu>Right menu</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Right action</DropdownMenuItem></DropdownMenuContent></DropdownMenu><button data-shortcut-filter onClick={filter}>Right filter</button></aside></AdminShortcuts>);
+  screen.getByRole('button',{name:'Right menu'}).focus();
+  fireEvent.keyDown(document.activeElement!,{key:'m'});
+  expect(screen.getByRole('menuitem',{name:'Right action'})).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole('menu'),{key:'Escape'});
+  screen.getByRole('button',{name:'Right filter'}).focus();
+  fireEvent.keyDown(document.activeElement!,{key:'f'});
+  expect(filter).toHaveBeenCalledTimes(1);
 });

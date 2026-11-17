@@ -227,7 +227,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
       if (pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]') || !pane.contains(root)) return;
       const collection = document.activeElement?.closest('[data-keyboard-collection]');
       const owner = collection ?? pane;
-      if (owner.querySelector('[data-shortcut-toolbar]') !== root) return;
+      if ([...owner.querySelectorAll<HTMLElement>('[data-shortcut-toolbar]')].find(isVisibleShortcutTarget) !== root) return;
       const key = event.key.toLowerCase();
       if (event.altKey && (event.code === 'KeyF' || key === 'f' || key === 'ƒ') && !hideSearch) {
         event.preventDefault(); setSearchOpen(true); return;

@@ -69,7 +69,7 @@ export function EntityCollection<TItem>({
   return (
     <KeyboardCollection layout={boardMode ? "board" : "list"} renderAction={(action, item, compact) => {
       if (action.key === 's' && props.statusColumn) return <EntityListStatusBubble item={item} column={props.statusColumn} compact={compact} />;
-      const pill = props.rightPills.find(pill => action.key === 'p' ? pill.key === 'priority' : ['assignee','lead'].includes(pill.key));
+      const pill = props.rightPills.find(pill => action.key === 'p' ? pill.key === 'priority' : action.key === 'd' ? ['due_date','target_date'].includes(pill.key) : action.key === 'e' ? pill.key === 'estimate' : ['assignee','lead'].includes(pill.key));
       return pill?.renderPill(item, () => {}, compact);
     }} items={props.items} getItemId={props.getItemId} onOpen={props.onRowClick} actions={props.keyboardActions}>
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-md bg-background">

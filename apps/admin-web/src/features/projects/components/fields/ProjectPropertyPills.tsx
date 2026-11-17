@@ -51,7 +51,7 @@ export function ProjectPropertyPills({
   ) as Tables<'staff'> | null;
 
   return (
-    <div className="flex flex-wrap gap-2 pb-2 md:hidden">
+    <div className="flex flex-wrap gap-2 pb-2">
       <FormField
         control={form.control}
         name="status"
@@ -196,7 +196,7 @@ export function ProjectPropertyPills({
           control={form.control}
           name="targetDate"
           render={({ field }) => (
-            <FormItem>
+            <FormItem data-shortcut-field="d">
               <FormControl>
                 <DatePickerPill
                   label="Finish date"

@@ -91,7 +91,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
         ) : null}
         </>
       )}
-      <ActionSearchScope alwaysSearchable autoFocus={autoFocusSearch}>
+      <div className="-mx-4 mt-3 border-t"><ActionSearchScope alwaysSearchable autoFocus={autoFocusSearch}>
           {query.data && (
             <ReferenceActions
               type={type}
@@ -106,7 +106,7 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
               onActivate={onActivate}
             />
           ) : null}
-      </ActionSearchScope>
+      </ActionSearchScope></div>
     </div>
   );
 }

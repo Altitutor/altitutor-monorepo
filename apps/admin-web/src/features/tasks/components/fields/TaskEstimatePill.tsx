@@ -34,7 +34,7 @@ export function TaskEstimatePill({ form }: TaskEstimatePillProps) {
             : ESTIMATE_ITEMS[0];
 
         return (
-          <FormItem>
+          <FormItem data-shortcut-field="e">
             <FormControl>
               <SearchableSelect<(typeof ESTIMATE_ITEMS)[number]>
                 items={ESTIMATE_ITEMS}

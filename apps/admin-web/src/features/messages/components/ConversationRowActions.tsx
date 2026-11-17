@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EntityChipIcon, SearchableSelect, keyboardPane, isTypingTarget } from "@altitutor/ui";
+import { EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget, isTypingTarget } from "@altitutor/ui";
 import { Mail, UserRound } from "lucide-react";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
 import { EmailIconButton } from "@/features/email/components/EmailIconButton";
@@ -48,8 +48,8 @@ export function ConversationRowActions({
       const pane = keyboardPane();
       if (!row || row.closest('[hidden],[inert]') || !pane.contains(row) || pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]')) return;
       const focused = document.activeElement?.closest("[data-conversation-row]");
-      const hovered = document.querySelector("[data-conversation-row]:hover");
-      if (row !== (focused ?? hovered)) return;
+      const hovered = keyboardPointerTarget()?.closest("[data-conversation-row]") ?? document.querySelector("[data-conversation-row]:hover");
+      if (row !== (hovered ?? focused)) return;
       event.preventDefault();
       if (key === "t") current.current.onCreateTask();
       if (key === "a") setAssigneeOpen(true);

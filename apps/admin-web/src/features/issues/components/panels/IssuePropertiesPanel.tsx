@@ -20,7 +20,6 @@ interface IssuePropertiesPanelProps {
 
 export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   form,
-  issue,
   descriptionRef: descriptionRefProp,
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLInputElement>(null);
@@ -55,7 +54,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
       data-rich-text-toolbar-container
     >
       <IssueTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
-      {issue && (
+      {(
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <IssueStatusField form={form} pill />
           <IssuePriorityField form={form} pill />

@@ -13,12 +13,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 
   EntityChipIcon,
+  KeyboardShortcut,
+  keyboardPane,
+  keyboardPointerTarget,
+  isTypingTarget,
   SearchableSelect,
   SearchableSelectInline,
   Tooltip,
@@ -117,8 +122,10 @@ const PANE_TITLE_MIN_WIDTH = 180;
 function ActionLabel({
   expanded,
   label,
+  shortcut,
   children,
 }: {
+  shortcut?: string;
   expanded: boolean;
   label: string;
   children: ReactNode;
@@ -129,7 +136,7 @@ function ActionLabel({
       <TooltipTrigger asChild>
         <span className="inline-flex flex-shrink-0">{children}</span>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom" className="flex items-center gap-2">{label}{shortcut && <KeyboardShortcut keys={[shortcut]} />}</TooltipContent>
     </Tooltip>
   );
 }
@@ -201,6 +208,7 @@ export function ConversationHeader({
   const issuePillProps = getIssuePillProps();
   const hasUnknownPhone = Boolean(contact?.phone_e164 || contact?.email);
   const canShowLinkActions = showUnknownNumberActions && hasUnknownPhone;
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
   const readLabel = isUnread ? "Mark as read" : "Mark as unread";
   const person = contact?.students
     ? { type: "student", id: contact.students.id }
@@ -219,12 +227,15 @@ export function ConversationHeader({
     const onKey = (event: KeyboardEvent) => {
       if (tabScope?.active === false || event.isComposing || rowRef.current?.closest('[hidden],[inert]')) return;
       const key = event.key.toLowerCase();
-      if ((key !== "t" && key !== "i") || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
-      if (document.querySelector("[data-conversation-row]:hover")) return;
+      if (!["t","i","u","a"].includes(key) || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+      if (keyboardPointerTarget()?.closest("[data-conversation-row]") || document.querySelector("[data-conversation-row]:hover") || !rowRef.current || !keyboardPane().contains(rowRef.current) || isTypingTarget(event.target)) return;
+      if ((key === "u" && !onToggleRead) || (key === "a" && !onAssign) || (["t","i"].includes(key) && !messageId)) return;
       const target = event.target;
       if (target instanceof Element && target.closest("input,textarea,select,[contenteditable=true],[role=combobox],[role=dialog],[role=menu]")) return;
       event.preventDefault();
-      openReferenced(key === "t" ? "task" : "issue");
+      if (key === "u") onToggleRead?.();
+      else if (key === "a") setAssigneeOpen(true);
+      else openReferenced(key === "t" ? "task" : "issue");
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -431,19 +442,19 @@ export function ConversationHeader({
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <EmailActionGroup label="Conversation actions">
                 {onSearchToggle && <EmailIconButton data-shortcut-search label="Search" shortcut={["Alt", "F"]} onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
-                {onToggleRead && <EmailIconButton label={readLabel} data-unread={isUnread ? "true" : undefined} onClick={onToggleRead}><Mail className="h-4 w-4" /></EmailIconButton>}
+                {onToggleRead && <EmailIconButton shortcut="U" label={readLabel} data-unread={isUnread ? "true" : undefined} onClick={onToggleRead}><Mail className="h-4 w-4" /></EmailIconButton>}
           <DropdownMenu
               modal={false}
               open={isOverflowOpen}
               onOpenChange={setIsOverflowOpen}
             >
-              <ActionLabel expanded={false} label="More">
+              <ActionLabel expanded={false} label="More" shortcut="M">
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 flex-shrink-0"
-                    aria-label="More"
+                    data-shortcut-menu aria-keyshortcuts="M" aria-label="More"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
@@ -457,12 +468,12 @@ export function ConversationHeader({
                 <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("task")}>
                   <EntityChipIcon entityType="task" />
                   Create task
-                  <span className="ml-auto text-xs text-muted-foreground">T</span>
+                  <DropdownMenuShortcut>T</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" disabled={!messageId} onSelect={() => openReferenced("issue")}>
                   <EntityChipIcon entityType="issue" />
                   Create issue
-                  <span className="ml-auto text-xs text-muted-foreground">I</span>
+                  <DropdownMenuShortcut>I</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 {extraMenuItems}
                 {onFromNumberChange && <DropdownMenuSub><DropdownMenuSubTrigger>From number</DropdownMenuSubTrigger><DropdownMenuSubContent className="w-80 p-0">{fromNumberMenu}</DropdownMenuSubContent></DropdownMenuSub>}
@@ -483,6 +494,7 @@ export function ConversationHeader({
 
               </EmailActionGroup>
               {onAssign && <EmailActionGroup label="Conversation responsibility"><SearchableSelect
+                open={assigneeOpen} onOpenChange={setAssigneeOpen}
                 items={staffOptions}
                 value={staffOptions.find((member) => member.id === assigneeId) ?? null}
                 onValueChange={(member) => onAssign(member?.id ?? null)}
@@ -490,7 +502,7 @@ export function ConversationHeader({
                 getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
                 allowClear clearLabel="Unassigned" searchPlaceholder="Search admin staff..."
                 trigger={
-                  <EmailIconButton label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
+                  <EmailIconButton shortcut="A" label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
                     <User className="h-4 w-4" />
                     {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assigneeName || "Assigned"}</span>}
                   </EmailIconButton>

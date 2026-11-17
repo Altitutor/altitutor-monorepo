@@ -77,7 +77,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
 >(({ className, inset, children, ...props }, ref) => {
   const node = React.useRef<HTMLDivElement>(null)
   useSubLabel(node, props.disabled ?? false)
-  useMenuEntry(node, props.disabled ?? false, true)
+  useMenuEntry(node, props.disabled ?? false, true, {content: children})
   return (<DropdownMenuPrimitive.SubTrigger
     ref={value => { node.current=value; assignMenuRef(ref,value) }}
     className={cn(
@@ -143,9 +143,9 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
   }
->(({ className, inset, ...props }, ref) => {
+>(({ className, inset, children, ...props }, ref) => {
   const node = React.useRef<HTMLDivElement>(null)
-  useMenuEntry(node, props.disabled ?? false)
+  useMenuEntry(node, props.disabled ?? false, false, { content: props.asChild && React.isValidElement<{children?:React.ReactNode}>(children) ? children.props.children : children })
   return (<DropdownMenuPrimitive.Item
     ref={value => { node.current=value; assignMenuRef(ref,value) }}
     className={cn(
@@ -155,7 +155,7 @@ const DropdownMenuItem = React.forwardRef<
       className
     )}
     {...props}
-  />)
+  >{children}</DropdownMenuPrimitive.Item>)
 })
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
@@ -164,7 +164,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
 >(({ className, children, checked, ...props }, ref) => {
   const node = React.useRef<HTMLDivElement>(null)
-  useMenuEntry(node, props.disabled ?? false)
+  useMenuEntry(node, props.disabled ?? false, false, {content: children})
   return (<DropdownMenuPrimitive.CheckboxItem
     ref={value => { node.current=value; assignMenuRef(ref,value) }}
     className={cn(
@@ -191,7 +191,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
 >(({ className, children, ...props }, ref) => {
   const node = React.useRef<HTMLDivElement>(null)
-  useMenuEntry(node, props.disabled ?? false)
+  useMenuEntry(node, props.disabled ?? false, false, {content: children})
   return (<DropdownMenuPrimitive.RadioItem
     ref={value => { node.current=value; assignMenuRef(ref,value) }}
     className={cn(

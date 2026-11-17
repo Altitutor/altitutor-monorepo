@@ -152,7 +152,7 @@ export function useMenuEntry(
     if (!store || !element) return;
     const clone = element.cloneNode(true) as HTMLElement;
     clone
-      .querySelectorAll("[data-menu-shortcut]")
+      .querySelectorAll("[data-menu-shortcut], kbd")
       .forEach((node) => node.remove());
     const label =
       element.getAttribute("aria-label") ?? clone.textContent?.trim() ?? "";
@@ -226,7 +226,7 @@ export function MenuSearchContent({
   const results = [...(store?.entries.values() ?? [])].filter(
     (entry) =>
       (!entry.disabled || (alwaysSearchable && !query.trim())) &&
-      entry.label.toLowerCase().includes(query.trim().toLowerCase()),
+      query.trim().toLowerCase().split(/\s+/).every(term => entry.label.toLowerCase().includes(term)),
   );
   const enabledIndices = results.flatMap((entry, index) => entry.disabled ? [] : [index]);
   const activeIndex = results[active] && !results[active].disabled ? active : (enabledIndices[0] ?? -1);
@@ -235,6 +235,16 @@ export function MenuSearchContent({
   }, [searching, alwaysSearchable, autoFocus]);
   const root = React.useRef<HTMLDivElement>(null);
   const pendingSubmenu = React.useRef<HTMLElement | null>(null);
+  const previousSearching = React.useRef(searching);
+  React.useLayoutEffect(() => {
+    if (previousSearching.current === searching) return;
+    previousSearching.current = searching;
+    const node = root.current;
+    if (!node?.animate) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const animation = node.animate([{opacity: reduced ? 0.98 : 0.9},{opacity:1}], {duration: reduced ? 100 : 150, easing:'cubic-bezier(0.23, 1, 0.32, 1)'});
+    return () => animation.cancel();
+  }, [searching]);
   const select = (entry: Entry) => {
     if (entry.disabled || !entry.node.isConnected) return;
     if (entry.submenu) {
@@ -360,7 +370,7 @@ export function MenuSearchContent({
                     onSelect={() => select(entry)}
                     className={`hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted ${entry.destructive ? "text-destructive dark:text-destructive aria-selected:text-destructive dark:aria-selected:text-destructive" : ""}`}
                   >
-                    {entry.content ?? entry.label}
+                    <span inert className="pointer-events-none contents">{entry.content ?? entry.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { SmartDatePickerPill } from "../smart-date-picker";
 import { SearchableSelect } from "../searchable-select";
 import { CollectionField } from "../collection-picker-context";
 import { KeyboardCollection, CollectionRecord } from "../collection-keyboard";
@@ -220,4 +221,66 @@ it("opens the existing row pill and uses the same native picker for bulk changes
   fireEvent.keyDown(screen.getByRole('combobox'),{key:'2'});
   await waitFor(()=>expect(bulk).toHaveBeenCalledTimes(2));
   expect(native).toHaveBeenCalledTimes(1);
+});
+
+
+it.each([false,true])('targets the hovered row unless a bulk selection owns the action (bulk=%s)', async bulkSelected => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const apply=jest.fn().mockResolvedValue(undefined);
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'},{id:'two'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options:[{value:'done',label:'Done'}],apply}]}>
+    <CollectionRecord id="one">One</CollectionRecord><CollectionRecord id="two">Two</CollectionRecord>
+  </KeyboardCollection></main></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'});
+  if (bulkSelected) fireEvent.keyDown(document.activeElement!,{key:'x'});
+  const second=screen.getByText('Two').closest('[data-keyboard-record]')!;
+  fireEvent.mouseEnter(second);
+  expect(screen.getByText('One').closest('[data-keyboard-record]')?.className).not.toContain('ring-1');
+  fireEvent.keyDown(document.body,{key:'s'});
+  fireEvent.click(screen.getByRole('option',{name:/Done/}));
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:bulkSelected?'one':'two'},'done'));
+  expect(apply).toHaveBeenCalledTimes(1);
+});
+
+it('keeps a bulk selection authoritative when focus moves to the accessory pane', async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const apply=jest.fn().mockResolvedValue(undefined);
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options:[{value:'done',label:'Done'}],apply}]}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></main><aside data-accessory-tab="task"><button>Task detail</button></aside></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'}); fireEvent.keyDown(document.activeElement!,{key:'x'});
+  screen.getByRole('button',{name:'Task detail'}).focus();
+  expect(screen.getByRole('toolbar',{name:'Selected records'})).toBeTruthy();
+  fireEvent.keyDown(document.activeElement!,{key:'s'});
+  fireEvent.click(screen.getByRole('option',{name:/Done/}));
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
+});
+
+
+it('clears keyboard-only highlights when the pointer enters an email in another pane', async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options:[],apply:jest.fn()}]}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></main><aside data-accessory-tab="mail"><div data-email-shortcut-target>Email row</div></aside></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'});
+  expect(screen.getByText('One').closest('[data-keyboard-record]')?.className).toContain('ring-1');
+  fireEvent.pointerOver(screen.getByText('Email row'));
+  await waitFor(()=>expect(screen.getByText('One').closest('[data-keyboard-record]')?.className).not.toContain('ring-1'));
+});
+
+it('keeps a fallback native date picker mounted and applies its chosen date once', async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const apply=jest.fn().mockResolvedValue(undefined);
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'d',kind:'date',label:'Due date',options:[],apply}]} renderAction={()=> <SmartDatePickerPill value={null} onChange={jest.fn()} />}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></main></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'});fireEvent.keyDown(document.activeElement!,{key:'d'});
+  const input=await screen.findByRole('textbox',{name:'Type a date'});
+  expect(screen.getByRole('toolbar',{name:'Selected records'}).contains(input)).toBe(true);
+  fireEvent.change(input,{target:{value:'tomorrow'}});fireEvent.keyDown(input,{key:'Enter'});
+  await waitFor(()=>expect(apply).toHaveBeenCalledTimes(1));
+  expect(apply.mock.calls[0][0]).toEqual({id:'one'});expect(apply.mock.calls[0][1]).toMatch(/^\d{4}-\d{2}-\d{2}/);
+});
+
+
+it('clears bulk estimates using the native picker None option', async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const apply=jest.fn().mockResolvedValue(undefined), options=[{id:'none',value:null,label:'None'},{id:'1',value:1,label:'1 point'}];
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'e',label:'Estimate',options,apply}]} renderAction={()=> <SearchableSelect items={options} value={options[1]} getItemId={item=>item.id} getItemLabel={item=>item.label} onValueChange={jest.fn()} />}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></main></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'});fireEvent.keyDown(document.activeElement!,{key:'x'});fireEvent.keyDown(document.activeElement!,{key:'e'});
+  fireEvent.click(screen.getByRole('option',{name:/None/}));
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},null));
 });

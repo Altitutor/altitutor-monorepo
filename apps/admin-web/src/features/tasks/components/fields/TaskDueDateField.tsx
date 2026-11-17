@@ -20,7 +20,7 @@ export function TaskDueDateField({ form }: TaskDueDateFieldProps) {
       control={form.control}
       name="dueDate"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="d">
           <FormControl>
             <SmartDatePickerField
               value={field.value ?? null}

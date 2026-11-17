@@ -15,7 +15,7 @@ export function TaskDueDatePill({ form }: TaskDueDatePillProps) {
       control={form.control}
       name="dueDate"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="d">
           <FormControl>
             <DatePickerPill
               value={field.value}

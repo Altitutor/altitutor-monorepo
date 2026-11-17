@@ -816,12 +816,13 @@ export function EntityListStatusBubble<TItem, TValue>({
         searchPlaceholder={`Search ${column.label.toLowerCase()}...`}
         align="start"
         trigger={
-          <button
+          <Button
+            variant="outline"
             type="button"
             aria-label={compact ? `${column.label}: ${selectedOption?.label ?? ''}` : undefined}
             className={cn(
-              'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-              'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 bg-background',
+              'inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors',
+              'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
             )}
           >
             {compact ? (
@@ -836,7 +837,7 @@ export function EntityListStatusBubble<TItem, TValue>({
                 </div>
               </>
             )}
-          </button>
+          </Button>
         }
       />
     </div></CollectionField>

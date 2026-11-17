@@ -452,6 +452,7 @@ export function ProjectsList({
     <>
       <EntityCollection<ProjectWithLead>
         keyboardActions={[
+          { key: "d", kind: "date", label: "Due date", options: [], apply: (item,value) => updateProject.mutateAsync({id:item.id, updates:{target_date:value === null ? null : String(value)}}) },
           { key: "s", label: "Change status", options: PROJECT_STATUS_OPTIONS, apply: (item, value) => updateProject.mutateAsync({ id: item.id, updates: { status: value as ProjectStatus } }) },
           { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateProject.mutateAsync({ id: item.id, updates: { priority: Number(value) as ProjectPriority } }) },
           { key: "a", label: "Change lead", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateProject.mutateAsync({id: item.id, updates: { project_lead_id: value === null ? null : String(value) } }) },

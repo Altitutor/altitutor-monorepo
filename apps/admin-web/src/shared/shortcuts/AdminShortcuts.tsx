@@ -21,7 +21,7 @@ import {
 } from "@altitutor/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
-import { keyboardPane, isVisibleShortcutTarget } from "@altitutor/ui";
+import { keyboardPane, keyboardBulkOwner, keyboardPointerTarget, isVisibleShortcutTarget } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
   AltHintsContext,
@@ -118,7 +118,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         !typing &&
         !event.shiftKey &&
         !event.repeat &&
-        ["s", "p", "a"].includes(key)
+        ["s", "p", "a", "d", "e"].includes(key) && !keyboardBulkOwner() && !keyboardPointerTarget()?.closest("[data-keyboard-collection]")
       ) {
         const field = [
           ...keyboardPane().querySelectorAll<HTMLButtonElement>(
@@ -130,6 +130,16 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         if (field) {
           event.preventDefault();
           field.click();
+          return;
+        }
+      }
+      if (bare && !typing && !activeDialog() && !event.repeat && !goPending.current && !event.shiftKey && ['m','f'].includes(key)) {
+        const target = keyboardPointerTarget() ?? keyboardPane();
+        const menu = [...target.querySelectorAll<HTMLButtonElement>(key === 'm' ? '[data-shortcut-menu]' : '[data-shortcut-filter]'), ...(target === keyboardPane() ? [] : keyboardPane().querySelectorAll<HTMLButtonElement>(key === 'm' ? '[data-shortcut-menu]' : '[data-shortcut-filter]'))].find(node=>isVisibleShortcutTarget(node) && !node.disabled);
+        if(menu){
+          event.preventDefault();
+          if (menu.getAttribute('aria-haspopup') === 'menu') menu.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+          else menu.click();
           return;
         }
       }

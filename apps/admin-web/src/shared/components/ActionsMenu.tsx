@@ -12,6 +12,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  KeyboardShortcut,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -308,7 +309,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             size="icon"
             className="shrink-0"
             disabled={props.isLoadingAction}
-            aria-label="Invoice actions"
+            data-shortcut-menu aria-keyshortcuts="M" aria-label="Invoice actions"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -451,13 +452,13 @@ export function ActionsMenu(props: ActionsMenuProps) {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 shrink-0"
-                    aria-label="Record actions"
+                    data-shortcut-menu aria-keyshortcuts="M" aria-label="Record actions"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Record actions</TooltipContent>
+              <TooltipContent className="flex items-center gap-2">Record actions<KeyboardShortcut keys={["M"]}/></TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
               {actions

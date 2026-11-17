@@ -14,21 +14,26 @@ import {
   isTypingTarget,
   isVisibleShortcutTarget,
   keyboardPane,
+  keyboardPointerTarget,
+  setKeyboardPointerTarget,
+  keyboardBulkOwner,
   subscribeKeyboardScope,
   useKeyboardNavigation,
 } from "./keyboard-navigation";
 
 export interface CollectionKeyboardAction<T> {
-  key: "s" | "p" | "a";
+  key: "s" | "p" | "a" | "d" | "e";
+  kind?: "date";
   label: string;
-  options: { value: string | number | null; label: string }[];
+  options: { value: string | number | null; label: string; id?: string }[];
   apply: (item: T, value: string | number | null) => Promise<unknown>;
 }
 type Selection = {
   active: string | null;
   selected: ReadonlySet<string>;
   layout: "list" | "board";
-  activate: (id: string) => void;
+  activate: (id: string | null) => void;
+  hover: () => void;
   toggle: (id: string) => void;
 };
 const SelectionContext = React.createContext<Selection | null>(null);
@@ -50,6 +55,20 @@ export function CollectionRecord({
     <div
       data-keyboard-record={id}
       tabIndex={-1}
+      onMouseMove={(event) => {
+        if (keyboardPointerTarget() === event.currentTarget) return;
+        setKeyboardPointerTarget(event.currentTarget);
+        selection.hover();
+        const focus = document.activeElement;
+        if (focus instanceof HTMLElement && focus.matches('[data-keyboard-record]')) focus.blur();
+      }}
+      onMouseEnter={(event) => {
+        setKeyboardPointerTarget(event.currentTarget);
+        selection.hover();
+        const focus = document.activeElement;
+        if (focus instanceof HTMLElement && focus.matches('[data-keyboard-record]')) focus.blur();
+      }}
+      onMouseLeave={(event) => { if (keyboardPointerTarget() === event.currentTarget) setKeyboardPointerTarget(null); }}
       onFocus={() => selection.activate(id)}
       data-selected={selected || undefined}
       onClickCapture={(event) => {
@@ -126,6 +145,7 @@ export function KeyboardCollection<T>({
       const node = root.current;
       if (!node || !isVisibleShortcutTarget(node)) return false;
       const pane = keyboardPane();
+      if (keyboardBulkOwner() === node) return true;
       if (
         toolbar.current?.contains(document.activeElement) ||
         toolbar.current?.contains(pane)
@@ -158,6 +178,19 @@ export function KeyboardCollection<T>({
   const pending = React.useRef(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const selectionRef = React.useRef(selected);
+  selectionRef.current = selected;
+  React.useEffect(() => {
+    let previous = keyboardPointerTarget();
+    return subscribeKeyboardScope(() => {
+      const next = keyboardPointerTarget();
+      if (next === previous) return;
+      previous = next;
+      if (!next) return;
+      setActive(null);
+      if (!selectionRef.current.size) setFallback(null);
+    });
+  }, []);
   const ids = new Set(items.map(getItemId));
   const liveSelected = [...selected].filter((id) => ids.has(id));
   const targetIds = liveSelected.length
@@ -225,33 +258,28 @@ export function KeyboardCollection<T>({
       )
         return;
       const pane = keyboardPane();
-      if (
-        pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]') ||
-        !pane.contains(node) ||
-        !isVisibleShortcutTarget(node)
-      )
-        return;
+      if (pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]') || !isVisibleShortcutTarget(node)) return;
+      const bulk = keyboardBulkOwner();
+      const propertyKey = ['s','p','a','d','e',' '].includes(event.key.toLowerCase());
+      if (bulk && propertyKey ? bulk !== node : !pane.contains(node)) return;
       const focused = document.activeElement?.closest(
         "[data-keyboard-collection]",
       );
-      if (
-        focused
-          ? focused !== node
-          : pane.querySelector("[data-keyboard-collection]") !== node
-      )
-        return;
+      const pointed = keyboardPointerTarget()?.closest('[data-keyboard-collection]');
+      if (!(bulk && propertyKey) && (pointed ? pointed !== node : focused ? focused !== node : pane.querySelector('[data-keyboard-collection]') !== node)) return;
       const records = [
         ...node.querySelectorAll<HTMLElement>("[data-keyboard-record]"),
       ].filter(isVisibleShortcutTarget);
       const focusId = document.activeElement?.closest<HTMLElement>(
         "[data-keyboard-record]",
       )?.dataset.keyboardRecord;
-      const current = focusId ?? active;
+      const current = pointed === node ? keyboardPointerTarget()?.dataset.keyboardRecord ?? focusId ?? active : focusId ?? active;
       const index = records.findIndex(
         (row) => row.dataset.keyboardRecord === current,
       );
       const key = event.key.toLowerCase();
       if (key === "j" || key === "k") {
+        setKeyboardPointerTarget(null);
         const next =
           records[
             Math.max(
@@ -323,9 +351,9 @@ export function KeyboardCollection<T>({
   ) => {
     if (pending.current) return false;
     const option = action.options.find((option) =>
-      id === null ? option.value === null : String(option.value) === id,
+      id === null ? option.value === null : (option.id ?? String(option.value)) === id,
     );
-    if (!option) {
+    if (!option && action.kind !== "date") {
       setError("This option is no longer available.");
       return false;
     }
@@ -335,7 +363,7 @@ export function KeyboardCollection<T>({
     const work = items.filter((item) => targetIds.includes(getItemId(item)));
     const results = await Promise.allSettled(
       work.map((item) =>
-        Promise.resolve().then(() => action.apply(item, option.value)),
+        Promise.resolve().then(() => action.apply(item, action.kind === "date" ? id : option!.value)),
       ),
     );
     const failed = work
@@ -373,12 +401,14 @@ export function KeyboardCollection<T>({
         selected: new Set(liveSelected),
         layout,
         activate: setActive,
+        hover: () => {setActive(null);if (!liveSelected.length) setFallback(null);},
         toggle,
       }}
     >
       <div
         ref={root}
         data-keyboard-collection
+        data-has-selection={liveSelected.length ? true : undefined}
         className="flex h-full min-h-0 flex-col"
       >
         <div className="min-h-0 flex-1">{children}</div>
@@ -392,23 +422,24 @@ export function KeyboardCollection<T>({
             data-collection-selection-toolbar
             role="toolbar"
             aria-label="Selected records"
-            className="fixed bottom-6 left-1/2 z-[140] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-nowrap items-center gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg"
+            className="fixed bottom-6 left-1/2 z-[140] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-nowrap items-center gap-1 sm:gap-2 rounded-xl border bg-popover p-2 sm:p-3 text-popover-foreground shadow-lg"
           >
             <span
-              className="shrink-0 whitespace-nowrap text-sm"
+              className="shrink-0 whitespace-nowrap text-xs sm:text-sm"
               aria-live="polite"
             >
               {targetIds.length} {liveSelected.length ? "selected" : "record"}
             </span>
+            {error && <p role="alert" className="absolute bottom-full left-0 mb-2 w-full rounded-md border bg-popover p-3 text-sm text-destructive">{error}</p>}
             {actions.map((action) => (
               <CollectionPickerContext.Provider
                 key={action.key}
                 value={{
                   field: action.key === "p" ? "priority" : action.key,
                   triggerLabel: action.label,
+                  compact: compactActions,
                   select: (id) => apply(action, id),
                   busy,
-                  error,
                   container: () => toolbar.current,
                 }}
               >
@@ -418,7 +449,7 @@ export function KeyboardCollection<T>({
                       <SearchableSelect
                         items={action.options}
                         value={null}
-                        getItemId={(option) => String(option.value)}
+                        getItemId={(option) => option.id ?? String(option.value)}
                         getItemLabel={(option) => option.label}
                         onValueChange={() => {}}
                         searchPlaceholder="Search options…"
