@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@altitutor/ui";
@@ -17,6 +18,9 @@ export function EnquiryAction({ source, active }: { source: EnquirySource; activ
     enabled: active || open,
     staleTime: 30_000,
   });
+  useRegisterRecordActions(source.kind, source.id, "Enquiry", [
+    { id: "new-enquiry", title: "New enquiry", icon: UserRoundPlus, action: () => setOpen(true) },
+  ], { active: Boolean(sender.data), runOnly: true });
   if (!sender.data) return null;
   return (
     <>

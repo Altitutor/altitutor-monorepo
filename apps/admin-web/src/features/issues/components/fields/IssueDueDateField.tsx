@@ -22,7 +22,7 @@ export function IssueDueDateField({ form, pill = false }: IssueDueDateFieldProps
       control={form.control}
       name="dueDate"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="d">
           <FormControl>
             {pill ? (
               <DatePickerPill

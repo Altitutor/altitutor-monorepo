@@ -2,11 +2,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 
-type StudentStatus = Tables<'students'>['status'];
-
-function isBookableStatus(status: StudentStatus | undefined): boolean {
-  return status === 'ACTIVE' || status === 'TRIAL';
-}
+import { studentActionAvailability } from '../utils/studentAccountAction';
 
 interface UseStudentActionsProps {
   studentId: string;
@@ -90,7 +86,7 @@ export function useStudentActions({
   onDelete,
 }: UseStudentActionsProps) {
   const router = useRouter();
-  const canBook = !student?.deleted_at && isBookableStatus(student?.status);
+  const { canBook, canReEnroll } = studentActionAvailability(student?.status, Boolean(student?.deleted_at));
 
   const handleOpenInPage = useCallback(() => {
     if (onOpenInPage) {
@@ -113,7 +109,7 @@ export function useStudentActions({
     onAddToHomeworkHelp: canBook ? onAddToHomeworkHelp : undefined,
     onSendDiscontinuationLink: canBook ? onSendDiscontinuationLink : undefined,
     onDiscontinue: canBook ? onDiscontinue : undefined,
-    onReEnroll: !student?.deleted_at && student?.status === 'DISCONTINUED' ? onReEnroll : undefined,
+    onReEnroll: canReEnroll ? onReEnroll : undefined,
     onDelete,
   };
 }

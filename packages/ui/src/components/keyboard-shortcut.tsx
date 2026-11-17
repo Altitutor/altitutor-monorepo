@@ -10,6 +10,7 @@ export function KeyboardShortcut({
   return (
     <span
       aria-label={keys.join("+")}
+      aria-hidden="true"
       className={cn(
         "pointer-events-none inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground",
         className,

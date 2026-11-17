@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { KeyboardCollection, type CollectionKeyboardAction } from "./collection-keyboard";
-import { EntityList, type EntityListProps } from "./entity-list";
+import { EntityList, EntityListStatusBubble, type EntityListProps } from "./entity-list";
 import { EntityToolbar } from "./entity-toolbar";
 import { KanbanBoard, type KanbanColumnDef } from "./kanban-board";
 
@@ -67,7 +67,11 @@ export function EntityCollection<TItem>({
     hideToolbar: true,
   };
   return (
-    <KeyboardCollection items={props.items} getItemId={props.getItemId} onOpen={props.onRowClick} actions={props.keyboardActions}>
+    <KeyboardCollection layout={boardMode ? "board" : "list"} renderAction={(action, item, compact) => {
+      if (action.key === 's' && props.statusColumn) return <EntityListStatusBubble item={item} column={props.statusColumn} compact={compact} />;
+      const pill = props.rightPills.find(pill => action.key === 'p' ? pill.key === 'priority' : action.key === 'd' ? ['due_date','target_date'].includes(pill.key) : action.key === 'e' ? pill.key === 'estimate' : ['assignee','lead'].includes(pill.key));
+      return pill?.renderPill(item, () => {}, compact);
+    }} items={props.items} getItemId={props.getItemId} onOpen={props.onRowClick} actions={props.keyboardActions}>
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-md bg-background">
       {!props.hideToolbar && (
         <div

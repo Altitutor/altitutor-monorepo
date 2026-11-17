@@ -228,6 +228,7 @@ export function AdminShiftDetailView({
                   {adminShiftId && (
                     <ActionsMenu
                       type="adminShift"
+                      onEditDetails={() => setIsEditing(true)}
                       entityId={adminShiftId}
                       {...adminShiftActions}
                       onOpenInPage={undefined}

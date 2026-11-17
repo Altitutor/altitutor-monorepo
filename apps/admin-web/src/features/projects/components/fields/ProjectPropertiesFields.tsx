@@ -196,7 +196,7 @@ export function ProjectPropertiesFields({
         control={form.control}
         name="targetDate"
         render={({ field }) => (
-          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+          <FormItem data-shortcut-field="d" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
             <FormLabel className="text-muted-foreground">Finish date</FormLabel>
             <FormControl>
               <SmartDatePickerField

@@ -1,11 +1,20 @@
 "use client";
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-dropdown-menu";
-import { useKeyboardNavigation } from "./keyboard-navigation";
-import { Input } from "./input";
-type Entry = {
+import { isTypingTarget, useKeyboardNavigation } from "./keyboard-navigation";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandGroup,
+  CommandItem,
+} from "./command";
+import { Search, ChevronRight } from "lucide-react";
+export type SearchableActionPresentation = { content?: React.ReactNode; destructive?: boolean };
+type Entry = SearchableActionPresentation & {
   node: HTMLElement;
   label: string;
+  path: string;
   disabled: boolean;
   submenu: boolean;
 };
@@ -38,7 +47,7 @@ function createMenuStore() {
     snapshot: () => version,
     put(entry: Entry) {
       const old = entries.get(entry.node);
-      if (old?.label === entry.label && old.disabled === entry.disabled) return;
+      if (old?.label === entry.label && old.disabled === entry.disabled && old.content === entry.content && old.destructive === entry.destructive) return;
       entries.set(entry.node, entry);
       emit();
     },
@@ -70,6 +79,28 @@ export function MenuSearchRoot(
     </MenuContext.Provider>
   );
 }
+/** The same action search for non-menu surfaces such as entity previews. */
+export function ActionSearchScope({
+  children,
+  header,
+  alwaysSearchable = false,
+  autoFocus = false,
+}: {
+  children: React.ReactNode;
+  header?: React.ReactNode;
+  alwaysSearchable?: boolean;
+  autoFocus?: boolean;
+}) {
+  const [store] = React.useState(createMenuStore);
+  return (
+    <MenuContext.Provider value={store}>
+      <MenuSearchContent searchHeader={header} showSearchTrigger alwaysSearchable={alwaysSearchable} autoFocus={autoFocus}>
+        {children}
+      </MenuSearchContent>
+    </MenuContext.Provider>
+  );
+}
+
 export function MenuSearchSub({
   children,
   open,
@@ -113,6 +144,7 @@ export function useMenuEntry(
   node: React.RefObject<HTMLElement | null>,
   disabled: boolean,
   submenu = false,
+  presentation?: SearchableActionPresentation,
 ) {
   const store = React.useContext(MenuContext);
   const parent = React.useContext(PathContext);
@@ -121,12 +153,15 @@ export function useMenuEntry(
     if (!store || !element) return;
     const clone = element.cloneNode(true) as HTMLElement;
     clone
-      .querySelectorAll("[data-menu-shortcut]")
+      .querySelectorAll("[data-menu-shortcut], kbd")
       .forEach((node) => node.remove());
     const label =
       element.getAttribute("aria-label") ?? clone.textContent?.trim() ?? "";
     store.put({
       node: element,
+      path: submenu ? parent.path.split(" → ").slice(0, -1).join(" → ") : parent.path,
+      content: presentation?.content,
+      destructive: presentation?.destructive ?? element.classList.contains("text-destructive"),
       label: submenu
         ? parent.path || label
         : [parent.path, label].filter(Boolean).join(" → "),
@@ -165,7 +200,19 @@ export function useMenuSearching() {
   return React.useContext(SearchingContext);
 }
 const emptyStore = createMenuStore();
-export function MenuSearchContent({ children }: { children: React.ReactNode }) {
+export function MenuSearchContent({
+  children,
+  searchHeader,
+  showSearchTrigger = false,
+  alwaysSearchable = false,
+  autoFocus = false,
+}: {
+  children: React.ReactNode;
+  searchHeader?: React.ReactNode;
+  showSearchTrigger?: boolean;
+  alwaysSearchable?: boolean;
+  autoFocus?: boolean;
+}) {
   const store = React.useContext(MenuContext);
   React.useSyncExternalStore(
     store?.subscribe ?? emptyStore.subscribe,
@@ -177,17 +224,29 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
   const restoreMenuFocus = React.useRef(false);
   const [active, setActive] = React.useState(0);
   const input = React.useRef<HTMLInputElement>(null);
-  const searching = searchOpen;
+  const searching = alwaysSearchable || searchOpen;
   const results = [...(store?.entries.values() ?? [])].filter(
     (entry) =>
-      !entry.disabled &&
-      entry.label.toLowerCase().includes(query.trim().toLowerCase()),
+      (!entry.disabled || (alwaysSearchable && !query.trim())) &&
+      query.trim().toLowerCase().split(/\s+/).every(term => entry.label.toLowerCase().includes(term)),
   );
+  const enabledIndices = results.flatMap((entry, index) => entry.disabled ? [] : [index]);
+  const activeIndex = results[active] && !results[active].disabled ? active : (enabledIndices[0] ?? -1);
   React.useLayoutEffect(() => {
-    if (searching) input.current?.focus();
-  }, [searching]);
+    if (searching && (!alwaysSearchable || (autoFocus && !isTypingTarget(document.activeElement)))) input.current?.focus();
+  }, [searching, alwaysSearchable, autoFocus]);
   const root = React.useRef<HTMLDivElement>(null);
   const pendingSubmenu = React.useRef<HTMLElement | null>(null);
+  const previousSearching = React.useRef(searching);
+  React.useLayoutEffect(() => {
+    if (previousSearching.current === searching) return;
+    previousSearching.current = searching;
+    const node = root.current;
+    if (!node?.animate) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const animation = node.animate([{opacity: reduced ? 0.98 : 0.9},{opacity:1}], {duration: reduced ? 100 : 150, easing:'cubic-bezier(0.23, 1, 0.32, 1)'});
+    return () => animation.cancel();
+  }, [searching]);
   const select = (entry: Entry) => {
     if (entry.disabled || !entry.node.isConnected) return;
     if (entry.submenu) {
@@ -203,15 +262,15 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
       trigger.click();
     } else if (!searching && restoreMenuFocus.current) {
       restoreMenuFocus.current = false;
-      root.current
-        ?.closest('[role="menu"]')
-        ?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
-        ?.focus();
+      const menu = root.current?.closest('[role="menu"]');
+      const target = menu?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
+        ?? root.current?.querySelector<HTMLButtonElement>('button[aria-label="Search actions"]');
+      target?.focus();
     }
   }, [searching]);
   React.useLayoutEffect(() => {
     if (!store) return;
-    const menu = root.current?.closest('[role="menu"]');
+    const menu = root.current?.closest('[role="menu"]') ?? root.current;
     const keydown = (event: KeyboardEvent) => {
       if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey)
         return;
@@ -223,31 +282,27 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
       )
         return;
       if (target === input.current) {
+        if (alwaysSearchable && event.key === "Escape" && !query) return;
         event.stopPropagation();
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
-          setActive((index) =>
-            results.length
-              ? (index +
-                  (event.key === "ArrowDown" ? 1 : -1) +
-                  results.length) %
-                results.length
-              : 0,
-          );
+          const current = enabledIndices.indexOf(activeIndex);
+          setActive(enabledIndices.length ? enabledIndices[(current + (event.key === "ArrowDown" ? 1 : -1) + enabledIndices.length) % enabledIndices.length] : 0);
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          const entry = results[Math.min(active, results.length - 1)];
+          const entry = results[activeIndex];
           if (entry) select(entry);
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          restoreMenuFocus.current = true;
+          restoreMenuFocus.current = !alwaysSearchable;
           setQuery("");
           setSearchOpen(false);
         }
         return;
       }
+      if (event.key === ' ' && target instanceof Element && target.closest('button,[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],summary')) return;
       if (event.key.length === 1 && !event.repeat) {
         event.preventDefault();
         event.stopPropagation();
@@ -268,42 +323,70 @@ export function MenuSearchContent({ children }: { children: React.ReactNode }) {
   if (!store) return <>{children}</>;
   return (
     <SearchingContext.Provider value={searching}>
-      <div ref={root}>
+      <div
+        ref={root}
+        className={searching && !showSearchTrigger ? "-m-1" : undefined}
+      >
+        {!searching && showSearchTrigger && (
+          <button
+            type="button"
+            aria-label="Search actions"
+            className="mt-3 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted focus-visible:bg-muted"
+            onClick={() => {
+              setActive(0);
+              setSearchOpen(true);
+            }}
+          >
+            <Search className="size-4" />
+            Search actions
+          </button>
+        )}
         {searching && (
-          <>
-            <div className="p-1">
-              <Input
-                ref={input}
-                aria-label="Search menu"
-                placeholder="Search menu…"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setActive(0);
-                }}
-              />
-            </div>
-            <div role="group" className="max-h-72 min-w-56 overflow-auto">
-              {results.map((entry, index) => (
-                <button
-                  key={entry.label + index}
-                  type="button"
-                  role="menuitem"
-                  tabIndex={-1}
-                  className={`flex w-full rounded-sm px-2 py-1.5 text-left text-sm ${index === active ? "bg-accent text-accent-foreground" : ""}`}
-                  onPointerMove={() => setActive(index)}
-                  onClick={() => select(entry)}
-                >
-                  {entry.label}
-                </button>
-              ))}
+          <Command
+            label="Search menu"
+            shouldFilter={false}
+            disablePointerSelection={false}
+            value={String(activeIndex)}
+            onValueChange={(value) => setActive(Number(value))}
+            className="min-w-56 rounded-lg border-0"
+          >
+            {searchHeader && <div className="px-3 py-2">{searchHeader}</div>}
+            <CommandInput
+              ref={input}
+              aria-label="Search menu"
+              placeholder="Search menu…"
+              value={query}
+              onValueChange={(value) => {
+                setQuery(value);
+                setActive(0);
+              }}
+            />
+            <CommandList>
+              <CommandGroup>
+                {results.map((entry, index) => (
+                  <CommandItem
+                    key={entry.label + index}
+                    value={String(index)}
+                    aria-label={entry.label}
+                    disabled={entry.disabled}
+                    onSelect={() => select(entry)}
+                    className={`flex-wrap gap-2 hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted ${entry.destructive ? "text-destructive dark:text-destructive aria-selected:text-destructive dark:aria-selected:text-destructive" : ""}`}
+                  >
+                    <span inert className="pointer-events-none flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 [&>svg]:shrink-0">
+                      {entry.path && <span aria-hidden className="inline-flex flex-wrap items-center gap-1.5 text-muted-foreground">{entry.path.split(" → ").map((part, index) => <React.Fragment key={index}>{part}<ChevronRight className="size-3" /></React.Fragment>)}</span>}
+                      {entry.content ?? entry.label.split(" → ").at(-1)}
+                    </span>
+                    {entry.submenu && <ChevronRight aria-hidden className="ml-auto size-4 shrink-0 text-muted-foreground" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
               {!results.length && (
-                <p className="px-2 py-3 text-sm text-muted-foreground">
+                <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                   No matching actions
                 </p>
               )}
-            </div>
-          </>
+            </CommandList>
+          </Command>
         )}
         <div hidden={searching}>{children}</div>
       </div>

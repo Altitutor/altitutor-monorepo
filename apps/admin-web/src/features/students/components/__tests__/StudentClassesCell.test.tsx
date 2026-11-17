@@ -29,10 +29,7 @@ it('shows subjects beside shared class chips and opens subject-scoped enrolment 
   expect(screen.getByText('BIOL')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Add class for Mathematics' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Mon 4:00 PM' }));
-  expect(openClass).not.toHaveBeenCalled();
   expect(screen.getByText('Future')).toBeInTheDocument();
-  expect(screen.getAllByRole('menuitem')[0]).toHaveTextContent('Open class');
-  await user.click(screen.getByRole('menuitem', { name: 'Open class' }));
   expect(openClass).toHaveBeenCalledWith('class');
   await user.click(screen.getByRole('button', { name: 'Add class for Biology' }));
   expect(screen.getByRole('dialog', { name: 'Enrol alice in biology' })).toBeInTheDocument();

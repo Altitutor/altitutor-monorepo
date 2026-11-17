@@ -15,6 +15,9 @@ const actions: [string[], string][] = [
   [["Option", "F"], "Search in the current pane"],
   [["F"], "Add filter"],
   [["S"], "Change status"],
+  [["D"], "Due date"],
+  [["E"], "Task estimate"],
+  [["M"], "Open menu in the current page or pane"],
   [["P"], "Change priority"],
   [["A"], "Assign task, email or message / Project lead"],
   [["J"], "Next record"],
@@ -29,7 +32,7 @@ const actions: [string[], string][] = [
   [["R"], "Reply to email"],
   [["Shift", "R"], "Reply all"],
   [["Shift", "F"], "Forward email"],
-  [["M"], "Move email to folder"],
+  [["V"], "Move email to folder"],
   [["U"], "Mark email/message read or unread"],
   [["Option", "K"], "Command palette (also Command / Ctrl + K)"],
   [["?"], "Keyboard shortcuts"],
@@ -80,7 +83,7 @@ export function ShortcutHelp({
                 key={label}
               >
                 <span>{label}</span>
-                <KeyboardShortcut keys={keys} />
+                <KeyboardShortcut keys={keys} aria-hidden={false} />
               </div>
             ))}
         </div>

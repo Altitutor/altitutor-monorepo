@@ -1,6 +1,7 @@
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { KeyboardNavigationProvider } from "@altitutor/ui";
 import { EmailActions } from "../EmailActions";
 import type { MailboxData } from "../../types";
 import { AccessoryTabContext } from "@/shared/contexts/AccessoryTabContext";
@@ -139,7 +140,7 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   fireEvent.keyDown(document.body, { key: "F", shiftKey: true });
   expect(reply).toHaveBeenCalledTimes(1);
   expect(forward).toHaveBeenCalledTimes(1);
-  fireEvent.keyDown(document.body, { key: "m" });
+  fireEvent.keyDown(document.body, { key: "v" });
   expect(
     screen.getByPlaceholderText("Search Microsoft folders…"),
   ).toBeInTheDocument();
@@ -210,4 +211,18 @@ it('does not handle hovered email actions while the primary pane has keyboard fo
  const task=screen.getByRole('button',{name:'Task record'});task.focus();
  fireEvent.keyDown(task,{key:'r'});
  expect(reply).not.toHaveBeenCalled();
+});
+
+
+it('targets a hovered email in the primary pane ahead of a focused email in the accessory pane', () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const left=jest.fn(),right=jest.fn();
+  render(<KeyboardNavigationProvider value={true}><QuickActionsProvider><QueryClientProvider client={new QueryClient()}>
+    <main data-admin-main><div data-email-shortcut-target data-testid="left-row"><EmailActions threadId="left" ids={['one']} read assignedStaffId={null} mailbox={mailbox} hovered onReply={left}/></div></main>
+    <aside data-accessory-tab="mail"><button>Right focus</button><div data-email-shortcut-target><EmailActions threadId="right" ids={['two']} read assignedStaffId={null} mailbox={mailbox} hovered onReply={right}/></div></aside>
+  </QueryClientProvider></QuickActionsProvider></KeyboardNavigationProvider>);
+  screen.getByRole('button',{name:'Right focus'}).focus();
+  fireEvent.pointerOver(screen.getByTestId('left-row'));
+  fireEvent.keyDown(document.activeElement!,{key:'r'});
+  expect(left).toHaveBeenCalledTimes(1);expect(right).not.toHaveBeenCalled();
 });

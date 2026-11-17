@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Navbar } from '../Navbar';
+import userEvent from '@testing-library/user-event';
 
 const toggle = jest.fn();
 jest.mock('@/shared/contexts/MobileMenuContext', () => ({ useMobileMenu: () => ({ toggle, isOpen: false }) }));
@@ -11,7 +12,7 @@ jest.mock('@/features/messages/api/queries', () => ({ useUnreadConversationCount
 jest.mock('@/features/messages/hooks/useMessageSubscription', () => ({ useMessageSubscription: jest.fn() }));
 jest.mock('@/shared/hooks', () => ({ useCurrentStaff: () => ({ data: null }) }));
 jest.mock('@/features/notifications', () => ({ NotificationsTray: () => null, useNotificationsRealtime: jest.fn() }));
-jest.mock('@/shared/shortcuts/ShortcutKeys', () => ({ ShortcutKeys: () => null }));
+jest.mock('@/shared/shortcuts/ShortcutKeys', () => ({ ShortcutKeys: ({ id }: { id: string }) => <span>{id === 'left' ? '[' : id === 'right' ? ']' : 'palette'}</span> }));
 jest.mock('next/image', () => ({ __esModule: true, default: () => null }));
 jest.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }));
 
@@ -23,4 +24,15 @@ test('the left sidebar button is visible at the mobile breakpoint and opens the 
   expect(button).toHaveClass('md:hidden');
   fireEvent.click(button);
   expect(toggle).toHaveBeenCalledTimes(1);
+});
+
+
+it('shows the sidebar action and key only inside its hover tooltip', async () => {
+  const user = userEvent.setup();
+  render(<Navbar />);
+  expect(screen.queryByText('[')).toBeNull();
+  await user.hover(screen.getByRole('button', { name: 'Collapse sidebar' }));
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent('Collapse sidebar');
+  expect(within(tooltip).getByText('[')).toBeInTheDocument();
 });

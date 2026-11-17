@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import {
   Tooltip,
   TooltipProvider,
@@ -8,13 +9,14 @@ import {
   TooltipContent,
   Button,
 } from "@altitutor/ui";
-import { CheckSquare, AlertTriangle, Pencil, Undo2 } from "lucide-react";
+import { CheckSquare, AlertTriangle, Pencil, Undo2, Smile } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useImessageControl } from "./hooks";
 import { ImessageCommandDialog } from "./ImessageCommandDialog";
 import { ImessageEditDialog } from "./ImessageEditDialog";
 import {
+  IMESSAGE_TAPBACKS,
   IMESSAGE_EDIT_WINDOW_MS,
   IMESSAGE_UNSEND_WINDOW_MS,
   canEditImessage,
@@ -40,15 +42,6 @@ interface ImessageMessageActionsProps {
   issueActionLoading?: boolean;
   onAddToIssue?: (issue: IssueWithTags) => void;
 }
-
-const TAPBACKS = [
-  ["love", "❤️"],
-  ["like", "👍"],
-  ["dislike", "👎"],
-  ["laugh", "😂"],
-  ["emphasize", "‼️"],
-  ["question", "❓"],
-] as const;
 
 export function ImessageMessageActions({
   messageId,
@@ -126,6 +119,13 @@ export function ImessageMessageActions({
     setUnsendOpen(false);
   };
 
+  useRegisterRecordActions("message", messageId, body.slice(0, 80), [
+    ...(hasImessageActions ? IMESSAGE_TAPBACKS.map(([reaction, emoji]) => ({ id: `react-${reaction}`, title: `React ${emoji}`, icon: Smile, disabled: control.isPending,
+      action: () => control.mutate({ commandType: "react", messageId, conversationId: conversationId ?? undefined, payload: { imessageGuid, reaction } }) })) : []),
+    ...(canEdit ? [{ id: "edit-message", title: "Edit sent message", icon: Pencil, action: () => setEditOpen(true) }] : []),
+    ...(canUnsend ? [{ id: "unsend-message", title: "Unsend for everyone", icon: Undo2, action: () => setUnsendOpen(true) }] : []),
+  ], { active: true, runOnly: true });
+
   return (
     <>
       <TooltipProvider delayDuration={200}>
@@ -138,7 +138,7 @@ export function ImessageMessageActions({
             <EnquiryAction source={{ kind: "message", id: messageId }} active={enquiryActive} />
           )}
           {hasImessageActions &&
-            TAPBACKS.map(([reaction, emoji]) => (
+            IMESSAGE_TAPBACKS.map(([reaction, emoji]) => (
               <Tooltip key={reaction}>
                 <TooltipTrigger asChild>
                   <Button

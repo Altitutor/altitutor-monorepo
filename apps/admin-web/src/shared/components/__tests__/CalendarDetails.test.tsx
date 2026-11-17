@@ -1,10 +1,16 @@
-import { render, screen, within, waitFor, act } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { ToastProvider } from "@altitutor/ui";
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
+import { render as rtlRender, screen, within, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { Tables } from "@altitutor/shared";
 import { SessionsCard } from "@/features/sessions/components/SessionsCard";
 import { ClassCard } from "../ClassCard";
 import { AdminShiftCard } from "../AdminShiftCard";
+
+function render(ui: ReactNode, options?: RenderOptions) { return rtlRender(<ToastProvider><QuickActionsProvider>{ui}</QuickActionsProvider></ToastProvider>, options); }
 
 beforeAll(() => {
   global.ResizeObserver = class {
@@ -210,9 +216,16 @@ it("uses the chip session preview with linked people and recorded attendance", a
     await new Promise((resolve) => setTimeout(resolve, 300));
   });
   expect(dialog).toBeVisible();
+  const search = details.getByRole("combobox", { name: "Search menu" });
+  expect(search).toHaveFocus();
   await userEvent.unhover(dialog);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+  expect(dialog).toBeVisible();
+  await userEvent.keyboard("{Escape}");
   await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "Trial lesson details" })).not.toBeInTheDocument(),
   );
 });
 

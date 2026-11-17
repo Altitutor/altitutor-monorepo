@@ -79,9 +79,6 @@ test('Student views share one directory and open the Student page', async ({ pag
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Alice Williams', exact: true }).click();
-  const studentMenu = page.getByRole('menu');
-  await expect(studentMenu.getByRole('menuitem').first()).toHaveText('Open student');
-  await studentMenu.getByRole('menuitem', { name: 'Open student', exact: true }).click();
   await expect(page).toHaveURL(/\/students\/[\da-f-]+/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/online-students');
@@ -259,7 +256,7 @@ test('date and priority pills share their surface in board and detail views', as
   await card.getByText('Board drag check 001', { exact: true }).click();
   const detail = page.locator('#admin-accessory-panel');
   await expect(detail.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Board drag check 001');
-  const dueDate = detail.getByRole('button', { name: 'Select date', exact: true });
+  const dueDate = detail.getByRole('button', { name: 'Date', exact: true });
   if (!(await dueDate.isVisible())) {
     await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
   }

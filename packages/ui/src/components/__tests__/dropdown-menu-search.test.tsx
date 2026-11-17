@@ -1,4 +1,7 @@
 /** @jest-environment jsdom */
+import userEvent from "@testing-library/user-event";
+import { useRef } from "react";
+import { ActionSearchScope, useMenuEntry } from "../dropdown-menu-search";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { KeyboardNavigationProvider } from "../keyboard-navigation";
 import {
@@ -6,10 +9,19 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "../dropdown-menu";
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView = jest.fn();
+});
 it("reveals search on typing, finds an unopened submenu action, and invokes it once", async () => {
   const move = jest.fn();
   render(
@@ -29,11 +41,12 @@ it("reveals search on typing, finds an unopened submenu action, and invokes it o
     </KeyboardNavigationProvider>,
   );
   fireEvent.keyDown(screen.getByRole("menu"), { key: "a" });
-  const search = screen.getByPlaceholderText("Search menu…");
+  const search = screen.getByRole("combobox", { name: "Search menu" });
+  expect(search.closest("[cmdk-root]")).not.toBeNull();
   fireEvent.change(search, { target: { value: "archive" } });
   await waitFor(() =>
     expect(
-      screen.getByRole("menuitem", { name: "Move to folder → Archive" }),
+      screen.getByRole("option", { name: "Move to folder → Archive" }),
     ).toBeTruthy(),
   );
   fireEvent.keyDown(search, { key: "Enter" });
@@ -115,4 +128,86 @@ it("starts searching the whole menu when typing inside an already-open submenu",
     key: "a",
   });
   expect(screen.getByPlaceholderText("Search menu…")).toBeTruthy();
+});
+
+
+it("preserves native Space activation for a focused hover action", async () => {
+  const run = jest.fn();
+  function Action() {
+    const ref = useRef<HTMLButtonElement>(null);
+    useMenuEntry(ref, false);
+    return <button ref={ref} onClick={run}>Log session</button>;
+  }
+  render(<ActionSearchScope><Action /></ActionSearchScope>);
+  screen.getByRole('button', {name:'Log session'}).focus();
+  await userEvent.keyboard(' ');
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('combobox')).toBeNull();
+});
+
+
+it("keeps hover search visible and focuses it without a click while preserving action content", async () => {
+  const run = jest.fn();
+  function Action() {
+    const ref = useRef<HTMLButtonElement>(null);
+    const content = <><span data-test-context>Maths class</span> Remove student</>;
+    useMenuEntry(ref, false, false, {content, destructive:true});
+    return <button ref={ref} onClick={run}>{content}</button>;
+  }
+  render(<ActionSearchScope alwaysSearchable autoFocus><Action /></ActionSearchScope>);
+  const input = screen.getByRole('combobox',{name:'Search menu'});
+  expect(document.activeElement).toBe(input);
+  expect(screen.queryByRole('button',{name:'Search actions'})).toBeNull();
+  const option = screen.getByRole('option',{name:'Maths class Remove student'});
+  expect(option.querySelector('[data-test-context]')).not.toBeNull();
+  expect(option.className).toContain('text-destructive');
+  await userEvent.type(input, 'remove');
+  expect(screen.getByRole('option',{name:'Maths class Remove student'}).querySelector('[data-test-context]')).not.toBeNull();
+  await userEvent.keyboard('{Enter}');
+  expect(run).toHaveBeenCalledTimes(1);
+});
+
+
+it("keeps unavailable hover actions visible but skips them during keyboard navigation", async () => {
+  const first = jest.fn(), last = jest.fn();
+  function Action({label,disabled=false,run}:{label:string;disabled?:boolean;run:()=>void}) { const ref=useRef<HTMLButtonElement>(null); useMenuEntry(ref,disabled); return <button ref={ref} disabled={disabled} onClick={run}>{label}</button>; }
+  render(<ActionSearchScope alwaysSearchable autoFocus><Action label="Open" run={first}/><Action label="Unavailable" disabled run={jest.fn()}/><Action label="Copy" run={last}/></ActionSearchScope>);
+  expect(screen.getByRole('option',{name:'Unavailable'}).getAttribute('aria-disabled')).toBe('true');
+  await userEvent.keyboard('{ArrowDown}{Enter}');
+  expect(last).toHaveBeenCalledTimes(1);
+  expect(first).not.toHaveBeenCalled();
+});
+
+
+it('preserves action icons and separate keycaps while searching', () => {
+  render(<KeyboardNavigationProvider value={true}><DropdownMenu defaultOpen><DropdownMenuTrigger>Actions</DropdownMenuTrigger><DropdownMenuContent>
+    <DropdownMenuItem><svg data-testid="task-icon" aria-hidden />Create task<DropdownMenuShortcut>T</DropdownMenuShortcut></DropdownMenuItem>
+  </DropdownMenuContent></DropdownMenu></KeyboardNavigationProvider>);
+  fireEvent.keyDown(screen.getByRole('menu'),{key:'t'});
+  const option = screen.getByRole('option',{name:'Create task'});
+  expect(option.querySelector('svg')).not.toBeNull();
+  expect(option.querySelector('kbd')?.textContent).toBe('T');
+});
+
+it('keeps focus and invokes a filtered sub-option when search starts in an open submenu', async () => {
+  const run=jest.fn();
+  render(<KeyboardNavigationProvider value={true}><DropdownMenu defaultOpen><DropdownMenuTrigger>Actions</DropdownMenuTrigger><DropdownMenuContent>
+    <DropdownMenuSub><DropdownMenuSubTrigger>Move</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuItem onSelect={run}>Archive</DropdownMenuItem></DropdownMenuSubContent></DropdownMenuSub>
+  </DropdownMenuContent></DropdownMenu></KeyboardNavigationProvider>);
+  fireEvent.keyDown(screen.getByRole('menuitem',{name:'Move'}),{key:'ArrowRight'});
+  fireEvent.keyDown(screen.getByRole('menuitem',{name:'Archive'}),{key:'a'});
+  const input=screen.getByRole('combobox',{name:'Search menu'});
+  await waitFor(()=>expect(document.activeElement).toBe(input));
+  fireEvent.change(input,{target:{value:'move archive'}});
+  await userEvent.keyboard('{Enter}');
+  expect(run).toHaveBeenCalledTimes(1);
+});
+
+
+it('invokes a searched asChild button exactly once', async () => {
+  const run=jest.fn();
+  render(<KeyboardNavigationProvider value={true}><DropdownMenu defaultOpen><DropdownMenuTrigger>Actions</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem asChild><button onClick={run}><svg aria-hidden/>Open task</button></DropdownMenuItem></DropdownMenuContent></DropdownMenu></KeyboardNavigationProvider>);
+  fireEvent.keyDown(screen.getByRole('menu'),{key:'o'});
+  await userEvent.click(screen.getByRole('option',{name:'Open task'}));
+  expect(run).toHaveBeenCalledTimes(1);
 });

@@ -37,7 +37,7 @@ export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
             : ESTIMATE_OPTIONS.find((o) => o.value === estimateValue) ?? NONE_OPTION;
 
         return (
-          <FormItem>
+          <FormItem data-shortcut-field="e">
             <FormControl>
               <SearchableSelect<EstimateOption>
                 items={ALL_ESTIMATE_ITEMS}

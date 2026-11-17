@@ -11,10 +11,12 @@ import {
   Forward,
   Search,
   MoreHorizontal,
+  Archive,
 } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, KeyboardShortcut } from "@altitutor/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget, KeyboardShortcut } from "@altitutor/ui";
+import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -117,22 +119,34 @@ export function EmailActions({
     busy: command.isPending,
   };
   const mutate = command.mutate;
+  useRegisterRecordActions('email', messageId, messageLabel, [
+    ...(onReply ? [{ id: 'reply', title: 'Reply to email', icon: Reply, action: onReply, disabled: command.isPending }] : []),
+    ...(onReplyAll ? [{ id: 'reply-all', title: 'Reply all', icon: ReplyAll, action: onReplyAll, disabled: command.isPending }] : []),
+    ...(onForward ? [{ id: 'forward', title: 'Forward email', icon: Forward, action: onForward, disabled: command.isPending }] : []),
+    { id: 'mark-read', title: 'Mark as read', icon: MailOpen, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'read', ids, read: true }) },
+    { id: 'unread', title: 'Mark as unread', icon: Mail, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'read', ids, read: false }) },
+    { id: 'archive', title: 'Archive email', icon: Archive, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'move', ids, folderId: 'archive' }) },
+    { id: 'move-folder', title: 'Move to folder', icon: FolderInput, disabled: command.isPending || !ids.length, action: () => setMoveOpen(true) },
+    { id: 'assign', title: 'Assign email', icon: UserRound, disabled: command.isPending, action: () => setAssignOpen(true) },
+    { id: 'delete-email', title: 'Delete email', icon: Trash2, destructive: true, disabled: command.isPending || !ids.length, action: () => command.mutate({ action: 'move', ids, folderId: 'deleteditems' }) },
+  ], { active: level === 'message', runOnly: true });
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const state = current.current;
       if (!root.current || !keyboardPane().contains(root.current)) return;
       const owner = root.current?.closest("[data-email-shortcut-target]");
-      const hoveredOwner = document.querySelector(
+      const hoveredOwner = keyboardPointerTarget()?.closest("[data-email-shortcut-target]") ?? document.querySelector(
         "[data-email-shortcut-target]:hover",
       );
       const focusedOwner = document.activeElement?.closest(
         "[data-email-shortcut-target]",
       );
       const ownsInput = owner
-        ? focusedOwner
-          ? owner === focusedOwner
-          : hoveredOwner
-            ? owner === hoveredOwner
+        ? hoveredOwner
+          ? owner === hoveredOwner
+          : focusedOwner
+            ? owner === focusedOwner
             : state.captureWhenIdle || state.hovered
         : state.hovered;
       if (
@@ -164,11 +178,11 @@ export function EmailActions({
       )
         return;
       const action = event.key.toLowerCase();
-      if (!["r", "f", "m", "backspace", "u", "a", "t", "i"].includes(action)) return;
+      if (!["r", "f", "v", "backspace", "u", "a", "t", "i"].includes(action)) return;
       if (event.shiftKey && !["r", "f"].includes(action)) return;
       if (action === "f" && !event.shiftKey) return;
       if (["t", "i"].includes(action) && !state.taskMessageId) return;
-      if (!state.ids.length && ["m", "backspace", "u"].includes(action)) return;
+      if (!state.ids.length && ["v", "backspace", "u"].includes(action)) return;
       if (
         (action === "r" && !state.onReply) ||
         (action === "f" && !state.onForward)
@@ -185,7 +199,7 @@ export function EmailActions({
         if (action === "t") quickActions.openCreateTaskDialog(reference);
         else quickActions.openCreateIssueDialog(reference);
       }
-      if (action === "m") setMoveOpen(true);
+      if (action === "v") setMoveOpen(true);
       if (action === "a") setAssignOpen(true);
       if (action === "u")
         mutate({ action: "read", ids: state.ids, read: !state.read });
@@ -317,13 +331,13 @@ export function EmailActions({
           </EmailIconButton>
         )}
         {level === "thread" && <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-          <DropdownMenuTrigger asChild><EmailIconButton label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild><EmailIconButton data-shortcut-menu shortcut="M" label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="task" />Create task<KeyboardShortcut keys={["T"]} className="ml-auto" /></DropdownMenuItem>
             <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="issue" />Create issue<KeyboardShortcut keys={["I"]} className="ml-auto" /></DropdownMenuItem>
             {moreMenuItems}
             <DropdownMenuSeparator />
-            <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder</DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
+            <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder<KeyboardShortcut keys={["V"]} className="ml-auto" /></DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
             <DropdownMenuItem disabled={!ids.length || command.isPending} className="text-destructive" onSelect={() => command.mutate({ action: "move", ids, folderId: "deleteditems" })}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>}

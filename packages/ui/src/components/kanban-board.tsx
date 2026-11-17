@@ -817,7 +817,7 @@ function SortableCard<TItem>({
       {...listeners}
       aria-labelledby={contentId}
     >
-      <CollectionRecord id={id}>
+      <CollectionRecord id={id} layout="board">
         <div id={contentId} className="contents">
           <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
         </div>

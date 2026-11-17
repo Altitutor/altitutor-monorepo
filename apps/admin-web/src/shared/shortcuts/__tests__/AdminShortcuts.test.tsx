@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Form,
+  EntityCollection,
+  DataTableToolbar,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -9,7 +11,7 @@ import {
 } from "@altitutor/ui";
 import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
 import type { TaskFormData } from "@/features/tasks/types";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
 import { matchShortcut } from "../registry";
@@ -21,6 +23,8 @@ const togglePalette = jest.fn();
 const createTask = jest.fn();
 const createIssue = jest.fn();
 const createProject = jest.fn();
+const toggleMobile = jest.fn();
+let mobileOpen = false;
 let kind = "task";
 let expanded = true;
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
@@ -50,7 +54,7 @@ jest.mock("@/shared/contexts/CommandPaletteContext", () => ({
   }),
 }));
 jest.mock("@/shared/contexts/MobileMenuContext", () => ({
-  useMobileMenu: () => ({ toggle: jest.fn() }),
+  useMobileMenu: () => ({ toggle: toggleMobile, isOpen: mobileOpen }),
 }));
 jest.mock("@/shared/contexts/QuickActionsContext", () => ({
   useQuickActions: () => ({
@@ -69,9 +73,10 @@ beforeEach(() => {
   jest
     .spyOn(HTMLElement.prototype, "getClientRects")
     .mockReturnValue([{}] as unknown as DOMRectList);
+  mobileOpen = false;
   kind = "task";
   expanded = true;
-  window.matchMedia = jest.fn().mockReturnValue({ matches: false });
+  window.matchMedia = jest.fn().mockReturnValue({ matches: false, addEventListener: jest.fn(), removeEventListener: jest.fn() });
 });
 function press(code: string, extra = {}) {
   fireEvent.keyDown(window, { code, key: code, altKey: true, ...extra });
@@ -150,20 +155,20 @@ it("focuses only the active tab search, skipping hidden preserved tabs", () => {
   press("KeyF");
   expect(input).toHaveFocus();
 });
-it("shows key hints while Alt is held and clears them on release or blur", () => {
+it("shows modifier hints while Alt is held and clears them on release or blur", () => {
   render(
     <AdminShortcuts>
-      <ShortcutKeys id="left" />
+      <ShortcutKeys id="palette" />
     </AdminShortcuts>,
   );
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
   press("AltLeft");
-  expect(screen.getByText("[")).toBeInTheDocument();
+  expect(screen.getByText("K")).toBeInTheDocument();
   fireEvent.keyUp(window, { key: "Alt", altKey: false });
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
   press("AltLeft");
   fireEvent.blur(window);
-  expect(screen.queryByText("[")).toBeNull();
+  expect(screen.queryByText("K")).toBeNull();
 });
 it("leaves non-palette dialogs and composition to their local controls", () => {
   render(
@@ -381,3 +386,107 @@ function ConversationSearch() {
     </>
   );
 }
+
+it("shows view hints only while their bare-number shortcut can run", async () => {
+  window.matchMedia = jest
+    .fn()
+    .mockReturnValue({
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    });
+  global.structuredClone = <T,>(value: T): T =>
+    JSON.parse(JSON.stringify(value)) as T;
+  const apply = jest.fn();
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <input aria-label="Typing" />
+        <DataTableToolbar
+          state={{
+            search: "",
+            filters: {},
+            sortBy: null,
+            sortDirection: "asc",
+            groupBy: null,
+            visibleColumns: [],
+            page: 1,
+            pageSize: 50,
+          }}
+          quickFilters={[
+            {
+              id: "builtin:all",
+              name: "All sessions",
+              target_entity: "sessions",
+              user_id: null,
+              config: {},
+              created_at: "",
+              updated_at: "",
+            },
+          ]}
+          onSearchChange={jest.fn()}
+          onFiltersChange={jest.fn()}
+          onSortChange={jest.fn()}
+          onGroupByChange={jest.fn()}
+          onVisibleColumnsChange={jest.fn()}
+          onQuickFilterApply={apply}
+          onReset={jest.fn()}
+          filterDefinitions={[]}
+        />
+      </main>
+    </AdminShortcuts>,
+  );
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "g" });
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "1" });
+  expect(apply).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "Alt", altKey: true });
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.keyUp(window, { key: "Alt", altKey: false });
+  expect(screen.getByLabelText("1")).toBeInTheDocument();
+  fireEvent.focusIn(screen.getByLabelText("Typing"));
+  expect(screen.queryByLabelText("1")).not.toBeInTheDocument();
+  fireEvent.focusOut(screen.getByLabelText("Typing"), {relatedTarget: null});
+  fireEvent.keyDown(document.body, { key: "1" });
+  await waitFor(() => expect(apply).toHaveBeenCalledTimes(1));
+});
+
+
+it("closes the mobile sidebar with the same bracket shortcut while its dialog is open", () => {
+  window.matchMedia = jest.fn().mockReturnValue({matches:true});
+  const view = render(<AdminShortcuts>Page</AdminShortcuts>);
+  fireEvent.keyDown(window, {key:'[',code:'BracketLeft'});
+  expect(toggleMobile).toHaveBeenCalledTimes(1);
+  mobileOpen = true;
+  view.rerender(<AdminShortcuts><div role="dialog" id="admin-mobile-sidebar">Navigation</div></AdminShortcuts>);
+  fireEvent.keyDown(window, {key:'[',code:'BracketLeft'});
+  expect(toggleMobile).toHaveBeenCalledTimes(2);
+});
+
+
+it('uses clicked accessory content for fields and lets a hovered primary record override it', async () => {
+  const right=jest.fn(), apply=jest.fn().mockResolvedValue(undefined);
+  render(<AdminShortcuts><main data-admin-main><EntityCollection items={[{id:'one'}]} getItemId={item=>item.id} renderName={()=>'Primary task'} rightPills={[]} keyboardActions={[{key:'s',label:'Status',options:[{value:'done',label:'Done'}],apply}]} hideToolbar /></main><aside data-accessory-tab="active"><span>Right content</span><div data-shortcut-field="s"><button onClick={right}>Right status</button></div></aside></AdminShortcuts>);
+  fireEvent.pointerDown(screen.getByText('Right content'));
+  fireEvent.keyDown(document.body,{key:'s'});
+  expect(right).toHaveBeenCalledTimes(1);
+  fireEvent.mouseEnter(screen.getByText('Primary task').closest('[data-keyboard-record]')!);
+  fireEvent.keyDown(document.body,{key:'s'});
+  fireEvent.click(screen.getByRole('option',{name:/Done/}));
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
+  expect(right).toHaveBeenCalledTimes(1);
+});
+
+it('opens contextual menus and custom filters from the focused right pane', () => {
+  const filter=jest.fn();
+  render(<AdminShortcuts><main data-admin-main><button data-shortcut-menu>Left menu</button></main><aside data-accessory-tab="active"><DropdownMenu><DropdownMenuTrigger data-shortcut-menu>Right menu</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Right action</DropdownMenuItem></DropdownMenuContent></DropdownMenu><button data-shortcut-filter onClick={filter}>Right filter</button></aside></AdminShortcuts>);
+  screen.getByRole('button',{name:'Right menu'}).focus();
+  fireEvent.keyDown(document.activeElement!,{key:'m'});
+  expect(screen.getByRole('menuitem',{name:'Right action'})).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole('menu'),{key:'Escape'});
+  screen.getByRole('button',{name:'Right filter'}).focus();
+  fireEvent.keyDown(document.activeElement!,{key:'f'});
+  expect(filter).toHaveBeenCalledTimes(1);
+});

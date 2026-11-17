@@ -225,7 +225,7 @@ export function TopicDetailView({
 
   if (error || !topic) {
     return (
-      <div className="p-4">
+      <div className="p-4 [--detail-page-gutter:1rem]">
         <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
@@ -256,7 +256,7 @@ export function TopicDetailView({
   }
 
   return (
-    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col" : "p-4"}>
+    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col [--detail-page-gutter:1rem]" : "p-4 [--detail-page-gutter:1rem]"}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />

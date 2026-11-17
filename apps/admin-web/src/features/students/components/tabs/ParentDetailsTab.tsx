@@ -10,10 +10,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import type { Tables } from "@altitutor/shared";
-import { StudentCard } from '@/shared/components/StudentCard';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
 import { TruncatedText } from '@/shared/components/TruncatedText';
-import { Loader2, Pencil, X, Copy, Check } from 'lucide-react';
-import { useStudentSubjectsForIds } from '../../hooks/useStudentSubjectsForIds';
+import { Pencil, X, Copy, Check } from 'lucide-react';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { PhoneInput } from '@altitutor/ui';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
@@ -43,7 +42,7 @@ interface ParentDetailsTabProps {
 
 export function ParentDetailsTab({
   parent,
-  studentIds,
+  studentIds: _studentIds,
   students,
   onViewStudent,
   isEditing = false,
@@ -57,14 +56,6 @@ export function ParentDetailsTab({
 }: ParentDetailsTabProps) {
   // Determine which students to display based on edit mode
   const displayStudents = isEditing ? parentStudents : students;
-  const displayStudentIds = isEditing ? parentStudents.map(s => s.id) : studentIds;
-
-  // Fetch subjects for all students using custom hook
-  const { data: studentSubjects = {}, isLoading: isLoadingSubjects } = useStudentSubjectsForIds(
-    displayStudentIds,
-    displayStudentIds.length > 0
-  );
-
   // Copy to clipboard functionality
   const { copy, copiedField } = useCopyToClipboard();
 
@@ -133,10 +124,11 @@ export function ParentDetailsTab({
                   {displayStudents.map((student) => (
                     <div key={student.id} className="flex items-center gap-2">
                       <div className="flex-1">
-                        <StudentCard
-                          student={student}
-                          subjects={studentSubjects[student.id] || []}
-                          onClick={() => onViewStudent?.(student.id)}
+                        <EntityChip
+                          entityType="student"
+                entityId={student.id}
+                label={`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() || "Student"}
+                                                    onClick={() => onViewStudent?.(student.id)}
                         />
                       </div>
                       {onRemoveStudent && (
@@ -144,6 +136,7 @@ export function ParentDetailsTab({
                           type="button"
                           variant="ghost"
                           size="sm"
+                          aria-label={`Remove student ${student.first_name ?? ""} ${student.last_name ?? ""}`.trim()}
                           onClick={() => onRemoveStudent(student.id)}
                           className="text-destructive hover:text-destructive"
                         >
@@ -166,9 +159,8 @@ export function ParentDetailsTab({
 
 
   return (
-    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
-      <EntitySidebarSection title="Parent Information">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex justify-end">
 
         {onEdit && (
           <Button variant="outline" size="sm" onClick={onEdit}>
@@ -177,7 +169,7 @@ export function ParentDetailsTab({
           </Button>
         )}
       </div>
-
+      <EntitySidebarSection title="Parent Information">
       <PropertyForm>
         <PropertyFormRow label="First name">
           <TruncatedText text={parent.first_name || '-'} />
@@ -226,23 +218,18 @@ export function ParentDetailsTab({
       </PropertyForm>
       </EntitySidebarSection>
 
-      <Separator className="my-6" />
-
       {/* Students Section */}
       <EntitySidebarSection title="Students">
 
-        {isLoadingSubjects ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : displayStudents.length > 0 ? (
-          <div className="space-y-2">
+        {displayStudents.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
             {displayStudents.map((student) => (
-              <StudentCard
+              <EntityChip
                 key={student.id}
-                student={student}
-                subjects={studentSubjects[student.id] || []}
-                onClick={() => onViewStudent?.(student.id)}
+                entityType="student"
+                entityId={student.id}
+                label={`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() || "Student"}
+                                onClick={() => onViewStudent?.(student.id)}
               />
             ))}
           </div>

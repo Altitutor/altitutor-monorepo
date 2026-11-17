@@ -30,13 +30,13 @@ export const IssueContentPanel = memo(function IssueContentPanel({ form }: Issue
         <EntitySidebarCard value="properties" title="Properties">
           <div className="space-y-4">
             <PropertyRow label="Status">
-              <IssueStatusField form={form} />
+              <IssueStatusField form={form} pill />
             </PropertyRow>
             <PropertyRow label="Priority">
-              <IssuePriorityField form={form} />
+              <IssuePriorityField form={form} pill />
             </PropertyRow>
             <PropertyRow label="Due date">
-              <IssueDueDateField form={form} />
+              <IssueDueDateField form={form} pill />
             </PropertyRow>
           </div>
         </EntitySidebarCard>

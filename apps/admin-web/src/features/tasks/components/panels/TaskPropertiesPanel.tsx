@@ -1,14 +1,12 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import {
-  TaskStatusField,
-  TaskPriorityField,
-  TaskAssigneeField,
-  TaskLinkField,
-  TaskEstimateField,
-  TaskDueDateField,
-} from '../fields';
+import { TaskStatusPill } from '../fields/TaskStatusPill';
+import { TaskPriorityPill } from '../fields/TaskPriorityPill';
+import { TaskAssigneePill } from '../fields/TaskAssigneePill';
+import { TaskLinkField } from '../fields/TaskLinkField';
+import { TaskEstimatePill } from '../fields/TaskEstimatePill';
+import { TaskDueDatePill } from '../fields/TaskDueDatePill';
 import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
 import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
@@ -53,13 +51,13 @@ export function TaskPropertiesPanel({
         <EntitySidebarCard value="properties" title="Properties">
           <div className="space-y-4">
             <PropertyRow label="Status">
-              <TaskStatusField form={form} taskStatus={taskStatus} />
+              <TaskStatusPill form={form} taskStatus={taskStatus} />
             </PropertyRow>
             <PropertyRow label="Priority">
-              <TaskPriorityField form={form} />
+              <TaskPriorityPill form={form} />
             </PropertyRow>
             <PropertyRow label="Assignee">
-              <TaskAssigneeField
+              <TaskAssigneePill
                 form={form}
                 selectedAssignee={selectedAssignee}
                 onAssigneeChange={onAssigneeChange}
@@ -67,7 +65,7 @@ export function TaskPropertiesPanel({
               />
             </PropertyRow>
             <PropertyRow label="Link">
-              <TaskLinkField
+              <TaskLinkField pill
                 form={form}
                 selectedIssue={selectedIssue}
                 selectedProject={selectedProject}
@@ -77,10 +75,10 @@ export function TaskPropertiesPanel({
               />
             </PropertyRow>
             <PropertyRow label="Estimate">
-              <TaskEstimateField form={form} />
+              <TaskEstimatePill form={form} />
             </PropertyRow>
             <PropertyRow label="Due date">
-              <TaskDueDateField form={form} />
+              <TaskDueDatePill form={form} />
             </PropertyRow>
           </div>
         </EntitySidebarCard>

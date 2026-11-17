@@ -71,6 +71,7 @@ export function EntityPropertiesLayout({
   narrowAt = 1000,
   primaryMinSize = 480,
   secondaryMinSize = 280,
+  editing = false,
 }: {
   id: string;
   sidebar: ReactNode;
@@ -79,6 +80,7 @@ export function EntityPropertiesLayout({
   narrowAt?: number;
   primaryMinSize?: number;
   secondaryMinSize?: number;
+  editing?: boolean;
 }) {
   const [sidebarHost, setSidebarHost] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
@@ -107,6 +109,11 @@ export function EntityPropertiesLayout({
     return () => observer.disconnect();
   }, [root, narrowAt]);
   const sidebarRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!editing) return;
+    if (narrow) setOpen(true);
+    else sidebarRef.current?.focus();
+  }, [editing, narrow]);
   const properties = (
     <aside
       id={id}

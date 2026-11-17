@@ -258,8 +258,8 @@ button[data-property-empty] > * {
 button[data-property-empty]:is(:hover, :focus-visible) > * { opacity: 1; }
 /* Detail pages already pair record breadcrumbs and actions in one row. */
 [data-admin-main] div:has(> nav[data-primary-breadcrumb]) {
-  margin-inline: -1.5rem;
-  padding: 0 1.5rem 1rem;
+  margin-inline: calc(-1 * var(--detail-page-gutter, 1.5rem));
+  padding: 0 var(--detail-page-gutter, 1.5rem) 1rem;
   border-bottom: 1px solid hsl(var(--border));
 }
 

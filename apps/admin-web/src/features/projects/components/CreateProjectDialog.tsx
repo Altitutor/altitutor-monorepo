@@ -20,7 +20,7 @@ import type { ProjectFormData, ProjectPriority, ProjectStatus } from "../types";
 import type { SubmitHandler } from "react-hook-form";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
 import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
-import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
+import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { useCurrentStaff, useDialogHotkeys } from "@/shared/hooks";
 import { AdminDialogShell } from "@/shared/components";
 import { useCreateDialogDraft } from "@/shared/hooks/useCreateDialogDraft";
@@ -232,6 +232,7 @@ export function CreateProjectDialog({
                     onEnter={handleTitleEnter}
                     titleRef={titleFieldRef}
                   />
+                  <ProjectPropertyPills form={form} />
                   <ProjectDescriptionField
                     form={form}
                     descriptionRef={descriptionFieldRef}
@@ -240,7 +241,7 @@ export function CreateProjectDialog({
               }
               sidebar={
                 <div className="hidden h-full w-full overflow-y-auto p-6 md:block">
-                  <ProjectPropertiesFields form={form} />
+                  <ProjectPropertyPills form={form} />
                 </div>
               }
             />

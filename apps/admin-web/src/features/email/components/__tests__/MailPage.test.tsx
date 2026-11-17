@@ -14,9 +14,6 @@ import type { MailboxData } from "../../types";
 jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
   useQuickFilters: () => ({ data: [] }),
 }));
-jest.mock("@/features/command-palette/RecordActionsContext", () => ({
-  useRegisterPageActions: () => {},
-}));
 const mockOpenThread = jest.fn();
 const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
@@ -25,6 +22,7 @@ jest.mock("../../hooks/useOpenEmailThread", () => ({
 }));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  usePathname: () => "/email",
 }));
 const mailbox: MailboxData = {
   configured: false,

@@ -5,6 +5,7 @@ import { EntityToolbar } from './entity-toolbar';
 
 
 import * as React from 'react';
+import { CollectionField } from './collection-picker-context';
 import { CollectionRecord } from './collection-keyboard';
 import { useMediaQuery } from '../hooks/use-media-query';
 import { Button } from './button';
@@ -549,6 +550,12 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
 
   return (
     <div
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || !event.currentTarget.contains(event.target as Node) || !onCancelAdd) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onCancelAdd();
+      }}
       className={cn(
         'flex flex-col shrink-0 w-full',
         onCancelAdd ? 'rounded-md' : 'border-t',
@@ -607,7 +614,7 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
 
             return (
               <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
-                {compact ? collapsedNode : (
+                <CollectionField field={pill.key}>{compact ? collapsedNode : (
                   <>
                     {/* Responsive: show full pill on larger screens, icon on smaller */}
                     <div className="hidden lg:block">
@@ -617,7 +624,7 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
                       {collapsedNode}
                     </div>
                   </>
-                )}
+                )}</CollectionField>
               </div>
             );
           })}
@@ -681,6 +688,7 @@ function EntityListRow<TItem>({
 }: EntityListRowProps<TItem>) {
   return (
     <div
+      data-work-item-row
       role="button"
       tabIndex={0}
       onClick={() => onRowClick?.(item)}
@@ -743,7 +751,7 @@ function EntityListRow<TItem>({
               onClick={(e) => e.stopPropagation()}
               className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
-              {compact ? collapsedNode : (
+              <CollectionField field={pill.key}>{compact ? collapsedNode : (
                 <>
                   {/* Responsive: show full pill on larger screens, icon on smaller */}
                   <div className="hidden lg:block">
@@ -753,7 +761,7 @@ function EntityListRow<TItem>({
                     {collapsedNode}
                   </div>
                 </>
-              )}
+              )}</CollectionField>
             </div>
           );
         })}
@@ -768,7 +776,7 @@ type StatusOption<TValue> = {
   icon?: React.ComponentType<{ className?: string }>;
 };
 
-function EntityListStatusBubble<TItem, TValue>({
+export function EntityListStatusBubble<TItem, TValue>({
   item,
   column,
   compact = false,
@@ -782,7 +790,7 @@ function EntityListStatusBubble<TItem, TValue>({
     column.options.find((o) => String(o.value) === String(value)) ?? null;
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
+    <CollectionField field="status"><div onClick={(e) => e.stopPropagation()}>
       <SearchableSelect<StatusOption<TValue>>
         items={column.options}
         value={selectedOption}
@@ -808,11 +816,13 @@ function EntityListStatusBubble<TItem, TValue>({
         searchPlaceholder={`Search ${column.label.toLowerCase()}...`}
         align="start"
         trigger={
-          <button
+          <Button
+            variant="outline"
             type="button"
+            aria-label={compact ? `${column.label}: ${selectedOption?.label ?? ''}` : undefined}
             className={cn(
-              'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-              'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 bg-background',
+              'inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors',
+              'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
             )}
           >
             {compact ? (
@@ -827,9 +837,9 @@ function EntityListStatusBubble<TItem, TValue>({
                 </div>
               </>
             )}
-          </button>
+          </Button>
         }
       />
-    </div>
+    </div></CollectionField>
   );
 }

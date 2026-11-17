@@ -1,4 +1,4 @@
-import { EntityChip } from '@altitutor/ui';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { SubjectChip } from '@/shared/components/SubjectChip';
 import { openEntityReference } from '@/shared/utils/entityReference';
 import { useState, useMemo, useCallback } from 'react';
@@ -16,12 +16,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@altitutor/ui";
-import { Loader2, Plus, UserCheck } from "lucide-react";
+import { Loader2, Plus, UserCheck, Minus } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { ViewClassModal } from '@/features/classes';
@@ -463,25 +459,23 @@ export function ClassesTab({
               <div key={group.subjectId} className="flex items-start gap-4">
                 <div className="flex-shrink-0 pt-2">
                   {group.isAssignedSubject && !student.deleted_at ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <EntityChip entityType="subject" entityId={subject.id} label={shortName} className={subject.color ? textColorClass : undefined} style={style} />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onSelect={() => openEntityReference('subject', subject.id)}>Open subject</DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={currentClassCount > 0}
-                          onSelect={() => void handleRemoveSubject(group.subjectId)}
-                        >
-                          Remove subject
-                        </DropdownMenuItem>
-                        {currentClassCount > 0 && (
-                          <p className="max-w-48 px-2 py-1 text-xs text-muted-foreground">
-                            End the current enrolment before removing this subject.
-                          </p>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <EntityActionChip
+                      entityType="subject"
+                      entityId={subject.id}
+                      label={shortName}
+                      className={subject.color ? textColorClass : undefined}
+                      style={style}
+                      onClick={() => openEntityReference('subject', subject.id)}
+                      hoverActions={[{
+                        id: 'remove-student-subject',
+                        context: {type:'student',id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
+                        title: currentClassCount > 0 ? 'Remove subject (end current enrolment first)' : 'Remove subject',
+                        icon: Minus,
+                        disabled: currentClassCount > 0,
+                        destructive: true,
+                        action: () => { void handleRemoveSubject(group.subjectId); },
+                      }]}
+                    />
                   ) : (
                     <SubjectChip subject={subject} />
                   )}

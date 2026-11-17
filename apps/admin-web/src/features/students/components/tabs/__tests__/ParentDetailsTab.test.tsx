@@ -11,28 +11,7 @@ import { ParentDetailsTab } from '../ParentDetailsTab';
 import type { Tables } from '@altitutor/shared';
 
 // Mock dependencies
-jest.mock('../../../hooks/useStudentSubjectsForIds');
 jest.mock('@/shared/hooks/useCopyToClipboard');
-jest.mock('@/shared/components/StudentCard', () => ({
-  StudentCard: ({
-    student,
-    subjects,
-    onClick,
-  }: {
-    student: Tables<'students'>;
-    subjects?: Tables<'subjects'>[];
-    onClick?: () => void;
-  }) => (
-    <div data-testid={`student-card-${student.id}`} onClick={onClick}>
-      {student.first_name} {student.last_name}
-      {subjects && subjects.length > 0 && (
-        <div data-testid={`subjects-${student.id}`}>
-          {subjects.map((s: Tables<'subjects'>) => s.name).join(', ')}
-        </div>
-      )}
-    </div>
-  ),
-}));
 jest.mock('@/shared/components/TruncatedText', () => {
   const TruncatedText = ({ text, className }: { text: string; className?: string }) => (
     <div className={className} data-testid="truncated-text">
@@ -43,10 +22,8 @@ jest.mock('@/shared/components/TruncatedText', () => {
   return { TruncatedText };
 });
 
-import { useStudentSubjectsForIds } from '../../../hooks/useStudentSubjectsForIds';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 
-const mockUseStudentSubjectsForIds = useStudentSubjectsForIds as jest.MockedFunction<typeof useStudentSubjectsForIds>;
 const mockUseCopyToClipboard = useCopyToClipboard as jest.MockedFunction<typeof useCopyToClipboard>;
 
 const createWrapper = () => {
@@ -173,19 +150,6 @@ describe('ParentDetailsTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockUseStudentSubjectsForIds.mockReturnValue({
-      data: {
-        'student-1': [{ id: 'subject-1', name: 'Math' }] as Tables<'subjects'>[],
-        'student-2': [{ id: 'subject-2', name: 'English' }] as Tables<'subjects'>[],
-      },
-      isLoading: false,
-      isError: false,
-      error: null,
-      isSuccess: true,
-      isFetching: false,
-      refetch: jest.fn(),
-    } as unknown as ReturnType<typeof useStudentSubjectsForIds>);
-
     mockUseCopyToClipboard.mockReturnValue({
       copy: jest.fn(),
       copiedField: null,
@@ -208,7 +172,7 @@ describe('ParentDetailsTab', () => {
       expect(screen.getByText('Doe')).toBeInTheDocument();
     });
 
-    it('should render students with subjects', () => {
+    it('should render related students as chips', () => {
       render(
         <ParentDetailsTab
           parent={mockParent}
@@ -218,35 +182,11 @@ describe('ParentDetailsTab', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByTestId('student-card-student-1')).toBeInTheDocument();
-      expect(screen.getByTestId('student-card-student-2')).toBeInTheDocument();
-      expect(screen.getByTestId('subjects-student-1')).toHaveTextContent('Math');
-      expect(screen.getByTestId('subjects-student-2')).toHaveTextContent('English');
-    });
-
-    it('should show loading state when fetching subjects', () => {
-      mockUseStudentSubjectsForIds.mockReturnValue({
-        data: {},
-        isLoading: true,
-        isError: false,
-        error: null,
-        isSuccess: false,
-        isFetching: true,
-        refetch: jest.fn(),
-      } as unknown as ReturnType<typeof useStudentSubjectsForIds>);
-
-      const { container } = render(
-        <ParentDetailsTab
-          parent={mockParent}
-          studentIds={['student-1']}
-          students={[mockStudents[0]]}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      // Check for loading spinner by looking for Loader2 component with animate-spin class
-      const loader = container.querySelector('[class*="animate-spin"]');
-      expect(loader).toBeInTheDocument();
+      for (const student of mockStudents) {
+        const chip = screen.getByRole('button', { name: `${student.first_name} ${student.last_name}` });
+        expect(chip).toHaveAttribute('data-type', 'student');
+        expect(chip).toHaveAttribute('data-id', student.id);
+      }
     });
 
     it('should show empty state when no students', () => {
@@ -314,7 +254,7 @@ describe('ParentDetailsTab', () => {
       expect(copyButton?.querySelector('svg')).toBeInTheDocument();
     });
 
-    it('should call onViewStudent when student card is clicked', async () => {
+    it('should open the student directly when its chip is clicked', async () => {
       const onViewStudent = jest.fn();
       const user = userEvent.setup();
 
@@ -328,7 +268,7 @@ describe('ParentDetailsTab', () => {
         { wrapper: createWrapper() }
       );
 
-      const studentCard = screen.getByTestId('student-card-student-1');
+      const studentCard = screen.getByRole('button', { name: `${mockStudents[0].first_name} ${mockStudents[0].last_name}` });
       await user.click(studentCard);
 
       expect(onViewStudent).toHaveBeenCalledWith('student-1');
@@ -442,11 +382,7 @@ describe('ParentDetailsTab', () => {
         { wrapper: createWrapper() }
       );
 
-      const removeButtons = screen.getAllByRole('button');
-      const removeButton = removeButtons.find(btn =>
-        btn.querySelector('svg') // X icon
-      );
-      expect(removeButton).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Remove student ${mockStudents[0].first_name} ${mockStudents[0].last_name}` })).toBeVisible();
     });
 
     it('should call onRemoveStudent when remove button is clicked', async () => {
@@ -466,15 +402,8 @@ describe('ParentDetailsTab', () => {
         { wrapper: createWrapper() }
       );
 
-      const removeButtons = screen.getAllByRole('button');
-      const removeButton = removeButtons.find(btn =>
-        btn.querySelector('svg') // X icon
-      );
-
-      if (removeButton) {
-        await user.click(removeButton);
-        expect(onRemoveStudent).toHaveBeenCalledWith('student-1');
-      }
+      await user.click(screen.getByRole('button', { name: `Remove student ${mockStudents[0].first_name} ${mockStudents[0].last_name}` }));
+      expect(onRemoveStudent).toHaveBeenCalledWith('student-1');
     });
 
     it('should display addStudentButton when provided', () => {
@@ -497,55 +426,4 @@ describe('ParentDetailsTab', () => {
     });
   });
 
-  describe('Hook Integration', () => {
-    it('should call useStudentSubjectsForIds with correct student IDs', () => {
-      render(
-        <ParentDetailsTab
-          parent={mockParent}
-          studentIds={['student-1', 'student-2']}
-          students={mockStudents}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      expect(mockUseStudentSubjectsForIds).toHaveBeenCalledWith(
-        ['student-1', 'student-2'],
-        true
-      );
-    });
-
-    it('should use parentStudents IDs in edit mode', () => {
-      render(
-        <ParentDetailsTab
-          parent={mockParent}
-          studentIds={['student-1']}
-          students={mockStudents}
-          isEditing={true}
-          parentStudents={[mockStudents[1]]}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      expect(mockUseStudentSubjectsForIds).toHaveBeenCalledWith(
-        ['student-2'],
-        true
-      );
-    });
-
-    it('should disable query when no student IDs', () => {
-      render(
-        <ParentDetailsTab
-          parent={mockParent}
-          studentIds={[]}
-          students={[]}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      expect(mockUseStudentSubjectsForIds).toHaveBeenCalledWith(
-        [],
-        false
-      );
-    });
-  });
 });
