@@ -64,7 +64,8 @@ export interface InterviewReviewTemplate {
 }
 
 export type InterviewReviewCommand =
-  | { type: "createReview"; id: string; date: string }
+  | { type: "createReview"; id: string; date: string; studentId?: string }
+  | { type: "deleteReview"; id: string; expectedVersion: number }
   | { type: "saveReview" | "publishReview"; id: string; expectedVersion: number; fields: InterviewReviewFields }
   | { type: "saveTemplate"; id: string; expectedVersion: number; name: string; title?: string; body: Json };
 

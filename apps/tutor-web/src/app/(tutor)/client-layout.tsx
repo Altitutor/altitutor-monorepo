@@ -1,5 +1,7 @@
 'use client';
 
+import { ActiveInterviewBanner } from "@/features/interviews/components/ActiveInterviewBanner";
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -163,6 +165,7 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean
         children: [
           { type: 'heading', title: 'Scheduling' },
           { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
+          { title: 'Students', href: '/interviews/students', icon: Users },
           { title: 'Performance reviews', href: '/interviews/performance-reviews', icon: FileQuestion },
           { type: 'heading', title: 'Content' },
           { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
@@ -216,6 +219,7 @@ function isInterviewDropdownChildActive(pathname: string, href: string): boolean
     if (
       pathname.startsWith('/interviews/stations') ||
       pathname.startsWith('/interviews/rounds') ||
+      pathname.startsWith('/interviews/students') ||
       isNavLinkActive(pathname, '/interviews/performance-reviews') ||
       pathname.startsWith('/interviews/station-categories') ||
       pathname.startsWith('/interviews/question-tags') ||
@@ -681,6 +685,7 @@ export default function TutorClientLayout({
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} primaryItems={primaryItems} />
         <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl bg-card/45 ring-1 ring-black/[0.04] dark:bg-brand-dark-card/25 dark:ring-white/[0.06]">
           <div className={cn('mx-auto min-h-min w-full min-w-0', TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X)}>
+            <ActiveInterviewBanner />
             {children}
           </div>
         </div>

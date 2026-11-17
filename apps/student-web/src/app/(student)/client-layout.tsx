@@ -1,5 +1,7 @@
 'use client';
 
+import { ActiveInterviewBanner } from "@/features/interviews/components/ActiveInterviewBanner";
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -616,6 +618,7 @@ export default function StudentClientLayout({
               STUDENT_SHELL_PAD_X,
             )}
           >
+            <ActiveInterviewBanner />
             {children}
           </div>
         </div>

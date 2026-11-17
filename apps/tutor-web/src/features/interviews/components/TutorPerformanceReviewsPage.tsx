@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ComponentProps } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Eye, FileText, Pencil, Plus } from "lucide-react";
+import { ClipboardList, Eye, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Badge, Button, DataTable, editorJsonSignature, Input, InterviewReviewMockHistory, Label, ResponsiveResizablePanels, RichTextEditor,
@@ -281,6 +281,7 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
   const templateTable = useInterviewTable([]);
   const pagedTemplates = pageRows(templates, templateTable.state.page, templateTable.state.pageSize);
   const [viewing, setViewing] = useState<ReviewSummary | null>(null);
+  const [deleting, setDeleting] = useState<ReviewSummary | null>(null);
   const reviewRecord = useInterviewReview(access.data && path[0] !== "templates" ? path[0] : undefined);
   const templateRecord = useInterviewReviewTemplate(access.data && path[0] === "templates" && path[1] !== "new" ? path[1] : undefined);
   const selected = reviewRecord.data;
@@ -413,12 +414,23 @@ export function TutorPerformanceReviewsPage({ path }: { path: string[] }) {
           ].filter((column) => visible.has(column.id)),
           { id: "actions", header: "", cell: ({ row }) => <div className="flex justify-end"><UcatRowActions actions={[
             { label: "View", icon: <Eye className="size-4" />, onClick: () => setViewing(row.original) },
+            ...(row.original.authorId === authorId && !row.original.published ? [{ label: "Delete draft", destructive: true, icon: <Trash2 className="size-4" />, onClick: () => setDeleting(row.original) }] : []),
             ...(row.original.authorId === authorId ? [{ label: "Edit", icon: <Pencil className="size-4" />, onClick: () => go("/" + row.original.id) }] : []),
           ]} /></div> },
         ]} />
         {paged.total > 0 && <TablePagination page={paged.page} pageSize={table.state.pageSize} total={paged.total}
           onPageChange={table.actions.onPageChange} onPageSizeChange={table.actions.onPageSizeChange}
           pageSizeOptions={[10, 20, 50]} className="pt-3" />}
+        <TutorDialogShell open={!!deleting} onOpenChange={(open) => { if (!open && !command.isPending) setDeleting(null); }} title="Delete draft performance review?" size="compact"
+          description="This draft will be permanently deleted." footer={<>
+            <Button variant="outline" disabled={command.isPending} onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={command.isPending} onClick={() => {
+              if (!deleting || deleting.version === null) return;
+              void command.mutateAsync({ type: "deleteReview", id: deleting.id, expectedVersion: deleting.version })
+                .then(() => { setDeleting(null); toast.success("Draft deleted"); })
+                .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Unable to delete draft."));
+            }}>Delete draft</Button>
+          </>}><p>{deleting?.title || "Performance review"}</p></TutorDialogShell>
         <ReviewPreviewDialog review={viewing} close={() => setViewing(null)} />
       </>}
     </TutorPageContainer>

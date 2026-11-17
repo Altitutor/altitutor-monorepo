@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(22);
+SELECT plan(29);
 
 UPDATE public.classes SET subject_id = (SELECT id FROM public.subjects WHERE name = 'Medicine Interview')
 WHERE id = '20000000-0000-0000-0000-000000000001';
@@ -137,5 +137,25 @@ SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 SELECT is((SELECT name FROM public.vtutor_interview_performance_review_templates), 'Interview baseline', 'other tutors can reuse the saved template');
 RESET ROLE;
 
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{}', true);
+SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+  '{"type":"createReview","id":"46300000-0000-4000-8000-000000000001","date":"2026-11-17","studentId":"10000000-0000-0000-0000-000000000001"}');
+SELECT throws_ok($$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000011',
+  '{"type":"deleteReview","id":"46300000-0000-4000-8000-000000000001","expectedVersion":1}')$$, '42501', NULL, 'other tutors cannot delete a draft');
+SELECT throws_ok($$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+  '{"type":"deleteReview","id":"46300000-0000-4000-8000-000000000001","expectedVersion":2}')$$, 'PT409', NULL, 'stale deletion cannot remove a changed draft');
+SELECT throws_ok($$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+  '{"type":"deleteReview","id":"36400000-0000-4000-8000-000000000101","expectedVersion":5}')$$, '22023', NULL, 'published reviews cannot be deleted');
+SELECT lives_ok($$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+  '{"type":"deleteReview","id":"46300000-0000-4000-8000-000000000001","expectedVersion":1,"commandId":"46300000-0000-4000-8000-000000000002"}')$$, 'author can delete their never-published draft');
+SELECT lives_ok($$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+  '{"type":"deleteReview","id":"46300000-0000-4000-8000-000000000001","expectedVersion":1,"commandId":"46300000-0000-4000-8000-000000000002"}')$$, 'a deletion retry returns its original receipt');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}', true);
+SELECT is((SELECT count(*) FROM public.vtutor_interview_performance_reviews WHERE id = '46300000-0000-4000-8000-000000000001'), 0::bigint, 'deleted draft disappears from the tutor facade');
+SELECT ok((SELECT jsonb_array_length(details->'mocks') >= 2 FROM public.vtutor_interview_performance_review_students WHERE id = '10000000-0000-0000-0000-000000000001'), 'eligible student directory includes completed mock history');
+RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;
