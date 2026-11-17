@@ -861,6 +861,7 @@ test("Issues retain editable priority through create, autosave and hover preview
   if (await createToggle.isVisible()) await createToggle.click();
   await dialog
     .getByRole("button", { name: "No priority", exact: true })
+    .first()
     .click();
   await page.getByRole("option", { name: "Medium", exact: true }).click();
   const createSidebar = dialog.getByRole("dialog", { name: "Right sidebar", exact: true });
