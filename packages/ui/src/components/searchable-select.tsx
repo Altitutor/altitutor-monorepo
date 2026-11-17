@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { KeyboardShortcut } from "./keyboard-shortcut";
+import { CollectionPickerContext } from "./collection-picker-context";
+import { useKeyboardNavigation } from "./keyboard-navigation";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 
 import { cn } from "../lib/cn";
@@ -138,6 +141,10 @@ export function SearchableSelect<T>({
   triggerVariant = 'field',
   forceLight = false,
 }: SearchableSelectProps<T>) {
+  const collectionPicker = React.useContext(CollectionPickerContext);
+  const keyboardEnabled = useKeyboardNavigation();
+  const commandRef = React.useRef<HTMLDivElement>(null);
+  const [selecting, setSelecting] = React.useState(false);
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
@@ -223,15 +230,26 @@ export function SearchableSelect<T>({
     onSearchChangeRef.current?.(query);
   }, []);
 
-  const handleSelect = React.useCallback(
-    (item: T | null) => {
-      onValueChange(item);
-      setOpen(false);
-      setSearch("");
-      onSearchChangeRef.current?.("");
-    },
-    [onValueChange, setOpen]
-  );
+  const handleSelect = React.useCallback(async (item: T | null) => {
+    if (selecting || collectionPicker?.busy || (item && getItemDisabled?.(item))) return;
+    if (collectionPicker?.select) {
+      setSelecting(true);
+      try { if (!await collectionPicker.select(item ? getItemId(item) : null)) return; }
+      finally { setSelecting(false); }
+    } else onValueChange(item);
+    setOpen(false); setSearch(""); onSearchChangeRef.current?.("");
+  }, [onValueChange, setOpen, collectionPicker, getItemId, getItemDisabled, selecting]);
+  const shortcutField = collectionPicker?.field ?? triggerRef.current?.closest('[data-shortcut-field]')?.getAttribute('data-shortcut-field');
+  const numericShortcuts = keyboardEnabled && Boolean(shortcutField) && !selecting && !collectionPicker?.busy;
+  const flatItems = groups?.flatMap(group => group.items) ?? items;
+  const shortcutFor = (item: T) => {
+    if (!numericShortcuts || getItemDisabled?.(item)) return undefined;
+    const id = getItemId(item);
+    if ((shortcutField === 'priority' || shortcutField === 'p') && /^[0-9]$/.test(id)) return id;
+    const index = flatItems.findIndex(candidate => getItemId(candidate) === id);
+    return index >= 0 && index < 9 ? String(index + 1) : undefined;
+  };
+  const numberHint = (item: T) => { const key = shortcutFor(item); return key ? <KeyboardShortcut keys={[key]} className="ml-auto" /> : null; };
 
   React.useEffect(() => {
     if (!open) {
@@ -280,7 +298,7 @@ export function SearchableSelect<T>({
         </PopoverTrigger>
       </span>
       <PopoverContent
-        container={popoverContainer}
+        container={popoverContainer ?? collectionPicker?.container?.()}
         enableModalScroll={enableModalScroll}
         className={cn(
           !contentWidth && "w-[280px]",
@@ -295,6 +313,15 @@ export function SearchableSelect<T>({
         }}
       >
         <Command
+          ref={commandRef}
+          onKeyDownCapture={(event) => {
+            if (!numericShortcuts || event.repeat || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !/^[0-9]$/.test(event.key)) return;
+            const node = [...(commandRef.current?.querySelectorAll<HTMLElement>('[data-picker-shortcut]') ?? [])].find(node => node.dataset.pickerShortcut === event.key && !node.closest('[hidden]') && node.getAttribute('aria-disabled') !== 'true');
+            if (!node) return;
+            const item = flatItems.find(item => shortcutFor(item) === event.key);
+            if (!item && !(allowClear && event.key === '0')) return;
+            event.preventDefault(); event.stopPropagation(); void handleSelect(item ?? null);
+          }}
           shouldFilter={!isServerSideSearch}
           disablePointerSelection={false}
           value={isServerSideSearch ? highlightedValue ?? "" : undefined}
@@ -322,6 +349,7 @@ export function SearchableSelect<T>({
                       <CommandGroup>
                         <CommandItem
                           value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                          data-picker-shortcut={numericShortcuts ? "0" : undefined}
                           keywords={[clearLabel]}
                           onSelect={() => handleSelect(null)}
                           className="flex items-center gap-2"
@@ -343,7 +371,8 @@ export function SearchableSelect<T>({
                           <CommandItem
                             key={id}
                             value={itemValue}
-                            disabled={isDisabled}
+                            disabled={isDisabled || selecting || collectionPicker?.busy}
+                            data-picker-shortcut={shortcutFor(item)}
                             onSelect={() => !isDisabled && handleSelect(item)}
                             className="flex items-center gap-2"
                           >
@@ -362,6 +391,7 @@ export function SearchableSelect<T>({
                                 </span>
                               </>
                             )}
+                            {numberHint(item)}
                           </CommandItem>
                         );
                       })}
@@ -373,6 +403,7 @@ export function SearchableSelect<T>({
                     {showClearOption && (
                       <CommandItem
                         value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                          data-picker-shortcut={numericShortcuts ? "0" : undefined}
                         keywords={[clearLabel]}
                         onSelect={() => handleSelect(null)}
                         className="flex items-center gap-2"
@@ -391,7 +422,8 @@ export function SearchableSelect<T>({
                         <CommandItem
                           key={id}
                           value={itemValue}
-                          disabled={isDisabled}
+                          disabled={isDisabled || selecting || collectionPicker?.busy}
+                          data-picker-shortcut={shortcutFor(item)}
                           onSelect={() => !isDisabled && handleSelect(item)}
                           className="flex items-center gap-2"
                         >
@@ -410,6 +442,7 @@ export function SearchableSelect<T>({
                               </span>
                             </>
                           )}
+                          {numberHint(item)}
                         </CommandItem>
                       );
                     })}
@@ -418,6 +451,7 @@ export function SearchableSelect<T>({
               </>
             )}
           </CommandList>
+          {collectionPicker?.error && <p role="alert" className="px-3 py-2 text-sm text-destructive">{collectionPicker.error}</p>}
         </Command>
         {footer && <div className="border-t p-2">{footer}</div>}
       </PopoverContent>

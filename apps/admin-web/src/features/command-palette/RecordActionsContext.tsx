@@ -168,7 +168,7 @@ export function useRegisterRecordActions(
   id: string | undefined,
   title: string | undefined,
   actions: RegisteredAction[],
-  options?: { active: boolean; runOnly?: boolean },
+  options?: { active?: boolean; runOnly?: boolean },
 ) {
   const registry = useContext(Context);
   const instance = useId();
@@ -176,7 +176,7 @@ export function useRegisterRecordActions(
   const accessory = useAccessoryTab();
   const entityType = type === "document" ? "note" : type;
   const supported = entityType in recordEntities;
-  const active = options
+  const active = options?.active !== undefined
     ? options.active && (!accessory || accessory.active)
     : !!id &&
       (accessory

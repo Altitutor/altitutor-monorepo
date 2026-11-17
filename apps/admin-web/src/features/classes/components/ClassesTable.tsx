@@ -1,4 +1,6 @@
 "use client";
+import { classStudentReferenceActions, classStaffReferenceActions } from '@/features/classes/utils/classReferenceActions';
+import { useRunRecordAction } from '@/features/command-palette/RecordActionsContext';
 import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
@@ -87,6 +89,7 @@ export function ClassesTable({
   renderCalendar,
 }: ClassesTableProps) {
   useAdminUrlSync();
+  const runRecordAction = useRunRecordAction();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -581,6 +584,11 @@ export function ClassesTable({
                                   (student, studentIndex) => (
                                     <EntityActionChip
                                       key={`${cls.id}-${student.id}-${studentIndex}`}
+                                      hoverActions={classStudentReferenceActions(
+                                        {id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
+                                        {id:cls.id,label:cls.short_name || cls.subject?.short_name || 'Class'},
+                                        {change:()=>runRecordAction?.('class',cls.id,`change-student-${student.id}`),remove:()=>runRecordAction?.('class',cls.id,`remove-student-${student.id}`)},
+                                      )}
                                       onClick={(e) =>
                                         handleStudentClick(student.id, e)
                                       }
@@ -602,6 +610,11 @@ export function ClassesTable({
                                 getClassStaff(cls).map((staff, staffIndex) => (
                                   <EntityActionChip
                                     key={`${cls.id}-${staff.id}-${staffIndex}`}
+                                    hoverActions={classStaffReferenceActions(
+                                      {id:staff.id,label:[staff.first_name,staff.last_name].filter(Boolean).join(' ') || 'Staff'},
+                                      {id:cls.id,label:cls.short_name || cls.subject?.short_name || 'Class'},
+                                      ()=>runRecordAction?.('class',cls.id,`remove-staff-${staff.id}`),
+                                    )}
                                     onClick={(e) =>
                                       handleStaffClick(staff.id, e)
                                     }

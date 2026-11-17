@@ -468,6 +468,7 @@ export function ClassesTab({
                       onClick={() => openEntityReference('subject', subject.id)}
                       hoverActions={[{
                         id: 'remove-student-subject',
+                        context: {type:'student',id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
                         title: currentClassCount > 0 ? 'Remove subject (end current enrolment first)' : 'Remove subject',
                         icon: Minus,
                         disabled: currentClassCount > 0,

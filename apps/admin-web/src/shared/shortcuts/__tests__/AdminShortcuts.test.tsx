@@ -22,6 +22,8 @@ const togglePalette = jest.fn();
 const createTask = jest.fn();
 const createIssue = jest.fn();
 const createProject = jest.fn();
+const toggleMobile = jest.fn();
+let mobileOpen = false;
 let kind = "task";
 let expanded = true;
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
@@ -51,7 +53,7 @@ jest.mock("@/shared/contexts/CommandPaletteContext", () => ({
   }),
 }));
 jest.mock("@/shared/contexts/MobileMenuContext", () => ({
-  useMobileMenu: () => ({ toggle: jest.fn() }),
+  useMobileMenu: () => ({ toggle: toggleMobile, isOpen: mobileOpen }),
 }));
 jest.mock("@/shared/contexts/QuickActionsContext", () => ({
   useQuickActions: () => ({
@@ -70,6 +72,7 @@ beforeEach(() => {
   jest
     .spyOn(HTMLElement.prototype, "getClientRects")
     .mockReturnValue([{}] as unknown as DOMRectList);
+  mobileOpen = false;
   kind = "task";
   expanded = true;
   window.matchMedia = jest.fn().mockReturnValue({ matches: false });
@@ -447,4 +450,16 @@ it("shows view hints only while their bare-number shortcut can run", async () =>
   fireEvent.focusOut(screen.getByLabelText("Typing"), {relatedTarget: null});
   fireEvent.keyDown(document.body, { key: "1" });
   await waitFor(() => expect(apply).toHaveBeenCalledTimes(1));
+});
+
+
+it("closes the mobile sidebar with the same bracket shortcut while its dialog is open", () => {
+  window.matchMedia = jest.fn().mockReturnValue({matches:true});
+  const view = render(<AdminShortcuts>Page</AdminShortcuts>);
+  fireEvent.keyDown(window, {key:'[',code:'BracketLeft'});
+  expect(toggleMobile).toHaveBeenCalledTimes(1);
+  mobileOpen = true;
+  view.rerender(<AdminShortcuts><div role="dialog" id="admin-mobile-sidebar">Navigation</div></AdminShortcuts>);
+  fireEvent.keyDown(window, {key:'[',code:'BracketLeft'});
+  expect(toggleMobile).toHaveBeenCalledTimes(2);
 });

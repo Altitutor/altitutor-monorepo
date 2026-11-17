@@ -7,12 +7,17 @@ import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { RecordActionsProvider } from "@/features/command-palette/RecordActionsContext";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { EntityActionChip } from "@/shared/components/EntityActionChip";
+import { classStudentReferenceActions } from "@/features/classes/utils/classReferenceActions";
 import { Minus } from "lucide-react";
 import { EntityReferenceHovers } from "../EntityReferenceHovers";
 import { EntityReferencePreview } from "../EntityReferenceHovers";
 import { ReferenceActions } from "../ReferenceActions";
 import { RichTextTemplateRecordActions } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 
+beforeAll(() => {
+  global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  Element.prototype.scrollIntoView = jest.fn();
+});
 jest.mock("next/navigation", () => ({
   usePathname: () => window.location.pathname,
 }));
@@ -77,9 +82,9 @@ it("shows session actions below preview information and runs the requested recor
       </QueryClientProvider>,
     );
     expect(
-      await screen.findByRole("button", { name: "Open session" }),
+      await screen.findByRole("option", { name: "Open session" }),
     ).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Log session" }));
+    await userEvent.click(screen.getByRole("option", { name: "Log session" }));
     expect(
       await screen.findByText("The requested session log opened"),
     ).toBeVisible();
@@ -265,10 +270,11 @@ it("keeps subject navigation direct and exposes the guarded student-specific rem
   try {
     const view = render(fixture(true));
     await userEvent.hover(screen.getByRole('button', { name: 'Maths' }));
-    expect(await screen.findByRole('button', { name: 'Remove subject' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('combobox',{name:'Search menu'})).toHaveFocus());
+    expect(await screen.findByRole('option', { name: 'Remove subject' })).toHaveAttribute('aria-disabled', 'true');
     view.rerender(fixture(false));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove subject' })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: 'Remove subject' }));
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Remove subject' })).not.toHaveAttribute('aria-disabled', 'true'));
+    await userEvent.click(screen.getByRole('option', { name: 'Remove subject' }));
     expect(latestRemove).toHaveBeenCalledTimes(1);
     expect(remove).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Maths' }));
@@ -290,7 +296,7 @@ it("retains locally owned hover actions when reference details cannot load", asy
     </RecordActionsProvider></QuickActionsProvider></ToastProvider></QueryClientProvider>);
     await userEvent.hover(screen.getByRole('button', { name: 'Maths' }));
     expect(await screen.findByText('Preview unavailable')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove subject' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Remove subject' }));
     expect(remove).toHaveBeenCalledTimes(1);
   } finally { globalThis.fetch = originalFetch; queryClient.clear(); }
 });
@@ -330,19 +336,15 @@ it("searches preview actions with entity-chip context and invokes the result", a
         </ToastProvider>
       </QueryClientProvider>,
     );
-    await screen.findByRole("button", { name: "Log session" });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Search actions" }),
-    );
+    await screen.findByRole("option", { name: "Log session" });
+    expect(screen.getByRole("combobox", {name:"Search menu"})).toBeVisible();
+    expect(screen.queryByRole("button", {name:"Search actions"})).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Maths session" }),
     ).toHaveAttribute("data-type", "session");
     await userEvent.hover(screen.getByRole('button', {name:'Maths session'}));
     await new Promise(resolve => setTimeout(resolve, 350));
     expect(screen.getAllByRole('dialog', {name:'Session preview'})).toHaveLength(1);
-    await userEvent.keyboard('{Escape}');
-    expect(screen.getByRole('button', {name:'Search actions'})).toHaveFocus();
-    await userEvent.keyboard(' ');
     await userEvent.type(
       screen.getByRole("combobox", { name: "Search menu" }),
       "log session",
@@ -359,4 +361,26 @@ it("searches preview actions with entity-chip context and invokes the result", a
     globalThis.fetch = originalFetch;
     client.clear();
   }
+});
+
+
+it("preserves contextual entity chips and destructive styling in both empty and filtered hover actions", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({ok:true,json:async()=>({title:'Alex Student',fields:[]})});
+  const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
+  const change = jest.fn(), remove = jest.fn();
+  try {
+    render(<QueryClientProvider client={client}><ToastProvider><QuickActionsProvider><RecordActionsProvider>
+      <EntityReferencePreview type="student" id="alex" contextualActions={classStudentReferenceActions({id:'alex',label:'Alex Student'},{id:'maths',label:'Maths class'},{change,remove})} />
+    </RecordActionsProvider></QuickActionsProvider></ToastProvider></QueryClientProvider>);
+    const changeOption = await screen.findByRole('option',{name:'Change Alex Student to another class (Maths class)'});
+    expect(changeOption.querySelector('[data-action-context][data-type="student"]')).toHaveTextContent('Alex Student');
+    expect(changeOption.querySelector('[data-action-context][data-type="class"]')).toHaveTextContent('Maths class');
+    expect(screen.getByRole('option',{name:'Remove Alex Student from class (Maths class)'})).toHaveClass('text-destructive');
+    await userEvent.type(screen.getByRole('combobox',{name:'Search menu'}),'another class');
+    expect(screen.getByRole('option',{name:'Change Alex Student to another class (Maths class)'}).querySelector('[data-action-context][data-type="class"]')).toHaveTextContent('Maths class');
+    await userEvent.keyboard('{Enter}');
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(remove).not.toHaveBeenCalled();
+  } finally {globalThis.fetch=originalFetch;client.clear();}
 });

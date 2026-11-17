@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Calendar,
   ClipboardCheck,
@@ -22,6 +23,8 @@ import { SESSION_QUICK_ACTIONS } from "@/shared/constants/quickActions";
 export type RecordMenuAction = {
   id: string;
   title: string;
+  renderTitle?: ReactNode;
+  context?: { type: string; id: string; label: string };
   icon: LucideIcon;
   action: () => void;
   disabled?: boolean;

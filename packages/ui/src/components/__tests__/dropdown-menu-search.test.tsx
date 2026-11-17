@@ -143,3 +143,36 @@ it("preserves native Space activation for a focused hover action", async () => {
   expect(run).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('combobox')).toBeNull();
 });
+
+
+it("keeps hover search visible and focuses it without a click while preserving action content", async () => {
+  const run = jest.fn();
+  function Action() {
+    const ref = useRef<HTMLButtonElement>(null);
+    const content = <><span data-test-context>Maths class</span> Remove student</>;
+    useMenuEntry(ref, false, false, {content, destructive:true});
+    return <button ref={ref} onClick={run}>{content}</button>;
+  }
+  render(<ActionSearchScope alwaysSearchable autoFocus><Action /></ActionSearchScope>);
+  const input = screen.getByRole('combobox',{name:'Search menu'});
+  expect(document.activeElement).toBe(input);
+  expect(screen.queryByRole('button',{name:'Search actions'})).toBeNull();
+  const option = screen.getByRole('option',{name:'Maths class Remove student'});
+  expect(option.querySelector('[data-test-context]')).not.toBeNull();
+  expect(option.className).toContain('text-destructive');
+  await userEvent.type(input, 'remove');
+  expect(screen.getByRole('option',{name:'Maths class Remove student'}).querySelector('[data-test-context]')).not.toBeNull();
+  await userEvent.keyboard('{Enter}');
+  expect(run).toHaveBeenCalledTimes(1);
+});
+
+
+it("keeps unavailable hover actions visible but skips them during keyboard navigation", async () => {
+  const first = jest.fn(), last = jest.fn();
+  function Action({label,disabled=false,run}:{label:string;disabled?:boolean;run:()=>void}) { const ref=useRef<HTMLButtonElement>(null); useMenuEntry(ref,disabled); return <button ref={ref} disabled={disabled} onClick={run}>{label}</button>; }
+  render(<ActionSearchScope alwaysSearchable autoFocus><Action label="Open" run={first}/><Action label="Unavailable" disabled run={jest.fn()}/><Action label="Copy" run={last}/></ActionSearchScope>);
+  expect(screen.getByRole('option',{name:'Unavailable'}).getAttribute('aria-disabled')).toBe('true');
+  await userEvent.keyboard('{ArrowDown}{Enter}');
+  expect(last).toHaveBeenCalledTimes(1);
+  expect(first).not.toHaveBeenCalled();
+});

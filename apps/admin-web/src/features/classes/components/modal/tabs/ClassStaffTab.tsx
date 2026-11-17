@@ -1,3 +1,6 @@
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { classStaffReferenceActions } from '@/features/classes/utils/classReferenceActions';
+import { useRegisterRecordActions } from '@/features/command-palette/RecordActionsContext';
 import { useState, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@altitutor/ui";
@@ -33,7 +36,7 @@ export function ClassStaffTab({
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
   const [assigningStaff] = useState<Set<string>>(new Set());
-  const [, setRemovingStaff] = useState<Set<string>>(new Set());
+  const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -112,6 +115,12 @@ export function ClassStaffTab({
     }
   };
 
+  useRegisterRecordActions('class',classData.id,classData.short_name ?? 'Class',classStaff.flatMap(staff=>classStaffReferenceActions(
+    {id:staff.id,label:[staff.first_name,staff.last_name].filter(Boolean).join(' ') || 'Staff'},
+    {id:classData.id,label:classData.short_name || classSubject?.short_name || 'Class'},
+    ()=>{void handleRemoveStaff(staff.id);},
+  ).map(action=>({...action,ready:()=>Boolean(currentStaff) && !loadingStaff,disabled:removingStaff.has(staff.id)}))),{runOnly:true});
+
   return (
     <div className="flex-1 min-h-0 flex flex-col space-y-4">
       <div className="flex items-center gap-2">
@@ -164,7 +173,11 @@ export function ClassStaffTab({
                 .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
                 .map((staff) => (
                   <TableRow key={staff.id}>
-                    <TableCell><button type="button" className="font-medium hover:underline" onClick={() => handleViewStaff(staff.id)}>{staff.first_name} {staff.last_name}</button></TableCell>
+                    <TableCell><EntityActionChip entityType="staff" entityId={staff.id} label={[staff.first_name,staff.last_name].filter(Boolean).join(' ') || 'Staff'} onClick={()=>handleViewStaff(staff.id)} hoverActions={classStaffReferenceActions(
+                      {id:staff.id,label:[staff.first_name,staff.last_name].filter(Boolean).join(' ') || 'Staff'},
+                      {id:classData.id,label:classData.short_name || classSubject?.short_name || 'Class'},
+                      ()=>{void handleRemoveStaff(staff.id);},
+                    ).map(action=>({...action,disabled:removingStaff.has(staff.id)}))} /></TableCell>
                     <TableCell>{new Date(staff.assigned_at).toLocaleDateString('en-AU', { timeZone: 'Australia/Adelaide', dateStyle: 'medium' })}</TableCell>
                     <TableCell>
                       <DropdownMenu>

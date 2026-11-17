@@ -216,9 +216,16 @@ it("uses the chip session preview with linked people and recorded attendance", a
     await new Promise((resolve) => setTimeout(resolve, 300));
   });
   expect(dialog).toBeVisible();
+  const search = details.getByRole("combobox", { name: "Search menu" });
+  expect(search).toHaveFocus();
   await userEvent.unhover(dialog);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+  expect(dialog).toBeVisible();
+  await userEvent.keyboard("{Escape}");
   await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "Trial lesson details" })).not.toBeInTheDocument(),
   );
 });
 

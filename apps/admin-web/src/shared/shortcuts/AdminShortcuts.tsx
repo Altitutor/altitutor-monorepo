@@ -238,7 +238,8 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
       }
       const dialog = activeDialog();
       // Dialogs own keyboard interaction except focusing their own search field.
-      if (dialog && !palette.isOpen && id !== "search") return;
+      const closesMobileSidebar = id === "left" && mobile.isOpen && keyboardPane().id === "admin-mobile-sidebar";
+      if (dialog && !palette.isOpen && id !== "search" && !closesMobileSidebar) return;
       if (id === "search") {
         const input = searchControl(panel?.expanded ? panel.activeKey : null);
         if (input) {
@@ -313,7 +314,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
       <KeyboardHintsContext.Provider value={!modified && !go && !typing}>
         <ShortcutAvailabilityContext.Provider
           value={{
-            left: !modified && !go && !typing && !dialogActive,
+            left: !modified && !go && !typing && (!dialogActive || Boolean(mobile.isOpen && typeof document !== "undefined" && keyboardPane().id === "admin-mobile-sidebar")),
             right: !modified && !go && !typing && !dialogActive,
             palette: true,
             search:

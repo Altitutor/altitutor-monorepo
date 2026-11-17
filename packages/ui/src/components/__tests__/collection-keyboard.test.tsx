@@ -6,9 +6,15 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { SearchableSelect } from "../searchable-select";
+import { CollectionField } from "../collection-picker-context";
 import { KeyboardCollection, CollectionRecord } from "../collection-keyboard";
 import { KanbanBoard } from "../kanban-board";
 import { KeyboardNavigationProvider } from "../keyboard-navigation";
+beforeAll(() => {
+  global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  window.matchMedia = jest.fn().mockReturnValue({matches:false,addEventListener:jest.fn(),removeEventListener:jest.fn()});
+});
 it("selects two records with the keyboard and applies a chosen status only to those records", async () => {
   const apply = jest.fn().mockResolvedValue(undefined);
   jest
@@ -42,7 +48,7 @@ it("selects two records with the keyboard and applies a chosen status only to th
   fireEvent.keyDown(document.activeElement!, { key: "j", shiftKey: true });
   expect(screen.getByText("2 selected")).toBeTruthy();
   fireEvent.keyDown(document.activeElement!, { key: "s" });
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("option", { name: /Done/ }));
   await waitFor(() => expect(apply).toHaveBeenCalledTimes(2));
   expect(apply.mock.calls).toEqual([
     [{ id: "one" }, "done"],
@@ -131,7 +137,7 @@ it("leaves Enter on the selection button to its native action instead of opening
   expect(open).not.toHaveBeenCalled();
 });
 
-it("keeps sortable cards named by their content while exposing a separate selection control", () => {
+it("keeps sortable board cards named by their content without a checkbox", () => {
   global.ResizeObserver = jest.fn().mockImplementation(() => ({
     observe: jest.fn(), unobserve: jest.fn(), disconnect: jest.fn(),
   }));
@@ -156,5 +162,58 @@ it("keeps sortable cards named by their content while exposing a separate select
   const card = screen.getByRole("button", { name: /^Board drag check 001 / });
   const content = document.getElementById(card.getAttribute("aria-labelledby")!);
   expect(content?.textContent).toBe("Board drag check 001 Urgent");
-  expect(content?.contains(screen.getByRole("button", { name: "Select record" }))).toBe(false);
+  expect(screen.queryByRole("button", { name: "Select record" })).toBeNull();
+});
+
+
+it("opens the status select with Space and applies its numbered option without a separate dialog", async () => {
+  global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  window.matchMedia = jest.fn().mockReturnValue({matches:false,addEventListener:jest.fn(),removeEventListener:jest.fn()});
+  jest.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const apply = jest.fn().mockResolvedValue(undefined);
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options:[{value:'done',label:'Done'}],apply}]}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></main></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'});
+  fireEvent.keyDown(document.activeElement!,{key:' '});
+  expect(screen.queryByRole('heading',{name:/record/})).toBeNull();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  const input = screen.getByRole('combobox');
+  expect(screen.getByRole('option',{name:/Done/}).textContent).toContain('1');
+  fireEvent.keyDown(input,{key:'1'});
+  await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
+});
+
+
+it("hides a retained selection menu with its inactive pane and restores it without losing selection", async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const fixture = (hidden: boolean) => <KeyboardNavigationProvider value={true}><main data-admin-main><div hidden={hidden}><KeyboardCollection items={[{id:'one'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options:[],apply:jest.fn()}]}><CollectionRecord id="one">One</CollectionRecord></KeyboardCollection></div></main></KeyboardNavigationProvider>;
+  const view = render(fixture(false));
+  fireEvent.keyDown(document.body,{key:'j'}); fireEvent.keyDown(document.activeElement!,{key:'x'});
+  expect(screen.getByRole('toolbar',{name:'Selected records'})).toBeTruthy();
+  view.rerender(fixture(true));
+  await waitFor(()=>expect(screen.queryByRole('toolbar',{name:'Selected records'})).toBeNull());
+  view.rerender(fixture(false));
+  await waitFor(()=>expect(screen.getByText('1 selected')).toBeTruthy());
+});
+
+
+it("opens the existing row pill and uses the same native picker for bulk changes", async () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const native = jest.fn(), bulk = jest.fn().mockResolvedValue(undefined);
+  const options = [{value:'todo',label:'Todo'},{value:'done',label:'Done'}];
+  const picker = () => <SearchableSelect items={options} value={options[0]} getItemId={option=>option.value} getItemLabel={option=>option.label} onValueChange={native} searchPlaceholder="Native status choices" trigger={<button>Native status pill</button>} />;
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><KeyboardCollection items={[{id:'one'},{id:'two'}]} getItemId={item=>item.id} actions={[{key:'s',label:'Status',options,apply:bulk}]} renderAction={picker}>
+    <CollectionRecord id="one"><CollectionField field="status">{picker()}</CollectionField></CollectionRecord>
+    <CollectionRecord id="two"><CollectionField field="status">{picker()}</CollectionField></CollectionRecord>
+  </KeyboardCollection></main></KeyboardNavigationProvider>);
+  fireEvent.keyDown(document.body,{key:'j'}); fireEvent.keyDown(document.activeElement!,{key:' '});
+  expect(screen.getByPlaceholderText('Native status choices')).toBeTruthy();
+  expect(screen.queryByRole('toolbar',{name:'Selected records'})).toBeNull();
+  fireEvent.keyDown(screen.getByRole('combobox'),{key:'2'});
+  await waitFor(()=>expect(native).toHaveBeenCalledWith(options[1]));
+  await waitFor(()=>expect(screen.queryByRole('combobox')).toBeNull());
+  fireEvent.keyDown(document.activeElement!,{key:'x'}); fireEvent.keyDown(document.activeElement!,{key:'j',shiftKey:true});
+  fireEvent.keyDown(document.activeElement!,{key:'s'});
+  fireEvent.keyDown(screen.getByRole('combobox'),{key:'2'});
+  await waitFor(()=>expect(bulk).toHaveBeenCalledTimes(2));
+  expect(native).toHaveBeenCalledTimes(1);
 });

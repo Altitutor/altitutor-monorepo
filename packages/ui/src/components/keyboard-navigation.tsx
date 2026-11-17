@@ -17,7 +17,7 @@ let scopeObserver: MutationObserver | undefined;
 const notifyScope = () => {
   scopeListeners.forEach((listener) => listener());
 };
-function subscribeScope(listener: () => void) {
+export function subscribeKeyboardScope(listener: () => void) {
   scopeListeners.add(listener);
   if (scopeListeners.size === 1) {
     document.addEventListener("focusin", notifyScope);
@@ -29,6 +29,8 @@ function subscribeScope(listener: () => void) {
       attributes: true,
       attributeFilter: [
         "hidden",
+        "class",
+        "style",
         "inert",
         "aria-hidden",
         "data-state",
@@ -52,7 +54,7 @@ export function useKeyboardHints(
 ) {
   const hints = useContext(KeyboardHintsContext);
   const available = useSyncExternalStore(
-    subscribeScope,
+    subscribeKeyboardScope,
     () => {
       if (!target) return true;
       const root = target.current;

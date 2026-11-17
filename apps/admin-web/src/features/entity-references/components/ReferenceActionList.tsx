@@ -1,6 +1,7 @@
 "use client";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Button, useSearchableAction } from "@altitutor/ui";
+import { ActionEntityChip } from "./ActionEntityChip";
 import type { RecordMenuAction } from "@/shared/components/recordMenuActions";
 
 function ReferenceActionButton({
@@ -11,22 +12,26 @@ function ReferenceActionButton({
   onActivate?: () => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
-  useSearchableAction(ref, Boolean(action.disabled));
+  const content = useMemo(() => <>
+    <action.icon className="mr-2 size-4 shrink-0" />
+    <span>{action.group ? `${action.group} · ` : ""}{action.renderTitle ?? action.title}</span>
+    {action.context && <ActionEntityChip {...action.context} />}
+  </>, [action]);
+  useSearchableAction(ref, Boolean(action.disabled), false, {content, destructive:action.destructive});
   return (
     <Button
       ref={ref}
       variant="ghost"
       size="sm"
       disabled={action.disabled}
-      className={`h-auto w-full justify-start whitespace-normal py-1.5 text-left hover:bg-muted dark:hover:bg-muted focus-visible:bg-muted ${action.destructive ? "text-destructive hover:text-destructive" : ""}`}
+      aria-label={action.context ? `${action.title} (${action.context.label})` : action.title}
+      className={`h-auto w-full justify-start whitespace-normal py-1.5 text-left hover:bg-muted dark:hover:bg-muted focus-visible:bg-muted ${action.destructive ? "text-destructive dark:text-destructive hover:text-destructive dark:hover:text-destructive" : ""}`}
       onClick={() => {
         onActivate?.();
         action.action();
       }}
     >
-      <action.icon className="mr-2 size-4 shrink-0" />
-      {action.group ? `${action.group} · ` : ""}
-      {action.title}
+      {content}
     </Button>
   );
 }

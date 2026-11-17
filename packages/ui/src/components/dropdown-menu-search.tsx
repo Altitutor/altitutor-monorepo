@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-dropdown-menu";
-import { useKeyboardNavigation } from "./keyboard-navigation";
+import { isTypingTarget, useKeyboardNavigation } from "./keyboard-navigation";
 import {
   Command,
   CommandInput,
@@ -10,7 +10,8 @@ import {
   CommandItem,
 } from "./command";
 import { Search } from "lucide-react";
-type Entry = {
+export type SearchableActionPresentation = { content?: React.ReactNode; destructive?: boolean };
+type Entry = SearchableActionPresentation & {
   node: HTMLElement;
   label: string;
   disabled: boolean;
@@ -45,7 +46,7 @@ function createMenuStore() {
     snapshot: () => version,
     put(entry: Entry) {
       const old = entries.get(entry.node);
-      if (old?.label === entry.label && old.disabled === entry.disabled) return;
+      if (old?.label === entry.label && old.disabled === entry.disabled && old.content === entry.content && old.destructive === entry.destructive) return;
       entries.set(entry.node, entry);
       emit();
     },
@@ -81,14 +82,18 @@ export function MenuSearchRoot(
 export function ActionSearchScope({
   children,
   header,
+  alwaysSearchable = false,
+  autoFocus = false,
 }: {
   children: React.ReactNode;
   header?: React.ReactNode;
+  alwaysSearchable?: boolean;
+  autoFocus?: boolean;
 }) {
   const [store] = React.useState(createMenuStore);
   return (
     <MenuContext.Provider value={store}>
-      <MenuSearchContent searchHeader={header} showSearchTrigger>
+      <MenuSearchContent searchHeader={header} showSearchTrigger alwaysSearchable={alwaysSearchable} autoFocus={autoFocus}>
         {children}
       </MenuSearchContent>
     </MenuContext.Provider>
@@ -138,6 +143,7 @@ export function useMenuEntry(
   node: React.RefObject<HTMLElement | null>,
   disabled: boolean,
   submenu = false,
+  presentation?: SearchableActionPresentation,
 ) {
   const store = React.useContext(MenuContext);
   const parent = React.useContext(PathContext);
@@ -152,6 +158,8 @@ export function useMenuEntry(
       element.getAttribute("aria-label") ?? clone.textContent?.trim() ?? "";
     store.put({
       node: element,
+      content: presentation?.content,
+      destructive: presentation?.destructive ?? element.classList.contains("text-destructive"),
       label: submenu
         ? parent.path || label
         : [parent.path, label].filter(Boolean).join(" → "),
@@ -194,10 +202,14 @@ export function MenuSearchContent({
   children,
   searchHeader,
   showSearchTrigger = false,
+  alwaysSearchable = false,
+  autoFocus = false,
 }: {
   children: React.ReactNode;
   searchHeader?: React.ReactNode;
   showSearchTrigger?: boolean;
+  alwaysSearchable?: boolean;
+  autoFocus?: boolean;
 }) {
   const store = React.useContext(MenuContext);
   React.useSyncExternalStore(
@@ -210,15 +222,17 @@ export function MenuSearchContent({
   const restoreMenuFocus = React.useRef(false);
   const [active, setActive] = React.useState(0);
   const input = React.useRef<HTMLInputElement>(null);
-  const searching = searchOpen;
+  const searching = alwaysSearchable || searchOpen;
   const results = [...(store?.entries.values() ?? [])].filter(
     (entry) =>
-      !entry.disabled &&
+      (!entry.disabled || (alwaysSearchable && !query.trim())) &&
       entry.label.toLowerCase().includes(query.trim().toLowerCase()),
   );
+  const enabledIndices = results.flatMap((entry, index) => entry.disabled ? [] : [index]);
+  const activeIndex = results[active] && !results[active].disabled ? active : (enabledIndices[0] ?? -1);
   React.useLayoutEffect(() => {
-    if (searching) input.current?.focus();
-  }, [searching]);
+    if (searching && (!alwaysSearchable || (autoFocus && !isTypingTarget(document.activeElement)))) input.current?.focus();
+  }, [searching, alwaysSearchable, autoFocus]);
   const root = React.useRef<HTMLDivElement>(null);
   const pendingSubmenu = React.useRef<HTMLElement | null>(null);
   const select = (entry: Entry) => {
@@ -256,26 +270,21 @@ export function MenuSearchContent({
       )
         return;
       if (target === input.current) {
+        if (alwaysSearchable && event.key === "Escape" && !query) return;
         event.stopPropagation();
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
-          setActive((index) =>
-            results.length
-              ? (index +
-                  (event.key === "ArrowDown" ? 1 : -1) +
-                  results.length) %
-                results.length
-              : 0,
-          );
+          const current = enabledIndices.indexOf(activeIndex);
+          setActive(enabledIndices.length ? enabledIndices[(current + (event.key === "ArrowDown" ? 1 : -1) + enabledIndices.length) % enabledIndices.length] : 0);
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          const entry = results[Math.min(active, results.length - 1)];
+          const entry = results[activeIndex];
           if (entry) select(entry);
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          restoreMenuFocus.current = true;
+          restoreMenuFocus.current = !alwaysSearchable;
           setQuery("");
           setSearchOpen(false);
         }
@@ -325,7 +334,7 @@ export function MenuSearchContent({
             label="Search menu"
             shouldFilter={false}
             disablePointerSelection={false}
-            value={String(active)}
+            value={String(activeIndex)}
             onValueChange={(value) => setActive(Number(value))}
             className="min-w-56 rounded-lg border-0"
           >
@@ -346,10 +355,12 @@ export function MenuSearchContent({
                   <CommandItem
                     key={entry.label + index}
                     value={String(index)}
+                    aria-label={entry.label}
+                    disabled={entry.disabled}
                     onSelect={() => select(entry)}
-                    className="hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted"
+                    className={`hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted ${entry.destructive ? "text-destructive dark:text-destructive aria-selected:text-destructive dark:aria-selected:text-destructive" : ""}`}
                   >
-                    {entry.label}
+                    {entry.content ?? entry.label}
                   </CommandItem>
                 ))}
               </CommandGroup>
