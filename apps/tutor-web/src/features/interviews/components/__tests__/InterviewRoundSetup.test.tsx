@@ -78,6 +78,8 @@ const catalog: InterviewCatalog = {
   ],
 };
 
+beforeEach(() => { localStorage.clear(); mockCreate.mockClear(); });
+
 beforeAll(() => {
   global.ResizeObserver = class {
     observe() {}
@@ -128,4 +130,24 @@ it("requires a separate review stage before creating a round and preserves setup
   if (submitted?.type !== "createRound" || !submitted.setup.scheduledAt)
     throw new Error("Expected a scheduled round command");
   expect(Date.parse(submitted.setup.scheduledAt)).toBeGreaterThan(Date.now());
+});
+
+
+it("restores the last settings and schedule without reusing the name or participants", async () => {
+  localStorage.setItem("interview-round-defaults:tutor-1", JSON.stringify({ interviewId: "interview-1", delivery: "online", mode: "exam",
+    recordingEnabled: false, rotationAllowanceSeconds: 300, scheduledAt: "2030-11-18T05:30:00Z", schedule: "later" }));
+  render(<InterviewRoundDialog open onClose={jest.fn()} catalog={catalog} />);
+  expect(screen.getByRole("combobox", { name: "Interview" })).toHaveValue("interview-1");
+  expect(screen.getByRole("combobox", { name: "Delivery" })).toHaveValue("online");
+  expect(screen.getByRole("combobox", { name: "Mode" })).toHaveValue("exam");
+  expect(screen.getByRole("combobox", { name: "Start time" })).toHaveValue("later");
+  fireEvent.click(screen.getByRole("tab", { name: "Students" }));
+  expect(screen.queryByRole("button", { name: "Remove Alex" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("combobox", { name: "Add student" }));
+  fireEvent.click(await screen.findByRole("option", { name: "Alex" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next: review" }));
+  fireEvent.click(screen.getByRole("button", { name: "Schedule round" }));
+  await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+    setup: expect.objectContaining({ name: "Medicine practice", scheduledAt: "2030-11-18T05:30:00.000Z", delivery: "online", mode: "exam", recordingEnabled: false, rotationAllowanceSeconds: 300 }),
+  })));
 });

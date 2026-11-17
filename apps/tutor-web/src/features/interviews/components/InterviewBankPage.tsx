@@ -71,6 +71,8 @@ export function InterviewBankPage() {
     columnDefinitions
       .filter((column) => column.visibleByDefault)
       .map((column) => column.key),
+    undefined,
+    { sortBy: "name", sortDirection: "asc" },
   );
   const [creating, setCreating] = useState<InterviewTemplate | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function InterviewBankPage() {
         !interview.archived &&
         (!query || interview.name.toLowerCase().includes(query)),
     );
-    return sortRows(rows, table.state, "updated", {
+    return sortRows(rows, table.state, "name", {
       updated: (interview) => interview.updatedAt,
       name: (interview) => interview.name,
     });
@@ -121,7 +123,7 @@ export function InterviewBankPage() {
       />
       <TutorEntityToolbar
         pageKey={'interview_bank'}
-        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [])}
+        defaultSettings={tutorDefaultDisplaySettings(table.state.defaultVisibleColumns ?? [], { sortBy: "name", sortDirection: "asc" })}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
         onFiltersChange={table.actions.onFiltersChange}

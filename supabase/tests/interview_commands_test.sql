@@ -112,7 +112,7 @@ SELECT is((SELECT data->'result'->>'score' FROM public.vstudent_interview_rounds
 SELECT is((SELECT (data->'result'->>'possiblePoints')::numeric FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),6.5::numeric,'Not-assessed station is excluded from denominator');
 SELECT is((SELECT data->'result'->>'partial' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'true','Result is labelled partial');
 SELECT is((SELECT data->'resultStations'->0->>'name' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'','Student result never exposes internal station names');
-SELECT is((SELECT data->'resultStations'->0->'questions'->0->'rubric' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'null'::jsonb,'Student result does not expose the rubric');
+SELECT is((SELECT data->'resultStations'->0->'questions'->0->'rubric' FROM public.vstudent_interview_rounds WHERE id='e8000000-0000-4000-8000-000000000020'),'"Updated globally"'::jsonb,'Student result exposes the released station question rubric');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',true);
 SELECT pg_temp.mark(0,4.5);

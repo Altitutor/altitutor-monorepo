@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@altitutor/shared";
+import { getUserVerification, isUnauthenticatedUserError, type Database } from "@altitutor/shared";
 import { createClient as createCookieClient } from "@/shared/lib/supabase/server-ssr";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
@@ -45,10 +45,17 @@ export async function resolveInterviewActor(
         ),
       )
     : await createCookieClient();
-  const {
-    data: { user },
-    error,
-  } = await userClient.auth.getUser();
+  const unavailable = (error: unknown) => {
+    captureApiError(error, "/api/interviews/auth");
+    return {
+      response: interviewResponse(
+        { error: "Sign-in verification is temporarily unavailable. Please try again." },
+        503,
+      ),
+    };
+  };
+  const { user, error } = await getUserVerification(() => userClient.auth.getUser());
+  if (error && !isUnauthenticatedUserError(error)) return unavailable(error);
   if (error || !user)
     return {
       response: interviewResponse(
