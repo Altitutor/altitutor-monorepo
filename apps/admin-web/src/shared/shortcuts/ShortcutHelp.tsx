@@ -83,7 +83,7 @@ export function ShortcutHelp({
                 key={label}
               >
                 <span>{label}</span>
-                <KeyboardShortcut keys={keys} />
+                <KeyboardShortcut keys={keys} aria-hidden={false} />
               </div>
             ))}
         </div>

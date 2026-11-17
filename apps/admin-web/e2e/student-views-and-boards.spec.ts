@@ -256,7 +256,7 @@ test('date and priority pills share their surface in board and detail views', as
   await card.getByText('Board drag check 001', { exact: true }).click();
   const detail = page.locator('#admin-accessory-panel');
   await expect(detail.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Board drag check 001');
-  const dueDate = detail.getByRole('button', { name: 'Select date', exact: true });
+  const dueDate = detail.getByRole('button', { name: 'Date', exact: true });
   if (!(await dueDate.isVisible())) {
     await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
   }

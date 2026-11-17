@@ -384,3 +384,24 @@ it("preserves contextual entity chips and destructive styling in both empty and 
     expect(remove).not.toHaveBeenCalled();
   } finally {globalThis.fetch=originalFetch;client.clear();}
 });
+
+it('preserves keyboard resize focus when a layout change brings a chip under the pointer', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({ok:true,json:async()=>({title:'Maths',fields:[]})});
+  const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
+  try {
+    render(<QueryClientProvider client={client}><ToastProvider><QuickActionsProvider><RecordActionsProvider>
+      <EntityReferenceHovers />
+      <div role="separator" tabIndex={0} aria-label="Resize panel" />
+      <EntityActionChip entityType="subject" entityId="maths" label="Maths" />
+    </RecordActionsProvider></QuickActionsProvider></ToastProvider></QueryClientProvider>);
+    const divider=screen.getByRole('separator',{name:'Resize panel'});
+    divider.focus();
+    await userEvent.hover(screen.getByRole('button',{name:'Maths'}));
+    await screen.findByRole('combobox',{name:'Search menu'});
+    expect(divider).toHaveFocus();
+  } finally {
+    globalThis.fetch=originalFetch;
+    client.clear();
+  }
+});

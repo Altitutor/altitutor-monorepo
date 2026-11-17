@@ -332,7 +332,7 @@ test("rich-text record chips show a titled key-value hover card", async ({
     exact: true,
   });
   await expect(
-    preview.getByRole("heading", { name: "Alice Williams", exact: true }),
+    preview.getByRole("button", { name: "Alice Williams", exact: true }),
   ).toBeVisible();
   await expect(preview).toContainText("Year level");
   await expect(preview).toContainText("Classes");

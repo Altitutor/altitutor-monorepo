@@ -97,7 +97,7 @@ export function CollectionRecord({
           aria-describedby={contentId}
           aria-pressed={selected}
           className={cn(
-            "m-2 mt-3 h-4 w-4 shrink-0 rounded border border-border text-xs transition-opacity group-hover/collection-record:opacity-100 group-focus-within/collection-record:opacity-100 focus-visible:opacity-100",
+            "hidden md:block m-2 mt-3 h-4 w-4 shrink-0 rounded border border-border text-xs transition-opacity group-hover/collection-record:opacity-100 group-focus-within/collection-record:opacity-100 focus-visible:opacity-100",
             selected ? "opacity-100" : "opacity-0",
           )}
           onClick={(event) => {

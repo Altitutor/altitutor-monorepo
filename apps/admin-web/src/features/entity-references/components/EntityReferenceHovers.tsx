@@ -138,7 +138,9 @@ export function EntityReferenceHovers() {
       timer.current = setTimeout(
         () => {
           if (chip.isConnected) {
-            setPointerOpened(event.type !== "focusin");
+            // Layout changes can move chips under a stationary pointer while a
+            // keyboard-operated resize handle still owns focus.
+            setPointerOpened(event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator");
             setTarget(chip);
           }
         },

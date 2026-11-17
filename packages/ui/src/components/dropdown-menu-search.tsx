@@ -9,11 +9,12 @@ import {
   CommandGroup,
   CommandItem,
 } from "./command";
-import { Search } from "lucide-react";
+import { Search, ChevronRight } from "lucide-react";
 export type SearchableActionPresentation = { content?: React.ReactNode; destructive?: boolean };
 type Entry = SearchableActionPresentation & {
   node: HTMLElement;
   label: string;
+  path: string;
   disabled: boolean;
   submenu: boolean;
 };
@@ -158,6 +159,7 @@ export function useMenuEntry(
       element.getAttribute("aria-label") ?? clone.textContent?.trim() ?? "";
     store.put({
       node: element,
+      path: submenu ? parent.path.split(" → ").slice(0, -1).join(" → ") : parent.path,
       content: presentation?.content,
       destructive: presentation?.destructive ?? element.classList.contains("text-destructive"),
       label: submenu
@@ -368,9 +370,13 @@ export function MenuSearchContent({
                     aria-label={entry.label}
                     disabled={entry.disabled}
                     onSelect={() => select(entry)}
-                    className={`hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted ${entry.destructive ? "text-destructive dark:text-destructive aria-selected:text-destructive dark:aria-selected:text-destructive" : ""}`}
+                    className={`flex-wrap gap-2 hover:bg-muted aria-selected:bg-muted dark:hover:bg-muted dark:aria-selected:bg-muted ${entry.destructive ? "text-destructive dark:text-destructive aria-selected:text-destructive dark:aria-selected:text-destructive" : ""}`}
                   >
-                    <span inert className="pointer-events-none contents">{entry.content ?? entry.label}</span>
+                    <span inert className="pointer-events-none flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 [&>svg]:shrink-0">
+                      {entry.path && <span aria-hidden className="inline-flex flex-wrap items-center gap-1.5 text-muted-foreground">{entry.path.split(" → ").map((part, index) => <React.Fragment key={index}>{part}<ChevronRight className="size-3" /></React.Fragment>)}</span>}
+                      {entry.content ?? entry.label.split(" → ").at(-1)}
+                    </span>
+                    {entry.submenu && <ChevronRight aria-hidden className="ml-auto size-4 shrink-0 text-muted-foreground" />}
                   </CommandItem>
                 ))}
               </CommandGroup>
