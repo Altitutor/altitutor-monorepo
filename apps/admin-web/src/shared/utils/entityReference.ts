@@ -19,3 +19,8 @@ export function referenceDescription(reference: EntityReference): JSONContent {
 export function referenceKey(reference?: EntityReference | null) {
   return reference ? `${reference.type}:${reference.id}` : "";
 }
+
+/** Route a reference through the existing application navigation event boundary. */
+export function openEntityReference(type: string, id: string) {
+  window.dispatchEvent(new CustomEvent('mentionClick', { detail: { type, id } }));
+}

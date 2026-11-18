@@ -15,8 +15,11 @@ const DialogScopeContext = React.createContext<DialogScopeValue | null>(null);
 /** Share the main pane's dialog target with neighbouring accessory views. */
 export function DialogScopeProvider({
   children,
+  disabled = false,
 }: {
   children: React.ReactNode;
+  /** Use the normal viewport modal for confirmations launched from a pane. */
+  disabled?: boolean;
 }) {
   const [container, setContainer] = React.useState<HTMLDivElement | null>(null);
   const [openCount, setOpenCount] = React.useState(0);
@@ -29,7 +32,7 @@ export function DialogScopeProvider({
     [container, openCount, register],
   );
   return (
-    <DialogScopeContext.Provider value={scope}>
+    <DialogScopeContext.Provider value={disabled ? null : scope}>
       {children}
     </DialogScopeContext.Provider>
   );

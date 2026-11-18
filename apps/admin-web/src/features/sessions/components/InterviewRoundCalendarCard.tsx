@@ -1,9 +1,10 @@
 "use client";
+import { MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { BUSINESS_TIMEZONE } from "@altitutor/shared";
 import {
-  Badge,
+  Badge, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   Button,
   formatInterviewCalendarRange,
   InterviewRoundCalendarCard as RoundCard,
@@ -46,7 +47,18 @@ export function InterviewRoundCalendarCard({
         label: "Open interview",
       }}
     >
-      <RoundCard name={round.name} onClick={onOpen} />
+      <div className="relative h-full [&>button]:pr-8">
+        <RoundCard name={round.name} onClick={onOpen} />
+        <div className="absolute right-1 top-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Interview actions"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onOpen}>Open interview</DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href={interviewRoundRoomUrl(round)}>Open interview room</Link></DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
     </CalendarDetailsTooltip>
   );
 }

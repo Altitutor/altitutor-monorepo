@@ -1,6 +1,7 @@
 import {
   Calendar,
   Mail,
+  MessageSquare,
   CheckSquare,
   AlertTriangle,
   GraduationCap,
@@ -33,6 +34,7 @@ export const paletteEntities = {
 
 export type PaletteEntityType = keyof typeof paletteEntities;
 export const recordEntities = {
+  message: { label: "Messages", icon: MessageSquare },
   ...paletteEntities,
   invoice: { label: "Invoices", icon: FileText },
   adminShift: { label: "Admin shifts", icon: Calendar },

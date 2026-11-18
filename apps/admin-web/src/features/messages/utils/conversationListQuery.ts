@@ -5,6 +5,7 @@ export type ConversationListQueryFields = {
   unreplied: boolean;
   followUp: boolean;
   assignedStaffId: string | null;
+  assignedStaffIds?: string[];
   recipientType: string | null;
   ownedNumberIds: string[];
 };
@@ -53,7 +54,7 @@ export function matchesConversationListQuery(
   if (!matchesAny(selected(filters, "read"), (value) => (value === "unread" ? fields.unread : !fields.unread))) return false;
   if (!matchesAny(selected(filters, "reply"), (value) => (value === "unreplied" ? fields.unreplied : !fields.unreplied))) return false;
   if (selected(filters, "followUp").includes("yes") && !fields.followUp) return false;
-  if (!matchesAny(selected(filters, "assignee"), (value) => value === "mine" && query.staffId != null && fields.assignedStaffId === query.staffId)) return false;
+  if (!matchesAny(selected(filters, "assignee"), (value) => value === "mine" && query.staffId != null && (fields.assignedStaffIds ?? [fields.assignedStaffId]).includes(query.staffId))) return false;
   if (!matchesAny(selected(filters, "recipient"), (value) => fields.recipientType === value)) return false;
   if (!matchesAny(selected(filters, "from"), (value) => fields.ownedNumberIds.includes(value))) return false;
   return true;

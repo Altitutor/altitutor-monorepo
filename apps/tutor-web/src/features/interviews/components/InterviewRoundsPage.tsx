@@ -78,6 +78,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: "delivery", label: "Delivery", visibleByDefault: true },
   { key: "phase", label: "Status", visibleByDefault: true },
   { key: "students", label: "Students", visibleByDefault: true },
+  { key: "tutors", label: "Tutors", visibleByDefault: true },
   { key: "results", label: "Results released", visibleByDefault: false },
 ];
 
@@ -98,8 +99,8 @@ function statusLabel(round: InterviewRound) {
 }
 
 function whenLabel(round: InterviewRound) {
-  if (round.scheduledAt) return new Date(round.scheduledAt).toLocaleString();
-  if (round.startedAt) return new Date(round.startedAt).toLocaleString();
+  const value = round.scheduledAt ?? round.startedAt;
+  if (value) return format(new Date(value), "EEE d MMM h:mmaaa");
   return "Not scheduled";
 }
 
@@ -353,15 +354,17 @@ function RoundsCalendar({
   interviewName,
   onEdit,
   onPrint,
+  dayCount,
 }: {
+  dayCount: 1 | 3 | 7;
   rounds: InterviewRound[];
   interviewName: (id: string) => string;
   onEdit: (round: InterviewRound) => void;
   onPrint: (round: InterviewRound) => void;
 }) {
   const [anchor, setAnchor] = useState(new Date());
-  const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }, (_, index) =>
+  const weekStart = dayCount === 7 ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor;
+  const days = Array.from({ length: dayCount }, (_, index) =>
     addDays(weekStart, index),
   );
   const hours = Array.from(
@@ -378,8 +381,8 @@ function RoundsCalendar({
         <Button
           variant="outline"
           className={tutorBtnOutline}
-          onClick={() => setAnchor(addDays(anchor, -7))}
-          aria-label="Previous week"
+          onClick={() => setAnchor(addDays(anchor, -dayCount))}
+          aria-label="Previous period"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -393,17 +396,18 @@ function RoundsCalendar({
         <Button
           variant="outline"
           className={tutorBtnOutline}
-          onClick={() => setAnchor(addDays(anchor, 7))}
-          aria-label="Next week"
+          onClick={() => setAnchor(addDays(anchor, dayCount))}
+          aria-label="Next period"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
       <div className="overflow-auto rounded-xl border">
         <div
-          className="grid min-w-[880px] bg-background"
+          className="grid bg-background"
           style={{
             gridTemplateColumns: `88px repeat(${days.length}, minmax(140px, 1fr))`,
+            minWidth: 88 + days.length * 140,
           }}
         >
           <div className="sticky top-0 z-20 border-b border-r bg-background p-2 text-center text-xs font-medium">
@@ -574,8 +578,11 @@ export function InterviewRoundsPage() {
     columnDefinitions
       .filter((column) => column.visibleByDefault)
       .map((column) => column.key),
+    undefined,
+    { sortBy: "when", sortDirection: "desc" },
   );
-  const [view, setView] = useState<"calendar" | "table">("calendar");
+  const [view, setView] = useState<"calendar" | "table">("table");
+  const [dayCount, setDayCount] = useState<1 | 3 | 7>(7);
   const [creating, setCreating] = useState(false);
   const [bulkCreating, setBulkCreating] = useState(false);
   const [printing, setPrinting] = useState<InterviewRound | null>(null);
@@ -708,7 +715,7 @@ export function InterviewRoundsPage() {
         pageKey={"interview_rounds"}
         defaultSettings={tutorDefaultDisplaySettings(
           table.state.defaultVisibleColumns ?? [],
-          { layout: "calendar" },
+          { layout: "table" },
         )}
         state={table.state}
         onSearchChange={table.actions.onSearchChange}
@@ -722,6 +729,12 @@ export function InterviewRoundsPage() {
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search rounds"
+        viewContent={view === "calendar" ? <label className="flex items-center justify-between gap-3 p-3 text-sm">Calendar range
+          <select aria-label="Calendar range" className="rounded-md border bg-background px-2 py-1" value={dayCount}
+            onChange={(event) => setDayCount(Number(event.target.value) as 1 | 3 | 7)}>
+            <option value={1}>One day</option><option value={3}>Three days</option><option value={7}>One week</option>
+          </select>
+        </label> : undefined}
         view={{
           value: view,
           options: [
@@ -743,6 +756,7 @@ export function InterviewRoundsPage() {
       ) : view === "calendar" ? (
         <RoundsCalendar
           rounds={rounds}
+          dayCount={dayCount}
           interviewName={interviewName}
           onEdit={setEditing}
           onPrint={setPrinting}
@@ -827,10 +841,14 @@ export function InterviewRoundsPage() {
                       id: "students",
                       header: "Students",
                       cell: ({ row }: { row: { original: InterviewRound } }) =>
-                        row.original.students.length,
+                        <ul>{row.original.students.map((student) => <li key={student.id}>{student.name}</li>)}</ul>,
                     },
                   ]
                 : []),
+              ...(visible.has("tutors") ? [{
+                id: "tutors", header: "Tutors",
+                cell: ({ row }: { row: { original: InterviewRound } }) => <ul>{row.original.tutors.map((tutor) => <li key={tutor.id}>{tutor.name}</li>)}</ul>,
+              }] : []),
               ...(visible.has("results")
                 ? [
                     {

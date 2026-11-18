@@ -413,7 +413,8 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4" : "min-w-0 flex-1 overflow-y-auto p-4"}>
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden [--detail-page-gutter:1rem]" : "min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]"}>
+      <div className={isEditing ? "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4" : "contents"}>
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
 
@@ -422,6 +423,7 @@ function SessionDetailView({ id }: { id: string }) {
         <FormResponseCommands record={{ type: "session", id: session.id, title: sessionTitle }} />
         <ActionsMenu
           type="session"
+          onEditDetails={() => setIsEditing(true)}
           entityId={session.id}
           copyTagDisplayText={sessionTitle || session.id}
           {...sessionActions}
@@ -669,10 +671,10 @@ function SessionDetailView({ id }: { id: string }) {
           <SessionActivityTab sessionId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
-
+      </div>
 
       {isEditing && activeTab === "details" && (
-        <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex justify-end gap-2 border-t bg-background px-4 py-4">
+        <div className="z-10 flex shrink-0 justify-end gap-2 border-t bg-background px-4 py-4">
           <Button
             variant="outline"
             disabled={updateSessionMutation.isPending}

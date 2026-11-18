@@ -1,4 +1,7 @@
 "use client";
+import { classStudentReferenceActions, classStaffReferenceActions } from '@/features/classes/utils/classReferenceActions';
+import { useRunRecordAction } from '@/features/command-palette/RecordActionsContext';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import type { ToolbarFilterEditorContext } from "@altitutor/ui";
@@ -24,7 +27,6 @@ import {
   Button,
   Input,
   Label,
-  Badge,
   SkeletonTable,
   useToast,
   AlertDialog,
@@ -55,7 +57,7 @@ import type {
   DataTableSortOption,
   DataTableColumnDefinition,
 } from "@altitutor/shared";
-import { cn, getSubjectColorStyle } from "@/shared/utils/index";
+import { SubjectChip } from '@/shared/components/SubjectChip';
 import { AddClassModal } from "./AddClassModal";
 import { ViewClassModal } from "./modal";
 import { ViewStaffModal } from "@/features/staff";
@@ -87,6 +89,7 @@ export function ClassesTable({
   renderCalendar,
 }: ClassesTableProps) {
   useAdminUrlSync();
+  const runRecordAction = useRunRecordAction();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -376,33 +379,6 @@ export function ClassesTable({
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   type ClassWithSubject = MinimalClass;
-  const getSubjectDisplay = (classItem: ClassWithSubject): string => {
-    const subject = classItem.subject;
-    return subject?.long_name ?? "-";
-  };
-
-  const getSubjectBadgeStyle = (
-    classItem: ClassWithSubject,
-  ): {
-    style: React.CSSProperties;
-    textColorClass: string;
-    defaultClass: string;
-  } => {
-    const subject = classItem.subject;
-    if (!subject) {
-      return {
-        style: {},
-        textColorClass: "text-gray-800",
-        defaultClass: "bg-gray-100 text-gray-800",
-      };
-    }
-    const { style, textColorClass } = getSubjectColorStyle(
-      subject as Tables<"subjects">,
-    );
-    const defaultClass = !subject.color ? "bg-gray-100 text-gray-800" : "";
-    return { style, textColorClass, defaultClass };
-  };
-
   // Reset to page 1 when search term or filters change
   useEffect(() => {
     setPage(1);
@@ -593,40 +569,7 @@ export function ClassesTable({
                         )}
                         {state.visibleColumns.includes("subject") && (
                           <TableCell className="font-medium">
-                            <Badge
-                              className={cn(
-                                "text-xs whitespace-nowrap",
-                                (() => {
-                                  const { textColorClass, defaultClass } =
-                                    getSubjectBadgeStyle(cls);
-                                  return defaultClass || textColorClass;
-                                })(),
-                              )}
-                              style={(() => {
-                                const { style } = getSubjectBadgeStyle(cls);
-                                return style.backgroundColor
-                                  ? style
-                                  : undefined;
-                              })()}
-                              title={getSubjectDisplay(cls)}
-                            >
-                              {/* Default to short names, only show full on 2xl+ screens */}
-                              <span className="2xl:hidden">
-                                {(() => {
-                                  const subject = (cls as ClassWithSubject)
-                                    .subject;
-                                  return (
-                                    subject?.short_name ??
-                                    subject?.long_name ??
-                                    subject?.name ??
-                                    "-"
-                                  );
-                                })()}
-                              </span>
-                              <span className="hidden 2xl:inline">
-                                {getSubjectDisplay(cls)}
-                              </span>
-                            </Badge>
+                            {cls.subject ? <SubjectChip subject={cls.subject as Tables<'subjects'>} /> : '—'}
                           </TableCell>
                         )}
                         {state.visibleColumns.includes("students") && (
@@ -639,17 +582,17 @@ export function ClassesTable({
                               ) : (
                                 getClassStudents(cls).map(
                                   (student, studentIndex) => (
-                                    <Button
+                                    <EntityActionChip
                                       key={`${cls.id}-${student.id}-${studentIndex}`}
-                                      variant="link"
-                                      size="sm"
-                                      className="h-auto p-0 text-xs justify-start"
+                                      hoverActions={classStudentReferenceActions(
+                                        {id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
+                                        {id:cls.id,label:cls.short_name || cls.subject?.short_name || 'Class'},
+                                        {change:()=>runRecordAction?.('class',cls.id,`change-student-${student.id}`),remove:()=>runRecordAction?.('class',cls.id,`remove-student-${student.id}`)},
+                                      )}
                                       onClick={(e) =>
                                         handleStudentClick(student.id, e)
                                       }
-                                    >
-                                      {student.first_name} {student.last_name}
-                                    </Button>
+                                     entityType="student" entityId={student.id} label={`${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student'} />
                                   ),
                                 )
                               )}
@@ -665,17 +608,17 @@ export function ClassesTable({
                                 </span>
                               ) : (
                                 getClassStaff(cls).map((staff, staffIndex) => (
-                                  <Button
+                                  <EntityActionChip
                                     key={`${cls.id}-${staff.id}-${staffIndex}`}
-                                    variant="link"
-                                    size="sm"
-                                    className="h-auto p-0 text-xs justify-start"
+                                    hoverActions={classStaffReferenceActions(
+                                      {id:staff.id,label:[staff.first_name,staff.last_name].filter(Boolean).join(' ') || 'Staff'},
+                                      {id:cls.id,label:cls.short_name || cls.subject?.short_name || 'Class'},
+                                      ()=>runRecordAction?.('class',cls.id,`remove-staff-${staff.id}`),
+                                    )}
                                     onClick={(e) =>
                                       handleStaffClick(staff.id, e)
                                     }
-                                  >
-                                    {staff.first_name} {staff.last_name}
-                                  </Button>
+                                   entityType="staff" entityId={staff.id} label={`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff'} />
                                 ))
                               )}
                             </div>

@@ -19,6 +19,7 @@ import { fieldTriggerClassName } from '../lib/field-trigger';
 import { parseNaturalDate } from '../lib/smart-date-parser';
 import { navActiveStyles, navHoverStyles } from '../lib/styles';
 import { Button } from './button';
+import { CollectionPickerContext } from './collection-picker-context';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type SmartDatePickerValueFormat = 'date' | 'iso';
@@ -30,8 +31,9 @@ export interface SmartDatePickerPreset {
 
 export interface SmartDatePickerPopoverProps {
   children: React.ReactElement;
+  container?: HTMLElement | null | (() => HTMLElement | null);
   value: string | null;
-  onChange: (value: string | null) => void;
+  onChange: (value: string | null) => void | boolean | Promise<void | boolean>;
   onBlur?: () => void;
   name?: string;
   modal?: boolean;
@@ -126,6 +128,7 @@ function isDateAllowed(date: Date, minDate?: string | null, maxDate?: string | n
 
 export function SmartDatePickerPopover({
   children,
+  container,
   value,
   onChange,
   onBlur,
@@ -165,9 +168,10 @@ export function SmartDatePickerPopover({
     });
   }, [anchorYear, query, today]);
 
-  const selectDate = (date: Date | null) => {
-    if (date && !isDateAllowed(date, minDate, maxDate)) return;
-    onChange(date ? dateToIsoDate(date) : null);
+  const selectDate = async (date: Date | null) => {
+    if (disabled || (date && !isDateAllowed(date, minDate, maxDate))) return;
+    const result = onChange(date ? dateToIsoDate(date) : null);
+    if (result instanceof Promise ? await result === false : result === false) return;
     setQuery('');
     setOpen(false);
     onBlur?.();
@@ -187,6 +191,7 @@ export function SmartDatePickerPopover({
     <Popover open={open} onOpenChange={handleOpenChange} modal={modal}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
+        container={typeof container === 'function' ? container() : container}
         className="w-[20rem] max-w-[calc(100vw-2rem)] p-0"
         collisionPadding={16}
         onOpenAutoFocus={(event) => {
@@ -328,18 +333,18 @@ export function SmartDatePickerPill({
   modal = false,
   stopPropagation = true,
 }: SmartDatePickerPillProps) {
+  const collection = React.useContext(CollectionPickerContext);
   const formattedDate = formatPillDisplayDate(value);
-
   const handleChange = (isoValue: string | null) => {
-    if (!isoValue) {
-      onChange(null);
-      return;
-    }
-    onChange(valueFormat === 'iso' ? isoValue : isoValue.split('T')[0]);
+    const next = isoValue ? (valueFormat === 'iso' ? isoValue : isoValue.split('T')[0]) : null;
+    if (collection?.select) return collection.select(next);
+    onChange(next);
   };
 
   return (
     <SmartDatePickerPopover
+      container={collection?.container}
+      disabled={collection?.busy}
       value={value ?? null}
       onChange={handleChange}
       onBlur={onBlur}
@@ -347,7 +352,8 @@ export function SmartDatePickerPill({
       stopPropagation={stopPropagation}
     >
       <button
-        aria-label={label && (formattedDate ? `${label}: ${formattedDate}` : label)}
+        aria-label={collection?.triggerLabel ?? (label && (formattedDate ? `${label}: ${formattedDate}` : label))}
+        disabled={collection?.busy}
         data-button-variant="outline"
         data-overdue={overdue || undefined}
         type="button"
@@ -356,6 +362,7 @@ export function SmartDatePickerPill({
           'px-3 text-xs w-auto',
           !formattedDate && 'text-muted-foreground',
           overdue && 'border-red-500',
+          collection?.compact && "w-8 px-2 [&>span]:hidden",
           className
         )}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}

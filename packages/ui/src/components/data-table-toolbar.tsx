@@ -10,6 +10,7 @@ import { ToolbarSavedViews, useMatchingView } from "./toolbar-saved-views";
 import type { ToolbarView } from "./toolbar-view";
 
 import * as React from "react";
+import { isTypingTarget, isVisibleShortcutTarget, keyboardPane, useKeyboardNavigation } from "./keyboard-navigation";
 import { useMediaQuery } from "../hooks/use-media-query";
 import {
   LayoutGrid,
@@ -213,6 +214,36 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     filterPersistenceKey,
     false,
   );
+
+  const keyboardEnabled = useKeyboardNavigation();
+  const toolbarRef = React.useRef<HTMLDivElement>(null);
+  const [filterRequested, setFilterRequested] = React.useState(false);
+  React.useEffect(() => {
+    if (!keyboardEnabled || displayInline) return;
+    const keydown = (event: KeyboardEvent) => {
+      const root = toolbarRef.current;
+      const pane = keyboardPane();
+      if (!root || event.defaultPrevented || event.repeat || event.isComposing || event.metaKey || event.ctrlKey || event.shiftKey || !isVisibleShortcutTarget(root)) return;
+      if (pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]') || !pane.contains(root)) return;
+      const collection = document.activeElement?.closest('[data-keyboard-collection]');
+      const owner = collection ?? pane;
+      if ([...owner.querySelectorAll<HTMLElement>('[data-shortcut-toolbar]')].find(isVisibleShortcutTarget) !== root) return;
+      const key = event.key.toLowerCase();
+      if (event.altKey && (event.code === 'KeyF' || key === 'f' || key === 'ƒ') && !hideSearch) {
+        event.preventDefault(); setSearchOpen(true); return;
+      }
+      if (event.altKey || isTypingTarget(event.target)) return;
+      if (key === 'f' && (filterDefinitions.length || conditionFilters?.fields.length)) {
+        event.preventDefault(); setFilterRequested(true); setFilterOpen(true);
+      } else if (/^[1-9]$/.test(key)) {
+        const view = root.querySelector<HTMLButtonElement>(`[data-shortcut-view="${key}"]`);
+        if (view) { event.preventDefault(); view.click(); }
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  });
+
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
   // Only sync when state.search changes externally, not during local typing
@@ -629,7 +660,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
             hideClear
             trailingContent={
               <div className="inline-flex shrink-0 items-center gap-1">
-                <ToolbarAddFilter {...filtersProps} />
+                <ToolbarAddFilter {...filtersProps} openOnMount={filterRequested} onShortcutHandled={() => setFilterRequested(false)} />
                 {effectiveActiveFilterCount ? (
                   <Button
                     type="button"
@@ -752,6 +783,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
 
   return (
     <div
+      ref={toolbarRef}
+      data-shortcut-toolbar
       className={cn(
         "flex w-full flex-col gap-2",
         compact && "gap-1.5",
@@ -848,7 +881,17 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         </div>
         {/* Search */}
         {!hideSearch ? (
-          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+          !searchOpen && searchValue ? (
+            <div className={cn("flex h-10 min-w-0 max-w-sm items-center rounded-md border border-input px-2", searchContainerClassName)}>
+              {searchLeadingContent}
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input aria-label="Search records" placeholder={searchPlaceholder} value={searchValue}
+                onChange={event => setSearchValue(event.target.value)}
+                className={cn("h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0", searchInputClassName)} />
+              <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}><X className="h-4 w-4" /></button>
+              {searchAccessory}
+            </div>
+          ) : <Popover open={searchOpen} onOpenChange={setSearchOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"

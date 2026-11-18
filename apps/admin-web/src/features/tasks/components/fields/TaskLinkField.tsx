@@ -40,6 +40,7 @@ function getMatchScore(name: string | null, rawQuery: string): number {
 }
 
 interface TaskLinkFieldProps {
+  pill?: boolean;
   form: UseFormReturn<TaskFormData>;
   selectedIssue: { id: string; name: string | null } | null;
   selectedProject: { id: string; name: string | null } | null;
@@ -49,6 +50,7 @@ interface TaskLinkFieldProps {
 }
 
 export function TaskLinkField({
+  pill = false,
   form,
   selectedIssue,
   selectedProject,
@@ -125,7 +127,7 @@ export function TaskLinkField({
               searchPlaceholder="Search issues and projects..."
               emptyMessage="No results found"
               trigger={
-                <SearchableSelectFieldTrigger>
+                <SearchableSelectFieldTrigger className={pill ? "h-8 w-auto rounded-full px-3 text-xs" : undefined}>
                   {activeLink?.type === 'project' ? (
                     <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   ) : (

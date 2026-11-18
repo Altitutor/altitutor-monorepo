@@ -90,6 +90,26 @@ export async function executeSendMessage(
   targets = await filterLiveStudentMessageTargets(supabase, targets, contextStudentId);
   const hadEligibleTargets = targets.length > 0;
   targets = await filterTutorLogTextTargets(supabase, targets, activityEvent);
+  if (targets.length) {
+    // A correction must not cause a retry of another action to replay old content.
+    const { data: terminalTargets, error: terminalReadError } = await supabase
+      .from('automation_message_deliveries')
+      .select('contact_id, recipient_student_id, recipient_parent_id')
+      .eq('execution_id', execution.id).eq('action_id', action.id).eq('terminal_failure', true);
+    if (terminalReadError) throw terminalReadError;
+    if (terminalTargets?.length && targets.length) {
+      const { data: currentContacts, error } = await supabase.from('contacts')
+        .select('id, student_id, parent_id').in('id', targets.map(target => target.contactId));
+      if (error) throw error;
+      targets = targets.filter(target => {
+        const contact = currentContacts?.find(row => row.id === target.contactId);
+        return !terminalTargets.some(failed => failed.contact_id === target.contactId ||
+          (failed.recipient_student_id && failed.recipient_student_id === contact?.student_id) ||
+          (failed.recipient_parent_id && failed.recipient_parent_id === contact?.parent_id));
+      });
+      if (!targets.length) return;
+    }
+  }
   if (targets.length === 0) {
     const { error } = await supabase.rpc('record_automation_message_skip', {
       p_execution_id: execution.id,
@@ -159,6 +179,7 @@ export async function executeSendMessage(
   for (const target of deliveryTargets) {
     const { contactId, studentId: targetStudentId } = target;
     let deliveryId: string | null = null;
+    let attemptedMessageId: string | null = null;
     try {
       const { data: insertedDelivery, error: deliveryInsertError } = await supabase
         .from('automation_message_deliveries')
@@ -175,7 +196,7 @@ export async function executeSendMessage(
       if (deliveryInsertError?.code === '23505') {
         let existingQuery = supabase
           .from('automation_message_deliveries')
-          .select('id, status, message_id, attempt_count')
+          .select('id, status, message_id, attempt_count, terminal_failure')
           .eq('execution_id', execution.id)
           .eq('action_id', action.id)
           .eq('contact_id', contactId);
@@ -188,6 +209,7 @@ export async function executeSendMessage(
         if (existingDeliveryError) throw existingDeliveryError;
 
         deliveryId = existingDelivery.id;
+        if (existingDelivery.terminal_failure) continue;
         if (existingDelivery.status === 'QUEUED' || existingDelivery.status === 'SKIPPED') {
           continue;
         }
@@ -206,6 +228,7 @@ export async function executeSendMessage(
         if (retryUpdateError) throw retryUpdateError;
 
         if (existingDelivery.message_id) {
+          attemptedMessageId = existingDelivery.message_id;
           const { data: existingMessage, error: existingMessageError } = await supabase
             .from('messages')
             .select('status')
@@ -441,6 +464,7 @@ export async function executeSendMessage(
       }
 
       messageIds.push(message.id);
+      attemptedMessageId = message.id;
 
       if (deliveryId) {
         const { error: deliveryMessageError } = await supabase
@@ -462,6 +486,14 @@ export async function executeSendMessage(
           .eq('id', deliveryId);
       }
     } catch (contactErr: unknown) {
+      if (attemptedMessageId && deliveryId) {
+        const { data: rejected, error } = await supabase.from('messages')
+          .select('error_code').eq('id', attemptedMessageId).maybeSingle();
+        if (!error && rejected?.error_code === 21211) {
+          // The message status trigger owns the durable terminal outcome/notice.
+          continue;
+        }
+      }
       const msg = contactErr instanceof Error ? contactErr.message : 'Unknown error';
       errors.push({ contactId, error: msg });
       if (deliveryId) {

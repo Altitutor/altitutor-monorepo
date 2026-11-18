@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react";
 import {
@@ -90,7 +90,9 @@ function StationRecording({
   onRecordingChange,
   attempt,
   station,
+  onQuestionSelect,
 }: {
+  onQuestionSelect: (questionId: string) => void;
   roundId: string;
   recordings: InterviewRecording[];
   recording?: InterviewRecording;
@@ -128,6 +130,7 @@ function StationRecording({
           intervals={attempt?.questionIntervals}
           questions={station.questions ?? []}
           variant="student"
+          onQuestionSelect={onQuestionSelect}
         />
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -149,23 +152,24 @@ function questionTimingSummary(segments: { start: number; end: number }[]) {
 
 function StationFeedback({
   station,
-  stationNumber,
   attempt,
+  openQuestions,
+  onQuestionOpenChange,
+  highlightedQuestion,
 }: {
   station: StudentInterviewRound["resultStations"][number];
-  stationNumber: number;
   attempt: InterviewStationAttempt;
+  openQuestions: Record<string, boolean>;
+  onQuestionOpenChange: (id: string, open: boolean) => void;
+  highlightedQuestion: string | null;
 }) {
   const intervals = attempt.questionIntervals ?? [];
   // Feedback counts the whole station even when capture started late or only a clip remains.
   const origin = intervals[0]?.startedAt;
   const timings = origin ? interviewQuestionSegments(intervals, origin) : [];
-  const score = attempt.notAssessedReason ? "Not assessed" : `${attempt.score ?? "—"} / ${station.maximumPoints}`;
   return (
     <section className={studentCardCn("space-y-3 p-5")} aria-label="Station feedback">
       <h2 className="font-semibold">Feedback</h2>
-      <InterviewReviewDisclosure defaultOpen title={<strong>Station {stationNumber}</strong>}
-        detail={<strong>{score}</strong>}>
         {attempt.notAssessedReason && (
           <div className="space-y-1 px-2 py-2 text-sm">
             <p className="font-medium">Not assessed</p>
@@ -173,24 +177,32 @@ function StationFeedback({
             <p className="text-xs text-muted-foreground">This station is excluded from the total possible score.</p>
           </div>
         )}
+        <InterviewReviewDisclosure defaultOpen title={<strong>General feedback</strong>}>
         <div className="space-y-1 px-2 py-2 text-sm">
-          <p className="font-medium">General feedback</p>
           {interviewText(attempt.generalFeedback ?? null).trim() ? (
             <InterviewContent value={attempt.generalFeedback ?? null} />
           ) : (
             <p className="text-muted-foreground">No general feedback for this station.</p>
           )}
         </div>
+        </InterviewReviewDisclosure>
         {(station.questions ?? []).map((question, index) => {
           const feedback = attempt.feedback.find((entry) => entry.placementId === question.id);
           const timing = questionTimingSummary(timings.filter((segment) => segment.questionId === question.id));
           return (
-            <InterviewReviewDisclosure key={question.id} defaultOpen
+            <InterviewReviewDisclosure key={question.id}
+              open={openQuestions[question.id] ?? true}
+              onOpenChange={(open) => onQuestionOpenChange(question.id, open)}
               title={<strong>Question {index + 1}</strong>}
               detail={timing && <span className="hidden max-w-64 text-xs leading-5 text-muted-foreground lg:block">{timing}</span>}>
-              <div className="space-y-2 px-2 py-2 text-sm">
+              <div data-highlighted={highlightedQuestion === question.id || undefined}
+                className={cn("space-y-2 rounded-lg px-2 py-2 text-sm", highlightedQuestion === question.id && "bg-primary/10 ring-2 ring-primary/30")}>
                 {timing && <p className="text-xs tabular-nums text-muted-foreground lg:hidden">{timing}</p>}
                 <InterviewContent value={question.question} className="[&>p:first-child]:!mt-0" />
+                {interviewText(question.rubric).trim() && <div>
+                  <p className="font-medium">Rubric</p>
+                  <InterviewContent value={question.rubric} />
+                </div>}
                 {feedback ? (
                   <div>
                     <p className="font-medium">Tutor feedback</p>
@@ -203,19 +215,27 @@ function StationFeedback({
             </InterviewReviewDisclosure>
           );
         })}
-      </InterviewReviewDisclosure>
     </section>
   );
 }
 
-function StationResult({ round, station, attempt, recordings, stationNumber }: {
+function StationResult({ round, station, attempt, recordings }: {
   round: StudentInterviewRound;
   station: StudentInterviewRound["resultStations"][number];
   attempt?: InterviewStationAttempt;
   recordings: InterviewRecording[];
-  stationNumber: number;
 }) {
   const [selectedRecordingId, setSelectedRecordingId] = useState<string>();
+  const [openQuestions, setOpenQuestions] = useState<Record<string, boolean>>({});
+  const [highlightedQuestion, setHighlightedQuestion] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
+  const selectQuestion = (questionId: string) => {
+    setOpenQuestions((current) => ({ ...current, [questionId]: true }));
+    setHighlightedQuestion(questionId);
+    clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightedQuestion(null), 1800);
+  };
   const recording = recordings.find((item) => item.id === selectedRecordingId) ??
     recordings.find((item) => item.state === "ready" && Date.parse(item.expiresAt) > Date.now()) ??
     recordings[0];
@@ -229,10 +249,13 @@ function StationResult({ round, station, attempt, recordings, stationNumber }: {
           onRecordingChange={setSelectedRecordingId}
           station={station}
           attempt={attempt}
+          onQuestionSelect={selectQuestion}
         />
       )}
       {attempt && (
-        <StationFeedback station={station} stationNumber={stationNumber} attempt={attempt} />
+        <StationFeedback station={station} attempt={attempt}
+          openQuestions={openQuestions} highlightedQuestion={highlightedQuestion}
+          onQuestionOpenChange={(id, open) => setOpenQuestions((current) => ({ ...current, [id]: open }))} />
       )}
     </>
   );
@@ -290,8 +313,6 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
     (item) => item.stationId === station?.id,
   );
   const recordings = result.recordings.filter((recording) => recording.attemptId === attempt?.id);
-  const stationNumber =
-    round.resultStations.findIndex((item) => item.id === station?.id) + 1;
   return (
     <div className="space-y-7 py-8">
       <header>
@@ -379,7 +400,7 @@ export function StudentInterviewResults({ roundId }: { roundId: string }) {
       </div>
       {station && (
         <StationResult key={station.id} round={round} station={station} attempt={attempt}
-          recordings={recordings} stationNumber={stationNumber} />
+          recordings={recordings} />
       )}
     </div>
   );

@@ -189,6 +189,7 @@ export function MailPage() {
           <Button
             variant="default"
             size="sm"
+            data-shortcut-create
             onClick={compose}
             disabled={!mailbox.data}
           >
@@ -348,6 +349,8 @@ export function MailPage() {
                       open(row);
                     }
                   }}
+                  data-shortcut-list-item
+                  tabIndex={0}
                   data-email-shortcut-target
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = "move";
@@ -358,7 +361,7 @@ export function MailPage() {
                   }}
                   onMouseEnter={() => setHovered(row.id)}
                   onMouseLeave={() => setHovered(undefined)}
-                  onFocus={() => setHovered(row.id)}
+                  onFocus={() => { setHovered(row.id); setSelected(row.id); }}
                   onBlur={(event) => {
                     if (!event.currentTarget.contains(event.relatedTarget))
                       setHovered(undefined);

@@ -1,4 +1,6 @@
 'use client';
+import { GoHintsContext } from "@/shared/shortcuts/context";
+import { GoHint } from "@/shared/shortcuts/GoHint";
 
 import { AdminToolbarViewsProvider } from '@/features/quick-filters/components/ToolbarViewsService';
 import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
@@ -207,6 +209,7 @@ function ExpandableNavGroup({
         >
           <Icon className="h-5 w-5 shrink-0" />
           <span className="truncate">{item.title}</span>
+          <GoHint href={item.href} />
           {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="ml-auto" />}
         </Link>
         <button
@@ -264,6 +267,7 @@ function AdminNavMenu({
   const { data: unreadMail = 0 } = useUnreadMailCount();
   const counts = useReconciliationCounts();
   const sections = groupNavItems(navItems);
+  const goHints = React.useContext(GoHintsContext);
 
   const openAccessory = (event: React.MouseEvent, href: string) => {
     if (!accessoryDestination(href)) return;
@@ -276,7 +280,7 @@ function AdminNavMenu({
     <>
       {sections.map((section) => {
         const sectionExpanded =
-          collapsed ||
+          goHints || collapsed ||
           !section.title ||
           !collapsedGroups.includes(section.title);
         const links = section.items.map((item) => {
@@ -321,6 +325,7 @@ function AdminNavMenu({
                   {item.title}
                 </span>
               )}
+              <GoHint href={itemHref} />
               {count > 0 ? (
                 <RedCountBadge
                   count={collapsed && count > 99 ? '99+' : count}
@@ -482,6 +487,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     [actionsTarget, secondaryActionsTarget],
   );
   const showBreadcrumbs =
+    !/^\/subjects\/[^/]+\/topics\/[^/]+$/.test(pathname) &&
     !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(
       pathname,
     );

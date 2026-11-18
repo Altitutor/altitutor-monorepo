@@ -4,6 +4,7 @@ import { GET as getAccess } from "@/app/api/interviews/access/route";
 import { GET as getRounds } from "@/app/api/interviews/rounds/route";
 import { createClient as createCookieClient } from "@/shared/lib/supabase/server-ssr";
 import { createClient } from "@supabase/supabase-js";
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import {
   resolveInterviewActor,
   createInterviewServiceClient,
@@ -20,7 +21,7 @@ jest.mock("@/lib/sentry/capture-api-error", () => ({
   captureApiError: jest.fn(),
 }));
 jest.mock("@altitutor/shared", () =>
-  jest.requireActual("@altitutor/shared/interviews/validation"),
+  ({ ...jest.requireActual("@altitutor/shared/interviews/validation"), ...jest.requireActual("@altitutor/shared/auth/session-verification") }),
 );
 
 const actorId = "11111111-1111-4111-8111-111111111111";
@@ -67,11 +68,52 @@ beforeEach(() => {
     >);
 });
 
+describe("interview sign-in verification failures", () => {
+  it.each([
+    { name: "AuthRetryableFetchError", status: 0 },
+    { name: "AuthApiError", status: 503 },
+    { name: "AuthApiError", status: 429 },
+    { name: "AuthUnknownError" },
+    { name: "AuthApiError", status: 503, code: "bad_jwt" },
+    { name: "AuthRetryableFetchError", message: "invalid refresh token" },
+    { name: "AuthUnknownError", code: "session_expired" },
+    { code: "bad_jwt", message: "JWT issued at future" },
+  ])("reports unavailable verification rather than invalid login: %j", async (error) => {
+    getUser.mockResolvedValue({ data: { user: null }, error });
+    const response = await getAccess(new Request("https://portal.test/api/interviews/access"));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Sign-in verification is temporarily unavailable. Please try again." });
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(from).not.toHaveBeenCalled();
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+  it("handles a thrown transport failure without calling it an expired login", async () => {
+    getUser.mockRejectedValue(new TypeError("fetch failed"));
+    const response = await getAccess(new Request("https://portal.test/api/interviews/access"));
+    expect(response.status).toBe(503);
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+  it("keeps a thrown missing-session error unauthorised", async () => {
+    getUser.mockRejectedValue({ name: "AuthSessionMissingError" });
+    expect((await getAccess(new Request("https://portal.test/api/interviews/access"))).status).toBe(401);
+  });
+  it.each([
+    { name: "AuthSessionMissingError" },
+    { code: "session_expired" },
+    { code: "bad_jwt", message: "invalid token" },
+    { code: "user_not_found" },
+  ])("keeps a confirmed unusable login unauthorised: %j", async (error) => {
+    getUser.mockResolvedValue({ data: { user: null }, error });
+    expect((await getAccess(new Request("https://portal.test/api/interviews/access"))).status).toBe(401);
+    expect(serviceRpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("tutor interview HTTP boundary", () => {
   it("rejects an unauthenticated command before requesting a service client", async () => {
     getUser.mockResolvedValue({
       data: { user: null },
-      error: { message: "expired" },
+      error: { name: "AuthSessionMissingError" },
     });
     const response = await POST(request());
     expect(response.status).toBe(401);
@@ -148,6 +190,47 @@ describe("tutor interview HTTP boundary", () => {
     expect(from).toHaveBeenCalledWith("vtutor_interview_rounds");
     expect(await response.json()).toEqual([{ id: roundId }]);
   });
+});
+
+describe("committed command media reconciliation", () => {
+  it.each(["closed", "open", "read failure"])(
+    "preserves the committed pause and reports only uncertain shutdown (%s)",
+    async (state) => {
+      const previousKey = process.env.DAILY_API_KEY;
+      process.env.DAILY_API_KEY = "provider-test-key";
+      const committed = { id: roundId, version: 3 };
+      serviceRpc.mockImplementation(async (name: string) => ({
+        data: name === "interview_command"
+          ? committed
+          : name === "interview_media_state"
+            ? { id: roundId, phase: "questions", pausedAt: "2026-11-15T00:24:00Z", progress: [], recordings: [] }
+            : [],
+        error: null,
+      }));
+      const service = {
+        rpc: serviceRpc,
+        from: () => ({ select: () => ({ eq: async () => ({
+          data: [{ kind: "video", closed_at: state === "closed" ? "2026-11-15T00:24:00Z" : null }],
+          error: state === "read failure" ? new Error("Database unavailable") : null,
+        }) }) }),
+      };
+      jest.mocked(createClient).mockReturnValue(service as unknown as ReturnType<typeof createClient>);
+      try {
+        const response = await POST(request({ type: "pause", commandId, roundId, expectedVersion: 2 }));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toContain("no-store");
+        expect(await response.json()).toEqual(state === "closed" ? committed : {
+          ...committed,
+          mediaWarning: "Interview state saved, but video shutdown could not be confirmed. Disconnect your call; the server will retry.",
+        });
+        if (state === "closed") expect(captureApiError).not.toHaveBeenCalled();
+        else expect(captureApiError).toHaveBeenCalledWith(expect.any(Error), "/api/interviews/commands/media");
+      } finally {
+        if (previousKey === undefined) delete process.env.DAILY_API_KEY;
+        else process.env.DAILY_API_KEY = previousKey;
+      }
+    },
+  );
 });
 
 describe("fresh authenticated interview reads", () => {

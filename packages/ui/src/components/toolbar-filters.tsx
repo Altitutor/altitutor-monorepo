@@ -7,8 +7,8 @@ import type {
   DataTableFilterDefinition,
   DataTableFilterOption,
 } from "@altitutor/shared";
-import { Command, CommandInput } from "./command";
-import { Plus } from "lucide-react";
+import { Command, CommandInput, CommandList, CommandGroup, CommandItem } from "./command";
+import { Plus, Check, ChevronRight } from "lucide-react";
 import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
 import {
   DropdownMenu,
@@ -44,6 +44,8 @@ export type ToolbarFilterEditor =
   | ((context: ToolbarFilterEditorContext) => React.ReactNode);
 
 export interface ToolbarFiltersProps {
+  openOnMount?: boolean;
+  onShortcutHandled?: () => void;
   definitions: DataTableFilterDefinition[];
   filters: Record<string, unknown[]>;
   onChange: (filters: Record<string, unknown[]>) => void;
@@ -408,6 +410,9 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
     `${props.persistenceKey}:add`,
     false,
   );
+  React.useEffect(() => {
+    if (props.openOnMount) { setOpen(true); props.onShortcutHandled?.(); }
+  }, [props.openOnMount, props.onShortcutHandled, setOpen]);
   const [query, setQuery] = React.useState("");
   const [activeField, setActiveField] = useRemountPersistentState<
     string | null
@@ -416,6 +421,11 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
   const searchRef = React.useRef<HTMLInputElement>(null);
   const matches = (label: string) =>
     label.toLowerCase().includes(query.trim().toLowerCase());
+  const optionResults = query.trim() ? props.definitions
+    .filter(definition => definition.filterable !== false && !matches(definition.label) && !props.customContent?.[definition.key])
+    .flatMap(definition => (definition.options ?? []).filter(option =>
+      query.trim().toLowerCase().split(/\s+/).every(term => `${definition.label} ${option.label}`.toLowerCase().includes(term))
+    ).map(option => ({definition, option}))) : [];
   const definitions = props.definitions.filter(
     (definition) =>
       definition.filterable !== false && matches(definition.label),
@@ -436,6 +446,8 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
+          data-shortcut-add-filter
+          aria-keyshortcuts="F"
           variant="outline"
           size="sm"
           className="h-8 rounded-full text-xs"
@@ -451,7 +463,9 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
           if (event.target === event.currentTarget) searchRef.current?.focus();
         }}
       >
-        <Command shouldFilter={false} label="Search filters">
+        <Command shouldFilter={false} loop label="Search filters" onKeyDown={event => {
+          if (optionResults.length && event.key !== "Escape") event.stopPropagation();
+        }}>
           <CommandInput
             ref={searchRef}
             aria-label="Search filters"
@@ -459,11 +473,12 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
             value={query}
             onValueChange={setQuery}
             onKeyDown={(event) => {
+              if (optionResults.length) return;
               if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                 event.preventDefault();
                 const fields =
                   listRef.current?.querySelectorAll<HTMLElement>(
-                    '[role="menuitem"]',
+                    '[role="menuitem"], [role="option"]',
                   );
                 (event.key === "ArrowUp"
                   ? fields?.[fields.length - 1]
@@ -474,6 +489,23 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
             }}
           />
           <div ref={listRef} className="max-h-80 overflow-y-auto p-1">
+            {optionResults.length > 0 && <CommandList><CommandGroup>
+              {optionResults.map(({definition, option}) => {
+                const values = props.filters[definition.key] ?? [];
+                const selected = values.some(value => String(value) === String(option.value));
+                return <CommandItem key={`${definition.key}:${String(option.value)}`} value={`${definition.key}:${String(option.value)}`} aria-label={`${definition.label} → ${option.label}`} className="gap-2" onSelect={() => {
+                  const next = {...props.filters};
+                  const updated = selected ? values.filter(value => String(value) !== String(option.value)) : [...values, option.value];
+                  if(updated.length) next[definition.key] = updated;
+                  else delete next[definition.key];
+                  props.onChange(next);
+                }}>
+                  <Check aria-hidden className={`size-4 shrink-0 ${selected ? 'opacity-100' : 'opacity-0'}`} />
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5"><span className="text-muted-foreground">{definition.label}</span><ChevronRight aria-hidden className="size-3 text-muted-foreground" />{option.label}</span>
+                </CommandItem>;
+              })}
+            </CommandGroup></CommandList>}
+
             {definitions.map((definition) => (
               <DropdownMenuSub
                 key={definition.key}
@@ -543,7 +575,7 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             ))}
-            {!definitions.length && !fields.length ? (
+            {!definitions.length && !fields.length && !optionResults.length ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 No filters found
               </p>

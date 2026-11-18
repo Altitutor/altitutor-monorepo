@@ -78,7 +78,7 @@ test('Student views share one directory and open the Student page', async ({ pag
   await expect(page).toHaveURL(new RegExp(`/students/${studentId}`));
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
-  await page.getByText('Alice Williams', { exact: true }).click();
+  await page.getByRole('button', { name: 'Alice Williams', exact: true }).click();
   await expect(page).toHaveURL(/\/students\/[\da-f-]+/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/online-students');
@@ -256,7 +256,7 @@ test('date and priority pills share their surface in board and detail views', as
   await card.getByText('Board drag check 001', { exact: true }).click();
   const detail = page.locator('#admin-accessory-panel');
   await expect(detail.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Board drag check 001');
-  const dueDate = detail.getByRole('button', { name: 'Select date', exact: true });
+  const dueDate = detail.getByRole('button', { name: 'Date', exact: true });
   if (!(await dueDate.isVisible())) {
     await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
   }
@@ -274,24 +274,25 @@ test('Messages accessory breadcrumb returns to the primary Messages collection',
   await page.locator('nav a[href="/tasks"]').click();
   await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Tasks');
   await panel.getByRole('navigation', { name: 'Breadcrumb', exact: true }).getByRole('button', { name: 'Messages', exact: true }).click();
-  await expect(page).toHaveURL(/\/messages$/);
+  await expect(page).toHaveURL(/\/messages(?:\?|$)/);
   await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Messages');
   const toolbar = page.locator('[data-admin-main] [data-pane-toolbar]');
   await toolbar.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
 });
 
-test('Right-hand Messages defaults to direct correspondence and All includes linked messages', async ({ page }) => {
+test('Right-hand Messages shows direct correspondence without collection controls', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   await page.goto('/messages');
   await page.getByRole('button', { name: /^Alice Williams / }).click();
   const panel = page.locator('#admin-accessory-panel');
-  const activityViews = panel.getByLabel('Views', { exact: true });
-  await expect(activityViews.getByRole('button', { name: 'Messages', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('[data-message-composer-controls]')).toBeVisible();
+  await expect(panel.getByText('Thanks for your help!', { exact: true })).toBeVisible();
   await expect(panel.getByText('Context parent browser fixture', { exact: true })).toHaveCount(0);
-  await activityViews.getByRole('button', { name: 'All', exact: true }).click();
-  await expect(panel.getByText('Context parent browser fixture', { exact: true })).toBeVisible();
+  await expect(panel.getByLabel('Views', { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: 'Search', exact: true })).toHaveCount(1);
+  await expect(panel.getByRole('button', { name: 'Display options', exact: true })).toHaveCount(0);
 });
 
 

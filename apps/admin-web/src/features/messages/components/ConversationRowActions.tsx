@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EntityChipIcon, SearchableSelect } from "@altitutor/ui";
+import { EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget, isTypingTarget } from "@altitutor/ui";
 import { Mail, UserRound } from "lucide-react";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
 import { EmailIconButton } from "@/features/email/components/EmailIconButton";
@@ -37,19 +37,26 @@ export function ConversationRowActions({
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const assignee = staff.find((member) => member.id === assigneeId) ?? null;
   const assignedLabel = assignee ? staffName(assignee) : assigneeId ? "Assigned" : "Unassigned";
-  const createTask = useRef(onCreateTask);
-  createTask.current = onCreateTask;
+  const current = useRef({onCreateTask, onMarkRead, onMarkUnread, unread});
+  current.current = {onCreateTask, onMarkRead, onMarkUnread, unread};
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "t" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || event.isComposing) return;
+      const key = event.key.toLowerCase();
+      if (!["t", "a", "u"].includes(key) || event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || event.isComposing || isTypingTarget(event.target)) return;
       const row = root.current?.closest("[data-conversation-row]");
-      const hovered = document.querySelector("[data-conversation-row]:hover");
-      if (!row || hovered !== row) return;
-      const target = event.target;
-      if (target instanceof Element && target.closest("input,textarea,select,[contenteditable=true],[role=combobox],[role=dialog],[role=menu]")) return;
+      const pane = keyboardPane();
+      if (!row || row.closest('[hidden],[inert]') || !pane.contains(row) || pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]')) return;
+      const focused = document.activeElement?.closest("[data-conversation-row]");
+      const hovered = keyboardPointerTarget()?.closest("[data-conversation-row]") ?? document.querySelector("[data-conversation-row]:hover");
+      if (row !== (hovered ?? focused)) return;
       event.preventDefault();
-      createTask.current();
+      if (key === "t") current.current.onCreateTask();
+      if (key === "a") setAssigneeOpen(true);
+      if (key === "u") {
+        if (current.current.unread) current.current.onMarkRead();
+        else current.current.onMarkUnread();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -64,6 +71,7 @@ export function ConversationRowActions({
           </EmailIconButton>
           <EmailIconButton
             label={unread ? "Mark as read" : "Mark as unread"}
+            shortcut="U"
             className="size-6"
             data-unread={unread ? "true" : undefined}
             onClick={unread ? onMarkRead : onMarkUnread}

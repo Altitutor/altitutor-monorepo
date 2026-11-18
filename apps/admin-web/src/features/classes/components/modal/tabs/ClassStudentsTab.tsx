@@ -1,3 +1,6 @@
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+import { useRegisterRecordActions } from '@/features/command-palette/RecordActionsContext';
+import { classStudentReferenceActions } from '@/features/classes/utils/classReferenceActions';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
@@ -375,6 +378,12 @@ export function ClassStudentsTab({
     });
   };
 
+  useRegisterRecordActions('class', classData.id, classData.short_name ?? 'Class', classStudents.flatMap(student => classStudentReferenceActions(
+    {id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
+    {id:classData.id,label:classData.short_name || classSubject?.short_name || 'Class'},
+    {change:()=>openChangeClassModal(student.id),remove:()=>isScheduledClassEnrolment(student.enrolled_at) ? setCancelEnrolmentStudent(student) : openUnenrollModal(student.id)},
+  ).map(action => ({...action,ready:()=>Boolean(currentStaff) && !loadingStudents,disabled:!currentStaff}))), {runOnly:true});
+
   if (!currentStaff) {
     return null;
   }
@@ -420,13 +429,11 @@ export function ClassStudentsTab({
                     <TableRow key={student.id}>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            className="font-medium hover:underline"
-                            onClick={() => handleViewStudent(student.id)}
-                          >
-                            {student.first_name} {student.last_name}
-                          </button>
+                          <EntityActionChip entityType="student" entityId={student.id} label={[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'} onClick={()=>handleViewStudent(student.id)} hoverActions={classStudentReferenceActions(
+                            {id:student.id,label:[student.first_name,student.last_name].filter(Boolean).join(' ') || 'Student'},
+                            {id:classData.id,label:classData.short_name || classSubject?.short_name || 'Class'},
+                            {change:()=>openChangeClassModal(student.id),remove:()=>isScheduledClassEnrolment(student.enrolled_at) ? setCancelEnrolmentStudent(student) : openUnenrollModal(student.id)},
+                          )} />
                           <AccountClassBadge accountClass={student.account_class} />
                         </div>
                       </TableCell>

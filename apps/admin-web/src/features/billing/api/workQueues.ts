@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { reconciliationApi } from '@/features/reconciliation/api/reconciliation';
 import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import type { UninvoicedSession, VoidInvoiceSession } from '@/features/reconciliation/types';
-import { buildFutureSessionCharges } from '@altitutor/shared';
+import { buildFutureSessionCharges, type Tables } from '@altitutor/shared';
 import { pricingApi } from './pricing';
 import { subjectPricingOverridesApi } from './subject-pricing-overrides';
 
@@ -69,4 +69,18 @@ export async function loadAdjustmentPeopleAndSessions(studentIds: string[], sess
     for (const row of data) sessions[row.id] = row.short_name || row.long_name || 'Session';
   }
   return { students, sessions };
+}
+
+/** Resolve direct and class-owned subjects in bounded batches for session chips. */
+export async function loadSessionSubjects(sessionIds: string[]) {
+  const db = getSupabaseClient();
+  const subjects: Record<string, Tables<'subjects'> | null> = {};
+  for (let offset = 0; offset < sessionIds.length; offset += 100) {
+    const { data, error } = await db.from('sessions')
+      .select('id, subject:subjects(*), class:classes(subject:subjects(*))')
+      .in('id', sessionIds.slice(offset, offset + 100));
+    if (error) throw error;
+    for (const row of data) subjects[row.id] = row.subject ?? row.class?.subject ?? null;
+  }
+  return subjects;
 }

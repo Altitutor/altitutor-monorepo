@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { KeyboardNavigationProvider } from '@altitutor/ui';
 import { ConversationRowActions } from '../ConversationRowActions';
 import type { AdminStaffOption } from '../../api/queries';
 
@@ -58,4 +59,15 @@ it('marks an unread conversation read and assigns from a separate chip', async (
   await user.click(screen.getByRole('button', { name: 'Assign conversation, Ada Admin' }));
   fireEvent.click(await screen.findByRole('option', { name: 'Bea Admin' }));
   expect(onAssign).toHaveBeenCalledWith('bea');
+});
+
+
+it('routes hovered message row shortcuts ahead of keyboard focus in another pane', () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const task=jest.fn(),unread=jest.fn();
+  render(<KeyboardNavigationProvider value={true}><main data-admin-main><div data-conversation-row data-testid="hover-row"><ConversationRowActions unread={false} staff={staff} assigneeId={null} onMarkRead={jest.fn()} onMarkUnread={unread} onAssign={jest.fn()} onCreateTask={task}/></div></main><aside data-accessory-tab="active"><button>Right focus</button></aside></KeyboardNavigationProvider>);
+  screen.getByRole('button',{name:'Right focus'}).focus();
+  fireEvent.pointerOver(screen.getByTestId('hover-row'));
+  fireEvent.keyDown(document.activeElement!,{key:'t'});fireEvent.keyDown(document.activeElement!,{key:'u'});
+  expect(task).toHaveBeenCalledTimes(1);expect(unread).toHaveBeenCalledTimes(1);
 });

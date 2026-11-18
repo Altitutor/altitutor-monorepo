@@ -63,3 +63,10 @@ export function EntitySidebarCards({
     </ScrollArea>
   );
 }
+
+/** A standalone section fits inside an entity page's existing scroll container. */
+export function EntitySidebarSection({ title, children }: { title: string; children: ReactNode }) {
+  return <Accordion type="multiple" defaultValue={['section']}>
+    <EntitySidebarCard value="section" title={title}>{children}</EntitySidebarCard>
+  </Accordion>;
+}

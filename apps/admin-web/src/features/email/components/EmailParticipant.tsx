@@ -1,10 +1,12 @@
 "use client";
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ParentStudentChips } from "@/features/parents/components/StudentContextChips";
-import { EntityChip, SearchableSelect } from "@altitutor/ui";
+import {  SearchableSelect } from "@altitutor/ui";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 const AddStudentModal = dynamic(() =>

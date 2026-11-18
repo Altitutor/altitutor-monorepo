@@ -21,7 +21,7 @@ export function CommunicationSourceFilter({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <EmailIconButton label="Filter">
+        <EmailIconButton data-shortcut-filter shortcut="F" label="Filter">
           <ListFilter className="h-4 w-4" />
         </EmailIconButton>
       </DropdownMenuTrigger>

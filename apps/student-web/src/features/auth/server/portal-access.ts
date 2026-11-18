@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { createDependencyEvidence, type DependencyEvidence } from "@altitutor/shared";
 import { createServerComponentClient } from "@/shared/lib/supabase/server-component";
 
 const ACCESS_DEADLINE_MS = 10_000;
@@ -39,37 +40,42 @@ function captureUnavailable(
   stage: "authentication" | "portal_access",
   startedAt: number,
   error: unknown,
+  evidence: DependencyEvidence,
 ) {
-  Sentry.captureMessage("Portal access dependency unavailable", {
-    level: "error",
-    fingerprint: ["portal-access-unavailable", "student-web", stage],
-    tags: {
-      app: "student-web",
-      dependency_stage: stage,
-      http_status: "503",
-      supabase_error_code:
-        field(error, "code") ?? field(error, "name") ?? "unknown",
-    },
-    extra: {
-      elapsed_ms: Math.max(0, Date.now() - startedAt),
-      error_message: field(error, "message"),
-      error_status: field(error, "status"),
-    },
-  });
+  try {
+    Sentry.captureMessage("Portal access dependency unavailable", {
+      level: "error",
+      fingerprint: ["portal-access-unavailable", "student-web", stage],
+      tags: {
+        app: "student-web",
+        dependency_stage: stage,
+        http_status: "503",
+        supabase_error_code:
+          field(error, "code") ?? field(error, "name") ?? "unknown",
+      },
+      extra: {
+        dependency_evidence: evidence.snapshot(),
+        elapsed_ms: Math.max(0, Date.now() - startedAt),
+        error_message: field(error, "message"),
+        error_status: field(error, "status"),
+      },
+    });
+  } catch { /* Diagnostics must not affect portal access. */ }
 }
 
-function createDeadline() {
+function createDeadline(evidence: DependencyEvidence) {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
+      evidence.deadlineExpired();
       controller.abort();
       reject(new Error("Student portal access deadline exceeded"));
     }, ACCESS_DEADLINE_MS);
   });
   return {
     fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
-      fetch(input, { ...init, signal: controller.signal }),
+      evidence.fetch(fetch)(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
@@ -126,13 +132,14 @@ export const loadStudentPortalAccess = cache(
   async (verifiedUserId: string | null): Promise<StudentPortalAccess> => {
     if (!verifiedUserId) return { status: "unauthenticated" };
     const startedAt = Date.now();
-    const deadline = createDeadline();
+    const evidence = createDependencyEvidence({ supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+    const deadline = createDeadline(evidence);
     try {
       let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
       try {
-        supabase = await createServerComponentClient(deadline.fetch);
+        supabase = await evidence.operation("create_client", () => createServerComponentClient(deadline.fetch, evidence));
       } catch (error) {
-        captureUnavailable("portal_access", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error, evidence);
         return { status: "unavailable" };
       }
       const userId = verifiedUserId;
@@ -141,23 +148,23 @@ export const loadStudentPortalAccess = cache(
       try {
         result = await deadline.race(
           queryWithClockSkewRetry(
-            () => supabase.rpc("current_student_portal_access"),
+            () => evidence.operation("student_portal_access", () => supabase.rpc("current_student_portal_access")),
             startedAt,
           ),
         );
       } catch (error) {
-        captureUnavailable("portal_access", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error, evidence);
         return { status: "unavailable" };
       }
       if (result.error) {
-        captureUnavailable("portal_access", startedAt, result.error);
+        captureUnavailable("portal_access", startedAt, result.error, evidence);
         return { status: "unavailable" };
       }
       const payload = parsePayload(result.data);
       if (!payload) {
         captureUnavailable("portal_access", startedAt, {
           code: "invalid_access_payload",
-        });
+        }, evidence);
         return { status: "unavailable" };
       }
       if (payload.active_staff_role === "ADMINSTAFF")

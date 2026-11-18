@@ -11,3 +11,8 @@ export function studentAccountAction(student: StudentAccount) {
   if (student.status === 'ACTIVE') return { type: 'invite', label: 'Send invite' } as const;
   return { type: 'details', label: 'View in-person relationship' } as const;
 }
+
+/** Shared availability for page menus and reference hover actions. */
+export function studentActionAvailability(status: string | null | undefined, deleted: boolean) {
+  return { canBook: !deleted && (status === 'ACTIVE' || status === 'TRIAL'), canReEnroll: !deleted && status === 'DISCONTINUED' };
+}

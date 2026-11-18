@@ -1,4 +1,6 @@
 'use client';
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+
 
 import type { TablesUpdate } from "@altitutor/shared";
 import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDialog';
@@ -121,7 +123,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const { data: studentClasses = [] } = useStudentClasses(id);
 
   // UI state
-  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'activity', 'tab');
+  const [requestedTab, setActiveTab] = useAdminPageViewParam(['activity', 'online', 'classes', 'sessions', 'files', 'billing'] as const, 'sessions', 'tab');
   const activeTab = requestedTab === 'classes' ? 'sessions' : requestedTab;
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isHomeworkHelpOpen, setIsHomeworkHelpOpen] = useState(false);
@@ -289,9 +291,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const hasOnboarding = !student.deleted_at && (student.status === 'TRIAL' || journeys.some(journey => journey.student_id === id && !journey.closed_at));
 
   return (
-    <EntityPropertiesLayout id="student-properties-sidebar" sidebar={<>
+    <EntityPropertiesLayout editing={editFlow.isEditing} id="student-properties-sidebar" sidebar={<>
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4" ref={sidebarForm}>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 [--detail-page-gutter:1rem]" ref={sidebarForm}>
         <DetailsTab
           key={`${id}:${editFlow.isEditing}`}
           hideAccount
@@ -313,17 +315,17 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
           onChange={(patch) => setSectionDraft((current) => ({ ...current, ...patch }))}
         />
         {!editFlow.isEditing && (
-          <section className="space-y-2 border-t pt-4" aria-label="Account">
-            <h3 className="text-base font-medium">Account</h3>
+          <EntitySidebarSection title="Account">
             <p className="text-sm text-muted-foreground">{student.user_id ? 'Has account' : 'No account'}</p>
-          </section>
+          </EntitySidebarSection>
+
         )}
-      {hasOnboarding && <StudentOnboardingSidebar studentId={id} />}
+      {hasOnboarding && <EntitySidebarSection title="Onboarding journey"><StudentOnboardingSidebar studentId={id} /></EntitySidebarSection>}
         </div>
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>
-    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4' : 'min-w-0 flex-1 overflow-y-auto p-4'}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
       <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
         <PrimaryEntityBreadcrumb />
@@ -349,9 +351,9 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         className={activityLayout ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-6'}
         selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
+          { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
           ...((studentDetails?.onlineRelationships?.length ?? 0) > 0 ? [{ value: 'online' as const, label: 'Online' }] : []),
-          { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
           { value: 'billing', label: 'Billing' },
         ]}

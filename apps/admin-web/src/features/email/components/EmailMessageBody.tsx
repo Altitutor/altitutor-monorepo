@@ -69,18 +69,16 @@ function IsolatedBody({ html, title }: { html: string; title: string }) {
               ))
           )
             return;
-          if (
-            key.metaKey ||
-            key.ctrlKey ||
-            key.altKey ||
-            key.isComposing ||
-            !["r", "f", "m", "backspace", "u", "a"].includes(
-              key.key.toLowerCase(),
-            )
-          )
-            return;
-          const forwarded = new KeyboardEvent("keydown", {
+          // Forward all non-editing keys so every global sequence and Option
+          // character reaches the parent. Only handled events cancel the original.
+          if (key.isComposing) return;
+          const forwarded = new KeyboardEvent(key.type, {
             key: key.key,
+            code: key.code,
+            altKey: key.altKey,
+            metaKey: key.metaKey,
+            ctrlKey: key.ctrlKey,
+            repeat: key.repeat,
             shiftKey: key.shiftKey,
             bubbles: true,
             cancelable: true,
@@ -88,9 +86,11 @@ function IsolatedBody({ html, title }: { html: string; title: string }) {
           if (!frame.dispatchEvent(forwarded)) key.preventDefault();
         };
         doc.addEventListener("keydown", keyboard);
+        doc.addEventListener("keyup", keyboard);
         cleanup.current = () => {
           observer?.disconnect();
           doc.removeEventListener("keydown", keyboard);
+          doc.removeEventListener("keyup", keyboard);
         };
       }}
     />

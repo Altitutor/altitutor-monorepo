@@ -1,5 +1,8 @@
 'use client';
 
+import { EntityActionChip } from './EntityActionChip';
+import { openEntityReference } from '@/shared/utils/entityReference';
+
 import { CalendarDetailsTooltip } from '@/shared/components/CalendarDetailsTooltip';
 import React, { useState, useEffect } from 'react';
 import { Briefcase } from 'lucide-react';
@@ -137,7 +140,8 @@ export function AdminShiftCard({
                 )}
                 {!shouldUseCompact && (
                   <Badge className={cn('text-xs', getStatusBadgeColor(adminShift.status))}>
-                    {adminShift.status}
+                    <EntityActionChip iconOnly entityType="admin-shift" entityId={adminShift.id} label="Admin shift" onClick={() => openEntityReference('admin-shift', adminShift.id)} />
+                {adminShift.status}
                   </Badge>
                 )}
               </div>

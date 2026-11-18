@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { CollectionField } from '@altitutor/ui';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import type { ProjectWithLead } from '../types';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils';
@@ -22,6 +23,7 @@ export const ProjectCard = memo(function ProjectCard({
 
   return (
     <div
+      data-work-item-card
       onClick={() => onOpen?.(project.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',
@@ -43,7 +45,7 @@ export const ProjectCard = memo(function ProjectCard({
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
-              {pill.renderPill(project, () => {}, false)}
+              <CollectionField field={pill.key}>{pill.renderPill(project, () => {}, false)}</CollectionField>
             </div>
           ))}
         </div>

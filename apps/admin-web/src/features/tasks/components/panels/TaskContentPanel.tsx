@@ -104,7 +104,7 @@ export function TaskContentPanel({
         data-rich-text-toolbar-container
       >
         <TaskTitleField form={form} onEnter={handleTitleEnter} titleRef={titleFieldRef} />
-        {taskId && onAssigneeChange && (
+        {onAssigneeChange && (
           <TaskPropertyPills
             form={form}
             selectedAssignee={selectedAssignee ?? null}

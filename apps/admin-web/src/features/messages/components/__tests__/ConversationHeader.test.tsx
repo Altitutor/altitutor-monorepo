@@ -1,3 +1,4 @@
+import { KeyboardNavigationProvider } from '@altitutor/ui';
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -80,4 +81,15 @@ test("a parent with multiple students chooses the student before logging an abse
     await screen.findByRole("menuitem", { name: "Bob Williams" }),
   );
   expect(screen.getByRole("dialog")).toHaveTextContent("Absence for bob");
+});
+
+
+test('keeps task icon and keycap separate when searching the conversation menu', async () => {
+  const user=userEvent.setup();
+  render(<KeyboardNavigationProvider value={true}><QuickActionsProvider><ConversationHeader compactActions contact={parent} messageId="message" /></QuickActionsProvider></KeyboardNavigationProvider>);
+  await user.click(screen.getByRole('button',{name:'More'}));
+  await user.keyboard('tas');
+  const action=screen.getByRole('option',{name:'Create task'});
+  expect(action.querySelector('svg')).not.toBeNull();
+  expect(action.querySelector('kbd')?.textContent).toBe('T');
 });

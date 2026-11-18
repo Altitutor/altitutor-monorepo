@@ -24,7 +24,8 @@ const fields = z.object({
   body: document,
 });
 const command = z.union([
-  z.object({ type: z.literal("createReview"), id, commandId: id, date }),
+  z.object({ type: z.literal("deleteReview"), id, commandId: id, expectedVersion: z.number().int().positive() }),
+  z.object({ type: z.literal("createReview"), id, commandId: id, date, studentId: id.optional() }),
   z.object({ type: z.enum(["saveReview", "publishReview"]), id, commandId: id, expectedVersion: z.number().int().positive(), fields }),
   z.object({ type: z.literal("saveTemplate"), id, commandId: id, expectedVersion: z.number().int().nonnegative(), name: z.string().trim().min(1).max(160), title, body: document }),
 ]);

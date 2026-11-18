@@ -64,7 +64,7 @@ export function ProjectPropertiesFields({
         render={({ field }) => {
           const selected = PROJECT_STATUS_OPTIONS.find((o) => o.value === field.value) ?? PROJECT_STATUS_OPTIONS[0];
           return (
-            <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+            <FormItem data-shortcut-field="s" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
               <FormLabel className="text-muted-foreground">Status</FormLabel>
               <FormControl>
                 <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
@@ -97,7 +97,7 @@ export function ProjectPropertiesFields({
           const priorityIconColor = getProjectPriorityIconColor(p);
           const selected = PRIORITY_OPTIONS.find((o) => o.value === p) ?? PRIORITY_OPTIONS[0];
           return (
-            <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+            <FormItem data-shortcut-field="p" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
               <FormLabel className="text-muted-foreground">Priority</FormLabel>
               <FormControl>
                 <SearchableSelect<(typeof PRIORITY_OPTIONS)[number]>
@@ -125,7 +125,7 @@ export function ProjectPropertiesFields({
         control={form.control}
         name="projectLeadId"
         render={({ field }) => (
-          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+          <FormItem data-shortcut-field="a" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
             <FormLabel className="text-muted-foreground">Lead</FormLabel>
             <FormControl>
               <SearchableSelect<Tables<'staff'>>
@@ -196,7 +196,7 @@ export function ProjectPropertiesFields({
         control={form.control}
         name="targetDate"
         render={({ field }) => (
-          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+          <FormItem data-shortcut-field="d" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
             <FormLabel className="text-muted-foreground">Finish date</FormLabel>
             <FormControl>
               <SmartDatePickerField

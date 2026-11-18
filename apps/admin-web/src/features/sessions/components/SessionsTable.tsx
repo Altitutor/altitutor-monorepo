@@ -252,6 +252,16 @@ export function SessionsTable({
       updated_at: "",
       config: encodeViewConfig(config),
     });
+    if (studentId || staffId || parentId) {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const contextualSettings = { ...settings, layout: 'table' as const };
+      return [
+        builtIn('context-all', 'All sessions', contextualSettings),
+        builtIn('context-upcoming', 'Upcoming', { ...contextualSettings, filters: { from: [today] } }),
+        builtIn('context-past', 'Past', { ...contextualSettings, sortDirection: 'desc', filters: { to: [format(new Date(Date.now() - 86400000), 'yyyy-MM-dd')] } }),
+        ...savedViews.filter(view => !view.id.startsWith('builtin:sessions:')),
+      ];
+    }
     const today = new Date();
     return [
       builtIn("calendar", "Calendar", settings),
@@ -265,7 +275,7 @@ export function SessionsTable({
       }),
       ...savedViews,
     ];
-  }, [savedViews, toolbarView, defaultSort, defaultVisibleColumns]);
+  }, [savedViews, toolbarView, defaultSort, defaultVisibleColumns, studentId, staffId, parentId]);
 
   const {
     state,

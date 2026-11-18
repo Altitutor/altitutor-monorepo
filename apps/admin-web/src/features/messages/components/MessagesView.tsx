@@ -1,4 +1,6 @@
 'use client';
+import { Mail, MailOpen, UserRound } from 'lucide-react';
+import { useRegisterRecordActions } from '@/features/command-palette/RecordActionsContext';
 import { useAccessoryTitle } from '@/shared/hooks/useAccessoryTitle';
 import { useRouter as useNextRouter } from 'next/navigation';
 
@@ -249,6 +251,27 @@ export function MessagesView() {
       ? { kind: "contact", contactId: activeContactId }
       : null;
 
+  const { data: referenceTarget } = useQuery({
+    queryKey: ['messages', 'reference-action-target', targetMessageId],
+    enabled: Boolean(targetMessageId),
+    queryFn: async () => {
+      const db = getSupabaseClient();
+      const { data: message, error } = await db.from('messages').select('conversation_id').eq('id', targetMessageId!).maybeSingle();
+      if (error) throw error;
+      if (!message) return null;
+      const latest = await db.from('messages').select('id').eq('conversation_id', message.conversation_id).order('created_at', { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+      if (latest.error) throw latest.error;
+      return { conversationId: message.conversation_id, lastMessageId: latest.data?.id };
+    },
+  });
+  const referenceConversationIds = referenceTarget ? [referenceTarget.conversationId] : [];
+  useRegisterRecordActions('message', targetMessageId ?? undefined, conversationTitle, [
+    { id: 'mark-read', title: 'Mark as read', icon: MailOpen, action: () => { if (referenceTarget?.lastMessageId) markConversationRead.mutate({ conversationId: referenceTarget.conversationId, lastMessageId: referenceTarget.lastMessageId }); } },
+    { id: 'mark-unread', title: 'Mark as unread', icon: Mail, action: () => { if (referenceTarget) markUnread.mutate(referenceTarget.conversationId); } },
+    { id: 'unassign', title: 'Unassign conversation', icon: UserRound, disabled: assignConversation.isPending, action: () => assignConversation.mutate({ conversationIds: referenceConversationIds, staffId: null }) },
+    ...adminStaff.map(person => ({ id: `assign-${person.id}`, title: `Assign to ${person.first_name} ${person.last_name}`, icon: UserRound, disabled: assignConversation.isPending, action: () => assignConversation.mutate({ conversationIds: referenceConversationIds, staffId: person.id }) })),
+  ], { active: Boolean(referenceTarget), runOnly: true });
+
   useAccessoryTitle(activeSelection ? conversationTitle : "Messages");
   const handleConversationSelect = (selection: ConversationSelection) => {
     setComposeIntent(selection.kind === "contact" ? selection : null);
@@ -426,6 +449,7 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
+                hideHistoryToolbar={Boolean(tabScope)}
                 renderHeader={tabScope ? renderConversationHeader : undefined}
                 isSearching={isSearching}
                 searchTerm={searchTerm}

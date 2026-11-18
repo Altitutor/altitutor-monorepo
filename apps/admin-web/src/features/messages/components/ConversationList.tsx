@@ -64,7 +64,7 @@ export function ConversationList({
     defaultSort: { field: 'latest', direction: 'desc' },
     defaultVisibleColumns: conversationListDefaults.visibleColumns,
     filterKeys: ['read', 'reply', 'followUp', 'assignee', 'recipient', 'from'],
-    skipUrlSync: true,
+    skipUrlSync: filterScope !== 'page',
   });
   const { data } = useConversationList(selectedOwnedNumberId);
   const qc = useQueryClient();
@@ -154,6 +154,7 @@ export function ConversationList({
         unreplied: isUnreplied(conversation),
         followUp: isToFollowUp(conversation),
         assignedStaffId: conversation.assignedStaffId,
+        assignedStaffIds: [...new Set([conversation.assignedStaffId, ...conversation.conversations.map(item => item.assigned_staff_id)].filter((id): id is string => Boolean(id)))],
         recipientType: conversation.contact?.contact_type ?? null,
         ownedNumberIds: conversation.conversations.map((item) => item.owned_number_id),
       }, { search: state.search, filters: state.filters, staffId: currentStaff?.id ?? null });
@@ -185,7 +186,7 @@ export function ConversationList({
     quickActions.openCreateTaskDialog({ type: 'message', id: messageId, label });
   };
   const composeButton = (
-    <Button onClick={() => setIsNewConversationDialogOpen(true)} size="sm" variant="default">
+    <Button data-shortcut-create onClick={() => setIsNewConversationDialogOpen(true)} size="sm" variant="default">
       <Plus className="mr-2 h-4 w-4" />
       New conversation
     </Button>
@@ -261,6 +262,7 @@ export function ConversationList({
                 >
                   <div
                     role="button"
+                    data-shortcut-list-item
                     tabIndex={0}
                     className={`w-full p-3 text-left hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                     onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
@@ -318,6 +320,7 @@ export function ConversationList({
               >
                 <div
                   role="button"
+                  data-shortcut-list-item
                   tabIndex={0}
                   className={`w-full text-left p-3 hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                   onClick={() => onSelect({ kind: 'contact', contactId: aggregated.contactId })}

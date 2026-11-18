@@ -2,7 +2,8 @@
 
 import { useAccessoryPanel } from '@/shared/contexts/AccessoryPanelContext';
 import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
-import { Button } from '@altitutor/ui';
+import { Button, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@altitutor/ui';
+import type { ReactElement } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useMessageSubscription } from '@/features/messages/hooks/useMessageSubscription';
 import { PanelRight, PanelLeft } from 'lucide-react';
@@ -18,6 +19,15 @@ import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+
+function SidebarShortcutTooltip({ label, shortcut, children }: { label: string; shortcut: 'left' | 'right'; children: ReactElement }) {
+  return <TooltipProvider delayDuration={100}><Tooltip>
+    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <TooltipContent side="bottom" className="flex items-center gap-2">
+      {label}<ShortcutKeys id={shortcut} always />
+    </TooltipContent>
+  </Tooltip></TooltipProvider>;
+}
 
 export function Navbar() {
   const detailPanel = useAccessoryPanel();
@@ -38,6 +48,7 @@ export function Navbar() {
       <div className="h-full w-full px-4 flex items-center gap-4">
         {/* Mobile Hamburger Menu Button */}
         {user && (
+          <SidebarShortcutTooltip label={isMobileMenuOpen ? 'Close menu' : 'Open menu'} shortcut="left">
           <Button
             variant="outline"
             size="icon"
@@ -45,25 +56,28 @@ export function Navbar() {
             aria-pressed={isMobileMenuOpen}
             aria-expanded={isMobileMenuOpen}
             aria-controls="admin-mobile-sidebar"
-            aria-keyshortcuts="Alt+ArrowLeft"
+            aria-keyshortcuts="["
             className={cn("relative inline-flex h-9 w-9 flex-shrink-0 md:hidden", isMobileMenuOpen && navLinkActiveStyles)}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
-            <PanelLeft className="h-4 w-4" /><span className="absolute top-full left-0"><ShortcutKeys id="left" /></span>
+            <PanelLeft className="h-4 w-4" />
           </Button>
+          </SidebarShortcutTooltip>
         )}
 
         {user && (
+          <SidebarShortcutTooltip label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} shortcut="left">
           <Button
             variant="outline"
             size="icon"
-            aria-keyshortcuts="Alt+ArrowLeft" onClick={toggleSidebar}
+            aria-keyshortcuts="[" onClick={toggleSidebar}
             aria-pressed={!sidebarCollapsed}
             className={cn("relative hidden h-9 w-9 flex-shrink-0 md:inline-flex", !sidebarCollapsed && navLinkActiveStyles)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <PanelLeft className="h-4 w-4" /><span className="absolute top-full left-0"><ShortcutKeys id="left" /></span>
+            <PanelLeft className="h-4 w-4" />
           </Button>
+          </SidebarShortcutTooltip>
         )}
 
         {/* Desktop Logo - hidden on mobile */}
@@ -110,13 +124,13 @@ export function Navbar() {
           )}
 
           {user && detailPanel && (
+            <SidebarShortcutTooltip label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'} shortcut="right">
             <Button variant="outline" size="icon" className={cn("relative h-9 w-9", detailPanel.expanded && navLinkActiveStyles)} aria-pressed={detailPanel.expanded}
-              aria-keyshortcuts="Alt+ArrowRight" onClick={detailPanel.toggle} aria-controls="admin-accessory-panel" aria-expanded={detailPanel.expanded}
-              aria-label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}
-              title={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}>
+              aria-keyshortcuts="]" onClick={detailPanel.toggle} aria-controls="admin-accessory-panel" aria-expanded={detailPanel.expanded}
+              aria-label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}>
               <PanelRight className="h-4 w-4" />
-              <span className="absolute top-full right-0"><ShortcutKeys id="right" /></span>
             </Button>
+            </SidebarShortcutTooltip>
           )}
 
         </div>

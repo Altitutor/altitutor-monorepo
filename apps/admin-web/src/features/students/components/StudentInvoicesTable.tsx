@@ -1,4 +1,6 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
+
 
 import { requestOperationalEmail } from '@/features/email/api/operational';
 
@@ -299,6 +301,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                  // Credit notes for this invoice (if any)
                 const creditNotes = creditNotesMap[invoice.id] || [];
                 const invoiceTagText = formatInvoiceTagText({
+          invoiceNumber: invoice.stripe_invoice_number,
                   invoiceDate: invoice.invoice_date,
                   lineItemDescriptions: items.map((item) => item.description || 'Invoice item'),
                   status: invoice.status,
@@ -332,11 +335,11 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                   <TableRow
                     key={invoice.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setActiveInvoiceId(invoice.id)}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-invoice-modal', { detail: { id: invoice.id } }))}
                   >
                     {state.visibleColumns.includes('invoice_number') && (
                       <TableCell>
-                        #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                        <EntityActionChip entityType="invoice" entityId={invoice.id} label={invoice.stripe_invoice_number || 'Invoice'} onClick={() => window.dispatchEvent(new CustomEvent('open-invoice-modal', { detail: { id: invoice.id } }))} />
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('date') && (

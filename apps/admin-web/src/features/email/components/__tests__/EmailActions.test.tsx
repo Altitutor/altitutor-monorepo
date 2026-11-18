@@ -1,6 +1,7 @@
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { KeyboardNavigationProvider } from "@altitutor/ui";
 import { EmailActions } from "../EmailActions";
 import type { MailboxData } from "../../types";
 import { AccessoryTabContext } from "@/shared/contexts/AccessoryTabContext";
@@ -135,13 +136,15 @@ it("scopes reply/forward/move shortcuts to the hovered email and leaves text ent
   expect(reply).not.toHaveBeenCalled();
   fireEvent.keyDown(document.body, { key: "r" });
   fireEvent.keyDown(document.body, { key: "f" });
+  expect(forward).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.body, { key: "F", shiftKey: true });
   expect(reply).toHaveBeenCalledTimes(1);
   expect(forward).toHaveBeenCalledTimes(1);
-  fireEvent.keyDown(document.body, { key: "m" });
+  fireEvent.keyDown(document.body, { key: "v" });
   expect(
-    screen.getByRole("menuitem", { name: "Move to folder" }),
+    screen.getByPlaceholderText("Search Microsoft folders…"),
   ).toBeInTheDocument();
-  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Move to folder" }), {
+  fireEvent.keyDown(screen.getByPlaceholderText("Search Microsoft folders…"), {
     key: "r",
   });
   expect(reply).toHaveBeenCalledTimes(1);
@@ -185,7 +188,7 @@ it("replies to the open mail thread until a message is hovered", () => {
 
   fireEvent.keyDown(document.body, { key: "r" });
   fireEvent.keyDown(document.body, { key: "r", shiftKey: true });
-  fireEvent.keyDown(document.body, { key: "f" });
+  fireEvent.keyDown(document.body, { key: "F", shiftKey: true });
   expect(latestReply).toHaveBeenCalledTimes(1);
   expect(latestReplyAll).toHaveBeenCalledTimes(1);
   expect(latestForward).toHaveBeenCalledTimes(1);
@@ -200,4 +203,26 @@ it("replies to the open mail thread until a message is hovered", () => {
   query.mockRestore();
   expect(messageReply).toHaveBeenCalledTimes(1);
   expect(latestReply).toHaveBeenCalledTimes(1);
+});
+
+it('does not handle hovered email actions while the primary pane has keyboard focus',()=>{
+ const reply=jest.fn();
+ render(<QuickActionsProvider><QueryClientProvider client={new QueryClient()}><main data-admin-main><button>Task record</button></main><div data-accessory-tab="mail" data-email-shortcut-target><EmailActions ids={['one']} threadId="thread" read assignedStaffId={null} mailbox={mailbox} hovered onReply={reply}/></div></QueryClientProvider></QuickActionsProvider>);
+ const task=screen.getByRole('button',{name:'Task record'});task.focus();
+ fireEvent.keyDown(task,{key:'r'});
+ expect(reply).not.toHaveBeenCalled();
+});
+
+
+it('targets a hovered email in the primary pane ahead of a focused email in the accessory pane', () => {
+  jest.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+  const left=jest.fn(),right=jest.fn();
+  render(<KeyboardNavigationProvider value={true}><QuickActionsProvider><QueryClientProvider client={new QueryClient()}>
+    <main data-admin-main><div data-email-shortcut-target data-testid="left-row"><EmailActions threadId="left" ids={['one']} read assignedStaffId={null} mailbox={mailbox} hovered onReply={left}/></div></main>
+    <aside data-accessory-tab="mail"><button>Right focus</button><div data-email-shortcut-target><EmailActions threadId="right" ids={['two']} read assignedStaffId={null} mailbox={mailbox} hovered onReply={right}/></div></aside>
+  </QueryClientProvider></QuickActionsProvider></KeyboardNavigationProvider>);
+  screen.getByRole('button',{name:'Right focus'}).focus();
+  fireEvent.pointerOver(screen.getByTestId('left-row'));
+  fireEvent.keyDown(document.activeElement!,{key:'r'});
+  expect(left).toHaveBeenCalledTimes(1);expect(right).not.toHaveBeenCalled();
 });

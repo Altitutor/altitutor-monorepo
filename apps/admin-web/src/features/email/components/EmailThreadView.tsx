@@ -643,7 +643,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <EmailIconButton label="Show messages and Activity">
+                <EmailIconButton data-shortcut-filter shortcut="F" label="Show messages and Activity">
                   <ListFilter className="h-4 w-4" />
                 </EmailIconButton>
               </DropdownMenuTrigger>

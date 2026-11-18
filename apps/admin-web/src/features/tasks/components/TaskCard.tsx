@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { CollectionField } from '@altitutor/ui';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils/index';
 import type { TaskWithAssignee } from '../types';
@@ -25,6 +26,7 @@ export const TaskCard = memo(function TaskCard({
 
   return (
     <div
+      data-work-item-card
       onClick={() => onOpen?.(task.id)}
       className={cn(
         'group rounded-lg border bg-card p-3 cursor-pointer transition-all',
@@ -46,7 +48,7 @@ export const TaskCard = memo(function TaskCard({
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
-              {pill.content}
+              <CollectionField field={pill.key}>{pill.content}</CollectionField>
             </div>
           ))}
         </div>

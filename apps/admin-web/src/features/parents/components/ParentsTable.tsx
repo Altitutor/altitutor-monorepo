@@ -1,4 +1,5 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { checkInColumns, CheckInTableHeads, CheckInTableCells } from '@/shared/components/CheckInTableCells';
 import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
@@ -289,9 +290,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                   >
                     {state.visibleColumns.includes('parent') && (
                       <TableCell>
-                        <div className="font-medium">
-                          {`${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Unnamed Parent'}
-                        </div>
+                        <EntityActionChip entityType="parent" entityId={parent.id} label={`${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Unnamed Parent'} onClick={() => router.push(`/parents/${parent.id}`)} />
                         {(parent.email || parent.phone) ? (
                           <div className="text-xs text-muted-foreground">
                             {[parent.email, parent.phone].filter(Boolean).join(' · ')}
@@ -324,18 +323,13 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                         {students.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {students.map((student: Tables<'students'>) => (
-                              <Button
+                              <EntityActionChip
                                 key={student.id}
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  router.push(`/students?view=${student.id}`);
+                                  router.push(`/students/${student.id}`);
                                 }}
-                              >
-                                {student.first_name} {student.last_name}
-                              </Button>
+                               entityType="student" entityId={student.id} label={`${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student'} />
                             ))}
                           </div>
                         ) : (

@@ -3,12 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import tippy from "tippy.js";
-import { Badge, Skeleton } from "@altitutor/ui";
+import { ActionSearchScope, EntityChip, Badge, Skeleton, isTypingTarget } from "@altitutor/ui";
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
+import { ReferenceActions } from './ReferenceActions';
+import { ReferenceActionList } from './ReferenceActionList';
+import { useContextualChipHoverActions } from './chipHoverActions';
+import { openEntityReference } from '@/shared/utils/entityReference';
+import type { RecordMenuAction } from '@/shared/components/recordMenuActions';
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate, contextualActions, autoFocusSearch = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void; contextualActions?: RecordMenuAction[]; autoFocusSearch?: boolean }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -32,14 +37,13 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
           : type.charAt(0).toUpperCase() + type.slice(1);
   return (
     <div
+      data-entity-reference-preview
       role="dialog"
       aria-label={`${label} preview`}
-      className={embedded ? "text-sm" : "max-h-[70vh] overflow-y-auto w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"}
+      className={embedded ? "text-sm" : "max-h-[min(70dvh,var(--entity-preview-height,calc(100dvh-24px)))] overflow-y-auto overscroll-contain w-80 max-w-[calc(100vw-24px)] rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg"}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
-        <h3 className="min-w-0 break-words font-semibold">
-          {query.data?.title || fallbackTitle || "Preview"}
-        </h3>
+        <EntityChip entityType={type} entityId={id} label={query.data?.title || fallbackTitle || "Preview"} className="min-w-0 max-w-full font-semibold" onClick={() => {onActivate?.(); openEntityReference(type,id);}} />
         {query.data?.status && (
           <Badge className={`shrink-0 border-transparent ${statusToneClass(query.data.status)}`}>
             {statusLabel(query.data.status)}
@@ -87,6 +91,22 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
         ) : null}
         </>
       )}
+      <div className="-mx-4 mt-3 border-t"><ActionSearchScope alwaysSearchable autoFocus={autoFocusSearch}>
+          {query.data && (
+            <ReferenceActions
+              type={type}
+              id={id}
+              details={query.data}
+              onActivate={onActivate}
+            />
+          )}
+          {contextualActions?.length ? (
+            <ReferenceActionList
+              actions={contextualActions}
+              onActivate={onActivate}
+            />
+          ) : null}
+      </ActionSearchScope></div>
     </div>
   );
 }
@@ -94,8 +114,10 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
 /** One delegated surface covers React chips and serialized mentions, including newly loaded rich text. */
 export function EntityReferenceHovers() {
   const [target, setTarget] = useState<HTMLElement | null>(null);
+  const contextualActions = useContextualChipHoverActions(target?.dataset.hoverActionsKey);
   const [content, setContent] = useState<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pointerOpened, setPointerOpened] = useState(false);
   useEffect(() => {
     setContent(document.createElement("div"));
     const clear = () => {
@@ -109,15 +131,20 @@ export function EntityReferenceHovers() {
               "[data-mention][data-id][data-type]",
             )
           : null;
-      if (!chip) return;
+      if (!chip || chip.closest("[data-entity-reference-preview]")) return;
       const previous = event instanceof MouseEvent ? event.relatedTarget : null;
       if (previous instanceof Node && chip.contains(previous)) return;
       clear();
       timer.current = setTimeout(
         () => {
-          if (chip.isConnected) setTarget(chip);
+          if (chip.isConnected) {
+            // Layout changes can move chips under a stationary pointer while a
+            // keyboard-operated resize handle still owns focus.
+            setPointerOpened(event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator");
+            setTarget(chip);
+          }
         },
-        event.type === "focusin" ? 0 : 300,
+        0,
       );
     };
     const leave = (event: MouseEvent) => {
@@ -140,33 +167,54 @@ export function EntityReferenceHovers() {
         setTarget(null);
       }
     };
+    const activate = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-mention]')) {
+        clear();
+        setTarget(null);
+      }
+    };
     document.addEventListener("mouseover", enter);
     document.addEventListener("focusin", enter);
     document.addEventListener("mouseout", leave);
     document.addEventListener("keydown", escape);
+    document.addEventListener('click', activate, true);
     return () => {
       clear();
       document.removeEventListener("mouseover", enter);
       document.removeEventListener("focusin", enter);
       document.removeEventListener("mouseout", leave);
       document.removeEventListener("keydown", escape);
+      document.removeEventListener('click', activate, true);
     };
   }, []);
   useEffect(() => {
     if (!target || !content) return;
+    const boundary = target.closest<HTMLElement>('[role="dialog"]');
+    const resize = () => content.style.setProperty('--entity-preview-height', `${Math.max(0, Math.min(window.visualViewport?.height ?? window.innerHeight, boundary?.getBoundingClientRect().height ?? window.innerHeight) - 24)}px`);
+    resize();
+    window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    const observer = boundary ? new ResizeObserver(resize) : null;
+    if (boundary) observer?.observe(boundary);
     const instance = tippy(target, {
       content,
       interactive: true,
+      onMount: () => {
+        if (pointerOpened && !isTypingTarget(document.activeElement)) content.querySelector<HTMLInputElement>('[cmdk-input]')?.focus({preventScroll:true});
+      },
       showOnCreate: true,
       placement: "bottom",
+      popperOptions: {modifiers:[{name:'preventOverflow',options:{boundary:boundary ?? 'clippingParents',rootBoundary:'viewport',padding:8,altAxis:true,tether:false}}]},
       appendTo: () => target.closest('[role="dialog"]') ?? document.body,
       delay: [0, 150],
       onHidden: () =>
         setTarget((current) => (current === target ? null : current)),
     });
-    return () => instance.destroy();
-  }, [target, content]);
+    const contentObserver = new ResizeObserver(() => { void instance.popperInstance?.update(); });
+    contentObserver.observe(content);
+    return () => { contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
+  }, [target, content, pointerOpened]);
   return target && content
-    ? createPortal(<EntityReferencePreview type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} />, content)
+    ? createPortal(<EntityReferencePreview key={`${target.dataset.type}:${target.dataset.id}:${target.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setTarget(null)} />, content)
     : null;
 }

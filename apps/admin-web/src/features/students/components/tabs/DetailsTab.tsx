@@ -1,5 +1,6 @@
+import { EntitySidebarSection } from '@/shared/components/EntitySidebarCard';
+import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
 import { EmailInput } from '@/shared/components/EmailInput';
-import { EntityChip } from "@altitutor/ui";
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -26,8 +27,6 @@ import {
 import type { Tables } from '@altitutor/shared';
 import { Pencil, Loader2, Trash2, X, Copy, Check } from 'lucide-react';
 import { PhoneInput } from '@altitutor/ui';
-import { ParentCard } from '@/shared/components/ParentCard';
-import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { StudentAccountSection } from '../StudentAccountSection';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
@@ -84,9 +83,6 @@ export function DetailsTab({
   addParentButton,
   hideAccount = false,
 }: DetailsTabProps) {
-  // Fetch students for each parent using React Query
-  const parentIds = parents.map((p) => p.id);
-  const { data: parentStudents = {} } = useParentStudents(parentIds, !isEditing && parents.length > 0);
   const { toast } = useToast();
 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -343,15 +339,15 @@ export function DetailsTab({
   };
 
   return (
-    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Student Information</h3>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+
         <Button variant="outline" size="sm" onClick={onEdit} disabled={!!student.deleted_at}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>
       </div>
-
+      <EntitySidebarSection title="Student Information">
       <PropertyForm>
         <PropertyFormRow label="First name">
           <TruncatedText text={student.first_name || '-'} />
@@ -400,19 +396,19 @@ export function DetailsTab({
           </div>
         </PropertyFormRow>
       </PropertyForm>
-
-      <Separator className="my-6" />
+      </EntitySidebarSection>
 
       {/* Parents Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Parents</h3>
+      <EntitySidebarSection title="Parents">
+
         {parents.length > 0 ? (
-          <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
             {parents.map((parent) => (
-              <ParentCard
+              <EntityChip
                 key={parent.id}
-                parent={parent}
-                students={parentStudents[parent.id] || []}
+                entityType="parent"
+                entityId={parent.id}
+                label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim() || "Parent"}
                 onClick={() => onViewParent?.(parent.id)}
               />
             ))}
@@ -420,7 +416,7 @@ export function DetailsTab({
         ) : (
           <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
         )}
-      </div>
+      </EntitySidebarSection>
 
       {!hideAccount && (
         <>

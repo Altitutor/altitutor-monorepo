@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useToast,
   type JSONContent,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -280,25 +281,38 @@ function TimerBreakdown({
   );
 }
 
+function unfinishedFeedback(round: InterviewRound) {
+  return round.progress.filter((item) =>
+    item.studentId && !item.feedbackComplete && !round.attempts.some((attempt) =>
+      attempt.stationId === item.stationId && attempt.studentId === item.studentId &&
+      !!attempt.notAssessedReason?.trim(),
+    ),
+  );
+}
+
 function ActionButton({
   reason,
   disabled,
   children,
   ...props
 }: React.ComponentProps<typeof Button> & { reason?: string }) {
-  const button = (
-    <Button {...props} disabled={disabled}>
+  const { toast } = useToast();
+  return (
+    <Button
+      {...props}
+      aria-disabled={disabled || undefined}
+      onClick={(event) => {
+        if (disabled) {
+          event.preventDefault();
+          if (reason) toast({ description: reason });
+          return;
+        }
+        props.onClick?.(event);
+      }}
+      className={cn(props.className, disabled && "opacity-50")}
+    >
       {children}
     </Button>
-  );
-  if (!disabled || !reason) return button;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -883,6 +897,8 @@ function InPersonRoundView({
   const pendingReason = pending
     ? "Wait for the current action to finish."
     : undefined;
+  const finishReason = pendingReason ??
+    (paused ? "Resume the round before finishing your station." : undefined);
   const assignedReason = progress
     ? undefined
     : "You are not assigned to a station.";
@@ -901,10 +917,14 @@ function InPersonRoundView({
           : online && !round.progress.some((item) => item.studentId)
             ? "At least one station needs a student."
             : undefined)));
+  const waitingTutors = unfinishedFeedback(round).map((item) =>
+    round.tutors.find((tutor) => tutor.id === item.tutorId)?.name ?? "a station tutor",
+  );
   const nextReason =
     assignedReason ??
     pendingReason ??
-    (allFinished ? undefined : "Waiting for every tutor to finish feedback.");
+    (paused ? "Resume the round before advancing." : undefined) ??
+    (allFinished ? undefined : `Waiting for feedback from ${waitingTutors.join(", ")}.`);
   const pausedBy = round.tutors.find(
     (tutor) => tutor.id === round.pausedBy,
   )?.name;
@@ -1055,8 +1075,7 @@ function InPersonRoundView({
             )}
             {round.phase === "reading" && !paused && (
               <ActionButton
-                variant="outline"
-                className={tutorBtnOutline}
+                variant="destructive"
                 reason={pendingReason}
                 disabled={pending}
                 onClick={() => setConfirm("skip")}
@@ -1066,8 +1085,7 @@ function InPersonRoundView({
             )}
             {round.phase === "questions" && progress && !paused && (
               <ActionButton
-                variant="outline"
-                className={tutorBtnOutline}
+                variant="destructive"
                 reason={pendingReason}
                 disabled={pending}
                 onClick={() => setConfirm("skipQuestions")}
@@ -1079,10 +1097,9 @@ function InPersonRoundView({
               progress &&
               !progress.endedEarly && (
                 <ActionButton
-                  variant="outline"
-                  className={tutorBtnOutline}
-                  reason={pendingReason}
-                  disabled={pending}
+                  variant="destructive"
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={() => setConfirm("end")}
                 >
                   End my station early
@@ -1092,8 +1109,8 @@ function InPersonRoundView({
               (round.phase === "feedback" || progress.endedEarly) &&
               !progress.feedbackComplete && (
                 <ActionButton
-                  reason={pendingReason}
-                  disabled={pending}
+                  reason={finishReason}
+                  disabled={Boolean(finishReason)}
                   onClick={onRequestFinish}
                 >
                   Finish feedback
@@ -1231,7 +1248,8 @@ function InPersonRoundView({
                   />
                 )}
               {round.startedAt && round.phase !== "completed" && (
-                <Button
+                <ActionButton
+                  reason={!progress ? "You are not assigned to a station." : pendingReason}
                   variant={paused ? "default" : "outline"}
                   className={
                     paused
@@ -1242,7 +1260,7 @@ function InPersonRoundView({
                   onClick={onPause}
                 >
                   {paused ? "Resume everyone" : "Pause everyone"}
-                </Button>
+                </ActionButton>
               )}
               <Button variant="destructive" onClick={onExit}>
                 Exit
@@ -1400,6 +1418,8 @@ export function InterviewWorkspace({ id }: { id: string }) {
       window.removeEventListener("altitutor:interview-audio-pending", listener);
   }, [id]);
   const [localError, setLocalError] = useState<Error | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const actionRunning = useRef(false);
   const [editingRound, setEditingRound] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
   const finalizeRecording = useRef<(() => Promise<void>) | null>(null);
@@ -1452,6 +1472,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
   }, [query.data?.startedAt]);
   const round = query.data;
   const run = async (action: InterviewCommand) => {
+    if (actionRunning.current) return;
+    actionRunning.current = true;
+    setActionPending(true);
     setLocalError(null);
     try {
       await flush.current?.();
@@ -1480,6 +1503,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
       setLocalError(
         error instanceof Error ? error : new Error("Unable to save changes."),
       );
+    } finally {
+      actionRunning.current = false;
+      setActionPending(false);
     }
   };
   if (!round)
@@ -1507,17 +1533,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
     commandId: randomUuid(),
   };
   const allReady = round.progress.every((item) => item.ready);
-  const allFinished = round.progress.every(
-    (item) =>
-      item.feedbackComplete ||
-      !item.studentId ||
-      round.attempts.some(
-        (attempt) =>
-          attempt.stationId === item.stationId &&
-          attempt.studentId === item.studentId &&
-          !!attempt.notAssessedReason?.trim(),
-      ),
-  );
+  const allFinished = unfinishedFeedback(round).length === 0;
   const missingStudents = round.studentIds.filter(
     (studentId) => !round.connectedStudentIds.includes(studentId),
   );
@@ -1562,7 +1578,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         isWaiting={isWaiting}
         allReady={allReady}
         allFinished={allFinished}
-        pending={command.isPending}
+        pending={actionPending || command.isPending}
         registerFlush={registerFlush}
         registerFinish={registerFinish}
         registerFinalizeRecording={registerFinalizeRecording}

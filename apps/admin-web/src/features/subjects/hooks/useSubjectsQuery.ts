@@ -5,6 +5,7 @@ import type { Tables, TablesUpdate } from '@altitutor/shared';
 // Query Keys
 export const subjectsKeys = {
   all: ['subjects'] as const,
+  cover: (id: string) => [...subjectsKeys.all, 'cover', id] as const,
   lists: () => [...subjectsKeys.all, 'list'] as const,
   list: (filters: string) => [...subjectsKeys.lists(), { filters }] as const,
   details: () => [...subjectsKeys.all, 'detail'] as const,

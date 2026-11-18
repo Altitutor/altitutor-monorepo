@@ -13,6 +13,18 @@ export type ReferenceDetails = {
   fields: Array<{ label: string; value: string }>;
   people?: ReferencePerson[];
   logged?: boolean;
+  actionState?: {
+    deleted?: boolean;
+    emailMessageId?: string;
+    emailActionAvailable?: boolean;
+    accountLabel?: string;
+    accountAvailable?: boolean;
+    sessionType?: string;
+    hasPaymentPage?: boolean;
+    hasStripeInvoice?: boolean;
+    hasPdf?: boolean;
+    message?: { hasImessage: boolean; own: boolean; sentAt: string | null; createdAt: string | null };
+  };
   destination?: {
     kind: "email" | "messages";
     id: string;

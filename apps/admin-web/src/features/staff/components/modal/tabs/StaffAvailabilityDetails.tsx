@@ -19,13 +19,11 @@ export function StaffAvailabilityDetails({
 
   return (
     <section
-      className="space-y-4 border-t pt-4"
+      className="space-y-4"
       aria-label="Staff availability"
     >
       <div>
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <h3 className="text-lg font-semibold">Availability</h3>
-        </div>
+
         <AvailabilityFields
           isEditing={isEditMode}
           getValue={(key) =>

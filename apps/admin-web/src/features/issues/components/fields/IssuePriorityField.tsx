@@ -16,7 +16,7 @@ export function IssuePriorityField({
       control={form.control}
       name="priority"
       render={({ field }) => (
-        <FormItem>
+        <FormItem data-shortcut-field="p">
           <FormControl>
             <PrioritySelect
               pill={pill}

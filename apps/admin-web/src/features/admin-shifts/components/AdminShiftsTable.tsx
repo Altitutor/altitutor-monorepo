@@ -1,4 +1,5 @@
 'use client';
+import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 
@@ -311,15 +312,10 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                               <span className="text-muted-foreground text-sm">No staff</span>
                             ) : (
                               getAdminShiftStaff(shift).map((staff, staffIndex) => (
-                                <Button
+                                <EntityActionChip
                                   key={`${shift.id}-${staff.id}-${staffIndex}`}
-                                  variant="link"
-                                  size="sm"
-                                  className="h-auto p-0 text-xs justify-start"
                                   onClick={(e) => handleStaffClick(staff.id, e)}
-                                >
-                                  {staff.first_name} {staff.last_name}
-                                </Button>
+                                 entityType="staff" entityId={staff.id} label={`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff'} />
                               ))
                             )}
                           </div>

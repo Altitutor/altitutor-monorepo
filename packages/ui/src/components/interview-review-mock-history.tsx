@@ -8,17 +8,20 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { cn } from "../lib/cn";
 
-export function InterviewReviewDisclosure({ title, detail, children, defaultOpen = false }: {
+export function InterviewReviewDisclosure({ title, detail, children, defaultOpen = false, open: controlledOpen, onOpenChange }: {
   title: ReactNode;
   detail?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const id = useId();
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? internalOpen;
   return (
     <div>
-      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}
+      <button type="button" aria-expanded={open} aria-controls={id} onClick={() => { setOpen(!open); onOpenChange?.(!open); }}
         className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary">
         <ChevronRight aria-hidden="true" className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none", open && "rotate-90")} />
         <span className="min-w-0 flex-1">{title}</span>

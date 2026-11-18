@@ -1,4 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { ToastProvider } from "@altitutor/ui";
+import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
+import { render as rtlRender, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Tables } from "@altitutor/shared";
@@ -7,6 +11,8 @@ import { SessionsCalendarView } from "../SessionsCalendarView";
 jest.mock("../../hooks/useInterviewRoundEvents", () => ({
   useInterviewRoundEvents: () => ({ data: [], isPending: false }),
 }));
+function render(ui: ReactNode, options?: RenderOptions) { return rtlRender(<ToastProvider><QuickActionsProvider>{ui}</QuickActionsProvider></ToastProvider>, options); }
+
 beforeAll(() => {
   global.ResizeObserver = class {
     observe() {}

@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import {
-  PencilIcon,
   TrashIcon,
   Loader2,
   AlertTriangle,
@@ -226,7 +225,7 @@ export function TopicDetailView({
 
   if (error || !topic) {
     return (
-      <div className="p-4">
+      <div className="p-4 [--detail-page-gutter:1rem]">
         <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
@@ -257,7 +256,7 @@ export function TopicDetailView({
   }
 
   return (
-    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col" : "p-4"}>
+    <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col [--detail-page-gutter:1rem]" : "p-4 [--detail-page-gutter:1rem]"}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
@@ -589,12 +588,7 @@ export function TopicDetailView({
 
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={handleEdit} disabled={!topic}>
-                <PencilIcon className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            </div>
+
           </>
         )}
       </div>
@@ -603,9 +597,10 @@ export function TopicDetailView({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete topic and all subtopics?</AlertDialogTitle>
             <AlertDialogDescription>
               <RetainedDeletionMessage kind="Topic" name={topic?.name} />
+              {" "}All subtopics at every level will also be hidden, along with their resources. Their records and history will be retained. Restoring this topic does not automatically restore its subtopics.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

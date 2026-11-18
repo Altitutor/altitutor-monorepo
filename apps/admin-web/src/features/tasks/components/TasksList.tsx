@@ -145,7 +145,7 @@ function TaskLinkDropdownContent({
                   className={cn(
                     "w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left",
                     isSelected
-                      ? "bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20"
+                      ? "bg-muted"
                       : "hover:bg-muted",
                   )}
                   onMouseDown={(e) => {
@@ -589,7 +589,6 @@ export function TasksList({
     [issueId, projectId, updateTask],
   );
 
-  const showDueDatePill = true;
 
   const handleAdd = useCallback(
     async (
@@ -601,12 +600,8 @@ export function TasksList({
         status: (data.status as TaskStatus) || "todo",
         assigned_to: data.assignee as string | null,
         priority: data.priority as number | null,
-        estimate: showDueDatePill
-          ? null
-          : ((data.estimate as number | null) ?? null),
-        due_date: showDueDatePill
-          ? ((data.due_date as string | null) ?? null)
-          : null,
+        estimate: (data.estimate as number | null) ?? null,
+        due_date: (data.due_date as string | null) ?? null,
         issue_id: issueId || null,
         project_id: projectId || null,
         created_by: currentStaff?.id ?? null,
@@ -626,7 +621,6 @@ export function TasksList({
       issueId,
       projectId,
       currentStaff?.id,
-      showDueDatePill,
     ],
   );
 
@@ -856,8 +850,7 @@ export function TasksList({
             } as EntityListPillColumn<TaskWithAssignee, unknown>,
           ]
         : []),
-      ...(showDueDatePill
-        ? [
+      ...[
             {
               key: "due_date",
               label: "Due date",
@@ -889,8 +882,6 @@ export function TasksList({
                 />
               ),
             } as EntityListPillColumn<TaskWithAssignee, unknown>,
-          ]
-        : [
             {
               key: "estimate",
               label: "Estimate",
@@ -921,7 +912,7 @@ export function TasksList({
                 />
               ),
             } as EntityListPillColumn<TaskWithAssignee, unknown>,
-          ]),
+          ],
       {
         key: "priority",
         label: "Priority",
@@ -958,7 +949,6 @@ export function TasksList({
     ],
     [
       defaultAssignee,
-      showDueDatePill,
       assigneeFilterOptions,
       issueFilterOptions,
       projectFilterOptions,
@@ -981,18 +971,16 @@ export function TasksList({
 
   const groupByOptions = [
     { key: "assignee", label: "Assignee" },
-    ...(showDueDatePill
-      ? [{ key: "due_date", label: "Due date" }]
-      : [{ key: "estimate", label: "Estimate" }]),
+    { key: "due_date", label: "Due date" },
+    { key: "estimate", label: "Estimate" },
     { key: "status", label: "Status" },
     { key: "priority", label: "Priority" },
     { key: "project_id", label: "Project" },
   ];
 
   const sortByOptions = [
-    ...(showDueDatePill
-      ? [{ key: "due_date", label: "Due date" }]
-      : [{ key: "estimate", label: "Estimate" }]),
+    { key: "due_date", label: "Due date" },
+    { key: "estimate", label: "Estimate" },
     { key: "priority", label: "Priority" },
     { key: "status", label: "Status" },
   ];
@@ -1106,6 +1094,13 @@ export function TasksList({
   return (
     <>
       <EntityCollection<TaskWithAssignee>
+        keyboardActions={[
+          { key: "d", kind: "date", label: "Due date", options: [], apply: (item,value) => updateTask.mutateAsync({id:item.id, updates:{due_date:value === null ? null : String(value)}}) },
+          { key: "e", label: "Estimate", options: [{id:'none',value:null,label:'None'}, ...ESTIMATE_OPTIONS], apply: (item,value) => updateTask.mutateAsync({id:item.id, updates:{estimate:value === null ? null : Number(value)}}) },
+          { key: "s", label: "Change status", options: TASK_STATUS_OPTIONS, apply: (item, value) => updateTask.mutateAsync({ id: item.id, updates: { status: value as TaskStatus } }) },
+          { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateTask.mutateAsync({ id: item.id, updates: { priority: Number(value)  } }) },
+          { key: "a", label: "Assign", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateTask.mutateAsync({id: item.id, updates: { assigned_to: value === null ? null : String(value) } }) },
+        ]}
         viewTarget="tasks"
         layout={layout}
         board={{

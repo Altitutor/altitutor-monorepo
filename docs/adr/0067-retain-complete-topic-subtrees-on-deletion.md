@@ -1,0 +1,3 @@
+# Retain complete Topic subtrees on deletion
+
+Matthew chose subtree deletion in DEV-451 after production parent deletion was blocked by live child Topics. Deleting a Topic hides its complete live subtree atomically through the existing retained-deletion boundary, keeping a history snapshot and actor for each Topic, all resource relationships, and unrelated sibling Topics. The confirmation explicitly warns that all subtopics and their resources will be hidden; restoration remains explicit, parent before child, rather than silently reviving a subtree. This refines ADR 0064 instead of requiring users to delete every descendant individually.
