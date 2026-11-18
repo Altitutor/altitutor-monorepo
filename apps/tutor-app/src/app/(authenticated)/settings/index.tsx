@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+import { openBrowserAsync } from 'expo-web-browser';
+import { Alert } from 'react-native';
 
 import { Card, TappableRow, TutorScreen } from '@/components/tutor-ui';
 import { useAuth } from '@/providers/auth-provider';
@@ -29,6 +31,11 @@ export default function SettingsScreen() {
         ))}
       </Card>
       <Card divided>
+        <TappableRow title="Privacy policy" onPress={() => {
+          void openBrowserAsync('https://altitutor.com/privacy-policy/').catch(() => {
+            Alert.alert('Could not open privacy policy', 'Visit https://altitutor.com/privacy-policy/ in your browser.');
+          });
+        }} />
         <TappableRow title="Sign out" onPress={() => void signOut()} />
       </Card>
     </TutorScreen>

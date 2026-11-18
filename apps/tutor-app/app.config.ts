@@ -32,7 +32,7 @@ const config: ExpoConfig = {
     'expo-secure-store',
     'expo-web-browser',
     ['expo-notifications', { color: '#0A2941', defaultChannel: 'tutor-updates' }],
-    ['expo-splash-screen', { backgroundColor: '#FFFFFF' }],
+    ['expo-splash-screen', { backgroundColor: '#FFFFFF', image: './assets/images/icon.png', imageWidth: 128 }],
     'expo-video',
     'expo-image',
   ],

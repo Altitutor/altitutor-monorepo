@@ -6,6 +6,9 @@
     "production": { "environment": "production", "autoIncrement": true }
   },
   "submit": {
-    "production": { "android": { "track": "internal", "releaseStatus": "draft" } }
+    "production": {
+      "android": { "track": "production", "releaseStatus": "completed" },
+      "ios": { "ascAppId": "6834382269" }
+    }
   }
 }
