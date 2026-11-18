@@ -38,7 +38,9 @@ REVOKE ALL ON public.ucat_student_study_plan_exposure_debts
 GRANT SELECT ON public.ucat_student_study_plan_exposure_debts
   TO service_role;
 
-GRANT SELECT ON public.vmarketing_staff_profiles TO anon;
+-- Preserve DEV-397's public read boundary after broad fixture grants.
+REVOKE ALL ON public.vmarketing_staff_profiles FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vmarketing_staff_profiles TO anon, authenticated;
 
 -- Operational schedule facades are read-only, as granted by the lifecycle
 -- migration. Preserve that contract after the local hosted-grant emulation.
