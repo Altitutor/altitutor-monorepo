@@ -123,15 +123,18 @@ function BulkMessageWizard({
     return () => clearTimeout(timer);
   }, [groupSearch]);
   const addPeople = (incoming: BulkPerson[]) =>
-    setPeople((current) => [
-      ...current,
-      ...incoming.filter(
-        (person) =>
-          !current.some(
-            (existing) => personKey(existing) === personKey(person),
-          ),
-      ),
-    ]);
+    setPeople((current) => {
+      const seen = new Set(current.map(personKey));
+      return [
+        ...current,
+        ...incoming.filter((person) => {
+          const key = personKey(person);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }),
+      ];
+    });
   const loadedPrefill = useRef(false);
   const prefill = useQuery({
     queryKey: ["bulk-message-prefill", initialStudentIds, initialStaffIds],
@@ -384,16 +387,21 @@ function BulkMessageWizard({
       query.state.data?.length === ids.length &&
       query.state.data.every((row) =>
         [
-          "SENT",
           "DELIVERED",
           "READ",
           "FAILED",
+          "UNDELIVERED",
           "AMBIGUOUS",
           "CANCELLED",
         ].includes(row.status ?? ""),
       )
         ? false
-        : 5000,
+        : query.state.data?.length &&
+            query.state.data.every((row) =>
+              ["SENT", "DELIVERED", "READ"].includes(row.status ?? ""),
+            )
+          ? 30_000
+          : 5000,
     queryFn: async () => {
       const rows: Array<
         Pick<Tables<"messages">, "id" | "status" | "error_message">
@@ -415,7 +423,7 @@ function BulkMessageWizard({
       ? {
           ...row,
           status: live.status ?? row.status,
-          error: live.error_message ?? row.error,
+          error: live.error_message ?? undefined,
         }
       : row;
   });

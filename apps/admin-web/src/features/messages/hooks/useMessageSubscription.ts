@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { type QueryClient,
-  type Query, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type Query,
+  type InfiniteData,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { useToast } from "@altitutor/ui";
 import { messagesKeys } from "../api/queryKeys";
@@ -54,6 +58,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const changed = new Set<string>();
+  const changedMessages = new Set<string>();
   const inserted = new Map<string, Message>();
   let readChanged = false;
   const schedule = () => {
@@ -65,6 +70,8 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
   };
   const flush = async () => {
     const conversationIds = [...changed];
+    const messageIds = [...changedMessages];
+    changedMessages.clear();
     const incoming = [...inserted.values()];
     const refreshReads = readChanged;
     changed.clear();
@@ -73,29 +80,54 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
     // A single refetch per affected query per burst. No cancel/restart storm.
     if (conversationIds.length || refreshReads) {
       const predicate = (query: Query) => {
-            const [root, family, id] = query.queryKey;
-            if (root === "entity-communication" && family === "messages")
-              return true;
-            if (root !== messagesKeys.all[0]) return false;
-            if (family === "messages")
-              return conversationIds.includes(String(id));
-            return [
-              "conversations",
-              "conversations-by-contact",
-              "unread-count",
-              "messages-for-contact",
-              "sms-resends",
-            ].includes(String(family));
-          };
-      const alreadyFetching = new Set(queryClient.getQueryCache().findAll({predicate})
-        .filter(query => query.state.fetchStatus === 'fetching').map(query => query.queryHash));
-      void queryClient.invalidateQueries({predicate}, {cancelRefetch: false}).then(() => {
-        // An older request can complete with a pre-event snapshot. Refresh it
-        // once after settling, rather than cancelling and restarting per event.
-        if (!stopped && alreadyFetching.size) return queryClient.invalidateQueries({
-          predicate: query => alreadyFetching.has(query.queryHash),
-        }, {cancelRefetch: false});
-      });
+        const [root, family, id] = query.queryKey;
+        if (root === "bulk-message-delivery" && Array.isArray(family))
+          return family.some((messageId) =>
+            messageIds.includes(String(messageId)),
+          );
+        if (root === "entity-communication" && family === "messages")
+          return true;
+        if (root !== messagesKeys.all[0]) return false;
+        if (family === "messages") return conversationIds.includes(String(id));
+        if (family === "messages-for-contact") {
+          const cached = query.state.data as
+            | InfiniteData<{ items: Pick<Message, "conversation_id">[] }>
+            | undefined;
+          return cached
+            ? cached.pages.some((page) =>
+                page.items.some((message) =>
+                  conversationIds.includes(message.conversation_id ?? ""),
+                ),
+              )
+            : conversationIds.length > 0;
+        }
+        return [
+          "conversations",
+          "conversations-by-contact",
+          "unread-count",
+          "sms-resends",
+        ].includes(String(family));
+      };
+      const alreadyFetching = new Set(
+        queryClient
+          .getQueryCache()
+          .findAll({ predicate })
+          .filter((query) => query.state.fetchStatus === "fetching")
+          .map((query) => query.queryHash),
+      );
+      void queryClient
+        .invalidateQueries({ predicate }, { cancelRefetch: false })
+        .then(() => {
+          // An older request can complete with a pre-event snapshot. Refresh it
+          // once after settling, rather than cancelling and restarting per event.
+          if (!stopped && alreadyFetching.size)
+            return queryClient.invalidateQueries(
+              {
+                predicate: (query) => alreadyFetching.has(query.queryHash),
+              },
+              { cancelRefetch: false },
+            );
+        });
     }
     if (!incoming.length || stopped) return;
     // Resolve the entire INSERT burst at once, rather than one join per message.
@@ -123,7 +155,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
         "[useMessageSubscription] Failed to load message contexts",
         error,
       );
-      return;
+      // Enrichment must not suppress unread state or the incoming notification.
     }
     const contexts = new Map((data ?? []).map((row) => [row.id, row]));
     const inbound = incoming.filter(
@@ -147,15 +179,27 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
           unreadError,
         );
     }
+    const contacts = new Set<string>();
+    const inboundContacts = new Set<string>();
     for (const row of incoming) {
       const context = contexts.get(row.conversation_id ?? "");
-      if (context?.contact_id && row.direction === "INBOUND") {
-        void queryClient.invalidateQueries(
-          { queryKey: [...messagesKeys.all, "addresses", context.contact_id] },
-          { cancelRefetch: false },
-        );
+      if (context?.contact_id) {
+        contacts.add(context.contact_id);
+        if (row.direction === "INBOUND")
+          inboundContacts.add(context.contact_id);
       }
     }
+    // Empty contact threads have no cached conversation IDs yet.
+    for (const contactId of contacts)
+      void queryClient.invalidateQueries(
+        { queryKey: messagesKeys.messagesForContactBase(contactId) },
+        { cancelRefetch: false },
+      );
+    for (const contactId of inboundContacts)
+      void queryClient.invalidateQueries(
+        { queryKey: [...messagesKeys.all, "addresses", contactId] },
+        { cancelRefetch: false },
+      );
     if (stopped) return;
     for (const row of inbound) {
       const context = contexts.get(row.conversation_id ?? "");
@@ -180,12 +224,10 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
                 ),
               );
             } else if (row.conversation_id) {
-              useChatStore
-                .getState()
-                .openWindow({
-                  conversationId: row.conversation_id,
-                  title: sender,
-                });
+              useChatStore.getState().openWindow({
+                conversationId: row.conversation_id,
+                title: sender,
+              });
             }
           },
         },
@@ -196,6 +238,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
     const row = payload.new;
     if (!row.conversation_id) return;
     changed.add(row.conversation_id);
+    if (row.id) changedMessages.add(row.id);
     if (isInsert && row.id) inserted.set(row.id, row as Message);
     schedule();
   };

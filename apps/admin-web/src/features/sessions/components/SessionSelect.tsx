@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { BUSINESS_TIMEZONE } from "@altitutor/shared";
 import {
@@ -18,7 +18,28 @@ import { CalendarDays, Check, ChevronLeft, ChevronRight } from "lucide-react";
 
 /** Shared session chooser. Callers retain their eligibility, timezone and query
  * rules; this renders the same week selection interaction everywhere. */
-export type SessionSelectProps<T> = SearchableSelectProps<T> & {
+export type SessionSelectProps<T> = Pick<
+  SearchableSelectProps<T>,
+  | "items"
+  | "value"
+  | "onValueChange"
+  | "getItemId"
+  | "getItemLabel"
+  | "placeholder"
+  | "disabled"
+  | "loading"
+  | "getItemDisabled"
+  | "emptyMessage"
+  | "trigger"
+  | "triggerClassName"
+  | "ariaLabel"
+  | "footer"
+  | "align"
+  | "open"
+  | "onOpenChange"
+  | "popoverContainer"
+> & {
+  getItemDescription?: (item: T) => ReactNode;
   getItemDate?: (item: T) => string | null;
   timezone?: string;
   selectedIds?: ReadonlySet<string>;
@@ -35,6 +56,7 @@ export function SessionSelect<T>({
   getItemId,
   getItemLabel,
   getItemDate,
+  getItemDescription,
   timezone = BUSINESS_TIMEZONE,
   selectedIds,
   onToggle,
@@ -154,7 +176,32 @@ export function SessionSelect<T>({
                   </span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-72">{label}</TooltipContent>
+              <TooltipContent className="max-w-72">
+                {getItemDescription ? (
+                  getItemDescription(item)
+                ) : (
+                  <div className="space-y-1">
+                    <p>{label}</p>
+                    {item &&
+                      typeof item === "object" &&
+                      "start_at" in item &&
+                      typeof item.start_at === "string" &&
+                      !Number.isNaN(new Date(item.start_at).getTime()) && (
+                        <p>
+                          {new Date(item.start_at).toLocaleString("en-AU", {
+                            timeZone: timezone,
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      )}
+                    {item &&
+                      typeof item === "object" &&
+                      "room" in item &&
+                      typeof item.room === "string" && <p>{item.room}</p>}
+                  </div>
+                )}
+              </TooltipContent>
             </Tooltip>
           );
         })}

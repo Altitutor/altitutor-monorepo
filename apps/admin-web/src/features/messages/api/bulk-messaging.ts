@@ -106,31 +106,13 @@ export async function prepareBulkRecipients(
   const db = getSupabaseClient();
   const renderTemplate = !generateLinks
     ? template.replace(
-        /\{(?:registration_link|invite_link|forgot_password_link)\}/gi,
-        (match) => `[${match.slice(1, -1).replaceAll("_", " ")}]`,
+        /\{(?:parent\.student\d+\.)?(registration_link|invite_link|forgot_password_link)\}/gi,
+        (_match, kind: string) => `[${kind.replaceAll("_", " ")}]`,
       )
     : template;
   const students = selected.flatMap((row) =>
     row.kind === "student" && (row.included || row.parents) ? [row] : [],
   );
-  const ids = students.map((row) => row.person.id);
-  const classes =
-    /\{(?:classes|classes_with_start_date|parent\.student\d+\.classes(?:_with_start_date)?)\}/i.test(
-      template,
-    )
-      ? await readBulkStudentClasses(
-          ids,
-          /classes_with_start_date/i.test(template),
-        )
-      : {};
-  const tokens =
-    generateLinks && templateContainsLinkVariables(template)
-      ? await batchGenerateLinkTokens(ids, {
-          includeRegistration: /\{registration_link\}/i.test(template),
-          includeInvite: /\{invite_link\}/i.test(template),
-          includePasswordReset: /\{forgot_password_link\}/i.test(template),
-        })
-      : {};
   const parents = new Map<
     string,
     { person: Tables<"parents">; students: Tables<"students">[] }
@@ -158,6 +140,122 @@ export async function prepareBulkRecipients(
       if (student && !entry.students.some((item) => item.id === student.id))
         entry.students.push(student);
       parents.set(row.parent.id, entry);
+    }
+  }
+
+  // Direct parent selection has the same child-template context as selection
+  // through a student. Load it only when the template references children.
+  if (/\{parent\.student\d+\./i.test(template)) {
+    const directIds = selected.flatMap((row) =>
+      row.kind === "parent" && row.included ? [row.person.id] : [],
+    );
+    for (const batch of chunk(directIds))
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await db
+          .from("parents_students")
+          .select("parent_id, student:students(*)")
+          .in("parent_id", batch)
+          .order("id")
+          .range(offset, offset + 999);
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const parent = parents.get(row.parent_id);
+          if (
+            parent &&
+            row.student &&
+            !row.student.deleted_at &&
+            !parent.students.some((child) => child.id === row.student.id)
+          )
+            parent.students.push(row.student);
+        }
+        if (!data || data.length < 1000) break;
+      }
+  }
+  for (const parent of parents.values())
+    parent.students.sort((a, b) => personName(a).localeCompare(personName(b)));
+  const studentRecords = new Map(
+    students.map((row) => [row.person.id, row.person]),
+  );
+  for (const parent of parents.values())
+    for (const child of parent.students) studentRecords.set(child.id, child);
+  const ids = [...studentRecords.keys()];
+  const classes =
+    /\{(?:classes|classes_with_start_date|parent\.student\d+\.classes(?:_with_start_date)?)\}/i.test(
+      template,
+    )
+      ? await readBulkStudentClasses(
+          ids,
+          /classes_with_start_date/i.test(template),
+        )
+      : {};
+  const tokens: Awaited<ReturnType<typeof batchGenerateLinkTokens>> = {};
+  const linkRequests = new Map<
+    string,
+    {
+      includeRegistration: boolean;
+      includeInvite: boolean;
+      includePasswordReset: boolean;
+    }
+  >();
+  for (const match of template.matchAll(
+    /\{(?:(parent\.student(\d+))\.)?(registration_link|invite_link|forgot_password_link)\}/gi,
+  )) {
+    const targets = match[1]
+      ? [...parents.values()].flatMap((parent) => {
+          const child = parent.students[Number(match[2]) - 1];
+          if (!child)
+            throw new Error(
+              `Cannot render student ${match[2]} for ${personName(parent.person)}. Review the recipient/template.`,
+            );
+          return [child.id];
+        })
+      : students.filter((row) => row.included).map((row) => row.person.id);
+    for (const id of targets) {
+      const flags = linkRequests.get(id) ?? {
+        includeRegistration: false,
+        includeInvite: false,
+        includePasswordReset: false,
+      };
+      if (match[3].toLowerCase() === "registration_link")
+        flags.includeRegistration = true;
+      if (match[3].toLowerCase() === "invite_link") flags.includeInvite = true;
+      if (match[3].toLowerCase() === "forgot_password_link")
+        flags.includePasswordReset = true;
+      linkRequests.set(id, flags);
+    }
+  }
+  if (generateLinks) {
+    // Group equal requirements so unrelated children do not receive link-generation side effects.
+    const groups = new Map<
+      string,
+      {
+        ids: string[];
+        flags: {
+          includeRegistration: boolean;
+          includeInvite: boolean;
+          includePasswordReset: boolean;
+        };
+      }
+    >();
+    for (const [id, flags] of linkRequests) {
+      const key = JSON.stringify(flags);
+      const group = groups.get(key) ?? { ids: [], flags };
+      group.ids.push(id);
+      groups.set(key, group);
+    }
+    for (const { ids, flags } of groups.values())
+      for (const batch of chunk(ids))
+        Object.assign(tokens, await batchGenerateLinkTokens(batch, flags));
+    for (const [id, flags] of linkRequests) {
+      if (
+        (flags.includeRegistration && !tokens[id]?.registrationToken) ||
+        (flags.includeInvite && !tokens[id]?.inviteToken) ||
+        (flags.includePasswordReset && !tokens[id]?.forgotPasswordLink)
+      ) {
+        throw new Error(
+          `Unable to generate required links for ${personName(studentRecords.get(id)!)}. No messages queued.`,
+        );
+      }
     }
   }
   const results: BulkRecipient[] = [];

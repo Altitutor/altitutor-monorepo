@@ -92,12 +92,8 @@ export function MeetingAdminStaffSessionStep({
           value={selectedSession}
           onValueChange={(row) => row && onSessionChange(row.id)}
           getItemLabel={(s) => s.long_name?.trim() || getShortSessionName(s)}
-          getItemValue={(s) =>
-            [s.long_name, s.short_name, s.id].filter(Boolean).join(' ')
-          }
           getItemId={(s) => s.id}
           placeholder={selectedStaffId ? 'Select session…' : 'Choose staff first'}
-          searchPlaceholder="Filter sessions…"
           loading={sessionsLoading}
           disabled={!selectedStaffId}
         />

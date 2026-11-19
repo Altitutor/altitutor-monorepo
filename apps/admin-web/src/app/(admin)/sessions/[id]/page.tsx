@@ -484,23 +484,12 @@ function SessionDetailView({ id }: { id: string }) {
                       }}
                       getItemId={(classSession) => classSession.id}
                       getItemLabel={getSessionNavigationLabel}
-                      getItemValue={(classSession) =>
-                        [
-                          getSessionNavigationLabel(classSession),
-                          classSession.long_name,
-                          classSession.short_name,
-                        ]
-                          .filter(Boolean)
-                          .join(" ")
-                      }
-                      searchPlaceholder="Search session dates or times…"
                       emptyMessage={`No ${siblingScope} sessions found.`}
                       loading={siblingSessionsQuery.isLoading}
                       disabled={
                         siblingSessionsQuery.isLoading ||
                         siblingSessions.length === 0
                       }
-                      contentWidth="280px"
                       align="end"
                       trigger={
                         <SearchableSelectFieldTrigger
