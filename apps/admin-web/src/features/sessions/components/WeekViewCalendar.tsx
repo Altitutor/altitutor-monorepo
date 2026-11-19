@@ -32,6 +32,7 @@ export function WeekViewCalendar({
   onWeekChange,
   minDate,
 }: WeekViewCalendarProps) {
+  // Existing callers query local calendar weeks; use that timezone to group sessions.
   return (
     <SessionSelect
       items={sessions}
@@ -44,6 +45,7 @@ export function WeekViewCalendar({
       selectedIds={selectedSessionIds}
       onToggle={(row) => onToggleSession(row.id)}
       weekStart={currentWeekStart}
+      timezone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       onWeekChange={onWeekChange}
       minDate={minDate}
       placeholder="Select sessions"
