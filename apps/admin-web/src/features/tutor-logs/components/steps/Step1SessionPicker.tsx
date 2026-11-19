@@ -1,154 +1,40 @@
-'use client';
-
-import type { Tables } from '@altitutor/shared';
-import { formatSessionDate, formatSessionTimeRangeForDisplay } from '@altitutor/shared';
-import { SessionsCard } from '@/features/sessions/components/SessionsCard';
-import { cn } from '@/shared/utils/index';
-import { getShortSessionName } from '@/features/sessions/utils/session-helpers';
-import { formatTime } from '@/shared/utils/datetime';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
-import { useUnloggedSessionsForStaff } from '../../hooks';
-
-type Step1SessionPickerProps = {
-  title?: string;
-  staffId: string;
-  selectedSessionId?: string;
-  onSelectSession: (sessionId: string) => void;
-  /** Meeting-style picker: simple list using `sessions.long_name` (fallback to short name). */
-  variant?: 'cards' | 'compactList';
-};
+"use client";
+import { SessionSelect } from "@/features/sessions/components/SessionSelect";
+import { useUnloggedSessionsForStaff } from "../../hooks";
 
 export function Step1SessionPicker({
   title,
   staffId,
   selectedSessionId,
   onSelectSession,
-  variant = 'cards',
-}: Step1SessionPickerProps) {
+}: {
+  title?: string;
+  staffId: string;
+  selectedSessionId?: string;
+  onSelectSession: (id: string) => void;
+  variant?: "cards" | "compactList";
+}) {
   const { data, isLoading } = useUnloggedSessionsForStaff(staffId);
-
-  const sessions = data?.sessions || [];
-  const sessionStudents = data?.sessionStudents || {};
-  const sessionStaff = data?.sessionStaff || {};
-  const classesById = data?.classesById || {};
-  const subjectsById = data?.subjectsById || {};
-
-  const getSessionPickerLabel = (session: Tables<'sessions'>) => {
-    const classData = session.class_id ? classesById[session.class_id] : undefined;
-    const className = classData?.short_name?.trim();
-    const date = session.start_at ? formatSessionDate(session.start_at) : '';
-    const time = formatSessionTimeRangeForDisplay(session, formatTime);
-    const dateTime = [date, time !== '—' ? time : ''].filter(Boolean).join(' · ');
-
-    if (className && dateTime) return `${className} · ${dateTime}`;
-    if (className) return className;
-    if (dateTime) return `${getShortSessionName(session)} · ${dateTime}`;
-    return getShortSessionName(session);
-  };
-
-  if (isLoading) {
-    return <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>;
-  }
-
-  if (sessions.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">No sessions available to log.</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          All past sessions have been logged or you have no sessions assigned.
-        </p>
-      </div>
-    );
-  }
-
+  const sessions = data?.sessions ?? [];
   return (
     <div className="space-y-4">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
-      {variant === 'compactList' ? (
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Session</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessions.map((session) => {
-                const isSelected = session.id === selectedSessionId;
-                const label = getSessionPickerLabel(session);
-                return (
-                  <TableRow
-                    key={session.id}
-                    className={cn(
-                      'cursor-pointer',
-                      isSelected && 'bg-primary/10'
-                    )}
-                    onClick={() => onSelectSession(session.id)}
-                  >
-                    <TableCell className="font-medium">{label}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {sessions.map((session) => {
-            const isSelected = session.id === selectedSessionId;
-            const classData = session.class_id ? classesById[session.class_id] : undefined;
-            const subject = classData?.subject_id ? subjectsById[classData.subject_id] : undefined;
-            const sessionLabel = getSessionPickerLabel(session);
-            type StaffRow = Tables<'staff'> & { staff?: Tables<'staff'>; planned_absence?: boolean };
-            type StudentRow = Tables<'students'> & {
-              student?: Tables<'students'>;
-              planned_absence?: boolean;
-              is_extra?: boolean;
-            };
-            const staff = (sessionStaff[session.id] || []).map((sf: StaffRow) => ({
-              ...(sf.staff ?? sf),
-              planned_absence: sf.planned_absence,
-            }));
-            const students = (sessionStudents[session.id] || []).map((ss: StudentRow) => ({
-              ...(ss.student ?? ss),
-              planned_absence: ss.planned_absence,
-              is_extra: ss.is_extra,
-            }));
-
-            return (
-              <div
-                key={session.id}
-                className={cn(
-                  'cursor-pointer transition-all',
-                  isSelected && 'ring-2 ring-primary rounded-lg'
-                )}
-                onClick={() => onSelectSession(session.id)}
-              >
-                <div className="mb-2 rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
-                  {sessionLabel}
-                </div>
-                <SessionsCard
-                  session={session}
-                  classData={classData}
-                  subject={subject}
-                  staff={staff}
-                  students={students}
-                  isSelecting={true}
-                  isSelected={isSelected}
-                />
-              </div>
-            );
-          })}
-        </div>
+      <SessionSelect
+        items={sessions}
+        value={sessions.find((row) => row.id === selectedSessionId) ?? null}
+        onValueChange={(row) => {
+          if (row) onSelectSession(row.id);
+        }}
+        getItemId={(row) => row.id}
+        getItemLabel={(row) => row.long_name || row.short_name || "Session"}
+        loading={isLoading}
+        placeholder="Select session to log"
+      />
+      {!isLoading && !sessions.length && (
+        <p className="text-sm text-muted-foreground">
+          No sessions available to log.
+        </p>
       )}
     </div>
   );
 }
-

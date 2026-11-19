@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { EntityChipIcon } from "@altitutor/ui";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { Button } from "@altitutor/ui";
@@ -214,6 +216,76 @@ export function ActionsMenu(props: ActionsMenuProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const quickActions = useQuickActions();
+  const [loadingBulk, setLoadingBulk] = useState(false);
+  const openBulkMembers = async (kind: "student" | "staff") => {
+    if (
+      !props.entityId ||
+      (props.type !== "class" && props.type !== "session") ||
+      loadingBulk
+    )
+      return;
+    setLoadingBulk(true);
+    try {
+      const db = getSupabaseClient();
+      const ids: string[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const table =
+          props.type === "class"
+            ? kind === "student"
+              ? "classes_students"
+              : "classes_staff"
+            : kind === "student"
+              ? "sessions_students"
+              : "sessions_staff";
+        const query = db
+          .from(table)
+          .select(kind === "student" ? "student_id" : "staff_id");
+        const filtered = query.filter(
+          props.type === "class" ? "class_id" : "session_id",
+          "eq",
+          props.entityId,
+        );
+        const endColumn =
+          kind === "student" ? "unenrolled_at" : "unassigned_at";
+        const active =
+          props.type === "class"
+            ? filtered.or(
+                `${endColumn}.is.null,${endColumn}.gt.${new Date().toISOString()}`,
+              )
+            : filtered;
+        const { data, error } = await active
+          .order("id")
+          .range(offset, offset + 999);
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const record: unknown = row;
+          const key = kind === "student" ? "student_id" : "staff_id";
+          if (record && typeof record === "object" && key in record) {
+            const id = (record as Record<string, unknown>)[key];
+            if (typeof id === "string") ids.push(id);
+          }
+        }
+        if (!data || data.length < 1000) break;
+      }
+      if (!ids.length) {
+        toast({
+          title: `No ${kind === "staff" ? "staff" : "students"} in this ${props.type}`,
+        });
+        return;
+      }
+      quickActions.openAnnouncementsModal(
+        kind === "student" ? [...new Set(ids)] : [],
+        kind === "staff" ? [...new Set(ids)] : [],
+      );
+    } catch {
+      toast({
+        title: "Unable to load message recipients",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingBulk(false);
+    }
+  };
   const reference = props.entityId
     ? {
         type:
@@ -272,6 +344,9 @@ export function ActionsMenu(props: ActionsMenuProps) {
 
   const canAddRelatedWork = reference && !["task", "project", "issue"].includes(props.type);
   const allActions = recordMenuActions(props, {
+    messageStudents: () => { void openBulkMembers('student'); },
+    messageStaff: () => { void openBulkMembers('staff'); },
+    bulkMessageDisabled: loadingBulk,
     copy: props.entityId
       ? () => {
           void handleCopyId();
