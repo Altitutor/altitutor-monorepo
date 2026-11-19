@@ -95,6 +95,12 @@ const slotHeight = 72;
 const dayStartHour = 8;
 const dayEndHour = 20;
 
+function rosterFilterOptions(people: { id: string; name: string }[]) {
+  return [...new Map(people.map((person) => [person.id, person])).values()]
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((person) => ({ label: person.name, value: person.id }));
+}
+
 function statusLabel(round: InterviewRound) {
   if (round.phase === "completed") return "Completed";
   if (round.startedAt) return round.phase;
@@ -631,9 +637,9 @@ export function InterviewRoundsPage() {
 
   const filterDefinitions: DataTableFilterDefinition[] = [
     { key: "students", label: "Students", choiceOperators: true, searchable: true,
-      options: (catalog?.students ?? []).map((student) => ({ label: student.name, value: student.id })) },
+      options: rosterFilterOptions([...(catalog?.students ?? []), ...(roundsQuery.data ?? []).flatMap((round) => round.students)]) },
     { key: "tutors", label: "Tutors", choiceOperators: true, searchable: true,
-      options: (catalog?.tutors ?? []).map((tutor) => ({ label: tutor.name, value: tutor.id })) },
+      options: rosterFilterOptions([...(catalog?.tutors ?? []), ...(roundsQuery.data ?? []).flatMap((round) => round.tutors)]) },
     { key: "mine", label: "My rounds", options: [{ label: "Assigned to me", value: "yes" }] },
     {
       key: "date",

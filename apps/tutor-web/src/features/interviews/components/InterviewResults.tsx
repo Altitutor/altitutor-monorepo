@@ -334,7 +334,7 @@ export function InterviewResults({ id }: { id: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {released
-            ? "Corrections remain drafts until you release an update. Students keep seeing their previous release."
+            ? "Score and feedback edits remain drafts until you release an update. Attribution corrections withdraw affected results immediately."
             : "Scores, feedback and recordings stay private until explicitly released."}
         </p>
         <Button
