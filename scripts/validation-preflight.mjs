@@ -16,6 +16,9 @@ export function run(command, args, timeout = 15_000) {
   return {
     ok: !result.error && result.status === 0,
     output: result.stdout?.trim() ?? "",
+    diagnostic: (result.error?.code ?? result.stderr?.trim() ?? "")
+      .replace(/\s+/gu, " ")
+      .slice(0, 240),
   };
 }
 
@@ -122,6 +125,12 @@ function darwinAvailableMemory(output, total) {
   return Number.isSafeInteger(bytes) ? Math.min(bytes, total) : null;
 }
 
+function memoryUnavailable(probe, detail) {
+  throw new Error(
+    `Memory measurement unavailable: ${probe}: ${detail}. Retry validation with access to the macOS memory counters; validation remains blocked until a reliable measurement succeeds`,
+  );
+}
+
 export function availableMemory({
   hostFree = freemem(),
   hostTotal = totalmem(),
@@ -138,11 +147,23 @@ export function availableMemory({
     // Darwin kernel pressure levels: normal=1, warning=2, critical=4. Refuse
     // heavy work under reported pressure, even if unused RAM alone looks ample.
     if (pressure.ok && ["2", "4"].includes(pressure.output.trim())) return 0;
-    if (!pressure.ok || pressure.output.trim() !== "1") return hostFree;
+    if (!pressure.ok)
+      memoryUnavailable(
+        "/usr/sbin/sysctl kern.memorystatus_vm_pressure_level",
+        pressure.diagnostic || "command failed",
+      );
+    if (pressure.output.trim() !== "1")
+      memoryUnavailable("/usr/sbin/sysctl", "invalid pressure level");
     const stats = command("/usr/bin/vm_stat", [], 2000);
-    return stats.ok
-      ? (darwinAvailableMemory(stats.output, hostTotal) ?? hostFree)
-      : hostFree;
+    if (!stats.ok)
+      memoryUnavailable(
+        "/usr/bin/vm_stat",
+        stats.diagnostic || "command failed",
+      );
+    const available = darwinAvailableMemory(stats.output, hostTotal);
+    if (available === null)
+      memoryUnavailable("/usr/bin/vm_stat", "invalid memory counters");
+    return available;
   }
   if (platform !== "linux") return hostFree;
   // Node reports host memory; a Linux container can have a smaller cgroup budget.
