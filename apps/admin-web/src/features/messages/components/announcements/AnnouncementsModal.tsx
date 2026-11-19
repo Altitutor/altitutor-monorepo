@@ -1,339 +1,778 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button, useToast } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
-import { getErrorMessage } from '@/shared/utils';
-import { AdminDialogShell } from '@/shared/components';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { StudentSelector } from '../bulk/StudentSelector';
-import { MessageComposer } from '../bulk/MessageComposer';
-import { MessagePreview } from '../bulk/MessagePreview';
-import { useAnnouncements } from '@/features/messages/hooks/useAnnouncements';
-import { useAvailableSenders } from '@/features/messages/api/queries';
-import type { AttachmentFile } from '../../hooks/useMessageAttachments';
-import { useDialogHotkeys } from '@/shared/hooks';
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { addDays, format, startOfWeek } from "date-fns";
+import {
+  Button,
+  Checkbox,
+  SearchableSelect,
+  Switch,
+  Textarea,
+} from "@altitutor/ui";
+import type { Tables } from "@altitutor/shared";
+import { X } from "lucide-react";
+import { AdminDialogShell } from "@/shared/components";
+import { EntityActionChip } from "@/shared/components/EntityActionChip";
+import { dateStringToUtcStart } from "@/shared/utils/datetime";
+import { useCurrentStaff } from "@/shared/hooks";
+import { getSupabaseClient } from "@/shared/lib/supabase/client";
+import { SessionSelect } from "@/features/sessions/components/SessionSelect";
+import { useAvailableSenders } from "../../api/queries";
+import {
+  personKey,
+  personName,
+  prepareBulkRecipients,
+  queueBulkMessages,
+  searchBulkPeople,
+  type BulkPerson,
+  type BulkRecipient,
+  type BulkResult,
+} from "../../api/bulk-messaging";
+import {
+  getStudentsByClass,
+  getStudentsBySubject,
+  getStudentsByYearLevel,
+} from "../../api/bulk";
+import { MessageTemplatesPicker } from "../MessageTemplatesPicker";
 
-type Step = 'select' | 'compose' | 'preview' | 'success';
-
-interface AnnouncementsModalProps {
+const EMPTY_IDS: string[] = [];
+interface Props {
   isOpen: boolean;
-  initialStudentIds?: string[];
   onClose: () => void;
+  initialStudentIds?: string[];
+  initialStaffIds?: string[];
+}
+export function AnnouncementsModal(props: Props) {
+  return props.isOpen ? <BulkMessageWizard {...props} /> : null;
 }
 
-const NO_STUDENTS: string[] = [];
-
-export function AnnouncementsModal({ isOpen, onClose, initialStudentIds = NO_STUDENTS }: AnnouncementsModalProps) {
-  const { toast } = useToast();
-  const { sendAnnouncements, isLoading: isSending } = useAnnouncements();
-  const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
-
-  const [step, setStep] = useState<Step>('select');
-  const [selectedStudents, setSelectedStudents] = useState<Tables<'students'>[]>([]);
-  const [message, setMessage] = useState('');
-  const [sendToParents, setSendToParents] = useState(false);
-  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
-  const [sendResult, setSendResult] = useState<{
-    sent: number;
-    failed: number;
-    skipped: number;
-  } | null>(null);
-
-  const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
+function PersonPicker({
+  kind,
+  onAdd,
+}: {
+  kind: BulkPerson["kind"];
+  onAdd: (people: BulkPerson[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
   useEffect(() => {
-    if (!isOpen || !initialStudentIds.length) {
-      setIsLoadingRecipients(false);
-      return;
-    }
-    let canceled = false;
-    setIsLoadingRecipients(true);
-    void getSupabaseClient()
-      .from("students")
-      .select("*")
-      .in("id", initialStudentIds)
-      .then(({ data, error }) => {
-        if (canceled) return;
-        setIsLoadingRecipients(false);
-        if (error || data?.length !== new Set(initialStudentIds).size) {
-          toast({
-            title: "Unable to load all interview students",
-            description: "Close and reopen the message to try again.",
-            variant: "destructive",
-          });
-          return;
-        }
-        setSelectedStudents(data);
-      });
-    return () => {
-      canceled = true;
-    };
-  }, [isOpen, initialStudentIds, toast]);
-
-  const isFinalStep = useMemo(() => step === 'preview', [step]);
-  const hasNextStep = useMemo(
-    () => step === 'select' || step === 'compose',
-    [step]
-  );
-
-  // Set default sender when senders load
-  useEffect(() => {
-    if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
-      const defaultSender = availableSenders.find(s => s.is_default) || availableSenders[0];
-      setSelectedSenderId(defaultSender.id);
-    }
-  }, [availableSenders, selectedSenderId]);
-
-  const handleSend = useCallback(async () => {
-    if (!selectedSenderId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a sender',
-        variant: 'destructive',
-      });
-      return;
-    }
-    try {
-      const result = await sendAnnouncements(selectedStudents, message, sendToParents, selectedSenderId);
-      setSendResult(result);
-      setStep('success');
-      
-      toast({
-        title: 'Announcements sent!',
-        description: `Successfully sent ${result.sent} announcement${result.sent !== 1 ? 's' : ''}`,
-      });
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error);
-      console.error('Error sending announcements:', error);
-      toast({
-        title: 'Error',
-        description: errorMessage || 'Failed to send announcements',
-        variant: 'destructive',
-      });
-    }
-  }, [selectedSenderId, sendAnnouncements, selectedStudents, message, sendToParents, toast]);
-
-  const handleClose = () => {
-    // Reset state when closing
-    setIsLoadingRecipients(false);
-    setStep('select');
-    setSelectedStudents([]);
-    setMessage('');
-    setSendToParents(false);
-    setSelectedSenderId(null);
-    setAttachments([]);
-    setSendResult(null);
-    onClose();
-  };
-
-  const handleReset = () => {
-    setStep('select');
-    setSelectedStudents([]);
-    setMessage('');
-    setSendToParents(false);
-    setSelectedSenderId(null);
-    setAttachments([]);
-    setSendResult(null);
-  };
-
-  const getStepTitle = () => {
-    const titles: Record<Step, string> = {
-      select: 'Select Students',
-      compose: 'Compose',
-      preview: 'Preview',
-      success: 'Success',
-    };
-    return titles[step] || 'Make Announcement';
-  };
-
-  const getStepNumber = (): number => {
-    if (step === 'select') return 1;
-    if (step === 'compose') return 2;
-    if (step === 'preview') return 3;
-    return 1;
-  };
-
-  const TOTAL_STEPS = 3;
-
-  const handleNextStep = useCallback(() => {
-    if (step === 'select' && selectedStudents.length > 0) {
-      setStep('compose');
-    } else if (step === 'compose' && message.trim()) {
-      setStep('preview');
-    }
-  }, [step, selectedStudents.length, message]);
-
-  useDialogHotkeys({
-    isOpen,
-    onNextStep: handleNextStep,
-    hasNextStep,
-    onPrimaryAction: isFinalStep ? handleSend : undefined,
-    isActionDisabled: isSending,
+    const timer = setTimeout(() => setDebounced(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const query = useQuery({
+    queryKey: ["bulk-people", kind, debounced],
+    queryFn: () => searchBulkPeople(kind, debounced),
+    enabled: debounced.trim().length > 0,
+    staleTime: 60_000,
   });
+  return (
+    <div>
+      <SearchableSelect
+        items={query.data ?? []}
+        value={null}
+        onValueChange={(person) => {
+          if (person) onAdd([person]);
+        }}
+        getItemId={personKey}
+        getItemLabel={(person) => personName(person.person)}
+        onSearchChange={setSearch}
+        placeholder={`Add ${kind === "student" ? "individual student" : kind}`}
+        searchPlaceholder="Search name…"
+        loading={query.isFetching}
+      />
+      {query.isError && (
+        <p role="alert" className="text-xs text-destructive">
+          Unable to search {kind}s.
+        </p>
+      )}
+    </div>
+  );
+}
 
+function BulkMessageWizard({
+  onClose,
+  initialStudentIds = EMPTY_IDS,
+  initialStaffIds = EMPTY_IDS,
+}: Props) {
+  const db = getSupabaseClient();
+  const { data: staff } = useCurrentStaff();
+  const { data: senders = [] } = useAvailableSenders();
+  const [step, setStep] = useState<
+    "recipients" | "compose" | "review" | "results"
+  >("recipients");
+  const [people, setPeople] = useState<BulkPerson[]>([]);
+  const [senderId, setSenderId] = useState("");
+  const [message, setMessage] = useState("");
+  const [prepared, setPrepared] = useState<BulkRecipient[]>([]);
+  const [results, setResults] = useState<BulkResult[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const [week, setWeek] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
+  );
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const [sessions, setSessions] = useState<Map<string, Tables<"sessions">>>(
+    new Map(),
+  );
+  const [groupSearch, setGroupSearch] = useState("");
+  const [groupTerm, setGroupTerm] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setGroupTerm(groupSearch), 250);
+    return () => clearTimeout(timer);
+  }, [groupSearch]);
+  const addPeople = (incoming: BulkPerson[]) =>
+    setPeople((current) => [
+      ...current,
+      ...incoming.filter(
+        (person) =>
+          !current.some(
+            (existing) => personKey(existing) === personKey(person),
+          ),
+      ),
+    ]);
+  const loadedPrefill = useRef(false);
+  const prefill = useQuery({
+    queryKey: ["bulk-message-prefill", initialStudentIds, initialStaffIds],
+    queryFn: async () => {
+      const incoming: BulkPerson[] = [];
+      if (initialStudentIds.length) {
+        const { data, error } = await db
+          .from("students")
+          .select("*")
+          .in("id", initialStudentIds)
+          .is("deleted_at", null);
+        if (error) throw error;
+        if (data.length !== new Set(initialStudentIds).size)
+          throw new Error("Some selected students are unavailable.");
+        incoming.push(
+          ...data.map((person) => ({
+            kind: "student" as const,
+            person,
+            included: true,
+            parents: false,
+          })),
+        );
+      }
+      if (initialStaffIds.length) {
+        const { data, error } = await db
+          .from("staff")
+          .select("*")
+          .in("id", initialStaffIds)
+          .is("deleted_at", null);
+        if (error) throw error;
+        if (data.length !== new Set(initialStaffIds).size)
+          throw new Error("Some selected staff are unavailable.");
+        incoming.push(
+          ...data.map((person) => ({
+            kind: "staff" as const,
+            person,
+            included: true,
+          })),
+        );
+      }
+      return incoming;
+    },
+    enabled: initialStudentIds.length + initialStaffIds.length > 0,
+    staleTime: Infinity,
+    retry: false,
+  });
+  useEffect(() => {
+    if (prefill.data && !loadedPrefill.current) {
+      loadedPrefill.current = true;
+      setPeople(prefill.data);
+    }
+  }, [prefill.data]);
+  const effectiveSender =
+    senderId ||
+    senders.find((row) => row.is_default)?.id ||
+    senders[0]?.id ||
+    "";
+  const sender = senders.find((row) => row.id === effectiveSender);
+  const sessionQuery = useQuery({
+    queryKey: ["bulk-session-week", format(week, "yyyy-MM-dd")],
+    enabled: sessionOpen,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from("sessions")
+        .select("*")
+        .eq("status", "ACTIVE")
+        .is("calendar_tombstone_until", null)
+        .gte("start_at", dateStringToUtcStart(format(week, "yyyy-MM-dd")))
+        .lt(
+          "start_at",
+          dateStringToUtcStart(format(addDays(week, 7), "yyyy-MM-dd")),
+        )
+        .order("start_at")
+        .limit(500);
+      if (error) throw error;
+      if (data.length === 500)
+        throw new Error(
+          "Too many sessions in this week. Narrow the date range.",
+        );
+      return data;
+    },
+  });
+  const groupQuery = useQuery({
+    queryKey: ["bulk-groups", groupTerm],
+    queryFn: async () => {
+      const [classes, subjects] = await Promise.all([
+        db
+          .from("classes")
+          .select("id,long_name,short_name")
+          .is("deleted_at", null)
+          .ilike("long_name", `%${groupTerm.replace(/[%_]/g, "")}%`)
+          .limit(40),
+        db
+          .from("subjects")
+          .select("id,name")
+          .is("deleted_at", null)
+          .ilike("name", `%${groupTerm.replace(/[%_]/g, "")}%`)
+          .limit(40),
+      ]);
+      if (classes.error) throw classes.error;
+      if (subjects.error) throw subjects.error;
+      return { classes: classes.data, subjects: subjects.data };
+    },
+    enabled: step === "recipients",
+    staleTime: 60_000,
+  });
+  const applyGroup = async (kind: "class" | "subject" | "year" | "session") => {
+    setError("");
+    setBusy(true);
+    try {
+      if (kind === "session") {
+        const ids = [...sessions.keys()];
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error } = await db
+            .from("sessions_students")
+            .select("student:students(*)")
+            .in("session_id", ids)
+            .order("id")
+            .range(offset, offset + 999);
+          if (error) throw error;
+          addPeople(
+            (data ?? []).flatMap((row) =>
+              row.student && !row.student.deleted_at
+                ? [
+                    {
+                      kind: "student" as const,
+                      person: row.student,
+                      included: true,
+                      parents: false,
+                    },
+                  ]
+                : [],
+            ),
+          );
+          if (!data || data.length < 1000) break;
+        }
+        setSessionOpen(false);
+        setSessions(new Map());
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to add recipients.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const addGroup = async (kind: "class" | "subject" | "year", id: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const rows = await (kind === "class"
+        ? getStudentsByClass(id)
+        : kind === "subject"
+          ? getStudentsBySubject(id)
+          : getStudentsByYearLevel(Number(id)));
+      addPeople(
+        rows.map((person) => ({
+          kind: "student",
+          person,
+          included: true,
+          parents: false,
+        })),
+      );
+    } catch {
+      setError("Unable to add this group. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const review = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const rows = await prepareBulkRecipients(
+        people,
+        message,
+        staff ? personName(staff) : "",
+      );
+      if (!rows.length) throw new Error("Select at least one recipient.");
+      setPrepared(rows);
+      setStep("review");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to prepare preview.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const send = async () => {
+    if (inFlight.current || !staff || !effectiveSender) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const rows = await prepareBulkRecipients(
+        people,
+        message,
+        personName(staff),
+        true,
+      );
+      if (
+        rows.length !== prepared.length ||
+        rows.some(
+          (row) =>
+            !prepared.some(
+              (previous) =>
+                previous.key === row.key && previous.phone === row.phone,
+            ),
+        )
+      )
+        throw new Error(
+          "Recipients changed since review. Go back and review again.",
+        );
+      setResults(rows.map((row) => ({ ...row, status: "PENDING" })));
+      setStep("results");
+      await queueBulkMessages(rows, effectiveSender, staff.id, (result) =>
+        setResults((current) =>
+          current.map((row) => (row.key === result.key ? result : row)),
+        ),
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to prepare messages.",
+      );
+      setResults((current) =>
+        current.map((row) =>
+          row.status === "PENDING"
+            ? {
+                ...row,
+                status: "NOT_QUEUED",
+                error:
+                  "Queueing stopped before this recipient. No delivery attempt confirmed.",
+              }
+            : row,
+        ),
+      );
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+  const ids = results.flatMap((row) => (row.messageId ? [row.messageId] : []));
+  const delivery = useQuery({
+    queryKey: ["bulk-message-delivery", ids],
+    enabled: step === "results" && ids.length > 0 && !busy,
+    refetchInterval: (query) =>
+      query.state.data?.length === ids.length &&
+      query.state.data.every((row) =>
+        [
+          "SENT",
+          "DELIVERED",
+          "READ",
+          "FAILED",
+          "AMBIGUOUS",
+          "CANCELLED",
+        ].includes(row.status ?? ""),
+      )
+        ? false
+        : 5000,
+    queryFn: async () => {
+      const rows: Array<
+        Pick<Tables<"messages">, "id" | "status" | "error_message">
+      > = [];
+      for (let index = 0; index < ids.length; index += 100) {
+        const { data, error } = await db
+          .from("messages")
+          .select("id,status,error_message")
+          .in("id", ids.slice(index, index + 100));
+        if (error) throw error;
+        rows.push(...data);
+      }
+      return rows;
+    },
+  });
+  const displayed = results.map((row) => {
+    const live = delivery.data?.find((item) => item.id === row.messageId);
+    return live
+      ? {
+          ...row,
+          status: live.status ?? row.status,
+          error: live.error_message ?? row.error,
+        }
+      : row;
+  });
+  const enabledCount = people.filter(
+    (person) =>
+      person.included || (person.kind === "student" && person.parents),
+  ).length;
+  const students = people.filter(
+    (row): row is Extract<BulkPerson, { kind: "student" }> =>
+      row.kind === "student",
+  );
   return (
     <AdminDialogShell
-      fillHeight
-      open={isOpen}
-      onClose={handleClose}
-      title="Send announcement"
-      subtitle={step !== 'success' ? `Step ${getStepNumber()} of ${TOTAL_STEPS}: ${getStepTitle()}` : undefined}
+      open
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      title="Bulk message"
+      subtitle={
+        step === "results"
+          ? "Delivery progress"
+          : `${step === "recipients" ? "Step 1 of 3 · Recipients" : step === "compose" ? "Step 2 of 3 · Compose" : "Step 3 of 3 · Review"}`
+      }
       contentClassName="md:max-w-4xl"
-      bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
-      headerExtra={
-        step !== 'success' ? (
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
-                const stepIndex = step === 'select' ? 0 : step === 'compose' ? 1 : step === 'preview' ? 2 : 0;
-                return (
-                  <div
-                    key={index}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      index < stepIndex
-                        ? 'bg-primary'
-                        : index === stepIndex
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        ) : undefined
-      }
       footer={
-        step === 'success' ? undefined : (
-          <div className="flex w-full justify-between sm:justify-between">
+        <div className="flex w-full justify-between">
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              step === "recipients" || step === "results"
+                ? onClose()
+                : setStep(step === "review" ? "compose" : "recipients")
+            }
+          >
+            {step === "recipients" || step === "results" ? "Close" : "Back"}
+          </Button>
+          {step !== "results" && (
             <Button
-              variant="outline"
-              onClick={() => {
-                if (step === 'compose') setStep('select');
-                else if (step === 'preview') setStep('compose');
-              }}
-              disabled={step === 'select'}
+              disabled={
+                busy ||
+                prefill.isFetching ||
+                prefill.isError ||
+                !enabledCount ||
+                (step !== "recipients" && (!message.trim() || !effectiveSender))
+              }
+              onClick={() =>
+                step === "recipients"
+                  ? setStep("compose")
+                  : step === "compose"
+                    ? void review()
+                    : void send()
+              }
             >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
+              {busy
+                ? "Working…"
+                : step === "recipients"
+                  ? "Compose"
+                  : step === "compose"
+                    ? "Review"
+                    : `Queue ${prepared.length} messages`}
             </Button>
-
-            {step === 'preview' ? (
-              <Button
-                onClick={handleSend}
-                disabled={isSending}
-              >
-                {isSending ? 'Sending...' : 'Send Announcements'}
-              </Button>
-            ) : step === 'select' ? (
-              <Button
-                onClick={() => setStep('compose')}
-                disabled={isLoadingRecipients || selectedStudents.length === 0}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : step === 'compose' ? (
-              <Button
-                onClick={() => setStep('preview')}
-                disabled={!message.trim()}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <div />
-            )}
-          </div>
-        )
-      }
-    >
-      <div className="h-full overflow-y-auto">
-        <div className="p-6">
-          {isLoadingRecipients && <p role="status">Loading interview students…</p>}
-          {step === 'select' && !isLoadingRecipients && (
-            <StudentSelector
-              selectedStudents={selectedStudents}
-              onStudentsChange={setSelectedStudents}
-              sendToParents={sendToParents}
-              onSendToParentsChange={setSendToParents}
-              onNext={() => setStep('compose')}
-            />
-          )}
-
-          {step === 'compose' && (
-            <MessageComposer
-              students={selectedStudents}
-              message={message}
-              onMessageChange={setMessage}
-              availableSenders={availableSenders || []}
-              selectedSenderId={selectedSenderId}
-              onSenderChange={setSelectedSenderId}
-              isLoadingSenders={isLoadingSenders}
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              onNext={() => setStep('preview')}
-              onBack={() => setStep('select')}
-            />
-          )}
-
-          {step === 'preview' && (
-            <MessagePreview
-              students={selectedStudents}
-              message={message}
-              sendToParents={sendToParents}
-              selectedSender={availableSenders?.find(s => s.id === selectedSenderId) || null}
-              attachments={attachments}
-              onSend={handleSend}
-              onBack={() => setStep('compose')}
-              isSending={isSending}
-            />
-          )}
-
-          {step === 'success' && sendResult && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="max-w-md text-center">
-                <div className="mb-6">
-                  <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold mb-2">Announcements Sent!</h2>
-                  <p className="text-muted-foreground">
-                    Your announcements have been queued for delivery
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="border rounded-lg p-4">
-                    <div className="text-2xl font-bold text-green-600">{sendResult.sent}</div>
-                    <div className="text-sm text-muted-foreground">Sent</div>
-                  </div>
-                  {sendResult.failed > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <div className="text-2xl font-bold text-red-600">{sendResult.failed}</div>
-                      <div className="text-sm text-muted-foreground">Failed</div>
-                    </div>
-                  )}
-                  {sendResult.skipped > 0 && (
-                    <div className="border rounded-lg p-4">
-                      <div className="text-2xl font-bold text-yellow-600">{sendResult.skipped}</div>
-                      <div className="text-sm text-muted-foreground">Skipped</div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3 justify-center">
-                  <Button onClick={handleReset}>
-                    Send Another
-                  </Button>
-                  <Button variant="outline" onClick={handleClose}>
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </div>
           )}
         </div>
+      }
+    >
+      <div className="space-y-5 p-4">
+        {(error || prefill.isError) && (
+          <p role="alert" className="text-sm text-destructive">
+            {error || prefill.error?.message}
+          </p>
+        )}
+        {prefill.isFetching && (
+          <p role="status">Loading selected recipients…</p>
+        )}
+        {step === "recipients" && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {(["student", "staff", "parent"] as const).map((kind) => (
+                <PersonPicker key={kind} kind={kind} onAdd={addPeople} />
+              ))}
+              <SessionSelect
+                items={sessionQuery.data ?? []}
+                value={null}
+                onValueChange={() => {}}
+                getItemId={(row) => row.id}
+                getItemLabel={(row) =>
+                  row.long_name || row.short_name || "Session"
+                }
+                selectedIds={new Set(sessions.keys())}
+                onToggle={(row) =>
+                  setSessions((current) => {
+                    const next = new Map(current);
+                    if (next.has(row.id)) next.delete(row.id);
+                    else next.set(row.id, row);
+                    return next;
+                  })
+                }
+                onWeekChange={setWeek}
+                open={sessionOpen}
+                onOpenChange={setSessionOpen}
+                loading={sessionQuery.isFetching}
+                placeholder="Add by session"
+                footer={
+                  <Button
+                    disabled={!sessions.size || busy}
+                    onClick={() => void applyGroup("session")}
+                  >
+                    Add students from {sessions.size} sessions
+                  </Button>
+                }
+              />
+            </div>
+            {sessionQuery.isError && (
+              <p role="alert">Unable to load sessions.</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <SearchableSelect
+                items={groupQuery.data?.classes ?? []}
+                value={null}
+                onValueChange={(row) => {
+                  if (row) void addGroup("class", row.id);
+                }}
+                getItemId={(row) => row.id}
+                getItemLabel={(row) =>
+                  row.long_name || row.short_name || "Class"
+                }
+                placeholder="Add by class"
+                onSearchChange={setGroupSearch}
+                disabled={busy}
+              />
+              <SearchableSelect
+                items={groupQuery.data?.subjects ?? []}
+                value={null}
+                onValueChange={(row) => {
+                  if (row) void addGroup("subject", row.id);
+                }}
+                getItemId={(row) => row.id}
+                getItemLabel={(row) => row.name}
+                placeholder="Add by subject"
+                onSearchChange={setGroupSearch}
+                disabled={busy}
+              />
+              <SearchableSelect
+                items={[7, 8, 9, 10, 11, 12, 13]}
+                value={null}
+                onValueChange={(year) => {
+                  if (year) void addGroup("year", String(year));
+                }}
+                getItemId={String}
+                getItemLabel={(year) => `Year ${year}`}
+                placeholder="Add by year"
+                disabled={busy}
+              />
+            </div>
+            <div className="rounded-lg border">
+              <div className="flex items-center justify-between border-b px-3 py-2 text-sm">
+                <span>{people.length} selected people</span>
+                <label className="flex items-center gap-2 text-xs">
+                  All parents
+                  <Switch
+                    aria-label="Toggle all parents"
+                    disabled={!students.length}
+                    checked={
+                      students.length > 0 &&
+                      students.every((row) => row.parents)
+                    }
+                    onCheckedChange={(parents) =>
+                      setPeople((current) =>
+                        current.map((row) =>
+                          row.kind === "student" ? { ...row, parents } : row,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+              </div>
+              {people.map((row) => (
+                <div
+                  key={personKey(row)}
+                  className="flex items-center gap-2 border-b px-3 py-3 last:border-0"
+                >
+                  <Checkbox
+                    aria-label={`Include ${personName(row.person)}`}
+                    checked={row.included}
+                    onCheckedChange={(checked) =>
+                      setPeople((current) =>
+                        current.map((item) =>
+                          personKey(item) === personKey(row)
+                            ? { ...item, included: checked === true }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <EntityActionChip
+                    entityType={row.kind}
+                    entityId={row.person.id}
+                    label={personName(row.person)}
+                  />
+                  <span className="flex-1" />
+                  {row.kind === "student" && (
+                    <label className="flex items-center gap-2 text-xs">
+                      Parent
+                      <Switch
+                        aria-label={`Send to parent of ${personName(row.person)}`}
+                        checked={row.parents}
+                        onCheckedChange={(parents) =>
+                          setPeople((current) =>
+                            current.map((item) =>
+                              item.kind === "student" &&
+                              item.person.id === row.person.id
+                                ? { ...item, parents }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove ${personName(row.person)}`}
+                    onClick={() =>
+                      setPeople((current) =>
+                        current.filter(
+                          (item) => personKey(item) !== personKey(row),
+                        ),
+                      )
+                    }
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              {!people.length && (
+                <p className="p-4 text-sm text-muted-foreground">
+                  Add people or a session to begin.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+        {step === "compose" && (
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-3">
+              <SearchableSelect
+                items={senders}
+                value={sender ?? null}
+                onValueChange={(row) => setSenderId(row?.id ?? "")}
+                getItemId={(row) => row.id}
+                getItemLabel={(row) => row.label || row.phone_e164 || "Sender"}
+                placeholder="Select sender"
+              />
+              <MessageTemplatesPicker
+                onSelect={(template) => setMessage(template.content)}
+              />
+              <label
+                className="block text-sm font-medium"
+                htmlFor="bulk-message"
+              >
+                Message
+              </label>
+              <Textarea
+                id="bulk-message"
+                className="min-h-56"
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use {"{first_name}"}, {"{full_name}"} and {"{sender_name}"}.
+                Student templates also support class and invitation variables.
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="mb-4 text-sm font-medium">Message preview</p>
+              <p className="whitespace-pre-wrap rounded-lg bg-muted p-3 text-sm">
+                {message ||
+                  "Your message appears here. Review shows the personalised text for every recipient."}
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {enabledCount} selected people · parents are resolved once at
+                review.
+              </p>
+            </div>
+          </div>
+        )}
+        {step === "review" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {prepared.length} unique recipients. Queued messages are waiting
+              for dispatch; they are not yet sent.
+            </p>
+            {prepared.map((row) => (
+              <div
+                key={row.key}
+                className="grid gap-3 rounded-lg border p-3 md:grid-cols-[180px_1fr]"
+              >
+                <div>
+                  <EntityActionChip
+                    entityType={row.kind}
+                    entityId={row.id}
+                    label={row.name}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {row.phone || "No phone · will be skipped"}
+                  </p>
+                </div>
+                <p className="whitespace-pre-wrap text-sm">{row.body}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {step === "results" && (
+          <div className="space-y-3">
+            <p className="text-sm">
+              Queued means waiting for dispatch. A transport timeout does not
+              mean delivery failed. Keep this view open to check progress.
+            </p>
+            {delivery.isError && (
+              <p role="alert">
+                Delivery status unavailable. Messages have not been retried.{" "}
+                <Button
+                  variant="outline"
+                  onClick={() => void delivery.refetch()}
+                >
+                  Refresh status
+                </Button>
+              </p>
+            )}
+            {displayed.map((row) => (
+              <div key={row.key} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <EntityActionChip
+                    entityType={row.kind}
+                    entityId={row.id}
+                    label={row.name}
+                  />
+                  <span className="text-xs font-medium">{row.status}</span>
+                </div>
+                {row.error && (
+                  <p className="break-words text-xs text-destructive">
+                    {row.error}
+                  </p>
+                )}
+                {row.messageId && (
+                  <EntityActionChip
+                    entityType="message"
+                    entityId={row.messageId}
+                    label="Open message"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </AdminDialogShell>
   );

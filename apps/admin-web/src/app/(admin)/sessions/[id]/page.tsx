@@ -12,7 +12,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  SearchableSelect,
   SearchableSelectFieldTrigger,
   Button,
   useToast,
@@ -22,6 +21,7 @@ import { defaultCheckInSessionsStaffType } from "@altitutor/shared/pay-tiers";
 import { formatSessionTimeRangeForDisplay } from "@altitutor/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { FormResponseCommands } from "@/features/forms/components/FormResponseCommands";
+import { SessionSelect } from "@/features/sessions/components/SessionSelect";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
 import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
@@ -475,7 +475,7 @@ function SessionDetailView({ id }: { id: string }) {
                     </Button>
                   ) : null}
                   <div className="min-w-0">
-                    <SearchableSelect<Tables<"sessions">>
+                    <SessionSelect<Tables<"sessions">>
                       items={siblingSessions}
                       value={selectedSiblingSession}
                       onValueChange={(selectedSession) => {

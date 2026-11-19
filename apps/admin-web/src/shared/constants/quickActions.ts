@@ -125,10 +125,10 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
   },
   {
     id: 'make-announcement',
-    title: 'Make Announcement',
-    description: 'Create and send an announcement',
+    title: 'Bulk message',
+    description: 'Compose a message to multiple people',
     icon: Megaphone,
-    keywords: ['announcement', 'announce', 'message', 'broadcast'],
+    keywords: ['bulk', 'announcement', 'message', 'broadcast'],
     actionType: 'announcement',
   },
   {

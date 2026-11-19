@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useEffect } from 'react';
-import { SearchableSelect } from '@altitutor/ui';
+import { SessionSelect } from '@/features/sessions/components/SessionSelect';
 import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -132,7 +132,7 @@ export function AssignStaffStep2SelectDate({
           starting on{' '}
           <span className="inline-flex items-center">
             {futureSessionDates.length > 0 ? (
-              <SearchableSelect<{ value: string; label: string }>
+              <SessionSelect<{ value: string; label: string }>
                 items={futureSessionDates}
                 value={futureSessionDates.find((d) => d.value === assignmentDate) ?? null}
                 onValueChange={(item) => item && onDateChange(item.value)}

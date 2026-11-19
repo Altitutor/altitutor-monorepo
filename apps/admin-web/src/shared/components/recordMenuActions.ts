@@ -36,6 +36,9 @@ type CommonActions = {
   copy?: () => void;
   message?: () => void;
   messageDisabled?: boolean;
+  messageStudents?: () => void;
+  messageStaff?: () => void;
+  bulkMessageDisabled?: boolean;
   addIssue?: () => void;
   addTask?: () => void;
 };
@@ -66,6 +69,18 @@ export function recordMenuActions(
   add("message", "Message", MessageSquare, common.message, {
     disabled: common.messageDisabled,
   });
+  if (props.type === "class" || props.type === "session") {
+    add(
+      "message-students",
+      "Message students",
+      MessageSquare,
+      common.messageStudents,
+      { disabled: common.bulkMessageDisabled },
+    );
+    add("message-staff", "Message staff", MessageSquare, common.messageStaff, {
+      disabled: common.bulkMessageDisabled,
+    });
+  }
   add("add-task", "Add task", Plus, common.addTask, { primaryOnly: true });
   add("add-issue", "Add issue", Plus, common.addIssue, { primaryOnly: true });
   switch (props.type) {

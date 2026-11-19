@@ -1,3 +1,4 @@
+import { readBulkStudentClasses } from './student-class-data';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -596,23 +597,15 @@ export async function fetchMessagePreviewData(
   sendToParents: boolean
 ): Promise<MessagePreviewData> {
   const allRecipients: MessagePreviewRecipient[] = [];
-  const classesMap: Record<
-    string,
-    Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
-  > = {};
-
-  // Load student classes in parallel
-  const classResults = await Promise.all(
-    students.map((s) => getStudentClasses(s.id))
-  );
-  students.forEach((student, i) => {
+  const classesMap = await readBulkStudentClasses(students.map(student => student.id), false);
+  students.forEach(student => {
     allRecipients.push({
       id: student.id,
       type: 'student',
       name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
       phone: student.phone,
     });
-    classesMap[student.id] = classResults[i];
+    classesMap[student.id] ??= [];
   });
 
   if (sendToParents && students.length > 0) {

@@ -1,5 +1,6 @@
 'use client';
 
+import { SessionSelect } from '@/features/sessions/components/SessionSelect';
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Label, SearchableSelect } from '@altitutor/ui';
@@ -86,7 +87,7 @@ export function MeetingAdminStaffSessionStep({
 
       <div className="space-y-2">
         <Label>Session</Label>
-        <SearchableSelect<Tables<'sessions'>>
+        <SessionSelect<Tables<'sessions'>>
           items={sessions}
           value={selectedSession}
           onValueChange={(row) => row && onSessionChange(row.id)}
