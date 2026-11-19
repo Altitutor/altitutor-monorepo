@@ -544,7 +544,7 @@
 - **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
   _Avoid_: Standalone bank question, independently reusable question
 
-- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score, optional general station feedback and feedback for its individual questions.
+- **Interview station attempt** — One student's performance at one station in an interview round, with one overall score, optional general station feedback and optional scores and feedback for its individual questions.
 
 - **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
 
@@ -555,6 +555,10 @@
 - **Scheduled interview round** — A coordinated mock interview arranged for a future date and time and shown in the selected students' upcoming interviews. Students may come from different interview classes while holding current interview enrolment. The scheduled time does not start the round automatically; a participating tutor explicitly starts it.
 
 - **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
+
+- **Interview question score** — An optional assessment of one question out of its station's maximum. The average of entered question scores suggests a station score; the tutor enters the overall station score separately. Blank scores are excluded from the suggestion, while zero is a score.
+
+- **Interview attribution correction** — A completed mock's correction of who performed an encounter. Replacing a mistakenly listed Student transfers all their encounters to an eligible Student outside the mock; a station's tutor can instead swap two participating Students' complete encounters at that station. Scores, feedback, timing and recordings remain together. Affected released results are withdrawn until explicitly released again; historical releases and published performance-review evidence are retained.
 
 - **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
 
@@ -591,7 +595,7 @@
 
 - **Interview station placement** — One ordered use of a whole bank station in an interview, including that station's prompt and complete sequence of questions. The same station may appear more than once in an interview, with a repetition warning.
 
-- **Live interview rubric correction** — A saved change to the marking guidance for a station question during delivery. Active tutors receive revision notices; the station's question wording and order remain fixed for that round.
+- **Live interview rubric correction** — A saved change to the marking guidance for a station question during delivery. Tutor views show the latest saved guidance immediately, including completed mocks, without revision notices. The station's question wording and order remain fixed for that round; released Student snapshots retain their guidance.
 
 ## UCAT content
 

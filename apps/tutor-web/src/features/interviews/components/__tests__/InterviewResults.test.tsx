@@ -26,7 +26,7 @@ jest.mock("../../hooks/use-interviews", () => ({
     error: null,
     isPending: false,
   }),
-  useInterviewCatalog: () => ({ data: { actorId: "tutor-1" } }),
+  useInterviewCatalog: () => ({ data: { actorId: "tutor-1", students: [] } }),
   useInterviewCommand: () => ({
     mutateAsync: mockRelease,
     isPending: false,

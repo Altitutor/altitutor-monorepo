@@ -53,7 +53,9 @@ export function useInterviewCommand() {
           description: result.mediaWarning,
           variant: "destructive",
         });
-      if (command.type === "createRounds") {
+      if (command.type === "saveRubric") {
+        await client.invalidateQueries({ queryKey: ["interviews"] });
+      } else if (command.type === "createRounds") {
         await client.invalidateQueries({ queryKey: interviewKeys.rounds });
       } else if ("roundId" in command) {
         await Promise.all([

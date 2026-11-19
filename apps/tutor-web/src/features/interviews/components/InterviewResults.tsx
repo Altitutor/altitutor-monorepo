@@ -45,6 +45,9 @@ import {
 import { cn } from "@/shared/utils";
 import { InterviewPageHeader } from "./interview-page";
 
+import { InterviewQuestionScore, SuggestedStationScore, updateQuestionFeedback } from "./InterviewQuestionScore";
+import { InterviewReassignment } from "./InterviewReassignment";
+
 function ResultStationEditor({
   round,
   station,
@@ -179,6 +182,7 @@ function ResultStationEditor({
           />
         </label>
       </div>
+      <SuggestedStationScore feedback={draft.feedback} maximumPoints={station.maximumPoints} />
       {notScored && (
         <p className="text-sm text-muted-foreground">
           Excluded from possible points. This student’s result will be labelled
@@ -199,6 +203,11 @@ function ResultStationEditor({
       {station.questions.map((question, index) => (
         <InterviewPanel key={question.id} title={`Question ${index + 1}`}>
           <InterviewDocument value={question.question as JSONContent} />
+          <InterviewQuestionScore id={`result-score-${attempt.id}-${question.id}`}
+            score={draft.feedback.find((entry) => entry.placementId === question.id)?.score}
+            maximumPoints={station.maximumPoints} disabled={readOnly}
+            onChange={(score) => update({ ...draft, feedback: updateQuestionFeedback(draft.feedback, question.id, { score }) })} />
+          <InterviewPanel title="Rubric"><InterviewDocument value={question.rubric as JSONContent} /></InterviewPanel>
           <InterviewField label="Written feedback">
             <InterviewDocument
               value={
@@ -212,12 +221,7 @@ function ResultStationEditor({
                   : (value) =>
                       update({
                         ...draft,
-                        feedback: [
-                          ...draft.feedback.filter(
-                            (feedback) => feedback.placementId !== question.id,
-                          ),
-                          { placementId: question.id, value },
-                        ],
+                        feedback: updateQuestionFeedback(draft.feedback, question.id, { value }),
                       })
               }
             />
@@ -341,6 +345,8 @@ export function InterviewResults({ id }: { id: string }) {
         </Button>
       </div>
       <InterviewError error={error ?? command.error ?? query.error} />
+      {catalog.data && round.phase === "completed" && <InterviewReassignment round={round} catalog={catalog.data}
+        beforeChange={async () => { await flush.current?.(); }} />}
       <AlertDialog open={releaseConfirm} onOpenChange={setReleaseConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -163,6 +163,14 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         version(value.expectedVersion) &&
         setup(value.setup)
       );
+    case "replaceStudent":
+    case "swapStationStudents":
+      return uuid(value.roundId) && version(value.expectedVersion) &&
+        uuid(value.studentId) && uuid(value.targetStudentId) &&
+        value.studentId.toLowerCase() !== value.targetStudentId.toLowerCase() &&
+        (value.type !== "swapStationStudents" || uuid(value.stationId));
+    case "deleteRound":
+      return uuid(value.roundId) && version(value.expectedVersion);
     case "heartbeat":
     case "tick":
       return uuid(value.roundId);
@@ -179,7 +187,8 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         (value.generalFeedback === undefined || rich(value.generalFeedback)) &&
         array(
           value.feedback,
-          (f) => record(f) && uuid(f.placementId) && rich(f.value),
+          (f) => record(f) && uuid(f.placementId) && rich(f.value) &&
+            (f.score === undefined || f.score === null || number(f.score, 0, 1000)),
           100,
         )
       );

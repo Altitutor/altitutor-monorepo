@@ -177,7 +177,7 @@ function BulkRoundEditor({
         throw new Error(
           "This session is no longer available. Reload the session list and try again.",
         );
-      const members = detail.students;
+      const members = detail.students.filter((student) => !student.planned_absence);
       const eligible = members.filter((student) =>
         catalog.students.some((item) => item.id === student.id),
       );

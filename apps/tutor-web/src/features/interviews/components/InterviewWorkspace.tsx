@@ -882,7 +882,7 @@ function InPersonRoundView({
   const clock = usePhaseClock(round);
   const paused = Boolean(round.pausedAt);
   const [confirm, setConfirm] = useState<
-    null | "end" | "skip" | "skipQuestions"
+    null | "end" | "skip" | "skipQuestions" | "readyEmpty"
   >(null);
   const actionText = sharedActionText(round);
   const phase = phaseAppearance(round);
@@ -1059,7 +1059,10 @@ function InPersonRoundView({
                 className={tutorBtnOutline}
                 reason={readyReason}
                 disabled={Boolean(readyReason)}
-                onClick={onReady}
+                onClick={() => {
+                  if (!online && !progress?.studentId && !progress?.ready) setConfirm("readyEmpty");
+                  else onReady();
+                }}
               >
                 {progress?.ready ? "Mark not ready" : "I’m ready"}
               </ActionButton>
@@ -1312,6 +1315,7 @@ function InPersonRoundView({
                     }
                   />
 
+                  {station && <InterviewPanel title="Reading prompt"><InterviewDocument value={station.prompt as JSONContent} /></InterviewPanel>}
                   {!online ? stationControls : null}
                 </aside>
                 <div className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-y-auto">
@@ -1325,13 +1329,7 @@ function InPersonRoundView({
                       registerFlush={registerFlush}
                       registerFinish={registerFinish}
                       onFinishFeedback={onFinishFeedback}
-                      leading={
-                        <InterviewPanel title="Reading prompt">
-                          <InterviewDocument
-                            value={station.prompt as JSONContent}
-                          />
-                        </InterviewPanel>
-                      }
+
                     />
                   ) : station ? (
                     <StationMaterials station={station} />
@@ -1349,23 +1347,24 @@ function InPersonRoundView({
         </main>
       </div>
       <ConfirmAction
+        destructive={confirm !== "readyEmpty"}
         open={confirm !== null}
         title={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "Ready without a student?" : confirm === "skip"
             ? "Skip reading time?"
             : confirm === "skipQuestions"
               ? "Skip question time for everyone?"
               : "End your station early?"
         }
         description={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "No student is selected at your station. You can select a student during reading; if nobody is selected when question time starts, your station will be idle." : confirm === "skip"
             ? "Everyone will go straight to question time. You cannot go back to reading time."
             : confirm === "skipQuestions"
               ? `Every station will move to ${round.mode === "exam" ? "marking" : "feedback"} now. You cannot return to question time. Scores and feedback still need to be completed.`
               : "You cannot go back to question time."
         }
         confirmLabel={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "Mark ready" : confirm === "skip"
             ? "Skip reading time"
             : confirm === "skipQuestions"
               ? "Skip for everyone"
@@ -1380,6 +1379,7 @@ function InPersonRoundView({
           if (action === "skip") onSkipReading();
           if (action === "skipQuestions") onSkipQuestions();
           if (action === "end") onEndStation();
+          if (action === "readyEmpty") onReady();
         }}
       />
     </TooltipProvider>

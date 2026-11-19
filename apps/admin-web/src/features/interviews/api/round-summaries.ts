@@ -28,6 +28,7 @@ export async function readInterviewRoundSummaries(
     let query = client
       .from("interview_rounds")
       .select(SUMMARY_FIELDS)
+      .filter("data->>deletedAt", "is", null)
       .order("id", { ascending: true });
     if (options.scheduledOnly)
       query = query.not("data->>scheduledAt", "is", null);
