@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   type QueryClient,
   type Query,
+  type QueryFilters,
   type InfiniteData,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -68,6 +69,26 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
         void flush();
       }, 250);
   };
+  const refreshQueries = (filters: QueryFilters) => {
+    const alreadyFetching = new Set(
+      queryClient
+        .getQueryCache()
+        .findAll(filters)
+        .filter((query) => query.state.fetchStatus === "fetching")
+        .map((query) => query.queryHash),
+    );
+    void queryClient
+      .invalidateQueries(filters, { cancelRefetch: false })
+      .then(() => {
+        // An older request can finish with a pre-event snapshot. Refresh once
+        // after settling, rather than cancel/restart on every delivery event.
+        if (!stopped && alreadyFetching.size)
+          return queryClient.invalidateQueries(
+            { predicate: (query) => alreadyFetching.has(query.queryHash) },
+            { cancelRefetch: false },
+          );
+      });
+  };
   const flush = async () => {
     const conversationIds = [...changed];
     const messageIds = [...changedMessages];
@@ -108,26 +129,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
           "sms-resends",
         ].includes(String(family));
       };
-      const alreadyFetching = new Set(
-        queryClient
-          .getQueryCache()
-          .findAll({ predicate })
-          .filter((query) => query.state.fetchStatus === "fetching")
-          .map((query) => query.queryHash),
-      );
-      void queryClient
-        .invalidateQueries({ predicate }, { cancelRefetch: false })
-        .then(() => {
-          // An older request can complete with a pre-event snapshot. Refresh it
-          // once after settling, rather than cancelling and restarting per event.
-          if (!stopped && alreadyFetching.size)
-            return queryClient.invalidateQueries(
-              {
-                predicate: (query) => alreadyFetching.has(query.queryHash),
-              },
-              { cancelRefetch: false },
-            );
-        });
+      refreshQueries({ predicate });
     }
     if (!incoming.length || stopped) return;
     // Resolve the entire INSERT burst at once, rather than one join per message.
@@ -191,10 +193,9 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
     }
     // Empty contact threads have no cached conversation IDs yet.
     for (const contactId of contacts)
-      void queryClient.invalidateQueries(
-        { queryKey: messagesKeys.messagesForContactBase(contactId) },
-        { cancelRefetch: false },
-      );
+      refreshQueries({
+        queryKey: messagesKeys.messagesForContactBase(contactId),
+      });
     for (const contactId of inboundContacts)
       void queryClient.invalidateQueries(
         { queryKey: [...messagesKeys.all, "addresses", contactId] },

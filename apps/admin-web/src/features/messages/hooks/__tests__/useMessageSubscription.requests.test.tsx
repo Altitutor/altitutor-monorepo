@@ -20,6 +20,10 @@ type Change = {
 };
 const inserts: Array<(event: Change) => void> = [];
 const clearReads = jest.fn();
+const contextLookup = jest.fn(async () => ({
+  data: [] as { id: string; contact_id: string }[],
+  error: { message: "Context lookup failed" } as { message: string } | null,
+}));
 const updates: Array<(event: Change) => void> = [];
 const toast = jest.fn();
 jest.mock("@altitutor/ui", () => ({ useToast: () => ({ toast }) }));
@@ -27,10 +31,7 @@ jest.mock("@/shared/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
     from: (table: string) => ({
       select: () => ({
-        in: async () => ({
-          data: [],
-          error: { message: "Context lookup failed" },
-        }),
+        in: () => contextLookup(),
       }),
       delete: () => ({
         in: async (column: string, ids: string[]) => {
@@ -283,4 +284,74 @@ test("an inbound message still updates unread state and notifies if context enri
   view.unmount();
   client.clear();
   useChatStore.getState().closeWindow("inbound");
+});
+
+test("an insert into a new conversation refreshes a contact thread after an older aggregate fetch settles", async () => {
+  type Page = {
+    pages: { items: { conversation_id: string; body: string }[] }[];
+    pageParams: null[];
+  };
+  let finishFirst!: (value: Page) => void;
+  const first = new Promise<Page>((resolve) => {
+    finishFirst = resolve;
+  });
+  const queryKey = messagesKeys.messagesForContact("contact-new");
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(queryKey, { pages: [{ items: [] }], pageParams: [null] });
+  const read = jest
+    .fn()
+    .mockReturnValueOnce(first)
+    .mockResolvedValue({
+      pages: [
+        {
+          items: [{ conversation_id: "new-conversation", body: "New message" }],
+        },
+      ],
+      pageParams: [null],
+    });
+  function Thread() {
+    const { data } = useQuery<Page>({ queryKey, queryFn: read });
+    return (
+      <p>
+        {data?.pages
+          .flatMap((page) => page.items)
+          .map((message) => message.body)
+          .join(" ") || "Empty thread"}
+      </p>
+    );
+  }
+  inserts.length = 0;
+  contextLookup.mockResolvedValueOnce({
+    data: [{ id: "new-conversation", contact_id: "contact-new" }],
+    error: null,
+  });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <Subscription />
+      <Thread />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  act(() =>
+    inserts[0]({
+      new: {
+        id: "new-message",
+        conversation_id: "new-conversation",
+        status: "QUEUED",
+        direction: "OUTBOUND",
+      },
+    }),
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+  await act(async () => {
+    finishFirst({ pages: [{ items: [] }], pageParams: [null] });
+  });
+  await screen.findByText("New message");
+  expect(read).toHaveBeenCalledTimes(2);
+  view.unmount();
+  client.clear();
 });
