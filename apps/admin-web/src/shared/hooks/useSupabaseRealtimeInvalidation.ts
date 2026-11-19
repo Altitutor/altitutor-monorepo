@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 
@@ -44,6 +44,11 @@ export function useSupabaseRealtimeInvalidation({
     [extraQueryKeysHash]
   );
 
+  const callbacks = useRef({ detailKey, getRelatedKeys });
+  useEffect(() => {
+    callbacks.current = { detailKey, getRelatedKeys };
+  }, [detailKey, getRelatedKeys]);
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -73,6 +78,7 @@ export function useSupabaseRealtimeInvalidation({
         'postgres_changes',
         { event: '*', schema: 'public', table },
         (payload) => {
+          const { detailKey, getRelatedKeys } = callbacks.current;
           const newRow = (payload.new ?? {}) as RealtimeRow;
           const oldRow = (payload.old ?? {}) as RealtimeRow;
           const row = payload.eventType === 'DELETE' ? oldRow : newRow;
@@ -107,9 +113,7 @@ export function useSupabaseRealtimeInvalidation({
     };
   }, [
     debounceMs,
-    detailKey,
     enabled,
-    getRelatedKeys,
     instanceId,
     queryClient,
     stableExtraQueryKeys,
