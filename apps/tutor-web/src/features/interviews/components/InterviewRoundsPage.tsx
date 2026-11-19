@@ -45,6 +45,7 @@ import {
   Pencil,
   Plus,
   Printer,
+  Trash2,
 } from "lucide-react";
 import { UcatRowActions } from "@/features/ucat/shared/row-actions";
 import {
@@ -56,9 +57,12 @@ import {
 import { cn } from "@/shared/utils";
 import {
   useInterviewCatalog,
+  useInterviewCommand,
   useInterviewRounds,
 } from "../hooks/use-interviews";
-import { InterviewError } from "./interview-ui";
+import { randomUuid } from "@altitutor/ui/lib/random-uuid";
+import { choiceFilterMatches } from "@altitutor/shared";
+import { ConfirmAction, InterviewError } from "./interview-ui";
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { InterviewBulkRoundDialog } from "./InterviewBulkRoundSetup";
 import { InterviewPrintDialog } from "./InterviewPrintDialog";
@@ -91,6 +95,12 @@ const slotHeight = 72;
 const dayStartHour = 8;
 const dayEndHour = 20;
 
+function rosterFilterOptions(people: { id: string; name: string }[]) {
+  return [...new Map(people.map((person) => [person.id, person])).values()]
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((person) => ({ label: person.name, value: person.id }));
+}
+
 function statusLabel(round: InterviewRound) {
   if (round.phase === "completed") return "Completed";
   if (round.startedAt) return round.phase;
@@ -113,9 +123,12 @@ function RoundActions({
   onEdit: (round: InterviewRound) => void;
   onPrint: (round: InterviewRound) => void;
 }) {
+  const deletion = useInterviewCommand();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const completed = round.phase === "completed";
   const started = !!round.startedAt;
   return (
+    <>
     <UcatRowActions
       actions={[
         {
@@ -132,6 +145,8 @@ function RoundActions({
               },
             ]
           : []),
+        ...(!started ? [{ label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
+          onClick: () => setConfirmDelete(true) }] : []),
         ...(!completed
           ? [
               {
@@ -149,6 +164,14 @@ function RoundActions({
             ]),
       ]}
     />
+    <ConfirmAction error={deletion.error} open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete this unstarted round?"
+      description={`Remove ${round.name} from the interview calendar and participants’ upcoming interviews. Started rounds cannot be deleted.`}
+      destructive preventClose pending={deletion.isPending} confirmLabel={deletion.isPending ? "Deleting…" : "Delete round"} onConfirm={() => {
+        if (!deletion.isPending) void deletion.mutateAsync({ type: "deleteRound", commandId: randomUuid(), roundId: round.id,
+          expectedVersion: round.version }).then(() => setConfirmDelete(false)).catch(() => undefined);
+      }} />
+    <InterviewError error={deletion.error} />
+    </>
   );
 }
 
@@ -613,6 +636,11 @@ export function InterviewRoundsPage() {
     "Interview";
 
   const filterDefinitions: DataTableFilterDefinition[] = [
+    { key: "students", label: "Students", choiceOperators: true, searchable: true,
+      options: rosterFilterOptions([...(catalog?.students ?? []), ...(roundsQuery.data ?? []).flatMap((round) => round.students)]) },
+    { key: "tutors", label: "Tutors", choiceOperators: true, searchable: true,
+      options: rosterFilterOptions([...(catalog?.tutors ?? []), ...(roundsQuery.data ?? []).flatMap((round) => round.tutors)]) },
+    { key: "mine", label: "My rounds", options: [{ label: "Assigned to me", value: "yes" }] },
     {
       key: "date",
       label: "Date",
@@ -665,14 +693,17 @@ export function InterviewRoundsPage() {
         (typeof to !== "string" || !to || (!!date && date <= to)) &&
         (!query || name.includes(query)) &&
         matchesMulti(table.state.filters, "delivery", round.delivery) &&
-        matchesMulti(table.state.filters, "phase", round.phase)
+        matchesMulti(table.state.filters, "phase", round.phase) &&
+        choiceFilterMatches(table.state.filters.students ?? [], round.studentIds, table.state.filters.students__operator?.[0]) &&
+        choiceFilterMatches(table.state.filters.tutors ?? [], round.tutors.map((tutor) => tutor.id), table.state.filters.tutors__operator?.[0]) &&
+        (!(table.state.filters.mine ?? []).includes("yes") || round.assignments.some((assignment) => assignment.tutorId === catalog?.actorId))
       );
     });
     return sortRows(rows, table.state, "when", {
       when: (round) => round.scheduledAt ?? round.startedAt ?? round.createdAt,
       name: (round) => round.name,
     });
-  }, [catalog?.interviews, roundsQuery.data, table.state]);
+  }, [catalog?.interviews, catalog?.actorId, roundsQuery.data, table.state]);
 
   const paged = pageRows(rounds, table.state.page, table.state.pageSize);
   const visible = new Set(table.state.visibleColumns);

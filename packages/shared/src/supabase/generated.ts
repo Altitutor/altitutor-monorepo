@@ -29863,14 +29863,6 @@ export type Database = {
           data: Json | null
           id: string | null
         }
-        Insert: {
-          data?: never
-          id?: string | null
-        }
-        Update: {
-          data?: never
-          id?: string | null
-        }
         Relationships: []
       }
       vstudent_invoice_items: {
@@ -37431,14 +37423,6 @@ export type Database = {
         Row: {
           data: Json | null
           id: string | null
-        }
-        Insert: {
-          data?: never
-          id?: string | null
-        }
-        Update: {
-          data?: never
-          id?: string | null
         }
         Relationships: []
       }

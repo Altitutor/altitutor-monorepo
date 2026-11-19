@@ -207,6 +207,10 @@ export function ConfirmAction({
   confirmLabel,
   onOpenChange,
   onConfirm,
+  destructive = false,
+  preventClose = false,
+  pending = false,
+  error,
 }: {
   open: boolean;
   title: string;
@@ -214,6 +218,10 @@ export function ConfirmAction({
   confirmLabel: string;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  destructive?: boolean;
+  preventClose?: boolean;
+  pending?: boolean;
+  error?: unknown;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -222,11 +230,14 @@ export function ConfirmAction({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        <InterviewError error={error} />
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+          <AlertDialogCancel disabled={pending} onClick={() => onOpenChange(false)}>
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
+          <AlertDialogAction disabled={pending}
+            className={destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+            onClick={(event) => { if (preventClose) event.preventDefault(); onConfirm(); }}>
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -36,6 +36,8 @@ import {
 import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
 
+import { InterviewQuestionScore, SuggestedStationScore, updateQuestionFeedback } from "./InterviewQuestionScore";
+
 function blankFeedbackCopy(items: string[]) {
   const list =
     items.length === 1
@@ -84,8 +86,8 @@ function InterviewQuestionTab({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="ghost"
-            className={cn("relative", selected && "bg-muted")}
+            variant={selected ? "default" : "outline"}
+            className="relative"
             aria-current={selected ? "true" : undefined}
             aria-label={
               unanswered
@@ -268,7 +270,6 @@ export function AttemptEditor({
   registerFlush,
   registerFinish,
   onFinishFeedback,
-  leading,
 }: {
   round: InterviewRound;
   station: InterviewSnapshotStation;
@@ -276,7 +277,6 @@ export function AttemptEditor({
   registerFlush?: (flush: (() => Promise<void>) | null) => void;
   registerFinish?: (finish: (() => void) | null) => void;
   onFinishFeedback?: () => void;
-  leading?: React.ReactNode;
 }) {
   const {
     draft,
@@ -307,24 +307,6 @@ export function AttemptEditor({
   const [editingRubric, setEditingRubric] = useState(false);
   const [editingRubricVersion, setEditingRubricVersion] = useState(0);
   const command = useInterviewCommand();
-  const seenRubricVersions = useRef(
-    new Map(station.questions.map((item) => [item.id, item.rubricVersion])),
-  );
-  const [updatedRubricIds, setUpdatedRubricIds] = useState<string[]>([]);
-  useEffect(() => {
-    const changed = station.questions
-      .filter(
-        (item) =>
-          seenRubricVersions.current.has(item.id) &&
-          seenRubricVersions.current.get(item.id) !== item.rubricVersion,
-      )
-      .map((item) => item.id);
-    station.questions.forEach((item) =>
-      seenRubricVersions.current.set(item.id, item.rubricVersion),
-    );
-    if (changed.length)
-      setUpdatedRubricIds((ids) => Array.from(new Set([...ids, ...changed])));
-  }, [station.questions]);
   const question = station.questions[questionIndex];
   const { onQuestionSelected, timingError, retryTiming } =
     useInterviewQuestionTiming(round, attempt);
@@ -374,12 +356,7 @@ export function AttemptEditor({
     if (!question) return;
     update({
       ...draft,
-      feedback: [
-        ...draft.feedback.filter(
-          (feedback) => feedback.placementId !== question.id,
-        ),
-        { placementId: question.id, value },
-      ],
+      feedback: updateQuestionFeedback(draft.feedback, question.id, { value }),
     });
   };
   const rubricDialog = (
@@ -495,7 +472,6 @@ export function AttemptEditor({
   return (
     <>
       <div className="space-y-5">
-        {leading}
         <InterviewPanel
           title="Station feedback"
           action={<FeedbackSaveStatus state={state} />}
@@ -526,6 +502,7 @@ export function AttemptEditor({
               onNotScored={setNotScored}
             />
           </LockedEntry>
+          <SuggestedStationScore feedback={draft.feedback} maximumPoints={station.maximumPoints} />
           <div className="space-y-2">
             <h3 className="text-sm font-medium">General station feedback</h3>
             <LockedEntry locked={!canWriteFeedback}>
@@ -590,6 +567,9 @@ export function AttemptEditor({
                 />
               ) : null}
             </div>
+            <InterviewQuestionScore id={`question-score-${attempt.id}-${question.id}`}
+              score={response?.score} maximumPoints={station.maximumPoints} disabled={!canWriteFeedback}
+              onChange={(score) => update({ ...draft, feedback: updateQuestionFeedback(draft.feedback, question.id, { score }) })} />
             <div className="space-y-2">
               <p className="text-sm font-medium">Question feedback</p>
               <LockedEntry locked={!canWriteFeedback}>
@@ -618,12 +598,6 @@ export function AttemptEditor({
                   Edit
                 </Button>
               </div>
-              {updatedRubricIds.includes(question.id) && (
-                <p role="status" className="rounded-lg bg-muted p-3 text-sm">
-                  The shared rubric was updated during this interview. You are
-                  viewing revision {question.rubricVersion}.
-                </p>
-              )}
               <InterviewDocument value={question.rubric as JSONContent} />
             </div>
           </div>
@@ -648,9 +622,6 @@ export function StationMaterials({
   return (
     <>
       <div className="space-y-5">
-        <InterviewPanel title="Reading prompt">
-          <InterviewDocument value={station.prompt as JSONContent} />
-        </InterviewPanel>
         <InterviewPanel title="Station feedback" className="space-y-5">
           <div className="flex items-center gap-2">
             <span className="text-sm">Score</span>
