@@ -847,6 +847,7 @@ test("Issues retain editable priority through create, autosave and hover preview
 
   await panel.getByRole("button", { name: "Record actions", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Add issue", exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 1000, height: 900 });
   await page.goto("/students/10000000-0000-0000-0000-000000000001");
   await page.locator("[data-admin-main]").getByRole("button", { name: "Record actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
@@ -857,18 +858,14 @@ test("Issues retain editable priority through create, autosave and hover preview
   await dialog
     .getByPlaceholder("Issue title")
     .fill(`Created with priority ${randomUUID()}`);
-  const createToggle = dialog.getByRole("button", { name: "Right sidebar", exact: true });
-  if (await createToggle.isVisible()) await createToggle.click();
-  await dialog
-    .getByRole("button", { name: "No priority", exact: true })
-    .first()
-    .click();
-  await page.getByRole("option", { name: "Medium", exact: true }).click();
+  await dialog.getByRole("button", { name: "Right sidebar", exact: true }).click();
   const createSidebar = dialog.getByRole("dialog", { name: "Right sidebar", exact: true });
-  if (await createSidebar.isVisible()) {
-    await createSidebar.getByRole("button", { name: "Close sidebar", exact: true }).click();
-    await expect(createSidebar).toBeHidden();
-  }
+  await expect(createSidebar).toBeVisible();
+  await createSidebar.getByRole("button", { name: "No priority", exact: true }).click();
+  await page.getByRole("option", { name: "Medium", exact: true }).click();
+  await expect(createSidebar.getByRole("button", { name: "Medium", exact: true })).toBeVisible();
+  await createSidebar.getByRole("button", { name: "Close sidebar", exact: true }).click();
+  await expect(createSidebar).toBeHidden();
   const saved = page.waitForResponse(
     (response) =>
       response.url().includes("/rpc/admin_work_item_change") &&
