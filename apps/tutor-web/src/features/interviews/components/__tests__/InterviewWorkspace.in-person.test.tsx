@@ -1316,7 +1316,7 @@ it("limits repeated readiness conflicts and restores the control", async () => {
   );
   const ready = screen.getByRole("button", { name: "I’m ready" });
   await act(async () => fireEvent.click(ready));
-  expect(mockMutateAsync).toHaveBeenCalledTimes(6);
+  expect(mockMutateAsync).toHaveBeenCalledTimes(11);
   expect(screen.getByRole("alert")).toHaveTextContent("Round changed");
   expect(ready).toBeEnabled();
 });
@@ -1347,4 +1347,34 @@ it("does not automatically replay a shared pause command", async () => {
   );
   expect(mockMutateAsync).toHaveBeenCalledTimes(1);
   expect(screen.getByRole("alert")).toHaveTextContent("Round changed");
+});
+
+it("handles interleaved student selections and readiness from all five peers", async () => {
+  currentRound = waitingSetupRound();
+  render(<InterviewWorkspace id="round-1" />);
+  let peerWrite = 0;
+  mockMutateAsync.mockImplementation(async () => {
+    if (peerWrite === 10) return {};
+    const stationIndex = Math.floor(peerWrite / 2) + 1;
+    const markingReady = peerWrite++ % 2 === 1;
+    currentRound = {
+      ...currentRound,
+      version: currentRound.version + 1,
+      progress: currentRound.progress.map((item, index) =>
+        index === stationIndex
+          ? { ...item, studentId: `student-${index + 1}`, ready: markingReady }
+          : item,
+      ),
+    };
+    throw Object.assign(new Error("Round changed; reload before trying again"), {
+      status: 409,
+    });
+  });
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mockMutateAsync).toHaveBeenCalledTimes(11);
+  expect(new Set(mockMutateAsync.mock.calls.map(([command]) => command.commandId)).size).toBe(1);
+  expect(mockMutateAsync.mock.calls[10][0].expectedVersion).toBe(13);
 });

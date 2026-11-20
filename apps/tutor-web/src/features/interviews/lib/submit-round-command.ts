@@ -39,9 +39,9 @@ export async function submitRoundCommand(
           }
         : {}),
     });
-  // A round has at most six stations. Allow each competing station to commit,
-  // while retaining a finite limit if the round keeps changing.
-  const attempts = stationLocal ? 6 : 1;
+  // Each peer can select a student and then mark ready. Allow both writes per
+  // peer plus our own submission, with a finite limit under ongoing changes.
+  const attempts = stationLocal ? 2 * (round.progress.length - 1) + 1 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {
     const latest = await refresh();
     if (controls(latest) !== controls(round))
