@@ -67,7 +67,9 @@ export async function replaceVariables(
   result = result.replace(/\{classes\}/gi, classesText);
 
   // Replace {classes_with_start_date} with formatted list including start dates
-  if (options?.classesWithStartDates) {
+  if (!/\{classes_with_start_date\}/i.test(template)) {
+    // No date placeholder: rendering a name must not query enrolments.
+  } else if (options?.classesWithStartDates) {
     const classesWithDatesText = options.classesWithStartDates.length > 0
       ? options.classesWithStartDates
           .map(({ class: cls, subject: _subject, startDate }) => {

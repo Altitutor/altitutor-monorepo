@@ -56,6 +56,7 @@ import {
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
+import { submitRoundCommand } from "../lib/submit-round-command";
 
 function timerText(milliseconds: number) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -760,16 +761,18 @@ function WaitingRoom({
     tutorHasJoined(round, tutor.id, actorId, selfStatus),
   );
   return (
-    <div className="mx-auto min-h-0 w-full max-w-5xl space-y-5 overflow-y-auto">
+    <div className={round.delivery === "online" ? "mx-auto grid min-h-0 w-full max-w-7xl items-start gap-5 overflow-y-auto lg:grid-cols-2" : "mx-auto min-h-0 w-full max-w-5xl space-y-5 overflow-y-auto"}>
       <InterviewMedia
         onCallFailure={reportInterviewCallFailure}
-        className="mx-auto max-w-4xl"
+        className="mx-auto w-full"
+        waitingRoom={round.delivery === "online"}
         role="tutor"
         roundId={round.id}
         phase={round.phase}
         delivery={round.delivery}
         enabled={!round.pausedAt && selfStatus !== "offline"}
       />
+      <div className="min-w-0 space-y-5">
       <InterviewRoundOverview
         actorId={actorId}
         round={round}
@@ -803,10 +806,11 @@ function WaitingRoom({
           Start round
         </ActionButton>
       </div>
+      </div>
       <ConfirmAction
         open={confirm}
         title="Start the round?"
-        description="The setup is locked after this. Everyone stays in the waiting room until a tutor starts reading."
+        description={round.delivery === "online" ? "The setup is locked after this. The shared waiting-room call ends, and everyone waits for a tutor to start reading." : "The setup is locked after this. Everyone stays in the waiting room until a tutor starts reading."}
         confirmLabel="Start round"
         onOpenChange={setConfirm}
         onConfirm={() => {
@@ -882,7 +886,7 @@ function InPersonRoundView({
   const clock = usePhaseClock(round);
   const paused = Boolean(round.pausedAt);
   const [confirm, setConfirm] = useState<
-    null | "end" | "skip" | "skipQuestions"
+    null | "end" | "skip" | "skipQuestions" | "readyEmpty"
   >(null);
   const actionText = sharedActionText(round);
   const phase = phaseAppearance(round);
@@ -1059,7 +1063,10 @@ function InPersonRoundView({
                 className={tutorBtnOutline}
                 reason={readyReason}
                 disabled={Boolean(readyReason)}
-                onClick={onReady}
+                onClick={() => {
+                  if (!online && !progress?.studentId && !progress?.ready) setConfirm("readyEmpty");
+                  else onReady();
+                }}
               >
                 {progress?.ready ? "Mark not ready" : "I’m ready"}
               </ActionButton>
@@ -1312,6 +1319,7 @@ function InPersonRoundView({
                     }
                   />
 
+                  {station && <InterviewPanel title="Reading prompt"><InterviewDocument value={station.prompt as JSONContent} /></InterviewPanel>}
                   {!online ? stationControls : null}
                 </aside>
                 <div className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-y-auto">
@@ -1325,13 +1333,7 @@ function InPersonRoundView({
                       registerFlush={registerFlush}
                       registerFinish={registerFinish}
                       onFinishFeedback={onFinishFeedback}
-                      leading={
-                        <InterviewPanel title="Reading prompt">
-                          <InterviewDocument
-                            value={station.prompt as JSONContent}
-                          />
-                        </InterviewPanel>
-                      }
+
                     />
                   ) : station ? (
                     <StationMaterials station={station} />
@@ -1349,23 +1351,24 @@ function InPersonRoundView({
         </main>
       </div>
       <ConfirmAction
+        destructive={confirm !== "readyEmpty"}
         open={confirm !== null}
         title={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "Ready without a student?" : confirm === "skip"
             ? "Skip reading time?"
             : confirm === "skipQuestions"
               ? "Skip question time for everyone?"
               : "End your station early?"
         }
         description={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "No student is selected at your station. You can select a student during reading; if nobody is selected when question time starts, your station will be idle." : confirm === "skip"
             ? "Everyone will go straight to question time. You cannot go back to reading time."
             : confirm === "skipQuestions"
               ? `Every station will move to ${round.mode === "exam" ? "marking" : "feedback"} now. You cannot return to question time. Scores and feedback still need to be completed.`
               : "You cannot go back to question time."
         }
         confirmLabel={
-          confirm === "skip"
+          confirm === "readyEmpty" ? "Mark ready" : confirm === "skip"
             ? "Skip reading time"
             : confirm === "skipQuestions"
               ? "Skip for everyone"
@@ -1380,6 +1383,7 @@ function InPersonRoundView({
           if (action === "skip") onSkipReading();
           if (action === "skipQuestions") onSkipQuestions();
           if (action === "end") onEndStation();
+          if (action === "readyEmpty") onReady();
         }}
       />
     </TooltipProvider>
@@ -1389,7 +1393,6 @@ function InPersonRoundView({
 export function InterviewWorkspace({ id }: { id: string }) {
   const query = useInterviewRound(id, true);
   const browserOnline = useBrowserOnline();
-  const refetch = query.refetch;
   const catalog = useInterviewCatalog();
   const command = useInterviewCommand();
   const leaveGuard = useInterviewLeaveGuard();
@@ -1479,25 +1482,13 @@ export function InterviewWorkspace({ id }: { id: string }) {
     try {
       await flush.current?.();
       if ("expectedVersion" in action && "roundId" in action && round) {
-        const latest = await refetch();
-        if (!latest.data)
-          throw new Error("Unable to refresh the round before this action.");
-        const controls = (value: InterviewRound) =>
-          JSON.stringify({
-            phase: value.phase,
-            rotation: value.rotation,
-            startedAt: value.startedAt,
-            pausedAt: value.pausedAt,
-            progress: value.progress,
-          });
-        if (controls(latest.data) !== controls(round))
-          throw new Error(
-            "The round changed while your feedback was saving. Review its current state and try again.",
-          );
-        await command.mutateAsync({
-          ...action,
-          expectedVersion: latest.data.version,
-        });
+        await submitRoundCommand(
+          action,
+          round,
+          catalog.data?.actorId,
+          query.refreshForAction,
+          command.mutateAsync,
+        );
       } else await command.mutateAsync(action);
     } catch (error) {
       setLocalError(
@@ -1513,7 +1504,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
       <div className="flex min-h-dvh items-center justify-center p-6">
         <InterviewError
           error={query.error}
-          retry={() => void query.refetch()}
+          retry={() => void query.refreshForAction().catch(() => undefined)}
         />
         {query.isPending && "Loading waiting room…"}
       </div>
@@ -1584,7 +1575,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         registerFinalizeRecording={registerFinalizeRecording}
         error={localError ?? command.error ?? query.error}
         connectionInterrupted={query.isError}
-        onRetry={() => void query.refetch()}
+        onRetry={() => void query.refreshForAction().catch(() => undefined)}
         onPause={() =>
           void run({
             ...base,

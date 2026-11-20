@@ -32,6 +32,9 @@ export async function POST(request: Request) {
       process.env.DAILY_API_KEY &&
       "roundId" in body &&
       [
+        "start",
+        "updateRound",
+        "deleteRound",
         "pause",
         "resume",
         "next",

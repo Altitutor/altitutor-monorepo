@@ -200,6 +200,23 @@ function macMemory(overrides = {}) {
   };
 }
 
+test("denied Darwin counters report measurement access failure instead of low RAM", () => {
+  assert.throws(
+    () =>
+      availableMemory(
+        macMemory({
+          hostFree: 335 * 1024 ** 2,
+          command: () => ({
+            ok: false,
+            output: "",
+            diagnostic: "sysctl: Operation not permitted",
+          }),
+        }),
+      ),
+    /Memory measurement unavailable.*sysctl.*Operation not permitted/u,
+  );
+});
+
 test("Darwin observed cache-heavy host passes without adding overlapping counters", () => {
   assert.equal(availableMemory(macMemory()), (104564 + 507410) * 16384);
   assert.ok(availableMemory(macMemory()) >= 4096 * 1024 ** 2);
@@ -249,8 +266,7 @@ test("Darwin low headroom and pressure warnings still refuse a full gate", () =>
   }
 });
 
-test("Darwin malformed or unavailable diagnostics fall back to unused RAM", () => {
-  const fallback = 2367 * 1024 ** 2;
+test("Darwin malformed or unavailable diagnostics fail closed without a RAM shortage claim", () => {
   for (const bad of [
     "",
     macSnapshot.replace("16384 bytes", "0 bytes"),
@@ -258,33 +274,82 @@ test("Darwin malformed or unavailable diagnostics fall back to unused RAM", () =
     macSnapshot.replace("507410.", "9007199254740992."),
     `${macSnapshot}Pages free: 1.\n`,
   ]) {
-    assert.equal(
+    assert.throws(
+      () =>
+        availableMemory(
+          macMemory({
+            command: (name) => ({
+              ok: true,
+              output: name === "/usr/bin/vm_stat" ? bad : "1",
+            }),
+          }),
+        ),
+      /Memory measurement unavailable.*vm_stat.*invalid memory counters/u,
+    );
+  }
+  assert.throws(
+    () =>
+      availableMemory(
+        macMemory({ command: () => ({ ok: false, output: "" }) }),
+      ),
+    /Memory measurement unavailable.*sysctl.*command failed/u,
+  );
+  assert.throws(
+    () =>
       availableMemory(
         macMemory({
           command: (name) => ({
             ok: true,
-            output: name === "/usr/bin/vm_stat" ? bad : "1",
+            output: name === "/usr/bin/vm_stat" ? macSnapshot : "unknown",
           }),
         }),
       ),
-      fallback,
+    /Memory measurement unavailable.*sysctl.*invalid pressure level/u,
+  );
+  assert.throws(
+    () =>
+      availableMemory(
+        macMemory({
+          hostFree: 32 * 1024 ** 3,
+          command: (name) =>
+            name === "/usr/bin/vm_stat"
+              ? { ok: false, output: "", diagnostic: "ETIMEDOUT" }
+              : { ok: true, output: "1" },
+        }),
+      ),
+    /Memory measurement unavailable.*vm_stat.*ETIMEDOUT/u,
+  );
+});
+
+test("genuine Darwin pressure and each profile's headroom threshold still block expensive work", async (t) => {
+  for (const profile of ["check", "database", "full"]) {
+    const threshold = (profile === "check" ? 2048 : 4096) * 1024 ** 2;
+    for (const pressure of ["2", "4"]) {
+      const memory = availableMemory(
+        macMemory({
+          hostFree: 32 * 1024 ** 3,
+          command: () => ({ ok: true, output: pressure }),
+        }),
+      );
+      const o = options(t, { profile, memory });
+      const result = await preflight(o);
+      assert.match(result.failures.join("\n"), /observed 0 MiB/u);
+      assert.equal(
+        o.calls.some(([name]) => name === "deno" || name === "docker"),
+        false,
+      );
+    }
+    assert.match(
+      (
+        await preflight(options(t, { profile, memory: threshold - 1 }))
+      ).failures.join("\n"),
+      /available memory required/u,
+    );
+    assert.deepEqual(
+      (await preflight(options(t, { profile, memory: threshold }))).failures,
+      [],
     );
   }
-  assert.equal(
-    availableMemory(macMemory({ command: () => ({ ok: false, output: "" }) })),
-    fallback,
-  );
-  assert.equal(
-    availableMemory(
-      macMemory({
-        command: (name) => ({
-          ok: true,
-          output: name === "/usr/bin/vm_stat" ? macSnapshot : "unknown",
-        }),
-      }),
-    ),
-    fallback,
-  );
 });
 
 test("Darwin credit is capped by inactive pages and total physical RAM", () => {
@@ -394,8 +459,18 @@ test("Docker unavailability and registry denial without cache are actionable fai
 });
 
 test("subprocess timeout returns a failure rather than hanging the preflight", () => {
-  assert.equal(
-    run(process.execPath, ["-e", "setInterval(()=>{},1000)"], 30).ok,
-    false,
-  );
+  const result = run(process.execPath, ["-e", "setInterval(()=>{},1000)"], 30);
+  assert.equal(result.ok, false);
+  assert.equal(result.diagnostic, "ETIMEDOUT");
+});
+
+test("failed subprocesses retain bounded single-line stderr for probe diagnostics", () => {
+  const result = run(process.execPath, [
+    "-e",
+    'process.stderr.write("Operation not permitted\\n" + "x".repeat(1000)); process.exitCode = 1',
+  ]);
+  assert.equal(result.ok, false);
+  assert.match(result.diagnostic, /^Operation not permitted /u);
+  assert.equal(result.diagnostic.length, 240);
+  assert.doesNotMatch(result.diagnostic, /[\r\n]/u);
 });

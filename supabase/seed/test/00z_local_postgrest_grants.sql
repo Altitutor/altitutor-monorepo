@@ -38,7 +38,9 @@ REVOKE ALL ON public.ucat_student_study_plan_exposure_debts
 GRANT SELECT ON public.ucat_student_study_plan_exposure_debts
   TO service_role;
 
-GRANT SELECT ON public.vmarketing_staff_profiles TO anon;
+-- Preserve DEV-397's public read boundary after broad fixture grants.
+REVOKE ALL ON public.vmarketing_staff_profiles FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vmarketing_staff_profiles TO anon, authenticated;
 
 -- Operational schedule facades are read-only, as granted by the lifecycle
 -- migration. Preserve that contract after the local hosted-grant emulation.
@@ -125,3 +127,10 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE
   public.vtutor_ucat_skill_trainer_config,
   public.vtutor_ucat_student_progress_summary
 FROM authenticated;
+
+-- Preserve DEV-482's SELECT-only active-round discovery facades after the
+-- blanket hosted-role fixture grants above.
+REVOKE ALL ON public.vtutor_interview_active_rounds,
+  public.vstudent_interview_active_rounds FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vtutor_interview_active_rounds,
+  public.vstudent_interview_active_rounds TO authenticated;

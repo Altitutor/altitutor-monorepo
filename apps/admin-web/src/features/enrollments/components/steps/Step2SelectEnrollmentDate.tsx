@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { SearchableSelect } from '@altitutor/ui';
+import { SessionSelect } from '@/features/sessions/components/SessionSelect';
 import { cn } from '@/shared/utils';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
@@ -108,7 +108,7 @@ export function Step2SelectEnrollmentDate({
             {isLoadingClassSessions ? (
               <span className="px-2 py-1 text-sm text-muted-foreground">Loading Sessions…</span>
             ) : futureSessionDates.length > 0 ? (
-              <SearchableSelect<{ value: string; label: string }>
+              <SessionSelect<{ value: string; label: string }>
                 items={futureSessionDates}
                 value={
                   enrollmentDate

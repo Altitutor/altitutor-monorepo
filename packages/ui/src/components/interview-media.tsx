@@ -33,6 +33,7 @@ import {
 import { reportLocalCallFailure } from "./interview-media-diagnostics";
 import {
   InterviewVideoStage,
+  InterviewGroupVideoStage,
   type InterviewVideoView,
 } from "./interview-video-stage";
 import {
@@ -50,6 +51,8 @@ export interface InterviewMediaProps {
   enabled: boolean;
   role?: "tutor" | "student" | "admin";
   stationId?: string;
+  /** Presentation and device defaults only; the server independently authorizes access. */
+  waitingRoom?: boolean;
   plain?: boolean;
   onlineRecording?: { studentId: string | null };
   className?: string;
@@ -336,13 +339,23 @@ function OnlineRecording({
 }
 
 export function InterviewMedia(props: InterviewMediaProps) {
+  return <InterviewMediaWithPreferences key={props.roundId} {...props} />;
+}
+
+function InterviewMediaWithPreferences(props: InterviewMediaProps) {
   const preferences = useRef({
     micOn: true,
     cameraOn: true,
     inputSelection: { current: { audio: "", video: "" } },
     inPersonMicrophone: { current: true },
   });
-  const media = <InterviewMediaSession {...props} preferences={preferences} />;
+  const waitingPreferences = useRef({
+    micOn: false,
+    cameraOn: false,
+    inputSelection: preferences.current.inputSelection,
+    inPersonMicrophone: preferences.current.inPersonMicrophone,
+  });
+  const media = <InterviewMediaSession key={props.waitingRoom ? "waiting" : "station"} {...props} preferences={props.waitingRoom ? waitingPreferences : preferences} />;
   return (
     <InterviewWaitingMedia roundId={props.roundId} available={props.phase === "waiting" && props.role !== "admin"}>
       {media}
@@ -357,6 +370,7 @@ function InterviewMediaSession({
   enabled,
   role = "student",
   stationId,
+  waitingRoom = false,
   plain = false,
   onlineRecording,
   className,
@@ -373,7 +387,7 @@ function InterviewMediaSession({
 }) {
   const failureReporter = useRef(onCallFailure);
   failureReporter.current = onCallFailure;
-  const [devicesRequested, setDevicesRequested] = useState(role !== "admin");
+  const [devicesRequested, setDevicesRequested] = useState(waitingRoom || role !== "admin");
   const [micOn, setMicOn] = useState(preferences.current.micOn);
   const [cameraOn, setCameraOn] = useState(preferences.current.cameraOn);
   const [videoView, setVideoView] = useState<InterviewVideoView>("pip");
@@ -382,12 +396,13 @@ function InterviewMediaSession({
   const callRef = useRef<DailyCall | null>(null);
   const inputSelection = preferences.current.inputSelection;
   const closing = useRef<Promise<void>>(Promise.resolve());
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<DailyParticipant[]>([]);
   const [ticket, setTicket] = useState<InterviewMediaTicket | null>(null);
   const [status, setStatus] = useState("Preparing your devices…");
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const scope = `${roundId}:${stationId ?? ""}:${phase}:${enabled}:${devicesRequested}:${retry}`;
+  const scope = `${roundId}:${stationId ?? ""}:${phase}:${enabled}:${devicesRequested}:${waitingRoom}:${retry}`;
   const [renderScope, setRenderScope] = useState(scope);
   const current = renderScope === scope;
 
@@ -414,10 +429,11 @@ function InterviewMediaSession({
     };
     setRenderScope(scope);
     setParticipants([]);
+    setActiveSpeakerId(null);
     setTicket(null);
     setError("");
     setStatus(
-      devicesRequested
+      devicesRequested && !waitingRoom
         ? "Preparing your devices…"
         : "Your camera and microphone are off.",
     );
@@ -501,6 +517,9 @@ function InterviewMediaSession({
         .on("participant-left", updateParticipants)
         .on("track-started", updateParticipants)
         .on("track-stopped", updateParticipants);
+      instance.on("active-speaker-change", (event) => {
+        if (!disposed && instance === call) setActiveSpeakerId(event.activeSpeaker.peerId);
+      });
       instance.on("network-connection", ({ type, event }) => {
         if (disposed || instance !== call) return;
         if (event === "interrupted") interruptedConnections.add(type);
@@ -572,7 +591,7 @@ function InterviewMediaSession({
       instance.on("camera-error", () => {
         if (!disposed) setError(deviceDeniedMessage);
       });
-      if (devicesRequested && role !== "admin") {
+      if (devicesRequested && role !== "admin" && !waitingRoom) {
         await instance.startCamera({
           startAudioOff: !devicePreferences.current.micOn,
           startVideoOff: !devicePreferences.current.cameraOn,
@@ -743,7 +762,7 @@ function InterviewMediaSession({
       }
     };
     const openingDevices =
-      devicesRequested && enabled && role !== "admin" ? captureDevices() : null;
+      devicesRequested && enabled && role !== "admin" && !waitingRoom ? captureDevices() : null;
     void (async () => {
       await closing.current;
       if (disposed) return;
@@ -799,6 +818,7 @@ function InterviewMediaSession({
     scope,
     role,
     stationId,
+    waitingRoom,
   ]);
 
   const toggleMic = () => {
@@ -866,6 +886,7 @@ function InterviewMediaSession({
       else setError("");
     });
   };
+  const Stage = waitingRoom ? InterviewGroupVideoStage : InterviewVideoStage;
   return (
     <div
       className={cn(
@@ -873,7 +894,11 @@ function InterviewMediaSession({
         className,
       )}
     >
-      <InterviewVideoStage
+      {waitingRoom && <div className="flex items-center justify-between gap-2 px-3 pt-3 text-sm text-white"><span>Waiting room · {visible.length} connected</span><span className="text-xs text-slate-300">Not recorded</span></div>}
+      <Stage
+        participants={visible.map((participant) => ({ id: participant.session_id, content: <ParticipantMedia participant={participant} /> }))}
+        activeSpeakerId={activeSpeakerId ?? remoteParticipants[0]?.session_id ?? null}
+        grid={videoView === "side-by-side"}
         view={videoView}
         localVideo={
           localParticipant ? (
@@ -913,7 +938,7 @@ function InterviewMediaSession({
                 hear your tutor when question time starts.
               </p>
             )}
-          {role === "tutor" && onlineRecording && (
+          {!waitingRoom && role === "tutor" && onlineRecording && (
             <OnlineRecording
               roundId={roundId}
               phase={phase}
@@ -969,8 +994,8 @@ function InterviewMediaSession({
             </div>
           )}
         </div>
-      </InterviewVideoStage>
-      {role !== "admin" && (enabled || devicesRequested) && (
+      </Stage>
+      {(waitingRoom || role !== "admin") && (enabled || devicesRequested) && (
         <div className="flex flex-col items-center gap-2 p-3">
           <div className="w-48">
             <MicrophoneLevel stream={microphoneStream} paused={!micOn || !enabled} />
@@ -989,7 +1014,7 @@ function InterviewMediaSession({
                   <MediaControl
                     label={micOn ? "Mute" : "Unmute"}
                     pressed={micOn}
-                    disabled={!enabled}
+                    disabled={!enabled || (waitingRoom && !ticket?.canSend)}
                     onClick={toggleMic}
                   >
                     {micOn ? (
@@ -1001,7 +1026,7 @@ function InterviewMediaSession({
                   <MediaControl
                     label={cameraOn ? "Turn camera off" : "Turn camera on"}
                     pressed={cameraOn}
-                    disabled={!enabled}
+                    disabled={!enabled || (waitingRoom && !ticket?.canSend)}
                     onClick={toggleCamera}
                   >
                     {cameraOn ? <Camera /> : <CameraOff />}
@@ -1010,9 +1035,9 @@ function InterviewMediaSession({
               )}
               <MediaControl
                 label={
-                  videoView === "pip"
-                    ? "Switch to side by side"
-                    : "Switch to picture in picture"
+                  waitingRoom
+                    ? videoView === "pip" ? "Switch to grid" : "Switch to speaker focus"
+                    : videoView === "pip" ? "Switch to side by side" : "Switch to picture in picture"
                 }
                 onClick={() =>
                   setVideoView((previous) =>

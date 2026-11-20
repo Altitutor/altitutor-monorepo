@@ -147,7 +147,7 @@ function HomeworkHelpWizard({ onClose, student }: AddToHomeworkHelpDialogProps) 
               <Alert variant="destructive"><AlertDescription>Unable to load sessions. <Button variant="link" onClick={() => void query.refetch()}>Retry</Button></AlertDescription></Alert>
             ) : (
               <>
-                <div className="overflow-x-auto"><div className="min-w-[700px]">
+                <div>
                   <WeekViewCalendar
                     sessions={available}
                     selectedSessionIds={new Set(selected.keys())}
@@ -156,7 +156,7 @@ function HomeworkHelpWizard({ onClose, student }: AddToHomeworkHelpDialogProps) 
                     onWeekChange={date => { if (date >= firstWeek) setWeekStart(date); }}
                     minDate={firstWeek}
                   />
-                </div></div>
+                </div>
                 {available.length === 0 && <p className="text-sm text-muted-foreground">No available homework help sessions this week. Try another week.</p>}
               </>
             )}

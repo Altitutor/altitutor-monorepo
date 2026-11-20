@@ -1,3 +1,4 @@
+jest.mock('@/features/sessions/components/SessionSelect', () => ({SessionSelect: () => null}));
 jest.mock("@/features/forms/components/FormResponseCommands", () => ({
   FormResponseCommands: () => null,
 }));

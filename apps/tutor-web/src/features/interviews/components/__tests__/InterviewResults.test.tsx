@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -13,6 +14,7 @@ import type {
 import { InterviewResults } from "../InterviewResults";
 
 const mockRelease = jest.fn();
+const mockFreshRound = jest.fn<Promise<InterviewRound>, []>();
 const mockToast = jest.fn();
 const mockFlush = jest.fn(async () => undefined);
 jest.mock("@altitutor/ui", () => ({
@@ -23,10 +25,11 @@ jest.mock("../../hooks/use-interviews", () => ({
   useInterviewRound: () => ({
     data: round,
     refetch: async () => ({ data: round }),
+    refreshForAction: mockFreshRound,
     error: null,
     isPending: false,
   }),
-  useInterviewCatalog: () => ({ data: { actorId: "tutor-1" } }),
+  useInterviewCatalog: () => ({ data: { actorId: "tutor-1", students: [] } }),
   useInterviewCommand: () => ({
     mutateAsync: mockRelease,
     isPending: false,
@@ -108,6 +111,7 @@ const round: InterviewRound = {
 };
 beforeEach(() => {
   mockRelease.mockReset();
+  mockFreshRound.mockReset().mockResolvedValue(round);
   mockToast.mockClear();
   mockFlush.mockClear();
 });
@@ -153,4 +157,27 @@ it("keeps failed release confirmation open and available for retry", async () =>
     ).toHaveTextContent("Release failed"),
   );
   expect(mockToast).not.toHaveBeenCalled();
+});
+
+it("releases only with the fresh post-save snapshot rather than an older in-flight read", async () => {
+  let finishRead!: (value: InterviewRound) => void;
+  mockFreshRound.mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
+  mockRelease.mockResolvedValue({});
+  render(<InterviewResults id="round-1" />);
+  fireEvent.click(screen.getByRole("button", { name: "Release all results" }));
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Release results" }));
+  await waitFor(() => expect(mockFlush).toHaveBeenCalled());
+  expect(mockRelease).not.toHaveBeenCalled();
+  await waitFor(() => expect(mockFreshRound).toHaveBeenCalledTimes(1));
+  await act(async () => finishRead({ ...round, version: 99 }));
+  await waitFor(() => expect(mockRelease).toHaveBeenCalledWith(expect.objectContaining({ type: "release", expectedVersion: 99 })));
+});
+
+it("does not release cached results after post-save refresh fails", async () => {
+  mockFreshRound.mockRejectedValue(new Error("Fresh results unavailable"));
+  render(<InterviewResults id="round-1" />);
+  fireEvent.click(screen.getByRole("button", { name: "Release all results" }));
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Release results" }));
+  await waitFor(() => expect(within(screen.getByRole("alertdialog")).getByRole("alert")).toHaveTextContent("Fresh results unavailable"));
+  expect(mockRelease).not.toHaveBeenCalled();
 });

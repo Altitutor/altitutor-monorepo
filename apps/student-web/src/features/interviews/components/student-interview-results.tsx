@@ -198,6 +198,7 @@ function StationFeedback({
               <div data-highlighted={highlightedQuestion === question.id || undefined}
                 className={cn("space-y-2 rounded-lg px-2 py-2 text-sm", highlightedQuestion === question.id && "bg-primary/10 ring-2 ring-primary/30")}>
                 {timing && <p className="text-xs tabular-nums text-muted-foreground lg:hidden">{timing}</p>}
+                {typeof feedback?.score === "number" && <p className="font-medium">Question score: {feedback.score} / {station.maximumPoints}</p>}
                 <InterviewContent value={question.question} className="[&>p:first-child]:!mt-0" />
                 {interviewText(question.rubric).trim() && <div>
                   <p className="font-medium">Rubric</p>

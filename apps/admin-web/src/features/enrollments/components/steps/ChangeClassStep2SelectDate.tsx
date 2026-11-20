@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { SearchableSelect } from '@altitutor/ui';
+import { SessionSelect } from '@/features/sessions/components/SessionSelect';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { useClassTransferSessions, sessionCalendarDate, sessionDateLabel } from '../../hooks/useClassTransferSessions';
 import { finalClassDateIsAfterEnrolment, firstNewClassWarnings, selectableLastOldClassDates } from '../../utils/changeClassDates';
@@ -73,7 +73,7 @@ export function ChangeClassStep2SelectDate({
       <div className="space-y-2">
         <p id="last-old-class-label" className="font-medium">Last date in old class</p>
         <p className="text-sm text-muted-foreground">{oldClass.long_name}</p>
-        <SearchableSelect items={oldDates} value={oldDates.find(date => date.id === lastOldClassDate) ?? null}
+        <SessionSelect items={oldDates} value={oldDates.find(date => date.id === lastOldClassDate) ?? null}
           onValueChange={date => date && onLastDateChange(date.id)} getItemId={date => date.id} getItemLabel={date => date.label}
           placeholder="Select final old-class session" ariaLabel="Last date in old class" />
         {hiddenOldDates && (
@@ -83,7 +83,7 @@ export function ChangeClassStep2SelectDate({
       <div className="space-y-2">
         <p id="first-new-class-label" className="font-medium">First date in new class</p>
         <p className="text-sm text-muted-foreground">{selectedNewClass?.long_name}</p>
-        <SearchableSelect items={newDates} value={newDates.find(date => date.id === firstNewClassDate) ?? null}
+        <SessionSelect items={newDates} value={newDates.find(date => date.id === firstNewClassDate) ?? null}
           onValueChange={date => date && onFirstDateChange(date.id)} getItemId={date => date.id} getItemLabel={date => date.label}
           placeholder="Select first new-class session" ariaLabel="First date in new class" />
       </div>

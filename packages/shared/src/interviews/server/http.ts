@@ -111,6 +111,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
         if (access.round.delivery === "in_person" || videoCapture) {
           report("interview_media_state", access.actorId);
           const round = await store.round(roundId);
+          if (!round) return json({ error: "Interview is unavailable." }, 404);
           const policy = interviewMediaPolicy(round, access.actorId, deps.role);
           let captureId: string | undefined;
           let captureAttemptId: string | undefined;

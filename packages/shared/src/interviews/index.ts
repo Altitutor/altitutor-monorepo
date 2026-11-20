@@ -121,6 +121,8 @@ export interface InterviewStationProgress {
   feedbackComplete: boolean;
 }
 export interface InterviewFeedback {
+  /** Optional question score, independently of the overall station score. */
+  score?: number | null;
   placementId: string;
   value: InterviewRichText;
 }
@@ -301,6 +303,9 @@ export type InterviewCommand =
       rounds: { roundId: string; setup: InterviewRoundSetup }[];
     })
   | (RoundCommand & { type: "updateRound"; setup: InterviewRoundSetup })
+  | (RoundCommand & { type: "deleteRound" })
+  | (RoundCommand & { type: "replaceStudent"; studentId: string; targetStudentId: string })
+  | (RoundCommand & { type: "swapStationStudents"; studentId: string; targetStudentId: string; stationId: string })
   | (RoundCommand & {
       type: "start" | "pause" | "resume" | "next" | "release" | "skipReading" | "skipQuestions";
     })

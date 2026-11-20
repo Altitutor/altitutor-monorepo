@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 import { createAdminAuthDiagnostics } from '@/lib/sentry/admin-auth-diagnostics';
+import { createRealtimeJoinDiagnostics } from '@/lib/sentry/realtime-join-diagnostics';
 
 // Environment variable validation - only check at runtime, not during build
 function validateEnvVars() {
@@ -53,6 +54,11 @@ function getBrowserClient() {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
     anonymousKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   });
+  const realtimeLogger = createRealtimeJoinDiagnostics({
+    enabled: typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ADMIN_REALTIME_DIAGNOSTICS === 'true',
+    pathname: () => window.location.pathname,
+    channels: () => browserClientInstance?.getChannels() ?? [],
+  });
   
   // Use isSingleton: true to ensure only one instance per URL+key combination
   // This is the recommended approach for Next.js App Router
@@ -65,6 +71,7 @@ function getBrowserClient() {
       },
       isSingleton: true,
       ...(diagnostics ? { global: { fetch: diagnostics.fetch } } : {}),
+      ...(realtimeLogger ? { realtime: { logger: realtimeLogger } } : {}),
     }
   ));
   diagnostics?.attach(browserClientInstance);

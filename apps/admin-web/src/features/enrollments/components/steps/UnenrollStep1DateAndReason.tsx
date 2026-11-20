@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { addDays } from 'date-fns';
-import { SearchableSelect } from '@altitutor/ui';
+import { SessionSelect } from '@/features/sessions/components/SessionSelect';
 import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate, calculateLastSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -140,7 +140,7 @@ export function UnenrollStep1DateAndReason({
             {enrolmentLoading ? (
               <span className="px-2 py-1 text-sm text-muted-foreground">Loading sessions…</span>
             ) : sessionDateOptions.length > 0 ? (
-              <SearchableSelect<{ value: string; label: string }>
+              <SessionSelect<{ value: string; label: string }>
                 items={sessionDateOptions}
                 value={sessionDateOptions.find((d) => d.value === selectedSessionDate) ?? null}
                 onValueChange={(item) => item && handleSessionDateChange(item.value)}

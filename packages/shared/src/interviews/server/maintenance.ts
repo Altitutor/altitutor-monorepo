@@ -147,11 +147,11 @@ export async function reconcileInterviewMedia(
           .map((session) => session.id),
       );
       const settled =
-        state.phase === "completed" &&
+        (!state || state.phase === "completed") &&
         sessions.every(
           (session) => session.kind === "audio" || session.closedAt,
         ) &&
-        state.recordings.every(
+        (state?.recordings ?? []).every(
           (recording) =>
             recording.kind === "audio" ||
             browserVideoIds.has(recording.id) ||
@@ -162,7 +162,7 @@ export async function reconcileInterviewMedia(
           p_round_id: job.round_id,
           p_revision: job.revision,
           p_lease_token: job.lease_token,
-          p_delay_seconds: state.phase === "completed" ? 300 : 30,
+          p_delay_seconds: !state || state.phase === "completed" ? 300 : 30,
           p_retire: settled,
         }),
       );

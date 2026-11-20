@@ -1,0 +1,141 @@
+import React from "react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useInterviewRound, useInterviewCommand } from "../use-interviews";
+
+jest.mock("@/features/staff/hooks/useStaffQuery", () => ({ useCurrentStaff: jest.fn() }));
+jest.mock("../use-interview-access", () => ({ useInterviewAccess: jest.fn() }));
+let actorId = "actor";
+jest.mock("@/shared/lib/supabase/auth", () => ({ useAuthStore: () => ({ user: { id: actorId }, loading: false }) }));
+jest.mock("@altitutor/ui", () => ({ useToast: () => ({ toast: jest.fn() }) }));
+let changed: () => void;
+jest.mock("@/shared/lib/supabase/client", () => ({ getSupabaseClient: () => ({ channel: () => ({ on: (_type: string, _filter: unknown, callback: () => void) => { changed = callback; return { subscribe: () => ({}) }; } }), removeChannel: jest.fn() }) }));
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+const response = (version: number) => ({ ok: true, json: async () => ({ id: "round", version, phase: "waiting", pausedAt: null, phaseDeadline: null, serverNow: "2026-11-20T00:00:00Z" }) }) as Response;
+
+test("a burst of realtime changes keeps one HTTP read in flight and reads the latest trailing state", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const first = deferred<Response>();
+  const tail = deferred<Response>();
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockReturnValueOnce(first.promise).mockReturnValueOnce(tail.promise);
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+    act(() => { changed(); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    act(() => { for (let i = 0; i < 20; i++) changed(); void view.result.current.refetch(); });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => first.resolve(response(2)));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await act(async () => tail.resolve(response(3)));
+    await waitFor(() => expect(view.result.current.data?.version).toBe(3));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  } finally { view.unmount(); client.clear(); }
+});
+
+test("an action waits for a new snapshot after an older read already began", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const old = deferred<Response>();
+  const fresh = deferred<Response>();
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise);
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+    act(() => changed());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    let version: number | undefined;
+    let action: Promise<void>;
+    act(() => { action = view.result.current.refreshForAction().then((value) => { version = value.version; }); });
+    await act(async () => old.resolve(response(2)));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(version).toBeUndefined();
+    await act(async () => { fresh.resolve(response(3)); await action; });
+    expect(version).toBe(3);
+  } finally { view.unmount(); client.clear(); }
+});
+
+
+test("cache removal discards a queued trailing read", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const old = deferred<Response>();
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockReturnValueOnce(old.promise);
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+  act(() => { changed(); changed(); });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  view.unmount();
+  client.clear();
+  await act(async () => old.resolve(response(2)));
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(client.getQueryCache().getAll()).toHaveLength(0);
+});
+
+test("switching actors cannot run the old actor's queued read or replace the new snapshot", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const old = deferred<Response>();
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockReturnValueOnce(old.promise).mockResolvedValue(response(9));
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+    act(() => { changed(); changed(); });
+    actorId = "other";
+    view.rerender();
+    await waitFor(() => expect(view.result.current.data?.version).toBe(9));
+    await act(async () => old.resolve(response(2)));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(view.result.current.data?.version).toBe(9);
+  } finally { actorId = "actor"; view.unmount(); client.clear(); }
+});
+
+test("a saved action settles after its fresh pass despite later realtime changes", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const old = deferred<Response>();
+  const fresh = deferred<Response>();
+  const later = deferred<Response>();
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise).mockReturnValueOnce(later.promise);
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => ({ round: useInterviewRound("round", true), command: useInterviewCommand() }), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.round.data?.version).toBe(1));
+    act(() => changed());
+    let settled = false;
+    act(() => { void view.result.current.command.mutateAsync({ type: "pause", roundId: "round", commandId: "command", expectedVersion: 1 }).then(() => { settled = true; }); });
+    // Allow the command acknowledgment to request its post-save barrier.
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => old.resolve(response(2)));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    act(() => changed());
+    await act(async () => fresh.resolve(response(3)));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(settled).toBe(true));
+    await act(async () => later.resolve(response(4)));
+    await waitFor(() => expect(view.result.current.round.data?.version).toBe(4));
+  } finally { view.unmount(); client.clear(); }
+});
+
+test("a failed recovery read cannot supply the old cached snapshot to an action", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const fetchMock = jest.fn().mockResolvedValueOnce(response(1)).mockResolvedValue({ ok: false, json: async () => ({ error: "Database unavailable" }) } as Response);
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : fetchMock());
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+    await act(async () => { await expect(view.result.current.refreshForAction()).rejects.toThrow("Database unavailable"); });
+    expect(view.result.current.data?.version).toBe(1);
+  } finally { view.unmount(); client.clear(); }
+});
