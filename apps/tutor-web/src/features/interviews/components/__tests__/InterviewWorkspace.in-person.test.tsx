@@ -64,6 +64,11 @@ jest.mock("../../hooks/use-interviews", () => ({
     isError: false,
     isPending: false,
     refetch: mockRefetch,
+    refreshForAction: async () => {
+      const latest = await mockRefetch();
+      if (latest.isError || !latest.data) throw new Error("Unable to refresh the round before this action.");
+      return latest.data;
+    },
     heartbeatFailed: false,
   }),
   useInterviewCatalog: () => ({ data: { actorId: "tutor-1" } }),

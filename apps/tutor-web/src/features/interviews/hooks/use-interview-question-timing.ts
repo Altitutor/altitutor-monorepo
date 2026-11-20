@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { InterviewCommand, InterviewRound, InterviewStationAttempt } from "@altitutor/shared";
+import { refreshInterviewQueries } from "@altitutor/ui/lib/interview-query-refresh";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { sendInterviewCommand } from "../api/interviews";
 import { interviewKeys } from "./use-interviews";
@@ -57,7 +58,7 @@ export function useInterviewQuestionTiming(
           await sendInterviewCommand(command);
           if (queue.current[0] === command) queue.current.shift();
           if (mounted.current && scope.current === command.attemptId) setTimingError(null);
-          void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+          void refreshInterviewQueries(client, interviewKeys.round(command.roundId)).catch(() => undefined);
         } catch (error) {
           if (queue.current[0] !== command) continue;
           const latestRound = current.current;
@@ -68,7 +69,7 @@ export function useInterviewQuestionTiming(
             intended.current = latestRound.attempt?.selectedQuestionId;
             if (mounted.current) setTimingError(null);
             if (questionTimingClosed(error))
-              void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+              void refreshInterviewQueries(client, interviewKeys.round(command.roundId)).catch(() => undefined);
             break;
           }
           // A selection can arrive after the server closes the answering interval.
@@ -77,7 +78,7 @@ export function useInterviewQuestionTiming(
             queue.current = [];
             intended.current = latestRound.attempt?.selectedQuestionId;
             if (mounted.current) setTimingError(null);
-            void client.invalidateQueries({ queryKey: interviewKeys.round(command.roundId) });
+            void refreshInterviewQueries(client, interviewKeys.round(command.roundId)).catch(() => undefined);
             // A newer active snapshot can arrive before the closed response.
             if (mounted.current && latestRound.active && latestRound.version > versionAtSend &&
               latestRound.attempt?.id === command.attemptId &&

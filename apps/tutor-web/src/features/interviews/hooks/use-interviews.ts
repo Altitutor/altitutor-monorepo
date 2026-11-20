@@ -5,6 +5,7 @@ import { useInterviewAccess } from "./use-interview-access";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import { useToast } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
+import { refreshInterviewQueries } from "@altitutor/ui/lib/interview-query-refresh";
 import { useInterviewRoundSync } from "@altitutor/ui/hooks/use-interview-round-sync";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
@@ -54,20 +55,18 @@ export function useInterviewCommand() {
           variant: "destructive",
         });
       if (command.type === "saveRubric") {
-        await client.invalidateQueries({ queryKey: ["interviews"] });
+        await refreshInterviewQueries(client, ["interviews"]);
       } else if (command.type === "createRounds") {
-        await client.invalidateQueries({ queryKey: interviewKeys.rounds });
+        await refreshInterviewQueries(client, interviewKeys.rounds);
       } else if ("roundId" in command) {
         await Promise.all([
-          client.invalidateQueries({
-            queryKey: interviewKeys.round(command.roundId),
-          }),
+          refreshInterviewQueries(client, interviewKeys.round(command.roundId)),
           ...(["saveAttempt", "selectQuestion"].includes(command.type)
             ? []
-            : [client.invalidateQueries({ queryKey: interviewKeys.rounds })]),
+            : [refreshInterviewQueries(client, interviewKeys.rounds)]),
         ]);
       } else
-        await client.invalidateQueries({ queryKey: interviewKeys.catalog });
+        await refreshInterviewQueries(client, interviewKeys.catalog);
     },
   });
 }
@@ -87,7 +86,7 @@ export function useInterviewRound(id: string, participate = false) {
     participate,
     adapter: {
       refresh: () =>
-        client.invalidateQueries({ queryKey: interviewKeys.round(id) }),
+        refreshInterviewQueries(client, [...interviewKeys.round(id), user?.id]),
       send: (type) =>
         sendInterviewCommand({ type, roundId: id, commandId: randomUuid() }),
       subscribe: (changed, connected) => {
@@ -102,7 +101,25 @@ export function useInterviewRound(id: string, participate = false) {
       },
     },
   });
-  return { ...query, ...sync };
+  return {
+    ...query,
+    ...sync,
+    refetch: (options: Parameters<typeof query.refetch>[0] = {}) =>
+      query.refetch({ ...options, cancelRefetch: false }),
+    refreshForAction: async () => {
+      const key = [...interviewKeys.round(id), user?.id];
+      const active = () => client.getQueryCache()
+        .findAll({ queryKey: key, exact: true })
+        .some((entry) => entry.isActive());
+      if (!active()) throw new Error("Interview access changed. Reload before this action.");
+      await refreshInterviewQueries(client, key);
+      if (!active()) throw new Error("Interview access changed. Reload before this action.");
+      const latest = client.getQueryState<Awaited<ReturnType<typeof getInterviewRound>>>(key);
+      if (latest?.status !== "success" || !latest.data)
+        throw latest?.error ?? new Error("Unable to refresh the round before this action.");
+      return latest.data;
+    },
+  };
 }
 
 export function useInterviewCalendarRounds() {
