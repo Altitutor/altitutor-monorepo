@@ -56,6 +56,7 @@ import {
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { tutorBtnOutline } from "@/shared/lib/tutor-visual";
 import { cn } from "@/shared/utils";
+import { submitRoundCommand } from "../lib/submit-round-command";
 
 function timerText(milliseconds: number) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -1479,25 +1480,18 @@ export function InterviewWorkspace({ id }: { id: string }) {
     try {
       await flush.current?.();
       if ("expectedVersion" in action && "roundId" in action && round) {
-        const latest = await refetch();
-        if (!latest.data)
-          throw new Error("Unable to refresh the round before this action.");
-        const controls = (value: InterviewRound) =>
-          JSON.stringify({
-            phase: value.phase,
-            rotation: value.rotation,
-            startedAt: value.startedAt,
-            pausedAt: value.pausedAt,
-            progress: value.progress,
-          });
-        if (controls(latest.data) !== controls(round))
-          throw new Error(
-            "The round changed while your feedback was saving. Review its current state and try again.",
-          );
-        await command.mutateAsync({
-          ...action,
-          expectedVersion: latest.data.version,
-        });
+        await submitRoundCommand(
+          action,
+          round,
+          catalog.data?.actorId,
+          async () => {
+            const latest = await refetch();
+            if (latest.isError || !latest.data)
+              throw new Error("Unable to refresh the round before this action.");
+            return latest.data;
+          },
+          command.mutateAsync,
+        );
       } else await command.mutateAsync(action);
     } catch (error) {
       setLocalError(
