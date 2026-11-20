@@ -19,8 +19,8 @@ export async function GET(
     const search = new URL(request.url).searchParams;
     const stationId = search.get("stationId");
     if (
-      !stationId ||
-      !access.round.stations.some((station) => station.id === stationId)
+      (access.round.startedAt || access.round.phase !== "waiting") &&
+      (!stationId || !access.round.stations.some((station) => station.id === stationId))
     )
       return interviewResponse(
         { error: "Select a station in this interview." },
@@ -45,7 +45,7 @@ export async function GET(
       await service.ticketObserver(
         roundId,
         { id: access.actorId, name: "Admin" },
-        stationId,
+        stationId ?? "",
         search.get("sessionId") ?? undefined,
         search.get("accessKey") ?? undefined,
       ),

@@ -5273,7 +5273,7 @@ export type Database = {
       }
       interview_media_sessions: {
         Row: {
-          attempt_id: string
+          attempt_id: string | null
           closed_at: string | null
           created_at: string
           expires_at: string
@@ -5288,10 +5288,11 @@ export type Database = {
           room_name: string
           room_url: string | null
           round_id: string
+          scope: string
           tutor_id: string | null
         }
         Insert: {
-          attempt_id: string
+          attempt_id?: string | null
           closed_at?: string | null
           created_at?: string
           expires_at: string
@@ -5306,10 +5307,11 @@ export type Database = {
           room_name: string
           room_url?: string | null
           round_id: string
+          scope?: string
           tutor_id?: string | null
         }
         Update: {
-          attempt_id?: string
+          attempt_id?: string | null
           closed_at?: string | null
           created_at?: string
           expires_at?: string
@@ -5324,6 +5326,7 @@ export type Database = {
           room_name?: string
           room_url?: string | null
           round_id?: string
+          scope?: string
           tutor_id?: string | null
         }
         Relationships: [

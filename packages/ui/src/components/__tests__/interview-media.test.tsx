@@ -1395,3 +1395,44 @@ it.each(["close", "reading"])("keeps waiting-room preferences when a device test
   expect(container.querySelector('[aria-label="Unmute"]')).not.toBeNull();
   expect(container.querySelector('[aria-label="Turn camera on"]')).not.toBeNull();
 });
+
+it("joins the shared waiting room without requesting devices and exposes separate opt-in controls", async () => {
+  ticket = { ...ticket, canSend: true, canReceive: true, sessionId: "waiting" };
+  jest.mocked(fetch).mockResolvedValue(response(ticket));
+  await render(<InterviewMedia roundId="round" phase="waiting" delivery="online" role="admin" waitingRoom enabled />);
+  await waitFor(() => expect(mockJoin).toHaveBeenCalledWith(expect.objectContaining({ startAudioOff: true, startVideoOff: true })));
+  expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  expect(mockStartCamera).not.toHaveBeenCalled();
+  expect(container.querySelector('[aria-label="Unmute"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Turn camera on"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Switch to grid"]')).not.toBeNull();
+});
+
+it("changes speaker focus and grid without replacing participant audio or reconnecting", async () => {
+  ticket = { ...ticket, canSend: true, canReceive: true, sessionId: "waiting" };
+  jest.mocked(fetch).mockResolvedValue(response(ticket));
+  const person = (id: string, local = false) => ({ local, session_id: id, user_name: id,
+    tracks: { audio: { state: "off" }, video: { state: "off" } } }) as unknown as DailyParticipant;
+  mockParticipants.mockReturnValue({ local: person("You", true), alice: person("Alice"), bob: person("Bob") });
+  await render(<InterviewMedia roundId="round" phase="waiting" delivery="online" waitingRoom enabled />);
+  const audio = Array.from(container.querySelectorAll("audio"));
+  expect(audio).toHaveLength(2);
+  await act(async () => mockListeners.get("active-speaker-change")?.({ activeSpeaker: { peerId: "Bob" } }));
+  expect(container.querySelector('[data-focused="true"]')?.textContent).toContain("Bob");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Switch to grid"]')?.click());
+  expect(container.querySelector('[aria-label="Waiting-room grid"]')).not.toBeNull();
+  expect(Array.from(container.querySelectorAll("audio"))).toEqual(audio);
+  expect(mockJoin).toHaveBeenCalledTimes(1);
+  expect(mockDestroy).not.toHaveBeenCalled();
+});
+
+it("enables waiting-room microphone independently and keeps station preferences separate", async () => {
+  ticket = { ...ticket, canSend: true, canReceive: true, sessionId: "waiting" };
+  jest.mocked(fetch).mockResolvedValue(response(ticket));
+  await render(<InterviewMedia roundId="round" phase="waiting" delivery="online" waitingRoom enabled />);
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Unmute"]')?.click());
+  expect(mockAudio).toHaveBeenLastCalledWith(true);
+  expect(mockVideo).toHaveBeenLastCalledWith(false);
+  await render(<InterviewMedia roundId="round" phase="questions" delivery="online" enabled />);
+  expect(mockStartCamera).toHaveBeenCalledWith({ startAudioOff: false, startVideoOff: false });
+});

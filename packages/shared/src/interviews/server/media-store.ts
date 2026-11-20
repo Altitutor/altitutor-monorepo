@@ -13,6 +13,7 @@ function session(
     id: row.id,
     roundId: row.round_id,
     attemptId: row.attempt_id,
+    scope: row.scope === "waiting" ? "waiting" : "station",
     key: row.phase_key,
     roomName: row.room_name,
     url: row.room_url,
@@ -36,6 +37,7 @@ export function createInterviewMediaStore(
         p_round_id: id,
       });
       if (error) throw error;
+      if (data === null) return null;
       if (
         !data ||
         typeof data !== "object" ||
@@ -62,6 +64,8 @@ export function createInterviewMediaStore(
             id: value.id,
             round_id: value.roundId,
             attempt_id: value.attemptId,
+            scope: value.scope ?? "station",
+            kind: value.kind,
             phase_key: value.key,
             room_name: value.roomName,
             room_url: value.url,
@@ -116,6 +120,7 @@ export function createInterviewMediaStore(
       if (error) throw error;
     },
     async syncRecording(value, recording, first) {
+      if (!value.attemptId || value.scope === "waiting") throw new Error("Waiting rooms cannot be recorded.");
       const { error } = await client
         .from("interview_recordings")
         .upsert(

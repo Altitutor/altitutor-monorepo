@@ -1,6 +1,7 @@
 import type { InterviewRound } from "./index";
 
 export interface InterviewMediaPolicy {
+  scope: "station";
   key: string;
   attemptId: string;
   studentId: string;
@@ -38,6 +39,7 @@ export function interviewMediaPolicy(
   if (round.mode === "exam" && phase === "feedback") return null;
   const readingExam = round.mode === "exam" && phase === "reading";
   return {
+    scope: "station",
     key: `${attempt.id}:${phase}:${round.phaseStartedAt}`,
     attemptId: attempt.id,
     studentId: station.studentId,
@@ -68,4 +70,30 @@ export interface InterviewMediaTicket {
   recordingActive?: boolean;
   warning?: string;
   attemptId?: string;
+}
+
+export interface InterviewWaitingMediaPolicy {
+  scope: "waiting";
+  key: string;
+  expiresAt: string;
+  canSend: true;
+  canReceive: true;
+  recordingEnabled: false;
+}
+
+/** Only the unstarted online round is a shared conversation. */
+export function interviewWaitingMediaPolicy(
+  round: InterviewRound,
+  now: number,
+): InterviewWaitingMediaPolicy | null {
+  if (round.delivery !== "online" || round.startedAt || round.pausedAt || round.phase !== "waiting") return null;
+  const generation = Math.floor(now / (30 * 60_000));
+  return {
+    scope: "waiting",
+    key: `${round.id}:${round.version}:${generation}`,
+    expiresAt: new Date((generation + 1) * 30 * 60_000).toISOString(),
+    canSend: true,
+    canReceive: true,
+    recordingEnabled: false,
+  };
 }

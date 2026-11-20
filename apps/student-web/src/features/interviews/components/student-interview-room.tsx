@@ -266,6 +266,7 @@ function OnlineInterviewRoom({
                 <InterviewMedia
                   onCallFailure={reportInterviewCallFailure}
                   className="mx-auto w-full max-w-[min(100%,34svh)] md:max-w-[min(100%,74dvh)]"
+                  waitingRoom={round.delivery === "online" && !round.startedAt && round.phase === "waiting"}
                   roundId={round.id}
                   phase={round.phase}
                   delivery={round.delivery}

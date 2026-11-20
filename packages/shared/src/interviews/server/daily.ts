@@ -42,14 +42,14 @@ export class DailyInterviewProvider {
     if (response.status === 204) return {};
     return object(await response.json());
   }
-  async createRoom(name: string, expires: number): Promise<string> {
+  async createRoom(name: string, expires: number, maxParticipants = 8): Promise<string> {
     const room = await this.request("/rooms", "POST", {
       name,
       privacy: "private",
       properties: {
         exp: expires,
         eject_at_room_exp: true,
-        max_participants: 8,
+        max_participants: maxParticipants,
         enforce_unique_user_ids: true,
         enable_chat: false,
         enable_screenshare: false,

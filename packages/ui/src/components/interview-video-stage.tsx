@@ -178,3 +178,27 @@ export function InterviewVideoStage({
     </div>
   );
 }
+
+/** Every participant remains mounted when focus changes, keeping remote audio continuous. */
+export function InterviewGroupVideoStage({ participants, activeSpeakerId, grid, children }: {
+  participants: { id: string; content: React.ReactNode }[];
+  activeSpeakerId: string | null;
+  grid: boolean;
+  children?: React.ReactNode;
+}) {
+  const focus = participants.some((person) => person.id === activeSpeakerId)
+    ? activeSpeakerId : participants[0]?.id;
+  return (
+    <div className="relative w-full bg-slate-950" role="group" aria-label={grid ? "Waiting-room grid" : "Waiting-room speaker focus"}>
+      <div className={cn("grid max-h-[65dvh] min-h-72 gap-2 overflow-y-auto p-2", grid ? "grid-cols-2 sm:grid-cols-3 auto-rows-[minmax(8rem,1fr)]" : "grid-cols-3 auto-rows-[5rem]")}>
+        {participants.length ? participants.map((person) => (
+          <div key={person.id} data-focused={!grid && person.id === focus ? "true" : undefined}
+            className={cn("min-h-0 min-w-0 overflow-hidden rounded-lg border border-slate-700", !grid && person.id === focus && "order-first col-span-3 row-span-3 border-sky-300")}>
+            {person.content}
+          </div>
+        )) : <div className="col-span-full flex items-center justify-center text-sm text-slate-300">Waiting for participants…</div>}
+      </div>
+      {children}
+    </div>
+  );
+}

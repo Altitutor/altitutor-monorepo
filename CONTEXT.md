@@ -539,6 +539,8 @@
 
 ## Medicine interview practice
 
+- **Interview waiting-room call** — An optional, unrecorded group conversation for the students, tutors and AdminStaff in an online interview before the round starts, entered with camera and microphone off. Starting the round ends the shared conversation; pauses and waiting between rotations do not reopen it.
+
 - **Interview station** — A reusable interview exercise comprising one shared reading prompt and one or more ordered, linked questions, with exactly one category and an overall score maximum. Interviews are assembled from whole stations.
 
 - **Interview station question** — One question belonging to a particular station, with its own rubric, recommended answering time and any number of question tags. It is authored as part of that station rather than selected or reused independently.
