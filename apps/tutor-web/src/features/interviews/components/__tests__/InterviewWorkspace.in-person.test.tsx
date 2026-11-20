@@ -9,6 +9,7 @@ import { InterviewWorkspace } from "../InterviewWorkspace";
 
 let currentRound: InterviewRound;
 const mockMutateAsync = jest.fn();
+const mockRefetch = jest.fn();
 const mockToast = jest.fn();
 const mockFlush = jest.fn();
 const mockFinalizeAudio = jest.fn();
@@ -62,7 +63,7 @@ jest.mock("../../hooks/use-interviews", () => ({
     error: null,
     isError: false,
     isPending: false,
-    refetch: jest.fn(async () => ({ data: currentRound })),
+    refetch: mockRefetch,
     heartbeatFailed: false,
   }),
   useInterviewCatalog: () => ({ data: { actorId: "tutor-1" } }),
@@ -335,6 +336,7 @@ function roundFixture(delivery: InterviewRound["delivery"]): InterviewRound {
 
 beforeEach(() => {
   mockMutateAsync.mockReset();
+  mockRefetch.mockReset().mockImplementation(async () => ({ data: currentRound, isError: false }));
   mockFlush.mockReset().mockResolvedValue(undefined);
   mockFinalizeAudio.mockReset().mockResolvedValue(undefined);
   mockLeaveTo.mockClear();
@@ -1110,4 +1112,239 @@ test("explains whose feedback blocks the next rotation and sends no command", as
   rerender(<InterviewWorkspace id="round-1" />);
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next rotation" })));
   expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ type: "next" }));
+});
+
+it("allows another tutor to become ready while submitting readiness", async () => {
+  currentRound = {
+    ...roundFixture("in_person"),
+    phase: "waiting",
+    phaseDeadline: null,
+    progress: roundFixture("in_person").progress.map((item) => ({
+      ...item,
+      ready: false,
+    })),
+  };
+  const initial = currentRound;
+  render(<InterviewWorkspace id="round-1" />);
+  currentRound = {
+    ...initial,
+    version: initial.version + 1,
+    progress: initial.progress.map((item, index) =>
+      index === 1 ? { ...item, ready: true } : item,
+    ),
+  };
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mockMutateAsync).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "ready", ready: true, expectedVersion: 4 }),
+  );
+});
+
+it.each(["ready", "claimStudent"] as const)(
+  "retries %s when another station commits after refresh",
+  async (type) => {
+    currentRound = {
+      ...roundFixture("in_person"),
+      phase: "waiting",
+      phaseDeadline: null,
+      students: [
+        { id: "student-1", name: "Sam Student" },
+        { id: "student-2", name: "Alex Student" },
+      ],
+      studentIds: ["student-1", "student-2"],
+      attempts: [],
+      progress: roundFixture("in_person").progress.map((item) => ({
+        ...item,
+        ready: false,
+      })),
+    };
+    render(<InterviewWorkspace id="round-1" />);
+    mockMutateAsync
+      .mockImplementationOnce(async () => {
+        currentRound = {
+          ...currentRound,
+          version: 4,
+          progress: currentRound.progress.map((item, index) =>
+            index === 1 ? { ...item, ready: true } : item,
+          ),
+        };
+        throw Object.assign(
+          new Error("Round changed; reload before trying again"),
+          { status: 409 },
+        );
+      })
+      .mockResolvedValue({});
+    await act(async () => {
+      if (type === "ready")
+        fireEvent.click(screen.getByRole("button", { name: "I’m ready" }));
+      else
+        fireEvent.change(
+          screen.getByRole("combobox", { name: "Select arriving student" }),
+          { target: { value: "student-2" } },
+        );
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    const first = mockMutateAsync.mock.calls[0][0];
+    expect(mockMutateAsync.mock.calls[1][0]).toEqual({
+      ...first,
+      expectedVersion: 4,
+    });
+  },
+);
+
+function waitingSetupRound(): InterviewRound {
+  const round = roundFixture("in_person");
+  return {
+    ...round,
+    phase: "waiting",
+    phaseDeadline: null,
+    progress: round.progress.map((item) => ({ ...item, ready: false })),
+  };
+}
+
+it("allows all five other stations to commit before readiness succeeds", async () => {
+  currentRound = waitingSetupRound();
+  render(<InterviewWorkspace id="round-1" />);
+  let competingStation = 1;
+  mockMutateAsync.mockImplementation(async () => {
+    if (competingStation === 6) return {};
+    const index = competingStation++;
+    currentRound = {
+      ...currentRound,
+      version: currentRound.version + 1,
+      progress: currentRound.progress.map((item, i) =>
+        i === index ? { ...item, ready: true } : item,
+      ),
+    };
+    throw Object.assign(
+      new Error("Round changed; reload before trying again"),
+      { status: 409 },
+    );
+  });
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mockMutateAsync).toHaveBeenCalledTimes(6);
+  expect(
+    new Set(mockMutateAsync.mock.calls.map(([command]) => command.commandId))
+      .size,
+  ).toBe(1);
+  expect(mockMutateAsync.mock.calls[5][0].expectedVersion).toBe(8);
+});
+
+it.each([
+  [
+    "own readiness",
+    (round: InterviewRound) => ({
+      ...round,
+      progress: round.progress.map((item, index) =>
+        index === 0 ? { ...item, ready: true } : item,
+      ),
+    }),
+  ],
+  [
+    "own student",
+    (round: InterviewRound) => ({
+      ...round,
+      progress: round.progress.map((item, index) =>
+        index === 0 ? { ...item, studentId: null } : item,
+      ),
+    }),
+  ],
+  [
+    "phase",
+    (round: InterviewRound) => ({ ...round, phase: "reading" as const }),
+  ],
+  ["rotation", (round: InterviewRound) => ({ ...round, rotation: 1 })],
+  [
+    "pause",
+    (round: InterviewRound) => ({ ...round, pausedAt: "2026-10-23T01:00:01Z" }),
+  ],
+  [
+    "deadline",
+    (round: InterviewRound) => ({
+      ...round,
+      phaseDeadline: "2026-10-23T01:01:00Z",
+    }),
+  ],
+] as const)("does not retry readiness after %s changes", async (_, change) => {
+  currentRound = waitingSetupRound();
+  render(<InterviewWorkspace id="round-1" />);
+  mockMutateAsync.mockImplementationOnce(async () => {
+    currentRound = change({ ...currentRound, version: 4 });
+    throw Object.assign(
+      new Error("Round changed; reload before trying again"),
+      { status: 409 },
+    );
+  });
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("The round changed");
+  expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+  Object.assign(new Error("Offline"), { status: undefined }),
+  Object.assign(new Error("Gateway timeout"), { status: 504 }),
+  Object.assign(new Error("Invalid student"), { status: 400 }),
+])(
+  "does not replay an uncertain or non-conflict command failure: %s",
+  async (error) => {
+    currentRound = waitingSetupRound();
+    render(<InterviewWorkspace id="round-1" />);
+    mockMutateAsync.mockRejectedValue(error);
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(error.message);
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("limits repeated readiness conflicts and restores the control", async () => {
+  currentRound = waitingSetupRound();
+  render(<InterviewWorkspace id="round-1" />);
+  mockMutateAsync.mockRejectedValue(
+    Object.assign(new Error("Round changed; reload before trying again"), {
+      status: 409,
+    }),
+  );
+  const ready = screen.getByRole("button", { name: "I’m ready" });
+  await act(async () => fireEvent.click(ready));
+  expect(mockMutateAsync).toHaveBeenCalledTimes(6);
+  expect(screen.getByRole("alert")).toHaveTextContent("Round changed");
+  expect(ready).toBeEnabled();
+});
+
+it("does not submit using cached round data when refresh fails", async () => {
+  currentRound = waitingSetupRound();
+  mockRefetch.mockResolvedValue({ data: currentRound, isError: true });
+  render(<InterviewWorkspace id="round-1" />);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "I’m ready" })),
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Unable to refresh the round",
+  );
+  expect(mockMutateAsync).not.toHaveBeenCalled();
+});
+
+it("does not automatically replay a shared pause command", async () => {
+  currentRound = roundFixture("in_person");
+  mockMutateAsync.mockRejectedValue(
+    Object.assign(new Error("Round changed; reload before trying again"), {
+      status: 409,
+    }),
+  );
+  render(<InterviewWorkspace id="round-1" />);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Pause everyone" })),
+  );
+  expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("alert")).toHaveTextContent("Round changed");
 });
