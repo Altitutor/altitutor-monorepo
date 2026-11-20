@@ -302,14 +302,12 @@ export function InterviewResults({ id }: { id: string }) {
   const released = round.releasedResults.length > 0;
   const release = async () => {
     await flush.current?.();
-    const latest = await query.refetch();
-    if (!latest.data)
-      throw new Error("Unable to refresh results. Please retry.");
+    const latest = await query.refreshForAction();
     await command.mutateAsync({
       type: "release",
       roundId: id,
       commandId: randomUuid(),
-      expectedVersion: latest.data.version,
+      expectedVersion: latest.version,
     });
     setReleaseConfirm(false);
     setError(null);
