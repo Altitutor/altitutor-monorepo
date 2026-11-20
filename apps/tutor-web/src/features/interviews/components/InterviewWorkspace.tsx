@@ -1390,7 +1390,6 @@ function InPersonRoundView({
 export function InterviewWorkspace({ id }: { id: string }) {
   const query = useInterviewRound(id, true);
   const browserOnline = useBrowserOnline();
-  const refetch = query.refetch;
   const catalog = useInterviewCatalog();
   const command = useInterviewCommand();
   const leaveGuard = useInterviewLeaveGuard();
@@ -1484,12 +1483,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
           action,
           round,
           catalog.data?.actorId,
-          async () => {
-            const latest = await refetch();
-            if (latest.isError || !latest.data)
-              throw new Error("Unable to refresh the round before this action.");
-            return latest.data;
-          },
+          query.refreshForAction,
           command.mutateAsync,
         );
       } else await command.mutateAsync(action);
@@ -1507,7 +1501,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
       <div className="flex min-h-dvh items-center justify-center p-6">
         <InterviewError
           error={query.error}
-          retry={() => void query.refetch()}
+          retry={() => void query.refreshForAction().catch(() => undefined)}
         />
         {query.isPending && "Loading waiting room…"}
       </div>
@@ -1578,7 +1572,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         registerFinalizeRecording={registerFinalizeRecording}
         error={localError ?? command.error ?? query.error}
         connectionInterrupted={query.isError}
-        onRetry={() => void query.refetch()}
+        onRetry={() => void query.refreshForAction().catch(() => undefined)}
         onPause={() =>
           void run({
             ...base,

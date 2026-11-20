@@ -24,6 +24,10 @@
     "./lib/calendar-layout": {
       "types": "./dist/lib/calendar-layout.d.ts",
       "default": "./dist/lib/calendar-layout.js"
+    },
+    "./lib/interview-query-refresh": {
+      "types": "./dist/lib/interview-query-refresh.d.ts",
+      "default": "./dist/lib/interview-query-refresh.js"
     }
   },
   "sideEffects": [

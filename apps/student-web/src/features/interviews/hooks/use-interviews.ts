@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshInterviewQueries } from "@altitutor/ui/lib/interview-query-refresh";
 import { useInterviewRoundSync } from "@altitutor/ui/hooks/use-interview-round-sync";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +53,7 @@ export function useInterviewRound(id: string, participate = false) {
     participate,
     adapter: {
       refresh: () =>
-        client.invalidateQueries({ queryKey: ["interviews", "round", id] }),
+        refreshInterviewQueries(client, ["interviews", "round", id, user?.id]),
       send: (type) =>
         sendInterviewCommand({ type, roundId: id, commandId: randomUuid() }),
       subscribe: (changed, connected) => {
@@ -67,7 +68,12 @@ export function useInterviewRound(id: string, participate = false) {
       },
     },
   });
-  return { ...query, ...sync };
+  return {
+    ...query,
+    ...sync,
+    refetch: (options: Parameters<typeof query.refetch>[0] = {}) =>
+      query.refetch({ ...options, cancelRefetch: false }),
+  };
 }
 
 export function useInterviewCalendarRounds() {
