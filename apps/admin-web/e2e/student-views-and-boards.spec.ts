@@ -238,7 +238,7 @@ test('conversation composer collapses controls to tooltip-equipped icons before 
   expect(Math.max(...boxes.map(box => box.top)) - Math.min(...boxes.map(box => box.top))).toBeLessThan(2);
   for (const label of ['Template', 'Insert variable', 'Attach files', 'Select sender']) {
     await controls.getByRole('button', { name: label, exact: true }).hover();
-    await expect(page.getByRole('tooltip')).toBeVisible();
+    await expect(page.getByRole('tooltip', { name: label, exact: true })).toBeVisible();
   }
 });
 
