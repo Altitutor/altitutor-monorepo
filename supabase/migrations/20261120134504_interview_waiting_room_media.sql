@@ -17,7 +17,7 @@ BEGIN
   AND OLD.data->'phaseStartedAt'=NEW.data->'phaseStartedAt'
   AND OLD.data->'pausedAt' IS NOT DISTINCT FROM NEW.data->'pausedAt'
   AND OLD.data->'progress'=NEW.data->'progress'
-  AND OLD.data->'version' IS NOT DISTINCT FROM NEW.data->'version'
+  AND OLD.version IS NOT DISTINCT FROM NEW.version
   AND OLD.data->'startedAt' IS NOT DISTINCT FROM NEW.data->'startedAt'
   AND OLD.data->'deletedAt' IS NOT DISTINCT FROM NEW.data->'deletedAt'
   THEN RETURN NEW; END IF;
