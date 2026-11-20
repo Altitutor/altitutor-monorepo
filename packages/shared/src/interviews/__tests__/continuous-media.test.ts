@@ -29,7 +29,8 @@ const base = {
 } as unknown as InterviewRound;
 
 function fixture() {
-  let round = base;
+  let round: InterviewRound | null = base;
+  let now = Date.parse("2026-11-05T10:01:00Z");
   const sessions: InterviewMediaSession[] = [];
   const store: InterviewMediaStore = {
     round: async () => round,
@@ -53,17 +54,16 @@ function fixture() {
     .spyOn(provider, "createRoom")
     .mockImplementation(async (name) => `https://example.daily.co/${name}`);
   const close = jest.spyOn(provider, "closeRoom").mockResolvedValue(undefined);
-  const service = new InterviewMediaService(store, provider, () =>
-    Date.parse("2026-11-05T10:01:00Z"),
-  );
+  const service = new InterviewMediaService(store, provider, () => now);
   return {
     service,
+    setNow: (value: number) => { now = value; },
     token,
     create,
     store,
     close,
     sessions,
-    setRound: (next: InterviewRound) => {
+    setRound: (next: InterviewRound | null) => {
       round = next;
     },
   };
@@ -219,4 +219,97 @@ it("waits for another ticket if a phase transition races the room snapshot", asy
   expect(f.create).toHaveBeenCalledTimes(1);
   expect(f.close).toHaveBeenCalledWith(f.create.mock.calls[0]![0]);
   await expect(f.service.ticket("round", actor)).resolves.toMatchObject({ token: "token" });
+});
+
+it("shares one unrecorded pre-start waiting room across students, tutors and admins", async () => {
+  const f = fixture();
+  f.setRound({ ...base, phase: "waiting", startedAt: null, version: 1,
+    tutors: [{ id: "tutor", name: "Tutor" }], students: [{ id: "student", name: "Student" }] });
+  const tutor = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  const student = await f.service.ticket("round", { id: "student", name: "Student", role: "student" });
+  const admin = await f.service.ticketObserver("round", { id: "admin", name: "Admin" }, "");
+  expect(tutor.sessionId).toBeTruthy();
+  expect(student.sessionId).toBe(tutor.sessionId);
+  expect(admin.sessionId).toBe(tutor.sessionId);
+  for (const ticket of [tutor, student, admin]) {
+    expect(ticket).toMatchObject({ canSend: true, canReceive: true, recordingEnabled: false });
+    expect(ticket.attemptId).toBeUndefined();
+  }
+  expect(f.create).toHaveBeenCalledTimes(1);
+});
+
+it("retires a shared waiting room when an unstarted round is deleted", async () => {
+  const f = fixture();
+  f.setRound({ ...base, phase: "waiting", startedAt: null, version: 1,
+    tutors: [{ id: "tutor", name: "Tutor" }], students: [{ id: "student", name: "Student" }] });
+  const first = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  expect(first.sessionId).toBeTruthy();
+  f.setRound(null);
+  await f.service.reconcile("round");
+  expect(f.close).toHaveBeenCalledWith(f.sessions[0]!.roomName);
+  expect((await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" })).sessionId).toBeNull();
+});
+
+const waitingRound = { ...base, phase: "waiting" as const, startedAt: null, version: 1,
+  tutors: [{ id: "tutor", name: "Tutor" }], students: [{ id: "student", name: "Student" }] };
+
+it.each([
+  { ...waitingRound, startedAt: "2026-11-05T10:01:00Z" },
+  { ...waitingRound, pausedAt: "2026-11-05T10:01:00Z" },
+  { ...waitingRound, delivery: "in_person" as const },
+  { ...waitingRound, phase: "completed" as const },
+])("withholds shared media outside the unstarted online waiting room (%j)", async (round) => {
+  const f = fixture(); f.setRound(round);
+  expect((await f.service.ticket("round", { id: "student", name: "Student", role: "student" })).sessionId).toBeNull();
+});
+
+it("denies an unrelated participant and retires credentials after a roster edit", async () => {
+  const f = fixture(); f.setRound(waitingRound);
+  expect((await f.service.ticket("round", { id: "outsider", name: "Other", role: "student" })).sessionId).toBeNull();
+  const first = await f.service.ticket("round", { id: "student", name: "Student", role: "student" });
+  f.setRound({ ...waitingRound, version: 2, students: [] });
+  expect((await f.service.ticket("round", { id: "student", name: "Student", role: "student" })).sessionId).toBeNull();
+  expect(f.close).toHaveBeenCalledWith(f.sessions[0]!.roomName);
+  const next = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  expect(next.sessionId).not.toBe(first.sessionId);
+});
+
+it("closes the group on start even while the round phase remains waiting", async () => {
+  const f = fixture(); f.setRound(waitingRound);
+  await f.service.ticket("round", { id: "student", name: "Student", role: "student" });
+  f.setRound({ ...waitingRound, startedAt: "2026-11-05T10:01:00Z" });
+  await f.service.reconcile("round");
+  expect(f.close).toHaveBeenCalledWith(f.sessions[0]!.roomName);
+});
+
+it.each(["create", "token"] as const)("withholds a waiting ticket when start races provider %s", async (stage) => {
+  const f = fixture(); f.setRound(waitingRound);
+  const start = () => f.setRound({ ...waitingRound, startedAt: "2026-11-05T10:01:00Z" });
+  if (stage === "create") f.create.mockImplementationOnce(async (name) => { start(); return `https://example.daily.co/${name}`; });
+  else f.token.mockImplementationOnce(async () => { start(); return "obsolete-token"; });
+  expect((await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" })).sessionId).toBeNull();
+  expect(f.close).toHaveBeenCalledWith(f.sessions[0]!.roomName);
+});
+
+it("renews an expired waiting room without reusing its retired provider name", async () => {
+  const f = fixture(); f.setRound(waitingRound);
+  const first = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  f.setNow(Date.parse(first.expiresAt!) + 1);
+  const next = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" }, first.sessionId!, first.accessKey);
+  expect(next.sessionId).toBeTruthy();
+  expect(next.sessionId).not.toBe(first.sessionId);
+  expect(f.close).toHaveBeenCalledWith(f.sessions[0]!.roomName);
+  expect(f.token.mock.calls[1]![0]).not.toBe(f.token.mock.calls[0]![0]);
+});
+
+it("withholds station credentials until the shared waiting room has been retired", async () => {
+  const f = fixture(); f.setRound(waitingRound);
+  await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  f.setRound({ ...base, startedAt: "2026-11-05T10:01:00Z" });
+  f.close.mockRejectedValueOnce(new Error("provider unavailable"));
+  await expect(f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" })).rejects.toThrow("provider unavailable");
+  expect(f.token).toHaveBeenCalledTimes(1);
+  const next = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
+  expect(next.sessionId).toBeTruthy();
+  expect(f.sessions[0]!.closedAt).toBeTruthy();
 });

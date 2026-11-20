@@ -761,16 +761,18 @@ function WaitingRoom({
     tutorHasJoined(round, tutor.id, actorId, selfStatus),
   );
   return (
-    <div className="mx-auto min-h-0 w-full max-w-5xl space-y-5 overflow-y-auto">
+    <div className={round.delivery === "online" ? "mx-auto grid min-h-0 w-full max-w-7xl items-start gap-5 overflow-y-auto lg:grid-cols-2" : "mx-auto min-h-0 w-full max-w-5xl space-y-5 overflow-y-auto"}>
       <InterviewMedia
         onCallFailure={reportInterviewCallFailure}
-        className="mx-auto max-w-4xl"
+        className="mx-auto w-full"
+        waitingRoom={round.delivery === "online"}
         role="tutor"
         roundId={round.id}
         phase={round.phase}
         delivery={round.delivery}
         enabled={!round.pausedAt && selfStatus !== "offline"}
       />
+      <div className="min-w-0 space-y-5">
       <InterviewRoundOverview
         actorId={actorId}
         round={round}
@@ -804,10 +806,11 @@ function WaitingRoom({
           Start round
         </ActionButton>
       </div>
+      </div>
       <ConfirmAction
         open={confirm}
         title="Start the round?"
-        description="The setup is locked after this. Everyone stays in the waiting room until a tutor starts reading."
+        description={round.delivery === "online" ? "The setup is locked after this. The shared waiting-room call ends, and everyone waits for a tutor to start reading." : "The setup is locked after this. Everyone stays in the waiting room until a tutor starts reading."}
         confirmLabel="Start round"
         onOpenChange={setConfirm}
         onConfirm={() => {

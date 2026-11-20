@@ -136,7 +136,7 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
           </Link>
           <h1 className="text-xl font-semibold">{round.name}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="outline">Read only</Badge>
+            <Badge variant="outline">{!round.startedAt && round.delivery === "online" ? "Waiting-room participant" : "Read only"}</Badge>
             <Badge variant="secondary">
               {round.mode === "exam" ? "Exam mode" : "Feedback mode"}
             </Badge>
@@ -304,7 +304,13 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto max-w-5xl">
+          <div className={round.delivery === "online" && !round.startedAt ? "mx-auto grid max-w-7xl items-start gap-5 lg:grid-cols-2" : "mx-auto max-w-5xl"}>
+            {round.delivery === "online" && !round.startedAt && round.phase === "waiting" && (
+              <section className="min-w-0">
+                <InterviewMedia role="admin" waitingRoom roundId={round.id} phase={round.phase} delivery={round.delivery} enabled={!round.pausedAt} />
+                <p className="mt-3 text-sm text-muted-foreground">Your camera and microphone start off. The shared call ends when the round starts and is never recorded.</p>
+              </section>
+            )}
             <InterviewRoundOverview
               round={round}
               tutorJoinUrl={`${portalOrigin("TUTOR")}/interviews/rounds/${round.id}/waiting`}

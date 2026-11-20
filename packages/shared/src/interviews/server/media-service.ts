@@ -1,6 +1,8 @@
 import type { InterviewRound, InterviewRecording } from "../index";
 import {
   interviewMediaPolicy,
+  interviewWaitingMediaPolicy,
+  type InterviewWaitingMediaPolicy,
   type InterviewMediaPolicy,
   type InterviewMediaTicket,
 } from "../media";
@@ -9,7 +11,8 @@ import { DailyInterviewProvider } from "./daily";
 export interface InterviewMediaSession {
   id: string;
   roundId: string;
-  attemptId: string;
+  attemptId: string | null;
+  scope?: "station" | "waiting";
   key: string;
   roomName: string;
   url: string | null;
@@ -22,7 +25,7 @@ export interface InterviewMediaSession {
   recordingActive: boolean;
 }
 export interface InterviewMediaStore {
-  round(id: string): Promise<InterviewRound>;
+  round(id: string): Promise<InterviewRound | null>;
   sessions(roundId: string): Promise<InterviewMediaSession[]>;
   ensureSession(session: InterviewMediaSession): Promise<InterviewMediaSession>;
   updateSession(
@@ -51,9 +54,11 @@ export interface InterviewMediaStore {
   ): Promise<void>;
 }
 
-function sessionKey(policy: InterviewMediaPolicy) {
+type CallPolicy = InterviewMediaPolicy | InterviewWaitingMediaPolicy;
+
+function sessionKey(policy: CallPolicy) {
   // Do not reissue credentials for a room from an older recording policy.
-  return `phase-v2:${policy.key}`;
+  return `${policy.scope === "waiting" ? "waiting-v1" : "phase-v2"}:${policy.key}`;
 }
 
 export class InterviewMediaService {
@@ -77,16 +82,18 @@ export class InterviewMediaService {
   }
 
   private async reconcileRound(
-    round: InterviewRound,
+    round: InterviewRound | null,
     sessions: InterviewMediaSession[],
     refreshRecordings: boolean,
   ): Promise<void> {
     const keys = new Set(
-      round.progress.flatMap((station) => {
+      round?.progress.flatMap((station) => {
         const policy = interviewMediaPolicy(round, station.tutorId, "tutor");
         return policy ? [sessionKey(policy)] : [];
-      }),
+      }) ?? [],
     );
+    const waiting = round && interviewWaitingMediaPolicy(round, this.now());
+    if (waiting) keys.add(sessionKey(waiting));
     await Promise.all(
       sessions.map(async (session) => {
         if (session.kind === "audio") return;
@@ -98,7 +105,7 @@ export class InterviewMediaService {
         }
         const settled =
           session.closedAt &&
-          round.recordings.some(
+          round?.recordings.some(
             (recording) =>
               recording.id === session.id &&
               ["ready", "failed", "expired"].includes(recording.state),
@@ -177,7 +184,13 @@ export class InterviewMediaService {
     knownAccessKey?: string,
     stationId?: string,
   ): Promise<InterviewMediaTicket> {
-    const resolvePolicy = (current: InterviewRound) => {
+    const resolvePolicy = (current: InterviewRound | null) => {
+      if (!current) return null;
+      const waiting = interviewWaitingMediaPolicy(current, this.now());
+      if (waiting) {
+        if (actor.role === "admin" || (actor.role === "tutor" ? current.tutors : current.students).some((person) => person.id === actor.id)) return waiting;
+        return null;
+      }
       if (actor.role !== "admin")
         return interviewMediaPolicy(current, actor.id, actor.role);
       const station = current.progress.find(
@@ -197,15 +210,15 @@ export class InterviewMediaService {
       canSend: false,
       canReceive: false,
       recordingEnabled: false,
-      serverNow: round.serverNow,
+      serverNow: round?.serverNow,
     };
     // If policy changed while listing rooms, a just-published predecessor may
     // have been missed. Let the next ticket reconcile it before admitting anyone.
-    if (!policy || resolvePolicy(initial)?.key !== policy.key) return empty;
+    if (!round || !policy || resolvePolicy(initial)?.key !== policy.key) return empty;
     if (round.delivery === "in_person")
       return {
         ...empty,
-        attemptId: policy.attemptId,
+        attemptId: policy.scope === "station" ? policy.attemptId : undefined,
         recordingEnabled: actor.role === "tutor" && policy.recordingEnabled,
       };
     const expiresAt =
@@ -224,10 +237,10 @@ export class InterviewMediaService {
     const beforeMint = await this.store.round(roundId);
     if (resolvePolicy(beforeMint)?.key !== policy.key) {
       await this.closeSession(session);
-      return { ...empty, serverNow: beforeMint.serverNow };
+      return { ...empty, serverNow: beforeMint?.serverNow };
     }
     const permissions =
-      actor.role === "admin"
+      actor.role === "admin" && policy.scope === "station"
         ? { canSend: false, canReceive: true }
         : { canSend: policy.canSend, canReceive: policy.canReceive };
     const accessKey = `${actor.role}:${policy.key}`;
@@ -237,14 +250,14 @@ export class InterviewMediaService {
         : await this.provider.token(
             session.roomName,
             actor.id,
-            actor.name,
+            (actor.role === "tutor" ? round.tutors : actor.role === "student" ? round.students : [])?.find((person) => person.id === actor.id)?.name ?? actor.name,
             Math.floor(Date.parse(session.expiresAt) / 1000),
             permissions,
           );
     const current = token ? await this.store.round(roundId) : beforeMint;
     if (resolvePolicy(current)?.key !== policy.key) {
       await this.closeSession(session);
-      return { ...empty, serverNow: current.serverNow };
+      return { ...empty, serverNow: current?.serverNow };
     }
     return {
       ...empty,
@@ -254,15 +267,15 @@ export class InterviewMediaService {
       token,
       expiresAt: session.expiresAt,
       ...permissions,
-      attemptId: policy.attemptId,
+      attemptId: policy.scope === "station" ? policy.attemptId : undefined,
       recordingEnabled: policy.recordingEnabled,
-      serverNow: current.serverNow,
+      serverNow: current?.serverNow,
     };
   }
 
   private async createSession(
     roundId: string,
-    policy: InterviewMediaPolicy,
+    policy: CallPolicy,
     expiresAt: string,
   ): Promise<InterviewMediaSession> {
     // Provision an unissued, unique room, then publish the ready row. A late
@@ -272,11 +285,13 @@ export class InterviewMediaService {
     const url = await this.provider.createRoom(
       roomName,
       Math.floor(Date.parse(expiresAt) / 1000),
+      policy.scope === "waiting" ? 200 : 8,
     );
     const session = await this.store.ensureSession({
       id,
       roundId,
-      attemptId: policy.attemptId,
+      attemptId: policy.scope === "station" ? policy.attemptId : null,
+      scope: policy.scope,
       key: sessionKey(policy),
       roomName,
       url,

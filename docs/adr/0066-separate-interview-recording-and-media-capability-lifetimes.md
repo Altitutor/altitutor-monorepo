@@ -13,3 +13,10 @@ Keep the recording on the tutor device across call changes. In-person capture us
 Use an authenticated signed upload to store one immutable object in private Storage. Validate its metadata and finalise it against the authorised station attempt. Local checkpoints allow recovery of a partial take after a browser interruption. Resuming a partial take would require joining independently encoded streams, so keep the recovered file as the station’s take. Existing provider recordings remain available through the existing playback path.
 
 Store server-clock question-selection intervals on the station attempt, separately from feedback-based completion. Select Question 1 when question time begins, retain each revisit, and close intervals at pause, station end or the authoritative deadline. Immutable result releases retain their timing evidence. Recording playback aligns intervals with the actual recording start; a question-selection timestamp is not evidence that feedback or assessment is complete.
+
+
+## DEV-484 amendment — 21 November 2026
+
+Matthew selected a shared waiting-room call only before an online round starts, with the call beside round details, speaker focus by default and an optional grid. Students, tutors and AdminStaff may explicitly enable their camera and microphone; both start off and waiting-room preferences are separate from station-call preferences. The waiting room is never recorded. AdminStaff's two-way participation applies only here; station observation remains receive-only.
+
+Give this call a distinct waiting scope without a station attempt. Starting the round closes the shared room even while the round phase still says waiting. Roster edits retire the old room before credentials for its replacement are issued, and deleting an unstarted round must also retire its room. Pausing and waiting between rotations never open the shared call. Provider room deadlines and durable reconciliation retain the existing shutdown safeguards.
