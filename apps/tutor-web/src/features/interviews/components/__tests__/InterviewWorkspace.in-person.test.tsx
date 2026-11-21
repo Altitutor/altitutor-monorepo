@@ -8,6 +8,7 @@ import type { InterviewRound } from "@altitutor/shared";
 import { InterviewWorkspace } from "../InterviewWorkspace";
 
 let currentRound: InterviewRound;
+let catalogueAvailable = true;
 const mockMutateAsync = jest.fn();
 const mockRefetch = jest.fn();
 const mockToast = jest.fn();
@@ -60,6 +61,7 @@ jest.mock("../../hooks/use-attempt-draft", () => ({
 jest.mock("../../hooks/use-interviews", () => ({
   useInterviewRound: () => ({
     data: currentRound,
+    actorId: "tutor-1",
     error: null,
     isError: false,
     isPending: false,
@@ -71,7 +73,7 @@ jest.mock("../../hooks/use-interviews", () => ({
     },
     heartbeatFailed: false,
   }),
-  useInterviewCatalog: () => ({ data: { actorId: "tutor-1" } }),
+  useInterviewCatalog: () => ({ data: catalogueAvailable ? { actorId: "tutor-1" } : undefined }),
   useInterviewCommand: () => ({
     isPending: false,
     error: null,
@@ -340,6 +342,7 @@ function roundFixture(delivery: InterviewRound["delivery"]): InterviewRound {
 }
 
 beforeEach(() => {
+  catalogueAvailable = true;
   mockMutateAsync.mockReset();
   mockRefetch.mockReset().mockImplementation(async () => ({ data: currentRound, isError: false }));
   mockFlush.mockReset().mockResolvedValue(undefined);
@@ -1382,4 +1385,16 @@ it("handles interleaved student selections and readiness from all five peers", a
   expect(mockMutateAsync).toHaveBeenCalledTimes(11);
   expect(new Set(mockMutateAsync.mock.calls.map(([command]) => command.commandId)).size).toBe(1);
   expect(mockMutateAsync.mock.calls[10][0].expectedVersion).toBe(13);
+});
+
+
+it("keeps the assigned station and controls usable without loading the authoring catalogue", async () => {
+  catalogueAvailable = false;
+  currentRound = roundFixture("in_person");
+  render(<InterviewWorkspace id="round-1" />);
+  expect(screen.getByRole("button", { name: "Pause everyone" })).not.toHaveAttribute("aria-disabled", "true");
+  expect(screen.getAllByText("Sam Student").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Pause everyone" }));
+  await act(async () => { await Promise.resolve(); });
+  expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ type: "pause", expectedVersion: 3 }));
 });

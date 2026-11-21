@@ -61,6 +61,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
   const changed = new Set<string>();
   const changedMessages = new Set<string>();
   const inserted = new Map<string, Message>();
+  let listChanged = false;
   let readChanged = false;
   const schedule = () => {
     if (!timer)
@@ -94,12 +95,14 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
     const messageIds = [...changedMessages];
     changedMessages.clear();
     const incoming = [...inserted.values()];
+    const refreshLists = listChanged;
     const refreshReads = readChanged;
     changed.clear();
     inserted.clear();
+    listChanged = false;
     readChanged = false;
     // A single refetch per affected query per burst. No cancel/restart storm.
-    if (conversationIds.length || refreshReads) {
+    if (conversationIds.length || refreshLists || refreshReads) {
       const predicate = (query: Query) => {
         const [root, family, id] = query.queryKey;
         if (root === "bulk-message-delivery" && Array.isArray(family))
@@ -107,7 +110,7 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
             messageIds.includes(String(messageId)),
           );
         if (root === "entity-communication" && family === "messages")
-          return true;
+          return conversationIds.length > 0 || refreshReads;
         if (root !== messagesKeys.all[0]) return false;
         if (family === "messages") return conversationIds.includes(String(id));
         if (family === "messages-for-contact") {
@@ -122,11 +125,12 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
               )
             : conversationIds.length > 0;
         }
+        if (family === "sms-resends")
+          return conversationIds.length > 0 || refreshReads;
         return [
           "conversations",
           "conversations-by-contact",
           "unread-count",
-          "sms-resends",
         ].includes(String(family));
       };
       refreshQueries({ predicate });
@@ -260,6 +264,14 @@ function startSubscription(queryClient: QueryClient, notify: Notify) {
       { event: "*", schema: "public", table: "conversation_reads" },
       () => {
         readChanged = true;
+        schedule();
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "conversations" },
+      () => {
+        listChanged = true;
         schedule();
       },
     )
