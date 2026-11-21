@@ -8,6 +8,11 @@ import { StudentSessionsCalendarView } from "../StudentSessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import { studentSessionsApi } from "@/shared/api/sessions";
 
+function seedRounds(client: QueryClient, rounds: unknown[]) {
+  client.setQueryData(["interviews", "rounds", undefined, "current"], { rounds, history: [] });
+  client.setQueryData(["interviews", "rounds", undefined, "history", "[]"], []);
+}
+
 Object.assign(globalThis, { React });
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -29,9 +34,7 @@ it("shows the student their online interview and links to its guarded room", () 
     [],
   );
   client.setQueryData(["interviews", "access", undefined], { hasAccess: true });
-  client.setQueryData(
-    ["interviews", "rounds", undefined],
-    [
+  seedRounds(client, [
       {
         id: "student-circuit",
         name: "Online circuit",
@@ -46,8 +49,7 @@ it("shows the student their online interview and links to its guarded room", () 
         stationCount: 1,
         hasReleasedResults: false,
       } satisfies StudentInterviewRoundSummary,
-    ],
-  );
+    ]);
   render(
     <QueryClientProvider client={client}>
       <StudentSessionsCalendarView />
@@ -95,9 +97,7 @@ function renderToday(overrides: Partial<StudentInterviewRoundSummary>, hasAccess
   });
   const today = new Date(new Date().setHours(23, 40, 0, 0));
   client.setQueryData(["interviews", "access", undefined], { hasAccess });
-  client.setQueryData(
-    ["interviews", "rounds", undefined],
-    [
+  seedRounds(client, [
       {
         id: "late-round",
         name: "Late interview",
@@ -113,8 +113,7 @@ function renderToday(overrides: Partial<StudentInterviewRoundSummary>, hasAccess
         hasReleasedResults: false,
         ...overrides,
       } satisfies StudentInterviewRoundSummary,
-    ],
-  );
+    ]);
   const view = render(
     <QueryClientProvider client={client}>
       <StudentTodaySessionsCalendarView
@@ -190,7 +189,7 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
     if (roundUrl.pathname === "/api/interviews/rounds") {
       expect(roundUrl.searchParams.get("summary")).toBe("1");
       roundRequests++;
-      return {ok: true, json: async () => []} as unknown as Response;
+      return {ok: true, json: async () => ({ rounds: [], history: [] })} as unknown as Response;
     }
     throw new Error(`Unexpected request: ${String(input)}`);
   });

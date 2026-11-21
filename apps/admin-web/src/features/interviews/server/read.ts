@@ -1,6 +1,10 @@
 import type { InterviewMediaRound, InterviewRound } from "@altitutor/shared";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
+import type { AdminInterviewObserverState } from "../types/observer";
+
+const interviewIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function interviewResponse(body: unknown, status = 200) {
   return Response.json(body, {
@@ -42,14 +46,20 @@ export async function requireInterviewAdmin() {
 
 async function readAdminInterviewState(
   roundId: string,
-  projection: "interview_media_state" | "interview_media_policy_state",
+  projection:
+    | "interview_media_state"
+    | "interview_media_policy_state"
+    | "interview_observer_state",
+  selection?: { stationId: string | null; contentRevision: string | null },
 ) {
   const access = await requireInterviewAdmin();
   if (!access.ok) return access;
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      roundId,
-    )
+    !interviewIdPattern.test(roundId) ||
+    (selection?.stationId != null &&
+      !interviewIdPattern.test(selection.stationId)) ||
+    (selection?.contentRevision != null &&
+      !/^[a-f0-9]{32}$/i.test(selection.contentRevision))
   )
     return {
       ok: false as const,
@@ -57,6 +67,12 @@ async function readAdminInterviewState(
     };
   const { data, error } = await access.admin.rpc(projection, {
     p_round_id: roundId,
+    ...(selection
+      ? {
+          p_station_id: selection.stationId ?? undefined,
+          p_content_revision: selection.contentRevision ?? undefined,
+        }
+      : {}),
   });
   if (error) throw error;
   if (
@@ -72,18 +88,59 @@ async function readAdminInterviewState(
   return { ...access, round: data };
 }
 
+export async function readAdminInterviewObserver(
+  roundId: string,
+  stationId: string | null,
+  contentRevision: string | null,
+) {
+  const access = await readAdminInterviewState(
+    roundId,
+    "interview_observer_state",
+    { stationId, contentRevision },
+  );
+  if (!access.ok) return access;
+  const value = access.round;
+  if (
+    typeof value.round !== "object" ||
+    !value.round ||
+    Array.isArray(value.round) ||
+    value.round.id !== roundId
+  )
+    throw new Error("Invalid interview observer state.");
+  return {
+    ok: true as const,
+    actorId: access.actorId,
+    observer: value as unknown as AdminInterviewObserverState,
+  };
+}
 
 export async function readAdminInterviewRound(roundId: string) {
-  const access = await readAdminInterviewState(roundId, "interview_media_state");
-  return access.ok ? { ...access, round: access.round as unknown as InterviewRound } : access;
+  const access = await readAdminInterviewState(
+    roundId,
+    "interview_media_state",
+  );
+  return access.ok
+    ? { ...access, round: access.round as unknown as InterviewRound }
+    : access;
 }
 
 /** Media admission needs station identities, not observer assessment content. */
 export async function readAdminInterviewMediaRound(roundId: string) {
-  const access = await readAdminInterviewState(roundId, "interview_media_policy_state");
+  const access = await readAdminInterviewState(
+    roundId,
+    "interview_media_policy_state",
+  );
   if (!access.ok) return access;
   const stationIds = access.round.stationIds;
-  if (!Array.isArray(stationIds) || !stationIds.every((id) => typeof id === "string"))
+  if (
+    !Array.isArray(stationIds) ||
+    !stationIds.every((id) => typeof id === "string")
+  )
     throw new Error("Invalid interview media station identities.");
-  return { ...access, round: access.round as unknown as InterviewMediaRound & { stationIds: string[] } };
+  return {
+    ...access,
+    round: access.round as unknown as InterviewMediaRound & {
+      stationIds: string[];
+    },
+  };
 }

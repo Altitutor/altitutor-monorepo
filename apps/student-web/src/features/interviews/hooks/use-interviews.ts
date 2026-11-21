@@ -1,5 +1,7 @@
 "use client";
 
+import { useInterviewRoundList } from "@altitutor/ui/hooks/use-interview-round-list";
+
 import { refreshInterviewQueries } from "@altitutor/ui/lib/interview-query-refresh";
 import { useInterviewRoundSync } from "@altitutor/ui/hooks/use-interview-round-sync";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -9,7 +11,8 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import {
   getInterviewAccess,
   getInterviewRound,
-  getInterviewRounds,
+  getCurrentInterviewRounds,
+  getInterviewRoundHistory,
   sendInterviewCommand,
 } from "../api/interviews";
 
@@ -27,13 +30,12 @@ export function useInterviewRounds(
   options: { enabled?: boolean; poll?: boolean } = {},
 ) {
   const { user, loading } = useAuthStore();
-  return useQuery({
+  return useInterviewRoundList({
     queryKey: ["interviews", "rounds", user?.id],
     enabled: !loading && Boolean(user) && options.enabled !== false,
-    queryFn: getInterviewRounds,
-    refetchInterval: options.poll === false ? false : 15_000,
-    staleTime: 30_000,
-    refetchOnWindowFocus: "always",
+    poll: options.poll !== false,
+    readCurrent: getCurrentInterviewRounds,
+    readHistory: getInterviewRoundHistory,
   });
 }
 

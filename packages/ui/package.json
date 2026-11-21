@@ -28,6 +28,10 @@
     "./lib/interview-query-refresh": {
       "types": "./dist/lib/interview-query-refresh.d.ts",
       "default": "./dist/lib/interview-query-refresh.js"
+    },
+    "./hooks/use-interview-round-list": {
+      "types": "./dist/hooks/use-interview-round-list.d.ts",
+      "default": "./dist/hooks/use-interview-round-list.js"
     }
   },
   "sideEffects": [

@@ -144,3 +144,11 @@ GRANT SELECT ON public.vtutor_interview_round_summaries,
   public.vstudent_interview_round_summaries,
   public.vtutor_interview_media_access,
   public.vstudent_interview_media_access TO authenticated;
+
+-- Preserve DEV-488's caller-scoped read contracts after broad local grants.
+REVOKE ALL ON public.vtutor_interview_round_index,
+  public.vstudent_interview_round_index,
+  public.vtutor_interview_list_catalog FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vtutor_interview_round_index,
+  public.vstudent_interview_round_index,
+  public.vtutor_interview_list_catalog TO authenticated;
