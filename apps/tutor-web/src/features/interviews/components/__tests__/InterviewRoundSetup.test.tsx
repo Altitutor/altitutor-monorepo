@@ -151,3 +151,18 @@ it("restores the last settings and schedule without reusing the name or particip
     setup: expect.objectContaining({ name: "Medicine practice", scheduledAt: "2030-11-18T05:30:00.000Z", delivery: "online", mode: "exam", recordingEnabled: false, rotationAllowanceSeconds: 300 }),
   })));
 });
+
+it("edits a listed round using its setup and version without needing assessment bodies", async () => {
+  render(<InterviewRoundDialog open onClose={jest.fn()} catalog={catalog} existingRound={{
+    id: "summary-round", version: 7, interviewId: "interview-1", name: "Monday practice", delivery: "online", mode: "exam", recordingEnabled: true,
+    rotationAllowanceSeconds: 120, scheduledAt: "2030-11-18T05:30:00Z", studentIds: ["student-1"],
+    assignments: [{ stationId: "station-1", tutorId: "tutor-1" }], startedAt: null, phase: "waiting",
+  }} />);
+  expect(screen.getByRole("combobox", { name: "Interview" })).toHaveValue("interview-1");
+  fireEvent.click(screen.getByRole("button", { name: "Next: review" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+    type: "updateRound", roundId: "summary-round", expectedVersion: 7,
+    setup: expect.objectContaining({ name: "Monday practice", studentIds: ["student-1"], assignments: [{ stationId: "station-1", tutorId: "tutor-1" }] }),
+  })));
+});

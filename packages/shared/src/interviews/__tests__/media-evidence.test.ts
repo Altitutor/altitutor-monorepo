@@ -10,10 +10,10 @@ function fixture(delivery: 'in_person' | 'online' = 'in_person') {
   const denial = { code: '42501', message: 'Round access denied', details: '{}' };
   const evidence: unknown[] = [];
   const user = {
-    from: () => { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { data: round }, error: null }) }; return q; },
+    from: () => { const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { id: roundId, delivery, actor_id: tutorId, data: round }, error: null }) }; return q; },
     rpc: async () => ({ data: tutorId, error: null }),
   } as unknown as SupabaseClient<Database>;
-  const rpc = jest.fn(async (operation: string) => operation === 'interview_media_state'
+  const rpc = jest.fn(async (operation: string) => operation === 'interview_media_policy_state'
     ? { data: round, error: null }
     : { data: null, error: denial });
   const errorResponse = jest.fn(() => Response.json({ error: denial.message }, { status: 403 }));

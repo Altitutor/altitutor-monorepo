@@ -370,3 +370,5 @@ export function interviewRoundDurationMinutes(
 }
 
 export type { InterviewCallFailure } from "./call-failures";
+
+export type { TutorInterviewRoundSummary, StudentInterviewRoundSummary } from "./list";

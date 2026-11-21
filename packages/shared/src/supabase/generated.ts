@@ -5252,6 +5252,20 @@ export type Database = {
             foreignKeyName: "interview_media_jobs_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: true
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -5260,6 +5274,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: true
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -5348,6 +5376,20 @@ export type Database = {
             foreignKeyName: "interview_media_sessions_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -5356,6 +5398,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -5600,6 +5656,20 @@ export type Database = {
             foreignKeyName: "interview_presence_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -5608,6 +5678,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -5776,6 +5860,20 @@ export type Database = {
             foreignKeyName: "interview_recordings_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -5784,6 +5882,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -5867,6 +5979,20 @@ export type Database = {
             foreignKeyName: "interview_result_releases_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -5875,6 +6001,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -6141,6 +6281,20 @@ export type Database = {
             foreignKeyName: "interview_tutor_presence_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -6149,6 +6303,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -29944,11 +30112,26 @@ export type Database = {
         }
         Relationships: []
       }
+      vstudent_interview_media_access: {
+        Row: {
+          actor_id: string | null
+          delivery: string | null
+          id: string | null
+        }
+        Relationships: []
+      }
       vstudent_interview_performance_reviews: {
         Row: {
           data: Json | null
           id: string | null
           summary: Json | null
+        }
+        Relationships: []
+      }
+      vstudent_interview_round_summaries: {
+        Row: {
+          data: Json | null
+          id: string | null
         }
         Relationships: []
       }
@@ -37377,6 +37560,14 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_interview_media_access: {
+        Row: {
+          actor_id: string | null
+          delivery: string | null
+          id: string | null
+        }
+        Relationships: []
+      }
       vtutor_interview_performance_review_mocks: {
         Row: {
           data: Json | null
@@ -37480,6 +37671,20 @@ export type Database = {
             foreignKeyName: "interview_result_releases_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_interview_round_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_interview_rounds"
             referencedColumns: ["id"]
           },
@@ -37488,6 +37693,20 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_media_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_round_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -37533,6 +37752,13 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      vtutor_interview_round_summaries: {
+        Row: {
+          data: Json | null
+          id: string | null
+        }
+        Relationships: []
       }
       vtutor_interview_rounds: {
         Row: {
@@ -48091,8 +48317,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      interview_effective_phase_state: { Args: { d: Json }; Returns: Json }
       interview_effective_state: { Args: { p_data: Json }; Returns: Json }
       interview_feedback_has_text: { Args: { value: Json }; Returns: boolean }
+      interview_media_policy_state: {
+        Args: { p_round_id: string }
+        Returns: Json
+      }
       interview_media_state: { Args: { p_round_id: string }; Returns: Json }
       interview_performance_review_command: {
         Args: { p_actor_user_id: string; p_command: Json }

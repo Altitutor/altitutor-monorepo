@@ -1,5 +1,6 @@
 import type {
   InterviewCatalog,
+  TutorInterviewRoundSummary,
   InterviewCommand,
   InterviewCommandResult,
   InterviewRound,
@@ -25,7 +26,7 @@ async function request<T>(
   return body as T;
 }
 export const getInterviewCatalog = () => request<InterviewCatalog>("/catalog");
-export const getInterviewRounds = () => request<InterviewRound[]>("/rounds");
+export const getInterviewRounds = () => request<TutorInterviewRoundSummary[]>("/rounds?summary=1");
 export const getInterviewRound = (id: string) =>
   request<InterviewRound>(`/rounds/${id}`);
 export const sendInterviewCommand = (command: InterviewCommand) =>

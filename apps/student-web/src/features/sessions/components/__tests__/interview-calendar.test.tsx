@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import type { StudentInterviewRoundSummary } from "@altitutor/shared";
 import { StudentTodaySessionsCalendarView } from "../StudentTodaySessionsCalendarView";
 import { StudentSessionsCalendarView } from "../StudentSessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
@@ -40,9 +41,11 @@ it("shows the student their online interview and links to its guarded room", () 
         phase: "waiting",
         delivery: "online",
         mode: "exam",
-        stations: [{ id: "station-1", number: 1 }],
-        result: null,
-      },
+        version: 1,
+        recordingEnabled: false,
+        stationCount: 1,
+        hasReleasedResults: false,
+      } satisfies StudentInterviewRoundSummary,
     ],
   );
   render(
@@ -85,7 +88,7 @@ it("offers a reload when the timetable request fails", async () => {
   }
 });
 
-function renderToday(overrides: Record<string, unknown>, hasAccess = true) {
+function renderToday(overrides: Partial<StudentInterviewRoundSummary>, hasAccess = true) {
   useAuthStore.setState({ user: null, loading: true });
   const client = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
@@ -103,10 +106,13 @@ function renderToday(overrides: Record<string, unknown>, hasAccess = true) {
         startedAt: null,
         phase: "waiting",
         delivery: "online",
-        stations: [{ id: "station-1" }],
-        result: null,
+        mode: "exam",
+        version: 1,
+        recordingEnabled: false,
+        stationCount: 1,
+        hasReleasedResults: false,
         ...overrides,
-      },
+      } satisfies StudentInterviewRoundSummary,
     ],
   );
   const view = render(
@@ -120,14 +126,14 @@ function renderToday(overrides: Record<string, unknown>, hasAccess = true) {
   return { client, ...view };
 }
 
-it.each([
+it.each<[Partial<StudentInterviewRoundSummary>, string, string]>([
   [
     { startedAt: "2026-10-28T12:00:00Z", phase: "questions" },
     "Rejoin interview",
     "/interviews/rounds/late-round",
   ],
   [
-    { phase: "completed", result: { revision: 1 } },
+    { phase: "completed", hasReleasedResults: true },
     "View results",
     "/interviews/rounds/late-round/results",
   ],
@@ -146,7 +152,7 @@ it.each([
   },
 );
 
-it.each([{ phase: "completed", result: null }, { delivery: "in_person" }])(
+it.each<Partial<StudentInterviewRoundSummary>>([{ phase: "completed", hasReleasedResults: false }, { delivery: "in_person" }])(
   "never offers an online join for an in-person or completed round",
   (overrides) => {
     const { client } = renderToday(overrides);
@@ -180,7 +186,9 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
       accessRequests++;
       return {ok: accessRequests > 1, status: accessRequests > 1 ? 200 : 503, json: async () => ({hasAccess})} as Response;
     }
-    if (String(input) === "/api/interviews/rounds") {
+    const roundUrl = new URL(String(input), "https://portal.test");
+    if (roundUrl.pathname === "/api/interviews/rounds") {
+      expect(roundUrl.searchParams.get("summary")).toBe("1");
       roundRequests++;
       return {ok: true, json: async () => []} as unknown as Response;
     }

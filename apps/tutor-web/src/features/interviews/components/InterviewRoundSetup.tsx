@@ -51,6 +51,8 @@ import { InterviewStudentPicker } from "./InterviewStudentPicker";
 import { createRoundSubmission } from "../lib/round-submission";
 import { nextInterviewRoundSchedule, readRoundDefaults, rememberRoundDefaults } from "../lib/round-defaults";
 
+type EditableRound = Pick<InterviewRound, keyof RoundSetup | "id" | "version" | "startedAt" | "phase">;
+
 const roundSteps = ["Details", "Students", "Tutor assignments"];
 
 type RoundWizardBind = {
@@ -70,7 +72,7 @@ function SetupEditor({
 }: {
   interview: InterviewTemplate;
   catalog: InterviewCatalog;
-  existingRound?: InterviewRound;
+  existingRound?: EditableRound;
   step: number;
   onBind: (bind: RoundWizardBind) => void;
   onScheduled: () => void;
@@ -538,7 +540,7 @@ export function InterviewRoundDialog({
   open: boolean;
   onClose: () => void;
   catalog: InterviewCatalog;
-  existingRound?: InterviewRound;
+  existingRound?: EditableRound;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [step, setStep] = useState(0);

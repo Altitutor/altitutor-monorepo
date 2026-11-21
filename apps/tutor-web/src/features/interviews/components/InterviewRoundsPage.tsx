@@ -34,7 +34,7 @@ import type {
   DataTableColumnDefinition,
   DataTableFilterDefinition,
   DataTableSortOption,
-  InterviewRound,
+  TutorInterviewRoundSummary,
 } from "@altitutor/shared";
 import {
   ChevronDown,
@@ -59,6 +59,7 @@ import {
   useInterviewCatalog,
   useInterviewCommand,
   useInterviewRounds,
+  useInterviewPrintRound,
 } from "../hooks/use-interviews";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { choiceFilterMatches } from "@altitutor/shared";
@@ -101,14 +102,14 @@ function rosterFilterOptions(people: { id: string; name: string }[]) {
     .map((person) => ({ label: person.name, value: person.id }));
 }
 
-function statusLabel(round: InterviewRound) {
+function statusLabel(round: TutorInterviewRoundSummary) {
   if (round.phase === "completed") return "Completed";
   if (round.startedAt) return round.phase;
   if (round.scheduledAt) return "Scheduled";
   return "Waiting room";
 }
 
-function whenLabel(round: InterviewRound) {
+function whenLabel(round: TutorInterviewRoundSummary) {
   const value = round.scheduledAt ?? round.startedAt;
   if (value) return format(new Date(value), "EEE d MMM h:mmaaa");
   return "Not scheduled";
@@ -119,9 +120,9 @@ function RoundActions({
   onEdit,
   onPrint,
 }: {
-  round: InterviewRound;
-  onEdit: (round: InterviewRound) => void;
-  onPrint: (round: InterviewRound) => void;
+  round: TutorInterviewRoundSummary;
+  onEdit: (round: TutorInterviewRoundSummary) => void;
+  onPrint: (round: TutorInterviewRoundSummary) => void;
 }) {
   const deletion = useInterviewCommand();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -231,11 +232,11 @@ function RoundDetailsTooltip({
   onEdit,
   onPrint,
 }: {
-  round: InterviewRound;
+  round: TutorInterviewRoundSummary;
   interviewName: string;
   compact?: boolean;
-  onEdit: (round: InterviewRound) => void;
-  onPrint: (round: InterviewRound) => void;
+  onEdit: (round: TutorInterviewRoundSummary) => void;
+  onPrint: (round: TutorInterviewRoundSummary) => void;
   className?: string;
   style?: CSSProperties;
   children: ReactNode;
@@ -261,7 +262,7 @@ function RoundDetailsTooltip({
   const duration = interviewRoundDurationMinutes(
     round.readingTimeSeconds,
     round.questionTimeSeconds,
-    round.stations.length,
+    round.stationCount,
     round.rotationAllowanceSeconds ?? 0,
   );
   const end = start ? new Date(start.getTime() + duration * 60_000) : null;
@@ -380,10 +381,10 @@ function RoundsCalendar({
   dayCount,
 }: {
   dayCount: 1 | 3 | 7;
-  rounds: InterviewRound[];
+  rounds: TutorInterviewRoundSummary[];
   interviewName: (id: string) => string;
-  onEdit: (round: InterviewRound) => void;
-  onPrint: (round: InterviewRound) => void;
+  onEdit: (round: TutorInterviewRoundSummary) => void;
+  onPrint: (round: TutorInterviewRoundSummary) => void;
 }) {
   const [anchor, setAnchor] = useState(new Date());
   const weekStart = dayCount === 7 ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor;
@@ -471,7 +472,7 @@ function RoundsCalendar({
                     const duration = interviewRoundDurationMinutes(
                       round.readingTimeSeconds,
                       round.questionTimeSeconds,
-                      round.stations.length,
+                      round.stationCount,
                       round.rotationAllowanceSeconds ?? 0,
                     );
                     return [
@@ -503,7 +504,7 @@ function RoundsCalendar({
                           const duration = interviewRoundDurationMinutes(
                             round.readingTimeSeconds,
                             round.questionTimeSeconds,
-                            round.stations.length,
+                            round.stationCount,
                             round.rotationAllowanceSeconds ?? 0,
                           );
                           const place = placements.get(round.id);
@@ -608,8 +609,12 @@ export function InterviewRoundsPage() {
   const [dayCount, setDayCount] = useState<1 | 3 | 7>(7);
   const [creating, setCreating] = useState(false);
   const [bulkCreating, setBulkCreating] = useState(false);
-  const [printing, setPrinting] = useState<InterviewRound | null>(null);
-  const [editing, setEditing] = useState<InterviewRound | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
+  const printingQuery = useInterviewPrintRound(printingId ?? "");
+  const printing = printingId && printingQuery.isFetchedAfterMount && !printingQuery.isFetching && !printingQuery.isError
+    ? printingQuery.data : null;
+  const setPrinting = (round: TutorInterviewRoundSummary | null) => setPrintingId(round?.id ?? null);
+  const [editing, setEditing] = useState<TutorInterviewRoundSummary | null>(null);
   const [dismissedEditId, setDismissedEditId] = useState<string | null>(null);
   const catalog = catalogQuery.data;
   const editRoundId = searchParams.get("edit");
@@ -810,7 +815,7 @@ export function InterviewRoundsPage() {
                       cell: ({
                         row,
                       }: {
-                        row: { original: InterviewRound };
+                        row: { original: TutorInterviewRoundSummary };
                       }) => (
                         <span className="font-medium">{row.original.name}</span>
                       ),
@@ -822,7 +827,7 @@ export function InterviewRoundsPage() {
                     {
                       id: "interview",
                       header: "Interview",
-                      cell: ({ row }: { row: { original: InterviewRound } }) =>
+                      cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) =>
                         interviewName(row.original.interviewId),
                     },
                   ]
@@ -832,7 +837,7 @@ export function InterviewRoundsPage() {
                     {
                       id: "when",
                       header: "When",
-                      cell: ({ row }: { row: { original: InterviewRound } }) =>
+                      cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) =>
                         whenLabel(row.original),
                     },
                   ]
@@ -842,7 +847,7 @@ export function InterviewRoundsPage() {
                     {
                       id: "delivery",
                       header: "Delivery",
-                      cell: ({ row }: { row: { original: InterviewRound } }) =>
+                      cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) =>
                         row.original.delivery === "online"
                           ? "Online"
                           : "In person",
@@ -857,7 +862,7 @@ export function InterviewRoundsPage() {
                       cell: ({
                         row,
                       }: {
-                        row: { original: InterviewRound };
+                        row: { original: TutorInterviewRoundSummary };
                       }) => (
                         <Badge variant="secondary">
                           {statusLabel(row.original)}
@@ -871,14 +876,14 @@ export function InterviewRoundsPage() {
                     {
                       id: "students",
                       header: "Students",
-                      cell: ({ row }: { row: { original: InterviewRound } }) =>
+                      cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) =>
                         <ul>{row.original.students.map((student) => <li key={student.id}>{student.name}</li>)}</ul>,
                     },
                   ]
                 : []),
               ...(visible.has("tutors") ? [{
                 id: "tutors", header: "Tutors",
-                cell: ({ row }: { row: { original: InterviewRound } }) => <ul>{row.original.tutors.map((tutor) => <li key={tutor.id}>{tutor.name}</li>)}</ul>,
+                cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) => <ul>{row.original.tutors.map((tutor) => <li key={tutor.id}>{tutor.name}</li>)}</ul>,
               }] : []),
               ...(visible.has("results")
                 ? [
@@ -888,16 +893,16 @@ export function InterviewRoundsPage() {
                       cell: ({
                         row,
                       }: {
-                        row: { original: InterviewRound };
+                        row: { original: TutorInterviewRoundSummary };
                       }) => (
                         <Badge
                           variant={
-                            row.original.releasedResults.length
+                            row.original.releasedResultCount
                               ? "default"
                               : "secondary"
                           }
                         >
-                          {row.original.releasedResults.length
+                          {row.original.releasedResultCount
                             ? "Released"
                             : "Not released"}
                         </Badge>
@@ -908,7 +913,7 @@ export function InterviewRoundsPage() {
               {
                 id: "actions",
                 header: "Actions",
-                cell: ({ row }: { row: { original: InterviewRound } }) => (
+                cell: ({ row }: { row: { original: TutorInterviewRoundSummary } }) => (
                   <div className="flex justify-end">
                     <RoundActions
                       round={row.original}
@@ -938,6 +943,14 @@ export function InterviewRoundsPage() {
           onClose={() => setBulkCreating(false)}
           catalog={catalog}
         />
+      ) : null}
+      {printingId && !printing ? (
+        <div className="space-y-2">
+          {printingQuery.isError && !printingQuery.isFetching ? (
+            <InterviewError error={printingQuery.error} retry={() => { void printingQuery.refetch(); }} />
+          ) : <p role="status">Loading print prompts…</p>}
+          <Button variant="outline" onClick={() => setPrinting(null)}>Cancel printing</Button>
+        </div>
       ) : null}
       {printing ? (
         <InterviewPrintDialog

@@ -1,10 +1,11 @@
-import type { InterviewRound, InterviewRecording } from "../index";
+import type { InterviewRecording } from "../index";
 import {
   interviewMediaPolicy,
   interviewWaitingMediaPolicy,
   type InterviewWaitingMediaPolicy,
   type InterviewMediaPolicy,
   type InterviewMediaTicket,
+  type InterviewMediaRound,
 } from "../media";
 import { DailyInterviewProvider } from "./daily";
 
@@ -25,7 +26,7 @@ export interface InterviewMediaSession {
   recordingActive: boolean;
 }
 export interface InterviewMediaStore {
-  round(id: string): Promise<InterviewRound | null>;
+  round(id: string): Promise<InterviewMediaRound | null>;
   sessions(roundId: string): Promise<InterviewMediaSession[]>;
   ensureSession(session: InterviewMediaSession): Promise<InterviewMediaSession>;
   updateSession(
@@ -82,7 +83,7 @@ export class InterviewMediaService {
   }
 
   private async reconcileRound(
-    round: InterviewRound | null,
+    round: InterviewMediaRound | null,
     sessions: InterviewMediaSession[],
     refreshRecordings: boolean,
   ): Promise<void> {
@@ -184,7 +185,7 @@ export class InterviewMediaService {
     knownAccessKey?: string,
     stationId?: string,
   ): Promise<InterviewMediaTicket> {
-    const resolvePolicy = (current: InterviewRound | null) => {
+    const resolvePolicy = (current: InterviewMediaRound | null) => {
       if (!current) return null;
       const waiting = interviewWaitingMediaPolicy(current, this.now());
       if (waiting) {
