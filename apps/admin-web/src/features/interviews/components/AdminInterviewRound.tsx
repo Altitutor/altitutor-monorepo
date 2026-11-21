@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   Button,
@@ -11,11 +11,12 @@ import {
   RichTextEditor,
   type JSONContent,
 } from "@altitutor/ui";
+import { interviewText, type InterviewRichText } from "@altitutor/shared";
 import {
-  interviewText,
-  type InterviewRichText,
-} from "@altitutor/shared";
-import { fetchAdminInterviewRound } from '../api/round';
+  adminInterviewObserverKey,
+  fetchAdminInterviewObserver,
+} from "../api/round";
+import type { AdminInterviewObserverState } from "../types/observer";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 
 function Document({ value }: { value: InterviewRichText | undefined }) {
@@ -61,9 +62,19 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [now, setNow] = useState(Date.now());
   const { openAnnouncementsModal } = useQuickActions();
+  const queryClient = useQueryClient();
+  const queryKey = adminInterviewObserverKey(roundId, selectedStationId);
   const query = useQuery({
-    queryKey: ["admin-interview-round", roundId],
-    queryFn: () => fetchAdminInterviewRound(roundId),
+    queryKey,
+    queryFn: ({ signal }) =>
+      fetchAdminInterviewObserver(
+        roundId,
+        selectedStationId,
+        queryClient.getQueryData<AdminInterviewObserverState>(queryKey),
+        signal,
+      ),
+    placeholderData: (previous) =>
+      previous?.id === roundId ? previous : undefined,
     refetchInterval: 2000,
     refetchIntervalInBackground: false,
   });
@@ -71,6 +82,16 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    if (
+      query.data &&
+      selectedStationId &&
+      !query.data.round.stations.some((item) => item.id === selectedStationId)
+    ) {
+      setSelectedStationId(null);
+      setQuestionIndex(0);
+    }
+  }, [query.data, selectedStationId]);
   if (!query.data)
     return (
       <main className="p-6">
@@ -84,8 +105,15 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
         )}
       </main>
     );
-  const round = query.data;
-  const station = round.stations.find((item) => item.id === selectedStationId);
+  const round = query.data.round;
+  const selectedStation = round.stations.find(
+    (item) => item.id === selectedStationId,
+  );
+  const content =
+    query.data.selectedStationId === selectedStationId
+      ? query.data.content
+      : null;
+  const station = content?.station;
   const progress = round.progress.find(
     (item) => item.stationId === selectedStationId,
   );
@@ -93,11 +121,10 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
     (item) => item.id === progress?.studentId,
   );
   const tutor = round.tutors.find((item) => item.id === progress?.tutorId);
-  const attempt = round.attempts.find(
-    (item) =>
-      item.stationId === selectedStationId &&
-      item.studentId === progress?.studentId,
-  );
+  const attempt =
+    content?.attempt && content.attempt.studentId === progress?.studentId
+      ? content.attempt
+      : null;
   const question =
     station?.questions[Math.min(questionIndex, station.questions.length - 1)];
   const seconds = round.pausedAt
@@ -107,7 +134,9 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
           0,
           Math.ceil(
             (Date.parse(round.phaseDeadline) -
-              (now + Date.parse(round.serverNow) - query.dataUpdatedAt)) /
+              (now +
+                Date.parse(round.serverNow) -
+                (query.data.receivedAt ?? query.dataUpdatedAt))) /
               1000,
           ),
         )
@@ -136,7 +165,11 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
           </Link>
           <h1 className="text-xl font-semibold">{round.name}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="outline">{!round.startedAt && round.delivery === "online" ? "Waiting-room participant" : "Read only"}</Badge>
+            <Badge variant="outline">
+              {!round.startedAt && round.delivery === "online"
+                ? "Waiting-room participant"
+                : "Read only"}
+            </Badge>
             <Badge variant="secondary">
               {round.mode === "exam" ? "Exam mode" : "Feedback mode"}
             </Badge>
@@ -189,11 +222,11 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
           />
         </div>
       )}
-      {station && round.startedAt ? (
+      {selectedStation && round.startedAt ? (
         <>
           <div className="flex shrink-0 items-center justify-between gap-2">
             <h2 className="font-semibold">
-              {station.name} · {student?.name ?? "No student"}
+              {selectedStation.name} · {student?.name ?? "No student"}
               {tutor ? ` · ${tutor.name}` : ""}
             </h2>
             <Button
@@ -209,11 +242,15 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
               <section className="min-h-0 overflow-auto rounded-xl border bg-card">
                 <InterviewMedia
                   role="admin"
-                  stationId={station.id}
+                  stationId={selectedStation.id}
                   roundId={round.id}
                   phase={round.phase}
                   delivery={round.delivery}
-                  enabled={!round.pausedAt && !progress?.feedbackComplete && !(round.mode === 'exam' && progress?.endedEarly)}
+                  enabled={
+                    !round.pausedAt &&
+                    !progress?.feedbackComplete &&
+                    !(round.mode === "exam" && progress?.endedEarly)
+                  }
                   className="w-full"
                 />
                 <p className="p-3 text-sm text-muted-foreground">
@@ -247,13 +284,17 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
             <section className="min-h-0 space-y-5 overflow-auto rounded-xl border bg-card p-5">
               <section>
                 <h3 className="mb-2 font-semibold">Reading prompt</h3>
-                <Document value={station.prompt} />
+                {station ? (
+                  <Document value={station.prompt} />
+                ) : (
+                  <p role="status">Loading station content…</p>
+                )}
               </section>
               <div
                 className="flex flex-wrap gap-2"
                 aria-label="Station questions"
               >
-                {station.questions.map((item, index) => (
+                {station?.questions.map((item, index) => (
                   <Button
                     key={item.id}
                     variant={question?.id === item.id ? "default" : "outline"}
@@ -268,7 +309,7 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
                 <>
                   <section>
                     <h3 className="mb-2 font-semibold">
-                      Question {station.questions.indexOf(question) + 1}
+                      Question {(station?.questions.indexOf(question) ?? 0) + 1}
                     </h3>
                     <Document value={question.question} />
                   </section>
@@ -297,20 +338,38 @@ export function AdminInterviewRound({ roundId }: { roundId: string }) {
               <p className="border-t pt-4 text-sm">
                 {attempt?.notAssessedReason
                   ? `Not assessed: ${attempt.notAssessedReason}`
-                  : `Score: ${attempt?.score ?? "Not scored"} / ${station.maximumPoints}`}
+                  : `Score: ${attempt?.score ?? "Not scored"} / ${selectedStation.maximumPoints}`}
               </p>
             </section>
           </div>
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className={round.delivery === "online" && !round.startedAt ? "mx-auto grid max-w-7xl items-start gap-5 lg:grid-cols-2" : "mx-auto max-w-5xl"}>
-            {round.delivery === "online" && !round.startedAt && round.phase === "waiting" && (
-              <section className="min-w-0">
-                <InterviewMedia role="admin" waitingRoom roundId={round.id} phase={round.phase} delivery={round.delivery} enabled={!round.pausedAt} />
-                <p className="mt-3 text-sm text-muted-foreground">Your camera and microphone start off. The shared call ends when the round starts and is never recorded.</p>
-              </section>
-            )}
+          <div
+            className={
+              round.delivery === "online" && !round.startedAt
+                ? "mx-auto grid max-w-7xl items-start gap-5 lg:grid-cols-2"
+                : "mx-auto max-w-5xl"
+            }
+          >
+            {round.delivery === "online" &&
+              !round.startedAt &&
+              round.phase === "waiting" && (
+                <section className="min-w-0">
+                  <InterviewMedia
+                    role="admin"
+                    waitingRoom
+                    roundId={round.id}
+                    phase={round.phase}
+                    delivery={round.delivery}
+                    enabled={!round.pausedAt}
+                  />
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Your camera and microphone start off. The shared call ends
+                    when the round starts and is never recorded.
+                  </p>
+                </section>
+              )}
             <InterviewRoundOverview
               round={round}
               tutorJoinUrl={`${portalOrigin("TUTOR")}/interviews/rounds/${round.id}/waiting`}

@@ -1,3 +1,4 @@
+import { loadInterviewRoundHistory, type InterviewRoundListSnapshot, type InterviewRoundHistoryPage } from "@altitutor/shared";
 import type {
   InterviewCatalog,
   TutorInterviewRoundSummary,
@@ -25,8 +26,19 @@ async function request<T>(
   }
   return body as T;
 }
+export type InterviewListCatalog = Pick<InterviewCatalog, "actorId" | "tutors"> & {
+  interviews: Array<Pick<InterviewCatalog["interviews"][number], "id" | "name">>;
+  students: Array<Pick<InterviewCatalog["students"][number], "id" | "name">>;
+};
 export const getInterviewCatalog = () => request<InterviewCatalog>("/catalog");
+export const getInterviewListCatalog = () => request<InterviewListCatalog>("/catalog?summary=1");
 export const getInterviewRounds = () => request<TutorInterviewRoundSummary[]>("/rounds?summary=1");
+export const getCurrentInterviewRounds = (signal: AbortSignal) =>
+  request<InterviewRoundListSnapshot<TutorInterviewRoundSummary>>("/rounds?summary=1&collection=current", { signal });
+export const getInterviewRoundHistory = (signal: AbortSignal) =>
+  loadInterviewRoundHistory<TutorInterviewRoundSummary>((cursor) => request<InterviewRoundHistoryPage<TutorInterviewRoundSummary>>(
+    `/rounds?summary=1&collection=history${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { signal },
+  ));
 export const getInterviewRound = (id: string) =>
   request<InterviewRound>(`/rounds/${id}`);
 export const sendInterviewCommand = (command: InterviewCommand) =>

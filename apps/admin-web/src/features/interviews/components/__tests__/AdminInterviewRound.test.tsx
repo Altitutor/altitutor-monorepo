@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { AdminInterviewRound } from "../AdminInterviewRound";
 import { useQuery } from "@tanstack/react-query";
 import type { InterviewRound } from "@altitutor/shared";
-jest.mock("@tanstack/react-query", () => ({ useQuery: jest.fn() }));
+jest.mock("@tanstack/react-query", () => ({
+  useQuery: jest.fn(),
+  useQueryClient: () => ({ getQueryData: jest.fn() }),
+}));
 const openMessages = jest.fn();
 jest.mock("@/shared/contexts/QuickActionsContext", () => ({
   useQuickActions: () => ({ openAnnouncementsModal: openMessages }),
@@ -85,13 +88,20 @@ const round = {
   ],
 } as unknown as InterviewRound;
 test("admin starts with overview and can inspect readonly live station feedback and message its students", async () => {
-  jest
-    .mocked(useQuery)
-    .mockReturnValue({
-      data: round,
-      dataUpdatedAt: Date.now(),
-      isError: false,
-    } as ReturnType<typeof useQuery>);
+  jest.mocked(useQuery).mockReturnValue({
+    data: {
+      id: round.id,
+      round,
+      selectedStationId: "station",
+      contentRevision: "revision",
+      content: {
+        station: round.stations[0],
+        attempt: round.attempts[0],
+      },
+    },
+    dataUpdatedAt: Date.now(),
+    isError: false,
+  } as ReturnType<typeof useQuery>);
   render(<AdminInterviewRound roundId="round" />);
   expect(screen.getByRole("textbox", { name: "Student link" })).toHaveValue(
     "http://localhost:3001/interviews/rounds/round",

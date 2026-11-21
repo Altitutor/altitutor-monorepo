@@ -57,6 +57,7 @@ import {
 import { cn } from "@/shared/utils";
 import {
   useInterviewCatalog,
+  useInterviewListCatalog,
   useInterviewCommand,
   useInterviewRounds,
   useInterviewPrintRound,
@@ -596,7 +597,7 @@ function RoundsCalendar({
 export function InterviewRoundsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const catalogQuery = useInterviewCatalog();
+  const listCatalogQuery = useInterviewListCatalog();
   const roundsQuery = useInterviewRounds();
   const table = useInterviewTable(
     columnDefinitions
@@ -616,7 +617,7 @@ export function InterviewRoundsPage() {
   const setPrinting = (round: TutorInterviewRoundSummary | null) => setPrintingId(round?.id ?? null);
   const [editing, setEditing] = useState<TutorInterviewRoundSummary | null>(null);
   const [dismissedEditId, setDismissedEditId] = useState<string | null>(null);
-  const catalog = catalogQuery.data;
+  const catalog = listCatalogQuery.data;
   const editRoundId = searchParams.get("edit");
   const linkedRound =
     editRoundId && dismissedEditId !== editRoundId
@@ -628,6 +629,9 @@ export function InterviewRoundsPage() {
         ) ?? null)
       : null;
   const activeRound = editing ?? linkedRound;
+  const catalogueNeeded = creating || bulkCreating || !!activeRound;
+  const catalogQuery = useInterviewCatalog({ enabled: catalogueNeeded });
+  const editingCatalog = catalogQuery.data;
   const closeRoundDialog = () => {
     setCreating(false);
     setEditing(null);
@@ -741,9 +745,9 @@ export function InterviewRoundsPage() {
         }
       />
       <InterviewError
-        error={catalogQuery.error ?? roundsQuery.error}
+        error={listCatalogQuery.error ?? roundsQuery.error}
         retry={() => {
-          void catalogQuery.refetch();
+          void listCatalogQuery.refetch();
           void roundsQuery.refetch();
         }}
       />
@@ -937,11 +941,18 @@ export function InterviewRoundsPage() {
           />
         </>
       )}
-      {catalog && bulkCreating ? (
+      {catalogueNeeded && !editingCatalog ? (
+        <div className="space-y-2">
+          {catalogQuery.isError ? <InterviewError error={catalogQuery.error} retry={() => { void catalogQuery.refetch(); }} />
+            : <p role="status">Loading round setup…</p>}
+          <Button variant="outline" onClick={() => { closeRoundDialog(); setBulkCreating(false); }}>Cancel setup</Button>
+        </div>
+      ) : null}
+      {editingCatalog && bulkCreating ? (
         <InterviewBulkRoundDialog
           open
           onClose={() => setBulkCreating(false)}
-          catalog={catalog}
+          catalog={editingCatalog}
         />
       ) : null}
       {printingId && !printing ? (
@@ -958,12 +969,12 @@ export function InterviewRoundsPage() {
           onClose={() => setPrinting(null)}
         />
       ) : null}
-      {catalog && (creating || activeRound) ? (
+      {editingCatalog && (creating || activeRound) ? (
         <InterviewRoundDialog
           key={activeRound?.id ?? "new"}
           open
           onClose={closeRoundDialog}
-          catalog={catalog}
+          catalog={editingCatalog}
           existingRound={activeRound ?? undefined}
         />
       ) : null}

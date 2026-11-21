@@ -14,7 +14,7 @@ import { topicsApi } from '@/features/topics/api';
 import { tasksApi } from '@/features/tasks/api';
 import { issuesApi } from '@/features/issues/api/issues';
 import { projectsApi } from '@/features/projects/api/projects';
-import { fetchAdminInterviewRound } from '@/features/interviews/api/round';
+import { adminInterviewObserverKey, fetchAdminInterviewObserver } from '@/features/interviews/api/round';
 import { useNote } from '@/features/notes/api/queries';
 
 // Map of path segments to display labels
@@ -102,8 +102,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
 
   const interviewRoundId = pathname.match(/^\/interviews\/rounds\/([^/]+)\/?$/)?.[1];
   const interviewRoundQuery = useQuery({
-    queryKey: ['admin-interview-round', interviewRoundId],
-    queryFn: () => fetchAdminInterviewRound(interviewRoundId!),
+    queryKey: adminInterviewObserverKey(interviewRoundId, null),
+    queryFn: ({ signal }) => fetchAdminInterviewObserver(interviewRoundId!, null, undefined, signal),
     enabled: !!interviewRoundId,
     staleTime: 30_000,
   });
@@ -399,7 +399,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
   const noteQuery = useNote(noteId || '', !!noteId);
 
   return useMemo(() => {
-    if (interviewRoundId) return [{label:'Sessions',href:'/sessions'},{label:interviewRoundQuery.data?.name ?? 'Interview'}];
+    if (interviewRoundId) return [{label:'Sessions',href:'/sessions'},{label:interviewRoundQuery.data?.round.name ?? 'Interview'}];
     if (topicId) return topicBreadcrumbs.data?.length ? topicBreadcrumbs.data : [{label: 'Subjects', href: '/subjects'}, {label: 'Loading topic…'}];
     // If we're on the dashboard, just return Dashboard
     if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
@@ -476,7 +476,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
   }, [
     segments,
     interviewRoundId,
-    interviewRoundQuery.data?.name,
+    interviewRoundQuery.data?.round.name,
     topicId,
     topicBreadcrumbs.data,
     trail,

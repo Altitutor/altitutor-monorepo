@@ -142,8 +142,9 @@ export function StudentInterviewsPage({ usePerformanceReviewListStyle = false }:
         }}
       />
     );
-  const upcoming = rounds.data.filter((round) => round.phase !== "completed");
-  const past = rounds.data.filter((round) => round.phase === "completed");
+  const rows = rounds.data ?? [];
+  const upcoming = rows.filter((round) => round.phase !== "completed");
+  const past = rows.filter((round) => round.phase === "completed");
   return (
     <div className="space-y-8 py-8">
       <header>

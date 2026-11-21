@@ -3,6 +3,9 @@ import { useState, type ReactNode } from "react";
 import {
   interviewText,
   type InterviewRound,
+  type InterviewSnapshotQuestion,
+  type InterviewSnapshotStation,
+  type InterviewStationAttempt,
   type InterviewStationProgress,
 } from "@altitutor/shared";
 import { Button } from "./button";
@@ -58,7 +61,14 @@ export function InterviewRoundOverview({
   actorId,
   joinedTutorIds = round.connectedTutorIds ?? [],
 }: {
-  round: InterviewRound;
+  round: Pick<
+    InterviewRound,
+    | "tutors"
+    | "students"
+    | "delivery"
+    | "connectedStudentIds"
+    | "connectedTutorIds"
+  >;
   tutorJoinUrl: string;
   studentJoinUrl: string;
   children?: ReactNode;
@@ -119,7 +129,22 @@ export function InterviewRoundOverview({
   );
 }
 
-function status(round: InterviewRound, item: InterviewStationProgress) {
+type StationStatusRound = Pick<
+  InterviewRound,
+  "phase" | "startedAt" | "pausedAt" | "mode" | "tutors" | "students"
+> & {
+  stations: (Pick<InterviewSnapshotStation, "id" | "name"> & {
+    questions?: Pick<InterviewSnapshotQuestion, "id">[];
+    questionCount?: number;
+  })[];
+  progress: (InterviewStationProgress & { answeredQuestionCount?: number })[];
+  attempts?: Pick<
+    InterviewStationAttempt,
+    "stationId" | "studentId" | "feedback"
+  >[];
+};
+
+function status(round: StationStatusRound, item: InterviewStationProgress) {
   if (round.phase === "completed") return "Completed";
   if (!round.startedAt) return "Not started";
   if (!item.studentId) return item.ready ? "Idle · Ready" : "Idle";
@@ -137,7 +162,7 @@ export function InterviewStationStatusStrip({
   selectedStationId,
   onSelectStation,
 }: {
-  round: InterviewRound;
+  round: StationStatusRound;
   actorId?: string;
   selectedStationId?: string | null;
   onSelectStation?: (stationId: string) => void;
@@ -152,19 +177,21 @@ export function InterviewStationStatusStrip({
         const student = round.students.find(
           (entry) => entry.id === item.studentId,
         );
-        const attempt = round.attempts.find(
+        const attempt = round.attempts?.find(
           (entry) =>
             entry.stationId === item.stationId &&
             entry.studentId === item.studentId,
         );
         const answered =
-          station?.questions.filter((question) =>
+          item.answeredQuestionCount ??
+          station?.questions?.filter((question) =>
             attempt?.feedback.some(
               (feedback) =>
                 feedback.placementId === question.id &&
                 interviewText(feedback.value).trim(),
             ),
-          ).length ?? 0;
+          ).length ??
+          0;
         const content = (
           <>
             <p className="mb-2 truncate font-medium">
@@ -180,7 +207,8 @@ export function InterviewStationStatusStrip({
               <dd>{status(round, item)}</dd>
               <dt className="text-muted-foreground">Questions</dt>
               <dd>
-                {answered}/{station?.questions.length ?? 0}
+                {answered}/
+                {station?.questionCount ?? station?.questions?.length ?? 0}
               </dd>
             </dl>
           </>
