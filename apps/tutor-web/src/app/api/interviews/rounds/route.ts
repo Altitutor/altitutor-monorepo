@@ -1,3 +1,4 @@
+import { readInterviewRoundList } from "@altitutor/shared/interviews/server";
 import {
   interviewApiError,
   interviewResponse,
@@ -11,12 +12,12 @@ export async function GET(request: Request) {
     if ("response" in actor) return actor.response;
     const denied = await requireInterviewAccess(actor);
     if (denied) return denied;
-    const summary = new URL(request.url).searchParams.get("summary") === "1";
-    const { data, error } = await actor.userClient
-      .from(summary ? "vtutor_interview_round_summaries" : "vtutor_interview_rounds")
-      .select("data");
-    if (error) throw error;
-    return interviewResponse((data ?? []).map((row) => row.data));
+    const result = await readInterviewRoundList(
+      actor.userClient,
+      "tutor",
+      new URL(request.url).searchParams,
+    );
+    return interviewResponse(result.body, result.status);
   } catch (error) {
     return interviewApiError(error);
   }
