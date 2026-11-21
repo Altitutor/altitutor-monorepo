@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "../../supabase/generated";
-import type { InterviewRound } from "../index";
+import type { InterviewMediaRound } from "../media";
 import type {
   InterviewMediaSession,
   InterviewMediaStore,
@@ -33,7 +33,7 @@ export function createInterviewMediaStore(
 ): InterviewMediaStore {
   return {
     async round(id) {
-      const { data, error } = await client.rpc("interview_media_state", {
+      const { data, error } = await client.rpc("interview_media_policy_state", {
         p_round_id: id,
       });
       if (error) throw error;
@@ -46,7 +46,7 @@ export function createInterviewMediaStore(
         data.id !== id
       )
         throw new Error("Interview no longer exists.");
-      return data as unknown as InterviewRound;
+      return data as unknown as InterviewMediaRound;
     },
     async sessions(roundId) {
       const { data, error } = await client

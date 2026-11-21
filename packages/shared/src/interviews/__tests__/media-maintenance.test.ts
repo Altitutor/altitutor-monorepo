@@ -5,7 +5,7 @@ import { reconcileInterviewMedia } from "../server/maintenance";
 describe("independent interview recovery jobs", () => {
   it("does not warn about shutdown when a completed round has no media job or rooms", async () => {
     const rpc = jest.fn(async (name: string) => ({
-      data: name === "interview_media_state"
+      data: name === "interview_media_policy_state"
         ? { id: "round", phase: "completed", progress: [], recordings: [] }
         : [],
       error: null,
@@ -24,7 +24,7 @@ describe("independent interview recovery jobs", () => {
   ])("does not require provider shutdown for a %s after another worker claims the job", async (_name, kind, closedAt) => {
     const client = {
       rpc: async (name: string) => ({
-        data: name === "interview_media_state"
+        data: name === "interview_media_policy_state"
           ? { id: "round", phase: "completed", progress: [], recordings: [] }
           : [],
         error: null,
@@ -41,7 +41,7 @@ describe("independent interview recovery jobs", () => {
     async (expiresAt) => {
       const client = {
         rpc: async (name: string) => ({
-          data: name === "interview_media_state"
+          data: name === "interview_media_policy_state"
             ? { id: "round", phase: "completed", progress: [], recordings: [] }
             : [],
           error: null,
@@ -63,10 +63,10 @@ describe("independent interview recovery jobs", () => {
     const error = new Error("Database unavailable");
     const client = {
       rpc: async (name: string) => ({
-        data: name === "interview_media_state"
+        data: name === "interview_media_policy_state"
           ? { id: "round", phase: "completed", progress: [], recordings: [] }
           : [],
-        error: name === "interview_media_state" && failedRead === "round" ? error : null,
+        error: name === "interview_media_policy_state" && failedRead === "round" ? error : null,
       }),
       from: () => ({ select: () => ({ eq: async () => ({
         data: [], error: failedRead === "sessions" ? error : null,
@@ -83,7 +83,7 @@ describe("independent interview recovery jobs", () => {
     const rpc = jest.fn(async (name: string) => {
       if (name === "interview_claim_media_job")
         return { data: jobs.shift() ? [claimed.shift()] : [], error: null };
-      if (name === "interview_media_state")
+      if (name === "interview_media_policy_state")
         return {
           data: {
             id: currentRound,
@@ -99,7 +99,7 @@ describe("independent interview recovery jobs", () => {
     let currentRound = "";
     const originalRpc = rpc.getMockImplementation()!;
     rpc.mockImplementation(async (name: string, ...args: unknown[]) => {
-      if (name === "interview_media_state")
+      if (name === "interview_media_policy_state")
         currentRound = (args[0] as { p_round_id: string }).p_round_id;
       return originalRpc(name);
     });
@@ -174,7 +174,7 @@ describe("independent interview recovery jobs", () => {
             data: [{ round_id: roundId, revision: 1, lease_token: "lease" }],
             error: null,
           };
-        if (name === "interview_media_state")
+        if (name === "interview_media_policy_state")
           return {
             data: {
               id: roundId,

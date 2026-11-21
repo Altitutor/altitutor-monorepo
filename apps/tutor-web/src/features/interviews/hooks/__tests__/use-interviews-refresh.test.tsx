@@ -1,7 +1,7 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useInterviewRound, useInterviewCommand } from "../use-interviews";
+import { useInterviewRound, useInterviewCommand, useInterviewPrintRound } from "../use-interviews";
 
 jest.mock("@/features/staff/hooks/useStaffQuery", () => ({ useCurrentStaff: jest.fn() }));
 jest.mock("../use-interview-access", () => ({ useInterviewAccess: jest.fn() }));
@@ -137,5 +137,22 @@ test("a failed recovery read cannot supply the old cached snapshot to an action"
     await waitFor(() => expect(view.result.current.data?.version).toBe(1));
     await act(async () => { await expect(view.result.current.refreshForAction()).rejects.toThrow("Database unavailable"); });
     expect(view.result.current.data?.version).toBe(1);
+  } finally { view.unmount(); client.clear(); }
+});
+
+ test("printing reads the rich round only on demand and does not subscribe to live refreshes", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  global.fetch = jest.fn().mockResolvedValue(response(4));
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(({ id }) => useInterviewPrintRound(id), { initialProps: { id: "" }, wrapper });
+  try {
+    expect(global.fetch).not.toHaveBeenCalled();
+    view.rerender({ id: "round" });
+    await waitFor(() => expect(view.result.current.data?.version).toBe(4));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith("/api/interviews/rounds/round", expect.objectContaining({ cache: "no-store" }));
+    view.rerender({ id: "" });
+    expect(view.result.current.data).toBeUndefined();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   } finally { view.unmount(); client.clear(); }
 });

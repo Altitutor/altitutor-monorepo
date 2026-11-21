@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { readAdminInterviewRound } from "../read";
+import { readAdminInterviewMediaRound, readAdminInterviewRound } from "../read";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 jest.mock("@/shared/lib/supabase/server-ssr", () => ({
@@ -20,9 +20,11 @@ test.each([false, null])(
       },
       rpc: async () => ({ data: allowed, error: null }),
     } as unknown as Awaited<ReturnType<typeof createClient>>);
-    const result = await readAdminInterviewRound(id);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.response.status).toBe(403);
+    for (const read of [readAdminInterviewRound, readAdminInterviewMediaRound]) {
+      const result = await read(id);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.response.status).toBe(403);
+    }
     expect(admin).not.toHaveBeenCalled();
   },
 );
@@ -46,4 +48,16 @@ test("an active admin receives the authoritative projection", async () => {
   expect(result.ok).toBe(true);
   if (result.ok) expect(result.round.phase).toBe("feedback");
   expect(rpc).toHaveBeenCalledWith("interview_media_state", { p_round_id: id });
+});
+
+test("media admission reads only policy state after active admin verification", async () => {
+  create.mockResolvedValue({ auth: { getUser: async () => ({ data: { user: { id: "user" } }, error: null }) },
+    rpc: async () => ({ data: true, error: null }),
+  } as unknown as Awaited<ReturnType<typeof createClient>>);
+  const rpc = jest.fn().mockResolvedValue({ data: { id, phase: "waiting", stationIds: ["station"] }, error: null });
+  admin.mockReturnValue({ rpc } as unknown as ReturnType<typeof getServerSupabaseAdmin>);
+  const result = await readAdminInterviewMediaRound(id);
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.round.stationIds).toEqual(["station"]);
+  expect(rpc).toHaveBeenCalledWith("interview_media_policy_state", { p_round_id: id });
 });

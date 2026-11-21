@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { Calendar, ChevronRight, Video, MapPin } from "lucide-react";
 import { Badge, Button } from "@altitutor/ui";
-import type { StudentInterviewRound } from "@altitutor/shared";
+import type { StudentInterviewRoundSummary } from "@altitutor/shared";
 import { StudentSessionsCalendarView } from "@/features/sessions/components/StudentSessionsCalendarView";
 import { ResourcesBreadcrumb } from "@/features/resources/components/resources-breadcrumb";
 import {
@@ -15,14 +15,14 @@ import { interviewResultsHref, interviewRoomHref } from "../lib/routes";
 import { InterviewError } from "./interview-error";
 import { StudentInterviewListCard } from "./student-interview-list-card";
 
-function RoundCard({ round, clickable = false }: { round: StudentInterviewRound; clickable?: boolean }) {
+function RoundCard({ round, clickable = false }: { round: StudentInterviewRoundSummary; clickable?: boolean }) {
   const completed = round.phase === "completed";
   const active =
     !completed &&
     (Boolean(round.startedAt) ||
       !round.scheduledAt ||
       Date.parse(round.scheduledAt) <= Date.now());
-  if (clickable && completed && round.result) {
+  if (clickable && completed && round.hasReleasedResults) {
     const time = round.scheduledAt ? new Date(round.scheduledAt).toLocaleString(undefined, {
       dateStyle: "medium", timeStyle: "short",
     }) : "Completed";
@@ -43,7 +43,7 @@ function RoundCard({ round, clickable = false }: { round: StudentInterviewRound;
             <h3 className="font-semibold">{round.name}</h3>
             <Badge variant={active ? "default" : "secondary"}>
               {completed
-                ? round.result
+                ? round.hasReleasedResults
                   ? "Results available"
                   : "Awaiting results"
                 : active
@@ -69,11 +69,11 @@ function RoundCard({ round, clickable = false }: { round: StudentInterviewRound;
               )}
               {round.delivery === "online" ? "Online" : "In person"}
             </span>
-            <span>{round.stations.length} stations</span>
+            <span>{round.stationCount} stations</span>
           </div>
         </div>
         {completed ? (
-          round.result ? (
+          round.hasReleasedResults ? (
             <Button asChild variant="outline">
               <Link href={interviewResultsHref(round.id)}>
                 View results

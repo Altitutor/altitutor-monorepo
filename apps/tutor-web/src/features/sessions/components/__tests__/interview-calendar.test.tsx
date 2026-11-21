@@ -117,7 +117,9 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
       accessRequests++;
       return {ok: accessRequests > 1, status: accessRequests > 1 ? 200 : 503, json: async () => ({hasAccess})} as Response;
     }
-    if (String(input) === "/api/interviews/rounds") {
+    const roundUrl = new URL(String(input), "https://portal.test");
+    if (roundUrl.pathname === "/api/interviews/rounds") {
+      expect(roundUrl.searchParams.get("summary")).toBe("1");
       roundRequests++;
       return {ok: true, json: async () => []} as unknown as Response;
     }

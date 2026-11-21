@@ -42,6 +42,21 @@ export function useInterviewRounds(
     staleTime: 30_000,
   });
 }
+/** Prompt printing needs one rich snapshot, without joining the live round. */
+export function useInterviewPrintRound(id: string) {
+  const { user, loading } = useAuthStore();
+  return useQuery({
+    queryKey: [...interviewKeys.round(id), user?.id],
+    enabled: !loading && !!user && !!id,
+    queryFn: () => getInterviewRound(id),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  });
+}
+
 export function useInterviewCommand() {
   const { toast } = useToast();
   const client = useQueryClient();

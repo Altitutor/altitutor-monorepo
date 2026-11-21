@@ -27,7 +27,7 @@ it('enriches the SDK automatic failure with guard evidence at zero trace samplin
     const client = createClient<Database>('http://localhost:9999', 'local-only-dummy', { global: { fetch: async (input, init) => {
       const path = new URL(String(input)).pathname;
       const operation = path.split('/').at(-1);
-      let body: unknown = path.includes('vtutor_interview_rounds') ? { data: round } : operation === 'current_tutor_id' ? tutorId : round;
+      let body: unknown = path.includes('vtutor_interview_media_access') ? { id: roundId, delivery, actor_id: tutorId } : operation === 'current_tutor_id' ? tutorId : round;
       let status = 200;
       if (operation === 'interview_audio_capture' || operation === 'interview_video_capture') {
         arrivals += 1;

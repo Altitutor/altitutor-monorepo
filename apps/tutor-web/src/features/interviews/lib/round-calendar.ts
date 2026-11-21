@@ -1,6 +1,7 @@
 import {
   interviewRoundDurationMinutes,
   type InterviewRound,
+  type TutorInterviewRoundSummary,
 } from "@altitutor/shared";
 
 export type ScheduledInterviewRound = {
@@ -19,14 +20,14 @@ export type ScheduledInterviewRound = {
 };
 
 export function toScheduledRound(
-  round: InterviewRound,
+  round: TutorInterviewRoundSummary,
   interviewName: string,
 ): ScheduledInterviewRound | null {
   if (!round.scheduledAt) return null;
   const minutes = interviewRoundDurationMinutes(
     round.readingTimeSeconds,
     round.questionTimeSeconds,
-    round.stations.length,
+    round.stationCount,
     round.rotationAllowanceSeconds,
   );
   return {

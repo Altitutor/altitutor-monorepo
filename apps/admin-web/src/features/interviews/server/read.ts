@@ -1,4 +1,4 @@
-import type { InterviewRound } from "@altitutor/shared";
+import type { InterviewMediaRound, InterviewRound } from "@altitutor/shared";
 import { createClient } from "@/shared/lib/supabase/server-ssr";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
@@ -40,7 +40,10 @@ export async function requireInterviewAdmin() {
   };
 }
 
-export async function readAdminInterviewRound(roundId: string) {
+async function readAdminInterviewState(
+  roundId: string,
+  projection: "interview_media_state" | "interview_media_policy_state",
+) {
   const access = await requireInterviewAdmin();
   if (!access.ok) return access;
   if (
@@ -52,7 +55,7 @@ export async function readAdminInterviewRound(roundId: string) {
       ok: false as const,
       response: interviewResponse({ error: "Invalid interview." }, 400),
     };
-  const { data, error } = await access.admin.rpc("interview_media_state", {
+  const { data, error } = await access.admin.rpc(projection, {
     p_round_id: roundId,
   });
   if (error) throw error;
@@ -66,5 +69,21 @@ export async function readAdminInterviewRound(roundId: string) {
       ok: false as const,
       response: interviewResponse({ error: "Interview not found." }, 404),
     };
-  return { ...access, round: data as unknown as InterviewRound };
+  return { ...access, round: data };
+}
+
+
+export async function readAdminInterviewRound(roundId: string) {
+  const access = await readAdminInterviewState(roundId, "interview_media_state");
+  return access.ok ? { ...access, round: access.round as unknown as InterviewRound } : access;
+}
+
+/** Media admission needs station identities, not observer assessment content. */
+export async function readAdminInterviewMediaRound(roundId: string) {
+  const access = await readAdminInterviewState(roundId, "interview_media_policy_state");
+  if (!access.ok) return access;
+  const stationIds = access.round.stationIds;
+  if (!Array.isArray(stationIds) || !stationIds.every((id) => typeof id === "string"))
+    throw new Error("Invalid interview media station identities.");
+  return { ...access, round: access.round as unknown as InterviewMediaRound & { stationIds: string[] } };
 }

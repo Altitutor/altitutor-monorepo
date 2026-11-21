@@ -86,6 +86,29 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
     return { actor, actorId, round };
   }
 
+  async function authorisedTicket(
+    request: Request,
+    roundId: string,
+    report: (operation: InterviewMediaEvidence["operation"]) => void,
+  ) {
+    if (!uuid.test(roundId)) return { response: json({ error: "Invalid interview." }, 400) };
+    report("resolve_actor");
+    const actor = await deps.resolveActor(request);
+    if ("response" in actor) return actor;
+    report("round_view");
+    const view = deps.role === "tutor" ? "vtutor_interview_media_access" : "vstudent_interview_media_access";
+    const { data, error } = await actor.userClient.from(view)
+      .select("id,delivery,actor_id").eq("id", roundId).maybeSingle();
+    if (error) throw error;
+    if (!data)
+      return { response: json({ error: "Interview is unavailable or your access has ended." }, 404) };
+    if (deps.role === "tutor" && typeof data.actor_id !== "string")
+      return { response: json({ error: "Tutor access required." }, 403) };
+    if (typeof data.actor_id !== "string" || (data.delivery !== "online" && data.delivery !== "in_person"))
+      return { response: json({ error: "Interview is unavailable or your access has ended." }, 404) };
+    return { actor, actorId: data.actor_id, delivery: data.delivery };
+  }
+
   return {
     async ticket(request: Request, roundId: string): Promise<Response> {
       const captureRequested =
@@ -102,14 +125,14 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
         }
       };
       try {
-        const access = await authorised(request, roundId, report);
+        const access = await authorisedTicket(request, roundId, report);
         if ("response" in access) return access.response;
         const client = deps.serviceClient();
         const store = createInterviewMediaStore(client);
         const videoCapture =
-          access.round.delivery === "online" && captureRequested;
-        if (access.round.delivery === "in_person" || videoCapture) {
-          report("interview_media_state", access.actorId);
+          access.delivery === "online" && captureRequested;
+        if (access.delivery === "in_person" || videoCapture) {
+          report("interview_media_policy_state", access.actorId);
           const round = await store.round(roundId);
           if (!round) return json({ error: "Interview is unavailable." }, 404);
           const policy = interviewMediaPolicy(round, access.actorId, deps.role);
@@ -176,7 +199,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
             recordingEnabled: false,
             warning:
               "Online interviews are not configured. Contact your administrator.",
-            serverNow: access.round.serverNow,
+            serverNow: new Date().toISOString(),
           });
         const service = new InterviewMediaService(
           store,
