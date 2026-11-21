@@ -24,7 +24,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const getInterviewAccess = () =>
   request<{ hasAccess: boolean }>("/access");
 export const getInterviewRounds = () =>
-  request<StudentInterviewRoundSummary[]>("/rounds");
+  request<StudentInterviewRoundSummary[]>("/rounds?summary=1");
 export const getInterviewRound = (id: string) =>
   request<StudentInterviewRound>(`/rounds/${encodeURIComponent(id)}`);
 export const interviewRecordingSource = (roundId: string, recordingId: string) =>

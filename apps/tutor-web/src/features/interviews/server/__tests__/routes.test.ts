@@ -177,18 +177,25 @@ describe("tutor interview HTTP boundary", () => {
     });
     expect((await POST(request())).status).toBe(409);
   });
-  it("reads rounds through the actor-scoped view", async () => {
+  it.each([
+    ["", "vtutor_interview_rounds"],
+    ["?summary=1", "vtutor_interview_round_summaries"],
+    ["?summary=0", "vtutor_interview_rounds"],
+  ])("preserves legacy rich lists and explicitly selects compact summaries (%s)", async (suffix, expectedView) => {
+    const rich = { id: roundId, stations: [{ id: "station" }], result: { revision: 1 } };
+    const summary = { id: roundId, stationCount: 1, hasReleasedResults: true };
+    let selectedView = "";
+    from.mockImplementation((view: string) => { selectedView = view; return { select }; });
     select.mockImplementation(() => ({
       maybeSingle,
       then: (resolve: (value: unknown) => void) =>
-        resolve({ data: [{ data: { id: roundId } }], error: null }),
+        resolve({ data: [{ data: selectedView.endsWith("_summaries") ? summary : rich }], error: null }),
     }));
-    const response = await getRounds(
-      new Request("https://portal.test/api/interviews/rounds"),
-    );
+    const response = await getRounds(new Request(`https://portal.test/api/interviews/rounds${suffix}`));
     expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("vtutor_interview_round_summaries");
-    expect(await response.json()).toEqual([{ id: roundId }]);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(from).toHaveBeenCalledWith(expectedView);
+    expect(await response.json()).toEqual([suffix === "?summary=1" ? summary : rich]);
   });
 });
 

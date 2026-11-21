@@ -49,7 +49,11 @@ export function useInterviewPrintRound(id: string) {
     queryKey: [...interviewKeys.round(id), user?.id],
     enabled: !loading && !!user && !!id,
     queryFn: () => getInterviewRound(id),
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
   });
 }
 

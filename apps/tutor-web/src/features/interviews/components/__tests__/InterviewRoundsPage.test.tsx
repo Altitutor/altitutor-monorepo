@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { InterviewRound, TutorInterviewRoundSummary } from "@altitutor/shared";
 import { InterviewRoundsPage } from "../InterviewRoundsPage";
@@ -24,7 +24,9 @@ const summary: TutorInterviewRoundSummary = {
 it("keeps the tutor roster searchable and loads full print prompts only after Print is selected", async () => {
   const detailReads = jest.fn().mockResolvedValue({ ...summary, stations: [{ id: "station", prompt: "Private station prompt" }] });
   global.fetch = jest.fn(async (input: RequestInfo | URL) => {
-    const path = String(input);
+    const url = new URL(String(input), "https://portal.test");
+    const path = url.pathname;
+    if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
     const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [{ id: "interview", name: "Medicine" }], students: [], tutors: [] }
       : path.endsWith("/rounds") ? [summary] : await detailReads();
     return { ok: true, json: async () => body } as Response;
@@ -55,7 +57,9 @@ it("lets a tutor dismiss slow print loading without opening the dialog when the 
   let finishRead!: (response: Response) => void;
   const pending = new Promise<Response>((resolve) => { finishRead = resolve; });
   global.fetch = jest.fn(async (input: RequestInfo | URL) => {
-    const path = String(input);
+    const url = new URL(String(input), "https://portal.test");
+    const path = url.pathname;
+    if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
     if (!path.endsWith("/catalog") && !path.endsWith("/rounds")) return pending;
     const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : [summary];
     return { ok: true, json: async () => body } as Response;
@@ -72,5 +76,53 @@ it("lets a tutor dismiss slow print loading without opening the dialog when the 
     finishRead({ ok: true, json: async () => ({ ...summary, stations: [] }) } as Response);
     await waitFor(() => expect(client.getQueryData(["interviews", "round", "round-1", "actor"])).toBeDefined());
     expect(screen.queryByRole("dialog", { name: "Print prompts" })).not.toBeInTheDocument();
+  } finally { view.unmount(); client.clear(); }
+});
+
+it("withholds cached prompts on reopen until a fresh read succeeds and exposes refresh failure and retry", async () => {
+  let finishReopen!: (response: Response) => void;
+  let finishRetry!: (response: Response) => void;
+  const reopening = new Promise<Response>((resolve) => { finishReopen = resolve; });
+  const retrying = new Promise<Response>((resolve) => { finishRetry = resolve; });
+  const response = (prompt: string) => ({ ok: true, json: async () => ({ ...summary, stations: [{ id: "station", prompt }] }) }) as Response;
+  const detailReads = jest.fn().mockResolvedValueOnce(response("Old print prompt")).mockReturnValueOnce(reopening).mockReturnValueOnce(retrying);
+  global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), "https://portal.test");
+    const path = url.pathname;
+    if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
+    if (!path.endsWith("/catalog") && !path.endsWith("/rounds")) return detailReads();
+    const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : [summary];
+    return { ok: true, json: async () => body } as Response;
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 3, staleTime: 5 * 60_000, refetchOnMount: false } } });
+  const view = render(<QueryClientProvider client={client}><InterviewRoundsPage /></QueryClientProvider>);
+  const openPrint = async () => {
+    await act(async () => { fireEvent.keyDown(screen.getByRole("button", { name: "Row actions" }), { key: "Enter" }); });
+    const item = await screen.findByRole("menuitem", { name: "Print prompts" });
+    await act(async () => { fireEvent.click(item); });
+  };
+  try {
+    await screen.findByText("Monday circuit");
+    await openPrint();
+    expect(await screen.findByRole("dialog", { name: "Print prompts" })).toHaveTextContent("Old print prompt");
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Close print" })); });
+    await openPrint();
+    await waitFor(() => expect(detailReads).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog", { name: "Print prompts" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Old print prompt")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading print prompts");
+    expect(screen.getByRole("button", { name: "Cancel printing" })).toBeInTheDocument();
+    await act(async () => { finishReopen({ ok: false, status: 503, json: async () => ({ error: "Print refresh unavailable" }) } as Response); });
+    expect(await screen.findByText("Print refresh unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Old print prompt")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel printing" })).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Try again" })); });
+    await waitFor(() => expect(detailReads).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("status")).toHaveTextContent("Loading print prompts");
+    expect(screen.queryByRole("dialog", { name: "Print prompts" })).not.toBeInTheDocument();
+    await act(async () => { finishRetry(response("Fresh print prompt")); });
+    expect(await screen.findByRole("dialog", { name: "Print prompts" })).toHaveTextContent("Fresh print prompt");
+    expect(screen.queryByText("Old print prompt")).not.toBeInTheDocument();
+    expect(detailReads).toHaveBeenCalledTimes(3);
   } finally { view.unmount(); client.clear(); }
 });

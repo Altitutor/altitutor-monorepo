@@ -148,6 +148,7 @@ python3 supabase/scripts/test-interview-station-upgrade.py
 
 section interview-concurrency
 python3 supabase/scripts/test-interview-concurrency.py
+pnpm --filter @altitutor/shared exec jest --runInBand src/interviews/__tests__/media-evidence.integration.test.ts src/interviews/__tests__/media-policy.integration.test.ts
 
 section browser-critical
 pnpm --filter ucat-web exec playwright install chromium

@@ -611,7 +611,8 @@ export function InterviewRoundsPage() {
   const [bulkCreating, setBulkCreating] = useState(false);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const printingQuery = useInterviewPrintRound(printingId ?? "");
-  const printing = printingId ? printingQuery.data : null;
+  const printing = printingId && printingQuery.isFetchedAfterMount && !printingQuery.isFetching && !printingQuery.isError
+    ? printingQuery.data : null;
   const setPrinting = (round: TutorInterviewRoundSummary | null) => setPrintingId(round?.id ?? null);
   const [editing, setEditing] = useState<TutorInterviewRoundSummary | null>(null);
   const [dismissedEditId, setDismissedEditId] = useState<string | null>(null);
@@ -945,7 +946,7 @@ export function InterviewRoundsPage() {
       ) : null}
       {printingId && !printing ? (
         <div className="space-y-2">
-          {printingQuery.error ? (
+          {printingQuery.isError && !printingQuery.isFetching ? (
             <InterviewError error={printingQuery.error} retry={() => { void printingQuery.refetch(); }} />
           ) : <p role="status">Loading print prompts…</p>}
           <Button variant="outline" onClick={() => setPrinting(null)}>Cancel printing</Button>
