@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../supabase/generated";
 import type { InterviewRound, StudentInterviewRound } from "../index";
+import { interviewAudioRecordingMaxBytes, interviewVideoRecordingMaxBytes } from "../recording-policy";
 import { interviewMediaPolicy } from "../media";
 import type { InterviewMediaEvidence } from "./media-evidence";
 import { readInterviewCommandBody } from "./request";
@@ -356,7 +357,7 @@ export function createInterviewMediaHandlers(deps: Dependencies) {
             !extension ||
             !Number.isInteger(value.byteLength) ||
             Number(value.byteLength) <= 0 ||
-            Number(value.byteLength) > 50 * 1024 * 1024
+            Number(value.byteLength) > (videoCapture ? interviewVideoRecordingMaxBytes : interviewAudioRecordingMaxBytes)
           )
             return json({ error: "Invalid recording size or format." }, 400);
           const action = value.action;

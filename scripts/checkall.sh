@@ -70,7 +70,8 @@ node --test \
   scripts/verify-ucat-test-inventory.test.mjs \
   scripts/checkall-profiles.test.mjs \
   scripts/validation-plan.test.mjs \
-  scripts/validation-receipt.test.mjs
+  scripts/validation-receipt.test.mjs \
+  supabase/scripts/storage-limit.test.mjs
 
 python3 scripts/owned_database.test.py
 python3 scripts/worktree_dev.test.py
@@ -148,7 +149,7 @@ python3 supabase/scripts/test-interview-station-upgrade.py
 
 section interview-concurrency
 python3 supabase/scripts/test-interview-concurrency.py
-pnpm --filter @altitutor/shared exec jest --runInBand src/interviews/__tests__/media-evidence.integration.test.ts src/interviews/__tests__/media-policy.integration.test.ts
+pnpm --filter @altitutor/shared exec jest --runInBand src/interviews/__tests__/media-evidence.integration.test.ts src/interviews/__tests__/media-policy.integration.test.ts src/interviews/__tests__/recording-quality.integration.test.ts
 
 section browser-critical
 pnpm --filter ucat-web exec playwright install chromium

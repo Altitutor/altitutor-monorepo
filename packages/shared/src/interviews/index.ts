@@ -1,5 +1,6 @@
 import type { Json } from "../supabase/generated";
 export * from "./round-list";
+export * from "./recording-policy";
 
 export type InterviewRichText = Json;
 export type InterviewPhase =
