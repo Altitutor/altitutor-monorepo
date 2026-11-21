@@ -134,3 +134,13 @@ REVOKE ALL ON public.vtutor_interview_active_rounds,
   public.vstudent_interview_active_rounds FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.vtutor_interview_active_rounds,
   public.vstudent_interview_active_rounds TO authenticated;
+
+-- Preserve DEV-487's read-only list/media facades after hosted-role emulation.
+REVOKE ALL ON public.vtutor_interview_round_summaries,
+  public.vstudent_interview_round_summaries,
+  public.vtutor_interview_media_access,
+  public.vstudent_interview_media_access FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.vtutor_interview_round_summaries,
+  public.vstudent_interview_round_summaries,
+  public.vtutor_interview_media_access,
+  public.vstudent_interview_media_access TO authenticated;

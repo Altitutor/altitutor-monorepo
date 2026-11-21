@@ -6,7 +6,7 @@ import {
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import {
   interviewResponse,
-  readAdminInterviewRound,
+  readAdminInterviewMediaRound,
 } from "@/features/interviews/server/read";
 export async function GET(
   request: Request,
@@ -14,13 +14,13 @@ export async function GET(
 ) {
   try {
     const { roundId } = await params;
-    const access = await readAdminInterviewRound(roundId);
+    const access = await readAdminInterviewMediaRound(roundId);
     if (!access.ok) return access.response;
     const search = new URL(request.url).searchParams;
     const stationId = search.get("stationId");
     if (
       (access.round.startedAt || access.round.phase !== "waiting") &&
-      (!stationId || !access.round.stations.some((station) => station.id === stationId))
+      (!stationId || !access.round.stationIds.includes(stationId))
     )
       return interviewResponse(
         { error: "Select a station in this interview." },

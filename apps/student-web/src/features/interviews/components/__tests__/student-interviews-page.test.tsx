@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import type { StudentInterviewRound } from "@altitutor/shared";
+import type { StudentInterviewRoundSummary } from "@altitutor/shared";
 import { StudentInterviewsPage } from "../student-interviews-page";
 import {
   useInterviewAccess,
@@ -17,8 +17,8 @@ jest.mock("../../hooks/use-interviews", () => ({
 }));
 
 function round(
-  overrides: Partial<StudentInterviewRound>,
-): StudentInterviewRound {
+  overrides: Partial<StudentInterviewRoundSummary>,
+): StudentInterviewRoundSummary {
   return {
     id: "round-1",
     name: "Medicine practice",
@@ -29,20 +29,8 @@ function round(
     scheduledAt: null,
     startedAt: "2026-10-23T10:00:00Z",
     phase: "reading",
-    rotation: 0,
-    pausedAt: null,
-    phaseStartedAt: "2026-10-23T10:00:00Z",
-    phaseDeadline: null,
-    serverNow: "2026-10-23T10:00:00Z",
-    studentId: "student-1",
-    stationId: "station-1",
-    stationNumber: 1,
-    tutor: null,
-    prompt: "",
-    endedEarly: false,
-    stations: [{ id: "station-1", number: 1, complete: false }],
-    result: null,
-    resultStations: [],
+    stationCount: 1,
+    hasReleasedResults: false,
     ...overrides,
   };
 }
@@ -78,4 +66,16 @@ describe("student interview list", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /interview/i })).toHaveLength(1);
   });
+});
+
+it("renders station counts and released-result links from summaries without rich round bodies", () => {
+  jest.mocked(useInterviewAccess).mockReturnValue({ isPending: false, error: null, data: { hasAccess: true } } as unknown as ReturnType<typeof useInterviewAccess>);
+  jest.mocked(useInterviewRounds).mockReturnValue({ isPending: false, error: null, data: [{
+    id: "summary-round", name: "Summary circuit", version: 3, delivery: "online", mode: "exam",
+    recordingEnabled: true, scheduledAt: null, startedAt: "2026-11-20T00:00:00Z", phase: "completed",
+    stationCount: 13, hasReleasedResults: true,
+  }] } as unknown as ReturnType<typeof useInterviewRounds>);
+  render(<StudentInterviewsPage />);
+  expect(screen.getByText("13 stations")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View results" })).toHaveAttribute("href", "/interviews/rounds/summary-round/results");
 });

@@ -1,5 +1,15 @@
 import type { InterviewRound } from "./index";
 
+/** Only the authoritative fields needed to issue and retire media capabilities. */
+export type InterviewMediaRound = Pick<InterviewRound,
+  "id" | "version" | "delivery" | "mode" | "recordingEnabled" | "startedAt" |
+  "phase" | "phaseStartedAt" | "phaseDeadline" | "pausedAt" | "serverNow" | "tutors" | "students"
+> & {
+  progress: Pick<InterviewRound["progress"][number], "stationId" | "tutorId" | "studentId" | "endedEarly" | "feedbackComplete">[];
+  attempts: Pick<InterviewRound["attempts"][number], "id" | "stationId" | "studentId">[];
+  recordings: Pick<InterviewRound["recordings"][number], "id" | "kind" | "state">[];
+};
+
 export interface InterviewMediaPolicy {
   scope: "station";
   key: string;
@@ -15,7 +25,7 @@ export interface InterviewMediaPolicy {
 
 /** Server-side policy derived from the authenticated round, never from browser phase flags. */
 export function interviewMediaPolicy(
-  round: InterviewRound,
+  round: InterviewMediaRound,
   actorId: string,
   role: "tutor" | "student",
 ): InterviewMediaPolicy | null {
@@ -83,7 +93,7 @@ export interface InterviewWaitingMediaPolicy {
 
 /** Only the unstarted online round is a shared conversation. */
 export function interviewWaitingMediaPolicy(
-  round: InterviewRound,
+  round: InterviewMediaRound,
   now: number,
 ): InterviewWaitingMediaPolicy | null {
   if (round.delivery !== "online" || round.startedAt || round.pausedAt || round.phase !== "waiting") return null;

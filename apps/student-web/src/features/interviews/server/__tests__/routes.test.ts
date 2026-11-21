@@ -189,7 +189,7 @@ describe("student interview HTTP boundary", () => {
     );
     expect(jest.mocked(captureApiError).mock.calls).toEqual([]);
     expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("vstudent_interview_rounds");
+    expect(from).toHaveBeenCalledWith("vstudent_interview_round_summaries");
     expect(await response.json()).toEqual([{ id: roundId }]);
   });
   it("does not allow student requests to call tutor commands even for an enrolled actor", async () => {

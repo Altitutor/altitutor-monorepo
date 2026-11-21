@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const denied = await requireInterviewAccess(actor);
     if (denied) return denied;
     const { data, error } = await actor.userClient
-      .from("vtutor_interview_rounds")
+      .from("vtutor_interview_round_summaries")
       .select("data");
     if (error) throw error;
     return interviewResponse((data ?? []).map((row) => row.data));

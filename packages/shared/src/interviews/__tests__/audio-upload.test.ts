@@ -48,7 +48,7 @@ function fixture(delivery: "in_person" | "online" = "in_person") {
   }));
   const rpc = jest.fn(async (name: string) => ({
     data:
-      name === "interview_media_state"
+      name === "interview_media_policy_state"
         ? round
         : name === "interview_video_capture"
           ? {
@@ -77,7 +77,7 @@ function fixture(delivery: "in_person" | "online" = "in_person") {
     rpc,
   } as unknown as SupabaseClient<Database>;
   const user = {
-    from: () => chain(() => ({ data: round })),
+    from: () => chain(() => ({ id: roundId, delivery, actor_id: tutorId, data: round })),
     rpc: async () => ({ data: tutorId, error: null }),
   } as unknown as SupabaseClient<Database>;
   const apiKey = jest.fn(() => undefined);

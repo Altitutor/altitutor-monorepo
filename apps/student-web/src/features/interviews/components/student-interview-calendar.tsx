@@ -16,7 +16,7 @@ import {
   InterviewRoundCalendarCard,
   TimedCalendar,
 } from "@altitutor/ui";
-import { formatSessionDate, formatSessionTimeRangeForDisplay, type StudentInterviewRound } from "@altitutor/shared";
+import { formatSessionDate, formatSessionTimeRangeForDisplay, type StudentInterviewRoundSummary } from "@altitutor/shared";
 import { studentModalHairline, studentModalShell } from "@/shared/lib/student-visual";
 import { cn } from "@/shared/utils";
 import { formatTime } from "@/shared/utils/datetime";
@@ -27,25 +27,25 @@ import { useInterviewCalendarRounds } from "../hooks/use-interviews";
 import { interviewResultsHref, interviewRoomHref } from "../lib/routes";
 
 type Entry =
-  | { kind: "round"; round: StudentInterviewRound; start: string; end: string }
+  | { kind: "round"; round: StudentInterviewRoundSummary; start: string; end: string }
   | { kind: "session"; session: StudentSessionWithStaff };
 
 function isMedicineInterviewSession(session: StudentSessionWithStaff) {
   return session.subject_name?.trim().toLowerCase() === "medicine interview";
 }
 
-function roundTime(round: StudentInterviewRound) {
+function roundTime(round: StudentInterviewRoundSummary) {
   const start = round.startedAt ?? round.scheduledAt;
   return start ? format(new Date(start), "h:mm a") : "Start when your tutor is ready";
 }
 
-function roundAction(round: StudentInterviewRound) {
-  if (round.phase === "completed") return round.result ? "View results" : "Awaiting results";
+function roundAction(round: StudentInterviewRoundSummary) {
+  if (round.phase === "completed") return round.hasReleasedResults ? "View results" : "Awaiting results";
   if (round.delivery === "in_person") return "In person";
   return round.startedAt ? "Rejoin interview" : "Enter waiting room";
 }
 
-function interviewEnd(round: StudentInterviewRound, start: string) {
+function interviewEnd(round: StudentInterviewRoundSummary, start: string) {
   // Older deployments may not yet include the projected end estimate.
   return round.scheduledEndAt ?? new Date(Date.parse(start) + 30 * 60_000).toISOString();
 }
@@ -129,7 +129,7 @@ export function StudentInterviewCalendar({
               title: item.name,
               description: roundTime(item) + " · " + roundAction(item),
             };
-            const href = item.phase === "completed" ? item.result && interviewResultsHref(item.id) :
+            const href = item.phase === "completed" ? item.hasReleasedResults && interviewResultsHref(item.id) :
               item.delivery === "online" && interviewRoomHref(item.id);
             return href ? <StudentInterviewListCard key={item.id} {...props} href={href} /> :
               <StudentInterviewListCard key={item.id} {...props} onClick={() => setSelectedId(item.id)} />;
@@ -190,7 +190,7 @@ export function StudentInterviewCalendar({
               <InterviewSheetInformation round={round} />
               <div className={cn(studentModalHairline, "my-6")} />
               {round.phase === "completed" ? (
-                round.result ? (
+                round.hasReleasedResults ? (
                   <Button asChild><Link href={interviewResultsHref(round.id)}>View results</Link></Button>
                 ) : <p className="text-sm text-muted-foreground">Awaiting results</p>
               ) : round.delivery === "online" ? (
@@ -208,7 +208,7 @@ export function StudentInterviewCalendar({
   );
 }
 
-function InterviewSheetInformation({ round }: { round: StudentInterviewRound }) {
+function InterviewSheetInformation({ round }: { round: StudentInterviewRoundSummary }) {
   const start = round.scheduledAt ?? round.startedAt;
   const end = start ? interviewEnd(round, start) : null;
   return (
@@ -224,7 +224,7 @@ function InterviewSheetInformation({ round }: { round: StudentInterviewRound }) 
         <dt className="font-medium text-muted-foreground">Delivery:</dt>
         <dd>{round.delivery === "online" ? "Online" : "In person"}</dd>
         <dt className="font-medium text-muted-foreground">Stations:</dt>
-        <dd>{round.stations.length}</dd>
+        <dd>{round.stationCount}</dd>
       </dl>
       {round.phase !== "completed" && (
         <p className="text-sm text-muted-foreground">Your tutors control when the interview starts and finishes.</p>

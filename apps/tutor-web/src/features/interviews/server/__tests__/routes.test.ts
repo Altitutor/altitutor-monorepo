@@ -187,7 +187,7 @@ describe("tutor interview HTTP boundary", () => {
       new Request("https://portal.test/api/interviews/rounds"),
     );
     expect(response.status).toBe(200);
-    expect(from).toHaveBeenCalledWith("vtutor_interview_rounds");
+    expect(from).toHaveBeenCalledWith("vtutor_interview_round_summaries");
     expect(await response.json()).toEqual([{ id: roundId }]);
   });
 });
@@ -202,7 +202,7 @@ describe("committed command media reconciliation", () => {
       serviceRpc.mockImplementation(async (name: string) => ({
         data: name === "interview_command"
           ? committed
-          : name === "interview_media_state"
+          : name === "interview_media_policy_state"
             ? { id: roundId, phase: "questions", pausedAt: "2026-11-15T00:24:00Z", progress: [], recordings: [] }
             : [],
         error: null,

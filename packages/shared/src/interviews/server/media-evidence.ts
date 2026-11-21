@@ -1,7 +1,7 @@
 /** Server-only, allowlisted evidence for the existing media failure event. */
 export interface InterviewMediaEvidence {
   version: 1;
-  operation: 'resolve_actor' | 'round_view' | 'current_tutor_id' | 'interview_media_state' | 'interview_audio_capture' | 'interview_video_capture' | 'interview_media_ticket';
+  operation: 'resolve_actor' | 'round_view' | 'current_tutor_id' | 'interview_media_state' | 'interview_media_policy_state' | 'interview_audio_capture' | 'interview_video_capture' | 'interview_media_ticket';
   roundId: string;
   tutorId?: string;
   captureRequested: boolean;
@@ -14,7 +14,7 @@ export function interviewMediaVercelId(value: unknown): string | undefined {
 }
 
 const opaqueUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const operations = new Set<unknown>(['resolve_actor', 'round_view', 'current_tutor_id', 'interview_media_state', 'interview_audio_capture', 'interview_video_capture', 'interview_media_ticket']);
+const operations = new Set<unknown>(['resolve_actor', 'round_view', 'current_tutor_id', 'interview_media_state', 'interview_media_policy_state', 'interview_audio_capture', 'interview_video_capture', 'interview_media_ticket']);
 const phases = new Set<unknown>(['waiting', 'reading', 'questions', 'feedback', 'completed', null]);
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
