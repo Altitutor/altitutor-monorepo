@@ -15,13 +15,62 @@ const frozenEvidence = {
   checkin_at: null, checkin_session_id: null,
 };
 
-test.beforeAll(async () => {
+const fixtureStudentIds = [
+  ...Array.from({ length: 205 }, (_, index) => fixturePrefix + String(index + 1).padStart(12, '0')),
+  '48820000-0000-4000-8000-000000000001', '48820000-0000-4000-8000-000000000003',
+];
+const fixtureJourneyLabels = new Map([
+  ...Array.from({ length: 205 }, (_, index): [string, string] => [
+    '48810000-0000-4000-8000-' + String(index + 1).padStart(12, '0'),
+    index === 0 ? 'Directory scoped current' : 'Directory scoped other ' + (index + 1),
+  ]),
+  ['48810000-0000-4000-8000-000000000206', 'Newer closed history'],
+  ['48810000-0000-4000-8000-000000000207', search + ' Family'],
+  ['48820000-0000-4000-8000-000000000002', 'Open returning enquiry'],
+  ['48820000-0000-4000-8000-000000000004', 'Closed returning enquiry'],
+]);
+
+function fixtureDatabase() {
   const url = process.env.ADMIN_E2E_SUPABASE_URL!;
   if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname))
     throw new Error('Directory fixtures require the owned local database');
-  const db = createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, {
+  return createClient<Database>(url, process.env.ADMIN_E2E_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function ownedFixtureStudents(db: ReturnType<typeof fixtureDatabase>) {
+  const students = await db.from('students').select('id,first_name,last_name,deleted_at,user_id,email,phone').in('id', fixtureStudentIds);
+  if (students.error) throw students.error;
+  for (const student of students.data) {
+    const expectedName = student.id.startsWith(fixturePrefix) ? search : 'Directory returning boundary';
+    const expectedLastName = student.id.startsWith(fixturePrefix) ? student.id.slice(-3)
+      : student.id.endsWith('1') ? 'Open' : 'Closed';
+    if (student.first_name !== expectedName || student.last_name !== expectedLastName ||
+      student.user_id !== null || student.email !== null || student.phone !== null) {
+      throw new Error('Refusing to change a Student outside the directory fixture ownership boundary');
+    }
+  }
+  return students.data;
+}
+
+async function fixtureAdmin() {
+  const db = fixtureDatabase();
+  const login = await db.auth.signInWithPassword({ email: 'admin@altitutor.test', password: 'test-password' });
+  if (login.error) throw login.error;
+  return db;
+}
+
+test.beforeAll(async () => {
+  const db = fixtureDatabase();
+  const existing = await ownedFixtureStudents(db);
+  if (existing.some(student => student.deleted_at !== null)) {
+    const admin = await fixtureAdmin();
+    for (const student of existing.filter(student => student.deleted_at !== null)) {
+      const restored = await admin.rpc('restore_student', { p_student_id: student.id });
+      if (restored.error) throw restored.error;
+    }
+  }
   const result = await db.from('students').upsert(
     Array.from({ length: 205 }, (_, index) => ({
       id: fixturePrefix + String(index + 1).padStart(12, '0'),
@@ -65,6 +114,30 @@ test.beforeAll(async () => {
     { id: '48820000-0000-4000-8000-000000000004', student_id: '48820000-0000-4000-8000-000000000003', label: 'Closed returning enquiry', is_returning: true, enquiry_at: '2026-10-01T12:00:00Z', closed_at: '2026-10-20T12:00:00Z', closure_reason: 'withdrawn', closed_evidence: frozenEvidence },
   ]);
   if (returningJourneys.error) throw returningJourneys.error;
+});
+
+test.afterAll(async () => {
+  const db = fixtureDatabase();
+  const students = await ownedFixtureStudents(db);
+  const ids = [...fixtureJourneyLabels.keys()];
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const batch = ids.slice(offset, offset + 100);
+    const journeys = await db.from('onboarding_journeys').select('id,label').in('id', batch);
+    if (journeys.error) throw journeys.error;
+    if (journeys.data.some(journey => journey.label !== fixtureJourneyLabels.get(journey.id))) {
+      throw new Error('Refusing to remove a journey outside the directory fixture ownership boundary');
+    }
+    const preferences = await db.from('onboarding_action_preferences').delete().in('journey_id', batch);
+    if (preferences.error) throw preferences.error;
+    const removed = await db.from('onboarding_journeys').delete().in('id', batch);
+    if (removed.error) throw removed.error;
+  }
+  // Keep Student history and normal retirement guards, even in this disposable DB.
+  const admin = await fixtureAdmin();
+  for (const student of students) {
+    const retired = await admin.rpc('retire_student', { p_student_id: student.id });
+    if (retired.error) throw retired.error;
+  }
 });
 
 test('Trial relationship includes a discontinued Student with an open returning journey before pagination', async ({ page }) => {
