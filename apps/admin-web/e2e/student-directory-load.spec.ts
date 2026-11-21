@@ -55,6 +55,36 @@ test.beforeAll(async () => {
     due_at: '2999-01-01T12:00:00Z', assignee_id: '00000000-0000-0000-0000-000000000001',
   }, { onConflict: 'journey_id,action_key' });
   if (preference.error) throw preference.error;
+  const returningStudents = await db.from('students').upsert([
+    { id: '48820000-0000-4000-8000-000000000001', first_name: 'Directory returning boundary', last_name: 'Open', status: 'DISCONTINUED', registered_at: null },
+    { id: '48820000-0000-4000-8000-000000000003', first_name: 'Directory returning boundary', last_name: 'Closed', status: 'DISCONTINUED', registered_at: null },
+  ]);
+  if (returningStudents.error) throw returningStudents.error;
+  const returningJourneys = await db.from('onboarding_journeys').upsert([
+    { id: '48820000-0000-4000-8000-000000000002', student_id: '48820000-0000-4000-8000-000000000001', label: 'Open returning enquiry', is_returning: true, enquiry_at: '2026-10-01T12:00:00Z' },
+    { id: '48820000-0000-4000-8000-000000000004', student_id: '48820000-0000-4000-8000-000000000003', label: 'Closed returning enquiry', is_returning: true, enquiry_at: '2026-10-01T12:00:00Z', closed_at: '2026-10-20T12:00:00Z', closure_reason: 'withdrawn', closed_evidence: frozenEvidence },
+  ]);
+  if (returningJourneys.error) throw returningJourneys.error;
+});
+
+test('Trial relationship includes a discontinued Student with an open returning journey before pagination', async ({ page }) => {
+  await signIn(page);
+  const input = { search: 'Directory returning boundary', filters: { relationship: ['trial'] }, sortBy: 'last_name', sortDirection: 'asc', page: 1, pageSize: 1 };
+  const response = await page.request.post('/api/students/directory', { data: input });
+  expect(response.status()).toBe(200);
+  const result = await response.json();
+  expect(result.total).toBe(1);
+  expect(result.entries).toHaveLength(1);
+  expect(result.entries[0]).toMatchObject({
+    id: '48820000-0000-4000-8000-000000000001',
+    student: { status: 'DISCONTINUED' },
+    journey: { id: '48820000-0000-4000-8000-000000000002', is_returning: true },
+  });
+  const authoritative = await page.request.post('/api/students/directory', {
+    data: { ...input, filters: { relationship: ['trial'], queue: ['open'] } },
+  });
+  expect(authoritative.status()).toBe(200);
+  expect(await authoritative.json()).toEqual(result);
 });
 
 test('scoped onboarding reads return only requested journeys and retain caller authorization', async ({ request }) => {

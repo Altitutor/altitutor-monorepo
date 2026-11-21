@@ -93,6 +93,7 @@ export async function searchStudentDirectory(request: Request) {
     // Other requests can choose their page from cheap identities, then hydrate it.
     const globalEvidence = Boolean(
       input.sortBy === 'stage' || input.groupBy === 'stage'
+      || input.filters.relationship?.includes('trial')
       || input.filters.onboardingStatus?.length || input.filters.queue?.length
       || input.filters.subject?.length,
     );
