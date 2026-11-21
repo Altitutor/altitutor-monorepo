@@ -147,7 +147,7 @@ jobs:
             python3 scripts/test-imessage-inbound.py
             python3 supabase/scripts/test-interview-station-upgrade.py
             python3 supabase/scripts/test-interview-concurrency.py
-            pnpm --filter @altitutor/shared exec jest --runInBand src/interviews/__tests__/media-evidence.integration.test.ts src/interviews/__tests__/media-policy.integration.test.ts
+            pnpm --filter @altitutor/shared exec jest --runInBand src/interviews/__tests__/media-evidence.integration.test.ts src/interviews/__tests__/media-policy.integration.test.ts src/interviews/__tests__/recording-quality.integration.test.ts
           '
 
       - name: Run admin browser journeys

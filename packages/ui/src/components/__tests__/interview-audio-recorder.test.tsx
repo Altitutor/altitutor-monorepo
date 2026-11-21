@@ -378,7 +378,16 @@ it("records one online video take across a paused call and fresh feedback room",
   await show("questions", true, first, true);
   expect(instances).toHaveLength(1);
   expect(instances[0]?.stream).toBe(output.stream);
+  expect(instances[0]?.options).toMatchObject({
+    videoBitsPerSecond: 1_000_000,
+    audioBitsPerSecond: 64_000,
+  });
   expect(output.sync).toHaveBeenLastCalledWith(first.tracks);
+  // Fifteen minutes at the specified 1 Mbps video + 64 kbps audio target.
+  await act(async () => {
+    instances[0].ondataavailable?.({ data: new Blob([new Uint8Array(119_700_000)], { type: "video/webm" }) });
+  });
+  expect(instances[0]?.state).toBe("recording");
   await act(async () => {
     finishEarlierUpload({ pending: 0, error: null });
   });
@@ -428,4 +437,31 @@ it("clears the recovery warning after explicit finalization uploads a memory-onl
   jest.mocked(saveInterviewAudio).mockRejectedValueOnce(new Error("IndexedDB unavailable"));
   await act(async () => finalizeAudio!());
   expect(container.textContent).not.toContain("Local recovery is unavailable");
+});
+
+it("ends the online take at its soft size limit with headroom for the final chunk", async () => {
+  const output = {
+    stream: {} as MediaStream,
+    sync: jest.fn(),
+    audioRunning: () => true,
+    resumeAudio: async () => undefined,
+    dispose: jest.fn(),
+  };
+  jest.mocked(createInterviewVideoCompositor).mockReturnValue(output);
+  await act(async () => {
+    root.render(<OnlineCapture phase="questions" enabled sources={{
+      attemptId: "attempt-1",
+      tracks: { localVideo: null, remoteVideo: null, localAudio: null, remoteAudio: null },
+    }} />);
+  });
+  expect(instances[0]?.state).toBe("recording");
+  await act(async () => {
+    instances[0].ondataavailable?.({ data: new Blob([new Uint8Array(201_326_592)], { type: "video/webm" }) });
+  });
+  expect(instances[0]?.state).toBe("inactive");
+  expect(instances).toHaveLength(1);
+  expect(jest.mocked(saveInterviewAudio).mock.calls[0]?.[0]).toMatchObject({
+    id: "stable-capture", complete: true,
+    blob: { size: 201_326_606, type: "video/webm;codecs=vp8,opus" },
+  });
 });
