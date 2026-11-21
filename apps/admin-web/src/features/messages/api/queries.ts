@@ -1083,16 +1083,11 @@ export async function fetchContactMessagingAddresses(contactId: string) {
   const supabase = getSupabaseClient();
   const [{ data: contact, error: contactError }, { data: inbound, error: inboundError }] = await Promise.all([
     supabase.from('contacts').select('phone_e164, email').eq('id', contactId).single(),
-    supabase.from('messages')
-      .select('from_number_e164, conversations!inner(contact_id)')
-      .eq('conversations.contact_id', contactId)
-      .eq('direction', 'INBOUND').eq('is_reaction', false)
-      .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .limit(1).maybeSingle(),
+    supabase.rpc('get_contact_latest_inbound_address', { p_contact_id: contactId }),
   ]);
   if (contactError) throw contactError;
   if (inboundError) throw inboundError;
-  return { phone: contact.phone_e164?.trim() || null, email: contact.email?.trim().toLowerCase() || null, replyAddress: inbound?.from_number_e164 ?? null };
+  return { phone: contact.phone_e164?.trim() || null, email: contact.email?.trim().toLowerCase() || null, replyAddress: inbound ?? null };
 }
 
 export function useContactMessagingAddresses(contactId: string | null) {

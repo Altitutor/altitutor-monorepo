@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { POST } from "@/app/api/interviews/commands/route";
 import { GET as getAccess } from "@/app/api/interviews/access/route";
+import { GET as getRound } from "@/app/api/interviews/rounds/[roundId]/route";
 import { GET as getRounds } from "@/app/api/interviews/rounds/route";
 import { createClient as createCookieClient } from "@/shared/lib/supabase/server-ssr";
 import { createClient } from "@supabase/supabase-js";
@@ -287,4 +288,47 @@ describe("fresh authenticated interview reads", () => {
       global.fetch = originalFetch;
     }
   });
+});
+
+
+test("live round HTTP reads omit matching station content and preserve legacy rich reads", async () => {
+  const revision = "a".repeat(32);
+  const stations = [{ id: "station", questions: [{ rubric: "Current guidance" }] }];
+  const round = { id: roundId, version: 1, phase: "questions" };
+  from.mockImplementation((view: string) => ({
+    select: (columns: string) => view === "vtutor_interview_access" ? { maybeSingle } : {
+      eq: () => ({ maybeSingle: async () => ({ data: view === "vtutor_interview_rounds"
+        ? { data: { ...round, stations } }
+        : { id: roundId, actor_id: actorId, content_revision: revision, data: round,
+          ...(columns.split(",").includes("stations") ? { stations } : {}) }, error: null }) }),
+    },
+  }));
+  const params = { params: Promise.resolve({ roundId }) };
+  const read = (query: string) => getRound(new Request(`https://portal.test/api/interviews/rounds/${roundId}${query}`), params);
+  expect(await (await read("?live=1")).json()).toEqual({ actorId, contentRevision: revision, round, stations });
+  expect(await (await read(`?live=1&contentRevision=${revision}`)).json()).toEqual({ actorId, contentRevision: revision, round, stations: null });
+  expect(await (await read("")).json()).toEqual({ ...round, stations });
+});
+
+test("content recovery returns the second complete snapshot after a concurrent round change", async () => {
+  const revision = "a".repeat(32), newer = "b".repeat(32);
+  const rows = [
+    { actor_id: actorId, content_revision: newer, data: { id: roundId, version: 2 } },
+    { actor_id: actorId, content_revision: "c".repeat(32), data: { id: roundId, version: 3 }, stations: [{ id: "rotated-station" }] },
+  ];
+  from.mockImplementation((view: string) => ({ select: () => view === "vtutor_interview_access" ? { maybeSingle } : {
+    eq: () => ({ maybeSingle: async () => ({ data: rows.shift(), error: null }) }),
+  } }));
+  const reply = await getRound(new Request(`https://portal.test/api/interviews/rounds/${roundId}?live=1&contentRevision=${revision}`), { params: Promise.resolve({ roundId }) });
+  expect(await reply.json()).toEqual({ actorId, contentRevision: "c".repeat(32), round: { id: roundId, version: 3 }, stations: [{ id: "rotated-station" }] });
+});
+
+test("revocation between a revision read and its full recovery does not expose the earlier snapshot", async () => {
+  const rows = [{ actor_id: actorId, content_revision: "b".repeat(32), data: { id: roundId, version: 2 } }, null];
+  from.mockImplementation((view: string) => ({ select: () => view === "vtutor_interview_access" ? { maybeSingle } : {
+    eq: () => ({ maybeSingle: async () => ({ data: rows.shift(), error: null }) }),
+  } }));
+  const reply = await getRound(new Request(`https://portal.test/api/interviews/rounds/${roundId}?live=1&contentRevision=${"a".repeat(32)}`), { params: Promise.resolve({ roundId }) });
+  expect(reply.status).toBe(404);
+  expect(await reply.json()).toEqual({ error: "Interview not found or access has ended." });
 });

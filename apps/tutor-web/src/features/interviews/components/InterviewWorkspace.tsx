@@ -1393,7 +1393,8 @@ function InPersonRoundView({
 export function InterviewWorkspace({ id }: { id: string }) {
   const query = useInterviewRound(id, true);
   const browserOnline = useBrowserOnline();
-  const catalog = useInterviewCatalog();
+  const [editingRound, setEditingRound] = useState(false);
+  const catalog = useInterviewCatalog({ enabled: editingRound && !query.data?.startedAt });
   const command = useInterviewCommand();
   const leaveGuard = useInterviewLeaveGuard();
   const [override, setOverride] = useState(false);
@@ -1423,7 +1424,6 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const [localError, setLocalError] = useState<Error | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const actionRunning = useRef(false);
-  const [editingRound, setEditingRound] = useState(false);
   const flush = useRef<(() => Promise<void>) | null>(null);
   const finalizeRecording = useRef<(() => Promise<void>) | null>(null);
   const registerFinalizeRecording = useCallback(
@@ -1485,7 +1485,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         await submitRoundCommand(
           action,
           round,
-          catalog.data?.actorId,
+          query.actorId,
           query.refreshForAction,
           command.mutateAsync,
         );
@@ -1509,7 +1509,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         {query.isPending && "Loading waiting room…"}
       </div>
     );
-  const actorId = catalog.data?.actorId;
+  const actorId = query.actorId;
   const progress = round.progress.find((item) => item.tutorId === actorId);
   const station = round.stations.find(
     (item) => item.id === progress?.stationId,
@@ -1724,6 +1724,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
           void run({ ...base, type: "endStation" });
         }}
       />
+      {editingRound && <InterviewError error={catalog.error} retry={() => void catalog.refetch()} />}
       {catalog.data && "interviews" in catalog.data && !round.startedAt && (
         <InterviewRoundDialog
           open={editingRound}

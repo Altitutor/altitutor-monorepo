@@ -5287,6 +5287,13 @@ export type Database = {
             foreignKeyName: "interview_media_jobs_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: true
+            referencedRelation: "vtutor_interview_live_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_jobs_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_interview_media_access"
             referencedColumns: ["id"]
           },
@@ -5419,6 +5426,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_media_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
             referencedColumns: ["id"]
           },
           {
@@ -5719,6 +5733,13 @@ export type Database = {
             foreignKeyName: "interview_presence_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_interview_media_access"
             referencedColumns: ["id"]
           },
@@ -5937,6 +5958,13 @@ export type Database = {
             foreignKeyName: "interview_recordings_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_recordings_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_interview_media_access"
             referencedColumns: ["id"]
           },
@@ -6064,6 +6092,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
             referencedColumns: ["id"]
           },
           {
@@ -6380,6 +6415,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_tutor_presence_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
             referencedColumns: ["id"]
           },
           {
@@ -37658,6 +37700,16 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_interview_live_rounds: {
+        Row: {
+          actor_id: string | null
+          content_revision: string | null
+          data: Json | null
+          id: string | null
+          stations: Json | null
+        }
+        Relationships: []
+      }
       vtutor_interview_media_access: {
         Row: {
           actor_id: string | null
@@ -37798,6 +37850,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "vtutor_interview_active_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_result_releases_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_interview_live_rounds"
             referencedColumns: ["id"]
           },
           {
@@ -48049,6 +48108,10 @@ export type Database = {
         Args: { p_sessions_students_ids: string[] }
         Returns: string[]
       }
+      get_contact_latest_inbound_address: {
+        Args: { p_contact_id: string }
+        Returns: string
+      }
       get_excluded_fields_for_table: {
         Args: { table_name: string }
         Returns: string[]
@@ -48486,6 +48549,10 @@ export type Database = {
         Returns: Json
       }
       interview_round_json: {
+        Args: { r: Database["public"]["Tables"]["interview_rounds"]["Row"] }
+        Returns: Json
+      }
+      interview_round_live_json: {
         Args: { r: Database["public"]["Tables"]["interview_rounds"]["Row"] }
         Returns: Json
       }
