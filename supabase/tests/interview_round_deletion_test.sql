@@ -52,6 +52,20 @@ WHERE round_id='e4940000-0000-4000-8000-000000000011';
 SELECT lives_ok($q$SELECT pg_temp.cmd(pg_temp.deletion('e4940000-0000-4000-8000-000000000011'))$q$,
  'Expired tutor and student presence does not block deletion');
 
+SELECT pg_temp.create_round('e4940000-0000-4000-8000-000000000013');
+SELECT public.interview_command((SELECT user_id FROM public.staff WHERE role='ADMINSTAFF' AND status='ACTIVE' LIMIT 1),
+ jsonb_build_object('type','heartbeat','commandId',gen_random_uuid(),'roundId','e4940000-0000-4000-8000-000000000013'));
+SELECT throws_ok($q$SELECT pg_temp.cmd(pg_temp.deletion('e4940000-0000-4000-8000-000000000013'))$q$,
+ '22023','Someone is still in this interview. Ask everyone to leave, then refresh before deleting.',
+ 'An admin participating in media blocks deletion without being an assigned tutor');
+UPDATE public.interview_tutor_presence SET last_seen_at=now()-interval '36 seconds'
+WHERE round_id='e4940000-0000-4000-8000-000000000013';
+SELECT lives_ok($q$SELECT pg_temp.cmd(pg_temp.deletion('e4940000-0000-4000-8000-000000000013'))$q$,
+ 'Expired admin media presence permits deletion');
+SELECT throws_ok($q$SELECT public.interview_command((SELECT user_id FROM public.staff WHERE role='ADMINSTAFF' AND status='ACTIVE' LIMIT 1),
+ jsonb_build_object('type','heartbeat','commandId',gen_random_uuid(),'roundId','e4940000-0000-4000-8000-000000000013'))$q$,
+ '22023','Round not found','Deleted rounds reject admin media admission');
+
 SELECT pg_temp.create_round('e4940000-0000-4000-8000-000000000012');
 CREATE TEMP TABLE deletion_preview AS SELECT pg_temp.deletion('e4940000-0000-4000-8000-000000000012') command;
 SELECT pg_temp.cmd(jsonb_build_object('type','saveAttempt','roundId','e4940000-0000-4000-8000-000000000012',

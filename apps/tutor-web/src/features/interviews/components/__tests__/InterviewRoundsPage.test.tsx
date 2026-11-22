@@ -38,6 +38,8 @@ it.each([false, true])("reviews a started round's saved work and respects partic
       generalFeedback: "Introduce yourself before answering.", feedback: [{ placementId: "question", value: "Explain your reasoning." }],
       completed: false, updatedAt: "2026-11-23T09:05:00Z", updatedBy: "actor" }],
   };
+  detail.releasedResults = [{ studentId: "student", revision: 1, attempts: [{ ...detail.attempts[0], score: 4,
+    generalFeedback: "Previously published advice." }] }] as unknown as typeof detail.releasedResults;
   let deleted = false;
   const commands: unknown[] = [];
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -59,8 +61,10 @@ it.each([false, true])("reviews a started round's saved work and respects partic
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete round" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(await within(dialog).findByText("Introduce yourself before answering.")).toBeInTheDocument();
-    expect(within(dialog).getByText("Explain your reasoning.")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("Explain your reasoning.")).toHaveLength(2);
     expect(within(dialog).getByText("0 / 6")).toBeInTheDocument();
+    expect(within(dialog).getByText("Previously published advice.")).toBeInTheDocument();
+    expect(within(dialog).getByText("4 / 6")).toBeInTheDocument();
     expect(commands).toEqual([]);
     if (present) {
       expect(within(dialog).getByRole("status")).toHaveTextContent("Jordan");

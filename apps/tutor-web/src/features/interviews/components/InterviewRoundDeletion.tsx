@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, type JSONContent } from "@altitutor/ui";
-import { interviewText, type InterviewRichText, type TutorInterviewRoundSummary } from "@altitutor/shared";
+import { interviewText, type InterviewRichText, type InterviewStationAttempt, type TutorInterviewRoundSummary } from "@altitutor/shared";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { useInterviewCommand, useInterviewPrintRound } from "../hooks/use-interviews";
 import { ConfirmAction, InterviewDocument, InterviewError } from "./interview-ui";
@@ -11,6 +11,10 @@ function Feedback({ value }: { value: InterviewRichText | undefined }) {
   if (value && typeof value === "object" && !Array.isArray(value))
     return <InterviewDocument value={value as JSONContent} />;
   return <p className="whitespace-pre-wrap text-sm">{interviewText(value ?? null)}</p>;
+}
+
+function assessmentValues(attempt: InterviewStationAttempt) {
+  return JSON.stringify([attempt.score, attempt.notAssessedReason, attempt.generalFeedback, attempt.feedback]);
 }
 
 export function InterviewRoundDeletion({ round, open, onOpenChange }: {
@@ -30,6 +34,15 @@ export function InterviewRoundDeletion({ round, open, onOpenChange }: {
   const saved = snapshot?.attempts.filter((attempt) => attempt.score !== null || !!attempt.notAssessedReason ||
     !!interviewText(attempt.generalFeedback ?? null).trim() || attempt.feedback.some((entry) =>
       entry.score != null || !!interviewText(entry.value).trim())) ?? [];
+  const assessments = [
+    ...saved.map((attempt) => ({ attempt, label: "Current assessment", key: attempt.id })),
+    ...(snapshot?.releasedResults.flatMap((release) => release.attempts
+      .filter((attempt) => {
+        const current = snapshot.attempts.find((item) => item.id === attempt.id);
+        return !current || assessmentValues(current) !== assessmentValues(attempt);
+      }).map((attempt) => ({ attempt, label: `Published assessment · revision ${release.revision}`,
+        key: `published:${release.studentId}:${release.revision}:${attempt.id}` }))) ?? []),
+  ];
 
   return <ConfirmAction open={open} onOpenChange={onOpenChange}
     title="Are you sure you want to delete this round?"
@@ -54,11 +67,13 @@ export function InterviewRoundDeletion({ round, open, onOpenChange }: {
           <p>{saved.length} station assessments with saved work · {snapshot.recordings.length} recordings</p>
           <Button variant="outline" size="sm" onClick={() => { deletion.reset(); void query.refetch(); }}>Refresh</Button>
         </div>
-        {!saved.length && <p className="text-sm text-muted-foreground">No saved scores or written feedback.</p>}
-        {saved.map((attempt) => {
+        {!!snapshot.releasedResults.length && <p className="text-sm">Published results will also be removed from student access. Published assessments that differ from the current work are shown below.</p>}
+        {!assessments.length && <p className="text-sm text-muted-foreground">No saved scores or written feedback.</p>}
+        {assessments.map(({ attempt, label, key }) => {
           const station = snapshot.stations.find((item) => item.id === attempt.stationId);
           const student = snapshot.students.find((item) => item.id === attempt.studentId);
-          return <section key={attempt.id} className="space-y-2 rounded-lg border p-3">
+          return <section key={key} className="space-y-2 rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">{label}</p>
             <h3 className="font-medium">{student?.name ?? "Student"} · {station?.name ?? "Station"}</h3>
             <p className="text-sm font-medium">{attempt.notAssessedReason
               ? `Not scored: ${attempt.notAssessedReason}`

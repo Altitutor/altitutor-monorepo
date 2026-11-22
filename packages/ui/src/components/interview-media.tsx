@@ -619,6 +619,7 @@ function InterviewMediaSession({
         if (sessionId) params.set("sessionId", sessionId);
         if (accessKey) params.set("accessKey", accessKey);
         if (stationId) params.set("stationId", stationId);
+        if (role === "admin" && !enabled) params.set("inactive", "1");
         const query = params.toString() ? `?${params}` : "";
         const response = await fetch(
           `/api/interviews/rounds/${encodeURIComponent(roundId)}/media${query}`,
@@ -799,12 +800,40 @@ function InterviewMediaSession({
         closing.current = close();
       }
     };
+    // Renew independently of Daily admission/join awaits. Admin content reads
+    // are observational, so only this mounted, enabled call claims presence.
+    let renewingPresence = false;
+    const presenceTimer = role === "admin" && enabled
+      ? setInterval(() => {
+          if (disposed || renewingPresence || !activeTicket?.sessionId) return;
+          renewingPresence = true;
+          const presenceAbort = new AbortController();
+          const cancelPresence = () => presenceAbort.abort();
+          abort.signal.addEventListener("abort", cancelPresence, { once: true });
+          const presenceTimeout = setTimeout(cancelPresence, 10_000);
+          void fetch(`/api/interviews/rounds/${encodeURIComponent(roundId)}/media`, {
+            method: "POST", signal: presenceAbort.signal,
+          }).then(async (response) => {
+            if (!response.ok) throw new Error("Unable to confirm interview participation.");
+          }).catch(async () => {
+            if (!disposed) {
+              setError("Unable to confirm interview participation. Reconnecting…");
+              await close();
+            }
+          }).finally(() => {
+            clearTimeout(presenceTimeout);
+            abort.signal.removeEventListener("abort", cancelPresence);
+            renewingPresence = false;
+          });
+        }, 10_000)
+      : undefined;
     document.addEventListener("visibilitychange", changeVisibility);
     return () => {
       disposed = true;
       abort.abort();
       if (timer) clearTimeout(timer);
       if (expiryTimer) clearTimeout(expiryTimer);
+      if (presenceTimer) clearInterval(presenceTimer);
       document.removeEventListener("visibilitychange", changeVisibility);
       closing.current = close();
     };

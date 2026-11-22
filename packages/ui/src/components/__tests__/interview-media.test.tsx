@@ -223,6 +223,23 @@ it("observes a selected station without requesting or publishing local devices",
   expect(mockVideo).toHaveBeenLastCalledWith(false);
 });
 
+it("renews admin presence while a slow Daily join is still pending", async () => {
+  jest.useFakeTimers();
+  mockJoin.mockImplementationOnce(() => new Promise(() => undefined));
+  jest.mocked(fetch).mockResolvedValue(response({ ...ticket, canSend: false, canReceive: true }));
+  await render(<InterviewMedia roundId="round" stationId="station" phase="questions" delivery="online" role="admin" enabled />);
+  await act(async () => { jest.advanceTimersByTime(10_000); });
+  expect(fetch).toHaveBeenCalledWith("/api/interviews/rounds/round/media", expect.objectContaining({ method: "POST" }));
+});
+
+it("does not claim admin presence when no media call is available", async () => {
+  jest.useFakeTimers();
+  jest.mocked(fetch).mockResolvedValue(response({ ...ticket, sessionId: null, canSend: false, canReceive: false }));
+  await render(<InterviewMedia roundId="round" phase="waiting" delivery="online" role="admin" waitingRoom enabled />);
+  await act(async () => { jest.advanceTimersByTime(10_000); });
+  expect(jest.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
 it("refreshes a revoked phase capability promptly instead of waiting for the regular poll", async () => {
   jest.useFakeTimers();
   await render(
