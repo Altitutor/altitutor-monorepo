@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useId, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useActiveAdminStaff, useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
 import { useAssignConversations, useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
+import { useMessageSubscription } from '../hooks/useMessageSubscription';
 import { ConversationRowActions } from './ConversationRowActions';
 import { useMessagingListFilters, type MessagingFilterScope } from '../state/messagingUiStore';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -68,6 +69,7 @@ export function ConversationList({
   });
   const { data } = useConversationList(selectedOwnedNumberId);
   const qc = useQueryClient();
+  useMessageSubscription();
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const { toast } = useToast();
   const { data: adminStaff = [], isLoading: adminStaffLoading } = useActiveAdminStaff();
@@ -90,27 +92,6 @@ export function ConversationList({
       },
     );
   };
-  const channelNonce = useId().replace(/:/g, '');
-
-  useEffect(() => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const channel = supabase
-      .channel(`conversations-list-${channelNonce}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-        qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-        qc.invalidateQueries({ queryKey: messagesKeys.conversations() }); // Also invalidate old for backward compat
-        qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-        qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc, channelNonce]);
-
   // Check if aggregated conversation is unread (has unreadCount > 0)
   const isUnread = (aggregated: AggregatedConversation) => {
     return aggregated.unreadCount > 0;

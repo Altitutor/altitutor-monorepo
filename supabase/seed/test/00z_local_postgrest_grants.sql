@@ -152,3 +152,7 @@ REVOKE ALL ON public.vtutor_interview_round_index,
 GRANT SELECT ON public.vtutor_interview_round_index,
   public.vstudent_interview_round_index,
   public.vtutor_interview_list_catalog TO authenticated;
+
+-- Preserve DEV-491's read-only live snapshot facade after local role emulation.
+REVOKE ALL ON public.vtutor_interview_live_rounds FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.vtutor_interview_live_rounds TO authenticated;

@@ -15,6 +15,8 @@ import {
   getInterviewCatalog,
   getInterviewListCatalog,
   getInterviewRound,
+  getLiveInterviewRound,
+  type LiveInterviewRound,
   getCurrentInterviewRounds,
   getInterviewRoundHistory,
   sendInterviewCommand,
@@ -102,10 +104,13 @@ export function useInterviewRound(id: string, participate = false) {
   const { user, loading } = useAuthStore();
   const client = useQueryClient();
   const enabled = !loading && !!user && !!id;
-  const query = useQuery({
-    queryKey: [...interviewKeys.round(id), user?.id],
+  const key = [...interviewKeys.round(id), ...(participate ? ["live"] : []), user?.id];
+  const query = useQuery<LiveInterviewRound>({
+    queryKey: key,
     enabled,
-    queryFn: () => getInterviewRound(id),
+    queryFn: () => participate
+      ? getLiveInterviewRound(id, client.getQueryData<LiveInterviewRound>(key))
+      : getInterviewRound(id),
     refetchOnWindowFocus: false,
   });
   const sync = useInterviewRoundSync({
@@ -114,7 +119,7 @@ export function useInterviewRound(id: string, participate = false) {
     participate,
     adapter: {
       refresh: () =>
-        refreshInterviewQueries(client, [...interviewKeys.round(id), user?.id]),
+        refreshInterviewQueries(client, key),
       send: (type) =>
         sendInterviewCommand({ type, roundId: id, commandId: randomUuid() }),
       subscribe: (changed, connected) => {
@@ -132,10 +137,10 @@ export function useInterviewRound(id: string, participate = false) {
   return {
     ...query,
     ...sync,
+    actorId: query.data?.actorId,
     refetch: (options: Parameters<typeof query.refetch>[0] = {}) =>
       query.refetch({ ...options, cancelRefetch: false }),
     refreshForAction: async () => {
-      const key = [...interviewKeys.round(id), user?.id];
       const active = () => client.getQueryCache()
         .findAll({ queryKey: key, exact: true })
         .some((entry) => entry.isActive());

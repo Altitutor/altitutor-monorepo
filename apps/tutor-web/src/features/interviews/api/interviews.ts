@@ -41,6 +41,40 @@ export const getInterviewRoundHistory = (signal: AbortSignal) =>
   ));
 export const getInterviewRound = (id: string) =>
   request<InterviewRound>(`/rounds/${id}`);
+/** Metadata lives in the actor-scoped query entry, never a global content cache. */
+export type LiveInterviewRound = InterviewRound & {
+  actorId?: string;
+  contentRevision?: string;
+};
+interface LiveRoundResponse {
+  actorId: string;
+  contentRevision: string;
+  round: Omit<InterviewRound, "stations">;
+  stations: InterviewRound["stations"] | null;
+}
+export async function getLiveInterviewRound(id: string, previous?: LiveInterviewRound): Promise<LiveInterviewRound> {
+  const revision = previous?.id === id ? previous.contentRevision : undefined;
+  const read = (contentRevision?: string) => request<LiveRoundResponse>(
+    `/rounds/${encodeURIComponent(id)}?live=1${contentRevision ? `&contentRevision=${encodeURIComponent(contentRevision)}` : ""}`,
+  );
+  const assemble = (value: LiveRoundResponse, allowCached = true): LiveInterviewRound | null => {
+    if (value.round?.id !== id || typeof value.actorId !== "string" || typeof value.contentRevision !== "string")
+      throw new Error("Unable to load the current interview state.");
+    const stations = value.stations ?? (
+      allowCached && previous?.id === id && previous.actorId === value.actorId && previous.contentRevision === value.contentRevision
+        ? previous.stations : undefined
+    );
+    return Array.isArray(stations) ? { ...value.round, stations, actorId: value.actorId, contentRevision: value.contentRevision } : null;
+  };
+  const value = await read(revision);
+  const round = assemble(value);
+  if (round) return round;
+  // A removed/replaced cache entry cannot hydrate a partial response. Request
+  // authoritative content once; never combine an unmatched revision or actor.
+  const complete = assemble(await read(), false);
+  if (!complete) throw new Error("Unable to load interview station content. Please retry.");
+  return complete;
+}
 export const sendInterviewCommand = (command: InterviewCommand) =>
   request<InterviewCommandResult>("/commands", {
     method: "POST",
