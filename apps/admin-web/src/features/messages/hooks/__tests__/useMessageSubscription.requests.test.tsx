@@ -10,13 +10,14 @@ import { messagesKeys } from "../../api/queryKeys";
 
 type Change = {
   new: {
-    id: string;
-    conversation_id: string;
-    status: string;
+    id?: string;
+    conversation_id?: string;
+    status?: string;
     direction?: string;
     body?: string;
     is_historical_import?: boolean;
   };
+  old?: { id: string };
 };
 const inserts: Array<(event: Change) => void> = [];
 const clearReads = jest.fn();
@@ -25,6 +26,8 @@ const contextLookup = jest.fn(async () => ({
   error: { message: "Context lookup failed" } as { message: string } | null,
 }));
 const updates: Array<(event: Change) => void> = [];
+const conversations: Array<(event: Change) => void> = [];
+const removeChannel = jest.fn();
 const toast = jest.fn();
 jest.mock("@altitutor/ui", () => ({ useToast: () => ({ toast }) }));
 jest.mock("@/shared/lib/supabase/client", () => ({
@@ -51,13 +54,14 @@ jest.mock("@/shared/lib/supabase/client", () => ({
             updates.push(callback);
           if (filter.table === "messages" && filter.event === "INSERT")
             inserts.push(callback);
+          if (filter.table === "conversations") conversations.push(callback);
           return channel;
         },
         subscribe: () => channel,
       };
       return channel;
     },
-    removeChannel: jest.fn(),
+    removeChannel: (...args: unknown[]) => removeChannel(...args),
   }),
 }));
 
@@ -65,6 +69,95 @@ function Subscription() {
   useMessageSubscription();
   return null;
 }
+
+test("conversation changes refresh inbox lists and unread state once per burst without reloading composer resources", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let current = "Unassigned";
+  const requests = {
+    list: jest.fn(async () => current),
+    legacyList: jest.fn(async () => current),
+    unread: jest.fn(async () => current),
+    classes: jest.fn(async () => "Biology"),
+    addresses: jest.fn(async () => "Ready"),
+    activity: jest.fn(async () => "History"),
+    resends: jest.fn(async () => "Resends"),
+  };
+  function Inbox() {
+    const list = useQuery({ queryKey: messagesKeys.conversationsByContact("sender"), queryFn: requests.list, staleTime: Infinity });
+    useQuery({ queryKey: messagesKeys.conversations(), queryFn: requests.legacyList, staleTime: Infinity });
+    const unread = useQuery({ queryKey: messagesKeys.unreadCount(), queryFn: requests.unread, staleTime: Infinity });
+    useQuery({ queryKey: messagesKeys.studentClasses("student"), queryFn: requests.classes, staleTime: Infinity });
+    useQuery({ queryKey: [...messagesKeys.all, "addresses", "contact"], queryFn: requests.addresses, staleTime: Infinity });
+    useQuery({ queryKey: ["entity-communication", "messages", "contact"], queryFn: requests.activity, staleTime: Infinity });
+    useQuery({ queryKey: [...messagesKeys.all, "sms-resends", "contact"], queryFn: requests.resends, staleTime: Infinity });
+    return <p>{list.data} / {unread.data}</p>;
+  }
+  conversations.length = 0;
+  const view = render(<QueryClientProvider client={client}><Subscription /><Subscription /><Inbox /></QueryClientProvider>);
+  await screen.findByText("Unassigned / Unassigned");
+  current = "Assigned";
+  act(() => {
+    for (let index = 0; index < 50; index++)
+      for (const changed of conversations) changed({ new: { id: "conversation", status: "OPEN" } });
+  });
+  await screen.findByText("Assigned / Assigned");
+  expect(requests.list).toHaveBeenCalledTimes(2);
+  expect(requests.legacyList).toHaveBeenCalledTimes(2);
+  expect(requests.unread).toHaveBeenCalledTimes(2);
+  expect(requests.classes).toHaveBeenCalledTimes(1);
+  expect(requests.addresses).toHaveBeenCalledTimes(1);
+  expect(requests.activity).toHaveBeenCalledTimes(1);
+  expect(requests.resends).toHaveBeenCalledTimes(1);
+  current = "Removed";
+  act(() => {
+    for (const changed of conversations) changed({ new: {}, old: { id: "conversation" } });
+  });
+  await screen.findByText("Removed / Removed");
+  expect(requests.list).toHaveBeenCalledTimes(3);
+  expect(requests.unread).toHaveBeenCalledTimes(3);
+  view.unmount();
+  client.clear();
+});
+
+test("an inbox keeps its shared updates until the last subscriber leaves, then discards pending refreshes", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let current = "Initial";
+  const read = jest.fn(async () => current);
+  function Inbox() {
+    const list = useQuery({ queryKey: messagesKeys.conversations(), queryFn: read, staleTime: Infinity });
+    return <p>{list.data}</p>;
+  }
+  function View({ count }: { count: number }) {
+    return <QueryClientProvider client={client}>
+      {count > 0 && <Subscription key="one" />}
+      {count > 1 && <Subscription key="two" />}
+      <Inbox />
+    </QueryClientProvider>;
+  }
+  conversations.length = 0;
+  removeChannel.mockClear();
+  const view = render(<View count={2} />);
+  await screen.findByText("Initial");
+  view.rerender(<View count={1} />);
+  current = "Updated";
+  act(() => {
+    for (const changed of conversations) changed({ new: { id: "conversation", status: "OPEN" } });
+  });
+  await screen.findByText("Updated");
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(removeChannel).not.toHaveBeenCalled();
+  current = "Queued after departure";
+  act(() => {
+    for (const changed of conversations) changed({ new: { id: "conversation", status: "CLOSED" } });
+  });
+  view.rerender(<View count={0} />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+  expect(screen.getByText("Updated")).toBeInTheDocument();
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(removeChannel).toHaveBeenCalledTimes(1);
+  view.unmount();
+  client.clear();
+});
 
 test("delivery updates for another conversation do not reload open preview classes or unrelated composer addresses", async () => {
   // Network boundary stand-ins for mounted preview/composer queries. The real

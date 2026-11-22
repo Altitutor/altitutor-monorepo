@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { InterviewMediaTicket, InterviewPhase } from "@altitutor/shared";
+import {
+  interviewAudioRecordingMaxBytes,
+  interviewAudioRecordingStopBytes,
+  interviewVideoRecordingBitrates,
+  interviewVideoRecordingMaxBytes,
+  interviewVideoRecordingStopBytes,
+  type InterviewMediaTicket,
+  type InterviewPhase,
+} from "@altitutor/shared";
 import {
   appendInterviewAudio,
   flushInterviewAudio,
@@ -15,8 +23,6 @@ import {
   type InterviewVideoSources,
 } from "../lib/interview-video-compositor";
 
-const maximumBytes = 50 * 1024 * 1024;
-const stopBytes = 48 * 1024 * 1024;
 const localRecoveryMessage =
   "Local recovery is unavailable. Keep this page open until the recording uploads.";
 const duplicateTabMessage =
@@ -205,6 +211,8 @@ export function useInterviewCapture({
   const captureStream = online ? videoStream : micStream;
   useEffect(() => {
     if (!captureStream) return;
+    const maximumBytes = online ? interviewVideoRecordingMaxBytes : interviewAudioRecordingMaxBytes;
+    const stopBytes = online ? interviewVideoRecordingStopBytes : interviewAudioRecordingStopBytes;
     let disposed = false;
     let recordedAttempt: string | null = null;
     let authorisedPhase: InterviewPhase | null = null;
@@ -334,8 +342,8 @@ export function useInterviewCapture({
       let resolveFinished!: () => void;
       const instance = new MediaRecorder(captureStream, {
         mimeType,
-        audioBitsPerSecond: online ? 48_000 : 64_000,
-        ...(online ? { videoBitsPerSecond: 320_000 } : {}),
+        audioBitsPerSecond: online ? interviewVideoRecordingBitrates.audio : 64_000,
+        ...(online ? { videoBitsPerSecond: interviewVideoRecordingBitrates.video } : {}),
       });
       finished = new Promise<void>((resolve) => {
         resolveFinished = resolve;

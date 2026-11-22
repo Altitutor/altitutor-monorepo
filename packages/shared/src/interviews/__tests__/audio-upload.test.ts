@@ -88,7 +88,7 @@ function fixture(delivery: "in_person" | "online" = "in_person") {
     apiKey,
     errorResponse: () => Response.json({ error: "failure" }, { status: 500 }),
   });
-  const request = (action: string, contentType = mime) =>
+  const request = (action: string, contentType = mime, byteLength = 10) =>
     new Request(
       `http://localhost/api/interviews/rounds/${roundId}/recordings/audio?captureId=${captureId}&segmentId=${captureId}`,
       {
@@ -100,7 +100,7 @@ function fixture(delivery: "in_person" | "online" = "in_person") {
         body: JSON.stringify({
           action,
           contentType,
-          byteLength: 10,
+          byteLength,
           startedAt,
         }),
       },
@@ -251,4 +251,26 @@ it("issues standalone online capture metadata and keeps its identity while pause
     recordingEnabled: false,
   });
   expect(f.apiKey).not.toHaveBeenCalled();
+});
+
+
+it("accepts a fifteen-minute high-quality video take without increasing the in-person audio limit", async () => {
+  const online = fixture("online");
+  expect((await online.handlers.uploadAudio(online.request("prepare", "video/webm", 119_700_000), roundId)).status).toBe(200);
+  expect(online.sign).toHaveBeenCalledWith(path, { upsert: false });
+  const audio = fixture();
+  expect((await audio.handlers.uploadAudio(audio.request("prepare", "audio/webm", 52_428_801), roundId)).status).toBe(400);
+  expect(audio.sign).not.toHaveBeenCalled();
+});
+
+it.each([209_715_201, 0, -1, 119_700_000.5])("rejects invalid video byte length %s before granting Storage access", async (byteLength) => {
+  const f = fixture("online");
+  expect((await f.handlers.uploadAudio(f.request("prepare", "video/webm", byteLength), roundId)).status).toBe(400);
+  expect(f.sign).not.toHaveBeenCalled();
+});
+it("accepts the video hard limit and retains the existing audio hard limit", async () => {
+  for (const [delivery, mime, byteLength] of [["online", "video/webm", 209_715_200], ["in_person", "audio/webm", 52_428_800]] as const) {
+    const f = fixture(delivery);
+    expect((await f.handlers.uploadAudio(f.request("prepare", mime, byteLength), roundId)).status).toBe(200);
+  }
 });

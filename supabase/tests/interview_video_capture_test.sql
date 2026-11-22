@@ -23,8 +23,10 @@ $$;
 SELECT ok(NOT has_function_privilege('authenticated','public.interview_video_capture(uuid,uuid)','EXECUTE')
  AND NOT has_function_privilege('authenticated','public.interview_video_capture_upload(uuid,uuid,uuid,text,text,timestamptz)','EXECUTE'),
  'Only the service can issue or finalize an online capture');
-SELECT ok((SELECT NOT public AND file_size_limit=52428800 AND allowed_mime_types @> ARRAY['video/webm','video/mp4','audio/webm','audio/mp4','audio/ogg']
- FROM storage.buckets WHERE id='interview-recordings'),'Private bucket accepts video and legacy audio under the existing limit');
+SELECT ok((SELECT NOT public AND file_size_limit>=209715200 AND allowed_mime_types @> ARRAY['video/webm','video/mp4','audio/webm','audio/mp4','audio/ogg']
+ FROM storage.buckets WHERE id='interview-recordings'),'Private bucket accepts video and legacy audio with fifteen-minute size headroom');
+SELECT is((SELECT file_size_limit FROM storage.buckets WHERE id='resources'),52428800::bigint,
+ 'General resource uploads retain their previous effective size limit');
 SELECT is(pg_temp.video_capture(),NULL::jsonb,'Reading cannot create a video capture');
 UPDATE public.interview_rounds SET data=data||jsonb_build_object('phase','questions','pausedAt',now()) WHERE id='e8090000-0000-4000-8000-000000000020';
 SELECT is(pg_temp.video_capture(),NULL::jsonb,'Pause cannot start a new capture');

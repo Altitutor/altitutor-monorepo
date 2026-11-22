@@ -16,7 +16,10 @@ function deferred<T>() {
   const promise = new Promise<T>((done) => { resolve = done; });
   return { promise, resolve };
 }
-const response = (version: number) => ({ ok: true, json: async () => ({ id: "round", version, phase: "waiting", pausedAt: null, phaseDeadline: null, serverNow: "2026-11-20T00:00:00Z" }) }) as Response;
+const response = (version: number, live = true) => ({ ok: true, json: async () => {
+  const round = { id: "round", version, phase: "waiting", pausedAt: null, phaseDeadline: null, serverNow: "2026-11-20T00:00:00Z" };
+  return live ? { round, actorId: "tutor", contentRevision: "a".repeat(32), stations: [] } : round;
+} }) as Response;
 
 test("a burst of realtime changes keeps one HTTP read in flight and reads the latest trailing state", async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -142,7 +145,7 @@ test("a failed recovery read cannot supply the old cached snapshot to an action"
 
  test("printing reads the rich round only on demand and does not subscribe to live refreshes", async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  global.fetch = jest.fn().mockResolvedValue(response(4));
+  global.fetch = jest.fn().mockResolvedValue(response(4, false));
   const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   const view = renderHook(({ id }) => useInterviewPrintRound(id), { initialProps: { id: "" }, wrapper });
   try {
@@ -154,5 +157,44 @@ test("a failed recovery read cannot supply the old cached snapshot to an action"
     view.rerender({ id: "" });
     expect(view.result.current.data).toBeUndefined();
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  } finally { view.unmount(); client.clear(); }
+});
+
+test("participating Tutor refreshes use compact state with actor-scoped station content", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const revision = "a".repeat(32);
+  const stations = [{ id: "station", questions: [{ id: "question", rubric: "Current guidance" }] }];
+  const envelope = (version: number, content: typeof stations | null) => ({
+    ok: true, json: async () => ({ actorId: "tutor", contentRevision: revision,
+      round: { id: "round", version, phase: "questions", pausedAt: null, phaseDeadline: null, serverNow: "2026-11-21T00:00:00Z" }, stations: content }),
+  }) as Response;
+  const reads = jest.fn().mockResolvedValueOnce(envelope(1, stations)).mockResolvedValueOnce(envelope(2, null));
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).endsWith("/commands") ? Promise.resolve(response(1)) : reads(input));
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.data?.version).toBe(1));
+    act(() => changed());
+    await waitFor(() => expect(view.result.current.data?.version).toBe(2));
+    expect(view.result.current.data?.stations).toEqual(stations);
+    expect(view.result.current.actorId).toBe("tutor");
+    expect(reads.mock.calls.map(([input]: [RequestInfo | URL]) => input)).toEqual([
+      "/api/interviews/rounds/round?live=1", `/api/interviews/rounds/round?live=1&contentRevision=${revision}`,
+    ]);
+  } finally { view.unmount(); client.clear(); }
+});
+
+test("a fresh prompt print cannot replace the live actor identity or station-content cache", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  global.fetch = jest.fn((input: RequestInfo | URL) => String(input).includes("?live=1")
+    ? Promise.resolve(response(1)) : Promise.resolve(response(2, false)));
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const view = renderHook(({ printId }) => ({ live: useInterviewRound("round", true), print: useInterviewPrintRound(printId) }), { initialProps: { printId: "" }, wrapper });
+  try {
+    await waitFor(() => expect(view.result.current.live.actorId).toBe("tutor"));
+    view.rerender({ printId: "round" });
+    await waitFor(() => expect(view.result.current.print.data?.version).toBe(2));
+    expect(view.result.current.live.actorId).toBe("tutor");
+    expect(view.result.current.live.data?.version).toBe(1);
   } finally { view.unmount(); client.clear(); }
 });

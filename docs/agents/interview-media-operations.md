@@ -1,16 +1,20 @@
 # Interview media operations
 
-DEV-8 uses private Daily rooms for each student/tutor pair and phase. Reading and
-question rooms expire at the server phase deadline with provider ejection enabled.
-Question/feedback recordings use 480p, 15fps, 800kbps video and 64kbps audio. Reading
-is never recorded. In-person recording uses independent 30-second audio segments.
+Online interviews use private Daily rooms for each active call policy. Rooms
+expire at the server phase deadline with provider ejection enabled. The tutor's
+browser records one continuous station take, including silence or blank video
+across pauses and temporary media gaps. Reading is never recorded. Exam mode
+records question time; Feedback mode also includes verbal feedback. In-person
+recording uses one continuous microphone take. Legacy provider recordings and
+older audio segments remain playable.
 
 ## Deployment configuration
 
 1. Ship the interview migrations through the existing CI/CD database workflow.
 2. Set server-only `DAILY_API_KEY` in both tutor-web and student-web. Never prefix
-   it with `NEXT_PUBLIC_`. Configure Daily cloud recording and verify the account
-   permits at least six simultaneous rooms and six recording instances.
+   it with `NEXT_PUBLIC_`. Verify the account permits at least six simultaneous
+   station rooms. Current station takes are encoded in the tutor's browser and
+   do not require Daily cloud recording.
 3. Set `CRON_SECRET` on tutor-web. Its `/api/cron/interview-media` minute schedule
    retries durable media jobs, refreshes recording readiness and deletes expired
    recording objects. No webhook is required: recording metadata is reconciled
@@ -27,9 +31,32 @@ is never recorded. In-person recording uses independent 30-second audio segments
    separately from fallback polling.
    See [Supabase authorization](https://supabase.com/docs/guides/realtime/authorization)
    and [the ownership distinction](https://supabase.com/docs/guides/troubleshooting/realtime-must-be-owner-of-table-messages).
-5. The private `interview-recordings` bucket is created by migration. Client
-   uploads go through the tutor API; playback requests recheck scoped access,
-   result release and expiry before issuing a short-lived URL.
+5. The private `interview-recordings` bucket is created by migration. The tutor
+   API authorizes recording metadata and signs an immutable direct Storage upload;
+   completion verifies the stored size/type. Playback requests recheck scoped
+   access, result release and expiry before issuing a short-lived URL.
+
+## Recording quality and size
+
+DEV-492 targets 1280 × 720 at 24 fps, 1 Mbps video and 64 kbps audio. Daily's
+existing adaptive source tracks are retained: a weak connection or camera can
+supply lower detail or frame rate, and increasing the canvas cannot restore it.
+The tutor browser performs the encoding; this is not a Postgres compute setting.
+
+Fifteen minutes at the configured bitrate is approximately 119.7 MB (114 MiB).
+Actual encoder output varies. Video stops near 192 MiB and accepts at most
+200 MiB, leaving headroom for the final encoder chunk. In-person audio retains
+its 48 MiB stop and 50 MiB upload limits. Local checkpoints and signed-upload
+retry remain available; the complete take must be acknowledged before exit.
+
+The video cap is shared by the client, API and deployment helper through
+`packages/shared/src/interviews/recording-limits.json`. The bucket migration and
+local Storage ceiling support 200 MiB. Hosted CI separately verifies the global
+Storage ceiling through the Management API before deploying web clients, raises
+it only when lower and reads it back. A bucket limit alone cannot override the
+global ceiling. No database restart is requested. The resources bucket receives
+an explicit 50 MiB limit to preserve its prior inherited bound; messages retain
+their existing explicit 100 MiB policy.
 
 ## Recovery and validation
 
@@ -50,8 +77,9 @@ changes, pause/end controls and independent capability expiry timers continue
 to enforce access without waiting for that monitor. Ticket provisioning reuses
 its initial round read and rechecks current authorization before issuing a token.
 
-Recording object bytes are not stored in PostgreSQL: in-person audio uses the
-private Storage bucket and online recordings use Daily. Database disk I/O still
+Recording object bytes are not stored in PostgreSQL: current browser video and
+in-person audio use the private Storage bucket; legacy online recordings may
+remain with Daily. Database disk I/O still
 includes metadata, indexes, WAL and temporary query files. A Supabase Disk I/O
 budget warning concerns burst performance above compute baseline, rather than
 recording storage capacity. Diagnose its timestamp using disk-balance metrics,
