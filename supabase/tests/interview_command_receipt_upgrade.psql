@@ -1,0 +1,76 @@
+-- Run directly with psql on the owned database to replay the real backfill.
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path TO public, extensions;
+SELECT plan(6);
+
+INSERT INTO public.staff_subjects (staff_id, subject_id)
+SELECT '00000000-0000-0000-0000-000000000010', id
+FROM public.subjects WHERE name = 'Medicine Interview'
+ON CONFLICT DO NOTHING;
+
+CREATE TEMP TABLE old_receipts AS
+SELECT '00000000-0000-0000-0000-000000000010'::uuid AS actor_id,
+  '{"type":"saveAttempt","commandId":"e4950000-0000-4000-8000-000000000010",
+    "roundId":"e4950000-0000-4000-8000-000000000011","attemptId":"e4950000-0000-4000-8000-000000000012",
+    "expectedAttemptVersion":6,"score":4.00,
+    "feedback":[{"value":"Practice feedback: café"}]}'::jsonb AS attempt_payload,
+  '{"id":"e4950000-0000-4000-8000-000000000012","version":7}'::jsonb AS attempt_result,
+  '{"type":"createReview","commandId":"e4950000-0000-4000-8000-000000000020",
+    "id":"e4950000-0000-4000-8000-000000000021","date":"2026-11-22"}'::jsonb AS review_payload,
+  '{"id":"e4950000-0000-4000-8000-000000000021","version":1}'::jsonb AS review_result,
+  '2026-11-21 01:00:00+00'::timestamptz AS receipt_time;
+
+ALTER TABLE public.interview_command_receipts DISABLE TRIGGER hash_interview_command_receipt;
+INSERT INTO public.interview_command_receipts (actor_user_id, command_id, command, result, created_at)
+SELECT actor_id, (attempt_payload->>'commandId')::uuid, attempt_payload, attempt_result, receipt_time
+FROM old_receipts;
+ALTER TABLE public.interview_command_receipts ENABLE TRIGGER hash_interview_command_receipt;
+INSERT INTO public.interview_command_receipts (actor_user_id, command_id, command, result, created_at)
+SELECT actor_id, (review_payload->>'commandId')::uuid,
+  jsonb_build_object('reviewHash', encode(sha256(convert_to(review_payload::text, 'UTF8')), 'hex')),
+  review_result, receipt_time
+FROM old_receipts;
+
+SELECT is(
+  (SELECT public.interview_command(actor_id, attempt_payload) FROM old_receipts),
+  (SELECT attempt_result FROM old_receipts),
+  'the cutover reader still accepts a full receipt before backfill'
+);
+CREATE TEMP TABLE before_backfill AS
+SELECT actor_user_id, command_id, result, created_at
+FROM public.interview_command_receipts;
+
+\ir ../migrations/20261122132753_backfill_interview_command_receipt_hashes.sql
+\ir ../migrations/20261122132753_backfill_interview_command_receipt_hashes.sql
+
+SELECT is(
+  (SELECT command #>> '{}' FROM public.interview_command_receipts
+   WHERE command_id = 'e4950000-0000-4000-8000-000000000010'),
+  (SELECT 'sha256:' || encode(sha256(convert_to(
+    jsonb_set(attempt_payload, '{score}', '4')::text, 'UTF8')), 'hex') FROM old_receipts),
+  'the actual backfill replaces the full historical payload exactly once'
+);
+SELECT results_eq(
+  'SELECT actor_user_id, command_id, result, created_at FROM public.interview_command_receipts ORDER BY 1, 2',
+  'SELECT actor_user_id, command_id, result, created_at FROM before_backfill ORDER BY 1, 2',
+  'receipt keys, results and creation times survive backfill'
+);
+SELECT is(
+  (SELECT public.interview_command(actor_id, jsonb_set(attempt_payload, '{score}', '4')) FROM old_receipts),
+  (SELECT attempt_result FROM old_receipts),
+  'an autosave retry created before migration returns its original attempt version'
+);
+SELECT throws_ok(
+  $$SELECT public.interview_command(actor_id, jsonb_set(attempt_payload, '{score}', '5'))
+    FROM old_receipts$$,
+  '22023', 'Command ID already used', 'a migrated receipt still rejects a different draft'
+);
+SELECT is(
+  (SELECT public.interview_performance_review_command(actor_id, review_payload) FROM old_receipts),
+  (SELECT review_result FROM old_receipts),
+  'a previously hashed review receipt still replays'
+);
+
+SELECT * FROM finish();
+ROLLBACK;
