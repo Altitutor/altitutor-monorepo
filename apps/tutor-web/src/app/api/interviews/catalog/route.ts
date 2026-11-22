@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const actor = await resolveInterviewActor(request);
     if ("response" in actor) return actor.response;
     const { data, error } = await actor.userClient
-      .from("vtutor_interview_catalog")
+      .from(new URL(request.url).searchParams.get("summary") === "1" ? "vtutor_interview_list_catalog" : "vtutor_interview_catalog")
       .select("data")
       .maybeSingle();
     if (error) throw error;

@@ -21,14 +21,20 @@ const summary: TutorInterviewRoundSummary = {
   students: [{ id: "student", name: "Alex" }], tutors: [{ id: "actor", name: "Jordan" }], stationCount: 13, releasedResultCount: 0,
 };
 
+function listResponse(url: URL) {
+  if (url.searchParams.get("collection") === "current") return { rounds: [summary], history: [] };
+  if (url.searchParams.get("collection") === "history") return { rounds: [], nextCursor: null };
+  return [summary];
+}
+
 it("keeps the tutor roster searchable and loads full print prompts only after Print is selected", async () => {
   const detailReads = jest.fn().mockResolvedValue({ ...summary, stations: [{ id: "station", prompt: "Private station prompt" }] });
   global.fetch = jest.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input), "https://portal.test");
     const path = url.pathname;
-    if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
+    if (path === "/api/interviews/rounds" || path === "/api/interviews/catalog") expect(url.searchParams.get("summary")).toBe("1");
     const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [{ id: "interview", name: "Medicine" }], students: [], tutors: [] }
-      : path.endsWith("/rounds") ? [summary] : await detailReads();
+      : path.endsWith("/rounds") ? listResponse(url) : await detailReads();
     return { ok: true, json: async () => body } as Response;
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -61,7 +67,7 @@ it("lets a tutor dismiss slow print loading without opening the dialog when the 
     const path = url.pathname;
     if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
     if (!path.endsWith("/catalog") && !path.endsWith("/rounds")) return pending;
-    const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : [summary];
+    const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : listResponse(url);
     return { ok: true, json: async () => body } as Response;
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -91,7 +97,7 @@ it("withholds cached prompts on reopen until a fresh read succeeds and exposes r
     const path = url.pathname;
     if (path === "/api/interviews/rounds") expect(url.searchParams.get("summary")).toBe("1");
     if (!path.endsWith("/catalog") && !path.endsWith("/rounds")) return detailReads();
-    const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : [summary];
+    const body = path.endsWith("/catalog") ? { actorId: "actor", interviews: [], students: [], tutors: [] } : listResponse(url);
     return { ok: true, json: async () => body } as Response;
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: 3, staleTime: 5 * 60_000, refetchOnMount: false } } });

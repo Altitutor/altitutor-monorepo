@@ -448,7 +448,7 @@ describe('useBreadcrumbs', () => {
     const id = 'd3080000-0000-4000-8000-000000000022';
     mockUsePathname.mockReturnValue(`/interviews/rounds/${id}`);
     const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
-    client.setQueryData(['admin-interview-round',id],{id,name:'Evening MMI'});
+    client.setQueryData(['admin-interview-observer',id,null],{id,round:{id,name:'Evening MMI'}});
     const wrapper = ({children}:{children:ReactNode}) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
     const {result} = renderHook(() => useBreadcrumbs(),{wrapper});
     expect(result.current).toEqual([{label:'Sessions',href:'/sessions'},{label:'Evening MMI'}]);

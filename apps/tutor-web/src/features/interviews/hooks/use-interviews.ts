@@ -1,5 +1,7 @@
 "use client";
 
+import { useInterviewRoundList } from "@altitutor/ui/hooks/use-interview-round-list";
+
 import { useCurrentStaff } from "@/features/staff/hooks/useStaffQuery";
 import { useInterviewAccess } from "./use-interview-access";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
@@ -11,8 +13,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import {
   getInterviewCatalog,
+  getInterviewListCatalog,
   getInterviewRound,
-  getInterviewRounds,
+  getCurrentInterviewRounds,
+  getInterviewRoundHistory,
   sendInterviewCommand,
 } from "../api/interviews";
 
@@ -21,12 +25,21 @@ export const interviewKeys = {
   rounds: ["interviews", "rounds"] as const,
   round: (id: string) => ["interviews", "round", id] as const,
 };
-export function useInterviewCatalog() {
+export function useInterviewCatalog(options: { enabled?: boolean } = {}) {
+  const { user, loading } = useAuthStore();
+  return useQuery({
+    enabled: !loading && !!user && options.enabled !== false,
+    queryKey: [...interviewKeys.catalog, user?.id],
+    queryFn: getInterviewCatalog,
+    staleTime: 10_000,
+  });
+}
+export function useInterviewListCatalog() {
   const { user, loading } = useAuthStore();
   return useQuery({
     enabled: !loading && !!user,
-    queryKey: [...interviewKeys.catalog, user?.id],
-    queryFn: getInterviewCatalog,
+    queryKey: [...interviewKeys.catalog, "list", user?.id],
+    queryFn: getInterviewListCatalog,
     staleTime: 10_000,
   });
 }
@@ -34,12 +47,12 @@ export function useInterviewRounds(
   options: { enabled?: boolean; poll?: boolean } = {},
 ) {
   const { user, loading } = useAuthStore();
-  return useQuery({
+  return useInterviewRoundList({
+    queryKey: ["interviews", "rounds", user?.id],
     enabled: !loading && !!user && options.enabled !== false,
-    queryKey: [...interviewKeys.rounds, user?.id],
-    queryFn: getInterviewRounds,
-    refetchInterval: options.poll === false ? false : 15_000,
-    staleTime: 30_000,
+    poll: options.poll !== false,
+    readCurrent: getCurrentInterviewRounds,
+    readHistory: getInterviewRoundHistory,
   });
 }
 /** Prompt printing needs one rich snapshot, without joining the live round. */

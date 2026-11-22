@@ -6,6 +6,11 @@ import { SessionsCalendarView } from "../SessionsCalendarView";
 import { TutorTodaySessionsCalendarView } from "../TutorTodaySessionsCalendarView";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 
+function seedRounds(client: QueryClient, rounds: unknown[]) {
+  client.setQueryData(["interviews", "rounds", undefined, "current"], { rounds, history: [] });
+  client.setQueryData(["interviews", "rounds", undefined, "history", "[]"], []);
+}
+
 Object.assign(globalThis, { React });
 const push = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -25,9 +30,7 @@ it("opens an assigned interview from the weekly calendar into its waiting room",
   client.setQueryData(["sessions", "list"], []);
   client.setQueryData(["staff", "current", null], { id: "assigned-tutor" });
   client.setQueryData(["interviews", "access", undefined], true);
-  client.setQueryData(
-    ["interviews", "rounds", undefined],
-    [
+  seedRounds(client, [
       {
         id: "round-calendar",
         name: "Practice circuit",
@@ -43,8 +46,7 @@ it("opens an assigned interview from the weekly calendar into its waiting room",
         students: [],
         tutors: [{ id: "assigned-tutor", name: "Assigned tutor" }],
       },
-    ],
-  );
+    ]);
   render(
     <QueryClientProvider client={client}>
       <SessionsCalendarView />
@@ -69,9 +71,7 @@ it("does not show a round merely created by this tutor when they are not assigne
   client.setQueryData(["sessions", "list"], []);
   client.setQueryData(["staff", "current", null], { id: "current-tutor" });
   client.setQueryData(["interviews", "access", undefined], true);
-  client.setQueryData(
-    ["interviews", "rounds", undefined],
-    [
+  seedRounds(client, [
       {
         id: "created-round",
         name: "Other tutors circuit",
@@ -88,8 +88,7 @@ it("does not show a round merely created by this tutor when they are not assigne
         students: [],
         tutors: [{ id: "other-tutor", name: "Other tutor" }],
       },
-    ],
-  );
+    ]);
   render(
     <QueryClientProvider client={client}>
       <SessionsCalendarView />
@@ -121,7 +120,7 @@ it.each([true, false])("retries failed calendar access before loading rounds (al
     if (roundUrl.pathname === "/api/interviews/rounds") {
       expect(roundUrl.searchParams.get("summary")).toBe("1");
       roundRequests++;
-      return {ok: true, json: async () => []} as unknown as Response;
+      return {ok: true, json: async () => ({ rounds: [], history: [] })} as unknown as Response;
     }
     throw new Error(`Unexpected request: ${String(input)}`);
   });
@@ -150,9 +149,7 @@ it.each([
   const scheduledAt = "2026-11-06T04:00:00.000Z";
   client.setQueryData(["staff", "current", null], { id: "assigned-tutor" });
   client.setQueryData(["interviews", "access", undefined], true);
-  client.setQueryData(
-    ["interviews", "rounds", undefined],
-    [
+  seedRounds(client, [
       {
         id: "dashboard-round",
         rotationAllowanceSeconds: allowance,
@@ -169,8 +166,7 @@ it.each([
         students: [],
         tutors: [{ id: "assigned-tutor", name: "Assigned tutor" }],
       },
-    ],
-  );
+    ]);
 
   render(
     <QueryClientProvider client={client}>
