@@ -58,13 +58,12 @@ import { cn } from "@/shared/utils";
 import {
   useInterviewCatalog,
   useInterviewListCatalog,
-  useInterviewCommand,
   useInterviewRounds,
   useInterviewPrintRound,
 } from "../hooks/use-interviews";
-import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { choiceFilterMatches } from "@altitutor/shared";
-import { ConfirmAction, InterviewError } from "./interview-ui";
+import { InterviewError } from "./interview-ui";
+import { InterviewRoundDeletion } from "./InterviewRoundDeletion";
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { InterviewBulkRoundDialog } from "./InterviewBulkRoundSetup";
 import { InterviewPrintDialog } from "./InterviewPrintDialog";
@@ -120,17 +119,16 @@ function RoundActions({
   round,
   onEdit,
   onPrint,
+  onDelete,
 }: {
   round: TutorInterviewRoundSummary;
   onEdit: (round: TutorInterviewRoundSummary) => void;
   onPrint: (round: TutorInterviewRoundSummary) => void;
+  onDelete: (round: TutorInterviewRoundSummary) => void;
 }) {
-  const deletion = useInterviewCommand();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const completed = round.phase === "completed";
   const started = !!round.startedAt;
   return (
-    <>
     <UcatRowActions
       actions={[
         {
@@ -147,8 +145,8 @@ function RoundActions({
               },
             ]
           : []),
-        ...(!started ? [{ label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
-          onClick: () => setConfirmDelete(true) }] : []),
+        { label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
+          onClick: () => onDelete(round) },
         ...(!completed
           ? [
               {
@@ -166,14 +164,6 @@ function RoundActions({
             ]),
       ]}
     />
-    <ConfirmAction error={deletion.error} open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete this unstarted round?"
-      description={`Remove ${round.name} from the interview calendar and participants’ upcoming interviews. Started rounds cannot be deleted.`}
-      destructive preventClose pending={deletion.isPending} confirmLabel={deletion.isPending ? "Deleting…" : "Delete round"} onConfirm={() => {
-        if (!deletion.isPending) void deletion.mutateAsync({ type: "deleteRound", commandId: randomUuid(), roundId: round.id,
-          expectedVersion: round.version }).then(() => setConfirmDelete(false)).catch(() => undefined);
-      }} />
-    <InterviewError error={deletion.error} />
-    </>
   );
 }
 
@@ -379,6 +369,7 @@ function RoundsCalendar({
   interviewName,
   onEdit,
   onPrint,
+  onDelete,
   dayCount,
 }: {
   dayCount: 1 | 3 | 7;
@@ -386,6 +377,7 @@ function RoundsCalendar({
   interviewName: (id: string) => string;
   onEdit: (round: TutorInterviewRoundSummary) => void;
   onPrint: (round: TutorInterviewRoundSummary) => void;
+  onDelete: (round: TutorInterviewRoundSummary) => void;
 }) {
   const [anchor, setAnchor] = useState(new Date());
   const weekStart = dayCount === 7 ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor;
@@ -555,6 +547,7 @@ function RoundsCalendar({
                                   round={round}
                                   onEdit={onEdit}
                                   onPrint={onPrint}
+                                  onDelete={onDelete}
                                 />
                               </div>
                             </RoundDetailsTooltip>
@@ -584,7 +577,7 @@ function RoundsCalendar({
                     {round.students.length} students
                   </p>
                 </div>
-                <RoundActions round={round} onEdit={onEdit} onPrint={onPrint} />
+                <RoundActions round={round} onEdit={onEdit} onPrint={onPrint} onDelete={onDelete} />
               </div>
             ))}
           </div>
@@ -611,6 +604,7 @@ export function InterviewRoundsPage() {
   const [creating, setCreating] = useState(false);
   const [bulkCreating, setBulkCreating] = useState(false);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<TutorInterviewRoundSummary | null>(null);
   const printingQuery = useInterviewPrintRound(printingId ?? "");
   const printing = printingId && printingQuery.isFetchedAfterMount && !printingQuery.isFetching && !printingQuery.isError
     ? printingQuery.data : null;
@@ -800,6 +794,7 @@ export function InterviewRoundsPage() {
           interviewName={interviewName}
           onEdit={setEditing}
           onPrint={setPrinting}
+          onDelete={setDeleting}
         />
       ) : paged.total === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -923,6 +918,7 @@ export function InterviewRoundsPage() {
                       round={row.original}
                       onEdit={setEditing}
                       onPrint={setPrinting}
+                      onDelete={setDeleting}
                     />
                   </div>
                 ),
@@ -941,6 +937,8 @@ export function InterviewRoundsPage() {
           />
         </>
       )}
+      {deleting && <InterviewRoundDeletion key={deleting.id} round={deleting} open
+        onOpenChange={(open) => { if (!open) setDeleting(null); }} />}
       {catalogueNeeded && !editingCatalog ? (
         <div className="space-y-2">
           {catalogQuery.isError ? <InterviewError error={catalogQuery.error} retry={() => { void catalogQuery.refetch(); }} />

@@ -170,7 +170,12 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         value.studentId.toLowerCase() !== value.targetStudentId.toLowerCase() &&
         (value.type !== "swapStationStudents" || uuid(value.stationId));
     case "deleteRound":
-      return uuid(value.roundId) && version(value.expectedVersion);
+      return uuid(value.roundId) && version(value.expectedVersion) &&
+        (value.expectedAttemptVersions === undefined || (
+          Array.isArray(value.expectedAttemptVersions) && value.expectedAttemptVersions.length <= 10_000 &&
+          value.expectedAttemptVersions.every((entry: unknown) => record(entry) && uuid(entry.id) && version(entry.version)) &&
+          unique(value.expectedAttemptVersions.map((entry: { id: string }) => entry.id.toLowerCase()))
+        ));
     case "heartbeat":
     case "tick":
       return uuid(value.roundId);
