@@ -9,6 +9,6 @@
     "types": ["jest", "react"],
     "noEmit": false
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/interviews/recording-limits.json"],
   "exclude": ["node_modules", "dist"]
 }

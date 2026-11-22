@@ -1,3 +1,5 @@
+import { interviewVideoRecordingQuality } from "@altitutor/shared";
+
 export interface InterviewVideoSources {
   localVideo: MediaStreamTrack | null;
   remoteVideo: MediaStreamTrack | null;
@@ -5,12 +7,12 @@ export interface InterviewVideoSources {
   remoteAudio: MediaStreamTrack | null;
 }
 
-const frameRate = 12;
-const frameWidth = 640;
-const frameHeight = 360;
-const insetWidth = 160;
-const insetHeight = 90;
-const insetMargin = 12;
+const frameRate = interviewVideoRecordingQuality.frameRate;
+const frameWidth = interviewVideoRecordingQuality.width;
+const frameHeight = interviewVideoRecordingQuality.height;
+const insetWidth = 320;
+const insetHeight = 180;
+const insetMargin = 24;
 const unsupportedMessage =
   "This browser does not support recording online interview video.";
 
