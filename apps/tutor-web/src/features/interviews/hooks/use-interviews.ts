@@ -58,11 +58,11 @@ export function useInterviewRounds(
   });
 }
 /** Prompt printing needs one rich snapshot, without joining the live round. */
-export function useInterviewPrintRound(id: string) {
+export function useInterviewPrintRound(id: string, options: { enabled?: boolean } = {}) {
   const { user, loading } = useAuthStore();
   return useQuery({
     queryKey: [...interviewKeys.round(id), user?.id],
-    enabled: !loading && !!user && !!id,
+    enabled: !loading && !!user && !!id && options.enabled !== false,
     queryFn: () => getInterviewRound(id),
     staleTime: 0,
     refetchOnMount: "always",

@@ -58,13 +58,12 @@ import { cn } from "@/shared/utils";
 import {
   useInterviewCatalog,
   useInterviewListCatalog,
-  useInterviewCommand,
   useInterviewRounds,
   useInterviewPrintRound,
 } from "../hooks/use-interviews";
-import { randomUuid } from "@altitutor/ui/lib/random-uuid";
 import { choiceFilterMatches } from "@altitutor/shared";
-import { ConfirmAction, InterviewError } from "./interview-ui";
+import { InterviewError } from "./interview-ui";
+import { InterviewRoundDeletion } from "./InterviewRoundDeletion";
 import { InterviewRoundDialog } from "./InterviewRoundSetup";
 import { InterviewBulkRoundDialog } from "./InterviewBulkRoundSetup";
 import { InterviewPrintDialog } from "./InterviewPrintDialog";
@@ -125,7 +124,6 @@ function RoundActions({
   onEdit: (round: TutorInterviewRoundSummary) => void;
   onPrint: (round: TutorInterviewRoundSummary) => void;
 }) {
-  const deletion = useInterviewCommand();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const completed = round.phase === "completed";
   const started = !!round.startedAt;
@@ -147,8 +145,8 @@ function RoundActions({
               },
             ]
           : []),
-        ...(!started ? [{ label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
-          onClick: () => setConfirmDelete(true) }] : []),
+        { label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
+          onClick: () => setConfirmDelete(true) },
         ...(!completed
           ? [
               {
@@ -166,13 +164,7 @@ function RoundActions({
             ]),
       ]}
     />
-    <ConfirmAction error={deletion.error} open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete this unstarted round?"
-      description={`Remove ${round.name} from the interview calendar and participants’ upcoming interviews. Started rounds cannot be deleted.`}
-      destructive preventClose pending={deletion.isPending} confirmLabel={deletion.isPending ? "Deleting…" : "Delete round"} onConfirm={() => {
-        if (!deletion.isPending) void deletion.mutateAsync({ type: "deleteRound", commandId: randomUuid(), roundId: round.id,
-          expectedVersion: round.version }).then(() => setConfirmDelete(false)).catch(() => undefined);
-      }} />
-    <InterviewError error={deletion.error} />
+    {confirmDelete && <InterviewRoundDeletion round={round} open onOpenChange={setConfirmDelete} />}
     </>
   );
 }

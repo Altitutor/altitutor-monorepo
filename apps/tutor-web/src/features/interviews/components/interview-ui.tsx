@@ -211,6 +211,8 @@ export function ConfirmAction({
   preventClose = false,
   pending = false,
   error,
+  children,
+  confirmDisabled = false,
 }: {
   open: boolean;
   title: string;
@@ -222,6 +224,8 @@ export function ConfirmAction({
   preventClose?: boolean;
   pending?: boolean;
   error?: unknown;
+  children?: ReactNode;
+  confirmDisabled?: boolean;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -230,12 +234,13 @@ export function ConfirmAction({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <InterviewError error={error} />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending} onClick={() => onOpenChange(false)}>
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction disabled={pending}
+          <AlertDialogAction disabled={pending || confirmDisabled}
             className={destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
             onClick={(event) => { if (preventClose) event.preventDefault(); onConfirm(); }}>
             {confirmLabel}
