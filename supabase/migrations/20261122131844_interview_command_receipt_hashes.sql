@@ -2,21 +2,27 @@
 -- across different decimal scales. JSONB already canonicalizes object keys.
 CREATE FUNCTION private.normalize_interview_command_payload(payload jsonb)
 RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT
+LANGUAGE plpgsql IMMUTABLE STRICT
 SET search_path = ''
 AS $function$
-  SELECT CASE jsonb_typeof(payload)
-    WHEN 'object' THEN coalesce((
-      SELECT jsonb_object_agg(item.key, private.normalize_interview_command_payload(item.value))
-      FROM jsonb_each(payload) AS item
-    ), '{}'::jsonb)
-    WHEN 'array' THEN coalesce((
-      SELECT jsonb_agg(private.normalize_interview_command_payload(item.value) ORDER BY item.position)
-      FROM jsonb_array_elements(payload) WITH ORDINALITY AS item(value, position)
-    ), '[]'::jsonb)
-    WHEN 'number' THEN to_jsonb(trim_scale(payload::numeric))
-    ELSE payload
-  END;
+BEGIN
+  CASE jsonb_typeof(payload)
+    WHEN 'object' THEN
+      RETURN coalesce((
+        SELECT jsonb_object_agg(item.key, private.normalize_interview_command_payload(item.value))
+        FROM jsonb_each(payload) AS item
+      ), '{}'::jsonb);
+    WHEN 'array' THEN
+      RETURN coalesce((
+        SELECT jsonb_agg(private.normalize_interview_command_payload(item.value) ORDER BY item.position)
+        FROM jsonb_array_elements(payload) WITH ORDINALITY AS item(value, position)
+      ), '[]'::jsonb);
+    WHEN 'number' THEN
+      RETURN to_jsonb(trim_scale(payload::numeric));
+    ELSE
+      RETURN payload;
+  END CASE;
+END;
 $function$;
 
 CREATE FUNCTION private.interview_command_payload_hash(payload jsonb)
