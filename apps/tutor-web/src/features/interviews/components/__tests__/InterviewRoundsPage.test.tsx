@@ -65,6 +65,10 @@ it.each([false, true])("reviews a started round's saved work and respects partic
     expect(within(dialog).getByText("0 / 6")).toBeInTheDocument();
     expect(within(dialog).getByText("Previously published advice.")).toBeInTheDocument();
     expect(within(dialog).getByText("4 / 6")).toBeInTheDocument();
+    // Background list updates re-render table cells. Review state must outlive
+    // those cells, including while a tutor is reading the saved feedback.
+    view.rerender(<QueryClientProvider client={client}><InterviewRoundsPage /></QueryClientProvider>);
+    expect(screen.getByRole("alertdialog")).toBe(dialog);
     expect(commands).toEqual([]);
     if (present) {
       expect(within(dialog).getByRole("status")).toHaveTextContent("Jordan");
