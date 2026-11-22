@@ -41,8 +41,8 @@ CREATE TEMP TABLE before_backfill AS
 SELECT actor_user_id, command_id, result, created_at
 FROM public.interview_command_receipts;
 
-\ir ../migrations/20261122131845_backfill_interview_command_receipt_hashes.sql
-\ir ../migrations/20261122131845_backfill_interview_command_receipt_hashes.sql
+\ir ../migrations/20261122132753_backfill_interview_command_receipt_hashes.sql
+\ir ../migrations/20261122132753_backfill_interview_command_receipt_hashes.sql
 
 SELECT is(
   (SELECT command #>> '{}' FROM public.interview_command_receipts

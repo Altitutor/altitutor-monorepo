@@ -40,39 +40,13 @@ BEGIN
   END IF;
 
   EXECUTE replace(definition, old_check, $comparison$IF receipt.command IS DISTINCT FROM
-    CASE WHEN jsonb_typeof(receipt.command) = 'string'
+    (CASE WHEN jsonb_typeof(receipt.command) = 'string'
       THEN private.interview_command_payload_hash(p_command)
       ELSE p_command
-    END THEN$comparison$);
+    END) THEN$comparison$);
 END;
 $migration$;
 
--- Hash at the write boundary so a command already executing during the
--- cutover also stores a compact receipt. Review receipts already contain a
--- hash and skip this trigger.
-CREATE FUNCTION private.hash_interview_command_receipt()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = ''
-AS $function$
-BEGIN
-  NEW.command := private.interview_command_payload_hash(NEW.command);
-  RETURN NEW;
-END;
-$function$;
-
 REVOKE ALL ON FUNCTION private.normalize_interview_command_payload(jsonb),
-  private.interview_command_payload_hash(jsonb),
-  private.hash_interview_command_receipt()
+  private.interview_command_payload_hash(jsonb)
 FROM PUBLIC, anon, authenticated, service_role;
-
--- Fail quickly if an existing writer holds the conflicting table lock.
-SET LOCAL lock_timeout = '2s';
-CREATE TRIGGER hash_interview_command_receipt
-BEFORE INSERT ON public.interview_command_receipts
-FOR EACH ROW
-WHEN (NEW.command ? 'commandId')
-EXECUTE FUNCTION private.hash_interview_command_receipt();
-
-COMMENT ON COLUMN public.interview_command_receipts.command IS
-  'SHA-256 payload fingerprint. Review commands retain their existing reviewHash object format.';
