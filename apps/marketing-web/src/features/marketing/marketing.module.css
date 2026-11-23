@@ -1362,68 +1362,6 @@
 .application .eyebrow {
   color: var(--accent-blue);
 }
-.resultsYear {
-  margin-top: 45px;
-}
-.resultStack {
-  padding-bottom: 16vh;
-}
-.resultStackCard {
-  position: sticky;
-  top: 110px;
-  z-index: 1;
-  margin-bottom: 28vh;
-  padding: 40px 44px 32px;
-  border: 1px solid var(--card-line);
-  border-radius: 30px;
-  background: #fff;
-  box-shadow: var(--card-shadow);
-  transform-origin: top center;
-}
-.resultStackCard:last-child {
-  margin-bottom: 0;
-}
-.resultStackCard.resultsYear {
-  margin-top: 0;
-}
-.resultStackCard .stats {
-  border: 0;
-  padding-bottom: 0;
-}
-@media (max-width: 800px) {
-  .resultStackCard {
-    top: 96px;
-    margin-bottom: 22vh;
-    padding: 28px 22px 22px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .resultStack {
-    padding-bottom: 0;
-  }
-  .resultStackCard {
-    position: static;
-    margin-bottom: 24px;
-  }
-}
-.resultsYear h3 {
-  font-size: 1.4rem;
-  margin-bottom: 18px;
-}
-.resultStackCard.resultsYear h3 {
-  font-size: clamp(2rem, 4vw, 3rem);
-}
-.resultsYear .stats {
-  grid-template-columns: repeat(6, 1fr);
-  gap: 20px;
-  padding-block: 26px;
-}
-.resultsYear .statValue {
-  font-size: 3rem;
-}
-.resultsYear .copy {
-  font-size: 0.8rem;
-}
 .moreReviews {
   margin-top: 30px;
 }
@@ -1494,9 +1432,6 @@
   }
   .footerTop {
     gap: 35px;
-  }
-  .resultsYear .stats {
-    grid-template-columns: repeat(3, 1fr);
   }
   .aboutHeroPhoto {
     padding: 18px;
@@ -1737,9 +1672,6 @@
   .application,
   .teaching > div {
     padding: 27px;
-  }
-  .resultsYear .stats {
-    grid-template-columns: repeat(2, 1fr);
   }
   .stats {
     gap: 28px 20px;
