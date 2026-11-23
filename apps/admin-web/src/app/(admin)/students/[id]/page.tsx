@@ -85,7 +85,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const sidebarForm = useRef<HTMLDivElement>(null);
   const [sectionDraft, setSectionDraft] = useState<TablesUpdate<"students"> | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const { data: journeys = [] } = useOnboardingJourneys();
+  const { data: journeys = [] } = useOnboardingJourneys({ studentId: id });
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();

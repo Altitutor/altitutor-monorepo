@@ -1,16 +1,25 @@
 "use client";
 import type { Tables } from "@altitutor/shared";
-import { keepPreviousData, useQuery, type QueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { parseBoard } from "../lib/parseBoard";
 import { evidenceSchema, type Journey } from "../lib/model";
+import type { EnquiryCohort } from "../lib/insights";
+
+export type OnboardingJourneyScope =
+  | { studentId: string }
+  | { from: string; to: string; cohort: EnquiryCohort };
 
 export const onboardingKey = ["onboarding"] as const;
 
 export async function invalidateOnboarding(client: QueryClient) {
   await Promise.all([
     client.invalidateQueries({ queryKey: onboardingKey }),
-    client.invalidateQueries({ queryKey: ['students', 'directory'] }),
+    client.invalidateQueries({ queryKey: ["students", "directory"] }),
   ]);
 }
 
@@ -64,7 +73,29 @@ async function fetchJourneysFallback(): Promise<Journey[]> {
   }
 }
 
-async function fetchJourneys(): Promise<Journey[]> {
+async function fetchJourneys(
+  scope?: OnboardingJourneyScope,
+): Promise<Journey[]> {
+  if (scope) {
+    const args =
+      "studentId" in scope
+        ? { p_student_id: scope.studentId }
+        : { p_from: scope.from, p_to: scope.to, p_cohort: scope.cohort };
+    const { data, error } = await getSupabaseClient().rpc(
+      "onboarding_journeys_read",
+      args,
+    );
+    if (error) {
+      if (error.code !== "PGRST202") throw error;
+      // Deployment ordering or rollback can temporarily leave an older DB.
+      // Retain its existing behavior, then retry the scoped reader next time.
+      const legacy = await fetchJourneys();
+      return "studentId" in scope
+        ? legacy.filter((item) => item.student_id === scope.studentId)
+        : legacy;
+    }
+    return parseBoard(data);
+  }
   if (boardRpcAvailable !== false) {
     const { data, error } = await getSupabaseClient().rpc(
       "onboarding_journeys_board",
@@ -79,8 +110,8 @@ async function fetchJourneys(): Promise<Journey[]> {
   return fetchJourneysFallback();
 }
 
-async function fetchJourneysWithStudentStatus() {
-  const journeys = await fetchJourneys();
+async function fetchJourneysWithStudentStatus(scope?: OnboardingJourneyScope) {
+  const journeys = await fetchJourneys(scope);
   const studentIds = [
     ...new Set(
       journeys.flatMap((journey) =>
@@ -102,20 +133,25 @@ async function fetchJourneysWithStudentStatus() {
       if (student.deleted_at) deletedIds.add(student.id);
     }
   }
-  return journeys.filter(journey => !journey.student_id || !deletedIds.has(journey.student_id)).map((journey) => ({
-    ...journey,
-    student_status: journey.student_id
-      ? (statuses.get(journey.student_id) ?? null)
-      : null,
-  }));
+  return journeys
+    .filter(
+      (journey) => !journey.student_id || !deletedIds.has(journey.student_id),
+    )
+    .map((journey) => ({
+      ...journey,
+      student_status: journey.student_id
+        ? (statuses.get(journey.student_id) ?? null)
+        : null,
+    }));
 }
 
-export function useOnboardingJourneys() {
+export function useOnboardingJourneys(scope?: OnboardingJourneyScope) {
   return useQuery({
-    queryKey: [...onboardingKey, "journeys"],
+    queryKey: [...onboardingKey, "journeys", ...(scope ? [scope] : [])],
+    enabled: !scope || !("studentId" in scope) || Boolean(scope.studentId),
     refetchInterval: 30_000,
-    placeholderData: keepPreviousData,
-    queryFn: fetchJourneysWithStudentStatus,
+    placeholderData: scope ? undefined : keepPreviousData,
+    queryFn: () => fetchJourneysWithStudentStatus(scope),
   });
 }
 export function useOnboardingSettings() {
