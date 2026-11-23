@@ -101,7 +101,11 @@ export async function searchStudentDirectory(request: Request) {
     const [onboarding, settings] = await Promise.all([
       (async (): Promise<{ journeys: Journey[]; identities: JourneyIdentity[] }> => {
         if (globalEvidence) {
-          const board = await db.rpc('onboarding_journeys_board').abortSignal(databaseSignal);
+          let board = await db.rpc('onboarding_journeys_read', { p_directory: true }).abortSignal(databaseSignal);
+          if (board.error?.code === 'PGRST202') {
+            // Preserve operation during a DB-first deployment or rollback.
+            board = await db.rpc('onboarding_journeys_board').abortSignal(databaseSignal);
+          }
           if (board.error) throw board.error;
           return { journeys: parseBoard(board.data), identities: [] };
         }
