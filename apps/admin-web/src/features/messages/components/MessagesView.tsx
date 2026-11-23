@@ -347,7 +347,6 @@ export function MessagesView() {
         showBackButton={
           !tabScope && !isDesktopSplitPane && mobileView === "thread"
         }
-        backButtonClassName="md:hidden"
         isUnread={
           activeSelection && (!activeGroupId || listedGroup)
             ? activeGroup
@@ -407,8 +406,7 @@ export function MessagesView() {
           <div
             className={`
           flex-shrink-0
-          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[320px]'}
-          md:w-[320px]
+          ${isDesktopSplitPane ? 'w-80' : mobileView === 'thread' ? 'hidden' : 'w-full'}
         `}
           >
             <ConversationList
@@ -426,7 +424,7 @@ export function MessagesView() {
         <div
           className={`
           flex-1 flex-col min-w-0
-          ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}
+          ${!isDesktopSplitPane && mobileView === 'list' ? 'hidden' : 'flex'}
         `}
         >
           {!tabScope || !linkedEntity || !activeContactId

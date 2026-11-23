@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       const replied = await getInboxReplyTimes(access.db, list.threads, access.mailbox.address);
       list.threads = list.threads.map((row) => ({ ...row, repliedAt: replied.get(row.id) }));
     } catch {
-      return NextResponse.json({ error: "Could not load inbox reply status." }, { status: 503 });
+      // The Inbox remains available when optional reply enrichment fails.
     }
   }
   return NextResponse.json(

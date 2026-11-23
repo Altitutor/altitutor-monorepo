@@ -21,6 +21,7 @@ import {
 } from "@altitutor/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 import { keyboardPane, keyboardBulkOwner, keyboardPointerTarget, isVisibleShortcutTarget } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
@@ -150,9 +151,13 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           event.stopPropagation();
           const page = pageShortcuts.find(([letter]) => letter === key);
           if (page) {
-            router.push(page[1]);
+            if (!requestPane("navigate", page[1])) router.push(page[1]);
             mobile.close?.();
           }
+          return;
+        }
+        if (key === "escape" && !event.shiftKey && requestPane("back")) {
+          event.preventDefault();
           return;
         }
         if (key === "g" && !event.shiftKey) {
@@ -276,6 +281,10 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         return;
       }
       if (id === "close") {
+        if (requestPane("close")) {
+          event.preventDefault();
+          return;
+        }
         if (panel?.expanded) {
           const close = document.querySelector<HTMLButtonElement>(
             `[data-close-accessory-tab="${CSS.escape(panel.activeKey ?? "")}"]`,

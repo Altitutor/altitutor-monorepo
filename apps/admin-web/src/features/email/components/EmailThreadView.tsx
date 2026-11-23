@@ -94,7 +94,13 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
     error: enabled && queries.find((query) => query.error)?.error,
   };
 }
-export function EmailThreadView({ threadId }: { threadId: string }) {
+export function EmailThreadView({
+  threadId,
+  registerInlineClose,
+}: {
+  threadId: string;
+  registerInlineClose?: (gate: ((next?: () => void) => void) | null) => void;
+}) {
   const { searchParams } = usePaneNavigation();
   const targetMessageId = searchParams.get("message");
   const referenceFocus = searchParams.get("focus");
@@ -125,9 +131,11 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         closeEditors.current.delete(id);
     };
   }, []);
+  const registerClose = scope?.registerClose ?? registerInlineClose;
+  const closeConversation = scope?.close;
   useEffect(() => {
-    if (!scope) return;
-    scope.registerClose((next) => {
+    if (!registerClose) return;
+    registerClose((next) => {
       if (closing.current) return;
       closing.current = true;
       setClosingEditors(true);
@@ -140,7 +148,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             return;
           }
         }
-        (next ?? scope.close)();
+        (next ?? closeConversation)?.();
       })()
         .catch(() =>
           toast.error(
@@ -152,8 +160,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           setClosingEditors(false);
         });
     });
-    return () => scope.registerClose(null);
-  }, [scope]);
+    return () => registerClose(null);
+  }, [registerClose, closeConversation]);
   const [showActivity, setShowActivity] = useState(false);
   const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);

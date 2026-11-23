@@ -20,6 +20,8 @@ import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
 import { AttendanceCell } from './AttendanceCell';
+import { StudentCount } from '@/shared/components/StudentCount';
+import { summarizeSessionAttendance } from '../utils/attendanceDerivation';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
@@ -176,7 +178,8 @@ export function SessionsTableRow({
     visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView;
 
   return (
-    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
+    <TableRow data-shortcut-list-item data-record-type="session" data-record-id={session.id}
+      tabIndex={-1} className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
       {visibleColumns.includes('date') && (
         <TableCell>
           <div className="flex items-center gap-2">
@@ -230,6 +233,8 @@ export function SessionsTableRow({
       )}
       {showStudents && (
         <TableCell>
+          <StudentCount count={studentList.length}
+            attendance={summarizeSessionAttendance(studentList, session.end_at ?? session.start_at, hasTutorLog)} />
           {!studentList.length ? (
             <span className="text-muted-foreground text-sm">-</span>
           ) : (

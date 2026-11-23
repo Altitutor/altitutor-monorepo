@@ -554,6 +554,10 @@ export function ClassesTable({
                         key={cls.id}
                         data-index={index}
                         className="cursor-pointer hover:bg-muted/50"
+                        data-shortcut-list-item
+                        tabIndex={-1}
+                        data-record-type="class"
+                        data-record-id={cls.id}
                         onClick={() => handleClassClick(cls)}
                       >
                         {state.visibleColumns.includes("day") && (

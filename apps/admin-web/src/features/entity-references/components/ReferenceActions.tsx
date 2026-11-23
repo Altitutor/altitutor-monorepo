@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, PanelsTopLeft } from "lucide-react";
+import { openReferenceInPane } from "@/shared/components/pane-workspace/pane-routing";
 import { toast } from "sonner";
 import type { ActionsMenuProps } from "@/shared/components/ActionsMenu";
 import {
@@ -180,6 +181,12 @@ export function ReferenceActions({
   };
   const actions = [
     open,
+    {
+      id: "open-new-pane",
+      title: "Open in new pane",
+      icon: PanelsTopLeft,
+      action: () => { openReferenceInPane(type, id, details?.href); },
+    },
     ...(props && !details?.actionState?.deleted
       ? recordMenuActions(props, {
           copy,

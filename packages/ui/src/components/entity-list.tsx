@@ -262,6 +262,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
   const narrow = !useMediaQuery('(min-width: 768px)', !compactProp);
   const compact = compactProp || narrow;
+  const recordType = viewTarget === "tasks" ? "task" : viewTarget === "projects" ? "project" : viewTarget === "issues" ? "issue" : undefined;
   const showExpandedPills = useMediaQuery('(min-width: 1024px)', !compact);
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
     rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
@@ -509,6 +510,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       onRowClick={onRowClick}
                       compact={compact}
                       showExpandedPills={showExpandedPills}
+                      recordId={recordType ? getItemId(item) : undefined}
+                      recordType={recordType}
                     /></CollectionRecord>
                   ))}
                 </div>}
@@ -678,6 +681,8 @@ interface EntityListRowProps<TItem> {
   onRowClick?: (item: TItem) => void;
   compact?: boolean;
   showExpandedPills: boolean;
+  recordId?: string;
+  recordType?: string;
 }
 
 function EntityListRow<TItem>({
@@ -689,10 +694,14 @@ function EntityListRow<TItem>({
   onRowClick,
   compact = false,
   showExpandedPills,
+  recordId,
+  recordType,
 }: EntityListRowProps<TItem>) {
   return (
     <div
       data-work-item-row
+      data-record-id={recordId}
+      data-record-type={recordType}
       role="button"
       tabIndex={0}
       onClick={() => onRowClick?.(item)}

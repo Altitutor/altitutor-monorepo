@@ -6,6 +6,7 @@ import type { EmailSummary } from "../types";
 
 const replySchema = z.object({
   sentAt: z.string(),
+  subject: z.string().nullish(),
   to: z.array(z.string()).nullish(),
   cc: z.array(z.string()).nullish(),
   replyToMessageId: z.string().nullish(),
@@ -35,7 +36,7 @@ export async function getInboxReplyTimes(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await db
       .from("email_messages")
-      .select("thread_id,sentAt:data->>sentAt,to:data->to,cc:data->cc,replyToMessageId:data->>replyToMessageId,draftMode:data->>draftMode")
+      .select("thread_id,sentAt:data->>sentAt,subject:data->>subject,to:data->to,cc:data->cc,replyToMessageId:data->>replyToMessageId,draftMode:data->>draftMode")
       .in("thread_id", [...inbound.keys()])
       .eq("removed", false)
       .eq("data->>sender", mailboxAddress)
@@ -49,7 +50,7 @@ export async function getInboxReplyTimes(
       const incoming = inbound.get(item.thread_id);
       const reply = replySchema.safeParse(item);
       if (!incoming?.at || !reply.success || reply.data.draftMode === "forward") continue;
-      const { sentAt, to, cc, replyToMessageId } = reply.data;
+      const { sentAt, subject, to, cc, replyToMessageId, draftMode } = reply.data;
       const sent = Date.parse(sentAt);
       if (!(sent > Date.parse(incoming.at))) continue;
 
@@ -57,7 +58,11 @@ export async function getInboxReplyTimes(
       // Use the shared conversation and outgoing recipients for those messages.
       const addressedToSender = [...(to ?? []), ...(cc ?? [])]
         .some((address) => address.toLowerCase() === incoming.sender.toLowerCase());
-      if (replyToMessageId ? !incoming.messageIds.includes(replyToMessageId) : !addressedToSender) continue;
+      if (replyToMessageId) {
+        if (replyToMessageId !== incoming.messageIds.at(-1)) continue;
+      } else if (!addressedToSender || !(draftMode === "reply" || draftMode === "replyAll" || /^re:/i.test(subject?.trim() ?? ""))) {
+        continue;
+      }
       const previous = candidateTimes.get(incoming.id);
       if (!previous || sent > Date.parse(previous)) candidateTimes.set(incoming.id, sentAt);
     }

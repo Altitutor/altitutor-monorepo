@@ -6,13 +6,13 @@ import { openEntityReference } from '@/shared/utils/entityReference';
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
 import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
-import { format, isPast } from 'date-fns';
+import { format } from 'date-fns';
 import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
-import { isPlannedSessionStudent, isStudentAbsentInCalendar } from '../utils/attendanceDerivation';
+import { isStudentAbsentInCalendar, summarizeSessionAttendance } from '../utils/attendanceDerivation';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -29,7 +29,7 @@ interface SessionsCardProps {
   session: Tables<'sessions'>;
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  staff: Array<Tables<'staff'> & CalendarStaff>;
+  staff?: Array<Tables<'staff'> & CalendarStaff>;
   students?: Array<Tables<'students'> & CalendarStudent>;
   onClick?: () => void;
   actions?: React.ReactNode;
@@ -54,7 +54,7 @@ export function SessionsCard({
   hasTutorLog = false,
   classData,
   subject,
-  staff = [],
+  staff: suppliedStaff,
   students: suppliedStudents,
   onClick,
   actions,
@@ -71,13 +71,9 @@ export function SessionsCard({
 }: SessionsCardProps) {
   const students = suppliedStudents ?? [];
   const studentRoster = details?.students ?? suppliedStudents;
-  const staffRoster = details?.staff ?? staff;
-  const sessionEnd = session.end_at ?? session.start_at;
-  const isFinished = Boolean(sessionEnd && isPast(new Date(sessionEnd)));
-  const scheduledStudents = studentRoster?.filter(isPlannedSessionStudent);
-  const attendanceCount = isFinished
-    ? studentRoster?.filter((student) => student.actual_attended === true).length
-    : scheduledStudents?.filter((student) => !student.planned_absence).length;
+  const staff = suppliedStaff ?? [];
+  const staffRoster = details?.staff ?? suppliedStaff;
+  const attendance = summarizeSessionAttendance(studentRoster, session.end_at ?? session.start_at, hasTutorLog);
 
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
@@ -132,7 +128,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(
@@ -195,10 +191,7 @@ export function SessionsCard({
                 )}
                 <StudentCount
                   count={studentRoster?.length}
-                  attendance={{
-                    count: isFinished && !hasTutorLog ? undefined : attendanceCount,
-                    label: isFinished ? 'attended' : 'attending',
-                  }}
+                  attendance={attendance}
                 />
                 {actions ?? (!isSelecting && /^[0-9a-f-]{36}$/i.test(session.id) && <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />)}
                 {!shouldUseCompact && classData?.level && (
@@ -206,7 +199,7 @@ export function SessionsCard({
                 )}
               </div>
               <p className="mt-1 truncate text-xs text-muted-foreground">
-                <span className="mr-2 tabular-nums">{staffRoster.length} staff</span>
+                {staffRoster && <span className="mr-2 tabular-nums">{staffRoster.length} staff</span>}
                 {isCalendarView ? (
                   classData?.room ? `Room: ${classData.room}` : ''
                 ) : (

@@ -156,13 +156,17 @@ export function EntityReferenceHovers() {
     const openContext = (event: MouseEvent) => {
       if (event.defaultPrevented || event.shiftKey) return;
       const chip = getChip(event);
-      if (!chip) return;
+      const record = event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-record-type][data-record-id]")
+        : null;
+      const selected = chip ?? record;
+      if (!selected) return;
       event.preventDefault();
       clear();
       const contextPoint = event.button === 2 || event.clientX || event.clientY
         ? new DOMRect(event.clientX, event.clientY, 0, 0)
-        : chip.getBoundingClientRect();
-      setSelection({ target: chip, pointerOpened: true, contextPoint });
+        : selected.getBoundingClientRect();
+      setSelection({ target: selected, pointerOpened: true, contextPoint });
     };
     const leave = (event: MouseEvent) => {
       const chip =
@@ -215,6 +219,7 @@ export function EntityReferenceHovers() {
     window.visualViewport?.addEventListener('resize', resize);
     const observer = boundary ? new ResizeObserver(resize) : null;
     if (boundary) observer?.observe(boundary);
+    let disposed = false;
     const instance = tippy(target, {
       content,
       interactive: true,
@@ -231,14 +236,17 @@ export function EntityReferenceHovers() {
       popperOptions: {modifiers:[{name:'preventOverflow',options:{boundary:boundary ?? 'clippingParents',rootBoundary:'viewport',padding:8,altAxis:true,tether:false}}]},
       appendTo: () => target.closest('[role="dialog"]') ?? document.body,
       delay: [0, 150],
-      onHidden: () =>
-        setSelection((current) => (current?.target === target ? null : current)),
+      onHidden: () => {
+        if (!disposed) setSelection((current) => current?.target === target ? null : current);
+      },
     });
     const contentObserver = new ResizeObserver(() => { void instance.popperInstance?.update(); });
     contentObserver.observe(content);
-    return () => { contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
+    return () => { disposed = true; contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
   }, [target, content, pointerOpened, contextPoint]);
-  return target && content
-    ? createPortal(<EntityReferencePreview key={`${target.dataset.type}:${target.dataset.id}:${target.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setSelection(null)} />, content)
+  const type = target?.dataset.type ?? target?.dataset.recordType;
+  const id = target?.dataset.id ?? target?.dataset.recordId;
+  return type && id && content
+    ? createPortal(<EntityReferencePreview key={`${type}:${id}:${target?.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={type} id={id} fallbackTitle={target?.dataset.label} contextualActions={contextualActions} onActivate={() => setSelection(null)} />, content)
     : null;
 }

@@ -8,7 +8,7 @@ import { useUnreadConversationCount } from '@/features/messages/api/queries';
 import { useUnreadMailCount } from '@/features/email/api/client';
 import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
 import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
-import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
+import { EmbeddedPaneEvents, PaneWorkspace, useEmbeddedPane } from "@/shared/components/pane-workspace/PaneWorkspace";
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AdminPageActionsTarget } from '@/shared/components/AdminPageActions';
@@ -442,6 +442,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
 }
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const embeddedPane = useEmbeddedPane();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
@@ -494,21 +495,26 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       pathname,
     );
 
+  const Workspace = embeddedPane ? React.Fragment : PaneWorkspace;
+
   return (
     <AdminToolbarViewsProvider>
       <AdminShortcuts>
-        <Navbar />
+        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar />}
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
         <CommandPaletteModal
           isOpen={isCommandPaletteOpen}
           onClose={closeCommandPalette}
         />
-        <div className="mt-[var(--navbar-height)] flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
-          <SidebarNav collapsed={collapsed} />
-          <AccessoryPanelLayout>
+        <div data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex overflow-hidden bg-card", embeddedPane
+          ? "h-dvh"
+          : "mt-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))]")}>
+          {!embeddedPane && <SidebarNav collapsed={collapsed} />}
+          <Workspace>
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <div
               data-admin-main
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70"
+              className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
             >
               {showBreadcrumbs && (
                 <div
@@ -635,7 +641,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 />
               </>
             )}
-          </AccessoryPanelLayout>
+            </div>
+          </Workspace>
         </div>
       </AdminShortcuts>
     </AdminToolbarViewsProvider>

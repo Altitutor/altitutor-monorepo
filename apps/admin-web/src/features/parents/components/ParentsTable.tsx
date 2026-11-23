@@ -286,6 +286,10 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                   <TableRow
                     key={parent.id}
                     className="cursor-pointer"
+                    data-shortcut-list-item
+                    tabIndex={-1}
+                    data-record-type="parent"
+                    data-record-id={parent.id}
                     onClick={() => handleParentClick(parent.id)}
                   >
                     {state.visibleColumns.includes('parent') && (

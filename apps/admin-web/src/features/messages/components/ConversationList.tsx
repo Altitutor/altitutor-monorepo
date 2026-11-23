@@ -244,6 +244,7 @@ export function ConversationList({
                   <div
                     role="button"
                     data-shortcut-list-item
+                    data-pane-href={`/messages?group=${encodeURIComponent(aggregated.conversationId)}`}
                     tabIndex={0}
                     className={`w-full p-3 text-left hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                     onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
@@ -302,6 +303,7 @@ export function ConversationList({
                 <div
                   role="button"
                   data-shortcut-list-item
+                  data-pane-href={`/messages?contact=${encodeURIComponent(aggregated.contactId)}`}
                   tabIndex={0}
                   className={`w-full text-left p-3 hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                   onClick={() => onSelect({ kind: 'contact', contactId: aggregated.contactId })}

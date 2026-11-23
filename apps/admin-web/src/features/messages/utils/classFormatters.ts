@@ -37,7 +37,9 @@ export function formatClassesWithStartDatesList(
   if (classesWithDates.length === 0) return emptyMessage;
   return classesWithDates
     .map(({ class: cls, startDate }) => {
-      const className = cls.long_name?.trim() ?? '';
+      const name = cls.long_name?.trim() || cls.short_name?.trim() || 'Class';
+      const schedule = cls.schedule_summary_long?.trim() || cls.schedule_summary_short?.trim();
+      const className = [name, schedule].filter(Boolean).join(' · ');
       if (startDate) {
         const formattedDate = formatShortDateWithDay(startDate);
         return `- ${className} starting on ${formattedDate}`;

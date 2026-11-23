@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 
 export type AccessoryKind =
   | "task"
@@ -37,6 +38,13 @@ export const accessoryFamily = (kind: AccessoryKind) =>
       document: "documents",
     }) as Partial<Record<AccessoryKind, AccessoryFamily>>
   )[kind] ?? kind;
+
+export function accessoryHref(destination: AccessoryDestination) {
+  const family = accessoryFamily(destination.kind);
+  const query = destination.query ? `?${destination.query}` : "";
+  if (destination.kind === "messages") return `/messages${query}`;
+  return `/${family}${destination.id ? `/${encodeURIComponent(destination.id)}` : ""}${query}`;
+}
 
 function messagesConversationId(query: string, fallback?: string) {
   const params = new URLSearchParams(query);
@@ -203,6 +211,7 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       const record = recordDestination(tab);
       if (!record) return;
       tab = record;
+      if (requestPane("navigate", accessoryHref(record), "primary")) return;
       setWorkspace((current) => {
         const query = tab.query ?? "";
         const id =
@@ -251,6 +260,7 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       const record = recordDestination(destination);
       if (!record) return;
       destination = record;
+      if (key === "route" && requestPane("replace", accessoryHref(record), "primary")) return;
       setWorkspace((current) => ({
         ...current,
         expanded: true,
