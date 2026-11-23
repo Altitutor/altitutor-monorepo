@@ -277,6 +277,55 @@ it('keeps separate query caches independently subscribed and fresh', async () =>
   secondCache.clear();
 });
 
+it('stays responsive when a detail reader closes during a request and rejoins with fresh data', async () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  const list = renderHook(() => useProjects(), { wrapper });
+  const detail = renderHook(() => useProject(projectId), { wrapper });
+  await waitFor(() => {
+    expect(list.result.current.data?.[0]?.name).toBe('Before update');
+    expect(detail.result.current.data?.name).toBe('Before update');
+  });
+  let held = false;
+  let release = () => {};
+  gateRead = (url) => {
+    if (!held && url.pathname.endsWith('/projects') && url.searchParams.has('id')) {
+      held = true;
+      return new Promise<void>((resolve) => { release = resolve; });
+    }
+    return undefined;
+  };
+  let request: Promise<unknown> | undefined;
+  act(() => { request = detail.result.current.refetch(); });
+  await waitFor(() => expect(held).toBe(true));
+  detail.unmount();
+  // Bound a broken scheduler so this responsiveness regression fails rather
+  // than hanging the entire test process and starving its watchdog timers.
+  const enqueue = globalThis.queueMicrotask;
+  let microtasks = 0;
+  let exhausted = false;
+  const scheduler = jest.spyOn(globalThis, 'queueMicrotask').mockImplementation((task) => {
+    if (++microtasks > 100) { exhausted = true; throw new Error('Microtask work budget exceeded'); }
+    enqueue(task);
+  });
+  let rejoined: ReturnType<typeof renderHook<ReturnType<typeof useProject>, unknown>> | undefined;
+  try {
+    await act(async () => { projectName = 'Fresh after navigation'; change('projects'); });
+    await waitFor(() => expect(list.result.current.data?.[0]?.name).toBe('Fresh after navigation'));
+    await act(async () => { release(); await request; });
+    rejoined = renderHook(() => useProject(projectId), { wrapper });
+    await waitFor(() => expect(rejoined?.result.current.data?.name).toBe('Fresh after navigation'));
+    expect(exhausted).toBe(false);
+  } finally {
+    release();
+    scheduler.mockRestore();
+    rejoined?.unmount();
+    list.unmount();
+    queryClient.clear();
+  }
+});
+
 it('uses committed new invalidation callbacks without rejoining', async () => {
   const queryClient = new QueryClient();
   queryClient.setQueryData(['old', 'record'], 'cached');

@@ -113,6 +113,13 @@ async function refresh(scope: Scope, client: QueryClient, query: Query, job: Ref
   job.scheduled = false;
   job.running = true;
   try {
+    // invalidateQueries only awaits active refetches. An unmounted reader can
+    // still have a request running; let it settle before marking that cache
+    // stale, rather than repeatedly scheduling work while nobody observes it.
+    if (!query.isActive() && query.state.fetchStatus === 'fetching') {
+      await query.promise?.catch(() => undefined);
+      if (!current()) return;
+    }
     // An existing read can finish with a pre-event snapshot. Reuse it, then
     // read once more; events during our own read likewise require a trailing read.
     job.dirty = query.state.fetchStatus === 'fetching';
