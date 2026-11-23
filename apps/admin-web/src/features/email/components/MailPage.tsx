@@ -241,6 +241,7 @@ export function MailPage() {
         </AdminActionGroup>
         <AdminPageActionButton
           icon={<Plus className="size-4" />}
+          createShortcut
           label="Compose"
           onClick={compose}
           disabled={!mailbox.data}

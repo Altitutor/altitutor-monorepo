@@ -15,6 +15,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
 import { matchShortcut } from "../registry";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
 import { paneRequestEvent, type PaneRequest } from "@/shared/components/pane-workspace/pane-routing";
 
 const openTab = jest.fn();
@@ -136,6 +137,19 @@ it.each([true, false])("opens Messages in a new pane with Shift at the start of 
   } finally {
     window.removeEventListener(paneRequestEvent, open);
   }
+});
+it("uses C only for a page action that opts into creation", () => {
+  const exportContacts = jest.fn();
+  const create = jest.fn();
+  render(
+    <AdminShortcuts>
+      <AdminPageActionButton label="Export VCF" icon={null} onClick={exportContacts} />
+      <AdminPageActionButton label="Add student" icon={null} onClick={create} createShortcut />
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "c" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(exportContacts).not.toHaveBeenCalled();
 });
 it("supports Mac Option symbols, Cmd/Ctrl K, and panel toggles", () => {
   render(<AdminShortcuts>Content</AdminShortcuts>);

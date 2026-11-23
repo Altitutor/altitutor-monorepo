@@ -10,10 +10,11 @@ type AdminPageActionButtonProps = Omit<ButtonProps, 'children' | 'size'> & {
   label: string;
   trailingIcon?: React.ReactNode;
   compact?: boolean;
+  createShortcut?: boolean;
 };
 
 export const AdminPageActionButton = React.forwardRef<HTMLButtonElement, AdminPageActionButtonProps>(
-  ({ className, icon, label, trailingIcon, compact, variant = 'default', ...props }, ref) => {
+  ({ className, icon, label, trailingIcon, compact, createShortcut = false, variant = 'default', ...props }, ref) => {
     const inlineLabel = usePanelMediaQuery('(min-width: 520px)');
     const iconOnly = compact ?? !inlineLabel;
     return (
@@ -21,7 +22,7 @@ export const AdminPageActionButton = React.forwardRef<HTMLButtonElement, AdminPa
       ref={ref}
       size={iconOnly ? "icon" : "sm"}
       variant={variant}
-      data-shortcut-create={variant === "default" ? "" : undefined}
+      data-shortcut-create={createShortcut ? "" : undefined}
       className={cn("h-8 shrink-0 rounded-full", iconOnly && "w-8 px-0", className)}
       aria-label={props['aria-label'] ?? label}
       {...props}

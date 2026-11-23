@@ -227,7 +227,12 @@ export function PaneWorkspace({
       setPeers((current) => [...current, { id, href, initial: href }]);
       setActive(id);
     }
-    function close(id: string) {
+    function paneHasFocus(id: string) {
+      const focused = document.activeElement;
+      return focused?.getAttribute("data-close-workspace-tab") === id ||
+        document.getElementById(`workspace-pane-${id}`)?.contains(focused) === true;
+    }
+    function close(id: string, preserveFocus = paneHasFocus(id)) {
       const snapshot = latest.current;
       if (snapshot.visibleIds.length <= 1) return;
       const index = snapshot.visibleIds.indexOf(id);
@@ -236,12 +241,14 @@ export function PaneWorkspace({
       else setPeers((current) => current.filter((peer) => peer.id !== id));
       histories.current.delete(id);
       readyFrames.current.delete(id);
-      if (document.activeElement?.getAttribute("data-close-workspace-tab") === id) restoreFocus.current = true;
+      if (preserveFocus) restoreFocus.current = true;
       if (snapshot.active === id) setActive(remaining[Math.min(index, remaining.length - 1)]);
     }
     closePane.current = (id) => {
-      if (id === primary) withPaneCloseGate(() => close(id));
-      else if (canReachPeer(id)) send(id, { action: "close" });
+      if (id === primary) {
+        const preserveFocus = paneHasFocus(id);
+        withPaneCloseGate(() => close(id, preserveFocus));
+      } else if (canReachPeer(id)) send(id, { action: "close" });
       else close(id);
     };
     function navigate(id: string, href: string, replace = false) {

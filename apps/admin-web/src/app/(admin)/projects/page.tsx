@@ -15,7 +15,7 @@ export default function ProjectsPage() {
   return (
     <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: next => { if (next === "list" || next === "board") setView(next); } }}>
       <ListSettingsMenu list="projects" />
-      <AdminPageActions><AdminPageActionButton icon={<Plus />} label="Add project" onClick={() => openCreateProjectDialog()} /></AdminPageActions>
+      <AdminPageActions><AdminPageActionButton icon={<Plus />} createShortcut label="Add project" onClick={() => openCreateProjectDialog()} /></AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><ProjectsCollection mode={view} /></div>
     </ToolbarViewProvider>
   );

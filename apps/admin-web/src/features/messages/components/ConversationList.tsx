@@ -171,6 +171,7 @@ export function ConversationList({
   };
   const composeButton = (
     <AdminPageActionButton
+      createShortcut
       label="New conversation"
       title="New conversation"
       icon={<Plus className="size-4" />}

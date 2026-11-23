@@ -398,8 +398,9 @@ test('Shift opens a record or a collection in a separate pane', async ({ page })
   await expect(task.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Board drag check 001');
   await expect(card).toBeVisible();
   const peer = page.locator('iframe[data-admin-pane-frame]');
-  await page.getByRole('button', { name: 'Close Tasks pane', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Close Tasks pane', exact: true }).last().press('Enter');
   await expect(peer).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Tasks pane', exact: true })).toBeFocused();
   await page.keyboard.press('Shift+g');
   await page.keyboard.press('Shift+m');
   const messages = page.frameLocator('iframe[data-admin-pane-frame][title="Messages pane content"]');
