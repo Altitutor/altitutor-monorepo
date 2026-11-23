@@ -28,7 +28,7 @@ export async function syncMailbox(
     // not starve Outlook reconciliation or reserve jobs we cannot start.
     const [scheduled, synced] = await Promise.allSettled([
       dispatchScheduledMail(db, mailbox),
-      synchronize(db, mailbox, started),
+      synchronize(db, mailbox, started, token),
     ]);
     if (scheduled.status === "rejected") throw scheduled.reason;
     if (synced.status === "rejected") throw synced.reason;
@@ -39,12 +39,11 @@ export async function syncMailbox(
   }
 }
 
-async function synchronize(
+async function refreshFolderInventory(
   db: SupabaseClient<Database>,
   mailbox: ReturnType<typeof createGraphMailbox>,
-  started: number,
+  token: string,
 ) {
-  await reconcileOperationalMail(db, mailbox);
   const folders = await mailbox.folders();
   // Outlook allows four concurrent requests per app/mailbox. Use two sync
   // requests at a time, leaving capacity for foreground commands.
@@ -72,52 +71,48 @@ async function synchronize(
       )),
     );
   }
-  if (folders.length) {
-    const saved = await db.from("email_folders").upsert(
-      folders.map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        parent_id: folder.parentId,
-        role: roles.find((known) => known?.id === folder.id)?.role ?? null,
-        present: true,
-      })),
-    );
-    if (saved.error) throw saved.error;
-  }
-  // Only a complete provider enumeration can remove a folder from navigation.
-  const known = await db.from("email_folders").select("id").eq("present", true);
-  if (known.error) throw known.error;
-  const missing = known.data.filter(
-    (folder) => !folders.some((current) => current.id === folder.id),
-  );
-  if (missing.length) {
-    const marked = await db
-      .from("email_folders")
-      .update({ present: false })
-      .in(
-        "id",
-        missing.map((folder) => folder.id),
-      );
-    if (marked.error) throw marked.error;
-    const cleared = await db
-      .from("email_messages")
-      .update({ removed: true, folder_id: null })
-      .in(
-        "folder_id",
-        missing.map((folder) => folder.id),
-      );
-    if (cleared.error) throw cleared.error;
-  }
+  // A complete provider scan is authoritative for folder removals.
+  const saved = await db.rpc("email_reconcile_sync_folder_inventory", {
+    p_mailbox_address: mailbox.policy.address,
+    p_token: token,
+    p_folders: folders.map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      parent_id: folder.parentId,
+      role: roles.find((known) => known?.id === folder.id)?.role ?? null,
+    })),
+  });
+  if (saved.error) throw saved.error;
+  return folders.map(({ id }) => id);
+}
+
+async function synchronize(
+  db: SupabaseClient<Database>,
+  mailbox: ReturnType<typeof createGraphMailbox>,
+  started: number,
+  token: string,
+) {
+  await reconcileOperationalMail(db, mailbox);
+  const inventory = await db.rpc("email_read_sync_folder_inventory", {
+    p_mailbox_address: mailbox.policy.address,
+    p_token: token,
+  });
+  if (inventory.error) throw inventory.error;
+  const folderIds =
+    inventory.data ?? (await refreshFolderInventory(db, mailbox, token));
   const states = await db.from("email_sync_state").select("*");
   if (states.error) throw states.error;
-  const queue = folders.map((folder) => ({
-    id: folder.id,
-    cursor:
-      states.data.find((state) => state.folder_id === folder.id)?.cursor_url ??
-      undefined,
-    pageAt:
-      states.data.find((state) => state.folder_id === folder.id)?.page_at ?? "",
-  }));
+  const statesByFolder = new Map(
+    states.data.map((state) => [state.folder_id, state]),
+  );
+  const queue = folderIds.map((id) => {
+    const state = statesByFolder.get(id);
+    return {
+      id,
+      cursor: state?.cursor_url ?? undefined,
+      pageAt: state?.page_at ?? "",
+    };
+  });
   queue.sort((a, b) => a.pageAt.localeCompare(b.pageAt));
   let pages = 0,
     imported = 0,
@@ -171,7 +166,7 @@ async function synchronize(
   return {
     pages,
     imported,
-    folders: folders.length,
+    folders: folderIds.length,
     more: queue.length > 0 || errors > 0,
     errors,
   };

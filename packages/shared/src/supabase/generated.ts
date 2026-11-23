@@ -3314,16 +3314,19 @@ export type Database = {
         Row: {
           address: string
           bound_at: string
+          folder_inventory_synced_at: string | null
           singleton: boolean
         }
         Insert: {
           address: string
           bound_at?: string
+          folder_inventory_synced_at?: string | null
           singleton?: boolean
         }
         Update: {
           address?: string
           bound_at?: string
+          folder_inventory_synced_at?: string | null
           singleton?: boolean
         }
         Relationships: []
@@ -47767,6 +47770,14 @@ export type Database = {
           record_id: string
           record_type: string
         }[]
+      }
+      email_read_sync_folder_inventory: {
+        Args: { p_mailbox_address: string; p_token: string }
+        Returns: string[]
+      }
+      email_reconcile_sync_folder_inventory: {
+        Args: { p_folders: Json; p_mailbox_address: string; p_token: string }
+        Returns: undefined
       }
       email_release_sync: { Args: { p_token: string }; Returns: undefined }
       email_reset_sync_cursor: {
