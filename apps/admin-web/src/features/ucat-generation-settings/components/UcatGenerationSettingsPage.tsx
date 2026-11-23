@@ -61,8 +61,15 @@ type GeneralSettingRow = {
   description: string;
 };
 
-const VALID_TABS = ['general', 'providers', 'models', 'prompts'] as const;
-type SettingsTab = (typeof VALID_TABS)[number];
+const generationTabs = [
+  { value: 'general', label: 'General' },
+  { value: 'prompts', label: 'Prompts' },
+] as const;
+const modelTabs = [
+  { value: 'providers', label: 'Providers' },
+  { value: 'models', label: 'Models' },
+] as const;
+type SettingsTab = (typeof generationTabs | typeof modelTabs)[number]['value'];
 
 type SystemPromptKey = keyof Pick<
   UcatGenerationSystemPrompts,
@@ -1635,7 +1642,7 @@ function PromptLayerDialog({
   );
 }
 
-export function UcatGenerationSettingsPage() {
+export function UcatGenerationSettingsPage({ surface = 'generation' }: { surface?: 'generation' | 'models' }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1645,7 +1652,9 @@ export function UcatGenerationSettingsPage() {
   const [addingCodexProvider, setAddingCodexProvider] = useState(false);
   const [creatingPromptLayer, setCreatingPromptLayer] = useState(false);
   const tabParam = searchParams.get('tab');
-  const activeTab: SettingsTab = VALID_TABS.includes(tabParam as SettingsTab) ? (tabParam as SettingsTab) : 'general';
+  const tabs = surface === 'models' ? modelTabs : generationTabs;
+  const title = surface === 'models' ? 'Model providers' : 'UCAT generation';
+  const activeTab = tabs.find(({ value }) => value === tabParam)?.value ?? tabs[0].value;
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoadState({ status: 'loading', data: null, error: null });
@@ -1662,9 +1671,9 @@ export function UcatGenerationSettingsPage() {
   }, [load]);
 
   function handleTabChange(value: string) {
-    const nextTab = VALID_TABS.includes(value as SettingsTab) ? (value as SettingsTab) : 'general';
+    const nextTab: SettingsTab = tabs.find((tab) => tab.value === value)?.value ?? tabs[0].value;
     const params = new URLSearchParams(searchParams.toString());
-    if (nextTab === 'general') params.delete('tab');
+    if (nextTab === tabs[0].value) params.delete('tab');
     else params.set('tab', nextTab);
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -1716,8 +1725,8 @@ export function UcatGenerationSettingsPage() {
   if (loadState.status === 'loading') {
     return (
       <div className="space-y-6 p-6">
-        <SettingsPageHeader title="UCAT AI" actions={headerActions} />
-        <p className="text-sm text-muted-foreground">Loading UCAT AI settings...</p>
+        <SettingsPageHeader title={title} actions={headerActions} />
+        <p className="text-sm text-muted-foreground">Loading settings…</p>
       </div>
     );
   }
@@ -1725,7 +1734,7 @@ export function UcatGenerationSettingsPage() {
   if (loadState.status === 'error') {
     return (
       <div className="space-y-6 p-6">
-        <SettingsPageHeader title="UCAT AI" actions={headerActions} />
+        <SettingsPageHeader title={title} actions={headerActions} />
         <p className="text-sm text-destructive">{loadState.error}</p>
       </div>
     );
@@ -1736,18 +1745,13 @@ export function UcatGenerationSettingsPage() {
   return (
     <TooltipProvider delayDuration={150}>
     <div className="space-y-6 p-6">
-      <SettingsPageHeader title="UCAT AI" actions={headerActions} />
+      <SettingsPageHeader title={title} actions={headerActions} />
       <SegmentedControl
         className="w-full max-w-xl min-w-0"
         fullWidth
         value={activeTab}
         onValueChange={handleTabChange}
-        options={[
-          { value: 'general', label: 'General' },
-          { value: 'providers', label: 'Providers' },
-          { value: 'models', label: 'Models' },
-          { value: 'prompts', label: 'Prompts' },
-        ]}
+        options={[...tabs]}
       />
 
       <SegmentedTabPanelContent when="general" activeTab={activeTab}>

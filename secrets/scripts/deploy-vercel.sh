@@ -17,13 +17,13 @@ source "$SCRIPT_DIR/common.sh"
 ONLY_SECRET=""
 DEPLOY_ENVIRONMENT="all"
 usage() {
-    echo "Usage: $0 [--only CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL] [--environment development|production|all]" >&2
+    echo "Usage: $0 [--only CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|ADMIN_AI_OPENAI_API_KEY|ADMIN_AI_OPENROUTER_API_KEY|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL] [--environment development|production|all]" >&2
 }
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --only)
             case "${2:-}" in
-                CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL) ONLY_SECRET="$2" ;;
+                CRON_SECRET|DAILY_API_KEY|ADMIN_REPORTING_DATABASE_URL|ADMIN_AI_OPENAI_API_KEY|ADMIN_AI_OPENROUTER_API_KEY|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL) ONLY_SECRET="$2" ;;
                 *) usage; exit 1 ;;
             esac
             shift 2
@@ -346,6 +346,9 @@ while IFS='=' read -r key value; do
     # Restricted reporting credentials belong only to admin-web.
     elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
+    # Staff chat uses separate, admin-only inference credentials.
+    elif [[ "$key" == "ADMIN_AI_OPENAI_API_KEY" || "$key" == "ADMIN_AI_OPENROUTER_API_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "preview"
@@ -425,6 +428,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
     # Restricted reporting credentials belong only to admin-web.
     elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
+    # Staff chat uses separate, admin-only inference credentials.
+    elif [[ "$key" == "ADMIN_AI_OPENAI_API_KEY" || "$key" == "ADMIN_AI_OPENROUTER_API_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
