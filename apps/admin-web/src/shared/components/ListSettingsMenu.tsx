@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import {
   Button,
   DropdownMenu,
@@ -15,15 +15,14 @@ import {
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { listSettingsLinks, type ListSettingsKey } from "@/shared/constants/listSettings";
 
-export function ListSettingsMenu({ list, children }: { list: ListSettingsKey; children?: ReactNode }) {
+export function ListSettingsMenu({ list, children, inline = false }: { list: ListSettingsKey; children?: ReactNode; inline?: boolean }) {
   const items = listSettingsLinks[list];
 
-  return (
-    <AdminPageActions priority="secondary">
+  const menu = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Go to settings">
-            <MoreVertical className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="size-8 rounded-full" data-shortcut-menu aria-keyshortcuts="M" aria-label="Page actions">
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -31,6 +30,6 @@ export function ListSettingsMenu({ list, children }: { list: ListSettingsKey; ch
           {children && <><DropdownMenuSeparator />{children}</>}
         </DropdownMenuContent>
       </DropdownMenu>
-    </AdminPageActions>
   );
+  return inline ? menu : <AdminPageActions priority="secondary">{menu}</AdminPageActions>;
 }

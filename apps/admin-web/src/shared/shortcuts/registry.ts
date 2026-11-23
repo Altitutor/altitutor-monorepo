@@ -5,7 +5,7 @@ export const shortcuts = {
   search: { code: "KeyF", keys: ["Alt", "F"], title: "Search" },
   right: { code: "BracketRight", keys: ["]"], title: "Toggle right panel" },
   left: { code: "BracketLeft", keys: ["["], title: "Toggle left panel" },
-  close: { code: "KeyW", keys: ["Alt", "W"], title: "Close right tab" },
+  close: { code: "KeyW", keys: ["Alt", "W"], title: "Close active pane" },
 } as const;
 export type ShortcutId = keyof typeof shortcuts;
 export function matchShortcut(
@@ -54,10 +54,11 @@ export const toastHotkey = ["altKey", "shiftKey", "KeyT"];
 export const pageShortcuts = [
   ["t", "/tasks", "Tasks"], ["i", "/issues", "Issues"],
   ["p", "/projects", "Projects"], ["d", "/documents", "Documents"],
-  ["m", "/messages", "Messages"], ["e", "/email", "Mail"],
+  ["m", "/messages", "Messages"], ["e", "/email", "Email"],
   ["h", "/dashboard", "Home"], ["s", "/students", "Students"],
-  ["a", "/parents", "Parents"], ["f", "/staff", "Staff"],
-  ["c", "/classes", "Classes"], ["n", "/sessions", "Sessions"],
-  ["b", "/billing", "Invoices"], ["r", "/reports", "Reports"],
-  ["u", "/subjects", "Subjects"], ["q", "/reconciliation", "Reconciliation"],
+  ["a", "/parents", "Parents"], ["w", "/staff", "Staff"],
+  ["c", "/sessions", "Calendar"], ["l", "/classes", "Classes"],
+  ["f", "/subjects", "Files"], ["n", "/sessions", "Sessions"],
+  ["b", "/billing", "Billing"], ["r", "/reports", "Reports"],
+  ["u", "/subjects", "Subjects"],
 ] as const;

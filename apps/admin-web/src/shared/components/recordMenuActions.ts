@@ -17,6 +17,7 @@ import {
   UserX,
   type LucideIcon,
 } from "lucide-react";
+import { openEntityReference } from "@/shared/utils/entityReference";
 import type { ActionsMenuProps } from "./ActionsMenu";
 import { SESSION_QUICK_ACTIONS } from "@/shared/constants/quickActions";
 
@@ -152,6 +153,10 @@ export function recordMenuActions(
       });
       break;
     case "parent":
+      for (const student of props.students ?? []) {
+        add(`go-to-student-${student.id}`, `Go to ${student.name || "student"}`, ExternalLink,
+          () => openEntityReference("student", student.id));
+      }
       add("edit", "Edit details", Pencil, props.onEditDetails);
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",

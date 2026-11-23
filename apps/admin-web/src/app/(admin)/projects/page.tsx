@@ -3,9 +3,10 @@
 import { ProjectsCollection } from "@/features/projects/components/ProjectsCollection";
 import { useAdminPageViewParam } from "@/shared/hooks/useAdminPageViewParam";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
-import { Button, ToolbarViewProvider } from "@altitutor/ui";
+import { ToolbarViewProvider } from "@altitutor/ui";
 import { Plus } from "lucide-react";
 
 export default function ProjectsPage() {
@@ -14,7 +15,7 @@ export default function ProjectsPage() {
   return (
     <ToolbarViewProvider value={{ value: view, options: [{ value: "list", label: "List" }, { value: "board", label: "Board" }], onChange: next => { if (next === "list" || next === "board") setView(next); } }}>
       <ListSettingsMenu list="projects" />
-      <AdminPageActions><Button onClick={openCreateProjectDialog}><Plus />Add project</Button></AdminPageActions>
+      <AdminPageActions><AdminPageActionButton icon={<Plus />} label="Add project" onClick={() => openCreateProjectDialog()} /></AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><ProjectsCollection mode={view} /></div>
     </ToolbarViewProvider>
   );

@@ -65,6 +65,7 @@ function actionProps(
     case "parent":
       return {
         type,
+        students: details.linkedStudents,
         onEditDetails: action("edit"),
         onDelete: action("delete"),
         onBookCheckIn: action("check-in"),

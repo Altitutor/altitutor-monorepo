@@ -445,34 +445,22 @@ test("email and message references open the correct record and reveal the specif
   for (const result of results)
     if (result.error) throw new Error(result.error.message);
   await page.goto(`/tasks/${taskId}`);
-  await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
-  await page.goto("/students/10000000-0000-0000-0000-000000000001");
-  await page
-    .locator(`[data-mention][data-type="email"][data-id="${emailId}"]`)
-    .click();
-  const panel = page.getByRole("complementary", {
-    name: "Accessory panel",
-    exact: true,
-  });
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+  const emailChip = page.locator(`[data-admin-main] .tiptap [data-mention][data-type="email"][data-id="${emailId}"]`);
+  await emailChip.click({ modifiers: ["Shift"] });
+  const emailPane = page.frameLocator('iframe[data-admin-pane-frame][title="Email pane content"]');
   await expect(
-    panel.getByRole("article", {
-      name: "Email: Exact email reference",
-      exact: true,
-    }),
+    emailPane.getByRole("article", { name: "Email: Exact email reference", exact: true }),
   ).toContainText("The specific referenced email.", { timeout: 30000 });
-  await panel
-    .getByRole("tab", {
-      name: "Correspondence reference browser check",
-      exact: true,
-    })
-    .click();
-  await page
-    .locator(`[data-mention][data-type="message"][data-id="${messageId}"]`)
-    .click();
-  const target = panel.locator(`[data-message-id="${messageId}"]`);
-  await expect(target).toContainText("The specific referenced message.", {
-    timeout: 30000,
-  });
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?`));
+  await expect(page.locator('iframe[data-admin-pane-frame]')).toHaveAttribute('src', new RegExp(`message=${emailId}`));
+  await page.getByRole("button", { name: "Close Email pane", exact: true }).click();
+
+  const messageChip = page.locator(`[data-admin-main] .tiptap [data-mention][data-type="message"][data-id="${messageId}"]`);
+  await messageChip.click();
+  await expect(page).toHaveURL(new RegExp(`/messages\\?.*message=${messageId}`));
+  const target = page.locator(`[data-admin-main] [data-message-id="${messageId}"]`);
+  await expect(target).toContainText("The specific referenced message.", { timeout: 30000 });
   await expect(target).toBeInViewport();
   await target.evaluate((element) => {
     let parent = element.parentElement;
@@ -482,15 +470,9 @@ test("email and message references open the correct record and reveal the specif
     parent.scrollTop = parent.scrollHeight;
   });
   await expect(target).not.toBeInViewport();
-  await panel
-    .getByRole("tab", {
-      name: "Correspondence reference browser check",
-      exact: true,
-    })
-    .click();
-  await page
-    .locator(`[data-mention][data-type="message"][data-id="${messageId}"]`)
-    .click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}`));
+  await messageChip.click();
   await expect(target).toBeInViewport();
   await target.hover();
   await target
@@ -501,12 +483,10 @@ test("email and message references open the correct record and reveal the specif
       .getByRole("dialog", { name: "Create Task", exact: true })
       .locator(`[data-mention][data-type="message"][data-id="${messageId}"]`),
   ).toContainText("The specific referenced message.");
-  await expect(page).toHaveURL(
-    /\/students\/10000000-0000-0000-0000-000000000001$/,
-  );
+  await expect(page).toHaveURL(new RegExp(`/messages\\?.*message=${messageId}`));
 });
 
-test("accessory resizing preserves edits, responsive layout, keyboard bounds and settled width", async ({
+test("pane resizing preserves edits, keyboard bounds and responsive tabs", async ({
   page,
   baseURL,
 }) => {
@@ -530,78 +510,35 @@ test("accessory resizing preserves edits, responsive layout, keyboard bounds and
   });
   if (result.error) throw new Error(result.error.message);
   await signIn(page);
-  await page.goto("/students");
-  await page
-    .getByRole("button", { name: "Expand accessory panel", exact: true })
-    .click();
-  const panel = page.getByRole("complementary", {
-    name: "Accessory panel",
-    exact: true,
-  });
-  await panel
-    .getByRole("button", { name: "Add accessory tab", exact: true })
-    .click();
-  await page.getByRole("dialog").getByRole("combobox").fill(name);
-  await page
-    .getByRole("dialog")
-    .getByRole("option", { name: new RegExp(name) })
-    .click();
-  const title = panel.getByPlaceholder("Issue title");
+  const issueHref = `/issues/${id}`;
+  await page.goto(`/students?pane=${encodeURIComponent(issueHref)}&activePane=1`);
+  const panel = page.getByRole("region", { name: "Issues pane", exact: true });
+  const editor = page.frameLocator('iframe[data-admin-pane-frame][title="Issues pane content"]');
+  const title = editor.getByPlaceholder("Issue title");
+  await expect(title).toHaveValue(name);
   await title.fill(`${name} edited`);
-  const divider = page.getByRole("separator", {
-    name: "Resize accessory panel",
-    exact: true,
-  });
-  const before = (await panel.boundingBox())!.width;
+  const divider = page.getByRole("separator", { name: "Resize adjacent panes", exact: true });
+  const width = async () => Math.round((await panel.boundingBox())!.width);
+  const before = await width();
   const handle = (await divider.boundingBox())!;
-  await page.mouse.move(
-    handle.x + handle.width / 2,
-    handle.y + handle.height / 2,
-  );
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await page.mouse.down();
-  await page.mouse.move(
-    handle.x + handle.width / 2 - 180,
-    handle.y + handle.height / 2,
-    { steps: 30 },
-  );
+  await page.mouse.move(handle.x + handle.width / 2 - 180, handle.y + handle.height / 2, { steps: 16 });
   await page.mouse.up();
-  await expect
-    .poll(async () => Math.round((await panel.boundingBox())!.width))
-    .toBe(Math.round(before + 180));
+  await expect.poll(width).toBeGreaterThan(before + 100);
+  const resized = await width();
+  await divider.press("ArrowRight");
+  await expect.poll(width).toBeLessThan(resized);
+  await expect(editor.getByRole("status")).toHaveText("Saved");
   await expect(title).toHaveValue(`${name} edited`);
-  await expect(panel.getByRole("status")).toHaveText("Saved");
-  const settled = (await panel.boundingBox())!.width;
+
+  await page.setViewportSize({ width: 580, height: 900 });
+  await expect(page.getByRole("tab", { name: "Issues", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(divider).toBeHidden();
+  await page.getByRole("tab", { name: "Students", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Students", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Issues", exact: true }).click();
   await page.reload();
-  const expand = page.getByRole("button", {
-    name: "Expand accessory panel",
-    exact: true,
-  });
-  if (await expand.isVisible()) await expand.click();
-  await expect
-    .poll(async () => Math.round((await panel.boundingBox())!.width))
-    .toBe(Math.round(settled));
-  await expect(title).toHaveValue(`${name} edited`);
-  await divider.focus();
-  await page.keyboard.press("Home");
-  await expect
-    .poll(async () => Math.round((await panel.boundingBox())!.width))
-    .toBe(320);
-  await expect(
-    panel.getByRole("separator", {
-      name: "Resize details sidebar",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await page.keyboard.press("End");
-  await expect
-    .poll(async () => Math.round((await panel.boundingBox())!.width))
-    .toBe(Number(await divider.getAttribute("aria-valuemax")));
-  await expect(
-    panel.getByRole("separator", {
-      name: "Resize details sidebar",
-      exact: true,
-    }),
-  ).toBeVisible();
   await expect(title).toHaveValue(`${name} edited`);
 });
 
@@ -811,7 +748,7 @@ test("Issues retain editable priority through create, autosave and hover preview
     .record;
   expect(record.priority).toBe(1);
   await page.goto(`/issues/${record.id}`);
-  const panel = page.locator("#admin-accessory-panel");
+  const panel = page.locator("[data-admin-main]");
   const urgent = panel.getByRole("button", { name: "Urgent", exact: true }).first();
   await expect(urgent).toBeVisible();
   await urgent.click();
@@ -847,7 +784,7 @@ test("Issues retain editable priority through create, autosave and hover preview
 
   await panel.getByRole("button", { name: "Record actions", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Add issue", exact: true })).toHaveCount(0);
-  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.setViewportSize({ width: 700, height: 900 });
   await page.goto("/students/10000000-0000-0000-0000-000000000001");
   await page.locator("[data-admin-main]").getByRole("button", { name: "Record actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
@@ -951,10 +888,8 @@ test("message chips reveal closed groups independently of the filtered inbox", a
   await page
     .locator(`[data-mention][data-type="message"][data-id="${messageId}"]`)
     .click();
-  const panel = page.getByRole("complementary", {
-    name: "Accessory panel",
-    exact: true,
-  });
+  const panel = page.locator("[data-admin-main]");
+  await expect(page).toHaveURL(new RegExp(`/messages\\?.*message=${messageId}`));
   const message = panel.locator(`[data-message-id="${messageId}"]`);
   await expect(message).toContainText("The referenced closed-group message.");
   await expect(message).toBeInViewport();

@@ -3,6 +3,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 import { formatTime, getDayOfWeek } from "@/shared/utils/datetime";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useState, useEffect } from "react";
 
@@ -222,8 +223,8 @@ export function AdminShiftDetailView({
           <div className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
             <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
-              <div className="px-4 pt-4 pb-3">
-                <div className="flex items-center justify-between gap-2">
+              <div className="pb-3">
+                <div className={adminPageHeaderClass} data-admin-page-header>
                   <PrimaryEntityBreadcrumb label={`${getDayOfWeek(adminShiftData.day_of_week)} ${formatTime(adminShiftData.start_time)} - ${formatTime(adminShiftData.end_time)}`} />
                   {adminShiftId && (
                     <ActionsMenu

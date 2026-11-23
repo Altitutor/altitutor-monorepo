@@ -8,7 +8,10 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Breadcrumb } from '@/shared/components/Breadcrumb';
+import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
 import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
@@ -25,7 +28,6 @@ import {
 } from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useUnknownNumberLinking } from '@/features/messages/hooks/useUnknownNumberLinking';
-import { AccessoryBreadcrumb } from '@/shared/components/accessory-panel/AccessoryBreadcrumb';
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
   linkedConversationEntity,
@@ -56,6 +58,9 @@ export function MessagesView() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>(contactParam || groupParam || conversationParam ? 'thread' : 'list');
   const isDesktopSplitPane = usePanelMediaQuery('(min-width: 768px)');
   const [isSearching, setIsSearching] = useState(false);
+  const openedInitialConversation = useRef(false);
+  const [filterTarget, setFilterTarget] = useState<HTMLDivElement | null>(null);
+  const [composeTarget, setComposeTarget] = useState<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
     useMessagingListFilters(tabScope ? `tab:${tabScope.tab.key}` : "page");
@@ -153,12 +158,14 @@ export function MessagesView() {
       setActiveContactId(null);
     } else if (
       !tabScope &&
+      !openedInitialConversation.current &&
       !activeContactId &&
       !activeGroupId &&
       !conversationParam
     ) {
       // Full /messages page: auto-select most recent contact when no URL param.
       // Accessory tabs stay on the conversation list until the user picks one.
+      openedInitialConversation.current = true;
       (async () => {
         const supabase = getSupabaseClient();
         const { data } = await supabase
@@ -277,9 +284,9 @@ export function MessagesView() {
     setComposeIntent(selection.kind === "contact" ? selection : null);
     setMobileView("thread");
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("conversation");
-    params.delete("contact");
-    params.delete("group");
+    for (const key of ["contact", "conversation", "group", "message", "focus"]) {
+      params.delete(key);
+    }
     if (selection.kind === "contact") {
       setActiveContactId(selection.contactId);
       setActiveGroupId(null);
@@ -293,7 +300,13 @@ export function MessagesView() {
   };
 
   const handleBack = () => {
-    setMobileView("list");
+    openedInitialConversation.current = true;
+    setIsSearching(false);
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of ["contact", "conversation", "group", "message", "focus"]) {
+      params.delete(key);
+    }
+    router.push(params.size ? `/messages?${params}` : "/messages");
   };
 
   const linkedEntity = linkedConversationEntity(activeContact);
@@ -327,26 +340,33 @@ export function MessagesView() {
       }),
   });
 
-  const renderConversationHeader = (filterControl?: ReactNode) => (
+  const showConversation = Boolean(activeSelection) &&
+    (Boolean(tabScope) || isDesktopSplitPane || mobileView === "thread");
+
+  const conversationHeader = (
     <>
       <ConversationHeader
-        filterControl={filterControl}
+        showConversationActions={showConversation}
+        filterControl={<div ref={setFilterTarget} className="empty:hidden" />}
+        extraActions={<>
+          {!showConversation && <ListSettingsMenu list="messages" inline />}
+          <div ref={setComposeTarget} className="empty:hidden" />
+        </>}
         compactActions
         paneHeader
         title={conversationTitle}
         titleSlot={
-          tabScope ? (
-            <AccessoryBreadcrumb
-              onCurrentClick={linkedEntity ? handleTitleClick : undefined}
-            />
-          ) : undefined
+          <Breadcrumb
+            primary
+            className="m-0 min-w-0 gap-1.5"
+            items={showConversation ? [
+              { label: "Messages", onClick: handleBack },
+              { label: conversationTitle, onClick: linkedEntity ? handleTitleClick : undefined },
+            ] : [{ label: "Messages" }]}
+          />
         }
         onSearchToggle={() => setIsSearching(!isSearching)}
         onTitleClick={linkedEntity ? handleTitleClick : undefined}
-        onBack={handleBack}
-        showBackButton={
-          !tabScope && !isDesktopSplitPane && mobileView === "thread"
-        }
         isUnread={
           activeSelection && (!activeGroupId || listedGroup)
             ? activeGroup
@@ -395,41 +415,25 @@ export function MessagesView() {
   );
 
   return (
-    <div className="p-0 h-full overflow-hidden">
-      <div className="flex h-full">
-        {/* Conversation List 
-            - Mobile (< md): Full width when viewing list, hidden when viewing thread
-            - Medium (md-xl): Fixed width, always visible alongside messages
-            - Wide (xl+): Fixed width, always visible with info panel
-        */}
-        {!tabScope && (
-          <div
-            className={`
-          flex-shrink-0
-          ${isDesktopSplitPane ? 'w-80' : mobileView === 'thread' ? 'hidden' : 'w-full'}
-        `}
-          >
-            <ConversationList
-              filterScope="page"
-              activeSelection={activeSelection}
-              onSelect={handleConversationSelect}
-            />
-          </div>
-        )}
-
-        {/* Messages 
-            - Mobile (< md): Full width when viewing thread, hidden when viewing list
-            - Medium (md+): Always visible, flex-1
-        */}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {conversationHeader}
+      <div className="flex min-h-0 flex-1">
+        <div
+          className={`shrink-0 ${tabScope ? "hidden" : isDesktopSplitPane ? "w-80" : mobileView === "thread" ? "hidden" : "w-full"}`}
+        >
+          <ConversationList
+            filterScope={tabScope ? `tab:${tabScope.tab.key}` : "page"}
+            composeTarget={composeTarget}
+            activeSelection={activeSelection}
+            onSelect={handleConversationSelect}
+          />
+        </div>
         <div
           className={`
           flex-1 flex-col min-w-0
-          ${!isDesktopSplitPane && mobileView === 'list' ? 'hidden' : 'flex'}
+          ${!tabScope && !isDesktopSplitPane && mobileView === 'list' ? 'hidden' : 'flex'}
         `}
         >
-          {!tabScope || !linkedEntity || !activeContactId
-            ? renderConversationHeader()
-            : null}
           <div className="flex-1 flex flex-col min-h-0">
             {linkedEntity && activeContactId && !targetMessageId ? (
               <EntityCommunicationPanel
@@ -447,8 +451,11 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
-                hideHistoryToolbar={Boolean(tabScope)}
-                renderHeader={tabScope ? renderConversationHeader : undefined}
+                hideHistoryToolbar
+                renderHeader={(filter) => showConversation && filterTarget
+                  ? createPortal(filter, filterTarget)
+                  : null
+                }
                 isSearching={isSearching}
                 searchTerm={searchTerm}
                 onSearchTermChange={setSearchTerm}

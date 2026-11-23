@@ -3,6 +3,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -258,7 +259,7 @@ export function TopicDetailView({
   return (
     <div className={isEditing ? "px-4 pt-4 min-h-full flex flex-col [--detail-page-gutter:1rem]" : "p-4 [--detail-page-gutter:1rem]"}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
         <ActionsMenu
           type="topic"

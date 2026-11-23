@@ -32,7 +32,7 @@ export const navItems: NavItem[] = [
     ],
   },
   { title: "Messages", href: "/messages", icon: MessageSquareText },
-  { title: "Mail", href: "/email", icon: Mail },
+  { title: "Email", href: "/email", icon: Mail },
   {
     title: "Files",
     href: "/subjects",
@@ -50,7 +50,6 @@ export const navItems: NavItem[] = [
       { title: "Tasks", href: "/tasks" },
       { title: "Projects", href: "/projects" },
       { title: "Issues", href: "/issues" },
-      { title: "Reconciliation", href: "/reconciliation" },
     ],
   },
   {
@@ -64,11 +63,7 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    type: "heading",
-    title: "FINANCIAL",
-  },
-  {
-    title: "Invoices",
+    title: "Billing",
     href: "/billing",
     icon: CreditCard,
     children: [

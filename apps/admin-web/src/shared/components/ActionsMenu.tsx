@@ -125,6 +125,7 @@ interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: "parent";
+  students?: ReadonlyArray<{ id: string; name: string }>;
   onEditDetails?: () => void;
   onDelete?: () => void;
   onBookCheckIn?: () => void;
@@ -377,7 +378,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
 
   if (props.type === "invoice") {
     return (
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
@@ -519,7 +520,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <TooltipContent>{action.title}</TooltipContent>
             </Tooltip>
           ))}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>

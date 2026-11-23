@@ -1,6 +1,7 @@
 "use client";
 import { requestOperationalEmail } from "@/features/email/api/operational";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useRouter } from "next/navigation";
 import { Button, Separator, Badge } from "@altitutor/ui";
@@ -308,7 +309,7 @@ export default function InvoiceDetailPage(
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
         <PrimaryEntityBreadcrumb
           label={formatInvoiceTagText({
           invoiceNumber: invoice.stripe_invoice_number,

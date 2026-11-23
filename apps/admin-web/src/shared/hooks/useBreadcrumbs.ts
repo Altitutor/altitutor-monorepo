@@ -28,7 +28,7 @@ const pathLabelMap: Record<string, string> = {
   classes: 'Classes',
   sessions: 'Sessions',
   messages: 'Messages',
-  email: 'Mail',
+  email: 'Email',
   'deleted-records': 'Deleted entities',
   feedback: 'Feedback',
   forms: 'Forms',

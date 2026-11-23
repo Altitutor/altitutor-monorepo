@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { AlertTriangle, FileText, FolderKanban, PanelTop, X } from "lucide-react";
+import { navItems } from "@/shared/constants/adminNavigation";
+import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
 import { toast } from "sonner";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
+import { GoHintsContext } from "@/shared/shortcuts/context";
 import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
 import {
   openReferenceInPane, paneFrameAttribute, paneHref, paneRequestEvent,
@@ -22,6 +25,7 @@ type Peer = { id: string; initial: string; href: string };
 type FrameMessage =
   | { action: "activate" | "ready" }
   | { action: "location"; href: string }
+  | { action: "go-hints"; visible: boolean }
   | { action: "open"; href: string }
   | { action: "back" | "close" };
 
@@ -50,6 +54,13 @@ export function EmbeddedPaneEvents() {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams().toString();
+  const goHints = useContext(GoHintsContext);
+  useEffect(() => {
+    window.parent.postMessage(
+      { adminPane: { action: "go-hints", visible: goHints } satisfies FrameMessage },
+      location.origin,
+    );
+  }, [goHints]);
   useEffect(() => {
     const send = (message: FrameMessage) => window.parent.postMessage({ adminPane: message }, location.origin);
     const activate = () => send({ action: "activate" });
@@ -81,14 +92,14 @@ export function EmbeddedPaneEvents() {
     window.addEventListener(paneRequestEvent, handleRequest);
     document.addEventListener("pointerdown", activate, true);
     document.addEventListener("focusin", activate, true);
-    document.addEventListener("click", shift, true);
+    window.addEventListener("click", shift, true);
     send({ action: "ready" });
     return () => {
       window.removeEventListener("message", receive);
       window.removeEventListener(paneRequestEvent, handleRequest);
       document.removeEventListener("pointerdown", activate, true);
       document.removeEventListener("focusin", activate, true);
-      document.removeEventListener("click", shift, true);
+      window.removeEventListener("click", shift, true);
     };
   }, [router]);
   useEffect(() => {
@@ -108,12 +119,20 @@ function initialPeers(search: URLSearchParams): Peer[] {
 }
 
 function paneTitle(href: string) {
-  const names: Record<string, string> = { dashboard: "Home", email: "Mail", sessions: "Sessions" };
+  const names: Record<string, string> = { dashboard: "Home", sessions: "Sessions" };
   const segment = href.split(/[/?#]/)[1] || "dashboard";
   return names[segment] ?? segment.replaceAll("-", " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
-export function PaneWorkspace({ children }: { children: ReactNode }) {
+const paneIcons = { issues: AlertTriangle, projects: FolderKanban, documents: FileText, notes: FileText };
+
+export function PaneWorkspace({
+  children, onActivePathChange, onPeerGoHintsChange,
+}: {
+  children: ReactNode;
+  onActivePathChange?: (pathname: string) => void;
+  onPeerGoHintsChange?: (visible: boolean) => void;
+}) {
   const router = useRouter();
   const { close: closeMobileMenu } = useMobileMenu();
   const pathname = usePathname();
@@ -124,6 +143,8 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
   const [peers, setPeers] = useState(() => initialPeers(params).slice(0, mainOpen ? 2 : 3));
   const visibleIds = [...(mainOpen ? [primary] : []), ...peers.map((peer) => peer.id)];
   const [active, setActive] = useState(() => visibleIds[Number(params.get("activePane"))] ?? visibleIds[0] ?? primary);
+  const [goHintPane, setGoHintPane] = useState<string | null>(null);
+  const restoreFocus = useRef(false);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [width, setWidth] = useState(0);
   const frameRefs = useRef(new Map<string, HTMLIFrameElement>());
@@ -133,6 +154,15 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
   const closePane = useRef<(id: string) => void>(() => {});
   const host = useRef<HTMLDivElement>(null);
   const narrow = visibleIds.length > 1 && width < visibleIds.length * minWidth;
+  const hrefForPane = (id: string) => id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? mainHref;
+  const activePath = hrefForPane(active).split(/[?#]/)[0];
+  useEffect(() => onActivePathChange?.(activePath), [activePath, onActivePathChange]);
+  useEffect(() => onPeerGoHintsChange?.(goHintPane === active), [goHintPane, active, onPeerGoHintsChange]);
+  useEffect(() => {
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    document.getElementById(`workspace-${narrow ? "tab" : "pane"}-${active}`)?.focus();
+  }, [peers, active, mainOpen, narrow]);
   const state = { active, peers, mainOpen, visibleIds, mainHref };
   const latest = useRef(state);
   latest.current = state;
@@ -206,6 +236,7 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
       else setPeers((current) => current.filter((peer) => peer.id !== id));
       histories.current.delete(id);
       readyFrames.current.delete(id);
+      if (document.activeElement?.getAttribute("data-close-workspace-tab") === id) restoreFocus.current = true;
       if (snapshot.active === id) setActive(remaining[Math.min(index, remaining.length - 1)]);
     }
     closePane.current = (id) => {
@@ -256,6 +287,7 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
       if (!id || !message) return;
       if (message.action === "ready") readyFrames.current.add(id);
       if (message.action === "activate") setActive(id);
+      if (message.action === "go-hints") setGoHintPane((current) => message.visible ? id : current === id ? null : current);
       if (message.action === "close") close(id);
       if (message.action === "back") back(id);
       if (message.action === "open") {
@@ -286,11 +318,11 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
     };
     window.addEventListener(paneRequestEvent, request);
     window.addEventListener("message", receive);
-    document.addEventListener("click", click, true);
+    window.addEventListener("click", click, true);
     return () => {
       window.removeEventListener(paneRequestEvent, request);
       window.removeEventListener("message", receive);
-      document.removeEventListener("click", click, true);
+      window.removeEventListener("click", click, true);
     };
   // The listeners consult the latest workspace state through a ref.
   }, [router, closeMobileMenu]);
@@ -311,20 +343,23 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
         className={hidden ? "hidden" : "flex min-h-0 min-w-0"}>
         <section
           aria-label={`${label} pane`}
+          id={`workspace-pane-${id}`}
+          tabIndex={-1}
+          role={narrow ? "tabpanel" : undefined}
+          aria-labelledby={narrow ? `workspace-tab-${id}` : undefined}
           data-shortcut-pane
           data-admin-active-pane={active === id ? "true" : undefined}
           onPointerDownCapture={() => setActive(id)}
           onFocusCapture={() => setActive(id)}
-          className={`flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background ${active === id && visibleIds.length > 1 ? "border-primary/60" : "border-border"}`}
+          className={`relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background ${active === id && visibleIds.length > 1 ? "border-primary/60" : "border-border"}`}
         >
-          <div className="flex h-8 shrink-0 items-center gap-2 border-b px-2 text-xs text-muted-foreground">
-            <button type="button" aria-label={`Close ${label} pane`} disabled={visibleIds.length <= 1}
+          {!narrow && visibleIds.length > 1 && (
+            <button type="button" aria-label={`Close ${label} pane`}
               onClick={() => closePane.current(id)}
-              className="rounded p-1 hover:bg-muted disabled:opacity-35">
-              <X className="size-3.5" />
+              className="absolute left-0 top-0 z-20 grid size-6 place-items-center rounded-br-lg border-b border-r bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-ring">
+              <X className="size-3.5" aria-hidden />
             </button>
-            <span className="truncate">{label}</span>
-          </div>
+          )}
           {content}
         </section>
         {!narrow && index >= 0 && index < visibleIds.length - 1 && (
@@ -362,14 +397,42 @@ export function PaneWorkspace({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col p-1" data-admin-pane-workspace>
       {narrow && (
-        <nav aria-label="Open panes" className="flex shrink-0 gap-1 overflow-auto pb-1">
-          {visibleIds.map((id, index) => (
-            <button key={id} type="button" aria-pressed={id === active} onClick={() => setActive(id)}
-              className="whitespace-nowrap rounded-md px-2 py-1 text-xs aria-pressed:bg-muted">
-              {index + 1} · {paneTitle(id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? "/dashboard")}
-            </button>
-          ))}
-        </nav>
+        <div role="tablist" aria-label="Open panes" className="flex h-11 min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b bg-background px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {visibleIds.map((id, index) => {
+            const href = hrefForPane(id);
+            const root = href.split(/[/?#]/)[1];
+            const item = navItems.find((entry) => entry.type !== "heading" &&
+              (entry.href === `/${root}` || entry.children?.some((child) => child.href === `/${root}`)));
+            const Icon = paneIcons[root as keyof typeof paneIcons] ?? (item?.type !== "heading" ? item?.icon : undefined) ?? PanelTop;
+            const label = paneTitle(href);
+            return (
+              <div key={id} className={`group flex shrink-0 items-center rounded-lg transition-colors ${id === active ? `${navLinkActiveStyles} text-foreground` : `${navLinkInactiveStyles} text-muted-foreground hover:text-foreground`}`}>
+                <button id={`workspace-tab-${id}`} type="button" role="tab"
+                  title={label} aria-selected={id === active} aria-controls={`workspace-pane-${id}`} tabIndex={id === active ? 0 : -1}
+                  className="flex max-w-44 items-center gap-2 rounded-lg px-2.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => setActive(id)}
+                  onKeyDown={(event) => {
+                    const count = visibleIds.length;
+                    const next = event.key === "Home" ? 0 : event.key === "End" ? count - 1
+                      : event.key === "ArrowLeft" ? (index - 1 + count) % count
+                      : event.key === "ArrowRight" ? (index + 1) % count : null;
+                    if (next === null) return;
+                    event.preventDefault();
+                    const nextId = visibleIds[next];
+                    setActive(nextId);
+                    document.getElementById(`workspace-tab-${nextId}`)?.focus();
+                  }}>
+                  <Icon className="size-4 shrink-0" aria-hidden />
+                  <span className="truncate">{label}</span>
+                </button>
+                <button type="button" data-close-workspace-tab={id} aria-label={`Close ${label} tab`} onClick={() => closePane.current(id)}
+                  className="mr-1 rounded p-1 hover:bg-background focus-visible:ring-2 focus-visible:ring-ring">
+                  <X className="size-3.5" aria-hidden />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       )}
       <div ref={host} className="flex min-h-0 min-w-0 flex-1">
         {renderPane(primary, mainHref, <ResponsivePane className="min-h-0 flex-1 overflow-hidden">{children}</ResponsivePane>)}

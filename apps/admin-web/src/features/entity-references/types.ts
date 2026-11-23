@@ -12,6 +12,7 @@ export type ReferenceDetails = {
   status?: string | null;
   fields: Array<{ label: string; value: string }>;
   people?: ReferencePerson[];
+  linkedStudents?: { id: string; name: string }[];
   logged?: boolean;
   actionState?: {
     deleted?: boolean;

@@ -45,7 +45,7 @@ export function openReferenceInPane(type: string, id: string, href?: string) {
       const target = details.destination;
       const route = details.href ?? (target?.kind === "messages"
         ? `/messages?${target.query ?? new URLSearchParams({ contact: target.id })}`
-        : target?.kind === "email" ? `/email/${encodeURIComponent(target.id)}` : undefined);
+        : target?.kind === "email" ? `/email/${encodeURIComponent(target.id)}${target.query ? `?${target.query}` : ""}` : undefined);
       if (route) requestPane("open", route);
     })
     .catch(() => undefined);

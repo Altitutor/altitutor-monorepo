@@ -81,17 +81,16 @@ export async function referenceDetails(
       const links = await read(
         db
           .from("parents_students")
-          .select("students(first_name,last_name)")
+          .select("students(id,first_name,last_name)")
           .eq("parent_id", id),
       );
+      const linkedStudents = (links ?? []).flatMap(({ students }) => students
+        ? [{ id: students.id, name: person(students) }]
+        : []);
       return {
         title: person(row),
-        fields: [
-          field(
-            "Students",
-            list((links ?? []).map((link) => person(link.students))),
-          ),
-        ],
+        fields: [field("Students", list(linkedStudents.map(({ name }) => name)))],
+        linkedStudents,
       };
     }
     case "staff": {

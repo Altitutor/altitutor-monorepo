@@ -1,4 +1,5 @@
 "use client";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
@@ -8,7 +9,6 @@ import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
 import { EmailThreadView } from "./EmailThreadView";
 import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
 import {
-  Button,
   DataTableToolbar,
   Skeleton,
   TablePagination,
@@ -200,7 +200,7 @@ export function MailPage() {
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <ListSettingsMenu list="mail" />
       <AdminPageActions>
-        <AdminActionGroup label="Mail actions">
+        <AdminActionGroup label="Email actions">
           {wide && (
             <EmailIconButton
               label={expanded ? "Hide conversation pane" : "Show conversation pane"}
@@ -238,17 +238,13 @@ export function MailPage() {
               className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
             />
           </EmailIconButton>
-          <Button
-            variant="default"
-            size="sm"
-            data-shortcut-create
-            onClick={compose}
-            disabled={!mailbox.data}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Compose
-          </Button>
         </AdminActionGroup>
+        <AdminPageActionButton
+          icon={<Plus className="size-4" />}
+          label="Compose"
+          onClick={compose}
+          disabled={!mailbox.data}
+        />
       </AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[480px]:flex-row">
         <MailFolders
