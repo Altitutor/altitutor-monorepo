@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(6);
+SELECT plan(9);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -28,7 +28,7 @@ VALUES (
 
 INSERT INTO public.question_sets (
   id, description, status, access_scope, section_id, set_format,
-  timing_mode, pace_multiplier, reference_blueprint_id
+  timing_mode, pace_multiplier, reference_blueprint_id, updated_at
 )
 SELECT
   fixture.id,
@@ -39,7 +39,11 @@ SELECT
   'full_section',
   'pace',
   1,
-  '54100000-0000-4000-8000-000000000001'
+  '54100000-0000-4000-8000-000000000001',
+  CASE WHEN fixture.id = 'ca820000-0000-4000-8000-000000000001'
+       THEN NOW() - INTERVAL '1 minute'
+       ELSE NOW()
+  END
 FROM (VALUES
   ('ca820000-0000-4000-8000-000000000001'::UUID),
   ('ca820000-0000-4000-8000-000000000002'::UUID),
@@ -51,7 +55,41 @@ FROM (VALUES
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 VALUES
-  ('ca810000-0000-4000-8000-000000000001', 'ca820000-0000-4000-8000-000000000001', 1);
+  ('ca810000-0000-4000-8000-000000000001', 'ca820000-0000-4000-8000-000000000001', 1),
+  ('ca810000-0000-4000-8000-000000000001', 'ca820000-0000-4000-8000-000000000002', 1);
+
+CREATE TEMP TABLE initial_catalog_tuple AS
+SELECT ctid AS location
+FROM public.ucat_question_catalog_projection
+WHERE stem_id = 'ca810000-0000-4000-8000-000000000001';
+
+SELECT public.refresh_ucat_question_catalog_set_derived_fields_for_stems(
+  ARRAY['ca810000-0000-4000-8000-000000000001', NULL]::UUID[]
+);
+
+SELECT is(
+  (SELECT ctid FROM public.ucat_question_catalog_projection
+   WHERE stem_id = 'ca810000-0000-4000-8000-000000000001'),
+  (SELECT location FROM initial_catalog_tuple),
+  'refresh with the same derived values does not write another tuple'
+);
+
+SELECT is(
+  (SELECT set_ids FROM public.ucat_question_catalog_projection
+   WHERE stem_id = 'ca810000-0000-4000-8000-000000000001'),
+  ARRAY['ca820000-0000-4000-8000-000000000002', 'ca820000-0000-4000-8000-000000000001']::UUID[],
+  'set membership remains ordered by set recency'
+);
+
+SELECT is(
+  (SELECT set_names FROM public.ucat_question_catalog_projection
+   WHERE stem_id = 'ca810000-0000-4000-8000-000000000001'),
+  jsonb_build_array(
+    public.ucat_catalog_name_rich_text(public.ucat_question_set_catalog_name('ca820000-0000-4000-8000-000000000002', FALSE)),
+    public.ucat_catalog_name_rich_text(public.ucat_question_set_catalog_name('ca820000-0000-4000-8000-000000000001', FALSE))
+  ),
+  'catalog set names remain paired with their set IDs in display order'
+);
 
 SELECT is(
   (SELECT array_agg(catalog_index ORDER BY catalog_index)
