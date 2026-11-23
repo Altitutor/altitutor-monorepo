@@ -7,12 +7,22 @@ SECURITY INVOKER
 SET search_path = ''
 SET lock_timeout = '1s'
 AS $function$
+  -- Stripe's processed flag also covers some handled events with follow-up
+  -- failures. Only the audited receipt-only cohort is eligible.
   WITH batch AS (
     SELECT id
     FROM public.stripe_webhook_events
     WHERE processed
       AND processed_at IS NOT NULL
       AND error_message IS NULL
+      AND event_type IN (
+        'charge.succeeded',
+        'invoice.payment_succeeded',
+        'invoice_payment.paid',
+        'invoiceitem.created',
+        'payment_intent.created',
+        'setup_intent.created'
+      )
       AND event_data <> '{}'::jsonb
       AND processed_at < now() - interval '90 days'
     ORDER BY processed_at, id
@@ -45,7 +55,7 @@ REVOKE ALL ON FUNCTION private.expire_completed_webhook_payloads()
   FROM PUBLIC, anon, authenticated, service_role;
 
 COMMENT ON COLUMN public.stripe_webhook_events.event_data IS
-  'Raw Stripe webhook payload. An empty JSON object marks an expired body; the event ID and processing outcome are retained.';
+  'Raw Stripe webhook payload. An empty JSON object marks an expired body in the audited receipt-only cohort; the event ID and processing outcome are retained.';
 
 COMMENT ON COLUMN public.imessage_events.payload IS
   'Raw Mac webhook payload. An empty JSON object marks an expired body; the inbox event key and processing outcome are retained.';

@@ -5,7 +5,15 @@ INSERT INTO public.stripe_webhook_events (
   stripe_event_id, event_type, event_data, processed, processed_at, error_message, created_at
 )
 SELECT
-  'dev502-stripe-' || n, 'invoice.paid', '{"fixture":"stripe payload"}', TRUE,
+  'dev502-stripe-' || n,
+  (ARRAY[
+    'charge.succeeded',
+    'invoice.payment_succeeded',
+    'invoice_payment.paid',
+    'invoiceitem.created',
+    'payment_intent.created',
+    'setup_intent.created'
+  ])[1 + n % 6], '{"fixture":"stripe payload"}', TRUE,
   now() - CASE
     WHEN n = 1 THEN interval '92 days'
     WHEN n = 1001 THEN interval '90 days 1 second'
@@ -33,16 +41,20 @@ INSERT INTO public.stripe_webhook_events (
   stripe_event_id, event_type, event_data, processed, processed_at, error_message, created_at
 )
 VALUES
-  ('dev502-stripe-protected-recent', 'invoice.paid', '{"fixture":"protected"}',
+  ('dev502-stripe-protected-recent', 'invoiceitem.created', '{"fixture":"protected"}',
     TRUE, now() - interval '89 days', NULL, now() - interval '120 days'),
-  ('dev502-stripe-protected-boundary', 'invoice.paid', '{"fixture":"protected"}',
+  ('dev502-stripe-protected-boundary', 'invoiceitem.created', '{"fixture":"protected"}',
     TRUE, now() - interval '90 days', NULL, now() - interval '120 days'),
-  ('dev502-stripe-protected-unprocessed', 'invoice.paid', '{"fixture":"protected"}',
+  ('dev502-stripe-protected-unprocessed', 'invoiceitem.created', '{"fixture":"protected"}',
     FALSE, now() - interval '91 days', NULL, now() - interval '120 days'),
-  ('dev502-stripe-protected-error', 'invoice.paid', '{"fixture":"protected"}',
+  ('dev502-stripe-protected-error', 'invoiceitem.created', '{"fixture":"protected"}',
     TRUE, now() - interval '91 days', 'manual review', now() - interval '120 days'),
-  ('dev502-stripe-protected-missing-time', 'invoice.paid', '{"fixture":"protected"}',
-    TRUE, NULL, NULL, now() - interval '120 days');
+  ('dev502-stripe-protected-missing-time', 'invoiceitem.created', '{"fixture":"protected"}',
+    TRUE, NULL, NULL, now() - interval '120 days'),
+  ('dev502-stripe-protected-business-failure', 'checkout.session.completed', '{"fixture":"protected"}',
+    TRUE, now() - interval '91 days', NULL, now() - interval '120 days'),
+  ('dev502-stripe-protected-unknown', 'unknown.event', '{"fixture":"protected"}',
+    TRUE, now() - interval '91 days', NULL, now() - interval '120 days');
 
 INSERT INTO public.imessage_events (
   event_key, event_type, payload, received_at, processed_at, processing_error
@@ -123,7 +135,7 @@ SELECT ok(
 SELECT is(
   (SELECT count(*) FROM public.stripe_webhook_events
    WHERE stripe_event_id LIKE 'dev502-stripe-protected-%' AND event_data = '{"fixture":"protected"}'::jsonb),
-  5::bigint, 'Stripe keeps raw data for recent, boundary-age, failed, and unresolved events'
+  7::bigint, 'Stripe keeps raw data for recent, failed, unresolved, ambiguous, and unaudited events'
 );
 
 SELECT is(

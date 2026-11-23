@@ -71,7 +71,8 @@ node --test \
   scripts/checkall-profiles.test.mjs \
   scripts/validation-plan.test.mjs \
   scripts/validation-receipt.test.mjs \
-  supabase/scripts/storage-limit.test.mjs
+  supabase/scripts/storage-limit.test.mjs \
+  supabase/scripts/webhook-payload-retention.test.mjs
 
 python3 scripts/owned_database.test.py
 python3 scripts/worktree_dev.test.py
