@@ -40,8 +40,8 @@ const config = {
     },
   },
   transformIgnorePatterns: [
-    'node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked)@)',
-    'node_modules/(?!.pnpm|react-big-calendar|date-fns|@tiptap|marked)',
+    'node_modules/.pnpm/(?!(react-big-calendar|date-fns|@tiptap|marked|ai|@ai-sdk|@workflow|@vercel[/+]oidc|eventsource-parser|zod)@)',
+    'node_modules/(?!.pnpm|react-big-calendar|date-fns|@tiptap|marked|ai|@ai-sdk|@workflow|@vercel[/+]oidc|eventsource-parser|zod)',
   ],
 };
 

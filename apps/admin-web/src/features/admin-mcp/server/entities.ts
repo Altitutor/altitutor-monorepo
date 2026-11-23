@@ -286,6 +286,7 @@ export async function readExistingFile(
   client: SupabaseClient<Database>,
   id: string,
   kind: "file" | "topic_resource",
+  includeDownloadUrl = true,
 ) {
   let fileId = id;
   if (kind === "topic_resource") {
@@ -304,6 +305,9 @@ export async function readExistingFile(
     .eq("id", fileId)
     .single();
   if (error || !file || file.deleted_at) throw new Error("File not found.");
+  if (!includeDownloadUrl) {
+    return { id: file.id, filename: file.filename, mimeType: file.mimetype, sizeBytes: file.size_bytes };
+  }
   if (file.external_url) {
     const url = new URL(file.external_url);
     if (url.protocol !== "https:")

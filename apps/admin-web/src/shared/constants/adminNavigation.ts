@@ -10,6 +10,7 @@ import {
   ClipboardList,
   UserRound,
   MessageSquareText,
+  Bot,
   Mail,
   ListTodo,
   FolderKanban,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
     href: "/dashboard",
     icon: Home,
   },
+  { title: "Staff chat", href: "/ai-chat", icon: Bot },
   {
     type: "heading",
     title: "COMMUNICATION",

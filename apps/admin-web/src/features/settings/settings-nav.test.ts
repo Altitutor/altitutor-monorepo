@@ -20,8 +20,12 @@ describe('settings navigation', () => {
       })),
     ).toEqual([
       {
-        title: 'AI applications',
-        items: [{ title: 'AI connections', href: '/settings/ai-connections' }],
+        title: 'AI settings',
+        items: [
+          { title: 'Staff chat', href: '/settings/ai' },
+          { title: 'Model providers', href: '/settings/ai-models' },
+          { title: 'MCP connections', href: '/settings/ai-connections' },
+        ],
       },
       {
         title: 'Student records',
@@ -85,7 +89,7 @@ describe('settings navigation', () => {
   });
 
   it('opens the first settings page from the settings index', () => {
-    expect(firstSettingsHref).toBe('/settings/ai-connections');
+    expect(firstSettingsHref).toBe('/settings/ai');
   });
 
   it('sends Back to app to the dashboard', () => {

@@ -20,6 +20,10 @@ import { useNote } from '@/features/notes/api/queries';
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
   dashboard: 'Dashboard',
+  'ai-chat': 'Staff chat',
+  ai: 'Staff chat',
+  'ai-models': 'Model providers',
+  'ai-connections': 'MCP connections',
   tasks: 'Tasks',
   issues: 'Issues',
   projects: 'Projects',

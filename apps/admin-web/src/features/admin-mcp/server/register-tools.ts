@@ -1,4 +1,6 @@
 import { createHash } from "crypto";
+import type { Database } from "@altitutor/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
@@ -60,8 +62,32 @@ const filter = z
   })
   .strict();
 
-export function registerAdminMcpTools(server: McpServer) {
-  server.registerTool(
+type ToolContext = {
+  userClient: () => SupabaseClient<Database>;
+  signal?: AbortSignal;
+  verifiedAt?: unknown;
+  includeFileDownloadUrl?: boolean;
+};
+
+type ToolAnnotations = {
+  readOnlyHint: boolean;
+  destructiveHint: boolean;
+  idempotentHint: boolean;
+  openWorldHint: boolean;
+};
+
+export type RegisterAdminTool = <Schema extends z.ZodObject>(
+  name: string,
+  definition: {
+    description: string;
+    inputSchema: Schema;
+    annotations: ToolAnnotations;
+  },
+  execute: (input: z.output<Schema>, context: ToolContext) => Promise<CallToolResult>,
+) => void;
+
+export function defineAdminTools(register: RegisterAdminTool) {
+  register(
     "discover_admin_data",
     {
       description:
@@ -71,7 +97,7 @@ export function registerAdminMcpTools(server: McpServer) {
     },
     ({ search }) => result(() => describeCatalog(search)),
   );
-  server.registerTool(
+  register(
     "describe_admin_dataset",
     {
       description:
@@ -82,7 +108,7 @@ export function registerAdminMcpTools(server: McpServer) {
     (input) =>
       result(() => ({ version: catalogVersion, ...dataset(input.dataset) })),
   );
-  server.registerTool(
+  register(
     "query_admin_reporting",
     {
       description:
@@ -96,10 +122,10 @@ export function registerAdminMcpTools(server: McpServer) {
     ({ sql, rowLimit }, extra) =>
       result(async () => {
         const queryStarted = performance.now();
-        const output = await runReportingQuery(sql, rowLimit, extra.mcpReq.signal);
+        const output = await runReportingQuery(sql, rowLimit, extra.signal);
         const queryMs = performance.now() - queryStarted;
         const auditStarted = performance.now();
-        const { error } = await client(extra.http?.authInfo?.token).rpc(
+        const { error } = await extra.userClient().rpc(
           "admin_record_reporting_query",
           {
             p_fingerprint: createHash("sha256").update(sql).digest("hex"),
@@ -110,7 +136,7 @@ export function registerAdminMcpTools(server: McpServer) {
         if (error) {
           captureReportingAuditDiagnostic({
             code: error.code,
-            verifiedAt: extra.http?.authInfo?.extra?.verifiedAt,
+            verifiedAt: extra.verifiedAt,
             queryMs,
             auditMs: performance.now() - auditStarted,
           });
@@ -119,7 +145,7 @@ export function registerAdminMcpTools(server: McpServer) {
         return output;
       }),
   );
-  server.registerTool(
+  register(
     "search_admin_entities",
     {
       description:
@@ -135,7 +161,7 @@ export function registerAdminMcpTools(server: McpServer) {
     },
     (input) => result(() => searchEntities(input)),
   );
-  server.registerTool(
+  register(
     "get_admin_entity",
     {
       description:
@@ -148,9 +174,9 @@ export function registerAdminMcpTools(server: McpServer) {
       annotations: readAnnotations,
     },
     (input, extra) =>
-      result(() => getEntity(client(extra.http?.authInfo?.token), input)),
+      result(() => getEntity(extra.userClient(), input)),
   );
-  server.registerTool(
+  register(
     "find_admin_references",
     {
       description:
@@ -163,7 +189,7 @@ export function registerAdminMcpTools(server: McpServer) {
     },
     ({ targetId, offset }) => result(() => findReferences(targetId, offset)),
   );
-  server.registerTool(
+  register(
     "read_admin_file",
     {
       description:
@@ -175,9 +201,9 @@ export function registerAdminMcpTools(server: McpServer) {
       annotations: readAnnotations,
     },
     ({ id, kind }, extra) =>
-      result(() => readExistingFile(client(extra.http?.authInfo?.token), id, kind)),
+      result(() => readExistingFile(extra.userClient(), id, kind, extra.includeFileDownloadUrl)),
   );
-  server.registerTool(
+  register(
     "get_admin_change_history",
     {
       description:
@@ -199,7 +225,7 @@ export function registerAdminMcpTools(server: McpServer) {
     },
     (input, extra) =>
       result(async () => {
-        const { data, error } = await client(extra.http?.authInfo?.token).rpc(
+        const { data, error } = await extra.userClient().rpc(
           "admin_work_item_history",
           { p_kind: input.kind, p_id: input.id, p_offset: input.offset },
         );
@@ -214,7 +240,7 @@ export function registerAdminMcpTools(server: McpServer) {
       }),
   );
   for (const kind of Object.keys(operationSchemas) as WorkItemKind[]) {
-    server.registerTool(
+    register(
       `create_admin_${kind}`,
       {
         description: `Create an operational ${kind}. Reuse idempotencyKey on retries. Content accepts plain text or native Tiptap JSON; business reports belong in your conversation, not staff documents.`,
@@ -231,10 +257,10 @@ export function registerAdminMcpTools(server: McpServer) {
       },
       (input, extra) =>
         result(() =>
-          changeWorkItem(client(extra.http?.authInfo?.token), { kind, ...input }),
+          changeWorkItem(extra.userClient(), { kind, ...input }),
         ),
     );
-    server.registerTool(
+    register(
       `change_admin_${kind}`,
       {
         description: `Change supported ${kind} properties atomically using the revision from get_admin_entity. Omission preserves fields; null explicitly clears nullable fields. Re-read on conflict. Document visibility changes take effect for tutors. Mark work complete only when its underlying work is done.`,
@@ -253,7 +279,7 @@ export function registerAdminMcpTools(server: McpServer) {
       },
       (input, extra) =>
         result(() =>
-          changeWorkItem(client(extra.http?.authInfo?.token), {
+          changeWorkItem(extra.userClient(), {
             kind,
             id: input.id,
             revision: input.revision,
@@ -263,4 +289,16 @@ export function registerAdminMcpTools(server: McpServer) {
         ),
     );
   }
+}
+
+export function registerAdminMcpTools(server: McpServer) {
+  defineAdminTools((name, definition, execute) => {
+    server.registerTool<z.ZodType, z.ZodObject>(name, definition, async (input, extra) =>
+      execute(definition.inputSchema.parse(input), {
+        userClient: () => client(extra.http?.authInfo?.token),
+        signal: extra.mcpReq.signal,
+        verifiedAt: extra.http?.authInfo?.extra?.verifiedAt,
+      }),
+    );
+  });
 }

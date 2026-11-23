@@ -315,6 +315,63 @@ export type Database = {
           },
         ]
       }
+      admin_ai_chat_settings: {
+        Row: {
+          id: boolean
+          model_profile_id: string | null
+          system_prompt: string
+        }
+        Insert: {
+          id?: boolean
+          model_profile_id?: string | null
+          system_prompt: string
+        }
+        Update: {
+          id?: boolean
+          model_profile_id?: string | null
+          system_prompt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_ai_chat_settings_model_profile_id_fkey"
+            columns: ["model_profile_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_ai_generation_model_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_ai_chat_settings_model_profile_id_fkey"
+            columns: ["model_profile_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_ai_generation_model_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_ai_chat_threads: {
+        Row: {
+          id: string
+          messages: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id: string
+          messages: Json
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          id?: string
+          messages?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_mcp_grants: {
         Row: {
           client_id: string

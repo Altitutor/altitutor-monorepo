@@ -5,6 +5,7 @@ import {
   CreditCard,
   Calendar,
   Link2,
+  Bot,
   Zap,
   Phone,
   Users,
@@ -20,10 +21,22 @@ import {
 
 export const settingsSections = [
   {
-    title: "AI applications",
+    title: "AI settings",
     items: [
       {
-        title: "AI connections",
+        title: "Staff chat",
+        description: "Set the staff chat model and system prompt",
+        href: "/settings/ai",
+        icon: Bot,
+      },
+      {
+        title: "Model providers",
+        description: "Manage shared AI providers and model profiles",
+        href: "/settings/ai-models",
+        icon: Layers3,
+      },
+      {
+        title: "MCP connections",
         description: "Connect AI applications and manage their business access",
         href: "/settings/ai-connections",
         icon: Link2,
@@ -165,7 +178,7 @@ export const settingsSections = [
       {
         title: "UCAT generation",
         description:
-          "Configure AI generation providers, prompts, budgets, and profiles",
+          "Configure UCAT generation prompts, budgets, and review models",
         href: "/settings/ucat-generation",
         icon: GraduationCap,
       },
