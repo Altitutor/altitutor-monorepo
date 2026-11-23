@@ -1,8 +1,7 @@
-import Image from "next/image";
 import { MarketingPhoto } from "../components/marketing-photo";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content, pageContent } from "../content";
-import { ResultYearStack } from "../components/result-year-stack";
+import { ResultsTimeline } from "../components/results-timeline";
 import {
   Button,
   Copy,
@@ -52,56 +51,31 @@ export function TestimonialsPage() {
       </div>
       <section id="results" className={styles.section}>
         <div className={styles.container}>
-          <SectionTitle eyebrow="Student results">
-            A look back.
-            <br />
-            <em>A lot to be proud of.</em>
-          </SectionTitle>
-          <div className={`${styles.split} mt-8 items-center`}>
-            <p className={styles.lede}>
-              Our first Year 12 cohort has now finished university, with former
-              students working as doctors, dentists, and other professionals.
-            </p>
-            <figure className="mx-auto w-full max-w-md">
-              <Image
-                src="/images/marketing/newspaper-article.webp"
-                width={1079}
-                height={1237}
-                sizes="(max-width: 500px) 90vw, 448px"
-                alt="Newspaper front page headed ‘The Aces of SACE’ showing four students who achieved an ATAR of 99.95"
-              />
-              <figcaption className="mt-3">
-                Three of the four students pictured were Altitutor students.
-              </figcaption>
-            </figure>
-          </div>
-        </div>
-        <ResultYearStack
-          years={years.map((year, i) => {
-            const start = blocks.indexOf(year);
-            const end =
-              i + 1 < years.length
-                ? blocks.indexOf(years[i + 1])
-                : blocks.findIndex((b) => b.id === "8774f44");
-            const stats = blocks
-              .slice(start, end)
-              .filter((b) => b.kind === "counter");
-            return {
-              id: year.id,
-              title: year.title ?? "Results",
-              stats: stats.map((stat, index) => ({
-                id: stat.id,
-                value: stat.value ?? "",
-                label:
-                  stat.title ||
-                  (index === 4
-                    ? "Average tutor rating"
-                    : "Average course rating"),
-              })),
-            };
-          })}
-        />
-        <div className={styles.container}>
+          <ResultsTimeline
+            years={years.map((year, i) => {
+              const start = blocks.indexOf(year);
+              const end =
+                i + 1 < years.length
+                  ? blocks.indexOf(years[i + 1])
+                  : blocks.findIndex((b) => b.id === "8774f44");
+              const stats = blocks
+                .slice(start, end)
+                .filter((b) => b.kind === "counter");
+              return {
+                id: year.id,
+                title: year.title ?? "Results",
+                stats: stats.map((stat, index) => ({
+                  id: stat.id,
+                  value: stat.value ?? "",
+                  label:
+                    stat.title ||
+                    (index === 4
+                      ? "Average tutor rating"
+                      : "Average course rating"),
+                })),
+              };
+            })}
+          />
           <Questions
             items={content("/about/testimonials/", "8774f44").items ?? []}
           />

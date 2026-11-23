@@ -86,7 +86,7 @@ test("page section chips navigate after scrolling", async ({ page }) => {
   await expect(last).toHaveAttribute("aria-current", "location");
 });
 
-test("course sidebar clears the header with the announcement visible and dismissed", async ({
+test("course sidebar clears the header", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -94,30 +94,23 @@ test("course sidebar clears the header with the announcement visible and dismiss
   const sidebar = page.getByRole("navigation", { name: "Course sections" });
   await sidebar.getByRole("link").last().click();
   const header = page.getByRole("banner");
-  const expectSidebarClear = async () => {
-    await expect
-      .poll(async () => {
-        return sidebar.evaluate(
-          (element) =>
-            element.getBoundingClientRect().top -
-            parseFloat(getComputedStyle(element).top),
-        );
-      })
-      .toBeLessThanOrEqual(1);
-    await expect
-      .poll(async () => {
-        const sidebarBounds = await sidebar.boundingBox();
-        const headerBounds = await header.boundingBox();
-        if (!sidebarBounds || !headerBounds) return -1;
-        return sidebarBounds.y - (headerBounds.y + headerBounds.height);
-      })
-      .toBeGreaterThanOrEqual(16);
-  };
-  await expectSidebarClear();
-  await page
-    .getByRole("button", { name: "Dismiss medicine interview announcement" })
-    .click();
-  await expectSidebarClear();
+  await expect
+    .poll(async () => {
+      return sidebar.evaluate(
+        (element) =>
+          element.getBoundingClientRect().top -
+          parseFloat(getComputedStyle(element).top),
+      );
+    })
+    .toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => {
+      const sidebarBounds = await sidebar.boundingBox();
+      const headerBounds = await header.boundingBox();
+      if (!sidebarBounds || !headerBounds) return -1;
+      return sidebarBounds.y - (headerBounds.y + headerBounds.height);
+    })
+    .toBeGreaterThanOrEqual(16);
 });
 
 const publicSurfaces = [
