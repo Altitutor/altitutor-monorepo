@@ -7,6 +7,9 @@ type RoundClock = Pick<
   InterviewRound,
   "phase" | "pausedAt" | "phaseDeadline" | "serverNow"
 >;
+// Focus, visibility and online notifications can arrive together on one wake.
+const FOREGROUND_RECOVERY_WINDOW_MS = 250;
+
 interface RoundSyncAdapter {
   refresh: () => Promise<unknown>;
   send: (type: "heartbeat" | "tick") => Promise<unknown>;
@@ -35,28 +38,34 @@ export function useInterviewRoundSync({
   const hasSnapshot = useRef(!!round);
   hasSnapshot.current = !!round;
   const afterConnected = useRef<(() => void) | null>(null);
+  const setLive = useRef<((active: boolean) => void) | null>(null);
   useEffect(() => {
     if (!scope) return;
     let disposed = false;
     let connected = false;
+    let participating = false;
     let heartbeatInFlight = false;
-    let fallback: ReturnType<typeof setTimeout>;
+    let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+    let fallback: ReturnType<typeof setTimeout> | undefined;
+    let lastRecoveryAt = -Infinity;
     const refresh = () => {
-      if (disposed || (!live && document.hidden) || !navigator.onLine) return;
+      if (disposed) return false;
+      // Fallback bounds the time between read attempts. A Realtime refresh
+      // just before the timer fires already covers that recovery check.
+      schedule();
+      if ((!participating && document.hidden) || !navigator.onLine) return false;
       void current.current.refresh().catch(() => undefined);
+      return true;
     };
     const schedule = () => {
       clearTimeout(fallback);
       fallback = setTimeout(
-        () => {
-          refresh();
-          schedule();
-        },
-        live ? (connected ? 30_000 : 10_000) : 60_000,
+        refresh,
+        participating ? (connected ? 30_000 : 10_000) : 60_000,
       );
     };
     const heartbeat = async () => {
-      if (!live || disposed || heartbeatInFlight) return;
+      if (!participating || disposed || heartbeatInFlight) return;
       if (!navigator.onLine) {
         setHeartbeatFailed(true);
         return;
@@ -71,50 +80,67 @@ export function useInterviewRoundSync({
         heartbeatInFlight = false;
       }
     };
+    const recover = () => {
+      if (refresh()) lastRecoveryAt = performance.now();
+    };
     const unsubscribe = current.current.subscribe(refresh, (value) => {
-      const reconnected = value && !connected;
+      if (disposed || connected === value) return;
       connected = value;
-      if (!disposed) {
-        schedule();
-        if (reconnected) {
-          // Read after every connection, including the first. Wait for the
-          // initial snapshot so query deduplication cannot swallow recovery.
-          afterConnected.current = () => {
-            if (!hasSnapshot.current) return;
-            afterConnected.current = null;
-            refresh();
-          };
-          afterConnected.current();
-        }
+      schedule();
+      afterConnected.current = null;
+      if (connected) {
+        // The initial read may predate subscription. Take one recovery
+        // snapshot after it settles without replacing the actor's channel.
+        afterConnected.current = () => {
+          if (!hasSnapshot.current) return;
+          afterConnected.current = null;
+          recover();
+        };
+        afterConnected.current();
       }
     });
-    void heartbeat();
-    const interval = live
-      ? setInterval(() => {
-          void heartbeat();
-        }, 10_000)
-      : null;
+    setLive.current = (active) => {
+      if (participating === active) return;
+      participating = active;
+      clearInterval(heartbeatTimer);
+      if (active) {
+        void heartbeat();
+        heartbeatTimer = setInterval(() => void heartbeat(), 10_000);
+      }
+      schedule();
+    };
     const reconnect = () => {
+      if (performance.now() - lastRecoveryAt < FOREGROUND_RECOVERY_WINDOW_MS)
+        return;
       void heartbeat();
-      refresh();
+      recover();
+    };
+    const offline = () => {
+      lastRecoveryAt = -Infinity;
     };
     const visible = () => {
       if (!document.hidden) reconnect();
     };
+    window.addEventListener("offline", offline);
     window.addEventListener("online", reconnect);
     window.addEventListener("focus", reconnect);
     document.addEventListener("visibilitychange", visible);
     schedule();
     return () => {
       disposed = true;
+      setLive.current = null;
       afterConnected.current = null;
       clearTimeout(fallback);
-      if (interval) clearInterval(interval);
+      clearInterval(heartbeatTimer);
+      window.removeEventListener("offline", offline);
       window.removeEventListener("online", reconnect);
       window.removeEventListener("focus", reconnect);
       document.removeEventListener("visibilitychange", visible);
       unsubscribe();
     };
+  }, [scope]);
+  useEffect(() => {
+    setLive.current?.(live);
   }, [scope, live]);
   useEffect(() => {
     if (round) afterConnected.current?.();
