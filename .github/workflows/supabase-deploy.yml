@@ -46,6 +46,9 @@ jobs:
       always() && !cancelled() && needs.integration-evidence.result == 'success' &&
       ((needs.integration-evidence.outputs.reuse == 'true' && needs.verify.result == 'skipped') ||
        needs.verify.result == 'success')
+    outputs:
+      # A reused integration receipt can contain only affected package checks.
+      full_production_typecheck: ${{ github.ref_name == 'main' && needs.verify.result == 'success' }}
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
@@ -333,6 +336,7 @@ jobs:
             --prod \
             --yes \
             --archive=tgz \
+            --build-env "ALTITUTOR_TYPECHECK_VERIFIED=${{ needs.deploy.outputs.full_production_typecheck }}" \
             "${release_identity[@]}" \
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
