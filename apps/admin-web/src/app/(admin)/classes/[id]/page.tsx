@@ -3,6 +3,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -168,7 +169,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 pt-4 [--detail-page-gutter:1rem]">
-      <div className="flex items-center gap-2 mb-3">
+      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
         <IssuePill entityType="class" entityId={id} enabled />
 

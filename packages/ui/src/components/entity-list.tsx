@@ -262,6 +262,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
   const narrow = !useMediaQuery('(min-width: 768px)', !compactProp);
   const compact = compactProp || narrow;
+  const recordType = viewTarget === "tasks" ? "task" : viewTarget === "projects" ? "project" : viewTarget === "issues" ? "issue" : undefined;
+  const showExpandedPills = useMediaQuery('(min-width: 1024px)', !compact);
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
     rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
@@ -507,6 +509,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       rightPills={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
                       onRowClick={onRowClick}
                       compact={compact}
+                      showExpandedPills={showExpandedPills}
+                      recordId={recordType ? getItemId(item) : undefined}
+                      recordType={recordType}
                     /></CollectionRecord>
                   ))}
                 </div>}
@@ -675,6 +680,9 @@ interface EntityListRowProps<TItem> {
   rightPills: EntityListPillColumn<TItem, unknown>[];
   onRowClick?: (item: TItem) => void;
   compact?: boolean;
+  showExpandedPills: boolean;
+  recordId?: string;
+  recordType?: string;
 }
 
 function EntityListRow<TItem>({
@@ -685,10 +693,15 @@ function EntityListRow<TItem>({
   rightPills,
   onRowClick,
   compact = false,
+  showExpandedPills,
+  recordId,
+  recordType,
 }: EntityListRowProps<TItem>) {
   return (
     <div
       data-work-item-row
+      data-record-id={recordId}
+      data-record-type={recordType}
       role="button"
       tabIndex={0}
       onClick={() => onRowClick?.(item)}
@@ -741,9 +754,8 @@ function EntityListRow<TItem>({
       {/* Right: pills */}
       <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {rightPills.map((pill, index) => {
-          const collapsedNode = pill.renderPill(item, () => {}, true);
-          const expandedNode = compact ? collapsedNode : pill.renderPill(item, () => {}, false);
-          if (collapsedNode == null && expandedNode == null) return null;
+          const control = pill.renderPill(item, () => {}, !showExpandedPills);
+          if (control == null) return null;
 
           return (
             <div
@@ -751,17 +763,7 @@ function EntityListRow<TItem>({
               onClick={(e) => e.stopPropagation()}
               className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
-              <CollectionField field={pill.key}>{compact ? collapsedNode : (
-                <>
-                  {/* Responsive: show full pill on larger screens, icon on smaller */}
-                  <div className="hidden lg:block">
-                    {expandedNode}
-                  </div>
-                  <div className="lg:hidden">
-                    {collapsedNode}
-                  </div>
-                </>
-              )}</CollectionField>
+              <CollectionField field={pill.key}>{control}</CollectionField>
             </div>
           );
         })}

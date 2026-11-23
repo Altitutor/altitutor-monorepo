@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
-import { isStudentAbsentInCalendar } from '../utils/attendanceDerivation';
+import { isStudentAbsentInCalendar, summarizeSessionAttendance } from '../utils/attendanceDerivation';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -29,9 +29,10 @@ interface SessionsCardProps {
   session: Tables<'sessions'>;
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
-  staff: Array<Tables<'staff'> & CalendarStaff>;
+  staff?: Array<Tables<'staff'> & CalendarStaff>;
   students?: Array<Tables<'students'> & CalendarStudent>;
   onClick?: () => void;
+  actions?: React.ReactNode;
   /** Override the title (e.g. session/class name in the absence reschedule picker). */
   title?: string;
   
@@ -53,9 +54,10 @@ export function SessionsCard({
   hasTutorLog = false,
   classData,
   subject,
-  staff = [],
+  staff: suppliedStaff,
   students: suppliedStudents,
   onClick,
+  actions,
   details,
   title,
   isSelecting = false,
@@ -69,6 +71,9 @@ export function SessionsCard({
 }: SessionsCardProps) {
   const students = suppliedStudents ?? [];
   const studentRoster = details?.students ?? suppliedStudents;
+  const staff = suppliedStaff ?? [];
+  const staffRoster = details?.staff ?? suppliedStaff;
+  const attendance = summarizeSessionAttendance(studentRoster, session.end_at ?? session.start_at, hasTutorLog);
 
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
@@ -123,7 +128,7 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={details?.staff ?? staff} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
       className={cn(
@@ -184,13 +189,17 @@ export function SessionsCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <StudentCount count={studentRoster?.length} />
-                {!isSelecting && /^[0-9a-f-]{36}$/i.test(session.id) && <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />}
+                <StudentCount
+                  count={studentRoster?.length}
+                  attendance={attendance}
+                />
+                {actions ?? (!isSelecting && /^[0-9a-f-]{36}$/i.test(session.id) && <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />)}
                 {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {staffRoster && <span className="mr-2 tabular-nums">{staffRoster.length} staff</span>}
                 {isCalendarView ? (
                   classData?.room ? `Room: ${classData.room}` : ''
                 ) : (

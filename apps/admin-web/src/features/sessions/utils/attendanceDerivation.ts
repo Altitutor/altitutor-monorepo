@@ -5,7 +5,7 @@
  * from raw session data. All attendance status logic should go through these functions.
  */
 
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import {
   type StudentAttendanceStatus,
   type AbsenceBillingTreatment,
@@ -326,6 +326,23 @@ export function isPlannedSessionStudent(
     (input.sessions_students_id === null || input.sessions_students_id === undefined) &&
     Boolean(input.is_extra);
   return !isUnplanned;
+}
+
+export function summarizeSessionAttendance(
+  students: StudentAttendanceInput[] | undefined,
+  endAt: string | null,
+  hasTutorLog: boolean,
+): { count: number | undefined; label: "attending" | "attended" } {
+  if (endAt && isPast(new Date(endAt))) {
+    return {
+      count: hasTutorLog ? students?.filter((student) => student.actual_attended === true).length : undefined,
+      label: "attended",
+    };
+  }
+  return {
+    count: students?.filter((student) => isPlannedSessionStudent(student) && !student.planned_absence).length,
+    label: "attending",
+  };
 }
 
 export function isStudentAbsentInCalendar(student: StudentAttendanceInput, hasTutorLog: boolean): boolean {

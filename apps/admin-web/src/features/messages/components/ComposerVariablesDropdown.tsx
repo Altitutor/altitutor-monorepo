@@ -9,7 +9,6 @@ import type { TemplateVariable } from '../utils/variableConfig';
 interface ComposerVariablesDropdownProps {
   availableVariables: readonly TemplateVariable[];
   parentStudents: Tables<'students'>[];
-  studentHasClasses: Record<string, boolean>;
   contactType: string | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -21,7 +20,6 @@ interface ComposerVariablesDropdownProps {
 export function ComposerVariablesDropdown({
   availableVariables,
   parentStudents,
-  studentHasClasses,
   contactType,
   open,
   onOpenChange,
@@ -71,7 +69,7 @@ export function ComposerVariablesDropdown({
             className="flex flex-col items-start"
           >
             <span className="text-sm font-medium">{`{${variable.name}}`}</span>
-            <span className="text-xs text-muted-foreground">{variable.description}</span>
+            <span className="text-xs text-muted-foreground">{variable.name === 'classes' ? 'Class names, schedules and start dates' : variable.description}</span>
           </DropdownMenuItem>
         ))}
         {contactType === 'PARENT' && parentStudents.length > 0 && (
@@ -80,9 +78,8 @@ export function ComposerVariablesDropdown({
             {parentStudents.map((student, index) => {
               const studentIndex = index + 1;
               const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || `Student ${studentIndex}`;
-              const hasClasses = studentHasClasses[student.id] ?? false;
               const availableSubVariables = STUDENT_SUB_VARIABLES.filter((subVariable) =>
-                canGenerateStudentVariable(subVariable.name, student, hasClasses)
+                canGenerateStudentVariable(subVariable.name, student)
               );
               if (availableSubVariables.length === 0) return null;
               return (
@@ -103,7 +100,7 @@ export function ComposerVariablesDropdown({
                           className="flex flex-col items-start"
                         >
                           <span className="text-sm font-medium">{`{${fullVariableName}}`}</span>
-                          <span className="text-xs text-muted-foreground">{subVariable.description}</span>
+                          <span className="text-xs text-muted-foreground">{subVariable.name === 'classes' ? 'Class names, schedules and start dates' : subVariable.description}</span>
                         </DropdownMenuItem>
                       );
                     })}

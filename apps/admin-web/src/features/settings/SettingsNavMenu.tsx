@@ -141,8 +141,9 @@ function SettingsPageLink({
   return <CollapsedTooltip label={item.title}>{link}</CollapsedTooltip>;
 }
 
-export function SettingsNavMenu({ collapsed = false }: { collapsed?: boolean }) {
-  const pathname = usePathname();
+export function SettingsNavMenu({ collapsed = false, activePath }: { collapsed?: boolean; activePath?: string }) {
+  const primaryPath = usePathname();
+  const pathname = activePath ?? primaryPath;
   const { collapsedGroups } = useAdminShell();
   const [query, setQuery] = useState('');
   const filtering = !collapsed && query.trim().length > 0;

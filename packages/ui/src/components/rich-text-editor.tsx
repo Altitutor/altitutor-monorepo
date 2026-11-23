@@ -800,6 +800,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         return false;
       },
       handleClick: (view, _pos, event) => {
+        if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
         const target = event.target as HTMLElement;
         const mentionNode = target.closest('[data-mention]') as HTMLElement | null;
         if (mentionNode) {
@@ -1429,7 +1430,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       style={autoHeight ? undefined : { minHeight }}
       onClick={handleContainerClick}
       onPointerDownCapture={event => {
-        if (event.button === 0 && activateMention(event.target)) {
+        if (event.button === 0 && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && activateMention(event.target)) {
           event.preventDefault();
           event.stopPropagation();
         }

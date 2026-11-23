@@ -2,6 +2,7 @@
 import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { CheckSquare, AlertTriangle } from "lucide-react";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import {
   useCallback,
@@ -94,7 +95,13 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
     error: enabled && queries.find((query) => query.error)?.error,
   };
 }
-export function EmailThreadView({ threadId }: { threadId: string }) {
+export function EmailThreadView({
+  threadId,
+  registerInlineClose,
+}: {
+  threadId: string;
+  registerInlineClose?: (gate: ((next?: () => void) => void) | null) => void;
+}) {
   const { searchParams } = usePaneNavigation();
   const targetMessageId = searchParams.get("message");
   const referenceFocus = searchParams.get("focus");
@@ -125,9 +132,11 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
         closeEditors.current.delete(id);
     };
   }, []);
+  const registerClose = scope?.registerClose ?? registerInlineClose;
+  const closeConversation = scope?.close;
   useEffect(() => {
-    if (!scope) return;
-    scope.registerClose((next) => {
+    if (!registerClose) return;
+    registerClose((next) => {
       if (closing.current) return;
       closing.current = true;
       setClosingEditors(true);
@@ -140,7 +149,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
             return;
           }
         }
-        (next ?? scope.close)();
+        (next ?? closeConversation)?.();
       })()
         .catch(() =>
           toast.error(
@@ -152,8 +161,8 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
           setClosingEditors(false);
         });
     });
-    return () => scope.registerClose(null);
-  }, [scope]);
+    return () => registerClose(null);
+  }, [registerClose, closeConversation]);
   const [showActivity, setShowActivity] = useState(false);
   const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);
@@ -593,6 +602,21 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
     if (creating) scope?.close();
     else void thread.refetch();
   }
+  const participants = (
+    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
+      {contacts.map((email) => (
+        <span key={email} className="shrink-0">
+          <EmailParticipant
+            email={email}
+            label={email}
+            includeStudents
+            threadId={threadId}
+            mailboxAddress={mailbox.data!.mailboxAddress}
+          />
+        </span>
+      ))}
+    </div>
+  );
   return (
     <div
       className="flex h-full min-h-0 flex-col"
@@ -601,27 +625,15 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       inert={closingEditors}
       aria-busy={closingEditors}
     >
-      <header className="shrink-0 space-y-3 border-b p-4">
-        <AccessoryBreadcrumb />
+      <header className="shrink-0">
         <div
-          className="flex min-w-0 items-center justify-between gap-2"
+          data-admin-page-header={scope ? "" : undefined}
+          className={scope ? adminPageHeaderClass : "flex min-w-0 items-center justify-between gap-2 border-b px-3 py-1.5"}
           data-email-shortcut-target
           onMouseEnter={() => setToolbarHovered(true)}
           onMouseLeave={() => setToolbarHovered(false)}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-            {contacts.map((email) => (
-              <span key={email} className="shrink-0">
-                <EmailParticipant
-                  email={email}
-                  label={email}
-                  includeStudents
-                  threadId={threadId}
-                  mailboxAddress={mailbox.data!.mailboxAddress}
-                />
-              </span>
-            ))}
-          </div>
+          {scope ? <AccessoryBreadcrumb currentTitle={subject} /> : participants}
           <div className="flex shrink-0 items-center gap-2">
             <EmailActions
               onSearchToggle={() => { if (searchOpen) setMessageSearch(""); setSearchOpen(!searchOpen); }}
@@ -668,6 +680,7 @@ export function EmailThreadView({ threadId }: { threadId: string }) {
       </header>
       {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {scope && contacts.length > 0 && <div className="flex border-b px-3 py-2">{participants}</div>}
         {entries.map((entry) => (
           <div key={entry.id}>{entry.content}</div>
         ))}

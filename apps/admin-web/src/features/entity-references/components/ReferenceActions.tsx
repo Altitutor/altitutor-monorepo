@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, PanelsTopLeft } from "lucide-react";
+import { openReferenceInPane } from "@/shared/components/pane-workspace/pane-routing";
 import { toast } from "sonner";
 import type { ActionsMenuProps } from "@/shared/components/ActionsMenu";
 import {
@@ -64,6 +65,7 @@ function actionProps(
     case "parent":
       return {
         type,
+        students: details.linkedStudents,
         onEditDetails: action("edit"),
         onDelete: action("delete"),
         onBookCheckIn: action("check-in"),
@@ -135,18 +137,21 @@ export function ReferenceActions({
   type,
   id,
   details,
+  fallbackTitle,
   onActivate,
 }: {
   type: string;
   id: string;
-  details: ReferenceDetails;
+  details?: ReferenceDetails;
+  fallbackTitle?: string;
   onActivate?: () => void;
 }) {
   const launch = useRunRecordAction();
   const quickActions = useQuickActions();
   const personType =
     type === "student" || type === "parent" || type === "staff" ? type : null;
-  const messages = useOpenPersonMessages(personType, id, details.title);
+  const title = details?.title || fallbackTitle || "Preview";
+  const messages = useOpenPersonMessages(personType, id, title);
   const normalizedType =
     type === "admin-shift"
       ? "adminShift"
@@ -155,20 +160,20 @@ export function ReferenceActions({
         : type === "document"
           ? "note"
           : type;
-  const reference = { type, id, label: details.title };
+  const reference = { type, id, label: title };
   const copy = () => {
     void navigator.clipboard
-      .writeText(`@[${type}:${id}:${details.title.replace(/\]/g, "")}]`)
+      .writeText(`@[${type}:${id}:${title.replace(/\]/g, "")}]`)
       .then(() => toast.success("Copied ID"))
       .catch(() => toast.error("Could not copy ID"));
   };
   const run = (actionId: string) => {
-    if ((type === "tutor-log" || type === "tutorLog") && details.href) {
+    if ((type === "tutor-log" || type === "tutorLog") && details?.href) {
       const sessionId = details.href.split("/").pop();
       if (sessionId) launch?.("session", sessionId, actionId);
     } else launch?.(normalizedType, id, actionId);
   };
-  const props = actionProps(type, details, run);
+  const props = details ? actionProps(type, details, run) : null;
   const open: RecordMenuAction = {
     id: "open",
     title: `Open ${type === "note" ? "document" : type === "adminShift" ? "admin shift" : type === "tutorLog" ? "tutor log" : type.replaceAll("-", " ")}`,
@@ -177,7 +182,13 @@ export function ReferenceActions({
   };
   const actions = [
     open,
-    ...(props && !details.actionState?.deleted
+    {
+      id: "open-new-pane",
+      title: "Open in new pane",
+      icon: PanelsTopLeft,
+      action: () => { openReferenceInPane(type, id, details?.href); },
+    },
+    ...(props && !details?.actionState?.deleted
       ? recordMenuActions(props, {
           copy,
           message: messages.available
@@ -202,7 +213,7 @@ export function ReferenceActions({
       onClick={(event) => event.stopPropagation()}
     >
       <ReferenceActionList actions={actions} onActivate={onActivate} />
-      {(type === "message" || (type === "email" && details.actionState?.emailActionAvailable !== false)) && (
+      {details && (type === "message" || (type === "email" && details.actionState?.emailActionAvailable !== false)) && (
         <CorrespondenceReferenceActions
           type={type}
           id={id}
@@ -210,7 +221,7 @@ export function ReferenceActions({
           onActivate={onActivate}
         />
       )}
-      {["task", "project", "issue", "note", "document"].includes(type) && (
+      {details && ["task", "project", "issue", "note", "document"].includes(type) && (
         <TemplateReferenceActions type={type} id={id} onActivate={onActivate} />
       )}
     </section>

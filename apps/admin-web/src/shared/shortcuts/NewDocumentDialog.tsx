@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@altitutor/ui";
 import { useCreateNote } from "@/features/notes/hooks/useNoteMutations";
-import { useAccessoryPanel } from "@/shared/contexts/AccessoryPanelContext";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 export function NewDocumentDialog({
   open,
   onClose,
@@ -19,7 +19,7 @@ export function NewDocumentDialog({
 }) {
   const [title, setTitle] = useState("");
   const create = useCreateNote();
-  const panel = useAccessoryPanel();
+  const { router } = usePaneNavigation();
   return (
     <Dialog
       open={open}
@@ -44,11 +44,7 @@ export function NewDocumentDialog({
                 content: "",
                 folder_id: null,
               });
-              panel?.openTab({
-                kind: "document",
-                id: note.id,
-                title: note.title,
-              });
+              router.push(`/documents/${note.id}`);
               setTitle("");
               onClose();
             } catch {

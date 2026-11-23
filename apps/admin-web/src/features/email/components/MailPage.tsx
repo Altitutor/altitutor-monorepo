@@ -1,11 +1,14 @@
 "use client";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
 import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PanelRight, Plus, RefreshCw, Reply } from "lucide-react";
+import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
+import { EmailThreadView } from "./EmailThreadView";
+import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
 import {
-  Button,
   DataTableToolbar,
   Skeleton,
   TablePagination,
@@ -41,6 +44,29 @@ export function MailPage() {
   const [settings, setSettings] = useState(defaults);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  const [inlineThread, setInlineThread] = useState<string>();
+  useEffect(() => {
+    const thread = new URLSearchParams(location.search).get("conversation");
+    if (thread) {
+      setInlineThread(thread);
+      setExpanded(true);
+    }
+  }, []);
+  const wide = usePanelMediaQuery("(min-width: 960px)");
+  const inlineClose = useRef<((next?: () => void) => void) | null>(null);
+  const registerInlineClose = useCallback((gate: typeof inlineClose.current) => {
+    inlineClose.current = gate;
+  }, []);
+  useEffect(() => {
+    const close = (event: Event) => {
+      if (!inlineClose.current) return;
+      event.preventDefault();
+      inlineClose.current((event as CustomEvent<() => void>).detail);
+    };
+    window.addEventListener(paneCloseEvent, close);
+    return () => window.removeEventListener(paneCloseEvent, close);
+  }, []);
   const [hovered, setHovered] = useState<string>();
   const mailbox = useMailbox({
     folder,
@@ -142,8 +168,19 @@ export function MailPage() {
     },
   ]);
   const rows = mailbox.data?.threads ?? [];
+  function setPreviewThread(thread?: string) {
+    const url = new URL(location.href);
+    if (thread) url.searchParams.set("conversation", thread);
+    else url.searchParams.delete("conversation");
+    window.history.replaceState(window.history.state, "", url);
+    setInlineThread(thread);
+  }
   function open(row: EmailSummary) {
     setSelected(row.id);
+    if (wide && expanded && !row.draft) {
+      if (inlineThread !== row.id) withPaneCloseGate(() => setPreviewThread(row.id));
+      return;
+    }
     if (row.draft)
       openThread(row.id, row.subject, "draft", row.messageIds.at(-1));
     else openThread(row.id, row.subject);
@@ -163,7 +200,22 @@ export function MailPage() {
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <ListSettingsMenu list="mail" />
       <AdminPageActions>
-        <AdminActionGroup label="Mail actions">
+        <AdminActionGroup label="Email actions">
+          {wide && (
+            <EmailIconButton
+              label={expanded ? "Hide conversation pane" : "Show conversation pane"}
+              aria-pressed={expanded}
+              onClick={() => {
+                if (expanded) withPaneCloseGate(() => {
+                  setPreviewThread();
+                  setExpanded(false);
+                });
+                else setExpanded(true);
+              }}
+            >
+              <PanelRight aria-hidden className="size-4" />
+            </EmailIconButton>
+          )}
           <EmailIconButton
             label={
               sync.error
@@ -186,17 +238,14 @@ export function MailPage() {
               className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
             />
           </EmailIconButton>
-          <Button
-            variant="default"
-            size="sm"
-            data-shortcut-create
-            onClick={compose}
-            disabled={!mailbox.data}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Compose
-          </Button>
         </AdminActionGroup>
+        <AdminPageActionButton
+          icon={<Plus className="size-4" />}
+          createShortcut
+          label="Compose"
+          onClick={compose}
+          disabled={!mailbox.data}
+        />
       </AdminPageActions>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[480px]:flex-row">
         <MailFolders
@@ -352,6 +401,7 @@ export function MailPage() {
                   data-shortcut-list-item
                   tabIndex={0}
                   data-email-shortcut-target
+                  data-pane-href={`/email/${encodeURIComponent(row.id)}`}
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = "move";
                     event.dataTransfer.setData(
@@ -379,6 +429,15 @@ export function MailPage() {
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
                     />
+                    {row.repliedAt && (
+                      <Reply
+                        role="img"
+                        aria-label="Replied"
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                      >
+                        <title>{`Replied ${new Date(row.repliedAt).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}`}</title>
+                      </Reply>
+                    )}
                     {settings.visibleColumns.includes("sender") && (
                       <span
                         className={`w-28 min-w-0 shrink truncate text-xs ${row.read ? "" : "font-semibold"}`}
@@ -479,6 +538,13 @@ export function MailPage() {
             className="mt-4 shrink-0"
           />
         </section>
+        {expanded && (
+          <section aria-label="Email conversation" inert={!wide} hidden={!wide}
+            className={wide ? "flex w-1/2 min-w-0 shrink-0 flex-col overflow-auto border-l" : "hidden"}>
+            {inlineThread ? <EmailThreadView key={inlineThread} threadId={inlineThread} registerInlineClose={registerInlineClose} />
+              : <p className="p-5 text-sm text-muted-foreground">Select a conversation</p>}
+          </section>
+        )}
       </div>
     </div>
   );

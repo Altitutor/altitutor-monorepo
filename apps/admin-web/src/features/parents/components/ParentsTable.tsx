@@ -286,6 +286,10 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                   <TableRow
                     key={parent.id}
                     className="cursor-pointer"
+                    data-shortcut-list-item
+                    tabIndex={-1}
+                    data-record-type="parent"
+                    data-record-id={parent.id}
                     onClick={() => handleParentClick(parent.id)}
                   >
                     {state.visibleColumns.includes('parent') && (
@@ -342,6 +346,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                       <ActionsMenu
                         menuOnly
                         type="parent"
+                        students={students.map((student) => ({ id: student.id, name: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() }))}
                         entityId={parent.id}
                         copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
                         onOpenInPage={() => {

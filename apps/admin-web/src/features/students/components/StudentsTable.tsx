@@ -549,6 +549,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   <TableRow
                     data-index={index}
                     className="cursor-pointer"
+                    data-shortcut-list-item
+                    tabIndex={-1}
+                    data-record-type="student"
+                    data-record-id={student.id}
                     onClick={() => handleStudentClick(student.id)}
                   >
                     {state.visibleColumns.includes('status') && (

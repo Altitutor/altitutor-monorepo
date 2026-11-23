@@ -45,6 +45,7 @@ export default function StaffPage() {
 
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
+          createShortcut
           label="Add Staff"
           onClick={() => setIsAddModalOpen(true)}
         />

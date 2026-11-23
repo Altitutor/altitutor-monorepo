@@ -156,6 +156,10 @@ export const StaffTableRow = memo(function StaffTableRow({
   return (
     <>
       <TableRow
+        data-shortcut-list-item
+        tabIndex={-1}
+        data-record-type="staff"
+        data-record-id={staff.id}
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={handleClick}
       >

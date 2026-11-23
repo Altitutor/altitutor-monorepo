@@ -46,6 +46,7 @@ export default function ParentsPage() {
 
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
+          createShortcut
           label="Add Parent"
           onClick={() => setIsAddModalOpen(true)}
         />

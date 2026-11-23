@@ -27,6 +27,8 @@ export const TaskCard = memo(function TaskCard({
   return (
     <div
       data-work-item-card
+      data-record-type="task"
+      data-record-id={task.id}
       onClick={() => onOpen?.(task.id)}
       className={cn(
         'group rounded-lg border bg-card p-3 cursor-pointer transition-all',

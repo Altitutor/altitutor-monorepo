@@ -35,7 +35,7 @@ interface StudentSessionsTabProps {
 }
 
 export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTabProps) {
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
   const [undoTarget, setUndoTarget] = useState<StudentUndoTarget | null>(null);
   const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();

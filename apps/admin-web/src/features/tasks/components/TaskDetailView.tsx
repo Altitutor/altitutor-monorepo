@@ -1,6 +1,7 @@
 "use client";
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
@@ -212,9 +213,10 @@ export function TaskDetailView({
   return (
     <>
       <div className="h-full min-h-0 flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 border-b bg-background px-4 py-2">
+        <div className={adminPageHeaderClass} data-admin-page-header>
           <div className="flex min-w-0 items-center justify-between gap-2 w-full">
             <AccessoryBreadcrumb
+              currentTitle={form.watch("title") || task?.title}
               ownerIds={[task?.project_id, task?.issue_id]}
             />
 

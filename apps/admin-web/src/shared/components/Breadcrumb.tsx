@@ -7,6 +7,7 @@ import { cn } from '@/shared/utils';
 export interface BreadcrumbItem {
   label: string;
   href?: string;
+  onClick?: () => void;
 }
 
 interface BreadcrumbProps {
@@ -30,8 +31,17 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
         const isLast = index === items.length - 1;
 
         return (
-          <div key={index} className="flex items-center gap-2">
-            {item.href && !isLast ? (
+          <div key={index} className="flex min-w-0 items-center gap-2">
+            {item.onClick ? (
+              <button
+                type="button"
+                onClick={item.onClick}
+                className={cn("truncate text-left hover:text-foreground hover:underline", isLast && "font-medium text-foreground")}
+                title={item.label}
+              >
+                {item.label}
+              </button>
+            ) : item.href && !isLast ? (
               <Link
                 href={item.href}
                 className="hover:text-foreground transition-colors"
@@ -39,12 +49,12 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
                 {item.label}
               </Link>
             ) : (
-              <span className={isLast ? 'text-foreground font-medium' : ''}>
+              <span className={cn("truncate", isLast && "font-medium text-foreground")} title={item.label}>
                 {item.label}
               </span>
             )}
             {!isLast && (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             )}
           </div>
         );

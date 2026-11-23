@@ -1,5 +1,6 @@
-import { EmailThreadView } from "@/features/email/components/EmailThreadView";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+
 export default async function EmailConversationPage(props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  return <EmailThreadView threadId={params.id} />;
+  const { id } = await props.params;
+  return <AccessoryRoute href={`/email/${encodeURIComponent(id)}`} />;
 }

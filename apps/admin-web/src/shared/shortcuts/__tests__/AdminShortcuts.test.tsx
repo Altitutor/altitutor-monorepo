@@ -15,6 +15,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
 import { matchShortcut } from "../registry";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
+import { paneRequestEvent, type PaneRequest } from "@/shared/components/pane-workspace/pane-routing";
 
 const openTab = jest.fn();
 const togglePanel = jest.fn();
@@ -104,6 +106,51 @@ it.each(["messages", "tasks", "issues", "documents", "projects"] as const)(
     expect(openTab).not.toHaveBeenCalled();
   },
 );
+it.each([["c", "/sessions"], ["f", "/subjects"]])(
+  "navigates the active pane with G then %s",
+  (key, href) => {
+    render(<AdminShortcuts>Content</AdminShortcuts>);
+    const navigate = jest.fn((event: Event) => event.preventDefault());
+    window.addEventListener(paneRequestEvent, navigate, { once: true });
+    try {
+      fireEvent.keyDown(window, { key: "g" });
+      fireEvent.keyDown(window, { key });
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const request = navigate.mock.calls[0][0] as CustomEvent<PaneRequest>;
+      expect(request.detail).toMatchObject({ action: "navigate", href });
+    } finally {
+      window.removeEventListener(paneRequestEvent, navigate);
+    }
+  },
+);
+it.each([true, false])("opens Messages in a new pane with Shift at the start of the sequence: %s", (shiftOnPrefix) => {
+  render(<AdminShortcuts>Content</AdminShortcuts>);
+  const open = jest.fn((event: Event) => event.preventDefault());
+  window.addEventListener(paneRequestEvent, open, { once: true });
+  try {
+    fireEvent.keyDown(window, { key: shiftOnPrefix ? "G" : "g", shiftKey: shiftOnPrefix });
+    if (!shiftOnPrefix) fireEvent.keyDown(window, { key: "Shift", shiftKey: true });
+    fireEvent.keyDown(window, { key: shiftOnPrefix ? "m" : "M", shiftKey: !shiftOnPrefix });
+    expect(open).toHaveBeenCalledTimes(1);
+    const request = open.mock.calls[0][0] as CustomEvent<PaneRequest>;
+    expect(request.detail).toMatchObject({ action: "open", href: "/messages" });
+  } finally {
+    window.removeEventListener(paneRequestEvent, open);
+  }
+});
+it("uses C only for a page action that opts into creation", () => {
+  const exportContacts = jest.fn();
+  const create = jest.fn();
+  render(
+    <AdminShortcuts>
+      <AdminPageActionButton label="Export VCF" icon={null} onClick={exportContacts} />
+      <AdminPageActionButton label="Add student" icon={null} onClick={create} createShortcut />
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "c" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(exportContacts).not.toHaveBeenCalled();
+});
 it("supports Mac Option symbols, Cmd/Ctrl K, and panel toggles", () => {
   render(<AdminShortcuts>Content</AdminShortcuts>);
   press("KeyK", { key: "˚" });

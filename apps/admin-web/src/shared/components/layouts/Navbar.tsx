@@ -1,12 +1,11 @@
 'use client';
 
-import { useAccessoryPanel } from '@/shared/contexts/AccessoryPanelContext';
 import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
 import { Button, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@altitutor/ui';
 import type { ReactElement } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useMessageSubscription } from '@/features/messages/hooks/useMessageSubscription';
-import { PanelRight, PanelLeft } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { cn, navLinkActiveStyles } from '@/shared/utils';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
@@ -30,7 +29,6 @@ function SidebarShortcutTooltip({ label, shortcut, children }: { label: string; 
 }
 
 export function Navbar() {
-  const detailPanel = useAccessoryPanel();
   useMessageSubscription();
   const { user } = useAuthStore();
   const { resolvedTheme } = useTheme();
@@ -123,15 +121,7 @@ export function Navbar() {
             <NotificationsTray staffId={staffRecord.id} />
           )}
 
-          {user && detailPanel && (
-            <SidebarShortcutTooltip label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'} shortcut="right">
-            <Button variant="outline" size="icon" className={cn("relative h-9 w-9", detailPanel.expanded && navLinkActiveStyles)} aria-pressed={detailPanel.expanded}
-              aria-keyshortcuts="]" onClick={detailPanel.toggle} aria-controls="admin-accessory-panel" aria-expanded={detailPanel.expanded}
-              aria-label={detailPanel.expanded ? 'Collapse accessory panel' : 'Expand accessory panel'}>
-              <PanelRight className="h-4 w-4" />
-            </Button>
-            </SidebarShortcutTooltip>
-          )}
+
 
         </div>
       </div>

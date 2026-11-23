@@ -10,6 +10,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
@@ -220,7 +221,7 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
 </>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
-      <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
+      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
         <EntityPropertiesToggle />
         <IssuePill entityType="staff" entityId={id} enabled />

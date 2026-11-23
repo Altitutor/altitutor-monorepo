@@ -45,6 +45,7 @@ import { EmailIconButton } from "@/features/email/components/EmailIconButton";
 import { StudentContextChips } from "@/features/parents/components/StudentContextChips";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { cn } from "@/shared/utils";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { IssuePill } from "@/features/issues";
 import { useConversationMeetingActions } from "../hooks/useConversationMeetingActions";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
@@ -107,6 +108,7 @@ interface Props {
   extraMenuItems?: ReactNode;
   compactActions?: boolean;
   paneHeader?: boolean;
+  showConversationActions?: boolean;
   titleSlot?: ReactNode;
   filterControl?: ReactNode;
   backButtonClassName?: string;
@@ -117,7 +119,6 @@ interface Props {
 }
 
 const TITLE_MIN_WIDTH = 128;
-const PANE_TITLE_MIN_WIDTH = 180;
 
 function ActionLabel({
   expanded,
@@ -168,6 +169,7 @@ export function ConversationHeader({
   extraMenuItems,
   compactActions: _compactActions = false,
   paneHeader = false,
+  showConversationActions = true,
   titleSlot,
   filterControl,
   backButtonClassName,
@@ -225,7 +227,7 @@ export function ConversationHeader({
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (tabScope?.active === false || event.isComposing || rowRef.current?.closest('[hidden],[inert]')) return;
+      if (!showConversationActions || tabScope?.active === false || event.isComposing || rowRef.current?.closest('[hidden],[inert]')) return;
       const key = event.key.toLowerCase();
       if (!["t","i","u","a"].includes(key) || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
       if (keyboardPointerTarget()?.closest("[data-conversation-row]") || document.querySelector("[data-conversation-row]:hover") || !rowRef.current || !keyboardPane().contains(rowRef.current) || isTypingTarget(event.target)) return;
@@ -375,11 +377,11 @@ export function ConversationHeader({
   return (
     <TooltipProvider delayDuration={200}>
       <div
-        data-pane-toolbar={paneHeader ? "" : undefined}
+        data-admin-page-header={paneHeader ? "" : undefined}
           className={cn(
             "flex-shrink-0 border-b bg-background",
             paneHeader
-              ? "px-4 py-2"
+              ? adminPageHeaderClass
               : "flex flex-col gap-2 px-6 py-3 dark:border-brand-dark-border",
           )}
         >
@@ -388,7 +390,7 @@ export function ConversationHeader({
             ref={rowRef}
             className={cn(
               "flex items-center gap-2 min-w-0 flex-nowrap",
-              paneHeader && "min-h-9",
+              paneHeader && "flex-1",
             )}
           >
           {showBackButton && onBack && (
@@ -403,7 +405,7 @@ export function ConversationHeader({
           )}
           <div
             className="min-w-0 flex-1 flex items-center justify-start overflow-hidden"
-            style={{ minWidth: paneHeader ? PANE_TITLE_MIN_WIDTH : TITLE_MIN_WIDTH }}
+            style={{ minWidth: paneHeader ? 0 : TITLE_MIN_WIDTH }}
           >
             {paneHeader && titleSlot ? (
               titleSlot
@@ -425,8 +427,8 @@ export function ConversationHeader({
             )}
           </div>
           </div>
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5 [&>button]:shrink-0">
+          <div className={cn("flex min-w-0 items-center justify-between", paneHeader ? "shrink-0" : "gap-2")}>
+            {!paneHeader && <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5 [&>button]:shrink-0">
             {person ? (
               <EntityChip
                 entityType={person.type}
@@ -438,9 +440,9 @@ export function ConversationHeader({
               <EntityChip entityType="message" label={title || "Conversation"} onClick={onTitleClick} />
             )}
             {contact?.parents && <StudentContextChips students={meetings.students} />}
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <EmailActionGroup label="Conversation actions">
+            </div>}
+            <div className={cn("flex shrink-0 items-center justify-end", paneHeader ? "gap-1" : "flex-wrap gap-2")}>
+              {showConversationActions && <EmailActionGroup label="Conversation actions">
                 {onSearchToggle && <EmailIconButton data-shortcut-search label="Search" shortcut={["Alt", "F"]} onClick={onSearchToggle}><Search className="h-4 w-4" /></EmailIconButton>}
                 {onToggleRead && <EmailIconButton shortcut="U" label={readLabel} data-unread={isUnread ? "true" : undefined} onClick={onToggleRead}><Mail className="h-4 w-4" /></EmailIconButton>}
           <DropdownMenu
@@ -492,8 +494,8 @@ export function ConversationHeader({
               </DropdownMenuContent>
             </DropdownMenu>
 
-              </EmailActionGroup>
-              {onAssign && <EmailActionGroup label="Conversation responsibility"><SearchableSelect
+              </EmailActionGroup>}
+              {showConversationActions && onAssign && <EmailActionGroup label="Conversation responsibility"><SearchableSelect
                 open={assigneeOpen} onOpenChange={setAssigneeOpen}
                 items={staffOptions}
                 value={staffOptions.find((member) => member.id === assigneeId) ?? null}
@@ -502,14 +504,14 @@ export function ConversationHeader({
                 getItemLabel={(member) => `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() || "Admin staff"}
                 allowClear clearLabel="Unassigned" searchPlaceholder="Search admin staff..."
                 trigger={
-                  <EmailIconButton shortcut="A" label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={assigneeId ? "w-auto gap-1 px-2" : undefined}>
+                  <EmailIconButton shortcut="A" label={assigneeName ? `Assign conversation, ${assigneeName}` : "Assign conversation"} className={!paneHeader && assigneeId ? "w-auto gap-1 px-2" : undefined}>
                     <User className="h-4 w-4" />
-                    {assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assigneeName || "Assigned"}</span>}
+                    {!paneHeader && assigneeId && <span className="max-w-[min(12rem,35vw)] truncate text-xs">{assigneeName || "Assigned"}</span>}
                   </EmailIconButton>
                 }
               /></EmailActionGroup>}
-              {extraActions}
               {filterControl}
+              {extraActions}
             </div>
         </div>
         {/* Issue pills stay under the conversation actions. */}

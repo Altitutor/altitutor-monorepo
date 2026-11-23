@@ -8,7 +8,8 @@ import { useUnreadConversationCount } from '@/features/messages/api/queries';
 import { useUnreadMailCount } from '@/features/email/api/client';
 import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
 import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
-import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
+import { EmbeddedPaneEvents, PaneWorkspace, useEmbeddedPane } from "@/shared/components/pane-workspace/PaneWorkspace";
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AdminPageActionsTarget } from '@/shared/components/AdminPageActions';
@@ -117,36 +118,47 @@ function NavSectionHeading({ title }: { title: string }) {
   );
 }
 
-const isNavItemActive = (
-  pathname: string,
-  item: Extract<NavItem, { type?: "link" }>,
-) => {
-  if (item.title === "Dashboard") {
-    return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-  }
-  if (item.href.startsWith("/ucat/")) {
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
-  }
-  return pathname === item.href;
-};
+const ActivePanePath = React.createContext<string | null>(null);
 
-function useSectionExpanded(pathname: string, href: string) {
-  const [expanded, setExpanded] = useState(() => pathname.startsWith(href));
+const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: "link" }>) =>
+  pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+function useSectionExpanded(active: boolean) {
+  const [expanded, setExpanded] = useState(active);
   useEffect(() => {
-    if (pathname === href || pathname.startsWith(`${href}/`)) {
-      setExpanded(true);
-    }
-  }, [href, pathname]);
+    if (active) setExpanded(true);
+  }, [active]);
   return [expanded, () => setExpanded((current) => !current)] as const;
 }
 
 function childNavActive(
   pathname: string,
-  parentHref: string,
   childHref: string,
 ) {
-  if (childHref === parentHref) return pathname === parentHref;
   return pathname === childHref || pathname.startsWith(`${childHref}/`);
+}
+
+function SidebarSignals({
+  href,
+  label,
+  collapsed = false,
+  children,
+}: {
+  href: string;
+  label: string;
+  collapsed?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <span className={collapsed ? "contents" : "ml-auto hidden shrink-0 items-center gap-1.5 has-[>span:not(:empty)]:flex"}>
+      <span className={collapsed ? "absolute right-0.5 top-0 empty:hidden" : "inline-flex empty:hidden"}>
+        {children}
+      </span>
+      <span className={collapsed ? "absolute bottom-0 left-0.5 empty:hidden" : "inline-flex empty:hidden"}>
+        <GoHint href={href} label={label} />
+      </span>
+    </span>
+  );
 }
 
 function ExpandableNavGroup({
@@ -162,9 +174,14 @@ function ExpandableNavGroup({
   collapsed?: boolean;
   counts: ReconciliationCounts;
 }) {
-  const activePath = item.href === '/billing' && pathname.startsWith('/invoices/') ? '/billing/invoices' : pathname;
-  const [expanded, toggleExpanded] = useSectionExpanded(activePath, item.href);
-  const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
+  const activePath = pathname.replace(/^\/invoices(?=\/|$)/, "/billing/invoices")
+    .replace(/^\/notes(?=\/|$)/, "/documents");
+  const active =
+    activePath === item.href ||
+    activePath.startsWith(`${item.href}/`) ||
+    item.children.some((child) => childNavActive(activePath, child.href));
+  const [expanded, toggleExpanded] = useSectionExpanded(active);
+  const goHints = React.useContext(GoHintsContext);
   const Icon = item.icon;
   const queues = sidebarReconciliationQueues[item.href];
 
@@ -175,6 +192,7 @@ function ExpandableNavGroup({
           <TooltipTrigger asChild>
             <Link
               href={item.href}
+              aria-current={active ? "page" : undefined}
               prefetch={false}
               className={cn(
                 "relative flex items-center justify-center rounded-md px-0 py-2 text-sm",
@@ -183,7 +201,9 @@ function ExpandableNavGroup({
             >
               <Icon className="h-6 w-6" />
               <span className="sr-only">{item.title}</span>
-              {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="absolute right-0.5 top-0 text-[10px]" />}
+              <SidebarSignals href={item.href} label={item.title} collapsed>
+                {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="text-[10px]" />}
+              </SidebarSignals>
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={10} className="max-w-sm whitespace-pre-line">
@@ -205,12 +225,13 @@ function ExpandableNavGroup({
         <Link
           href={item.href}
           prefetch={false}
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2"
+          className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3"
         >
           <Icon className="h-5 w-5 shrink-0" />
           <span className="truncate">{item.title}</span>
-          <GoHint href={item.href} />
-          {queues && <ReconciliationCountBadge queues={queues} counts={counts} className="ml-auto" />}
+          <SidebarSignals href={item.href} label={item.title}>
+            {queues && <ReconciliationCountBadge queues={queues} counts={counts} />}
+          </SidebarSignals>
         </Link>
         <button
           type="button"
@@ -218,7 +239,7 @@ function ExpandableNavGroup({
           aria-label={
             expanded ? `Collapse ${item.title}` : `Expand ${item.title}`
           }
-          className="mr-1 rounded p-1 text-muted-foreground hover:text-foreground"
+          className="mx-1 shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
           onClick={toggleExpanded}
         >
           <ChevronDown
@@ -229,22 +250,25 @@ function ExpandableNavGroup({
           />
         </button>
       </div>
-      <SidebarExpandablePanel expanded={expanded}>
+      <SidebarExpandablePanel expanded={expanded || goHints}>
         <div className="ml-4 space-y-0.5 border-l border-border pl-2">
           {item.children.map((child) => (
             <Link
               key={child.href}
               href={child.href}
+              aria-current={childNavActive(activePath, child.href) ? "page" : undefined}
               prefetch={false}
               className={cn(
-                "flex items-center rounded-md px-2 py-1.5 text-sm",
-                childNavActive(activePath, item.href, child.href)
+                "flex items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-sm",
+                childNavActive(activePath, child.href)
                   ? navLinkActiveStyles
                   : navLinkInactiveStyles,
               )}
             >
-              {child.title}
-              {sidebarReconciliationQueues[child.href] && <ReconciliationCountBadge queues={sidebarReconciliationQueues[child.href]} counts={counts} className="ml-auto" />}
+              <span className="truncate">{child.title}</span>
+              <SidebarSignals href={child.href} label={child.title}>
+                {sidebarReconciliationQueues[child.href] && <ReconciliationCountBadge queues={sidebarReconciliationQueues[child.href]} counts={counts} />}
+              </SidebarSignals>
             </Link>
           ))}
         </div>
@@ -262,7 +286,8 @@ function AdminNavMenu({
 }) {
   const { router: paneRouter } = usePaneNavigation();
   const { collapsedGroups } = useAdminShell();
-  const pathname = usePathname();
+  const currentPath = usePathname();
+  const pathname = React.useContext(ActivePanePath) ?? currentPath;
   const { data: unreadMessages = 0 } = useUnreadConversationCount();
   const { data: unreadMail = 0 } = useUnreadMailCount();
   const counts = useReconciliationCounts();
@@ -309,12 +334,13 @@ function AdminNavMenu({
               onClick={(event) => openAccessory(event, itemHref)}
               prefetch={false}
               aria-label={linkLabel}
+              aria-current={isNavItemActive(pathname, item) ? "page" : undefined}
               className={cn(
-                "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                "relative flex items-center gap-3 rounded-md py-2 pl-3 pr-8 text-sm",
                 isNavItemActive(pathname, item)
                   ? navLinkActiveStyles
                   : navLinkInactiveStyles,
-                collapsed && "justify-center px-0",
+                collapsed && "justify-center pl-0 pr-0",
               )}
             >
               <Icon className={cn("size-5 shrink-0", collapsed && "size-6")} aria-hidden />
@@ -325,16 +351,17 @@ function AdminNavMenu({
                   {item.title}
                 </span>
               )}
-              <GoHint href={itemHref} />
-              {count > 0 ? (
-                <RedCountBadge
-                  count={collapsed && count > 99 ? '99+' : count}
-                  tooltip={`${count} ${countLabel}`}
-                  className={cn(
-                    collapsed ? "absolute right-0.5 top-0 text-[10px]" : "ml-auto",
-                  )}
-                />
-              ) : sidebarReconciliationQueues[itemHref] ? <ReconciliationCountBadge queues={sidebarReconciliationQueues[itemHref]} counts={counts} className={collapsed ? "absolute right-0.5 top-0 text-[10px]" : "ml-auto"} /> : null}
+              <SidebarSignals href={itemHref} label={item.title} collapsed={collapsed}>
+                {count > 0 ? (
+                  <RedCountBadge
+                    count={collapsed && count > 99 ? "99+" : count}
+                    tooltip={`${count} ${countLabel}`}
+                    className={collapsed ? "text-[10px]" : undefined}
+                  />
+                ) : sidebarReconciliationQueues[itemHref] ? (
+                  <ReconciliationCountBadge queues={sidebarReconciliationQueues[itemHref]} counts={counts} className={collapsed ? "text-[10px]" : undefined} />
+                ) : null}
+              </SidebarSignals>
             </Link>
           );
 
@@ -384,9 +411,10 @@ function ShellNav({
   collapsed?: boolean;
   onAccessoryNavigate?: () => void;
 }) {
-  const pathname = usePathname();
+  const primaryPath = usePathname();
+  const pathname = React.useContext(ActivePanePath) ?? primaryPath;
   if (isSettingsRoute(pathname))
-    return <SettingsNavMenu collapsed={collapsed} />;
+    return <SettingsNavMenu collapsed={collapsed} activePath={pathname} />;
   return (
     <AdminNavMenu
       collapsed={collapsed}
@@ -441,6 +469,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
 }
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const embeddedPane = useEmbeddedPane();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
@@ -487,32 +516,44 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     () => ({ primary: actionsTarget, secondary: secondaryActionsTarget }),
     [actionsTarget, secondaryActionsTarget],
   );
+  const [activePanePath, setActivePanePath] = useState<string | null>(null);
+  const [peerGoHintsActive, setPeerGoHintsActive] = useState(false);
   const showBreadcrumbs =
+    pathname !== "/messages" &&
+    !/^\/(tasks|issues|projects|documents|notes|email)\/[^/]+$/.test(pathname) &&
     !/^\/subjects\/[^/]+\/topics\/[^/]+$/.test(pathname) &&
     !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(
       pathname,
     );
 
+  const wrapWorkspace = (content: React.ReactNode) => embeddedPane
+    ? content
+    : <PaneWorkspace onActivePathChange={setActivePanePath} onPeerGoHintsChange={setPeerGoHintsActive}>{content}</PaneWorkspace>;
+
   return (
     <AdminToolbarViewsProvider>
-      <AdminShortcuts>
-        <Navbar />
+      <AdminShortcuts peerGoHintsActive={peerGoHintsActive}>
+        <ActivePanePath.Provider value={activePanePath}>
+        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar />}
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
         <CommandPaletteModal
           isOpen={isCommandPaletteOpen}
           onClose={closeCommandPalette}
         />
-        <div className="mt-[var(--navbar-height)] flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
-          <SidebarNav collapsed={collapsed} />
-          <AccessoryPanelLayout>
+        <div data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex overflow-hidden bg-card", embeddedPane
+          ? "h-dvh"
+          : "mt-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))]")}>
+          {!embeddedPane && <SidebarNav collapsed={collapsed} />}
+          {wrapWorkspace(
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <div
               data-admin-main
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70"
+              className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
             >
               {showBreadcrumbs && (
                 <div
                   data-admin-page-header
-                  className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-6 py-3"
+                  className={cn(adminPageHeaderClass, "flex-wrap")}
                 >
                   <Breadcrumb
                     items={breadcrumbs}
@@ -634,8 +675,10 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 />
               </>
             )}
-          </AccessoryPanelLayout>
+            </div>
+          )}
         </div>
+        </ActivePanePath.Provider>
       </AdminShortcuts>
     </AdminToolbarViewsProvider>
   );

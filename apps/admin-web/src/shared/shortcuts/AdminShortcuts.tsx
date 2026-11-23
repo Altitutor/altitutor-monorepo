@@ -21,6 +21,7 @@ import {
 } from "@altitutor/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 import { keyboardPane, keyboardBulkOwner, keyboardPointerTarget, isVisibleShortcutTarget } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
@@ -32,11 +33,11 @@ import { activeDialog, searchControl, searchTrigger } from "./search";
 import { SearchHint } from "./SearchHint";
 import { NewDocumentDialog } from "./NewDocumentDialog";
 
-export function AdminShortcuts({ children }: { children: ReactNode }) {
+export function AdminShortcuts({ children, peerGoHintsActive = false }: { children: ReactNode; peerGoHintsActive?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const [go, setGo] = useState(false);
-  const goPending = useRef(false);
+  const goPending = useRef<{ openInNewPane: boolean } | null>(null);
   const goTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [help, setHelp] = useState(false);
   const [held, setHeld] = useState(false);
@@ -79,7 +80,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
   useEffect(() => () => clearTimeout(goTimer.current), []);
   useEffect(() => {
     const cancelGo = () => {
-      goPending.current = false;
+      goPending.current = null;
       setGo(false);
       clearTimeout(goTimer.current);
     };
@@ -135,7 +136,19 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
       }
       if (bare && !typing && !activeDialog() && !event.repeat && !goPending.current && !event.shiftKey && ['m','f'].includes(key)) {
         const target = keyboardPointerTarget() ?? keyboardPane();
-        const menu = [...target.querySelectorAll<HTMLButtonElement>(key === 'm' ? '[data-shortcut-menu]' : '[data-shortcut-filter]'), ...(target === keyboardPane() ? [] : keyboardPane().querySelectorAll<HTMLButtonElement>(key === 'm' ? '[data-shortcut-menu]' : '[data-shortcut-filter]'))].find(node=>isVisibleShortcutTarget(node) && !node.disabled);
+        const selector = key === "m" ? "[data-shortcut-menu]" : "[data-shortcut-filter]";
+        const pane = keyboardPane();
+        const activePane = document.querySelector("[data-admin-active-pane='true']");
+        const peerDocument = activePane?.querySelector<HTMLIFrameElement>("iframe[data-admin-pane-frame]")?.contentDocument;
+        const menuScope = peerDocument?.querySelector("[data-admin-main]") ?? (activePane && peerDocument ? activePane : pane);
+        const headerControls = key === "m"
+          ? menuScope.querySelectorAll<HTMLButtonElement>(`[data-admin-page-header] ${selector}`)
+          : [];
+        const menu = [
+          ...(peerDocument || target === pane ? [] : target.querySelectorAll<HTMLButtonElement>(selector)),
+          ...headerControls,
+          ...menuScope.querySelectorAll<HTMLButtonElement>(selector),
+        ].find((node) => isVisibleShortcutTarget(node) && !node.disabled);
         if(menu){
           event.preventDefault();
           if (menu.getAttribute('aria-haspopup') === 'menu') menu.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
@@ -144,21 +157,27 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         }
       }
       if (bare && !typing && !activeDialog() && !event.repeat) {
+        if (goPending.current && key === "shift") return;
         if (goPending.current) {
+          const openInNewPane = goPending.current.openInNewPane || event.shiftKey;
           cancelGo();
           event.preventDefault();
           event.stopPropagation();
           const page = pageShortcuts.find(([letter]) => letter === key);
           if (page) {
-            router.push(page[1]);
+            if (!requestPane(openInNewPane ? "open" : "navigate", page[1])) router.push(page[1]);
             mobile.close?.();
           }
           return;
         }
-        if (key === "g" && !event.shiftKey) {
+        if (key === "escape" && !event.shiftKey && requestPane("back")) {
+          event.preventDefault();
+          return;
+        }
+        if (key === "g") {
           event.preventDefault();
           event.stopPropagation();
-          goPending.current = true;
+          goPending.current = { openInNewPane: event.shiftKey };
           setGo(true);
           goTimer.current = setTimeout(cancelGo, 1500);
           return;
@@ -227,7 +246,9 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           ].find(isVisibleShortcutTarget);
           if (create || button) {
             event.preventDefault();
-            if (button) button.click();
+            if (button?.getAttribute("aria-haspopup") === "menu") {
+              button.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+            } else if (button) button.click();
             else create?.();
           }
           return;
@@ -276,6 +297,10 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
         return;
       }
       if (id === "close") {
+        if (requestPane("close")) {
+          event.preventDefault();
+          return;
+        }
         if (panel?.expanded) {
           const close = document.querySelector<HTMLButtonElement>(
             `[data-close-accessory-tab="${CSS.escape(panel.activeKey ?? "")}"]`,
@@ -338,7 +363,7 @@ export function AdminShortcuts({ children }: { children: ReactNode }) {
           }}
         >
           <GoHintsContext.Provider
-            value={go && !modified && !typing && !dialogActive}
+            value={(go || peerGoHintsActive) && !typing && !dialogActive}
           >
             <AltHintsContext.Provider value={held}>
               {children}

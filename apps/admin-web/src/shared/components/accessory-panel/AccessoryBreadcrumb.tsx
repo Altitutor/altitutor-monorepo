@@ -5,9 +5,11 @@ import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { accessoryFamily } from "@/shared/contexts/AccessoryPanelContext";
 export function AccessoryBreadcrumb({
   ownerIds = [],
+  currentTitle,
   onCurrentClick,
 }: {
   ownerIds?: Array<string | null | undefined>;
+  currentTitle?: string | null;
   onCurrentClick?: () => void;
 }) {
   const scope = useAccessoryTab();
@@ -19,6 +21,7 @@ export function AccessoryBreadcrumb({
       : undefined;
   const family = accessoryFamily(owner?.kind ?? scope.tab.kind);
   const title = family.charAt(0).toUpperCase() + family.slice(1);
+  const label = currentTitle || scope.tab.title;
   return (
     <nav
       aria-label="Breadcrumb"
@@ -45,12 +48,12 @@ export function AccessoryBreadcrumb({
         </>
       )}
       {onCurrentClick ? (
-        <button type="button" className="truncate text-left font-medium hover:underline" title={scope.tab.title} onClick={onCurrentClick}>
-          {scope.tab.title}
+        <button type="button" className="truncate text-left font-medium hover:underline" title={label} onClick={onCurrentClick}>
+          {label}
         </button>
       ) : (
-        <span className="truncate font-medium" title={scope.tab.title}>
-          {scope.tab.title}
+        <span className="truncate font-medium" title={label}>
+          {label}
         </span>
       )}
     </nav>
