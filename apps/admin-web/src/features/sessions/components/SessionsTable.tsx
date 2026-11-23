@@ -44,7 +44,8 @@ import { useSessionsTableModals } from "../hooks/useSessionsTableModals";
 import { useDataTable } from "@/shared/hooks/useDataTable";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from "./absences";
-import { SessionsTableRow } from "./SessionsTableRow";
+import { SessionsTableRow, SessionsTableRowStudentActions } from "./SessionsTableRow";
+import { getShortSessionName } from "../utils/session-helpers";
 import { useUninvoicedSessions } from "@/features/reconciliation/api/queries";
 import { useStudentSessionBillingDetails } from "../hooks/useStudentSessionBillingDetails";
 
@@ -693,6 +694,29 @@ export function SessionsTable({
       {renderMode === "calendar" ? (
         <SessionsCalendarView
           onOpenSession={onOpenSession}
+          renderSessionActions={isStudentAttendanceView && studentId ? (session) => (
+            <SessionsTableRowStudentActions
+              compact
+              session={session}
+              studentList={sessionStudents[session.id] ?? []}
+              studentId={studentId}
+              hasTutorLog={Boolean(tutorLogs[session.id])}
+              classesById={classesById}
+              allSessions={allSessions}
+              sessionShortName={getShortSessionName({
+                ...session,
+                class: session.class_id ? classesById[session.class_id] : undefined,
+              })}
+              getClassShortDisplayName={getClassShortDisplayName}
+              getShortSessionName={getShortSessionName}
+              onOpenSession={onOpenSession}
+              onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
+              onRemoveStudentFromSession={onRemoveStudentFromSession}
+              modals={modals}
+              currentStaff={currentStaff}
+              onCopySessionId={handleCopySessionId}
+            />
+          ) : undefined}
           initialDate={calendarFrom || calendarTo || initialCalendarDate}
           initialViewMode={initialCalendarMode}
           onRangeChange={changeCalendarRange}

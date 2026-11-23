@@ -9,7 +9,6 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { MessageTemplatesPicker } from '../components/MessageTemplatesPicker';
 import { ComposerVariablesDropdown } from '../components/ComposerVariablesDropdown';
 import { useContactForTemplate } from '../api/queries';
-import { useContactClasses } from '../hooks/useContactClasses';
 import { useResponsiveButtons } from '../hooks/useResponsiveButtons';
 import { useVariableReplacement } from '../hooks/useVariableReplacement';
 import {
@@ -49,11 +48,8 @@ export function ImessageEditDialog({
   const canExpand = useResponsiveButtons(buttonRowRef);
   const { data: currentStaff } = useCurrentStaff();
   const { data: contactData } = useContactForTemplate(contactId ?? null);
-  const { studentHasClasses, staffHasClasses } = useContactClasses(contactData ?? null);
   const { getVariableValue, getAvailableVariables, getParentStudents } = useVariableReplacement(
     contactData ?? null,
-    studentHasClasses,
-    staffHasClasses,
     currentStaff ?? undefined,
     setIsGeneratingTokens,
   );
@@ -172,7 +168,6 @@ export function ImessageEditDialog({
           <ComposerVariablesDropdown
             availableVariables={getAvailableVariables()}
             parentStudents={getParentStudents()}
-            studentHasClasses={studentHasClasses}
             contactType={contactData?.contact_type}
             open={variablesMenuOpen}
             onOpenChange={setVariablesMenuOpen}

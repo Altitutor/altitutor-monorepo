@@ -121,7 +121,7 @@ const isNavItemActive = (
   pathname: string,
   item: Extract<NavItem, { type?: "link" }>,
 ) => {
-  if (item.title === "Dashboard") {
+  if (item.href === "/dashboard") {
     return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   }
   if (item.href.startsWith("/ucat/")) {
@@ -130,13 +130,11 @@ const isNavItemActive = (
   return pathname === item.href;
 };
 
-function useSectionExpanded(pathname: string, href: string) {
-  const [expanded, setExpanded] = useState(() => pathname.startsWith(href));
+function useSectionExpanded(active: boolean) {
+  const [expanded, setExpanded] = useState(active);
   useEffect(() => {
-    if (pathname === href || pathname.startsWith(`${href}/`)) {
-      setExpanded(true);
-    }
-  }, [href, pathname]);
+    if (active) setExpanded(true);
+  }, [active]);
   return [expanded, () => setExpanded((current) => !current)] as const;
 }
 
@@ -163,8 +161,11 @@ function ExpandableNavGroup({
   counts: ReconciliationCounts;
 }) {
   const activePath = item.href === '/billing' && pathname.startsWith('/invoices/') ? '/billing/invoices' : pathname;
-  const [expanded, toggleExpanded] = useSectionExpanded(activePath, item.href);
-  const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
+  const active =
+    activePath === item.href ||
+    activePath.startsWith(`${item.href}/`) ||
+    item.children.some((child) => childNavActive(activePath, item.href, child.href));
+  const [expanded, toggleExpanded] = useSectionExpanded(active);
   const Icon = item.icon;
   const queues = sidebarReconciliationQueues[item.href];
 

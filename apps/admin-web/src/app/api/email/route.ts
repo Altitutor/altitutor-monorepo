@@ -3,6 +3,7 @@ import { emailAccess } from "@/features/email/server/auth";
 import { emailListSchema } from "@/features/email/types";
 import { mailboxConfigured } from "@/features/email/server/connection";
 import { listScheduledMail } from "@/features/email/server/scheduled-list";
+import { getInboxReplyTimes } from "@/features/email/server/inbox-replies";
 export async function GET(request: NextRequest) {
   const access = await emailAccess();
   if ("error" in access)
@@ -74,11 +75,23 @@ export async function GET(request: NextRequest) {
       { error: "Could not load the mailbox." },
       { status: 503 },
     );
+  const list = emailListSchema.parse(threads.data);
+  const isInbox = folders.data?.some(
+    (folder) => folder.role === "inbox" && folder.id === params.get("folder"),
+  );
+  if (isInbox) {
+    try {
+      const replied = await getInboxReplyTimes(access.db, list.threads, access.mailbox.address);
+      list.threads = list.threads.map((row) => ({ ...row, repliedAt: replied.get(row.id) }));
+    } catch {
+      return NextResponse.json({ error: "Could not load inbox reply status." }, { status: 503 });
+    }
+  }
   return NextResponse.json(
     {
       senders: senders.data,
       folders: folders.data,
-      ...emailListSchema.parse(threads.data),
+      ...list,
       staff: staff.data,
       currentStaffId: access.staff.id,
       sync: states.data,

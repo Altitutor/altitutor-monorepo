@@ -27,7 +27,6 @@ import { useMessageAttachments } from '../hooks/useMessageAttachments';
 import { AttachmentPreviewList } from './AttachmentPreview';
 import { calculateSMSSegments } from '../utils/smsSegments';
 import { useComposerControlsLayout } from '../hooks/useComposerControlsLayout';
-import { useContactClasses } from '../hooks/useContactClasses';
 import { useVariableReplacement } from '../hooks/useVariableReplacement';
 import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
@@ -205,14 +204,10 @@ export function Composer({
   } : undefined;
 
 
-  // Fetch classes for students/staff to determine if class variables can be shown (React Query)
-  const { studentHasClasses, staffHasClasses } = useContactClasses(contactData ?? null);
 
   // Variable replacement logic (extracted to hook)
   const { getVariableValue, getAvailableVariables, getParentStudents } = useVariableReplacement(
     contactData ?? null,
-    studentHasClasses,
-    staffHasClasses,
     currentStaff ?? undefined,
     setIsGeneratingTokens
   );
@@ -604,7 +599,6 @@ export function Composer({
             <ComposerControlTooltip label="Insert variable" compact={!canExpand}><ComposerVariablesDropdown
               availableVariables={availableVariables}
               parentStudents={parentStudents}
-              studentHasClasses={studentHasClasses}
               contactType={contactData?.contact_type}
               open={variablesMenuOpen}
               onOpenChange={setVariablesMenuOpen}

@@ -602,12 +602,10 @@ export function ClassesTable({
                         {state.visibleColumns.includes("staff") && (
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              {getClassStaff(cls).length === 0 ? (
-                                <span className="text-muted-foreground text-sm">
-                                  No staff
-                                </span>
-                              ) : (
-                                getClassStaff(cls).map((staff, staffIndex) => (
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {getClassStaff(cls).length} staff
+                              </span>
+                              {getClassStaff(cls).map((staff, staffIndex) => (
                                   <EntityActionChip
                                     key={`${cls.id}-${staff.id}-${staffIndex}`}
                                     hoverActions={classStaffReferenceActions(
@@ -619,8 +617,7 @@ export function ClassesTable({
                                       handleStaffClick(staff.id, e)
                                     }
                                    entityType="staff" entityId={staff.id} label={`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff'} />
-                                ))
-                              )}
+                              ))}
                             </div>
                           </TableCell>
                         )}

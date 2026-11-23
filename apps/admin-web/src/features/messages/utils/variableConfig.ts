@@ -239,7 +239,7 @@ export function hasVariables(template: string): boolean {
 export function canGenerateStudentVariable(
   variableName: string,
   student: { first_name: string | null; last_name: string | null; status: string | null; user_id: string | null },
-  hasClasses: boolean
+  hasClasses = true
 ): boolean {
   switch (variableName) {
     case 'first_name':
@@ -282,7 +282,7 @@ export function canGenerateStudentVariable(
 export function canGenerateStaffVariable(
   variableName: string,
   staff: { first_name: string | null; last_name: string | null; user_id: string | null },
-  hasClasses: boolean
+  hasClasses = true
 ): boolean {
   switch (variableName) {
     case 'first_name':

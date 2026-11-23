@@ -242,7 +242,7 @@ export function SessionSelect<T>({
       <PopoverContent
         container={popoverContainer}
         align={align}
-        className="w-[min(720px,calc(100vw-2rem))] p-3"
+        className="max-h-[var(--radix-popover-content-available-height)] w-[min(720px,calc(100vw-2rem))] overflow-y-auto overscroll-contain p-3"
       >
         <div className="mb-3 flex items-center justify-between">
           <Button

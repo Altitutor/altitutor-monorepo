@@ -1,18 +1,12 @@
 import {
   Users,
   Calendar,
-  GraduationCap,
   FileText,
   Home,
   CreditCard,
-  AlertTriangle,
-  Beaker,
-  ClipboardList,
-  UserRound,
   MessageSquareText,
   Mail,
   ListTodo,
-  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,51 +21,48 @@ export type NavItem =
   | { type: "heading"; title: string };
 
 export const navItems: NavItem[] = [
+  { title: "Home", href: "/dashboard", icon: Home },
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
-  },
-  {
-    type: "heading",
-    title: "COMMUNICATION",
+    title: "Calendar",
+    href: "/sessions",
+    icon: Calendar,
+    children: [
+      { title: "Sessions", href: "/sessions" },
+      { title: "Classes", href: "/classes" },
+    ],
   },
   { title: "Messages", href: "/messages", icon: MessageSquareText },
   { title: "Mail", href: "/email", icon: Mail },
   {
-    type: "heading",
-    title: "SCHEDULING",
+    title: "Files",
+    href: "/subjects",
+    icon: FileText,
+    children: [
+      { title: "Subjects", href: "/subjects" },
+      { title: "Documents", href: "/documents" },
+    ],
   },
   {
-    title: "Students",
+    title: "Tasks",
+    href: "/tasks",
+    icon: ListTodo,
+    children: [
+      { title: "Tasks", href: "/tasks" },
+      { title: "Projects", href: "/projects" },
+      { title: "Issues", href: "/issues" },
+      { title: "Reconciliation", href: "/reconciliation" },
+    ],
+  },
+  {
+    title: "People",
     href: "/students",
-    icon: GraduationCap,
-  },
-  {
-    title: "Parents",
-    href: "/parents",
-    icon: UserRound,
-  },
-  {
-    title: "Staff",
-    href: "/staff",
     icon: Users,
+    children: [
+      { title: "Students", href: "/students" },
+      { title: "Parents", href: "/parents" },
+      { title: "Staff", href: "/staff" },
+    ],
   },
-  {
-    title: "Classes",
-    href: "/classes",
-    icon: Calendar,
-  },
-  {
-    title: "Sessions",
-    href: "/sessions",
-    icon: ClipboardList,
-  },
-  { type: "heading", title: "OPERATIONS" },
-  { title: "Tasks", href: "/tasks", icon: ListTodo },
-  { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Issues", href: "/issues", icon: AlertTriangle },
-  { title: "Documents", href: "/documents", icon: FileText },
   {
     type: "heading",
     title: "FINANCIAL",
@@ -86,18 +77,5 @@ export const navItems: NavItem[] = [
       { title: "Adjustments", href: "/billing/adjustments" },
     ],
   },
-  {
-    title: "Reports",
-    href: "/reports",
-    icon: FileText,
-  },
-  {
-    type: "heading",
-    title: "RESOURCES",
-  },
-  {
-    title: "Subjects",
-    href: "/subjects",
-    icon: Beaker,
-  },
+  { title: "Reports", href: "/reports", icon: FileText },
 ];

@@ -55,9 +55,9 @@ export const pageShortcuts = [
   ["t", "/tasks", "Tasks"], ["i", "/issues", "Issues"],
   ["p", "/projects", "Projects"], ["d", "/documents", "Documents"],
   ["m", "/messages", "Messages"], ["e", "/email", "Mail"],
-  ["h", "/dashboard", "Dashboard"], ["s", "/students", "Students"],
+  ["h", "/dashboard", "Home"], ["s", "/students", "Students"],
   ["a", "/parents", "Parents"], ["f", "/staff", "Staff"],
   ["c", "/classes", "Classes"], ["n", "/sessions", "Sessions"],
   ["b", "/billing", "Invoices"], ["r", "/reports", "Reports"],
-  ["u", "/subjects", "Subjects"],
+  ["u", "/subjects", "Subjects"], ["q", "/reconciliation", "Reconciliation"],
 ] as const;

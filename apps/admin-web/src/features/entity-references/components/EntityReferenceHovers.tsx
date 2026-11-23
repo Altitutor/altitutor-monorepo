@@ -92,14 +92,13 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
         </>
       )}
       <div className="-mx-4 mt-3 border-t"><ActionSearchScope alwaysSearchable autoFocus={autoFocusSearch}>
-          {query.data && (
-            <ReferenceActions
-              type={type}
-              id={id}
-              details={query.data}
-              onActivate={onActivate}
-            />
-          )}
+          <ReferenceActions
+            type={type}
+            id={id}
+            details={query.data}
+            fallbackTitle={fallbackTitle}
+            onActivate={onActivate}
+          />
           {contextualActions?.length ? (
             <ReferenceActionList
               actions={contextualActions}
@@ -113,25 +112,32 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
 
 /** One delegated surface covers React chips and serialized mentions, including newly loaded rich text. */
 export function EntityReferenceHovers() {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const [selection, setSelection] = useState<{
+    target: HTMLElement;
+    pointerOpened: boolean;
+    contextPoint?: DOMRect;
+  } | null>(null);
+  const target = selection?.target;
+  const pointerOpened = selection?.pointerOpened ?? false;
+  const contextPoint = selection?.contextPoint;
   const contextualActions = useContextualChipHoverActions(target?.dataset.hoverActionsKey);
   const [content, setContent] = useState<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pointerOpened, setPointerOpened] = useState(false);
   useEffect(() => {
     setContent(document.createElement("div"));
     const clear = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = null;
     };
+    const getChip = (event: Event) => {
+      const chip = event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-mention][data-id][data-type]")
+        : null;
+      return chip?.closest("[data-entity-reference-preview]") ? null : chip;
+    };
     const enter = (event: Event) => {
-      const chip =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>(
-              "[data-mention][data-id][data-type]",
-            )
-          : null;
-      if (!chip || chip.closest("[data-entity-reference-preview]")) return;
+      const chip = getChip(event);
+      if (!chip) return;
       const previous = event instanceof MouseEvent ? event.relatedTarget : null;
       if (previous instanceof Node && chip.contains(previous)) return;
       clear();
@@ -140,12 +146,23 @@ export function EntityReferenceHovers() {
           if (chip.isConnected) {
             // Layout changes can move chips under a stationary pointer while a
             // keyboard-operated resize handle still owns focus.
-            setPointerOpened(event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator");
-            setTarget(chip);
+            const pointerOpened = event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator";
+            setSelection((current) => current?.contextPoint ? current : { target: chip, pointerOpened });
           }
         },
         0,
       );
+    };
+    const openContext = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.shiftKey) return;
+      const chip = getChip(event);
+      if (!chip) return;
+      event.preventDefault();
+      clear();
+      const contextPoint = event.button === 2 || event.clientX || event.clientY
+        ? new DOMRect(event.clientX, event.clientY, 0, 0)
+        : chip.getBoundingClientRect();
+      setSelection({ target: chip, pointerOpened: true, contextPoint });
     };
     const leave = (event: MouseEvent) => {
       const chip =
@@ -164,15 +181,16 @@ export function EntityReferenceHovers() {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         clear();
-        setTarget(null);
+        setSelection(null);
       }
     };
     const activate = (event: MouseEvent) => {
       if (event.target instanceof Element && event.target.closest('[data-mention]')) {
         clear();
-        setTarget(null);
+        setSelection(null);
       }
     };
+    document.addEventListener("contextmenu", openContext);
     document.addEventListener("mouseover", enter);
     document.addEventListener("focusin", enter);
     document.addEventListener("mouseout", leave);
@@ -180,6 +198,7 @@ export function EntityReferenceHovers() {
     document.addEventListener('click', activate, true);
     return () => {
       clear();
+      document.removeEventListener("contextmenu", openContext);
       document.removeEventListener("mouseover", enter);
       document.removeEventListener("focusin", enter);
       document.removeEventListener("mouseout", leave);
@@ -203,18 +222,23 @@ export function EntityReferenceHovers() {
         if (pointerOpened && !isTypingTarget(document.activeElement)) content.querySelector<HTMLInputElement>('[cmdk-input]')?.focus({preventScroll:true});
       },
       showOnCreate: true,
-      placement: "bottom",
+      ...(contextPoint && {
+        trigger: "manual",
+        getReferenceClientRect: () => contextPoint,
+        onClickOutside: () => setSelection(null),
+      }),
+      placement: contextPoint ? "bottom-start" : "bottom",
       popperOptions: {modifiers:[{name:'preventOverflow',options:{boundary:boundary ?? 'clippingParents',rootBoundary:'viewport',padding:8,altAxis:true,tether:false}}]},
       appendTo: () => target.closest('[role="dialog"]') ?? document.body,
       delay: [0, 150],
       onHidden: () =>
-        setTarget((current) => (current === target ? null : current)),
+        setSelection((current) => (current?.target === target ? null : current)),
     });
     const contentObserver = new ResizeObserver(() => { void instance.popperInstance?.update(); });
     contentObserver.observe(content);
     return () => { contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
-  }, [target, content, pointerOpened]);
+  }, [target, content, pointerOpened, contextPoint]);
   return target && content
-    ? createPortal(<EntityReferencePreview key={`${target.dataset.type}:${target.dataset.id}:${target.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setTarget(null)} />, content)
+    ? createPortal(<EntityReferencePreview key={`${target.dataset.type}:${target.dataset.id}:${target.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setSelection(null)} />, content)
     : null;
 }

@@ -3,7 +3,7 @@ import { AdminPageActions } from "@/shared/components/AdminPageActions";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Reply } from "lucide-react";
 import {
   Button,
   DataTableToolbar,
@@ -379,6 +379,15 @@ export function MailPage() {
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
                     />
+                    {row.repliedAt && (
+                      <Reply
+                        role="img"
+                        aria-label="Replied"
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                      >
+                        <title>{`Replied ${new Date(row.repliedAt).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}`}</title>
+                      </Reply>
+                    )}
                     {settings.visibleColumns.includes("sender") && (
                       <span
                         className={`w-28 min-w-0 shrink truncate text-xs ${row.read ? "" : "font-semibold"}`}

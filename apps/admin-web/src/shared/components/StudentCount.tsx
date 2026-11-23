@@ -1,9 +1,20 @@
-/** A roster total, independent of attendance and name visibility. */
-export function StudentCount({ count }: { count: number | undefined }) {
+export function StudentCount({
+  count,
+  attendance,
+}: {
+  count: number | undefined;
+  attendance?: { count: number | undefined; label: "attending" | "attended" };
+}) {
   if (count === undefined) return null;
   return (
     <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
-      {count} {count === 1 ? "student" : "students"}
+      {attendance ? (
+        <span title={attendance.count === undefined ? "Attendance has not been recorded" : undefined}>
+          {attendance.count ?? "—"}/{count} {attendance.label}
+        </span>
+      ) : (
+        <>{count} {count === 1 ? "student" : "students"}</>
+      )}
     </span>
   );
 }
