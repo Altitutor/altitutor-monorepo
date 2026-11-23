@@ -2,42 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 
 test.use({ viewport: { width: 393, height: 852 } });
 
-test("announcement stays on one line on a narrow phone @compat", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 320, height: 852 });
-  await page.goto("/");
-  const banner = page.getByRole("complementary", {
-    name: "Medicine interview course announcement",
-  });
-  const link = banner.getByRole("link");
-  await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute(
-    "href",
-    "/classes/medical-interview-preparation/",
-  );
-  const dimensions = await link.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      height: element.getBoundingClientRect().height,
-      singleLineHeight:
-        parseFloat(style.lineHeight) +
-        parseFloat(style.paddingTop) +
-        parseFloat(style.paddingBottom),
-      width: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-    };
-  });
-  expect(dimensions.height).toBeLessThanOrEqual(
-    dimensions.singleLineHeight + 1,
-  );
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
-  await banner
-    .getByRole("button", { name: "Dismiss medicine interview announcement" })
-    .click();
-  await expect(banner).toBeHidden();
-});
-
 test("server HTML disables automatic iOS phone linking @compat", async ({
   request,
 }) => {

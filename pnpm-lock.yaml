@@ -388,6 +388,9 @@ importers:
 
   apps/marketing-web:
     dependencies:
+      '@altitutor/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@altitutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared

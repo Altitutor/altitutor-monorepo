@@ -59,8 +59,8 @@ function PageContent({ path, title }: { path: string; title: string }) {
     case "/about/testimonials/":
       return <TestimonialsPage />;
     default:
-      if (coursePaths.some((course) => course === path))
-        return <CoursePage path={path} />;
+      const coursePath = coursePaths.find((course) => course === path);
+      if (coursePath) return <CoursePage path={coursePath} />;
       return <InformationPage path={path} title={title} />;
   }
 }

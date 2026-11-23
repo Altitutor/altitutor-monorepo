@@ -49,8 +49,8 @@ describe("native marketing content", () => {
     expect(website?.potentialAction).toBeUndefined();
     expect(crumbs?.itemListElement).toHaveLength(1);
     expect(organization?.address).toMatchObject({
-      streetAddress: "31 Craighill Rd",
-      postalCode: "5064",
+      streetAddress: "Level 1, 17A Solomon St",
+      postalCode: "5000",
     });
   });
   it("does not build retired shop routes", () => {
