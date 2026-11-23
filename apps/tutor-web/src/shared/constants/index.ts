@@ -1,3 +1,4 @@
+import { OFFICE_ADDRESS } from "@altitutor/email/company-address";
 // App metadata
 export const APP_NAME = 'AltiTutor Admin';
 export const APP_DESCRIPTION = 'A comprehensive CRM system for Altitutor\'s administrative staff';
@@ -35,4 +36,4 @@ export const MARKETING_HOME_URL = process.env.NEXT_PUBLIC_MARKETING_URL || (isDe
 export const TUTOR_APPLY_URL = `${MARKETING_HOME_URL.replace(/\/$/, '')}/about/apply/`;
 
 // Venue information
-export const VENUE_ADDRESS = 'Level 1 / 17A Solomon St, Adelaide SA 5000, Australia';
+export const VENUE_ADDRESS = `${OFFICE_ADDRESS}, Australia`;

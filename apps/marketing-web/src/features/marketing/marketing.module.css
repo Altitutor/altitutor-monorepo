@@ -939,13 +939,6 @@
   margin-top: 15px;
   font-size: 0.95rem;
 }
-.contactHero {
-  max-width: 1000px;
-}
-.contactHero .lede {
-  margin-top: 30px;
-  max-width: 530px;
-}
 .contactGrid {
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
@@ -1125,15 +1118,6 @@
   font-size: 2rem;
   margin: 18px 0;
 }
-.courseChoice .resourceImage {
-  height: 100%;
-  min-height: 250px;
-  background: #e6e9e1;
-  padding: 20px;
-}
-.courseChoice .resourceImage img {
-  height: 265px;
-}
 .courseChoice .copy + .copy {
   margin-top: 18px;
 }
@@ -1183,14 +1167,6 @@
 }
 .courseHero .copy {
   margin-top: 25px;
-}
-.courseHero .resourceImage {
-  background: #e1e5de;
-  border-radius: 150px 150px 30px 30px;
-  padding: 40px;
-}
-.courseHero .resourceImage img {
-  height: 380px;
 }
 .courseFacts {
   border-block: 1px solid var(--hairline);
@@ -1645,9 +1621,6 @@
     padding: 25px;
     grid-template-columns: 0.6fr 1fr;
   }
-  .courseChoice .resourceImage img {
-    height: 220px;
-  }
   .courseBody {
     display: block;
     padding-top: 30px;
@@ -1665,14 +1638,6 @@
   .courseFacts ul {
     grid-template-columns: 1fr;
     gap: 15px;
-  }
-  .courseHero .resourceImage {
-    max-width: 550px;
-    width: 100%;
-    margin: auto;
-  }
-  .courseHero .resourceImage img {
-    height: 300px;
   }
   .contactGrid {
     gap: 20px;
@@ -1775,12 +1740,6 @@
   }
   .courseChoice {
     grid-template-columns: 1fr;
-  }
-  .courseChoice .resourceImage {
-    min-height: initial;
-  }
-  .courseChoice .resourceImage img {
-    height: 220px;
   }
   .courseResource {
     grid-template-columns: 1fr;

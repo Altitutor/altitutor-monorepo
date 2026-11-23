@@ -1,3 +1,4 @@
+import { OFFICE_ADDRESS } from "@altitutor/email/company-address";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -57,9 +58,7 @@ export function SiteFrame({
             </p>
             <div className={styles.footerContact}>
               <address>
-                Level 1, 17A Solomon St
-                <br />
-                Adelaide SA 5000
+                {OFFICE_ADDRESS}
               </address>
               <a href="mailto:admin@altitutor.com">
                 admin@altitutor.com

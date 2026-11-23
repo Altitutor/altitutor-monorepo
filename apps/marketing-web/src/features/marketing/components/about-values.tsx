@@ -1,5 +1,6 @@
 "use client";
 
+import { MarketingPhoto } from "./marketing-photo";
 import { HeartHandshake, Scale, Sparkles, UsersRound } from "lucide-react";
 import { SubsidyLearnMoreDialog } from "./subsidy-learn-more-dialog";
 import {
@@ -12,6 +13,8 @@ import styles from "../marketing.module.css";
 const values = [
   {
     title: "Equity",
+    photo: "ucat-prep",
+    alt: "Students discussing a question around a table at Altitutor",
     subtitle: "Fair Opportunity for All",
     summary:
       "We make transformative education accessible to students regardless of their background or financial situation.",
@@ -24,6 +27,8 @@ const values = [
   },
   {
     title: "Humanity",
+    photo: "med-interview",
+    alt: "A student and tutor practising an interview across a table",
     subtitle: "Valuing Relationships Beyond Roles",
     summary:
       "We build genuine relationships and support students and staff as whole people, beyond their roles or achievements.",
@@ -37,6 +42,8 @@ const values = [
   },
   {
     title: "Excellence",
+    photo: "workshop-2",
+    alt: "Students and tutors at an Altitutor workshop",
     subtitle: "Striving with Grace",
     summary:
       "We keep improving the education we offer, pursuing excellence with compassion, humility, and grace.",
@@ -49,6 +56,8 @@ const values = [
   },
   {
     title: "Community",
+    photo: "community",
+    alt: "Altitutor students working together around a table",
     subtitle: "Cultivating Passion and Connection",
     summary:
       "We make learning a shared experience where students connect, grow together, and form lasting friendships.",
@@ -70,6 +79,7 @@ export function AboutValues() {
             key={value.title}
             className="flex min-w-0 flex-col rounded-[30px] bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/[0.05] sm:p-8"
           >
+            <MarketingPhoto name={value.photo} alt={value.alt} className="mb-5" />
             <div className="flex items-center gap-2.5">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-marketing-primary/10 text-marketing-primary">
                 <Icon className="size-4" aria-hidden="true" />

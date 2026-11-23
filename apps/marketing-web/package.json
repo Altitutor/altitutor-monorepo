@@ -19,6 +19,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@altitutor/email": "workspace:*",
     "@altitutor/shared": "workspace:*",
     "@altitutor/ucat-percentiles": "workspace:*",
     "@altitutor/ui": "workspace:*",

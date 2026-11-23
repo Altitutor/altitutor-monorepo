@@ -65,13 +65,13 @@ export function AnnouncementBanner() {
         <Link
           href="/classes/medical-interview-preparation/"
           className={styles.message}
-          aria-label="Medicine interview course — sign-ups open now. View course"
+          aria-label="Medicine interview course. View course"
         >
           <span className={styles.desktopMessage}>
-            Medicine interview course — sign-ups open now
+            Medicine interview course
           </span>
           <span className={styles.mobileMessage}>
-            Medicine interviews: sign-ups open
+            Medicine interview course
             <ArrowRight size={15} aria-hidden="true" />
           </span>
           <span className={styles.action}>

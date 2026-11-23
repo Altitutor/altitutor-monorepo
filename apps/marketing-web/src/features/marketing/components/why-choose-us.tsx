@@ -57,8 +57,8 @@ const REASONS: readonly Omit<Reason, "html">[] = [
     icon: BookOpen,
     visual: "photo",
     photo: {
-      src: "/images/marketing/homework-help.jpg",
-      alt: "Homework help room with study tables, chairs, and a round table",
+      src: "/images/marketing/ucat-prep.webp",
+      alt: "Students discussing a question around a table at Altitutor",
     },
   },
   {

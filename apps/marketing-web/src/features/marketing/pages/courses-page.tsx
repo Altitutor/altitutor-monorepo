@@ -1,10 +1,11 @@
+import { MarketingPhoto } from "../components/marketing-photo";
+import { coursePhotos } from "../course-photos";
 import { content } from "../content";
 import {
   Button,
   Copy,
   Eyebrow,
   Questions,
-  ResourceImage,
   SectionTitle,
 } from "../components/primitives";
 import { TrialCTA } from "../components/trial-cta-section";
@@ -15,34 +16,29 @@ const pathways = [
   {
     id: "5a8129f",
     href: "/classes/weekly-classes/",
-    image: "/images/marketing/chemistry-notes.png",
     label: "Weekly subject tutoring",
   },
   {
     id: "9de86c7",
     href: "/classes/examprep/",
-    image: "/images/marketing/chemistry-exam.png",
     label: "Exam preparation courses",
   },
   {
     id: "756a704",
     href: "/classes/assignment-drafting/",
-    image: "/images/marketing/english-draft.png",
     label: "Assignment drafting",
   },
   {
     id: "48362bd",
     href: "/classes/ucatprep/",
-    image: "/images/marketing/ucat-qr-online.png",
     label: "In person UCAT tutoring",
   },
   {
     id: "2701993",
     href: "/classes/medical-interview-preparation/",
-    image: "/images/marketing/pre-course-prep.png",
     label: "Medical interview course",
   },
-];
+] as const;
 
 function CourseChoices({ start, end }: { start: number; end: number }) {
   return (
@@ -51,10 +47,7 @@ function CourseChoices({ start, end }: { start: number; end: number }) {
         const copy = courses(course.id);
         return (
           <article key={course.id} className={styles.courseChoice}>
-            <ResourceImage
-              src={course.image}
-              alt={`${course.label} sample materials`}
-            />
+            <MarketingPhoto {...coursePhotos[course.href]} />
             <div>
               <Eyebrow>0{start + i + 1} / Your next step</Eyebrow>
               <h3>{course.label}</h3>

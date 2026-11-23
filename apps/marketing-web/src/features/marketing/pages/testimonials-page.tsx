@@ -1,3 +1,5 @@
+import Image from "next/image";
+import { MarketingPhoto } from "../components/marketing-photo";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content, pageContent } from "../content";
 import { ResultYearStack } from "../components/result-year-stack";
@@ -24,13 +26,20 @@ export function TestimonialsPage() {
   return (
     <>
       <section
-        className={`${styles.container} ${styles.hero} ${styles.editorialHero}`}
+        className={`${styles.container} ${styles.hero} ${styles.aboutHero}`}
       >
-        <Eyebrow>Results & testimonials</Eyebrow>
-        <h1>
-          Their progress.<em>In their own words.</em>
-        </h1>
-        <Copy block={content("/about/testimonials/", "24797af")} />
+        <div>
+          <Eyebrow>Results & testimonials</Eyebrow>
+          <h1>
+            Their progress.<em>In their own words.</em>
+          </h1>
+          <Copy block={content("/about/testimonials/", "24797af")} />
+        </div>
+        <MarketingPhoto
+          name="students-1"
+          alt="A group of Altitutor students in their classroom"
+          priority
+        />
       </section>
       <div className={styles.container}>
         <PageLinks
@@ -48,6 +57,24 @@ export function TestimonialsPage() {
             <br />
             <em>A lot to be proud of.</em>
           </SectionTitle>
+          <div className={`${styles.split} mt-8 items-center`}>
+            <p className={styles.lede}>
+              Our first Year 12 cohort has now finished university, with former
+              students working as doctors, dentists, and other professionals.
+            </p>
+            <figure className="mx-auto w-full max-w-md">
+              <Image
+                src="/images/marketing/newspaper-article.webp"
+                width={1079}
+                height={1237}
+                sizes="(max-width: 500px) 90vw, 448px"
+                alt="Newspaper front page headed ‘The Aces of SACE’ showing four students who achieved an ATAR of 99.95"
+              />
+              <figcaption className="mt-3">
+                Three of the four students pictured were Altitutor students.
+              </figcaption>
+            </figure>
+          </div>
         </div>
         <ResultYearStack
           years={years.map((year, i) => {
