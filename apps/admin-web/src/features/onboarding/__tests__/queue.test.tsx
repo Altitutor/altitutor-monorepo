@@ -42,27 +42,41 @@ const mockStudents = [
 ];
 jest.mock("@/shared/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
-    rpc: async (name: string) => ({
-      data:
-        name === "onboarding_journeys_board"
-          ? [
-              {
-                ...journey("Current student", "student-current"),
-                next_contact_at: mockNextContact,
-                closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
-              },
-              {
-                ...journey("Discontinued student", "student-discontinued"),
-                closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
-              },
-              { ...journey("Family enquiry", null), next_contact_at: mockNextContact },
-            ]
-          : [],
-      error: null,
-    }),
+    rpc: (name: string) => {
+      const request = {
+        abortSignal: () => request,
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({
+            data:
+              name === "onboarding_journeys_board"
+                ? [
+                    {
+                      ...journey("Current student", "student-current"),
+                      next_contact_at: mockNextContact,
+                      closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
+                    },
+                    {
+                      ...journey(
+                        "Discontinued student",
+                        "student-discontinued",
+                      ),
+                      closed_at: mockClosed ? "2026-10-01T00:00:00Z" : null,
+                    },
+                    {
+                      ...journey("Family enquiry", null),
+                      next_contact_at: mockNextContact,
+                    },
+                  ]
+                : [],
+            error: null,
+          }).then(resolve),
+      };
+      return request;
+    },
     from: (table: string) => {
       const query = {
         select: () => query,
+        abortSignal: () => query,
         update: (values: { next_contact_at: string | null }) => {
           mockNextContact = values.next_contact_at;
           return query;
@@ -143,12 +157,17 @@ it("hides discontinued students from the worklist and search results", async () 
     screen.queryByRole("cell", { name: "Discontinued student" }),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^Search$/ }));
-  fireEvent.change(await screen.findByPlaceholderText("Search student or subject"), {
-    target: { value: "Discontinued" },
-  });
-  await waitFor(() => expect(
-    screen.queryByRole("cell", { name: "Current student" }),
-  ).not.toBeInTheDocument());
+  fireEvent.change(
+    await screen.findByPlaceholderText("Search student or subject"),
+    {
+      target: { value: "Discontinued" },
+    },
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("cell", { name: "Current student" }),
+    ).not.toBeInTheDocument(),
+  );
   expect(
     screen.queryByRole("cell", { name: "Discontinued student" }),
   ).not.toBeInTheDocument();
@@ -168,7 +187,9 @@ it("excludes discontinued students from filter counts", async () => {
   );
   await screen.findByRole("button", { name: /Current student/ });
   fireEvent.click(screen.getByRole("button", { name: "Display options" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Change value for Queue" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Change value for Queue" }),
+  );
   expect(
     await screen.findByRole("option", { name: "All open 2" }),
   ).toBeVisible();
@@ -212,7 +233,9 @@ it("also hides discontinued students from the completed / closed queue view", as
   );
   await screen.findByRole("button", { name: /Family enquiry/ });
   fireEvent.click(screen.getByRole("button", { name: "Display options" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Change value for Queue" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Change value for Queue" }),
+  );
   fireEvent.click(
     await screen.findByRole("option", { name: "Completed / closed 1" }),
   );

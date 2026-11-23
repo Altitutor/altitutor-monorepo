@@ -19,6 +19,11 @@ const mockScopes: unknown[] = [];
 let mockReaderMissing = false;
 let mockHeldStudent: string | undefined;
 let mockResumeRead: (() => void) | undefined;
+const mockAbortedStudents = new Set<string>();
+function mockCompleteHeldRead() {
+  mockResumeRead?.();
+  mockHeldStudent = undefined;
+}
 const mockJourneys = [
   journey("wanted"),
   { ...journey("unrelated"), is_returning: true },
@@ -26,7 +31,7 @@ const mockJourneys = [
 ];
 jest.mock("@/shared/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
-    rpc: async (
+    rpc: (
       name: string,
       args?: {
         p_student_id?: string;
@@ -35,30 +40,56 @@ jest.mock("@/shared/lib/supabase/client", () => ({
         p_to?: string;
       },
     ) => {
-      mockReads.push(name);
-      mockScopes.push(args);
-      if (args?.p_student_id === mockHeldStudent && mockHeldStudent) {
-        await new Promise<void>((resolve) => {
-          mockResumeRead = resolve;
-        });
-      }
-      if (name === "onboarding_journeys_read" && mockReaderMissing)
-        return { data: null, error: { code: "PGRST202" } };
-      return {
-        data: args?.p_student_id
-          ? mockJourneys.filter((item) => item.student_id === args.p_student_id)
-          : args?.p_cohort === "new"
+      let signal: AbortSignal | undefined;
+      const execute = async () => {
+        mockReads.push(name);
+        mockScopes.push(args);
+        const heldStudentId = args?.p_student_id;
+        if (heldStudentId && heldStudentId === mockHeldStudent) {
+          await new Promise<void>((resolve, reject) => {
+            mockResumeRead = resolve;
+            signal?.addEventListener(
+              "abort",
+              () => {
+                mockAbortedStudents.add(heldStudentId);
+                reject(new DOMException("Aborted", "AbortError"));
+              },
+              { once: true },
+            );
+          });
+        }
+        if (name === "onboarding_journeys_read" && mockReaderMissing)
+          return { data: null, error: { code: "PGRST202" } };
+        return {
+          data: args?.p_student_id
             ? mockJourneys.filter(
-                (item) => !item.historical && !item.is_returning,
+                (item) => item.student_id === args.p_student_id,
               )
-            : mockJourneys,
-        error: null,
+            : args?.p_cohort === "new"
+              ? mockJourneys.filter(
+                  (item) => !item.historical && !item.is_returning,
+                )
+              : mockJourneys,
+          error: null,
+        };
       };
+      const request = {
+        abortSignal: (value: AbortSignal) => {
+          signal = value;
+          return request;
+        },
+        then: (
+          resolve: (value: unknown) => unknown,
+          reject?: (error: unknown) => unknown,
+        ) => execute().then(resolve, reject),
+      };
+      return request;
     },
     from: () => {
       let ids: string[] = [];
       const request = {
         select: () => request,
+        abortSignal: () => request,
         in: (_column: string, values: string[]) => {
           ids = values;
           return request;
@@ -139,8 +170,29 @@ it("does not show another Student's journey while a scoped navigation is loading
   try {
     expect(result.current.data).toBeUndefined();
   } finally {
-    mockResumeRead?.();
-    mockHeldStudent = undefined;
+    mockCompleteHeldRead();
+    unmount();
+  }
+});
+
+it("cancels an expensive previous scope when navigating to another Student", async () => {
+  mockHeldStudent = "wanted";
+  mockResumeRead = undefined;
+  mockAbortedStudents.clear();
+  const { result, rerender, unmount } = renderHook(
+    ({ id }) => useOnboardingJourneys({ studentId: id }),
+    {
+      wrapper,
+      initialProps: { id: "wanted" },
+    },
+  );
+  await waitFor(() => expect(mockResumeRead).toBeDefined());
+  rerender({ id: "unrelated" });
+  await waitFor(() => expect(result.current.data?.[0]?.id).toBe("unrelated"));
+  try {
+    expect(mockAbortedStudents.has("wanted")).toBe(true);
+  } finally {
+    mockCompleteHeldRead();
     unmount();
   }
 });

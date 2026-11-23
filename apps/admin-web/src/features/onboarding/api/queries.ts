@@ -35,7 +35,7 @@ let boardRpcAvailable: boolean | null = null;
 // Hosted databases pick up onboarding_journeys_board when the migration ships.
 // Until then, reuse closure snapshots and only call evidence for open journeys.
 
-async function fetchJourneysFallback(): Promise<Journey[]> {
+async function fetchJourneysFallback(signal: AbortSignal): Promise<Journey[]> {
   const db = getSupabaseClient();
   const rows: Journey[] = [];
   for (let offset = 0; ; offset += 200) {
@@ -44,7 +44,8 @@ async function fetchJourneysFallback(): Promise<Journey[]> {
       .select("*, onboarding_action_preferences(*)")
       .order("created_at", { ascending: false })
       .order("id")
-      .range(offset, offset + 199);
+      .range(offset, offset + 199)
+      .abortSignal(signal);
     if (error) throw error;
     rows.push(
       ...(await Promise.all(
@@ -57,9 +58,11 @@ async function fetchJourneysFallback(): Promise<Journey[]> {
               evidence: evidenceSchema.parse(stored),
             };
           }
-          const result = await db.rpc("onboarding_evidence", {
-            p_journey_id: journey.id,
-          });
+          const result = await db
+            .rpc("onboarding_evidence", {
+              p_journey_id: journey.id,
+            })
+            .abortSignal(signal);
           if (result.error) throw result.error;
           return {
             ...journey,
@@ -74,22 +77,22 @@ async function fetchJourneysFallback(): Promise<Journey[]> {
 }
 
 async function fetchJourneys(
-  scope?: OnboardingJourneyScope,
+  scope: OnboardingJourneyScope | undefined,
+  signal: AbortSignal,
 ): Promise<Journey[]> {
   if (scope) {
     const args =
       "studentId" in scope
         ? { p_student_id: scope.studentId }
         : { p_from: scope.from, p_to: scope.to, p_cohort: scope.cohort };
-    const { data, error } = await getSupabaseClient().rpc(
-      "onboarding_journeys_read",
-      args,
-    );
+    const { data, error } = await getSupabaseClient()
+      .rpc("onboarding_journeys_read", args)
+      .abortSignal(signal);
     if (error) {
       if (error.code !== "PGRST202") throw error;
       // Deployment ordering or rollback can temporarily leave an older DB.
       // Retain its existing behavior, then retry the scoped reader next time.
-      const legacy = await fetchJourneys();
+      const legacy = await fetchJourneys(undefined, signal);
       return "studentId" in scope
         ? legacy.filter((item) => item.student_id === scope.studentId)
         : legacy;
@@ -97,9 +100,9 @@ async function fetchJourneys(
     return parseBoard(data);
   }
   if (boardRpcAvailable !== false) {
-    const { data, error } = await getSupabaseClient().rpc(
-      "onboarding_journeys_board",
-    );
+    const { data, error } = await getSupabaseClient()
+      .rpc("onboarding_journeys_board")
+      .abortSignal(signal);
     if (!error) {
       boardRpcAvailable = true;
       return parseBoard(data);
@@ -107,11 +110,14 @@ async function fetchJourneys(
     if (!missingBoardFunction(error)) throw error;
     boardRpcAvailable = false;
   }
-  return fetchJourneysFallback();
+  return fetchJourneysFallback(signal);
 }
 
-async function fetchJourneysWithStudentStatus(scope?: OnboardingJourneyScope) {
-  const journeys = await fetchJourneys(scope);
+async function fetchJourneysWithStudentStatus(
+  scope: OnboardingJourneyScope | undefined,
+  signal: AbortSignal,
+) {
+  const journeys = await fetchJourneys(scope, signal);
   const studentIds = [
     ...new Set(
       journeys.flatMap((journey) =>
@@ -126,7 +132,8 @@ async function fetchJourneysWithStudentStatus(scope?: OnboardingJourneyScope) {
     const { data, error } = await getSupabaseClient()
       .from("students")
       .select("id, status, deleted_at")
-      .in("id", studentIds.slice(offset, offset + 200));
+      .in("id", studentIds.slice(offset, offset + 200))
+      .abortSignal(signal);
     if (error) throw error;
     for (const student of data) {
       statuses.set(student.id, student.status);
@@ -151,7 +158,7 @@ export function useOnboardingJourneys(scope?: OnboardingJourneyScope) {
     enabled: !scope || !("studentId" in scope) || Boolean(scope.studentId),
     refetchInterval: 30_000,
     placeholderData: scope ? undefined : keepPreviousData,
-    queryFn: () => fetchJourneysWithStudentStatus(scope),
+    queryFn: ({ signal }) => fetchJourneysWithStudentStatus(scope, signal),
   });
 }
 export function useOnboardingSettings() {
