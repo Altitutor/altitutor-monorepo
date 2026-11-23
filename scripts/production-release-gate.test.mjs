@@ -93,7 +93,10 @@ test("Vercel reuses type checks only after full production verification", async 
 
   // A reused receipt skips verify and must keep Vercel's ordinary Next.js check.
   assert.match(deploy, /full_production_typecheck: \$\{\{ github\.ref_name == 'main' && needs\.verify\.result == 'success' \}\}/u);
-  assert.match(web, /--build-env "ALTITUTOR_TYPECHECK_VERIFIED=\$\{\{ needs\.deploy\.outputs\.full_production_typecheck \}\}"/u);
+  assert.match(web, /FULL_PRODUCTION_TYPECHECK: \$\{\{ needs\.deploy\.outputs\.full_production_typecheck \}\}/u);
+  assert.match(web, /if \[ "\$FULL_PRODUCTION_TYPECHECK" = "true" \]; then\n\s+release_args\+=\(--build-env "ALTITUTOR_TYPECHECK_VERIFIED=true"\)\n\s+fi/u);
+  assert.equal(web.match(/ALTITUTOR_TYPECHECK_VERIFIED=/gu)?.length, 1);
+  assert.match(web, /"\$\{release_args\[@\]\}"/u);
   assert.doesNotMatch(web, /--env "ALTITUTOR_TYPECHECK_VERIFIED=/u);
   assert.doesNotMatch(web, /ALTITUTOR_CI_BUILD=/u);
   assert.ok(turbo.tasks.build.env.includes("ALTITUTOR_TYPECHECK_VERIFIED"));
