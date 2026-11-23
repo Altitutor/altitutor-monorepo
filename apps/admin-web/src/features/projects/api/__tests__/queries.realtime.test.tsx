@@ -176,7 +176,9 @@ it('recovers changes missed while the project channel was disconnected', async (
       join.ref, null, join.topic, 'phx_error', {},
     ]) }));
   });
-  await waitFor(() => expect(frames.filter((frame) => frame.event === 'phx_join')).toHaveLength(3));
+  // The SDK retries channel joins after 1s; reconnectAfterMs configures only
+  // socket reconnects. Give that real timer headroom beyond waitFor's 1s default.
+  await waitFor(() => expect(frames.filter((frame) => frame.event === 'phx_join')).toHaveLength(3), { timeout: 3000 });
   await waitFor(() => expect(result.current.data?.[0]?.name).toBe('Changed while disconnected'));
   unmount();
   queryClient.clear();
