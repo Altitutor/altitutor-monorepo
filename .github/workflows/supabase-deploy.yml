@@ -286,27 +286,39 @@ jobs:
           chmod +x ./scripts/deploy-email-templates.sh
           ./scripts/deploy-email-templates.sh $SUPABASE_PROJECT_ID
 
-  deploy-web:
-    name: Deploy ${{ matrix.app }} to Vercel production
+  select-production-web:
+    name: Select production web builds
     needs: deploy
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deployments: ${{ steps.select.outputs.deployments }}
+      has_builds: ${{ steps.select.outputs.has_builds }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Compare against the last successful web release
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/production-web-selection.mjs
+
+  deploy-web:
+    name: Deploy ${{ matrix.app }} to Vercel production
+    needs: [deploy, select-production-web]
+    if: github.ref == 'refs/heads/main' && needs.select-production-web.outputs.has_builds == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: production
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - app: admin-web
-            project_id: prj_1MrhFCZC9LsYMqN3hTrjtPaOSf0e
-          - app: marketing-web
-            project_id: prj_Qf1yqSGW3ttj2lZvNzuxIABiLkfT
-          - app: student-web
-            project_id: prj_i1beD28400IZOFp0WRtzmFldEifZ
-          - app: tutor-web
-            project_id: prj_vGAe2xH6lLRm05mxZkFbFTXfDthi
-          - app: ucat-web
-            project_id: prj_xkqIaXkZGO2EvA3cIoXyl9vLeGJX
+        include: ${{ fromJSON(needs.select-production-web.outputs.deployments) }}
     env:
       VERCEL_ORG_ID: team_1E1lzurM2oIC9oDKmQDdk7Bz
       VERCEL_PROJECT_ID: ${{ matrix.project_id }}
@@ -339,8 +351,12 @@ jobs:
 
   smoke-production:
     name: Smoke production web apps
-    needs: deploy-web
-    if: github.ref == 'refs/heads/main'
+    needs: [select-production-web, deploy-web]
+    if: >-
+      always() && !cancelled() && github.ref == 'refs/heads/main' &&
+      needs.select-production-web.result == 'success' &&
+      (needs.deploy-web.result == 'success' ||
+       (needs.deploy-web.result == 'skipped' && needs.select-production-web.outputs.has_builds == 'false'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

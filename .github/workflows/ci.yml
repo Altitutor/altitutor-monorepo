@@ -91,7 +91,7 @@ jobs:
 
       - name: Check production release gate
         run: |
-          node --test scripts/teaching-release.test.mjs scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs scripts/browser-ci-workflow.test.mjs scripts/web-ci-result.test.mjs scripts/validation-plan.test.mjs scripts/validation-receipt.test.mjs scripts/verified-integration.test.mjs scripts/auxiliary-queue-contracts.test.mjs scripts/validation-preflight.test.mjs scripts/verify-ucat-test-inventory.test.mjs scripts/checkall-profiles.test.mjs supabase/scripts/storage-limit.test.mjs secrets/scripts/deploy-runtime.test.mjs
+          node --test scripts/teaching-release.test.mjs scripts/production-release-gate.test.mjs scripts/production-web-selection.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs scripts/browser-ci-workflow.test.mjs scripts/web-ci-result.test.mjs scripts/validation-plan.test.mjs scripts/validation-receipt.test.mjs scripts/verified-integration.test.mjs scripts/auxiliary-queue-contracts.test.mjs scripts/validation-preflight.test.mjs scripts/verify-ucat-test-inventory.test.mjs scripts/checkall-profiles.test.mjs supabase/scripts/storage-limit.test.mjs secrets/scripts/deploy-runtime.test.mjs
           python3 scripts/owned_database.test.py
           python3 scripts/worktree_dev.test.py
 

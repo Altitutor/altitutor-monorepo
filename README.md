@@ -177,7 +177,18 @@ execution, targeted operations and recovery.
 
 Migrations go through CI/CD. Do not apply migrations manually to shared development or production databases.
 
-Production web deployments are released by `.github/workflows/supabase-deploy.yml` only after the corresponding Supabase deployment succeeds. Vercel Git auto-deployments are disabled so they cannot bypass that gate. Before enabling or rotating the release credential, run:
+Production web deployments follow the Supabase deployment gate. The main push
+workflow compares the gated commit with the last main commit that passed web
+production smoke tests. It deploys changed web apps individually and skips web
+builds for changes limited to native apps. Shared, unknown or unverified changes
+rebuild all five web apps. The workflow tests all five production portals even
+when it skips every web build.
+
+Run **Supabase Deploy** manually on current `main` to rebuild all five web apps.
+Use this after a manual Vercel rollback or a production environment change. The
+Teaching iPad release also needs this full redeploy if the Tutor API reports an
+older SHA than current `main`. Vercel Git auto-deployments are disabled to
+preserve the Supabase gate. Before enabling or rotating the release credential, run:
 
 ```bash
 ./scripts/setup-production-release-gate.sh

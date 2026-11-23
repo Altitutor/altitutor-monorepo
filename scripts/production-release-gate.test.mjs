@@ -107,7 +107,11 @@ test("every main push runs the migration gate before Vercel production deploys",
   assert.match(workflow, /^  deploy:\n    needs: \[integration-evidence, verify\]$/mu);
   assert.match(workflow, /needs\.verify\.result == 'success'/u);
   assert.match(workflow, /needs\.integration-evidence\.outputs\.reuse == 'true' && needs\.verify\.result == 'skipped'/u);
-  assert.match(workflow, /^    needs: deploy$/mu);
+  assert.match(workflow, /^  select-production-web:\n    name: Select production web builds\n    needs: deploy$/mu);
+  assert.match(workflow, /^  deploy-web:\n    name: Deploy .+\n    needs: \[deploy, select-production-web\]$/mu);
+  assert.match(workflow, /include: \$\{\{ fromJSON\(needs\.select-production-web\.outputs\.deployments\) \}\}/u);
+  assert.match(workflow, /needs\.select-production-web\.result == 'success'/u);
+  assert.match(workflow, /needs\.deploy-web\.result == 'skipped' && needs\.select-production-web\.outputs\.has_builds == 'false'/u);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
   assert.match(workflow, /node scripts\/production-web-smoke\.mjs/u);
@@ -126,9 +130,6 @@ test("every main push runs the migration gate before Vercel production deploys",
   );
   assert.match(workflow, /set_commits: auto/u);
 
-  for (const app of APPS) {
-    assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));
-  }
 });
 
 test("production deploys synchronize transactional email authentication", async () => {
