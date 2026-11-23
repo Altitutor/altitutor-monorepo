@@ -60,6 +60,11 @@ Every authenticated event is inserted into `imessage_events` before processing. 
 `event_key` resumes an unprocessed event or returns as an already-processed duplicate. Attachments
 are unique by `(message_id, storage_url)`.
 
+Successful inbox events retain the full raw body for 90 days after processing.
+After that, the retention job replaces the body with an empty JSON object. Event identity,
+metadata, processing outcome and canonical messages remain available. Events with a
+processing error or no completion timestamp retain their original body.
+
 ## Connector HTTP contract
 
 `POST imessage-connector` uses `Authorization: Bearer <CONNECTOR_SECRET>`.
