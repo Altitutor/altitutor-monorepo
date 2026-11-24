@@ -212,10 +212,13 @@ test("mail actions form one segmented pill and retain tooltips", async ({
     task.locator(`[data-mention][data-type="email"][data-id="${id}"]`),
   ).toContainText("Segmented mail actions");
   const title = `Email task ${randomUUID()}`;
-  await task.getByPlaceholder("Task title").fill(title);
+  const taskTitle = task.getByPlaceholder("Task title");
+  await expect(taskTitle).toBeFocused();
+  await taskTitle.fill(title);
   const editor = task.locator('[contenteditable="true"]').first();
   await editor.click();
   await editor.press("ControlOrMeta+End");
+  await expect(editor).toBeFocused();
   await editor.pressSequentially(` @${searchId}`);
   await task
     .getByRole("button", {
