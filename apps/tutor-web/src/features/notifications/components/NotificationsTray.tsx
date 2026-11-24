@@ -184,7 +184,7 @@ export function NotificationsTray() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       unreadCount={effectiveUnreadCount}
-      isLoading={isLoading}
+      isLoading={isLoading && displayNotifications.length === 0}
       isEmpty={displayNotifications.length === 0}
       isMarkingAllRead={markAllReadMutation.isPending}
       onMarkAllRead={() => markAllReadMutation.mutate({ markAllRead: true })}

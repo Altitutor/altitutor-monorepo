@@ -47,7 +47,6 @@ export function NotificationTray({
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="flex items-center justify-between gap-2 border-b p-4">
           <div>
@@ -88,6 +87,7 @@ export function NotificationTray({
 interface NotificationRowProps {
   title: string | null;
   body?: string | null;
+  showFullBody?: boolean;
   timestamp: string;
   unread: boolean;
   icon?: ReactNode;
@@ -100,7 +100,7 @@ interface NotificationRowProps {
 }
 
 export function NotificationRow({
-  title, body, timestamp, unread, icon, details, actionLabel,
+  title, body, showFullBody, timestamp, unread, icon, details, actionLabel,
   onOpen, onDismiss, dismissArmed, dismissDisabled,
 }: NotificationRowProps) {
   return (
@@ -112,7 +112,7 @@ export function NotificationRow({
             <span className={cn('break-words text-sm', unread ? 'font-semibold' : 'font-medium')}>{title}</span>
             {unread && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-label="Unread" />}
           </span>
-          {body && <span className="mt-1 line-clamp-2 break-words text-sm text-muted-foreground">{body}</span>}
+          {body && <span className={cn("mt-1 block break-words text-sm text-muted-foreground", !showFullBody && "line-clamp-2")}>{body}</span>}
           {details}
           <span className="mt-2 block text-xs text-muted-foreground">{timestamp}</span>
         </span>

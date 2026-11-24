@@ -101,6 +101,7 @@ export function NotificationTray() {
             key={notification.id}
             title={notification.title}
             body={notification.body}
+            showFullBody
             timestamp={relativeTime(notification.created_at)}
             unread={!notification.read_at}
             icon={notification.priority === "critical" ? (
