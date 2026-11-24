@@ -196,15 +196,12 @@ test("mail actions form one segmented pill and retain tooltips", async ({
         button.background === "rgba(0, 0, 0, 0)" && button.radius === "0px",
     ),
   ).toBe(true);
-  const messageMore = group.getByRole("button", { name: "More", exact: true });
-  await messageMore.hover();
-  await expect(page.getByRole("tooltip")).toContainText("More");
-  await messageMore.click();
-  const menu = page.getByRole("menu");
-  for (const name of ["Reply", "Reply all", "Forward"]) {
-    await expect(menu.getByRole("menuitem", { name, exact: true })).toBeVisible();
-  }
-  await expect(menu.locator("kbd")).toHaveCount(0);
+  const reply = group.getByRole("button", { name: "Reply", exact: true });
+  await reply.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Reply");
+  await expect(group.getByRole("button", { name: "Reply all", exact: true })).toBeVisible();
+  await expect(group.getByRole("button", { name: "Forward", exact: true })).toBeVisible();
+  await expect(group.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await group.getByRole("button", { name: "Create task", exact: true }).click();
   const task = page.getByRole("dialog", { name: "Create Task", exact: true });
@@ -316,6 +313,10 @@ test("Email opens in the reading pane and restores the list when going back", as
   await expect(messageBody).toHaveAttribute("inert", "");
   await expect(messageBody).toHaveCSS("transition-property", "grid-template-rows");
   await expect.poll(async () => (await messageBody.boundingBox())!.height).toBe(0);
+  await email.hover();
+  const collapsedBox = (await email.boundingBox())!;
+  const actionsBox = (await email.getByRole("group", { name: "Email actions", exact: true }).boundingBox())!;
+  expect(Math.abs(collapsedBox.y + collapsedBox.height / 2 - actionsBox.y - actionsBox.height / 2)).toBeLessThan(2);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(messageBody).toHaveCSS("transition-property", "none");
   await email.getByRole("button", { name: "Expand email from family@example.test" }).click();

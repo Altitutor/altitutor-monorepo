@@ -639,7 +639,7 @@ export function EmailThreadView({
                   <time className="pointer-events-none ml-auto shrink-0 self-center text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
                     {time(message.sentAt ?? message.receivedAt)}
                   </time>
-                  <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
+                  <div className={`absolute right-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100 ${collapsed ? "top-1/2 -translate-y-1/2 [@media(hover:none)]:top-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:self-center" : "top-0"}`}>
                     <EmailActions
                       messageId={message.id}
                       messageLabel={message.subject || "No subject"}

@@ -317,8 +317,7 @@ it("offers the same-message draft before creating another reply", async () => {
   existingThread([originalMessage, { ...existingDraft, draftMode: "reply" }]);
   await screen.findByRole("textbox", { name: "Email subject" });
   const email = screen.getByRole("article", { name: "Email: Lesson" });
-  fireEvent.keyDown(within(email).getByRole("button", { name: "More" }), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
+  fireEvent.click(within(email).getByRole("button", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",
@@ -377,8 +376,7 @@ it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject"
   ]);
   await screen.findByRole("textbox", { name: "Email subject" });
   const email = screen.getByRole("article", { name: "Email: Lesson" });
-  fireEvent.keyDown(within(email).getByRole("button", { name: "More" }), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
+  fireEvent.click(within(email).getByRole("button", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",
