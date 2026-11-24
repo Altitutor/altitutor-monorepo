@@ -13,7 +13,6 @@ import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-work
 import {
   DataTableToolbar,
   Skeleton,
-  TablePagination,
 } from "@altitutor/ui";
 import {
   encodeViewConfig,
@@ -22,20 +21,21 @@ import {
 } from "@altitutor/shared";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { useRegisterPageActions } from "@/features/command-palette/RecordActionsContext";
-import { useMailbox, useSyncMailbox } from "../api/client";
+import { useMailboxList, useSyncMailbox } from "../api/client";
 import {
   useComposeEmail,
   useOpenEmailThread,
 } from "../hooks/useOpenEmailThread";
 import type { EmailSummary } from "../types";
 import { EmailIconButton } from "./EmailIconButton";
+import styles from "./mail-list.module.css";
 import { EmailActions } from "./EmailActions";
 import { MailFolders, emailDragType, mailFolderLabel } from "./MailFolders";
 import { defaultMailListSettings as defaults, useMailListState } from "../hooks/useMailListState";
 
 export function MailPage() {
   const { list, setList, ready } = useMailListState();
-  const { search, offset, settings } = list;
+  const { search, settings } = list;
   const [term, setTerm] = useState<string>();
   const [selected, setSelected] = useState<string>();
   const { router, searchParams } = usePaneNavigation();
@@ -46,7 +46,7 @@ export function MailPage() {
   const [dragging, setDragging] = useState(false);
   useEffect(() => {
     if (ready && routeFolder !== null) {
-      setList((current) => current.folder === routeFolder ? current : { ...current, folder: routeFolder, offset: 0 });
+      setList((current) => current.folder === routeFolder ? current : { ...current, folder: routeFolder });
     }
   }, [ready, routeFolder, setList]);
   useEffect(() => setSelected(inlineThread ?? undefined), [inlineThread]);
@@ -64,15 +64,30 @@ export function MailPage() {
     return () => window.removeEventListener(paneCloseEvent, close);
   }, []);
   const [hovered, setHovered] = useState<string>();
-  const mailbox = useMailbox({
+  const mailbox = useMailboxList({
     folder,
     search: term ?? search,
     assignee: settings.filters.assignee?.map(String).join(",") || "all",
     from: settings.filters.from?.map(String).join(",") || "",
-    offset,
     sort: settings.sortBy ?? "received",
     direction: settings.sortDirection,
   }, ready);
+  const mailboxData = mailbox.data?.pages[0];
+  const { fetchNextPage, hasNextPage, isFetching, isFetchNextPageError, isPlaceholderData } = mailbox;
+  const scrollList = useRef<HTMLDivElement>(null);
+  const loadMarker = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = scrollList.current;
+    const marker = loadMarker.current;
+    if (!root || !marker || !hasNextPage || isFetching || isFetchNextPageError || isPlaceholderData) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void fetchNextPage({ cancelRefetch: false });
+    }, { root, rootMargin: "0px 0px 160px" });
+    observer.observe(marker);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetching, isFetchNextPageError, isPlaceholderData]);
+  useEffect(() => { if (scrollList.current) scrollList.current.scrollTop = 0; }, [folder, term, settings.filters, settings.sortBy, settings.sortDirection]);
   const sync = useSyncMailbox();
   const syncBusy = useRef(false);
   const openThread = useOpenEmailThread();
@@ -84,12 +99,12 @@ export function MailPage() {
     return () => clearTimeout(timer);
   }, [ready, search]);
   useEffect(() => {
-    if (folder === undefined && mailbox.data) {
-      const inbox = mailbox.data.folders.find((item) => item.role === "inbox");
+    if (folder === undefined && mailboxData) {
+      const inbox = mailboxData.folders.find((item) => item.role === "inbox");
       if (inbox) setList((current) => current.folder === undefined ? { ...current, folder: inbox.id } : current);
     }
-  }, [folder, mailbox.data, setList]);
-  const configured = mailbox.data?.configured;
+  }, [folder, mailboxData, setList]);
+  const configured = mailboxData?.configured;
   const syncNow = sync.mutateAsync;
   useEffect(() => {
     if (!configured) return;
@@ -97,7 +112,7 @@ export function MailPage() {
       if (document.visibilityState === "hidden" || syncBusy.current) return;
       syncBusy.current = true;
       try {
-        await syncNow();
+        await syncNow(true);
       } catch {
         /* Cached mailbox remains readable. */
       } finally {
@@ -151,17 +166,23 @@ export function MailPage() {
       title: "Compose email",
       icon: Plus,
       action: compose,
-      disabled: !mailbox.data,
+      disabled: !mailboxData,
     },
     {
       id: "refresh-email",
       title: "Refresh mailbox from Microsoft",
       icon: RefreshCw,
-      action: () => sync.mutate(),
+      action: () => sync.mutate(false),
       disabled: sync.isPending,
     },
   ]);
-  const rows = mailbox.data?.threads ?? [];
+  const rows = useMemo(() => {
+    const firstById = new Map<string, EmailSummary>();
+    for (const page of mailbox.data?.pages ?? []) {
+      for (const row of page.threads) if (!firstById.has(row.id)) firstById.set(row.id, row);
+    }
+    return [...firstById.values()];
+  }, [mailbox.data]);
   function setPreviewThread(thread?: string, nextFolder = folder) {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of ["conversation", "message", "focus", "action", "token"]) {
@@ -173,7 +194,7 @@ export function MailPage() {
     const href = query ? `/email?${query}` : "/email";
     if (thread && !inlineThread) router.push(href, { scroll: false });
     else withPaneCloseGate(() => {
-      if (nextFolder !== folder) setList((current) => ({ ...current, folder: nextFolder, offset: 0 }));
+      if (nextFolder !== folder) setList((current) => ({ ...current, folder: nextFolder }));
       router.replace(href, { scroll: false });
     });
   }
@@ -185,12 +206,12 @@ export function MailPage() {
       setPreviewThread(row.id);
     }
   }
-  const lastPage = mailbox.data?.sync
+  const lastPage = mailboxData?.sync
     .map((state) => state.page_at)
     .filter((value): value is string => Boolean(value))
     .sort()
     .at(-1);
-  const folders = mailbox.data?.folders ?? [];
+  const folders = mailboxData?.folders ?? [];
   const folderItem = {
     label: mailFolderLabel(folders, folder),
     control: (
@@ -229,7 +250,7 @@ export function MailPage() {
                 variant="ghost"
                 className="border-0 bg-transparent shadow-none"
                 disabled={sync.isPending || !configured}
-                onClick={() => sync.mutate()}
+                onClick={() => sync.mutate(false)}
               >
                 <RefreshCw
                   className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
@@ -241,7 +262,7 @@ export function MailPage() {
               createShortcut
               label="Compose"
               onClick={compose}
-              disabled={!mailbox.data}
+              disabled={!mailboxData}
             />
           </div>
         )}
@@ -250,7 +271,7 @@ export function MailPage() {
         label="Email reading pane"
         list={
         <section
-          className="@container/mail-list flex min-h-0 min-w-0 flex-1 flex-col p-4"
+          className={`${styles.list} flex min-h-0 min-w-0 flex-1 flex-col p-4`}
           aria-label="Email list"
           tabIndex={0}
           onKeyDown={(event) => {
@@ -290,15 +311,15 @@ export function MailPage() {
             state={{
               search,
               ...settings,
-              page: Math.floor(offset / 50) + 1,
+              page: 1,
               pageSize: 50,
             }}
-            onSearchChange={(search) => setList((current) => ({ ...current, search, offset: 0 }))}
+            onSearchChange={(search) => setList((current) => ({ ...current, search }))}
             onFiltersChange={(filters) => setList((current) => ({
-              ...current, settings: { ...current.settings, filters }, offset: 0,
+              ...current, settings: { ...current.settings, filters },
             }))}
             onSortChange={(sortBy, sortDirection) => setList((current) => ({
-              ...current, settings: { ...current.settings, sortBy, sortDirection }, offset: 0,
+              ...current, settings: { ...current.settings, sortBy, sortDirection },
             }))}
             onGroupByChange={(groupBy) => setList((current) => ({
               ...current, settings: { ...current.settings, groupBy },
@@ -307,16 +328,16 @@ export function MailPage() {
               ...current, settings: { ...current.settings, visibleColumns },
             }))}
             onQuickFilterApply={(view) => setList((current) => ({
-              ...current, settings: readViewSettings(view.config, defaults), offset: 0,
+              ...current, settings: readViewSettings(view.config, defaults),
             }))}
-            onReset={() => setList((current) => ({ ...current, settings: defaults, offset: 0 }))}
+            onReset={() => setList((current) => ({ ...current, settings: defaults }))}
             quickFilters={views}
             allowEmptyColumns
             filterDefinitions={[
               {
                 key: "from",
                 label: "From",
-                options: (mailbox.data?.senders ?? []).map((sender) => ({
+                options: (mailboxData?.senders ?? []).map((sender) => ({
                   value: sender.email,
                   label: sender.name
                     ? `${sender.name} · ${sender.email}`
@@ -329,7 +350,7 @@ export function MailPage() {
                 options: [
                   { value: "mine", label: "Assigned to me" },
                   { value: "unassigned", label: "Unassigned" },
-                  ...(mailbox.data?.staff ?? []).map((person) => ({
+                  ...(mailboxData?.staff ?? []).map((person) => ({
                     value: person.id,
                     label: [person.first_name, person.last_name]
                       .filter(Boolean)
@@ -343,6 +364,7 @@ export function MailPage() {
               { key: "sender", label: "Sender" },
             ]}
             columnDefinitions={[
+              { key: "avatar", label: "Avatar", visibleByDefault: false },
               { key: "sender", label: "Sender", visibleByDefault: true },
               { key: "subject", label: "Subject", visibleByDefault: true },
               { key: "assignee", label: "Assignee", visibleByDefault: true },
@@ -353,13 +375,14 @@ export function MailPage() {
             searchPlaceholder="Search mail…"
           />
 
-          {mailbox.error && (
+          {mailbox.error && !isFetchNextPageError && (
             <p role="alert" className="p-3 text-sm text-destructive">
               {mailbox.error.message}
             </p>
           )}
           <div
-            className="min-h-0 flex-1 space-y-1 overflow-auto"
+            ref={scrollList}
+            className={styles.rows}
             aria-busy={loading}
           >
             {loading ? (
@@ -403,10 +426,10 @@ export function MailPage() {
                     if (!event.currentTarget.contains(event.relatedTarget))
                       setHovered(undefined);
                   }}
-                  className={`group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1 ${(selected ?? inlineThread) === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
+                  className={`${styles.row} group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 ${(selected ?? inlineThread) === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
                 >
                   <button
-                    className="flex min-w-0 flex-1 items-start gap-2 text-left @min-[480px]/mail-list:items-center @min-[480px]/mail-list:gap-3"
+                    className={`${styles.open} flex min-w-0 flex-1 items-start gap-2 text-left`}
                     onClick={(event) => {
                       event.stopPropagation();
                       open(row);
@@ -415,8 +438,13 @@ export function MailPage() {
                     aria-current={inlineThread === row.id ? "true" : undefined}
                   >
                     <span
-                      className={`mt-1.5 size-1.5 shrink-0 rounded-full @min-[480px]/mail-list:mt-0 ${row.read ? "bg-transparent" : "bg-primary"}`}
+                      className={`${styles.unread} size-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
                     />
+                    {settings.visibleColumns.includes("avatar") && (
+                      <span aria-hidden data-email-avatar className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">
+                        {(row.senderName || row.sender || "Draft").trim().split(/[\s@._-]+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase() || "?"}
+                      </span>
+                    )}
                     {row.repliedAt && (
                       <Reply
                         role="img"
@@ -426,18 +454,18 @@ export function MailPage() {
                         <title>{`Replied ${new Date(row.repliedAt).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}`}</title>
                       </Reply>
                     )}
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-xs @min-[480px]/mail-list:flex-row @min-[480px]/mail-list:gap-2">
+                    <span className={`${styles.fields} flex min-w-0 flex-1 flex-col gap-0.5 text-xs`}>
                       {settings.visibleColumns.includes("sender") && (
                         <span
-                          className={`min-w-0 shrink truncate @min-[480px]/mail-list:w-28 ${row.read ? "" : "font-semibold"}`}
+                          className={`${styles.sender} min-w-0 shrink truncate ${row.read ? "" : "font-semibold"}`}
                         >
                           {row.senderName || row.sender || "Draft"}
                         </span>
                       )}
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5 @min-[480px]/mail-list:flex-row @min-[480px]/mail-list:gap-2">
+                      <span className={`${styles.fields} flex min-w-0 flex-1 flex-col gap-0.5`}>
                         {settings.visibleColumns.includes("subject") && (
                           <span
-                            className={`shrink-0 truncate @min-[480px]/mail-list:max-w-[60%] ${row.read ? "" : "font-medium"}`}
+                            className={`${styles.subject} shrink-0 truncate ${row.read ? "" : "font-medium"}`}
                           >
                             {folder === "@scheduled"
                               ? "Scheduled · "
@@ -456,13 +484,13 @@ export function MailPage() {
                     </span>
                   </button>
                   <div className="hidden shrink-0 group-hover:block group-focus-within:block group-has-[[data-state=open]]:block [@media(hover:none)]:block">
-                    {mailbox.data && (
+                    {mailboxData && (
                       <EmailActions
                         ids={row.messageIds}
                         threadId={row.id}
                         read={row.read}
                         assignedStaffId={row.assignedStaffId}
-                        mailbox={mailbox.data}
+                        mailbox={mailboxData}
                         hovered={hovered === row.id}
                         hideAssignee={
                           !settings.visibleColumns.includes("assignee")
@@ -479,7 +507,7 @@ export function MailPage() {
                     row.assignedStaffId && (
                       <span
                         className="max-w-28 shrink-0 truncate rounded-full border bg-muted/25 px-2 py-1 text-xs text-muted-foreground group-hover:hidden group-focus-within:hidden group-has-[[data-state=open]]:hidden [@media(hover:none)]:hidden"
-                        title={mailbox.data?.staff
+                        title={mailboxData?.staff
                           .filter((person) => person.id === row.assignedStaffId)
                           .map((person) =>
                             [person.first_name, person.last_name]
@@ -489,7 +517,7 @@ export function MailPage() {
                           .join("")}
                       >
                         {" "}
-                        {mailbox.data?.staff
+                        {mailboxData?.staff
                           .filter((person) => person.id === row.assignedStaffId)
                           .map((person) =>
                             [person.first_name, person.last_name]
@@ -512,21 +540,19 @@ export function MailPage() {
                 </div>
               ))
             )}
+            {hasNextPage && (
+              <div ref={loadMarker} className="flex min-h-1 justify-center">
+                {mailbox.isFetchingNextPage && <span role="status" className="p-2 text-xs text-muted-foreground">Loading more email…</span>}
+                {isFetchNextPageError && <button type="button" className="p-2 text-sm underline" onClick={() => void fetchNextPage()}>Retry loading more email</button>}
+              </div>
+            )}
             {!loading && !mailbox.error && !rows.length && (
               <p className="p-12 text-center text-xs text-muted-foreground">
                 No email in this view.
               </p>
             )}
           </div>
-          <TablePagination
-            page={Math.floor(offset / 50) + 1}
-            pageSize={50}
-            hasNextPage={mailbox.data?.hasMore}
-            isFetching={loading}
-            onPageChange={(page) => setList((current) => ({ ...current, offset: (page - 1) * 50 }))}
-            showPageSizeSelector={false}
-            className="mt-4 shrink-0"
-          />
+
         </section>
         }
         thread={inlineThread && (

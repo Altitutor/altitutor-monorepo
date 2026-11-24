@@ -3,6 +3,7 @@ import {
   useQuery,
   useInfiniteQuery,
   useQueryClient,
+  type InfiniteData,
   type QueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
@@ -26,69 +27,68 @@ function optimisticMailbox(client: QueryClient, command: OptimisticCommand) {
   revisions.set(client, owned);
   const keys = command.action === "assign" ? [command.threadId] : command.ids;
   keys.forEach((id) => owned.set(id, token));
-  const snapshots: Array<[QueryKey, MailboxData]> = [];
-  for (const [key, data] of client.getQueriesData<MailboxData>({
+  type MailboxCache = MailboxData | InfiniteData<MailboxData, number>;
+  const mapPages = (data: MailboxCache, map: (page: MailboxData, index: number) => MailboxData): MailboxCache =>
+    "pages" in data ? { ...data, pages: data.pages.map(map) } : map(data, 0);
+  const snapshots: Array<[QueryKey, MailboxCache]> = [];
+  for (const [key, data] of client.getQueriesData<MailboxCache>({
     queryKey: ["email", "mailbox"],
   })) {
     if (!data) continue;
     snapshots.push([key, data]);
     const params = key[2] as { folder?: string } | undefined;
-    const destination =
-      command.action === "move"
-        ? (data.folders.find(
-            (folder) =>
-              folder.id === command.folderId ||
-              folder.role === command.folderId,
-          )?.id ?? command.folderId)
+    client.setQueryData<MailboxCache>(key, mapPages(data, (page) => {
+      const destination = command.action === "move"
+        ? page.folders.find((folder) => folder.id === command.folderId || folder.role === command.folderId)?.id ?? command.folderId
         : undefined;
-    client.setQueryData<MailboxData>(key, {
-      ...data,
-      threads: data.threads.flatMap((row) => {
-        if (command.action === "assign")
-          return [
-            {
-              ...row,
-              ...(row.id === command.threadId
-                ? { assignedStaffId: command.staffId }
-                : {}),
-            },
-          ];
-        if (!row.messageIds.some((id) => command.ids.includes(id)))
-          return [row];
-        if (command.action === "read") return [{ ...row, read: command.read }];
-        if (!params?.folder || params.folder === destination) return [row];
-        const remaining = row.messageIds.filter(
-          (id) => !command.ids.includes(id),
-        );
-        return remaining.length ? [{ ...row, messageIds: remaining }] : [];
-      }),
-    });
+      return {
+        ...page,
+        threads: page.threads.flatMap((row) => {
+          if (command.action === "assign")
+            return [row.id === command.threadId ? { ...row, assignedStaffId: command.staffId } : row];
+          if (!row.messageIds.some((id) => command.ids.includes(id))) return [row];
+          if (command.action === "read") return [{ ...row, read: command.read }];
+          if (!params?.folder || params.folder === destination) return [row];
+          const remaining = row.messageIds.filter((id) => !command.ids.includes(id));
+          return remaining.length ? [{ ...row, messageIds: remaining }] : [];
+        }),
+      };
+    }));
   }
   return {
     rollback: () => {
       if (!keys.every((id) => owned.get(id) === token)) return;
-      for (const [key, before] of snapshots)
-        client.setQueryData<MailboxData>(key, (current) => {
+      for (const [key, before] of snapshots) {
+        const previousPages = "pages" in before ? before.pages : [before];
+        client.setQueryData<MailboxCache>(key, (current) => {
           if (!current) return before;
-          const rows = [...current.threads];
-          before.threads.forEach((row, index) => {
-            const affected =
-              command.action === "assign"
-                ? row.id === command.threadId
-                : row.messageIds.some((id) => command.ids.includes(id));
-            if (!affected) return;
-            const at = rows.findIndex((item) => item.id === row.id);
-            if (at < 0) rows.splice(Math.min(index, rows.length), 0, row);
-            else
-              rows[at] =
-                command.action === "read"
-                  ? { ...rows[at]!, read: row.read }
-                  : command.action === "assign"
-                    ? { ...rows[at]!, assignedStaffId: row.assignedStaffId }
-                    : { ...rows[at]!, messageIds: row.messageIds };
+          const affected = (row: MailboxData["threads"][number]) => command.action === "assign"
+            ? row.id === command.threadId
+            : row.messageIds.some((id) => command.ids.includes(id));
+          const beforeById = new Map(previousPages.flatMap((page) =>
+            page.threads.filter(affected).map((row) => [row.id, row] as const),
+          ));
+          const currentPages = "pages" in current ? current.pages : [current];
+          const present = new Set(currentPages.flatMap((page) => page.threads.map((row) => row.id)));
+          return mapPages(current, (page, pageIndex) => {
+            const rows = page.threads.map((row) => {
+              const previous = beforeById.get(row.id);
+              if (!previous) return row;
+              if (command.action === "read") return { ...row, read: previous.read };
+              if (command.action === "assign") return { ...row, assignedStaffId: previous.assignedStaffId };
+              return { ...row, messageIds: previous.messageIds };
+            });
+            if (command.action === "move") {
+              previousPages[pageIndex]?.threads.forEach((row, index) => {
+                if (!beforeById.has(row.id) || present.has(row.id)) return;
+                present.add(row.id);
+                rows.splice(Math.min(index, rows.length), 0, row);
+              });
+            }
+            return { ...page, threads: rows };
           });
-          return { ...current, threads: rows };
         });
+      }
     },
     finish: () =>
       keys.forEach((id) => {
@@ -128,32 +128,48 @@ export function useUnreadMailCount() {
   });
 }
 
-export function useMailbox(
-  params: {
-    folder?: string;
-    search?: string;
-    assignee?: string;
-    from?: string;
-    offset?: number;
-    sort?: string;
-    direction?: string;
-  } = {},
-  enabled = true,
-) {
+type MailboxParams = {
+  folder?: string;
+  search?: string;
+  assignee?: string;
+  from?: string;
+  offset?: number;
+  sort?: string;
+  direction?: string;
+};
+const mailboxPageSize = 50;
+async function fetchMailbox(params: MailboxParams) {
   const query = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
       value === undefined ? [] : [[key, String(value)]],
     ),
   );
+  return mailboxSchema.parse(await mailRequest(`?${query}`));
+}
+export function useMailbox(params: MailboxParams = {}, enabled = true) {
   return useQuery({
     queryKey: ["email", "mailbox", params],
     enabled,
-    queryFn: async () => mailboxSchema.parse(await mailRequest(`?${query}`)),
+    queryFn: () => fetchMailbox(params),
     staleTime: 10_000,
     refetchInterval: 15_000,
-    // A new folder needs fresh rows, while its mailbox chrome remains stable.
     placeholderData: (previous) =>
       previous ? { ...previous, threads: [], hasMore: false } : undefined,
+  });
+}
+export function useMailboxList(params: Omit<MailboxParams, "offset">, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: ["email", "mailbox", params, "infinite"],
+    enabled,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => fetchMailbox({ ...params, offset: pageParam }),
+    getNextPageParam: (page, _pages, offset) => page.hasMore ? offset + mailboxPageSize : undefined,
+    placeholderData: (previous) => {
+      const first = previous?.pages[0];
+      return first ? { pages: [{ ...first, threads: [], hasMore: false }], pageParams: [0] } : undefined;
+    },
+    staleTime: 10_000,
+    refetchInterval: (query) => (query.state.data?.pages.length ?? 0) <= 1 ? 15_000 : false,
   });
 }
 export function useEmailThread(id: string, active = true) {
@@ -258,10 +274,19 @@ export function useEmailCommand() {
 export function useSyncMailbox() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => mailRequest("/sync", {}),
-    onSettled: () => {
+    mutationFn: async (_background: boolean) => mailRequest("/sync", {}),
+    onSettled: (result, _error, background) => {
+      const changes = z.object({ imported: z.number(), removed: z.number().optional() }).safeParse(result);
+      const changed = changes.success && changes.data.imported + (changes.data.removed ?? 0) > 0;
       void client.invalidateQueries({ queryKey: unreadMailCountKey });
-      void client.invalidateQueries({ queryKey: ["email", "mailbox"] });
+      void client.invalidateQueries({
+        queryKey: ["email", "mailbox"],
+        predicate: (query) => {
+          if (!background || changed) return true;
+          const data = query.state.data as InfiniteData<MailboxData, number> | undefined;
+          return query.queryKey[3] !== "infinite" || (data?.pages.length ?? 0) <= 1;
+        },
+      });
       void client.invalidateQueries({ queryKey: ["email", "thread"] });
       void client.invalidateQueries({ queryKey: ["email", "correspondence"] });
     },

@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -315,7 +316,9 @@ it("does not render a deleted draft that remains in cached conversation history"
 it("offers the same-message draft before creating another reply", async () => {
   existingThread([originalMessage, { ...existingDraft, draftMode: "reply" }]);
   await screen.findByRole("textbox", { name: "Email subject" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^Reply$/ })[0]);
+  const email = screen.getByRole("article", { name: "Email: Lesson" });
+  fireEvent.keyDown(within(email).getByRole("button", { name: "More" }), { key: "Enter" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",
@@ -373,7 +376,9 @@ it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject"
     },
   ]);
   await screen.findByRole("textbox", { name: "Email subject" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^Reply$/ })[0]);
+  const email = screen.getByRole("article", { name: "Email: Lesson" });
+  fireEvent.keyDown(within(email).getByRole("button", { name: "More" }), { key: "Enter" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",

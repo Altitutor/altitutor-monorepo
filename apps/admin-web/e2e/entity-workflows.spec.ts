@@ -196,9 +196,16 @@ test("mail actions form one segmented pill and retain tooltips", async ({
         button.background === "rgba(0, 0, 0, 0)" && button.radius === "0px",
     ),
   ).toBe(true);
-  const read = group.getByRole("button", { name: "Reply", exact: true });
-  await read.hover();
-  await expect(page.getByRole("tooltip")).toContainText("Reply");
+  const messageMore = group.getByRole("button", { name: "More", exact: true });
+  await messageMore.hover();
+  await expect(page.getByRole("tooltip")).toContainText("More");
+  await messageMore.click();
+  const menu = page.getByRole("menu");
+  for (const name of ["Reply", "Reply all", "Forward"]) {
+    await expect(menu.getByRole("menuitem", { name, exact: true })).toBeVisible();
+  }
+  await expect(menu.locator("kbd")).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await group.getByRole("button", { name: "Create task", exact: true }).click();
   const task = page.getByRole("dialog", { name: "Create Task", exact: true });
   await expect(
@@ -292,10 +299,26 @@ test("Email opens in the reading pane and restores the list when going back", as
   await row.dispatchEvent("dragend", { dataTransfer: transfer });
   await expect(page.getByRole("dialog", { name: "Email folders" })).toBeHidden();
   await transfer.dispose();
+  const sender = row.getByText("family@example.test", { exact: true });
+  const rowSubject = row.getByText(subject, { exact: true });
+  await expect.poll(async () => Math.abs((await sender.boundingBox())!.y - (await rowSubject.boundingBox())!.y)).toBeLessThan(2);
   await row.click();
 
   const email = page.getByRole("article", { name: `Email: ${subject}` });
   await expect(email).toContainText("This message belongs in the reading pane.");
+  await email.getByRole("button", { name: "Collapse email from family@example.test" }).click();
+  await expect(email.getByRole("button", { name: "Expand email from family@example.test" })).toHaveAttribute("aria-expanded", "false");
+  await expect(email.locator("[data-email-preview]")).toHaveText("This message belongs in the reading pane.");
+  const messageBody = email.locator("[data-email-body]");
+  await expect(messageBody).toHaveAttribute("inert", "");
+  await expect(messageBody).toHaveCSS("transition-property", "grid-template-rows");
+  await expect.poll(async () => (await messageBody.boundingBox())!.height).toBe(0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(messageBody).toHaveCSS("transition-property", "none");
+  await email.getByRole("button", { name: "Expand email from family@example.test" }).click();
+  await expect(email.getByRole("button", { name: "Collapse email from family@example.test" })).toHaveAttribute("aria-expanded", "true");
+  await expect(messageBody).not.toHaveAttribute("inert");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(inbox).toBeVisible();
   await expect.poll(async () => Math.round((await inbox.boundingBox())?.width ?? 0)).toBe(320);
   expect(fullWidth).toBeGreaterThan(640);
@@ -305,6 +328,13 @@ test("Email opens in the reading pane and restores the list when going back", as
     return size && Math.round(size.width) === Math.round(size.height);
   }).toBe(true);
   await expect(inbox.locator('[aria-label="Views"] kbd')).toHaveCount(0);
+  await display.click();
+  const avatarSetting = page.getByRole("dialog", { name: "Display options" }).getByRole("button", { name: "Avatar", exact: true });
+  await avatarSetting.click();
+  await expect(row.locator("[data-email-avatar]")).toBeVisible();
+  await avatarSetting.click();
+  await expect(row.locator("[data-email-avatar]")).toHaveCount(0);
+  await page.keyboard.press("Escape");
   const rowLines = await Promise.all([
     row.getByText("family@example.test", { exact: true }).boundingBox(),
     row.getByText(subject, { exact: true }).boundingBox(),

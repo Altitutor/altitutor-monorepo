@@ -16,13 +16,11 @@ export const defaultMailListSettings: DisplaySettings = {
 interface MailListState {
   folder?: string;
   search: string;
-  offset: number;
   settings: DisplaySettings;
 }
 
 const initialState: MailListState = {
   search: "",
-  offset: 0,
   settings: defaultMailListSettings,
 };
 
@@ -33,7 +31,6 @@ const openInboxState = new Map<string, MailListState>();
 const savedState = z.object({
   folder: z.string().optional(),
   search: z.string(),
-  offset: z.number().int().nonnegative(),
   display: z.record(z.string(), z.array(z.unknown())),
 });
 

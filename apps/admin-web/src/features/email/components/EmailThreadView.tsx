@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { EmailComposer, type RegisterDraftClose } from "./EmailComposer";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailBody } from "./EmailBodyEditor";
-import { EmailActions, EmailActionGroup } from "./EmailActions";
+import { EmailActions } from "./EmailActions";
 import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
@@ -176,6 +176,7 @@ export function EmailThreadView({
     });
     return () => registerClose(null);
   }, [registerClose, closeConversation]);
+  const [collapsedEmails, setCollapsedEmails] = useState<Set<string>>(() => new Set());
   const [showActivity, setShowActivity] = useState(false);
   const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);
@@ -204,8 +205,18 @@ export function EmailThreadView({
       !message.draft || isEditableDraft(message, mailbox.data?.folders ?? []),
   );
   useEffect(() => {
+    if (!targetMessageId) return;
+    setCollapsedEmails((current) => {
+      if (!current.has(targetMessageId)) return current;
+      const next = new Set(current);
+      next.delete(targetMessageId);
+      return next;
+    });
+  }, [targetMessageId, targetKey]);
+  useEffect(() => {
     if (
       !targetMessageId ||
+      collapsedEmails.has(targetMessageId) ||
       revealedMessage.current === targetKey ||
       !showMessages
     )
@@ -218,7 +229,7 @@ export function EmailThreadView({
       card.focus({ preventScroll: true });
       revealedMessage.current = targetKey;
     }
-  }, [targetMessageId, targetKey, thread.data, showMessages]);
+  }, [collapsedEmails, targetMessageId, targetKey, thread.data, showMessages]);
   useEffect(() => {
     if (targetMessageId) setShowMessages(true);
   }, [targetMessageId]);
@@ -254,6 +265,16 @@ export function EmailThreadView({
   }, [focusDraftId, liveDrafts.length, scope?.active, showMessages]);
   const latest =
     messages.filter((message) => !message.draft).at(-1) ?? messages.at(-1);
+  const replyTarget = messages.findLast((message) => !message.draft && !message.removed);
+  const canReply = Boolean(replyTarget && !draft);
+  function toggleEmail(id: string) {
+    setCollapsedEmails((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const subject =
     draftSubject ||
     latest?.subject ||
@@ -314,10 +335,10 @@ export function EmailThreadView({
   }, [thread.data, scope?.active]);
   function start(
     mode: "reply" | "replyAll" | "forward",
-    original = latest,
+    original = replyTarget,
     forceNew = false,
   ) {
-    if (closing.current || !original || !mailbox.data || draft) return;
+    if (closing.current || !original || original.draft || original.removed || !mailbox.data || draft) return;
     if (!forceNew && mode !== "forward") {
       const existing = liveDrafts.find(
         (message) =>
@@ -457,21 +478,21 @@ export function EmailThreadView({
       id: "reply",
       title: "Reply to email",
       icon: Reply,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("reply"),
     },
     {
       id: "reply-all",
       title: "Reply all",
       icon: Reply,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("replyAll"),
     },
     {
       id: "forward",
       title: "Forward email",
       icon: Forward,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("forward"),
     },
     {
@@ -538,10 +559,10 @@ export function EmailThreadView({
     showMessages
       ? messages
           .filter((message) => !message.draft && (!messageSearch.trim() || `${message.subject} ${message.bodyText}`.toLowerCase().includes(messageSearch.trim().toLowerCase())))
-          .map((message) => ({
-            id: message.id,
-            at: message.sentAt ?? message.receivedAt ?? "",
-            content: (
+          .map((message) => {
+            const collapsed = collapsedEmails.has(message.id);
+            const bodyId = `email-body-${message.id}`;
+            const content = (
               <article
                 data-email-message-id={message.id}
                 data-email-shortcut-target
@@ -556,15 +577,28 @@ export function EmailThreadView({
                 tabIndex={0}
                 aria-label={`Email: ${message.subject || "No subject"}`}
               >
-                <header className="relative mb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                <header
+                  className="relative flex min-h-6 cursor-pointer items-start gap-3"
+                  onClick={(event) => {
+                    if (event.target instanceof Element && !event.target.closest("button, a, [role=button], [role=menuitem]")) toggleEmail(message.id);
+                  }}
+                >
+                  <button
+                    type="button"
+                    aria-label={`${collapsed ? "Expand" : "Collapse"} email from ${message.senderName || message.sender}`}
+                    aria-expanded={!collapsed}
+                    aria-controls={bodyId}
+                    className="absolute -inset-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => toggleEmail(message.id)}
+                  />
+                  <div className="relative max-w-[50%] min-w-0 shrink">
                     <EmailParticipant
                       mailboxAddress={mailbox.data!.mailboxAddress}
                       threadId={threadId}
                       email={message.sender}
                       label={message.senderName || message.sender}
                     />
-                    {Boolean(message.to.length || message.cc.length) && (
+                    {!collapsed && Boolean(message.to.length || message.cc.length) && (
                       <Popover>
                         <PopoverTrigger asChild>
                           <button
@@ -599,7 +633,10 @@ export function EmailThreadView({
                       </Popover>
                     )}
                   </div>
-                  <time className="shrink-0 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
+                  {collapsed && <p data-email-preview className="pointer-events-none min-w-0 flex-1 truncate self-center text-xs text-muted-foreground">
+                    {message.bodyText.replace(/\s+/g, " ").trim() || message.subject}
+                  </p>}
+                  <time className="pointer-events-none ml-auto shrink-0 self-center text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
                     {time(message.sentAt ?? message.receivedAt)}
                   </time>
                   <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
@@ -633,18 +670,30 @@ export function EmailThreadView({
                     />
                   </div>
                 </header>
-                <EmailBody html={message.bodyHtml} text={message.bodyText} />
-                {message.removed && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Saved correspondence history
-                  </p>
-                )}
-                {message.hasAttachments && !message.removed && (
-                  <EmailAttachments id={message.id} />
-                )}
+                <div
+                  id={bodyId}
+                  data-email-body
+                  inert={collapsed}
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="pt-4">
+                      <EmailBody html={message.bodyHtml} text={message.bodyText} />
+                      {message.removed && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Saved correspondence history
+                        </p>
+                      )}
+                      {message.hasAttachments && !message.removed && (
+                        <EmailAttachments id={message.id} />
+                      )}
+                    </div>
+                  </div>
+                </div>
               </article>
-            ),
-          }))
+            );
+            return { id: message.id, at: message.sentAt ?? message.receivedAt ?? "", content };
+          })
       : [];
   entries.push(...activity.entries);
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
@@ -701,9 +750,9 @@ export function EmailThreadView({
               mailbox={mailbox.data}
               hovered={toolbarHovered && !hoveredCard}
               captureWhenIdle
-              onReply={!draft ? () => start("reply") : undefined}
-              onReplyAll={!draft ? () => start("replyAll") : undefined}
-              onForward={!draft ? () => start("forward") : undefined}
+              onReply={canReply ? () => start("reply") : undefined}
+              onReplyAll={canReply ? () => start("replyAll") : undefined}
+              onForward={canReply ? () => start("forward") : undefined}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -848,39 +897,7 @@ export function EmailThreadView({
             onSubjectChange={setDraftSubject}
             onClose={closeDraft}
           />
-        ) : (
-          showMessages &&
-          latest &&
-          !latest.draft && (
-            <div className="flex gap-2 p-4">
-              <EmailActionGroup label="Respond to email">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("reply")}
-                >
-                  <Reply className="mr-1.5 h-4 w-4" />
-                  Reply
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("replyAll")}
-                >
-                  Reply all
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("forward")}
-                >
-                  <Forward className="mr-1.5 h-4 w-4" />
-                  Forward
-                </Button>
-              </EmailActionGroup>
-            </div>
-          )
-        )}
+        ) : null}
         {(command.error || thread.error || mailbox.error) && (
           <p role="alert" className="p-3 text-xs text-destructive">
             {command.error?.message ??

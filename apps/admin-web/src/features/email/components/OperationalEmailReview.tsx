@@ -35,7 +35,7 @@ export function OperationalEmailReview({ onClose }: { onClose: () => void }) {
         <Button
           variant="outline"
           disabled={sync.isPending}
-          onClick={() => sync.mutate()}
+          onClick={() => sync.mutate(false)}
         >
           Check Microsoft
         </Button>

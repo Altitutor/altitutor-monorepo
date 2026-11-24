@@ -332,3 +332,45 @@ it("places filled Compose in the shared primary header and opens the existing co
   fireEvent.click(compose);
   expect(mockComposeEmail).toHaveBeenCalledTimes(1);
 });
+
+
+it("loads more rows in the same list when its end comes into view", async () => {
+  const originalObserver = global.IntersectionObserver;
+  let intersect: (entries: Array<{ isIntersecting: boolean }>) => void = () => {};
+  const observe = jest.fn();
+  global.IntersectionObserver = jest.fn().mockImplementation((callback: typeof intersect) => {
+    intersect = callback;
+    return { observe, disconnect: jest.fn() };
+  });
+  global.fetch = jest.fn(async (input) => {
+    const query = new URL(String(input), "http://localhost").searchParams;
+    const next = query.get("offset") === "50";
+    return {
+      ok: true,
+      json: async () => ({
+        ...mailbox,
+        hasMore: !next,
+        threads: next
+          ? [{ ...mailbox.threads[0], id: "thread-two", subject: "Older email" }]
+          : mailbox.threads,
+      }),
+    } as Response;
+  });
+  try {
+    render(
+      <QuickActionsProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <MailPage />
+        </QueryClientProvider>
+      </QuickActionsProvider>,
+    );
+    await screen.findByRole("button", { name: "Open Lesson update" });
+    await waitFor(() => expect(observe).toHaveBeenCalled());
+    await act(async () => intersect([{ isIntersecting: true }]));
+    expect(await screen.findByRole("button", { name: "Open Older email" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Lesson update" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next page" })).not.toBeInTheDocument();
+  } finally {
+    global.IntersectionObserver = originalObserver;
+  }
+});
