@@ -276,12 +276,12 @@ test("Email opens in the reading pane and restores the list when going back", as
   }
 
   await page.goto("/email", { waitUntil: "domcontentloaded" });
-  const folder = page.getByRole("button", { name: folderName, exact: true });
+  const folder = page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: folderName, exact: true });
   const inbox = page.getByRole("region", { name: "Email list" });
   const view = inbox.getByRole("button", { name: "Unassigned", exact: true });
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Inbox", exact: true }).click();
-  await page.getByRole("textbox", { name: "Search folders" }).fill(folderName);
-  await folder.click();
+  await page.getByPlaceholder("Search folders…").fill(folderName);
+  await page.getByRole("option", { name: folderName, exact: true }).click();
   await expect(page.getByRole("region", { name: "Email reading pane" })).toHaveCount(0);
   const fullWidth = (await inbox.boundingBox())!.width;
   await view.click();
@@ -299,6 +299,20 @@ test("Email opens in the reading pane and restores the list when going back", as
   await expect(inbox).toBeVisible();
   await expect.poll(async () => Math.round((await inbox.boundingBox())?.width ?? 0)).toBe(320);
   expect(fullWidth).toBeGreaterThan(640);
+  const display = inbox.getByRole("button", { name: "Display options" });
+  await expect.poll(async () => {
+    const size = await display.boundingBox();
+    return size && Math.round(size.width) === Math.round(size.height);
+  }).toBe(true);
+  await expect(inbox.locator('[aria-label="Views"] kbd')).toHaveCount(0);
+  const rowLines = await Promise.all([
+    row.getByText("family@example.test", { exact: true }).boundingBox(),
+    row.getByText(subject, { exact: true }).boundingBox(),
+    row.getByText("This message belongs in the reading pane.", { exact: true }).boundingBox(),
+  ]);
+  expect(rowLines[0]!.y).toBeLessThan(rowLines[1]!.y);
+  expect(rowLines[1]!.y).toBeLessThan(rowLines[2]!.y);
+  expect((await display.boundingBox())!.y - (await inbox.boundingBox())!.y).toBeGreaterThanOrEqual(16);
   await expect(page.locator("[data-admin-page-header]")).toHaveCount(1);
   const divider = page.getByRole("separator", { name: "Resize conversation panes" });
   await divider.focus();
@@ -678,6 +692,65 @@ test("compact workspace names the student tab and keeps its record header visibl
   const taskTab = tabs.getByRole("tab", { name: "Tasks", exact: true });
   await expect(taskTab).toHaveAttribute("aria-selected", "true");
   await expect(taskTab).toBeInViewport({ ratio: 1 });
+});
+
+test("the top bar aligns with the workspace and contracts the sidebar before tabs", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 740 });
+  await signIn(page);
+  await page.goto("/students/10000000-0000-0000-0000-000000000010?pane=%2Fparents&pane=%2Ftasks");
+  const navbar = page.locator("[data-admin-navbar]");
+  const sidebar = page.locator("[data-admin-sidebar]");
+  const workspace = page.locator("[data-admin-pane-workspace]");
+  const tabs = navbar.getByRole("tablist", { name: "Open panes" });
+  const header = workspace.locator("[data-admin-page-header]").first();
+  await expect(header).toContainText("Julia Hall");
+  await expect(navbar.getByRole("img", { name: "Altitutor" })).toHaveCount(0);
+  const navBox = (await navbar.boundingBox())!;
+  expect(navBox.y).toBe(0);
+  expect((await header.boundingBox())!.y).toBeCloseTo(navBox.y + navBox.height + 1, 0);
+
+  const search = navbar.getByRole("button", { name: "Open command palette" });
+  const notifications = navbar.getByRole("button", { name: /^Notifications/ });
+  const searchBox = (await search.boundingBox())!;
+  const notificationsBox = (await notifications.boundingBox())!;
+  expect([searchBox.width, searchBox.height]).toEqual([32, 32]);
+  expect([notificationsBox.width, notificationsBox.height]).toEqual([32, 32]);
+  await search.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Search");
+  await page.keyboard.press("Escape");
+  await page.mouse.move(1, 1, { steps: 8 });
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await notifications.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Notifications");
+  await notifications.click();
+  await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.move(1, 1);
+  for (const [modifier, keycap] of [["Meta", "⌘"], ["Control", "Ctrl"]]) {
+    await page.keyboard.down(modifier);
+    await expect(search.locator("kbd")).toHaveText([keycap, "K"]);
+    await page.keyboard.up(modifier);
+    await expect(search.locator("kbd")).toHaveCount(0);
+  }
+
+  const firstDivider = workspace.getByRole("separator", { name: "Resize adjacent panes" }).first();
+  for (let step = 0; step < 5; step += 1) await firstDivider.press("ArrowLeft");
+  await page.setViewportSize({ width: 1040, height: 740 });
+  await expect(navbar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expect(tabs).toHaveCount(0);
+  expect((await workspace.getByRole("region", { name: "Students pane", exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(305);
+  await navbar.getByRole("button", { name: "Expand sidebar" }).click();
+  await expect(tabs).toBeVisible();
+  const sidebarBox = (await sidebar.boundingBox())!;
+  const tabsBox = (await tabs.boundingBox())!;
+  expect(sidebarBox.width).toBe(250);
+  expect(tabsBox.x).toBe((await workspace.getByRole("tabpanel").boundingBox())!.x);
+  await page.setViewportSize({ width: 1320, height: 740 });
+  await expect(tabs).toHaveCount(0);
+  await page.setViewportSize({ width: 980, height: 740 });
+  await expect(navbar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expect(tabs).toBeVisible();
+  expect((await sidebar.boundingBox())!.width).toBe(70);
 });
 
 test("reference previews cover people, scheduling and work-item projections", async ({

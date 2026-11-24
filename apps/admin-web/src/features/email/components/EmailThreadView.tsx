@@ -728,7 +728,11 @@ export function EmailThreadView({
             </DropdownMenu>
           </div>
         </div>
-        {searchOpen && <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />}
+        {searchOpen && (
+          <div className="px-4 pt-4">
+            <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />
+          </div>
+        )}
       </header>)}
       {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">

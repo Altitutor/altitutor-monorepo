@@ -250,7 +250,7 @@ export function MailPage() {
         label="Email reading pane"
         list={
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          className="@container/mail-list flex min-h-0 min-w-0 flex-1 flex-col p-4"
           aria-label="Email list"
           tabIndex={0}
           onKeyDown={(event) => {
@@ -406,7 +406,7 @@ export function MailPage() {
                   className={`group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1 ${(selected ?? inlineThread) === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
                 >
                   <button
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-start gap-2 text-left @min-[480px]/mail-list:items-center @min-[480px]/mail-list:gap-3"
                     onClick={(event) => {
                       event.stopPropagation();
                       open(row);
@@ -415,7 +415,7 @@ export function MailPage() {
                     aria-current={inlineThread === row.id ? "true" : undefined}
                   >
                     <span
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
+                      className={`mt-1.5 size-1.5 shrink-0 rounded-full @min-[480px]/mail-list:mt-0 ${row.read ? "bg-transparent" : "bg-primary"}`}
                     />
                     {row.repliedAt && (
                       <Reply
@@ -426,31 +426,33 @@ export function MailPage() {
                         <title>{`Replied ${new Date(row.repliedAt).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}`}</title>
                       </Reply>
                     )}
-                    {settings.visibleColumns.includes("sender") && (
-                      <span
-                        className={`w-28 min-w-0 shrink truncate text-xs ${row.read ? "" : "font-semibold"}`}
-                      >
-                        {row.senderName || row.sender || "Draft"}
-                      </span>
-                    )}
-                    <span className="flex min-w-0 flex-1 gap-2 text-xs">
-                      {settings.visibleColumns.includes("subject") && (
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-xs @min-[480px]/mail-list:flex-row @min-[480px]/mail-list:gap-2">
+                      {settings.visibleColumns.includes("sender") && (
                         <span
-                          className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
+                          className={`min-w-0 shrink truncate @min-[480px]/mail-list:w-28 ${row.read ? "" : "font-semibold"}`}
                         >
-                          {folder === "@scheduled"
-                            ? "Scheduled · "
-                            : row.draft
-                              ? "Draft · "
-                              : ""}
-                          {row.subject || "(no subject)"}
+                          {row.senderName || row.sender || "Draft"}
                         </span>
                       )}
-                      {settings.visibleColumns.includes("preview") && (
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                          {row.preview}
-                        </span>
-                      )}
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5 @min-[480px]/mail-list:flex-row @min-[480px]/mail-list:gap-2">
+                        {settings.visibleColumns.includes("subject") && (
+                          <span
+                            className={`shrink-0 truncate @min-[480px]/mail-list:max-w-[60%] ${row.read ? "" : "font-medium"}`}
+                          >
+                            {folder === "@scheduled"
+                              ? "Scheduled · "
+                              : row.draft
+                                ? "Draft · "
+                                : ""}
+                            {row.subject || "(no subject)"}
+                          </span>
+                        )}
+                        {settings.visibleColumns.includes("preview") && (
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                            {row.preview}
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </button>
                   <div className="hidden shrink-0 group-hover:block group-focus-within:block group-has-[[data-state=open]]:block [@media(hover:none)]:block">

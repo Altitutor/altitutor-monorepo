@@ -307,7 +307,7 @@ export default function InvoiceDetailPage(
   }
 
   return (
-    <div className="p-4">
+    <div className="px-4 pb-4">
       {/* Header */}
       <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb

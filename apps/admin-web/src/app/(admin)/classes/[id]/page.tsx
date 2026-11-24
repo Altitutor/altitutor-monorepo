@@ -168,7 +168,7 @@ export default function ClassDetailPage(props: { params: Promise<{ id: string }>
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 pt-4 [--detail-page-gutter:1rem]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 [--detail-page-gutter:1rem]">
       <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
         <IssuePill entityType="class" entityId={id} enabled />

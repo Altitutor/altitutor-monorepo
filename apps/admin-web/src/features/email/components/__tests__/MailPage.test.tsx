@@ -59,6 +59,10 @@ const mailbox: MailboxData = {
 };
 const originalFetch = global.fetch;
 beforeEach(() => {
+  global.ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(), disconnect: jest.fn(), unobserve: jest.fn(),
+  }));
+  HTMLElement.prototype.scrollIntoView = jest.fn();
   sessionStorage.clear();
   useAuthStore.setState({ user: { id: `mail-ui-admin-${++mockUserId}` } as User });
 });
@@ -87,8 +91,8 @@ it("keeps folder navigation visible while another folder is loading", async () =
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
   fireEvent.click(screen.getByRole("button", { name: "Inbox" }));
-  fireEvent.change(await screen.findByRole("textbox", { name: "Search folders" }), { target: { value: "arch" } });
-  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  fireEvent.change(await screen.findByPlaceholderText("Search folders…"), { target: { value: "arch" } });
+  fireEvent.click(screen.getByRole("option", { name: "Archive" }));
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("folder=archive"),
@@ -97,7 +101,7 @@ it("keeps folder navigation visible while another folder is loading", async () =
   );
   expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Archive" }));
-  expect(await screen.findByRole("button", { name: "Inbox" })).toBeInTheDocument();
+  expect(await screen.findByRole("option", { name: "Inbox" })).toBeInTheDocument();
 });
 it("moves a dragged email immediately and restores it if Microsoft rejects the move", async () => {
   const notify = jest.spyOn(toast, "error");
@@ -133,7 +137,7 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
     getData: (key: string) => values.get(key) ?? "",
   };
   fireEvent.dragStart(row.parentElement!, { dataTransfer });
-  fireEvent.drop(screen.getByRole("button", { name: "Archive" }), {
+  fireEvent.drop(screen.getByRole("option", { name: "Archive" }), {
     dataTransfer,
   });
   await waitFor(() =>
@@ -209,7 +213,7 @@ it("offers an Undo toast for a successful folder move and executes its server re
     getData: (key: string) => values.get(key) ?? "",
   };
   fireEvent.dragStart(row.parentElement!, { dataTransfer });
-  fireEvent.drop(screen.getByRole("button", { name: "Archive" }), {
+  fireEvent.drop(screen.getByRole("option", { name: "Archive" }), {
     dataTransfer,
   });
   await waitFor(() =>

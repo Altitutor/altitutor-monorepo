@@ -293,7 +293,7 @@ export default function SubjectDetailPage(props: { params: Promise<{ id: string 
   }
 
   return (
-    <div className="p-4">
+    <div className="px-4 pb-4">
       {/* Header */}
       <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb />

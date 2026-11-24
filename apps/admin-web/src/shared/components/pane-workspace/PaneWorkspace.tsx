@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, FileText, FolderKanban, PanelTop, X } from "lucide-react";
@@ -8,7 +8,8 @@ import { navItems } from "@/shared/constants/adminNavigation";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
 import { toast } from "sonner";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
-import { GoHintsContext } from "@/shared/shortcuts/context";
+import { GoHintsContext, PaletteModifierContext, type PaletteModifier } from "@/shared/shortcuts/context";
+import { adminSidebarWidth, useAdminShell } from "@/shared/contexts/AdminShellContext";
 import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
 import {
   openReferenceInPane, paneFrameAttribute, paneHref, paneRequestEvent,
@@ -17,6 +18,11 @@ import {
 
 const primary = "primary";
 const minWidth = 305;
+const dividerWidth = 8;
+
+function minimumPaneWidth(index: number, count: number) {
+  return minWidth + (index < count - 1 ? dividerWidth : 0);
+}
 const subscribe = () => () => {};
 const isEmbedded = () => window.frameElement?.hasAttribute(paneFrameAttribute) ?? false;
 export function useEmbeddedPane() {
@@ -26,7 +32,7 @@ type Peer = { id: string; initial: string; href: string; title?: string };
 type FrameMessage =
   | { action: "activate" | "ready" }
   | { action: "location"; href: string; title?: string }
-  | { action: "go-hints"; visible: boolean }
+  | { action: "shortcut-hints"; go: boolean; palette: PaletteModifier }
   | { action: "open"; href: string }
   | { action: "back" | "close" };
 
@@ -83,12 +89,13 @@ export function EmbeddedPaneEvents() {
   const href = currentRoute(pathname, search);
   const title = usePaneTitle(href);
   const goHints = useContext(GoHintsContext);
+  const paletteModifier = useContext(PaletteModifierContext);
   useEffect(() => {
     window.parent.postMessage(
-      { adminPane: { action: "go-hints", visible: goHints } satisfies FrameMessage },
+      { adminPane: { action: "shortcut-hints", go: goHints, palette: paletteModifier } satisfies FrameMessage },
       location.origin,
     );
-  }, [goHints]);
+  }, [goHints, paletteModifier]);
   useEffect(() => {
     const send = (message: FrameMessage) => window.parent.postMessage({ adminPane: message }, location.origin);
     const activate = () => send({ action: "activate" });
@@ -155,15 +162,17 @@ function paneTitle(href: string) {
 const paneIcons = { issues: AlertTriangle, projects: FolderKanban, documents: FileText, notes: FileText };
 
 export function PaneWorkspace({
-  children, tabsTarget, onActivePathChange, onPeerGoHintsChange,
+  children, tabsTarget, onActivePathChange, onPeerGoHintsChange, onPeerPaletteChange,
 }: {
   children: ReactNode;
   tabsTarget: HTMLDivElement | null;
   onActivePathChange?: (pathname: string) => void;
   onPeerGoHintsChange?: (visible: boolean) => void;
+  onPeerPaletteChange?: (modifier: PaletteModifier) => void;
 }) {
   const router = useRouter();
   const { close: closeMobileMenu } = useMobileMenu();
+  const { sidebarCollapsed, collapseSidebar } = useAdminShell();
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const mainHref = currentRoute(pathname, search);
@@ -174,20 +183,34 @@ export function PaneWorkspace({
   const visibleIds = [...(mainOpen ? [primary] : []), ...peers.map((peer) => peer.id)];
   const [active, setActive] = useState(() => visibleIds[Number(params.get("activePane"))] ?? visibleIds[0] ?? primary);
   const [goHintPane, setGoHintPane] = useState<string | null>(null);
+  const [paletteHint, setPaletteHint] = useState<{ id: string; modifier: PaletteModifier } | null>(null);
   const restoreFocus = useRef(false);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [width, setWidth] = useState(0);
+  const [rowWidth, setRowWidth] = useState(0);
   const frameRefs = useRef(new Map<string, HTMLIFrameElement>());
   const readyFrames = useRef(new Set<string>());
   const histories = useRef(new Map<string, string[]>());
   const pendingReplace = useRef(new Set<string>());
   const closePane = useRef<(id: string) => void>(() => {});
   const host = useRef<HTMLDivElement>(null);
-  const narrow = visibleIds.length > 1 && width < visibleIds.length * minWidth;
+  const requiredWidth = visibleIds.length * minWidth + Math.max(0, visibleIds.length - 1) * dividerWidth;
+  const shouldContractSidebar = visibleIds.length > 1 && rowWidth >= 768 &&
+    rowWidth - adminSidebarWidth.expanded - 8 < requiredWidth;
+  const sidebarWidth = rowWidth >= 768
+    ? adminSidebarWidth[sidebarCollapsed ? "collapsed" : "expanded"]
+    : 0;
+  const narrow = rowWidth > 0 && visibleIds.length > 1 && rowWidth - sidebarWidth - 8 < requiredWidth;
+  const previousContraction = useRef(false);
+  useLayoutEffect(() => {
+    if (shouldContractSidebar && !previousContraction.current) collapseSidebar();
+    previousContraction.current = shouldContractSidebar;
+  }, [shouldContractSidebar, collapseSidebar]);
   const hrefForPane = (id: string) => id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? mainHref;
   const activePath = hrefForPane(active).split(/[?#]/)[0];
   useEffect(() => onActivePathChange?.(activePath), [activePath, onActivePathChange]);
   useEffect(() => onPeerGoHintsChange?.(goHintPane === active), [goHintPane, active, onPeerGoHintsChange]);
+  useEffect(() => onPeerPaletteChange?.(paletteHint?.id === active ? paletteHint.modifier : null), [paletteHint, active, onPeerPaletteChange]);
   useEffect(() => {
     if (!restoreFocus.current) return;
     restoreFocus.current = false;
@@ -204,11 +227,18 @@ export function PaneWorkspace({
   const latest = useRef(state);
   latest.current = state;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = host.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    const row = node?.closest("[data-admin-workspace-row]");
+    if (!node || !row) return;
+    const measure = () => {
+      setWidth(node.clientWidth);
+      setRowWidth(row.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(node);
+    observer.observe(row);
     return () => observer.disconnect();
   }, []);
 
@@ -331,7 +361,10 @@ export function PaneWorkspace({
       if (!id || !message) return;
       if (message.action === "ready") readyFrames.current.add(id);
       if (message.action === "activate") setActive(id);
-      if (message.action === "go-hints") setGoHintPane((current) => message.visible ? id : current === id ? null : current);
+      if (message.action === "shortcut-hints") {
+        setGoHintPane((current) => message.go ? id : current === id ? null : current);
+        setPaletteHint((current) => message.palette ? { id, modifier: message.palette } : current?.id === id ? null : current);
+      }
       if (message.action === "close") close(id);
       if (message.action === "back") back(id);
       if (message.action === "open") {
@@ -376,7 +409,9 @@ export function PaneWorkspace({
   function resize(index: number, delta: number, startLeft: number, startRight: number) {
     const left = visibleIds[index];
     const right = visibleIds[index + 1];
-    const newLeft = Math.max(minWidth, Math.min(startLeft + startRight - minWidth, startLeft + delta));
+    const minimumLeft = minimumPaneWidth(index, visibleIds.length);
+    const minimumRight = minimumPaneWidth(index + 1, visibleIds.length);
+    const newLeft = Math.max(minimumLeft, Math.min(startLeft + startRight - minimumRight, startLeft + delta));
     setWeights((current) => ({ ...current, [left]: newLeft, [right]: startLeft + startRight - newLeft }));
   }
 
@@ -385,7 +420,10 @@ export function PaneWorkspace({
     const label = paneTitle(href);
     const hidden = index < 0 || (narrow && id !== active);
     return (
-      <div key={id} hidden={hidden} style={{ flex: `${weights[id] ?? width / visibleIds.length} 1 0` }}
+      <div key={id} hidden={hidden} style={{
+        flex: `${weights[id] ?? width / visibleIds.length} 1 0`,
+        minWidth: !narrow && index >= 0 && visibleIds.length > 1 ? minimumPaneWidth(index, visibleIds.length) : undefined,
+      }}
         className={hidden ? "hidden" : "flex min-h-0 min-w-0"}>
         <section
           aria-label={`${label} pane`}
@@ -441,9 +479,9 @@ export function PaneWorkspace({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col p-1" data-admin-pane-workspace>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col px-1 pb-1" data-admin-pane-workspace>
       {narrow && tabsTarget && createPortal(
-        <div role="tablist" aria-label="Open panes" className="flex h-full min-w-0 items-center gap-1 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div role="tablist" aria-label="Open panes" className="flex h-full min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleIds.map((id, index) => {
             const href = hrefForPane(id);
             const root = href.split(/[/?#]/)[1];
