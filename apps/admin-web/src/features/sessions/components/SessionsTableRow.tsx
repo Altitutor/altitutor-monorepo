@@ -547,7 +547,7 @@ export function SessionsTableRowStudentActions({
           variant={compact ? "ghost" : "outline"}
           size="icon"
           className={cn("shrink-0", compact && "h-6 w-6")}
-          aria-label="Session actions"
+          data-shortcut-menu aria-keyshortcuts="M" aria-label="Session actions"
           onClick={(event) => event.stopPropagation()}
         >
           <MoreVertical className="h-4 w-4" />
@@ -718,7 +718,7 @@ function SessionsTableRowDefaultActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
+        <Button variant="outline" size="icon" className="shrink-0" data-shortcut-menu aria-keyshortcuts="M" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

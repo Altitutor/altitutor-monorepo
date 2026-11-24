@@ -1678,7 +1678,8 @@ export function UcatGenerationSettingsPage() {
             <DropdownMenuTrigger asChild>
               <AdminPageActionButton
                 icon={<Plus className="h-4 w-4" />}
-                label="Add provider"
+                createShortcut
+                label="Create provider"
                 trailingIcon={<ChevronDown className="h-4 w-4" />}
               />
             </DropdownMenuTrigger>
@@ -1696,7 +1697,8 @@ export function UcatGenerationSettingsPage() {
         return (
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Add model profile"
+            createShortcut
+            label="Create model profile"
             onClick={() => setCreatingModelProfile(true)}
           />
         );
@@ -1704,7 +1706,8 @@ export function UcatGenerationSettingsPage() {
         return (
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Add prompt layer"
+            createShortcut
+            label="Create prompt layer"
             onClick={() => setCreatingPromptLayer(true)}
           />
         );

@@ -17,7 +17,8 @@ export default function TemplatesPage() {
         actions={(
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="New Template"
+            createShortcut
+            label="Create template"
             onClick={() => setCreateButtonClick(prev => prev + 1)}
           />
         )}

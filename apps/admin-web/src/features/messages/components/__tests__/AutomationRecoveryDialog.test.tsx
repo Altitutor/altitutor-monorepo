@@ -14,7 +14,12 @@ const originalFetch = global.fetch;
 afterEach(() => { global.fetch = originalFetch; });
 function setup(hiddenMainPane = false) {
   return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}>
-    <div style={{display:hiddenMainPane ? "none" : "block"}}><DialogScope><AutomationRecoveryDialog messageId={preview.messageId} onClose={jest.fn()} /></DialogScope></div>
+    <main hidden={hiddenMainPane}><DialogScope>Primary pane</DialogScope></main>
+    <aside aria-label="Messages pane">
+      <DialogScope>
+        <AutomationRecoveryDialog messageId={preview.messageId} onClose={jest.fn()} />
+      </DialogScope>
+    </aside>
   </QueryClientProvider>);
 }
 test('staff reviews original content and confirms only the corrected failed recipient', async () => {
@@ -39,6 +44,10 @@ test('unchanged rejected numbers stay disabled and explain how to correct them',
 test('recovery remains visible when an accessory view hides the main dialog pane', async () => {
   global.fetch=jest.fn(async()=>({ok:true,json:async()=>preview} as Response));
   setup(true);
-  expect(await screen.findByText('Original immutable notice')).toBeVisible();
+  const notice = await screen.findByText('Original immutable notice');
+  expect(notice).toBeVisible();
+  expect(screen.getByRole('complementary', { name: 'Messages pane' })).toContainElement(
+    notice.closest('[data-dialog-scope-portal]'),
+  );
   expect(screen.getByRole('button',{name:'Send this failed message'})).toBeVisible();
 });

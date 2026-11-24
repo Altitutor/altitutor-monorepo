@@ -21,13 +21,13 @@ export function ClassesAddMenu({
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
           createShortcut
-          label="Add"
+          label="Create"
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onAddClass}>Add class</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAddClass}>Create class</DropdownMenuItem>
         <DropdownMenuItem onSelect={onAddAdminShift}>
-          Add admin shift
+          Create admin shift
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

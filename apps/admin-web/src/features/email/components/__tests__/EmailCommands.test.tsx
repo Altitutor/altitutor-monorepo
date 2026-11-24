@@ -13,7 +13,7 @@ const compose = jest.fn(),
   reply = jest.fn();
 function PageActions() {
   useRegisterPageActions("/email", [
-    { id: "compose", title: "Compose email", icon: Plus, action: compose },
+    { id: "compose", title: "Create email", icon: Plus, action: compose },
   ]);
   return null;
 }
@@ -63,7 +63,7 @@ it("registers mailbox page commands and the active email tab in the existing glo
     </RecordActionsProvider>,
   );
   fireEvent.click(screen.getByText("Commands"));
-  fireEvent.click(screen.getByText("Compose email"));
+  fireEvent.click(screen.getByText("Create email"));
   fireEvent.click(screen.getByText("Reply to email"));
   expect(compose).toHaveBeenCalledTimes(1);
   expect(reply).toHaveBeenCalledTimes(1);

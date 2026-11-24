@@ -90,7 +90,7 @@ export function TrialStudentsPage() {
   );
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="New enquiry" onClick={() => setCreate(true)} /></AdminPageActions>
+      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} createShortcut label="Create enquiry" onClick={() => setCreate(true)} /></AdminPageActions>
       {error && (
         <p
           role="alert"

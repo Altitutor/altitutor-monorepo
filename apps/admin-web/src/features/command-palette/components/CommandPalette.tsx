@@ -76,7 +76,7 @@ export function CommandPalette({
       : []),
     {
       id: "create-document",
-      title: "Document",
+      title: "Create document",
       icon: FileText,
       keywords: ["new", "create", "note"],
       action: onCreateDocument,

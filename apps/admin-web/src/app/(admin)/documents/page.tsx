@@ -12,7 +12,7 @@ export default function DocumentsPage() {
     <>
       <ListSettingsMenu list="documents" />
       <AdminPageActions>
-        <AdminPageActionButton icon={<Plus />} createShortcut label="Add document" onClick={() => setAdding(true)} />
+        <AdminPageActionButton icon={<Plus />} createShortcut label="Create document" onClick={() => setAdding(true)} />
       </AdminPageActions>
       <DocumentsView />
       {adding && <NewDocumentDialog open onClose={() => setAdding(false)} />}

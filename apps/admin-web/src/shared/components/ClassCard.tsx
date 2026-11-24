@@ -138,6 +138,7 @@ export function ClassCard({
   return (
     <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={staffRoster}>
     <div
+      data-shortcut-record={Boolean(hasMenuActions) || undefined}
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',
         isCalendarView ? 'h-full overflow-hidden' : 'h-auto',
@@ -228,7 +229,7 @@ export function ClassCard({
                     variant="outline" 
                     size="icon" 
                     className="h-8 w-8 flex-shrink-0"
-                    aria-label="Class actions"
+                    data-shortcut-menu aria-keyshortcuts="M" aria-label="Class actions"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreVertical className="h-4 w-4" />

@@ -1,4 +1,5 @@
 'use client';
+import { DialogScope } from "@altitutor/ui";
 import { GoHintsContext, type PaletteModifier } from "@/shared/shortcuts/context";
 import { GoHint } from "@/shared/shortcuts/GoHint";
 
@@ -20,7 +21,7 @@ import { ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
@@ -467,8 +468,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
   );
 }
 
-function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const embeddedPane = useEmbeddedPane();
+function QuickActionDialogs({ onlyWhenOpen = false }: { onlyWhenOpen?: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
@@ -499,11 +499,120 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     checkInPrefill,
     closeCheckInModal,
   } = useQuickActions();
+  const { data: currentStaff } = useCurrentStaff();
+  if (!currentStaff?.id || (onlyWhenOpen && ![
+    isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen,
+    isAnnouncementsModalOpen, isBookingModalOpen, isCreateTaskDialogOpen,
+    isCreateIssueDialogOpen, isCreateProjectDialogOpen, isCheckInModalOpen,
+  ].some(Boolean))) return null;
+
+  return (
+    <>
+      <LogSessionModal
+        isOpen={isTutorLogModalOpen}
+        onClose={closeTutorLogModal}
+        currentStaffId={currentStaff.id}
+        adminMode={true}
+      />
+      <LogAbsenceDialog
+        isOpen={isLogAbsenceDialogOpen}
+        onClose={closeLogAbsenceDialog}
+        staffId={currentStaff.id}
+      />
+      <LogStaffAbsenceDialog
+        isOpen={isLogStaffAbsenceDialogOpen}
+        onClose={closeLogStaffAbsenceDialog}
+        staffId={currentStaff.id}
+      />
+      <AnnouncementsModal
+        isOpen={isAnnouncementsModalOpen}
+        initialStudentIds={announcementStudentIds}
+        initialStaffIds={announcementStaffIds}
+        onClose={closeAnnouncementsModal}
+      />
+      {bookingSessionType === "STAFF_INTERVIEW" ? (
+        <StaffInterviewBookSessionModal
+          isOpen={isBookingModalOpen}
+          onClose={closeBookingModal}
+          onBookingCreated={closeBookingModal}
+          initialPhone={bookingPrefill?.initialStaffPhone}
+        />
+      ) : (
+        bookingSessionType && (
+          <BookSessionModal
+            isOpen={isBookingModalOpen}
+            onClose={closeBookingModal}
+            sessionType={bookingSessionType}
+            onBookingCreated={closeBookingModal}
+            initialStudentId={bookingPrefill?.initialStudentId}
+            initialCreateStudent={bookingPrefill?.createNewStudent}
+          />
+        )
+      )}
+      <CreateTaskDialog
+        reference={taskReference}
+        isOpen={isCreateTaskDialogOpen}
+        onClose={closeCreateTaskDialog}
+      />
+      <CreateIssueDialog
+        reference={issueReference}
+        isOpen={isCreateIssueDialogOpen}
+        onClose={closeCreateIssueDialog}
+      />
+      <CreateProjectDialog
+        isOpen={isCreateProjectDialogOpen}
+        onClose={closeCreateProjectDialog}
+      />
+      <CheckInBookSessionModal
+        isOpen={isCheckInModalOpen}
+        onClose={closeCheckInModal}
+        sessionType={checkInSessionType}
+        initialPrefill={checkInPrefill}
+        onCreated={(sessionId, staffIds) => {
+          void invalidateCheckInSurfaces(queryClient);
+          if (checkInSessionType === "CHECK_IN") {
+            for (const staffId of staffIds) {
+              void queryClient.invalidateQueries({
+                queryKey: payTiersKeys.staffProgress(staffId),
+              });
+              void queryClient.invalidateQueries({
+                queryKey: payTiersKeys.staffCheckIns(staffId),
+              });
+            }
+            void queryClient.invalidateQueries({
+              queryKey: payTiersKeys.staffSummaries(),
+            });
+          }
+          closeCheckInModal();
+          toast({
+            title:
+              checkInSessionType === "ADMIN_MEETING"
+                ? "Admin meeting scheduled"
+                : "Check-in scheduled",
+            description: "Session was created.",
+            action: {
+              label: "View session",
+              onClick: () =>
+                window.dispatchEvent(
+                  new CustomEvent("open-session-modal", {
+                    detail: { id: sessionId },
+                  }),
+                ),
+            },
+            duration: 12_000,
+          });
+        }}
+      />
+    </>
+  );
+}
+
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const embeddedPane = useEmbeddedPane();
   const { sidebarCollapsed: collapsed } = useAdminShell();
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } =
     useCommandPalette();
-  const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
   const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(
@@ -539,144 +648,50 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         <div className="flex h-dvh flex-col overflow-hidden bg-card" style={{ "--admin-sidebar-width": `${collapsed ? adminSidebarWidth.collapsed : adminSidebarWidth.expanded}px` } as React.CSSProperties}>
         {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar tabsRef={setTabsTarget} />}
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
-        <CommandPaletteModal
-          isOpen={isCommandPaletteOpen}
-          onClose={closeCommandPalette}
-        />
-        <div data-admin-workspace-row data-admin-embedded-pane={embeddedPane || undefined} className="flex min-h-0 flex-1 overflow-hidden">
+        <QuickActionsProvider>
+          <CommandPaletteModal
+            isOpen={isCommandPaletteOpen}
+            onClose={closeCommandPalette}
+          />
+          <QuickActionDialogs onlyWhenOpen />
+        </QuickActionsProvider>
+        <div data-admin-workspace-row data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex min-h-0 flex-1 overflow-hidden", embeddedPane && "flex-col")}>
           {!embeddedPane && <SidebarNav collapsed={collapsed} />}
           {wrapWorkspace(
-            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div
-              data-admin-main
-              className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
-            >
-              {showBreadcrumbs && (
+            <DialogScope>
+              <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <div
-                  data-admin-page-header
-                  className={cn(adminPageHeaderClass, "flex-wrap")}
+                  data-admin-main
+                  className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
                 >
-                  <Breadcrumb
-                    items={breadcrumbs}
-                    className="mb-0 min-w-0 flex-1"
-                  />
-                  <div
-                    ref={setSecondaryActionsTarget}
-                    className="flex max-w-full flex-wrap items-center gap-2"
-                  />
-                  <div
-                    ref={setActionsTarget}
-                    className="flex max-w-full flex-wrap items-center justify-end gap-2"
-                  />
+                  {showBreadcrumbs && (
+                    <div
+                      data-admin-page-header
+                      className={cn(adminPageHeaderClass, "flex-wrap")}
+                    >
+                      <Breadcrumb
+                        items={breadcrumbs}
+                        className="mb-0 min-w-0 flex-1"
+                      />
+                      <div
+                        ref={setSecondaryActionsTarget}
+                        className="flex max-w-full flex-wrap items-center gap-2"
+                      />
+                      <div
+                        ref={setActionsTarget}
+                        className="flex max-w-full flex-wrap items-center justify-end gap-2"
+                      />
+                    </div>
+                  )}
+                  <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+                    <AdminPageActionsTarget.Provider value={actionTargets}>
+                      <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+                    </AdminPageActionsTarget.Provider>
+                  </div>
                 </div>
-              )}
-              <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-                <AdminPageActionsTarget.Provider value={actionTargets}>
-                  <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
-                </AdminPageActionsTarget.Provider>
+                <QuickActionDialogs />
               </div>
-            </div>
-            {/* Quick action modals */}
-            {currentStaff?.id && (
-              <>
-                <LogSessionModal
-                  isOpen={isTutorLogModalOpen}
-                  onClose={closeTutorLogModal}
-                  currentStaffId={currentStaff.id}
-                  adminMode={true}
-                />
-                <LogAbsenceDialog
-                  isOpen={isLogAbsenceDialogOpen}
-                  onClose={closeLogAbsenceDialog}
-                  staffId={currentStaff.id}
-                />
-                <LogStaffAbsenceDialog
-                  isOpen={isLogStaffAbsenceDialogOpen}
-                  onClose={closeLogStaffAbsenceDialog}
-                  staffId={currentStaff.id}
-                />
-                <AnnouncementsModal
-                  isOpen={isAnnouncementsModalOpen}
-                  initialStudentIds={announcementStudentIds}
-                  initialStaffIds={announcementStaffIds}
-                  onClose={closeAnnouncementsModal}
-                />
-                {bookingSessionType === "STAFF_INTERVIEW" ? (
-                  <StaffInterviewBookSessionModal
-                    isOpen={isBookingModalOpen}
-                    onClose={closeBookingModal}
-                    onBookingCreated={closeBookingModal}
-                    initialPhone={bookingPrefill?.initialStaffPhone}
-                  />
-                ) : (
-                  bookingSessionType && (
-                    <BookSessionModal
-                      isOpen={isBookingModalOpen}
-                      onClose={closeBookingModal}
-                      sessionType={bookingSessionType}
-                      onBookingCreated={closeBookingModal}
-                      initialStudentId={bookingPrefill?.initialStudentId}
-                      initialCreateStudent={bookingPrefill?.createNewStudent}
-                    />
-                  )
-                )}
-                <CreateTaskDialog
-                  reference={taskReference}
-                  isOpen={isCreateTaskDialogOpen}
-                  onClose={closeCreateTaskDialog}
-                />
-                <CreateIssueDialog
-                  reference={issueReference}
-                  isOpen={isCreateIssueDialogOpen}
-                  onClose={closeCreateIssueDialog}
-                />
-                <CreateProjectDialog
-                  isOpen={isCreateProjectDialogOpen}
-                  onClose={closeCreateProjectDialog}
-                />
-                <CheckInBookSessionModal
-                  isOpen={isCheckInModalOpen}
-                  onClose={closeCheckInModal}
-                  sessionType={checkInSessionType}
-                  initialPrefill={checkInPrefill}
-                  onCreated={(sessionId, staffIds) => {
-                    void invalidateCheckInSurfaces(queryClient);
-                    if (checkInSessionType === "CHECK_IN") {
-                      for (const staffId of staffIds) {
-                        void queryClient.invalidateQueries({
-                          queryKey: payTiersKeys.staffProgress(staffId),
-                        });
-                        void queryClient.invalidateQueries({
-                          queryKey: payTiersKeys.staffCheckIns(staffId),
-                        });
-                      }
-                      void queryClient.invalidateQueries({
-                        queryKey: payTiersKeys.staffSummaries(),
-                      });
-                    }
-                    closeCheckInModal();
-                    toast({
-                      title:
-                        checkInSessionType === "ADMIN_MEETING"
-                          ? "Admin meeting scheduled"
-                          : "Check-in scheduled",
-                      description: "Session was created.",
-                      action: {
-                        label: "View session",
-                        onClick: () =>
-                          window.dispatchEvent(
-                            new CustomEvent("open-session-modal", {
-                              detail: { id: sessionId },
-                            }),
-                          ),
-                      },
-                      duration: 12_000,
-                    });
-                  }}
-                />
-              </>
-            )}
-            </div>
+            </DialogScope>
           )}
         </div>
         </div>
