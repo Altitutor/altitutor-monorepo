@@ -26,6 +26,10 @@ const initialState: MailListState = {
   settings: defaultMailListSettings,
 };
 
+// Each pane keeps its own session preferences while it is open. Browser storage
+// supplies the last-used defaults when the inbox opens in a new pane or reloads.
+const openInboxState = new Map<string, MailListState>();
+
 const savedState = z.object({
   folder: z.string().optional(),
   search: z.string(),
@@ -42,23 +46,26 @@ export function useMailListState() {
 
   useEffect(() => {
     if (!storageKey) return;
-    let next = initialState;
-    try {
-      const saved = savedState.safeParse(JSON.parse(sessionStorage.getItem(storageKey) ?? "null"));
-      if (saved.success) {
-        const { display, ...preferences } = saved.data;
-        const settings = getViewSettings(display);
-        if (settings) next = { ...preferences, settings };
+    let next = openInboxState.get(storageKey);
+    if (!next) {
+      try {
+        const saved = savedState.safeParse(JSON.parse(sessionStorage.getItem(storageKey) ?? "null"));
+        if (saved.success) {
+          const { display, ...preferences } = saved.data;
+          const settings = getViewSettings(display);
+          if (settings) next = { ...preferences, settings };
+        }
+      } catch {
+        // A blocked or invalid session store starts with the inbox defaults.
       }
-    } catch {
-      // A blocked or invalid session store starts with the inbox defaults.
     }
-    setList(next);
+    setList(next ?? initialState);
     setLoadedKey(storageKey);
   }, [storageKey]);
 
   useEffect(() => {
     if (!ready || !storageKey) return;
+    openInboxState.set(storageKey, list);
     const { settings, ...preferences } = list;
     try {
       sessionStorage.setItem(storageKey, JSON.stringify({

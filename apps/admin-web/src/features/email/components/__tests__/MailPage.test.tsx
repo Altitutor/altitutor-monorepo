@@ -16,6 +16,7 @@ jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
   useQuickFilters: () => ({ data: [] }),
 }));
 const mockNavigate = jest.fn();
+let mockUserId = 0;
 const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
   useOpenEmailThread: () => jest.fn(),
@@ -58,7 +59,7 @@ const mailbox: MailboxData = {
 const originalFetch = global.fetch;
 beforeEach(() => {
   sessionStorage.clear();
-  useAuthStore.setState({ user: { id: "mail-ui-admin" } as User });
+  useAuthStore.setState({ user: { id: `mail-ui-admin-${++mockUserId}` } as User });
 });
 
 afterEach(() => {

@@ -544,7 +544,7 @@ export function EmailThreadView({
                             {message.cc.length > 0 && ` · Cc ${message.cc.join(", ")}`}
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] space-y-3">
+                        <PopoverContent align="start" className="max-h-[var(--radix-popover-content-available-height)] w-[min(22rem,calc(100vw-2rem))] space-y-3 overflow-y-auto">
                           {([["To", message.to], ["Cc", message.cc]] as const).map(([label, recipients]) =>
                             recipients.length ? (
                               <div key={label} className="space-y-1">

@@ -242,14 +242,23 @@ test("Email opens in the reading pane and restores the list when going back", as
   const folderId = `reading-folder-${key}`;
   const folderName = `Reading pane ${key.slice(0, 8)}`;
   const subject = "Reading pane browser check";
+  const alternateId = `${id}-alternate`;
+  const alternateSubject = "Another email in the current view";
   const occurredAt = new Date().toISOString();
   for (const result of [
     await db.from("email_folders").insert({ id: folderId, name: folderName, present: true }),
-    await db.from("email_threads").insert({ id }),
+    await db.from("email_threads").insert([{ id }, { id: alternateId }]),
     await db.from("email_messages").insert({
       id, thread_id: id, folder_id: folderId, occurred_at: occurredAt,
       data: {
         id, threadId: id, folderId, subject, bodyText: "This message belongs in the reading pane.",
+        sender: "family@example.test", to: ["recipient@example.test"], read: true, draft: false, receivedAt: occurredAt,
+      },
+    }),
+    await db.from("email_messages").insert({
+      id: alternateId, thread_id: alternateId, folder_id: folderId, occurred_at: occurredAt,
+      data: {
+        id: alternateId, threadId: alternateId, folderId, subject: alternateSubject, bodyText: "A different message.",
         sender: "family@example.test", to: ["recipient@example.test"], read: true, draft: false, receivedAt: occurredAt,
       },
     }),
@@ -273,6 +282,7 @@ test("Email opens in the reading pane and restores the list when going back", as
   const email = page.getByRole("article", { name: `Email: ${subject}` });
   await expect(email).toContainText("This message belongs in the reading pane.");
   await expect(inbox).toBeVisible();
+  expect((await inbox.boundingBox())?.width).toBe(320);
   const participant = page.getByRole("button", { name: "Link recipient@example.test", exact: true });
   await expect(participant).toHaveCount(0);
   await email.getByRole("button", { name: "Show recipients", exact: true }).click();
@@ -284,6 +294,11 @@ test("Email opens in the reading pane and restores the list when going back", as
   await name.click({ button: "right" });
   await expect(page.getByRole("combobox", { name: "Search menu" })).toBeVisible();
   await page.keyboard.press("Escape");
+
+  await inbox.getByRole("button", { name: `Open ${alternateSubject}`, exact: true }).click();
+  await expect(page.getByRole("article", { name: `Email: ${alternateSubject}` })).toBeVisible();
+  await inbox.getByRole("button", { name: `Open ${subject}`, exact: true }).click();
+  await expect(email).toBeVisible();
 
   await page.setViewportSize({ width: 820, height: 900 });
   await expect(email).toBeVisible();

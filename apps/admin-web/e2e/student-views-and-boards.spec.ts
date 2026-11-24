@@ -196,6 +196,39 @@ test('individual conversations start with Emails hidden and allow opting in', as
   await expect(emails).toHaveAttribute('aria-checked', 'true');
 });
 
+test('Students and Parents lists scroll through the toolbar and table together', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 360 });
+  await signIn(page);
+  for (const path of ['/parents', '/students?view=list']) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const toolbar = page.getByRole('button', { name: 'Display options', exact: true });
+    const table = page.getByRole('table').first();
+    await expect(table).toBeVisible();
+    await expect(toolbar).toBeVisible();
+    const before = await toolbar.boundingBox();
+    await table.locator('tbody tr').first().hover();
+    await page.mouse.wheel(0, 300);
+    await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeLessThan(before!.y);
+  }
+});
+
+test('Sessions and Classes calendar grids scroll under the pointer at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await signIn(page);
+  for (const [path, label] of [
+    ['/sessions?view=calendar&calendarMode=week', 'Sessions calendar grid'],
+    ['/classes?view=calendar', 'Classes calendar grid'],
+  ]) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const grid = page.getByRole('region', { name: label, exact: true });
+    await expect(grid).toBeVisible({ timeout: 30000 });
+    await expect.poll(() => grid.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+    await grid.hover({ position: { x: 140, y: 120 } });
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => grid.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  }
+});
+
 test('work-item boards align toolbars, span the page and scroll columns independently', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 900 });
   await signIn(page);

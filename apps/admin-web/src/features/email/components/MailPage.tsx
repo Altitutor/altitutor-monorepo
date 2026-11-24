@@ -163,7 +163,7 @@ export function MailPage() {
     if (thread) params.set("conversation", thread);
     const query = params.toString();
     const href = query ? `/email?${query}` : "/email";
-    if (thread) router.push(href, { scroll: false });
+    if (thread && !inlineThread) router.push(href, { scroll: false });
     else withPaneCloseGate(() => router.replace(href, { scroll: false }));
   }
   function open(row: EmailSummary) {
@@ -226,7 +226,7 @@ export function MailPage() {
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div
-          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex w-1/2 max-w-[36rem] shrink-0" : "flex flex-1"}`}
+          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex shrink-0" : "flex flex-1"}`}
         >
         <MailFolders
           folders={mailbox.data?.folders ?? []}
@@ -235,7 +235,7 @@ export function MailPage() {
           onSelect={(id) => setList((current) => ({ ...current, folder: id, offset: 0 }))}
         />
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5"
+          className={`flex min-h-0 min-w-0 flex-col p-3 sm:p-5 ${wide ? "w-80 shrink-0" : "flex-1"}`}
           aria-label="Email list"
           tabIndex={0}
           onKeyDown={(event) => {
