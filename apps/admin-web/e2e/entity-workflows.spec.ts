@@ -283,6 +283,7 @@ test("Email opens in the reading pane and restores the list when going back", as
   await expect(email).toContainText("This message belongs in the reading pane.");
   await expect(inbox).toBeVisible();
   expect((await inbox.boundingBox())?.width).toBe(320);
+  expect((await page.getByRole("region", { name: "Email reading pane" }).boundingBox())?.width).toBeGreaterThan(400);
   const participant = page.getByRole("button", { name: "Link recipient@example.test", exact: true });
   await expect(participant).toHaveCount(0);
   await email.getByRole("button", { name: "Show recipients", exact: true }).click();

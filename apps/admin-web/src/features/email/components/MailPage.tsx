@@ -226,7 +226,7 @@ export function MailPage() {
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div
-          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex shrink-0" : "flex flex-1"}`}
+          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex w-[31rem] shrink-0" : "flex flex-1"}`}
         >
         <MailFolders
           folders={mailbox.data?.folders ?? []}
