@@ -11,7 +11,6 @@ import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import type { Json } from '@altitutor/shared';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
-import type { Tables } from '@altitutor/shared';
 
 /**
  * Extracts content nodes to insert from TipTap doc format.
@@ -40,12 +39,14 @@ function getContentToInsert(
  */
 interface UseSlashCommandSuggestionsOptions {
   includeCollapsibleSection?: boolean;
+  includeTemplates?: boolean;
 }
 
 export function useSlashCommandSuggestions({
   includeCollapsibleSection = true,
+  includeTemplates = true,
 }: UseSlashCommandSuggestionsOptions = {}) {
-  const { data: templates = [] } = useRichTextTemplates();
+  const { data: templates = [] } = useRichTextTemplates(includeTemplates);
 
   return useMemo(() => {
     const baseItems: SlashCommandItem[] = [
@@ -168,7 +169,7 @@ export function useSlashCommandSuggestions({
       },
     ];
 
-    const templateItems: SlashCommandItem[] = (templates as Tables<'rich_text_templates'>[]).map(
+    const templateItems: SlashCommandItem[] = (includeTemplates ? templates : []).map(
       (template) => ({
         title: template.name,
         subtext: extractTextFromNoteContent(template.content as Json)?.slice(0, 50) || '(empty)',
@@ -288,5 +289,5 @@ export function useSlashCommandSuggestions({
         };
       },
     };
-  }, [templates, includeCollapsibleSection]);
+  }, [templates, includeCollapsibleSection, includeTemplates]);
 }

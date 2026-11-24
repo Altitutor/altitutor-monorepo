@@ -101,6 +101,7 @@ function InsertRowAfterIcon({ className }: { className?: string }) {
 
 export interface RichTextEditorBottomToolbarProps {
   editor: Editor | null
+  actions?: ReactNode
   /** `card` = bordered popover shell (default). `plain` = borderless, compact row for inline footers. */
   variant?: 'card' | 'plain'
 }
@@ -133,7 +134,7 @@ const TOOLBAR_INNER_PLAIN = 'px-0'
 
 /** Prevent editor blur when pressing toolbar controls (keeps selection for formatting). */
 function handleToolbarMouseDown(event: MouseEvent) {
-  event.preventDefault()
+  if (event.currentTarget.contains(event.target as Node)) event.preventDefault()
 }
 
 function ToolbarIconButton({
@@ -218,6 +219,7 @@ function toolbarChrome(variant: 'card' | 'plain') {
 export function RichTextEditorBottomToolbar({
   editor,
   variant = 'card',
+  actions,
 }: RichTextEditorBottomToolbarProps) {
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode>('default')
   const chrome = toolbarChrome(variant)
@@ -260,6 +262,7 @@ export function RichTextEditorBottomToolbar({
         innerClassName={chrome.inner}
         rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
       >
+        {actions}
         <ToolbarIconButton
           label="Add column before"
           onClick={() => editor.chain().focus().addColumnBefore().run()}
@@ -316,6 +319,7 @@ export function RichTextEditorBottomToolbar({
         innerClassName={chrome.inner}
         rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
       >
+        {actions}
         <ToolbarIconButton
           label="Bold"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -354,6 +358,7 @@ export function RichTextEditorBottomToolbar({
       innerClassName={chrome.inner}
       rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
     >
+      {actions}
       <ToolbarIconButton
         label="Heading 1"
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}

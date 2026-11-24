@@ -142,7 +142,7 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
                           placeholder="Edit note..."
                           disabled={updateNoteMutation.isPending}
                           minHeight="80px"
-                          floatingToolbar
+                          insertTemplates
                         />
                         <div className="flex items-center gap-2">
                           <Button
@@ -216,7 +216,6 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
           onSubmit={handleSubmit}
           isSubmitting={createNoteMutation.isPending}
           canPost={Boolean(currentStaff)}
-          floatingToolbar
         />
       </div>
     </div>

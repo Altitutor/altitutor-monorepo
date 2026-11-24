@@ -218,7 +218,6 @@ export function IssueNotes({ issueId, notes, onNoteAdded }: IssueNotesProps) {
           onSubmit={handleSubmit}
           isSubmitting={createNoteMutation.isPending}
           canPost={Boolean(currentStaff)}
-          floatingToolbar
         />
       </div>
     </div>

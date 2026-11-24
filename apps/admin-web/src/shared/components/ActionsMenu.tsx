@@ -542,7 +542,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
                 .map(renderAction)}
               {"richTextTemplateConfig" in props &&
                 props.richTextTemplateConfig && (
-                  <RichTextTemplateMenuItems {...props.richTextTemplateConfig} />
+                  <RichTextTemplateMenuItems
+                    {...props.richTextTemplateConfig}
+                    showInsert={props.type !== "project"}
+                  />
                 )}
               {groups.map((group) => (
                 <DropdownMenuSub key={group}>

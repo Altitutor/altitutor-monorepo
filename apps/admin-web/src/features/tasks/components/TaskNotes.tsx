@@ -216,7 +216,6 @@ export function TaskNotes({ taskId, notes, onNoteAdded }: TaskNotesProps) {
           onSubmit={handleSubmit}
           isSubmitting={createNoteMutation.isPending}
           canPost={Boolean(currentStaff)}
-          floatingToolbar
         />
       </div>
     </div>

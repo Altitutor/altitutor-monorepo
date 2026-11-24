@@ -8,7 +8,7 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Breadcrumb } from '@/shared/components/Breadcrumb';
 import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
@@ -58,7 +58,6 @@ export function MessagesView() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>(contactParam || groupParam || conversationParam ? 'thread' : 'list');
   const isDesktopSplitPane = usePanelMediaQuery('(min-width: 768px)');
   const [isSearching, setIsSearching] = useState(false);
-  const openedInitialConversation = useRef(false);
   const [filterTarget, setFilterTarget] = useState<HTMLDivElement | null>(null);
   const [composeTarget, setComposeTarget] = useState<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,10 +76,6 @@ export function MessagesView() {
     ),
   );
 
-  useEffect(() => {
-    if (contactParam || groupParam) setMobileView("thread");
-  }, [contactParam, groupParam]);
-
   const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
   const { data: conversationsByContact } = useConversationList(
     selectedOwnedNumberId,
@@ -98,7 +93,8 @@ export function MessagesView() {
 
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
-    if (conversationParam && !contactParam) {
+    if (conversationParam && !contactParam && !groupParam) {
+      let current = true;
       const supabase = getSupabaseClient();
       supabase
         .from("conversations")
@@ -106,9 +102,15 @@ export function MessagesView() {
         .eq("id", conversationParam)
         .maybeSingle<{ contact_id: string | null; is_group_chat: boolean }>()
         .then(({ data }) => {
-          if (data?.is_group_chat) setActiveGroupId(conversationParam);
+          if (!current) return;
+          if (data?.is_group_chat) {
+            setActiveGroupId(conversationParam);
+            setActiveContactId(null);
+            return;
+          }
           if (data?.contact_id) {
             setActiveContactId(data.contact_id);
+            setActiveGroupId(null);
             if (targetMessageId) return;
             // Update URL to use contact instead of conversation
             const params = new URLSearchParams(searchParams.toString());
@@ -117,8 +119,11 @@ export function MessagesView() {
             router.replace(`/messages?${params.toString()}`);
           }
         });
+      return () => {
+        current = false;
+      };
     }
-  }, [conversationParam, contactParam, searchParams, router, targetMessageId]);
+  }, [conversationParam, contactParam, groupParam, searchParams, router, targetMessageId]);
 
   // Fetch active contact details for header
   const { data: activeContact } = useQuery({
@@ -146,48 +151,19 @@ export function MessagesView() {
     enabled: !!activeContactId,
   });
 
-  // Sync from URL params
   useEffect(() => {
-    const contactId = searchParams.get("contact");
-    const groupId = searchParams.get("group");
-    if (contactId) {
-      setActiveContactId(contactId);
+    if (contactParam) {
+      setActiveContactId(contactParam);
       setActiveGroupId(null);
-    } else if (groupId) {
-      setActiveGroupId(groupId);
+    } else if (groupParam) {
+      setActiveGroupId(groupParam);
       setActiveContactId(null);
-    } else if (
-      !tabScope &&
-      !openedInitialConversation.current &&
-      !activeContactId &&
-      !activeGroupId &&
-      !conversationParam
-    ) {
-      // Full /messages page: auto-select most recent contact when no URL param.
-      // Accessory tabs stay on the conversation list until the user picks one.
-      openedInitialConversation.current = true;
-      (async () => {
-        const supabase = getSupabaseClient();
-        const { data } = await supabase
-          .from("conversations")
-          .select("contact_id")
-          .order("last_message_at", { ascending: false })
-          .limit(1)
-          .maybeSingle<{ contact_id: string }>();
-        if (data?.contact_id) {
-          setActiveContactId(data.contact_id);
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("contact", data.contact_id);
-          router.push(`/messages?${params.toString()}`);
-        }
-      })();
-    } else if (!contactId && !groupId && !conversationParam) {
+    } else if (!conversationParam) {
       setActiveContactId(null);
       setActiveGroupId(null);
-      setMobileView("list");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    setMobileView(contactParam || groupParam || conversationParam ? "thread" : "list");
+  }, [contactParam, groupParam, conversationParam]);
 
   const activeAggregated = conversationsByContact?.find(
     (c): c is Extract<ConversationListItem, { kind: "contact" }> =>
@@ -300,7 +276,6 @@ export function MessagesView() {
   };
 
   const handleBack = () => {
-    openedInitialConversation.current = true;
     setIsSearching(false);
     const params = new URLSearchParams(searchParams.toString());
     for (const key of ["contact", "conversation", "group", "message", "focus"]) {

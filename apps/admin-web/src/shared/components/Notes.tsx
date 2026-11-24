@@ -155,6 +155,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
                     {editingNoteId === note.id ? (
                       <div className="space-y-2">
                         <NotesEditorWithMentions
+                          insertTemplates
                           content={editingNoteContent}
                           onChange={setEditingNoteContent}
                           placeholder="Edit note..."

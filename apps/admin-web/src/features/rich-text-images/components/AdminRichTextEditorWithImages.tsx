@@ -20,6 +20,7 @@ import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useAdminRichTextImageUpload } from '../hooks/useAdminRichTextImageUpload';
 import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import type { AdminRichTextImageContext } from '../api/uploadAdminRichTextImage';
+import { InsertTemplateToolbarAction } from '@/features/rich-text-templates/components/InsertTemplateToolbarAction';
 import { useRefreshedAdminContent } from '../hooks/useRefreshedAdminContent';
 
 export interface AdminRichTextEditorWithImagesProps
@@ -41,6 +42,7 @@ export interface AdminRichTextEditorWithImagesProps
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
   onChangeDebounceMs?: number;
   includeCollapsibleSlashCommand?: boolean;
+  insertTemplates?: boolean;
 }
 
 function contentSignature(
@@ -100,6 +102,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
       mentionSuggestions,
       onChangeDebounceMs,
       includeCollapsibleSlashCommand = true,
+      insertTemplates = false,
       ...editorProps
     },
     ref,
@@ -111,6 +114,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
     });
     const slashMenuSuggestions = useSlashCommandSuggestions({
       includeCollapsibleSection: includeCollapsibleSlashCommand,
+      includeTemplates: !insertTemplates,
     });
     const incomingSignature = useMemo(
       () => contentSignature(content),
@@ -173,6 +177,10 @@ export const AdminRichTextEditorWithImages = forwardRef<
           slashMenuSuggestions={slashMenuSuggestions}
           onPasteImages={sessionEditable && editorProps.editable !== false ? handlePasteImages : undefined}
           {...editorProps}
+          floatingToolbar={insertTemplates || editorProps.floatingToolbar}
+          renderFloatingToolbarActions={insertTemplates ? (editor, onOpenChange) => (
+            <InsertTemplateToolbarAction editor={editor} onOpenChange={onOpenChange} />
+          ) : undefined}
           editable={sessionEditable && editorProps.editable !== false}
         />
       </div>

@@ -14,7 +14,8 @@ export function TemplateReferenceActions({
   onActivate?: () => void;
 }) {
   const launch = useRunRecordAction();
-  const { data: templates = [] } = useRichTextTemplates();
+  const showInsert = type !== "project";
+  const { data: templates = [] } = useRichTextTemplates(showInsert);
   const recordType = type === "document" ? "note" : type;
   return (
     <>
@@ -29,25 +30,27 @@ export function TemplateReferenceActions({
           },
         ]}
       />
-      <details className="px-3 py-1.5">
-        <summary className="cursor-pointer text-sm">Insert template</summary>
-        {templates.length ? (
-          <ReferenceActionList
-            onActivate={onActivate}
-            actions={templates.map((template) => ({
-              id: `insert-template-${template.id}`,
-              title: template.name,
-              icon: FileText,
-              action: () =>
-                launch?.(recordType, id, `insert-template-${template.id}`),
-            }))}
-          />
-        ) : (
-          <p className="py-2 text-xs text-muted-foreground">
-            No templates available
-          </p>
-        )}
-      </details>
+      {showInsert && (
+        <details className="px-3 py-1.5">
+          <summary className="cursor-pointer text-sm">Insert template</summary>
+          {templates.length ? (
+            <ReferenceActionList
+              onActivate={onActivate}
+              actions={templates.map((template) => ({
+                id: `insert-template-${template.id}`,
+                title: template.name,
+                icon: FileText,
+                action: () =>
+                  launch?.(recordType, id, `insert-template-${template.id}`),
+              }))}
+            />
+          ) : (
+            <p className="py-2 text-xs text-muted-foreground">
+              No templates available
+            </p>
+          )}
+        </details>
+      )}
     </>
   );
 }

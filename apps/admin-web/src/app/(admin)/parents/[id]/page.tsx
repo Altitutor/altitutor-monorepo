@@ -5,7 +5,7 @@ import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/compone
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
-import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
@@ -173,7 +173,7 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
 </>}>
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
-      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="parent" entityId={parent.id} />
