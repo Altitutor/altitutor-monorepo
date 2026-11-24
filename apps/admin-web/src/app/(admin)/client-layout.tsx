@@ -1,4 +1,5 @@
 'use client';
+import { useRecordRecentPage } from "@/features/recently-viewed/useRecordRecentPage";
 import { GoHintsContext } from "@/shared/shortcuts/context";
 import { GoHint } from "@/shared/shortcuts/GoHint";
 
@@ -507,6 +508,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
+  useRecordRecentPage(currentStaff?.id, pathname, breadcrumbs.at(-1)?.label);
   const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(
     null,
   );

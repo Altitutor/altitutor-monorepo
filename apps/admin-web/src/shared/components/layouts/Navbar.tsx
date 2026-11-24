@@ -14,6 +14,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { Search } from 'lucide-react';
+import { RecentlyViewedMenu } from '@/features/recently-viewed/RecentlyViewedMenu';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 
@@ -115,6 +116,8 @@ export function Navbar() {
               <Search className="h-4 w-4" /><span className="absolute top-full right-0"><ShortcutKeys id="palette" /></span>
             </Button>
           )}
+
+          {user && staffRecord?.id && <RecentlyViewedMenu staffId={staffRecord.id} />}
 
           {/* Notifications Button */}
           {user && staffRecord?.id && (
