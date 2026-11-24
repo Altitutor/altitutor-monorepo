@@ -27,8 +27,8 @@ export function RecentlyViewedMenu({ staffId }: { staffId: string }) {
       <DropdownMenuContent align="end" className="max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto">
         <DropdownMenuLabel>Recently viewed</DropdownMenuLabel>
         {pages.length === 0 && <p className="px-2 py-1.5 text-sm text-muted-foreground">No recent pages</p>}
-        {pages.map(({ href, title }) => (
-          <DropdownMenuItem key={href} title={title} onSelect={() => requestPane('navigate', href)}>
+        {pages.map(({ key, href, title }) => (
+          <DropdownMenuItem key={key} title={title} onSelect={() => requestPane('navigate', href)}>
             <span className="truncate">{title}</span>
           </DropdownMenuItem>
         ))}

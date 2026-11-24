@@ -38,6 +38,7 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
                 onClick={item.onClick}
                 className={cn("truncate text-left hover:text-foreground hover:underline", isLast && "font-medium text-foreground")}
                 title={item.label}
+                data-recent-page-title={isLast || undefined}
               >
                 {item.label}
               </button>
@@ -49,7 +50,7 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
                 {item.label}
               </Link>
             ) : (
-              <span className={cn("truncate", isLast && "font-medium text-foreground")} title={item.label}>
+              <span className={cn("truncate", isLast && "font-medium text-foreground")} title={item.label} data-recent-page-title={isLast || undefined}>
                 {item.label}
               </span>
             )}

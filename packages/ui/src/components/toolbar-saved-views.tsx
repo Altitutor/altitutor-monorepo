@@ -224,6 +224,8 @@ export function ToolbarSavedViews({
             aria-keyshortcuts={keyboardEnabled && index < 9 ? String(index + 1) : undefined}
             type="button"
             aria-pressed={active?.id === view.id}
+            data-saved-view-id={view.id}
+            data-saved-view-name={view.name}
             title={
               view.id.startsWith("builtin:")
                 ? "Apply default view"

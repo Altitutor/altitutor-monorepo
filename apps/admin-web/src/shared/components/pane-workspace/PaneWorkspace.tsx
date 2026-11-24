@@ -1,5 +1,6 @@
 "use client";
 
+import { useRecordRecentPage } from "@/features/recently-viewed/useRecordRecentPage";
 import { useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, FileText, FolderKanban, PanelTop, X } from "lucide-react";
@@ -127,9 +128,10 @@ function paneTitle(href: string) {
 const paneIcons = { issues: AlertTriangle, projects: FolderKanban, documents: FileText, notes: FileText };
 
 export function PaneWorkspace({
-  children, onActivePathChange, onPeerGoHintsChange,
+  children, staffId, onActivePathChange, onPeerGoHintsChange,
 }: {
   children: ReactNode;
+  staffId?: string;
   onActivePathChange?: (pathname: string) => void;
   onPeerGoHintsChange?: (visible: boolean) => void;
 }) {
@@ -155,7 +157,9 @@ export function PaneWorkspace({
   const host = useRef<HTMLDivElement>(null);
   const narrow = visibleIds.length > 1 && width < visibleIds.length * minWidth;
   const hrefForPane = (id: string) => id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? mainHref;
-  const activePath = hrefForPane(active).split(/[?#]/)[0];
+  const activeHref = hrefForPane(active);
+  const activePath = activeHref.split(/[?#]/)[0];
+  useRecordRecentPage(staffId, active, activeHref, paneTitle(activeHref));
   useEffect(() => onActivePathChange?.(activePath), [activePath, onActivePathChange]);
   useEffect(() => onPeerGoHintsChange?.(goHintPane === active), [goHintPane, active, onPeerGoHintsChange]);
   useEffect(() => {
