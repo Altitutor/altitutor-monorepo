@@ -795,6 +795,7 @@ function SortableCard<TItem>({
 }: SortableCardProps<TItem>) {
   const id = getItemId(item);
   const contentId = React.useId();
+  const actions = React.useMemo(() => renderActions?.(item), [item, renderActions]);
   const {
     attributes,
     listeners,
@@ -826,7 +827,7 @@ function SortableCard<TItem>({
       {...listeners}
       aria-labelledby={contentId}
     >
-      <CollectionRecord id={id} layout="board" actions={renderActions?.(item)}>
+      <CollectionRecord id={id} layout="board" actions={actions}>
         <div id={contentId} className="contents">
           <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
         </div>

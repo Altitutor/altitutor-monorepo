@@ -30,12 +30,23 @@ const trackPane = (event: Event) => {
   const pane = event.target.closest<HTMLElement>(paneSelector);
   if (pane && focusedPane !== pane) {focusedPane = pane;notifyScope();}
 };
+const collectionRecord = "[data-keyboard-record]";
+const otherRecords =
+  "[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target],[data-record-type][data-record-id]";
+
+export function keyboardRecordFor(target: Element | null) {
+  return target?.closest<HTMLElement>(collectionRecord) ??
+    target?.closest<HTMLElement>(otherRecords) ?? null;
+}
+
+export function hoveredKeyboardRecord(root: Document) {
+  return root.querySelector<HTMLElement>(`${collectionRecord}:hover`) ??
+    root.querySelector<HTMLElement>(`:is(${otherRecords}):hover`);
+}
+
 const trackPointer = (event: Event) => {
   if (!(event.target instanceof Element)) return;
-  const node = event.target.closest<HTMLElement>(
-    '[data-keyboard-record],[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target]',
-  ) ?? event.target.closest<HTMLElement>('[data-record-type][data-record-id]');
-  setKeyboardPointerTarget(node);
+  setKeyboardPointerTarget(keyboardRecordFor(event.target));
 };
 const clearPointer = (event: Event) => {
   const related = (event as MouseEvent).relatedTarget;

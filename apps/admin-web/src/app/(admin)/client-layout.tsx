@@ -653,7 +653,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           <QuickActionDialogs onlyWhenOpen />
         </QuickActionsProvider>
         <div data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex overflow-hidden bg-card", embeddedPane
-          ? "h-dvh"
+          ? "h-dvh flex-col"
           : "mt-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))]")}>
           {!embeddedPane && <SidebarNav collapsed={collapsed} />}
           {wrapWorkspace(

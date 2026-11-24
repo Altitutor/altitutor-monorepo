@@ -22,7 +22,14 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
-import { keyboardPane, keyboardBulkOwner, keyboardPointerTarget, isVisibleShortcutTarget } from "@altitutor/ui";
+import {
+  hoveredKeyboardRecord,
+  isVisibleShortcutTarget,
+  keyboardBulkOwner,
+  keyboardPane,
+  keyboardPointerTarget,
+  keyboardRecordFor,
+} from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
   AltHintsContext,
@@ -43,10 +50,7 @@ function pointerDocument() {
 function hoveredMenuRecord() {
   const hoveredDocument = pointerDocument();
   if (hoveredDocument === document) return keyboardPointerTarget();
-  return hoveredDocument.querySelector<HTMLElement>("[data-keyboard-record]:hover")
-    ?? hoveredDocument.querySelector<HTMLElement>(
-      ":is([data-record-type][data-record-id],[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target]):hover",
-    );
+  return hoveredKeyboardRecord(hoveredDocument);
 }
 
 function activateShortcutButton(button: HTMLButtonElement) {
@@ -136,7 +140,8 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
         !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing;
       const typing = isTypingTarget(event.target);
       const key = event.key.toLowerCase();
-      if (typing || activeDialog()) cancelGo();
+      const currentDialog = activeDialog();
+      if (typing || currentDialog) cancelGo();
       if (
         bare &&
         !goPending.current &&
@@ -158,7 +163,8 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
           return;
         }
       }
-      if (bare && !typing && !activeDialog() && !event.repeat && !goPending.current && !event.shiftKey && (key === "m" || key === "f")) {
+      if (bare && !typing && !event.repeat && !goPending.current && !event.shiftKey &&
+        (key === "m" || (key === "f" && !currentDialog))) {
         const pointer = keyboardPointerTarget();
         const pane = keyboardPane();
         const activePane = document.querySelector("[data-admin-active-pane='true']");
@@ -167,9 +173,11 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
           ?.contentDocument?.querySelector("[data-admin-main]");
         const scope = pointer ? pane : peerPane ?? pane;
         const selector = key === "m" ? "[data-shortcut-menu]" : "[data-shortcut-filter]";
-        const record = key === "m" ? hoveredMenuRecord() ?? document.activeElement?.closest<HTMLElement>(
-          "[data-keyboard-record],[data-record-type][data-record-id],[data-shortcut-record]",
-        ) : null;
+        const record = key === "m"
+          ? hoveredMenuRecord() ?? keyboardRecordFor(document.activeElement)
+          : null;
+        if (currentDialog && (!record || !currentDialog.contains(record) || currentDialog.matches('[role="menu"]'))) return;
+
         const menu = record
           ? visibleControl<HTMLButtonElement>(record, selector)
           : visibleControl<HTMLButtonElement>(scope, `[data-admin-page-header] ${selector}`)
@@ -180,7 +188,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
           return;
         }
       }
-      if (bare && !typing && !activeDialog() && !event.repeat) {
+      if (bare && !typing && !currentDialog && !event.repeat) {
         if (goPending.current && key === "shift") return;
         if (goPending.current) {
           const openInNewPane = goPending.current.openInNewPane || event.shiftKey;
@@ -289,10 +297,9 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
         palette.toggle();
         return;
       }
-      const dialog = activeDialog();
       // Dialogs own keyboard interaction except focusing their own search field.
       const closesMobileSidebar = id === "left" && mobile.isOpen && keyboardPane().id === "admin-mobile-sidebar";
-      if (dialog && !palette.isOpen && id !== "search" && !closesMobileSidebar) return;
+      if (currentDialog && !palette.isOpen && id !== "search" && !closesMobileSidebar) return;
       if (id === "search") {
         const input = searchControl(panel?.expanded ? panel.activeKey : null);
         if (input) {

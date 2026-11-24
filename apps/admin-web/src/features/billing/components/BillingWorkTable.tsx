@@ -119,14 +119,14 @@ export function BillingWorkTable({ mode }: { mode: 'charges' | 'adjustments' }) 
           visible.map((row) => {
             const amount = row.charge ? estimates.data?.[row.id] : row.amountCents != null ? { amountCents: row.amountCents, currency: row.currency || 'aud' } : undefined;
             const voidId = row.charge && 'void_invoice_id' in row.charge ? row.charge.void_invoice_id : undefined;
-            return <TableRow key={row.id}>
+            return <TableRow key={row.id} data-shortcut-record>
               {state.visibleColumns.includes('student') && <TableCell><EntityChip entityType="student" entityId={row.studentId} label={row.studentName} onClick={() => navigation.openStudent(row.studentId)} /></TableCell>}
               {state.visibleColumns.includes('session') && <TableCell><EntityChip entityType="session" entityId={row.sessionId} label={row.sessionName} style={getSubjectColorStyle(sessionSubjects.data?.[row.sessionId]).style} className={sessionSubjects.data?.[row.sessionId]?.color ? getSubjectColorStyle(sessionSubjects.data[row.sessionId]).textColorClass : undefined} onClick={() => navigation.openSession(row.sessionId)} /></TableCell>}
               {state.visibleColumns.includes('date') && <TableCell className="whitespace-nowrap">{new Date(row.date).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide', dateStyle: 'medium', timeStyle: 'short' })}</TableCell>}
               {state.visibleColumns.includes('amount') && <TableCell>{amount ? formatCurrency(amount.amountCents, amount.currency) : estimates.isLoading && row.charge ? 'Loading…' : row.charge ? 'Estimate unavailable' : 'Calculated during processing'}</TableCell>}
               {state.visibleColumns.includes('issue') && <TableCell className="max-w-96 whitespace-normal"><div className="font-medium">{row.label}</div><p className="text-xs text-muted-foreground">{row.guidance}</p>
                 {row.details && <details><summary className="cursor-pointer text-xs text-muted-foreground">Technical details</summary><p className="whitespace-pre-wrap break-words text-xs">{row.details}</p></details>}</TableCell>}
-              <TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Billing actions"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+              <TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" data-shortcut-menu aria-keyshortcuts="M" aria-label="Billing actions"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {row.charge?.reason === 'uninvoiced' && <DropdownMenuItem disabled={invoice.isPending} onSelect={() => invoice.mutate(row.id)}>Invoice session</DropdownMenuItem>}
                   {voidId && <><DropdownMenuItem onSelect={() => navigation.openInvoice(voidId)}>Open voided invoice</DropdownMenuItem><DropdownMenuItem onSelect={() => setDeleteInvoiceId(voidId)}>Delete voided invoice…</DropdownMenuItem></>}

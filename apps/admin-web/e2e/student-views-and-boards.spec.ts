@@ -191,7 +191,7 @@ test('individual conversations start with Emails hidden and allow opting in', as
 test('create actions and record menus belong to their pane', async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 900 });
   await signIn(page);
-  await page.goto('/students?pane=%2Ftasks');
+  await page.goto('/students?pane=' + encodeURIComponent('/tasks?search=Board%20drag%20check%20002'));
   const students = page.locator('[data-admin-main]');
   const tasks = page.frameLocator('iframe[data-admin-pane-frame]');
   const student = students.getByRole('row').filter({ hasText: 'Alice Williams' });
