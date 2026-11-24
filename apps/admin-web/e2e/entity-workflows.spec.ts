@@ -235,6 +235,65 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   expect(JSON.stringify(saved.data?.description)).toContain(id);
 });
 
+test("Email opens in the reading pane and restores the list when going back", async ({ page, baseURL }) => {
+  const db = localDatabase(baseURL);
+  const key = randomUUID();
+  const id = `reading-pane-${key}+/=`;
+  const folderId = `reading-folder-${key}`;
+  const folderName = `Reading pane ${key.slice(0, 8)}`;
+  const subject = "Reading pane browser check";
+  const occurredAt = new Date().toISOString();
+  for (const result of [
+    await db.from("email_folders").insert({ id: folderId, name: folderName, present: true }),
+    await db.from("email_threads").insert({ id }),
+    await db.from("email_messages").insert({
+      id, thread_id: id, folder_id: folderId, occurred_at: occurredAt,
+      data: {
+        id, threadId: id, folderId, subject, bodyText: "This message belongs in the reading pane.",
+        sender: "family@example.test", to: ["admin@altitutor.test"], read: true, draft: false, receivedAt: occurredAt,
+      },
+    }),
+    await db.from("email_record_links").insert({
+      thread_id: id, record_type: "student", record_id: "10000000-0000-0000-0000-000000000002", source: "explicit",
+    }),
+  ]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+
+  await page.setViewportSize({ width: 1536, height: 900 });
+  await signIn(page);
+  await page.goto("/email", { waitUntil: "domcontentloaded" });
+  const folder = page.getByRole("button", { name: folderName, exact: true });
+  const inbox = page.getByRole("region", { name: "Email list" });
+  const view = inbox.getByRole("button", { name: "Unassigned", exact: true });
+  await folder.click();
+  await view.click();
+  await inbox.getByRole("button", { name: `Open ${subject}`, exact: true }).click();
+
+  const email = page.getByRole("article", { name: `Email: ${subject}` });
+  await expect(email).toContainText("This message belongs in the reading pane.");
+  await expect(inbox).toBeVisible();
+  const name = page.getByRole("button", { name: "Bob Taylor", exact: true });
+  await expect(name).toHaveAttribute("data-type", "student");
+  await name.click({ button: "right" });
+  await expect(page.getByRole("combobox", { name: "Search menu" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 820, height: 900 });
+  await expect(email).toBeVisible();
+  await expect(inbox).toBeHidden();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Email", exact: true }).click();
+  await expect(inbox).toBeVisible();
+  await expect(folder).toHaveAttribute("aria-current", "page");
+  await expect(view).toHaveAttribute("aria-pressed", "true");
+
+  await page.goto(`/email/${encodeURIComponent(id)}`, { waitUntil: "domcontentloaded" });
+  await expect(email).toBeVisible();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Email", exact: true }).click();
+  await expect(folder).toHaveAttribute("aria-current", "page");
+  await expect(view).toHaveAttribute("aria-pressed", "true");
+});
+
 test("Student record offers contextual task creation without duplicate palette commands", async ({
   page,
   baseURL,

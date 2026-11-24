@@ -4,10 +4,38 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
+interface BreadcrumbEntity {
+  type: "student" | "parent" | "staff";
+  id: string;
+}
+
+export function BreadcrumbName({ label, entity, onClick, className }: {
+  label: string;
+  entity?: BreadcrumbEntity;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-mention={entity ? "true" : undefined}
+      data-type={entity?.type}
+      data-id={entity?.id}
+      data-label={entity ? label : undefined}
+      onClick={onClick}
+      className={cn("truncate text-left hover:text-foreground", className)}
+      title={label}
+    >
+      {label}
+    </button>
+  );
+}
+
 export interface BreadcrumbItem {
   label: string;
   href?: string;
   onClick?: () => void;
+  entity?: BreadcrumbEntity;
 }
 
 interface BreadcrumbProps {
@@ -33,14 +61,12 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
         return (
           <div key={index} className="flex min-w-0 items-center gap-2">
             {item.onClick ? (
-              <button
-                type="button"
+              <BreadcrumbName
+                label={item.label}
                 onClick={item.onClick}
-                className={cn("truncate text-left hover:text-foreground hover:underline", isLast && "font-medium text-foreground")}
-                title={item.label}
-              >
-                {item.label}
-              </button>
+                entity={item.entity}
+                className={isLast ? "font-medium text-foreground" : undefined}
+              />
             ) : item.href && !isLast ? (
               <Link
                 href={item.href}

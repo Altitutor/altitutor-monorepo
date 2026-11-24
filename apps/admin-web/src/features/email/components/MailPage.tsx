@@ -1,13 +1,15 @@
 "use client";
 import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
-import { AdminPageActions } from "@/shared/components/AdminPageActions";
+import { Breadcrumb } from "@/shared/components/Breadcrumb";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanelRight, Plus, RefreshCw, Reply } from "lucide-react";
+import { Plus, RefreshCw, Reply } from "lucide-react";
 import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
 import { EmailThreadView } from "./EmailThreadView";
-import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
+import { paneCloseEvent } from "@/shared/components/pane-workspace/pane-routing";
 import {
   DataTableToolbar,
   Skeleton,
@@ -16,7 +18,6 @@ import {
 import {
   encodeViewConfig,
   readViewSettings,
-  type DisplaySettings,
   type QuickFilter,
 } from "@altitutor/shared";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
@@ -30,30 +31,17 @@ import type { EmailSummary } from "../types";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailActions } from "./EmailActions";
 import { MailFolders, emailDragType } from "./MailFolders";
-const defaults: DisplaySettings = {
-  filters: {},
-  sortBy: "received",
-  sortDirection: "desc",
-  groupBy: null,
-  visibleColumns: ["sender", "subject", "time", "preview", "assignee"],
-};
+import { defaultMailListSettings as defaults, useMailListState } from "../hooks/useMailListState";
+
 export function MailPage() {
-  const [folder, setFolder] = useState<string>();
-  const [search, setSearch] = useState("");
-  const [term, setTerm] = useState("");
-  const [settings, setSettings] = useState(defaults);
-  const [offset, setOffset] = useState(0);
+  const { list, setList, ready } = useMailListState();
+  const { folder, search, offset, settings } = list;
+  const [term, setTerm] = useState<string>();
   const [selected, setSelected] = useState<string>();
-  const [expanded, setExpanded] = useState(false);
-  const [inlineThread, setInlineThread] = useState<string>();
-  useEffect(() => {
-    const thread = new URLSearchParams(location.search).get("conversation");
-    if (thread) {
-      setInlineThread(thread);
-      setExpanded(true);
-    }
-  }, []);
+  const { router, searchParams } = usePaneNavigation();
+  const inlineThread = searchParams.get("conversation");
   const wide = usePanelMediaQuery("(min-width: 960px)");
+  const showList = wide || !inlineThread;
   const inlineClose = useRef<((next?: () => void) => void) | null>(null);
   const registerInlineClose = useCallback((gate: typeof inlineClose.current) => {
     inlineClose.current = gate;
@@ -70,31 +58,29 @@ export function MailPage() {
   const [hovered, setHovered] = useState<string>();
   const mailbox = useMailbox({
     folder,
-    search: term,
+    search: term ?? search,
     assignee: settings.filters.assignee?.map(String).join(",") || "all",
     from: settings.filters.from?.map(String).join(",") || "",
     offset,
     sort: settings.sortBy ?? "received",
     direction: settings.sortDirection,
-  });
+  }, ready);
   const sync = useSyncMailbox();
   const syncBusy = useRef(false);
   const openThread = useOpenEmailThread();
   const compose = useComposeEmail();
   const savedViews = useQuickFilters("email");
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTerm(search);
-      setOffset(0);
-    }, 250);
+    if (!ready) return;
+    const timer = setTimeout(() => setTerm(search), 250);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [ready, search]);
   useEffect(() => {
     if (folder === undefined && mailbox.data) {
       const inbox = mailbox.data.folders.find((item) => item.role === "inbox");
-      if (inbox) setFolder(inbox.id);
+      if (inbox) setList((current) => current.folder === undefined ? { ...current, folder: inbox.id } : current);
     }
-  }, [folder, mailbox.data]);
+  }, [folder, mailbox.data, setList]);
   const configured = mailbox.data?.configured;
   const syncNow = sync.mutateAsync;
   useEffect(() => {
@@ -169,21 +155,20 @@ export function MailPage() {
   ]);
   const rows = mailbox.data?.threads ?? [];
   function setPreviewThread(thread?: string) {
-    const url = new URL(location.href);
-    if (thread) url.searchParams.set("conversation", thread);
-    else url.searchParams.delete("conversation");
-    window.history.replaceState(window.history.state, "", url);
-    setInlineThread(thread);
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of ["conversation", "message", "focus", "action", "token"]) {
+      params.delete(key);
+    }
+    if (thread) params.set("conversation", thread);
+    router.push(params.size ? `/email?${params}` : "/email", { scroll: false });
   }
   function open(row: EmailSummary) {
     setSelected(row.id);
-    if (wide && expanded && !row.draft) {
-      if (inlineThread !== row.id) withPaneCloseGate(() => setPreviewThread(row.id));
-      return;
-    }
-    if (row.draft)
+    if (row.draft) {
       openThread(row.id, row.subject, "draft", row.messageIds.at(-1));
-    else openThread(row.id, row.subject);
+    } else if (inlineThread !== row.id) {
+      setPreviewThread(row.id);
+    }
   }
   const lastPage = mailbox.data?.sync
     .map((state) => state.page_at)
@@ -195,67 +180,55 @@ export function MailPage() {
       ? "Scheduled"
       : (mailbox.data?.folders.find((item) => item.id === folder)?.name ??
         "All mail");
-  const loading = mailbox.isLoading || mailbox.isPlaceholderData;
+  const loading = !ready || mailbox.isLoading || mailbox.isPlaceholderData;
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <ListSettingsMenu list="mail" />
-      <AdminPageActions>
-        <AdminActionGroup label="Email actions">
-          {wide && (
+    <div className="@container/email-body flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      {showList && (
+        <div className={adminPageHeaderClass} data-admin-page-header>
+          <Breadcrumb items={[{ label: "Email" }]} className="mb-0 min-w-0 flex-1" />
+          <ListSettingsMenu list="mail" inline />
+          <AdminActionGroup label="Email actions">
             <EmailIconButton
-              label={expanded ? "Hide conversation pane" : "Show conversation pane"}
-              aria-pressed={expanded}
-              onClick={() => {
-                if (expanded) withPaneCloseGate(() => {
-                  setPreviewThread();
-                  setExpanded(false);
-                });
-                else setExpanded(true);
-              }}
+              label={
+                sync.error
+                  ? sync.error.message
+                  : sync.isPending
+                    ? "Syncing with Microsoft…"
+                    : configured === false
+                      ? "Mailbox connection is not configured"
+                      : lastPage
+                        ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
+                        : "Not synced yet"
+              }
+              aria-label="Sync mailbox"
+              variant="ghost"
+              className="border-0 bg-transparent shadow-none"
+              disabled={sync.isPending || !configured}
+              onClick={() => sync.mutate()}
             >
-              <PanelRight aria-hidden className="size-4" />
+              <RefreshCw
+                className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
+              />
             </EmailIconButton>
-          )}
-          <EmailIconButton
-            label={
-              sync.error
-                ? sync.error.message
-                : sync.isPending
-                  ? "Syncing with Microsoft…"
-                  : configured === false
-                    ? "Mailbox connection is not configured"
-                    : lastPage
-                      ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
-                      : "Not synced yet"
-            }
-            aria-label="Sync mailbox"
-            variant="ghost"
-            className="border-0 bg-transparent shadow-none"
-            disabled={sync.isPending || !configured}
-            onClick={() => sync.mutate()}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
-            />
-          </EmailIconButton>
-        </AdminActionGroup>
-        <AdminPageActionButton
-          icon={<Plus className="size-4" />}
-          createShortcut
-          label="Compose"
-          onClick={compose}
-          disabled={!mailbox.data}
-        />
-      </AdminPageActions>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[480px]:flex-row">
+          </AdminActionGroup>
+          <AdminPageActionButton
+            icon={<Plus className="size-4" />}
+            createShortcut
+            label="Compose"
+            onClick={compose}
+            disabled={!mailbox.data}
+          />
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div
+          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex w-1/2 max-w-[36rem] shrink-0" : "flex flex-1"}`}
+        >
         <MailFolders
           folders={mailbox.data?.folders ?? []}
           loading={!mailbox.data}
           selected={folder}
-          onSelect={(id) => {
-            setFolder(id);
-            setOffset(0);
-          }}
+          onSelect={(id) => setList((current) => ({ ...current, folder: id, offset: 0 }))}
         />
         <section
           className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5"
@@ -301,29 +274,23 @@ export function MailPage() {
               page: Math.floor(offset / 50) + 1,
               pageSize: 50,
             }}
-            onSearchChange={setSearch}
-            onFiltersChange={(filters) => {
-              setSettings((all) => ({ ...all, filters }));
-              setOffset(0);
-            }}
-            onSortChange={(sortBy, sortDirection) => {
-              setSettings((all) => ({ ...all, sortBy, sortDirection }));
-              setOffset(0);
-            }}
-            onGroupByChange={(groupBy) =>
-              setSettings((all) => ({ ...all, groupBy }))
-            }
-            onVisibleColumnsChange={(visibleColumns) =>
-              setSettings((all) => ({ ...all, visibleColumns }))
-            }
-            onQuickFilterApply={(view) => {
-              setSettings(readViewSettings(view.config, defaults));
-              setOffset(0);
-            }}
-            onReset={() => {
-              setSettings(defaults);
-              setOffset(0);
-            }}
+            onSearchChange={(search) => setList((current) => ({ ...current, search, offset: 0 }))}
+            onFiltersChange={(filters) => setList((current) => ({
+              ...current, settings: { ...current.settings, filters }, offset: 0,
+            }))}
+            onSortChange={(sortBy, sortDirection) => setList((current) => ({
+              ...current, settings: { ...current.settings, sortBy, sortDirection }, offset: 0,
+            }))}
+            onGroupByChange={(groupBy) => setList((current) => ({
+              ...current, settings: { ...current.settings, groupBy },
+            }))}
+            onVisibleColumnsChange={(visibleColumns) => setList((current) => ({
+              ...current, settings: { ...current.settings, visibleColumns },
+            }))}
+            onQuickFilterApply={(view) => setList((current) => ({
+              ...current, settings: readViewSettings(view.config, defaults), offset: 0,
+            }))}
+            onReset={() => setList((current) => ({ ...current, settings: defaults, offset: 0 }))}
             quickFilters={views}
             allowEmptyColumns
             filterDefinitions={[
@@ -416,7 +383,7 @@ export function MailPage() {
                     if (!event.currentTarget.contains(event.relatedTarget))
                       setHovered(undefined);
                   }}
-                  className={`group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1 ${selected === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
+                  className={`group relative flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1 ${(selected ?? inlineThread) === row.id ? "bg-muted" : "hover:bg-muted/50"}`}
                 >
                   <button
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -425,6 +392,7 @@ export function MailPage() {
                       open(row);
                     }}
                     aria-label={`Open ${row.subject || "email conversation"}`}
+                    aria-current={inlineThread === row.id ? "true" : undefined}
                   >
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.read ? "bg-transparent" : "bg-primary"}`}
@@ -450,7 +418,7 @@ export function MailPage() {
                         <span
                           className={`max-w-[60%] shrink-0 truncate ${row.read ? "" : "font-medium"}`}
                         >
-                          {folder === "scheduled"
+                          {folder === "@scheduled"
                             ? "Scheduled · "
                             : row.draft
                               ? "Draft · "
@@ -533,16 +501,27 @@ export function MailPage() {
             pageSize={50}
             hasNextPage={mailbox.data?.hasMore}
             isFetching={loading}
-            onPageChange={(page) => setOffset((page - 1) * 50)}
+            onPageChange={(page) => setList((current) => ({ ...current, offset: (page - 1) * 50 }))}
             showPageSizeSelector={false}
             className="mt-4 shrink-0"
           />
         </section>
-        {expanded && (
-          <section aria-label="Email conversation" inert={!wide} hidden={!wide}
-            className={wide ? "flex w-1/2 min-w-0 shrink-0 flex-col overflow-auto border-l" : "hidden"}>
-            {inlineThread ? <EmailThreadView key={inlineThread} threadId={inlineThread} registerInlineClose={registerInlineClose} />
-              : <p className="p-5 text-sm text-muted-foreground">Select a conversation</p>}
+        </div>
+        {(wide || inlineThread) && (
+          <section
+            aria-label="Email reading pane"
+            className={`flex min-w-0 flex-1 flex-col overflow-hidden ${wide ? "border-l" : ""}`}
+          >
+            {inlineThread ? (
+              <EmailThreadView
+                key={inlineThread}
+                threadId={inlineThread}
+                registerInlineClose={registerInlineClose}
+                onBack={() => setPreviewThread()}
+              />
+            ) : (
+              <p className="p-5 text-sm text-muted-foreground">Select a conversation</p>
+            )}
           </section>
         )}
       </div>

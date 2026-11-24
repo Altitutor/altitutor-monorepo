@@ -336,7 +336,7 @@ export function MessagesView() {
             className="m-0 min-w-0 gap-1.5"
             items={showConversation ? [
               { label: "Messages", onClick: handleBack },
-              { label: conversationTitle, onClick: linkedEntity ? handleTitleClick : undefined },
+              { label: conversationTitle, onClick: linkedEntity ? handleTitleClick : undefined, entity: linkedEntity ?? undefined },
             ] : [{ label: "Messages" }]}
           />
         }

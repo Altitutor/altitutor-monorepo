@@ -3,7 +3,8 @@ import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { CheckSquare, AlertTriangle } from "lucide-react";
 import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
-import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { Breadcrumb, BreadcrumbName } from "@/shared/components/Breadcrumb";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 import {
   useCallback,
   useEffect,
@@ -26,7 +27,7 @@ import { useRegisterRecordActions } from "@/features/command-palette/RecordActio
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
 import { activityApi } from "@/features/activity/api";
 import { communicationActivityAt } from "@/features/activity/lib/entityCommunication";
-import { useEmailConversationContact } from "../api/useEmailConversationContact";
+import { emailConversationPerson, useEmailConversationContact } from "../api/useEmailConversationContact";
 import { useConversationMeetingActions } from "@/features/messages/hooks/useConversationMeetingActions";
 import { useEmailCommand, useEmailThread, useMailbox } from "../api/client";
 import {
@@ -98,11 +99,14 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
 export function EmailThreadView({
   threadId,
   registerInlineClose,
+  onBack,
 }: {
   threadId: string;
   registerInlineClose?: (gate: ((next?: () => void) => void) | null) => void;
+  onBack?: () => void;
 }) {
-  const { searchParams } = usePaneNavigation();
+  const { router, searchParams } = usePaneNavigation();
+  const navigation = useEntityNavigation();
   const targetMessageId = searchParams.get("message");
   const referenceFocus = searchParams.get("focus");
   const targetKey = `${targetMessageId ?? ""}:${referenceFocus ?? ""}`;
@@ -494,17 +498,7 @@ export function EmailThreadView({
       </p>
     );
   const data = thread.data;
-  const contacts = [
-    ...new Set(
-      messages
-        .flatMap((message) => [message.sender, ...message.to, ...message.cc])
-        .filter(
-          (email) =>
-            email &&
-            email.toLowerCase() !== mailbox.data.mailboxAddress.toLowerCase(),
-        ),
-    ),
-  ];
+  const headerPerson = emailConversationPerson(data);
   const entries: Array<{ id: string; at: string; content: ReactNode }> =
     showMessages
       ? messages
@@ -602,21 +596,6 @@ export function EmailThreadView({
     if (creating) scope?.close();
     else void thread.refetch();
   }
-  const participants = (
-    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-      {contacts.map((email) => (
-        <span key={email} className="shrink-0">
-          <EmailParticipant
-            email={email}
-            label={email}
-            includeStudents
-            threadId={threadId}
-            mailboxAddress={mailbox.data!.mailboxAddress}
-          />
-        </span>
-      ))}
-    </div>
-  );
   return (
     <div
       className="flex h-full min-h-0 flex-col"
@@ -627,13 +606,29 @@ export function EmailThreadView({
     >
       <header className="shrink-0">
         <div
-          data-admin-page-header={scope ? "" : undefined}
-          className={scope ? adminPageHeaderClass : "flex min-w-0 items-center justify-between gap-2 border-b px-3 py-1.5"}
+          data-admin-page-header
+          className={adminPageHeaderClass}
           data-email-shortcut-target
           onMouseEnter={() => setToolbarHovered(true)}
           onMouseLeave={() => setToolbarHovered(false)}
         >
-          {scope ? <AccessoryBreadcrumb currentTitle={subject} /> : participants}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Breadcrumb
+              items={[
+                { label: "Email", onClick: onBack ?? (() => router.push("/email")) },
+                { label: subject },
+              ]}
+              className="m-0 min-w-0 gap-1.5 [&>div:first-child]:shrink-0"
+            />
+            {headerPerson?.label && (
+              <BreadcrumbName
+                label={headerPerson.label}
+                entity={headerPerson}
+                onClick={() => navigation.openEntity(headerPerson.type, headerPerson.id)}
+                className="max-w-[35%] min-w-0 shrink-0 text-sm text-muted-foreground"
+              />
+            )}
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <EmailActions
               onSearchToggle={() => { if (searchOpen) setMessageSearch(""); setSearchOpen(!searchOpen); }}
@@ -680,7 +675,6 @@ export function EmailThreadView({
       </header>
       {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {scope && contacts.length > 0 && <div className="flex border-b px-3 py-2">{participants}</div>}
         {entries.map((entry) => (
           <div key={entry.id}>{entry.content}</div>
         ))}

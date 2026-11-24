@@ -148,7 +148,11 @@ test('Parent conversation leads to actions for every linked student', async ({ p
   await expect(page).not.toHaveURL(/[?&](contact|group|conversation)=/);
   await conversation.getByText('Context Parent', { exact: true }).click();
   const header = page.locator('[data-admin-page-header]');
-  await header.getByRole('button', { name: 'Context Parent', exact: true }).click();
+  const parentName = header.getByRole('button', { name: 'Context Parent', exact: true });
+  await parentName.click({ button: 'right' });
+  await expect(page.getByRole('combobox', { name: 'Search menu' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await parentName.click();
   await expect(page).toHaveURL(/\/parents\/[^/?]+/);
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Go to Alice Williams', exact: true })).toBeVisible();

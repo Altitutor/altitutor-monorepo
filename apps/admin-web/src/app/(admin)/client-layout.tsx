@@ -520,6 +520,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [peerGoHintsActive, setPeerGoHintsActive] = useState(false);
   const showBreadcrumbs =
     pathname !== "/messages" &&
+    pathname !== "/email" &&
     !/^\/(tasks|issues|projects|documents|notes|email)\/[^/]+$/.test(pathname) &&
     !/^\/subjects\/[^/]+\/topics\/[^/]+$/.test(pathname) &&
     !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(

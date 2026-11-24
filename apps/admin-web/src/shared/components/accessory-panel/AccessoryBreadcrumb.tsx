@@ -48,7 +48,7 @@ export function AccessoryBreadcrumb({
         </>
       )}
       {onCurrentClick ? (
-        <button type="button" className="truncate text-left font-medium hover:underline" title={label} onClick={onCurrentClick}>
+        <button type="button" className="truncate text-left font-medium hover:text-foreground" title={label} onClick={onCurrentClick}>
           {label}
         </button>
       ) : (

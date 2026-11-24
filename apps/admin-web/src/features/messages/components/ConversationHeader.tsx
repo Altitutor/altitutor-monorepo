@@ -1,5 +1,7 @@
 "use client";
 import { EntityActionChip as EntityChip } from '@/shared/components/EntityActionChip';
+import { BreadcrumbName } from '@/shared/components/Breadcrumb';
+import { linkedConversationEntity } from '@/features/activity/lib/entityCommunication';
 
 
 import {
@@ -410,13 +412,12 @@ export function ConversationHeader({
             {paneHeader && titleSlot ? (
               titleSlot
             ) : onTitleClick ? (
-              <button
+              <BreadcrumbName
+                label={title || "Conversation"}
                 onClick={onTitleClick}
-                className="font-medium hover:underline cursor-pointer truncate text-left w-full"
-                title={title || "Conversation"}
-              >
-                {title || "Conversation"}
-              </button>
+                entity={linkedConversationEntity(contact) ?? undefined}
+                className="w-full font-medium"
+              />
             ) : (
               <div
                 className="font-medium truncate"

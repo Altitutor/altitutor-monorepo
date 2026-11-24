@@ -58,7 +58,7 @@ export function MailFolders({
         title={folder.name}
         type="button"
         aria-current={selected === folder.id ? "page" : undefined}
-        className={`flex w-auto shrink-0 items-center gap-2 rounded-lg min-[480px]:w-full px-3 py-2 text-left text-sm transition-colors ${over === folder.id ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : moved === folder.id ? "bg-primary/10 motion-safe:animate-pulse" : selected === folder.id ? "bg-muted" : "hover:bg-muted/50"}`}
+        className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-left text-sm transition-colors ${over === folder.id ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : moved === folder.id ? "bg-primary/10 motion-safe:animate-pulse" : selected === folder.id ? "bg-muted" : "hover:bg-muted/50"}`}
         onClick={() => onSelect(folder.id)}
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes(emailDragType)) {
@@ -112,7 +112,7 @@ export function MailFolders({
   return (
     <aside
       aria-label="Microsoft email folders"
-      className="flex max-h-28 shrink-0 items-center gap-1 overflow-auto min-[480px]:block border-b p-2 min-[480px]:max-h-none min-[480px]:w-44 min-[480px]:border-b-0 min-[480px]:border-r min-[480px]:p-3"
+      className="flex max-h-28 shrink-0 items-center gap-1 overflow-auto @min-[480px]/email-body:block border-b p-2 @min-[480px]/email-body:max-h-none @min-[480px]/email-body:w-44 @min-[480px]/email-body:border-b-0 @min-[480px]/email-body:border-r @min-[480px]/email-body:p-3"
     >
       {loading ? (
         <div aria-label="Loading folders" className="space-y-2">
@@ -122,26 +122,27 @@ export function MailFolders({
         </div>
       ) : (
         <>
-          <div className="flex w-max items-center gap-1 min-[480px]:w-auto min-[480px]:flex-col min-[480px]:items-stretch">
+          <div className="flex w-max items-center gap-1 @min-[480px]/email-body:w-auto @min-[480px]/email-body:flex-col @min-[480px]/email-body:items-stretch">
             {pinned.map(item)}
             <button
               type="button"
               aria-current={selected === "@scheduled" ? "page" : undefined}
               onClick={() => onSelect("@scheduled")}
-              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg min-[480px]:w-full px-3 py-2 text-sm ${selected === "@scheduled" ? "bg-muted" : "hover:bg-muted/50"}`}
+              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-sm ${selected === "@scheduled" ? "bg-muted" : "hover:bg-muted/50"}`}
             >
               <Clock className="h-4 w-4" />
               Scheduled
             </button>
           </div>
-          <h2 className="mb-2 mt-6 hidden px-3 text-xs font-medium text-muted-foreground min-[480px]:block">
+          <h2 className="mb-2 mt-6 hidden px-3 text-xs font-medium text-muted-foreground @min-[480px]/email-body:block">
             Folders
           </h2>
-          <div className="flex w-max items-center gap-1 min-[480px]:w-auto min-[480px]:flex-col min-[480px]:items-stretch">
+          <div className="flex w-max items-center gap-1 @min-[480px]/email-body:w-auto @min-[480px]/email-body:flex-col @min-[480px]/email-body:items-stretch">
             <button
               type="button"
+              aria-current={selected === "" ? "page" : undefined}
               onClick={() => onSelect("")}
-              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg min-[480px]:w-full px-3 py-2 text-sm ${selected === "" ? "bg-muted" : "hover:bg-muted/50"}`}
+              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-sm ${selected === "" ? "bg-muted" : "hover:bg-muted/50"}`}
             >
               <Mail className="h-4 w-4" />
               All mail
