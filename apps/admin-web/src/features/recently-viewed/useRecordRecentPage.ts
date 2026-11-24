@@ -49,35 +49,45 @@ export function useRecordRecentPage(staffId: string | undefined, activePane: str
     const pane = document.getElementById(`workspace-pane-${activePane}`);
     const frame = pane?.querySelector<HTMLIFrameElement>('iframe[data-admin-pane-frame]');
     let observer: MutationObserver | undefined;
+    let timer: number | undefined;
 
     const observe = () => {
       observer?.disconnect();
+      window.clearTimeout(timer);
       const doc = frame ? frame.contentDocument : document;
       const root = frame ? doc?.documentElement : pane;
       if (!doc || !root) return;
 
-      let lastPage: ReturnType<typeof recentDestination> = null;
-      const record = () => {
+      let pending: ReturnType<typeof recentDestination> = null;
+      const inspect = () => {
         const location = doc.location;
-        if (!location || paneHref(location.pathname + location.search) !== href) return;
         const content = root.querySelector('[data-admin-main]');
-        if (!content) return;
-        const page = recentDestination(href, content, fallbackTitle);
-        if (!page || (lastPage?.key === page.key && lastPage.href === page.href && lastPage.title === page.title)) return;
-        lastPage = page;
-        const promote = visit.current?.staffId !== staffId || visit.current.key !== page.key;
-        recordRecentPage(staffId, page, promote);
-        visit.current = { staffId, key: page.key };
+        const page = location && content && paneHref(location.pathname + location.search) === href
+          ? recentDestination(href, content, fallbackTitle)
+          : null;
+        if (page?.key === pending?.key && page?.href === pending?.href && page?.title === pending?.title) return;
+
+        window.clearTimeout(timer);
+        pending = page;
+        if (!page) return;
+
+        // The toolbar selection and pane URL can update in different renders.
+        timer = window.setTimeout(() => {
+          const promote = visit.current?.staffId !== staffId || visit.current.key !== page.key;
+          recordRecentPage(staffId, page, promote);
+          visit.current = { staffId, key: page.key };
+        }, 200);
       };
 
-      record();
-      observer = new MutationObserver(record);
+      inspect();
+      observer = new MutationObserver(inspect);
       observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'data-pane-title', 'data-recent-email-subject'] });
     };
 
     observe();
     frame?.addEventListener('load', observe);
     return () => {
+      window.clearTimeout(timer);
       observer?.disconnect();
       frame?.removeEventListener('load', observe);
     };
