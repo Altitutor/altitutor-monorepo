@@ -34,7 +34,7 @@ import {
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import { usePathname } from 'next/navigation';
-import { RichTextTemplateMenuItems, RichTextTemplateRecordActions } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import { RichTextTemplateMenuItems, RichTextTemplateRecordActions, usesFloatingTemplatePicker } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
 
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
@@ -544,7 +544,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
                 props.richTextTemplateConfig && (
                   <RichTextTemplateMenuItems
                     {...props.richTextTemplateConfig}
-                    showInsert={props.type !== "project"}
+                    showInsert={!usesFloatingTemplatePicker(props.type)}
                   />
                 )}
               {groups.map((group) => (

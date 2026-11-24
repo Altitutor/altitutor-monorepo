@@ -1,6 +1,7 @@
 "use client";
 import { Save, FileText } from "lucide-react";
 import { useRichTextTemplates } from "@/features/rich-text-templates/api/templates";
+import { usesFloatingTemplatePicker } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
 import { useRunRecordAction } from "@/features/command-palette/RecordActionsContext";
 import { ReferenceActionList } from "./ReferenceActionList";
 
@@ -14,7 +15,7 @@ export function TemplateReferenceActions({
   onActivate?: () => void;
 }) {
   const launch = useRunRecordAction();
-  const showInsert = type !== "project";
+  const showInsert = !usesFloatingTemplatePicker(type);
   const { data: templates = [] } = useRichTextTemplates(showInsert);
   const recordType = type === "document" ? "note" : type;
   return (

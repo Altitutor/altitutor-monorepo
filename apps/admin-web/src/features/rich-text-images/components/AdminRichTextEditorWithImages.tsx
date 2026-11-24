@@ -114,7 +114,6 @@ export const AdminRichTextEditorWithImages = forwardRef<
     });
     const slashMenuSuggestions = useSlashCommandSuggestions({
       includeCollapsibleSection: includeCollapsibleSlashCommand,
-      includeTemplates: !insertTemplates,
     });
     const incomingSignature = useMemo(
       () => contentSignature(content),

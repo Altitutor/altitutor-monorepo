@@ -142,7 +142,7 @@ export function TaskNotes({ taskId, notes, onNoteAdded }: TaskNotesProps) {
                           placeholder="Edit note..."
                           disabled={updateNoteMutation.isPending}
                           minHeight="80px"
-                          floatingToolbar
+                          insertTemplates
                         />
                         <div className="flex items-center gap-2">
                           <Button

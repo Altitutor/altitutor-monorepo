@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogTitle, RichTextEditor } from "@altitutor/u
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { richTextTemplatesKeys } from "../../api/templates";
 import { InsertTemplateToolbarAction } from "../InsertTemplateToolbarAction";
 
 beforeAll(() => {
@@ -20,7 +21,7 @@ beforeAll(() => {
 it.each(["page", "dialog"])("opens the floating template picker and inserts the selected template in a %s", async (surface) => {
   const user = userEvent.setup();
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
-  client.setQueryData(["rich-text-templates", "list"], [{
+  client.setQueryData(richTextTemplatesKeys.list(), [{
     id: "greeting",
     name: "Greeting",
     content: {
@@ -55,11 +56,18 @@ it.each(["page", "dialog"])("opens the floating template picker and inserts the 
   const editor = region.querySelector<HTMLElement>("[contenteditable=true]");
   if (!editor) throw new Error("Expected a rich text editor");
   act(() => editor.focus());
-  await user.click(await within(region).findByRole("button", { name: "Insert template" }));
+  const insert = await within(region).findByRole("button", { name: "Insert template" });
+  if (surface === "dialog") {
+    await user.keyboard("{Alt>}{F10}{/Alt}");
+    expect(insert).toHaveFocus();
+    await user.keyboard("{Enter}");
+  } else {
+    await user.click(insert);
+  }
   const search = await within(region).findByPlaceholderText("Search templates...");
   await user.type(search, "greet");
   expect(search).toHaveValue("greet");
-  await user.click(screen.getByRole("option", { name: "Greeting" }));
+  await user.click(screen.getByRole("option", { name: /Greeting.*Dear student/ }));
   expect(await screen.findByText("Dear student")).toBeVisible();
   client.clear();
 });

@@ -482,6 +482,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   const [isToolbarActionOpen, setIsToolbarActionOpen] = useState(false);
   const showFloatingToolbar = floatingToolbar && (isEditorFocused || isToolbarFocused || (editable && isToolbarActionOpen));
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const floatingToolbarRef = useRef<HTMLDivElement>(null);
   const [floatingToolbarStyle, setFloatingToolbarStyle] = useState<React.CSSProperties | null>(null);
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -747,6 +748,14 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     shouldRerenderOnTransaction: false,
     editorProps: {
       handleKeyDown: (view, event) => {
+        if (renderFloatingToolbarActions && event.altKey && event.key === 'F10') {
+          const firstAction = floatingToolbarRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+          if (firstAction) {
+            event.preventDefault();
+            firstAction.focus();
+            return true;
+          }
+        }
         const { state } = view;
         const { selection } = state;
 
@@ -840,6 +849,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         return false;
       },
       attributes: {
+        ...(renderFloatingToolbarActions ? { 'aria-keyshortcuts': 'Alt+F10' } : {}),
         class: cn(
           omitTypography
             ? [
@@ -1347,15 +1357,20 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       const rect = anchor.getBoundingClientRect();
       const dialogRect = editorContainer?.closest('[data-slot="dialog-content"]')?.getBoundingClientRect();
       const inset = 12;
+      const boundaryTop = dialogRect?.top ?? 0;
       const boundaryBottom = dialogRect?.bottom ?? window.innerHeight;
+      const toolbarClearance = 60;
+      const bottom = toolbarContainer
+        ? boundaryBottom - rect.bottom + inset
+        : rect.top - boundaryTop >= toolbarClearance
+          ? boundaryBottom - rect.top + inset
+          : boundaryBottom - rect.bottom - toolbarClearance;
       setFloatingToolbarStyle({
         position: dialogRect ? 'absolute' : 'fixed',
         zIndex: 70,
         left: rect.left - (dialogRect?.left ?? 0) + inset,
         width: Math.max(0, rect.width - inset * 2),
-        bottom: toolbarContainer
-          ? Math.max(inset, boundaryBottom - rect.bottom + inset)
-          : Math.max(inset, boundaryBottom - rect.top + inset),
+        bottom: Math.max(inset, bottom),
       });
     };
 
@@ -1464,6 +1479,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       {showFloatingToolbar && floatingToolbarStyle && createPortal(
         <div className="pointer-events-none" style={floatingToolbarStyle}>
           <div
+            ref={floatingToolbarRef}
             className="pointer-events-auto"
             onFocusCapture={() => setIsToolbarFocused(true)}
             onBlurCapture={(event) => {

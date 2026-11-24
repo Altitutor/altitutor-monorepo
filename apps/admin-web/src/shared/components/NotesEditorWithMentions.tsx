@@ -18,7 +18,6 @@ export interface NotesEditorWithMentionsProps {
   className?: string;
   /** Default 200ms — fewer RHF updates while typing long notes in activity tabs. */
   onChangeDebounceMs?: number;
-  floatingToolbar?: boolean;
   insertTemplates?: boolean;
 }
 
@@ -41,7 +40,6 @@ export const NotesEditorWithMentions = forwardRef<
       types,
       className,
       onChangeDebounceMs = 200,
-      floatingToolbar = false,
       insertTemplates,
     },
     ref,
@@ -60,7 +58,6 @@ export const NotesEditorWithMentions = forwardRef<
         context="notes"
         mentionSuggestions={mentionSuggestions}
         includeCollapsibleSlashCommand={false}
-        floatingToolbar={floatingToolbar}
         insertTemplates={insertTemplates}
       />
     );

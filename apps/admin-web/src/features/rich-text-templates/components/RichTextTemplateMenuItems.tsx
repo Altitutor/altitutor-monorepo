@@ -67,13 +67,18 @@ interface RichTextTemplateMenuItemsProps {
   showInsert?: boolean;
 }
 
+export function usesFloatingTemplatePicker(recordType: string) {
+  return recordType === "project";
+}
+
 /** The menu and hover launcher share the same editor and save-dialog ownership. */
 export function RichTextTemplateRecordActions({ type, id, title, config }: { type: string; id?: string; title?: string; config: RichTextTemplateMenuItemsProps }) {
-  const { data: templates = [] } = useRichTextTemplates(type !== "project");
+  const showInsert = !usesFloatingTemplatePicker(type);
+  const { data: templates = [] } = useRichTextTemplates(showInsert);
   const ready = () => { const editor = config.getEditor(); return Boolean(editor && editor.isInitialized && !editor.isDestroyed && editor.isEditable); };
   useRegisterRecordActions(type, id, title, [
     ...(config.onSaveAsTemplateClick ? [{ id: 'save-template', title: 'Save as template', icon: Save, ready, action: config.onSaveAsTemplateClick }] : []),
-    ...(type === "project" ? [] : templates).map(template => ({ id: `insert-template-${template.id}`, title: template.name, group: 'Insert template', icon: FileText, ready, action: () => { void insertTemplateAtEnd(config.getEditor(), template.content as JSONContent | null); } })),
+    ...(showInsert ? templates : []).map(template => ({ id: `insert-template-${template.id}`, title: template.name, group: 'Insert template', icon: FileText, ready, action: () => { void insertTemplateAtEnd(config.getEditor(), template.content as JSONContent | null); } })),
   ]);
   return null;
 }

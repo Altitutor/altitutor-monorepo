@@ -35,6 +35,14 @@ export function InsertTemplateToolbarAction({
       searchPlaceholder="Search templates..."
       emptyMessage={isLoading ? "Loading templates..." : "No templates found"}
       loading={isLoading}
+      renderItem={(template) => (
+        <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+          <span className="truncate font-medium">{template.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {extractTextFromNoteContent(template.content as Json) || "(empty)"}
+          </span>
+        </div>
+      )}
       side="top"
       popoverContainer={dialog}
       trigger={
