@@ -1,27 +1,24 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { forwardRef, type ComponentProps } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { HeaderCountBadge } from '@/shared/components/HeaderCountBadge';
 
-interface NotificationsButtonProps {
-  unreadCount: number;
-  onClick?: (e: React.MouseEvent) => void;
-}
+type NotificationsButtonProps = ComponentProps<typeof Button> & { unreadCount: number };
 
 export const NotificationsButton = forwardRef<HTMLButtonElement, NotificationsButtonProps>(
-  ({ unreadCount, onClick }, ref) => {
+  ({ unreadCount, ...props }, ref) => {
     return (
       <Button 
+        {...props}
         ref={ref}
         variant="outline" 
         size="icon"
-        className="h-9 w-9 relative"
+        className="relative size-8"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-        onClick={onClick}
       >
-      <Bell className="h-[1.2rem] w-[1.2rem]" />
+      <Bell className="size-4" />
       <HeaderCountBadge count={unreadCount} />
       </Button>
     );

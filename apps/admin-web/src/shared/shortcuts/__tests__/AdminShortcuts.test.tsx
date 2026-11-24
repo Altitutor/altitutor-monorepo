@@ -445,6 +445,9 @@ it("shows view hints only while their bare-number shortcut can run", async () =>
   global.structuredClone = <T,>(value: T): T =>
     JSON.parse(JSON.stringify(value)) as T;
   const apply = jest.fn();
+  window.matchMedia = jest.fn().mockReturnValue({
+    matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn(),
+  });
   render(
     <AdminShortcuts>
       <main data-admin-main>

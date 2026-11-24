@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCheck } from 'lucide-react';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { Button, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@altitutor/ui';
 import { NotificationsButton } from './NotificationsButton';
 import { NotificationItem } from './NotificationItem';
 import { NotificationsEmptyState } from './NotificationsEmptyState';
@@ -41,16 +41,16 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
     }
   };
 
-  const handleTriggerClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleOpenChange(!isOpen);
-  };
-
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <NotificationsButton unreadCount={unreadCount} onClick={handleTriggerClick} />
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <NotificationsButton unreadCount={unreadCount} />
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Notifications</TooltipContent>
+      </Tooltip>
       <PopoverContent
         className="w-96 max-w-[calc(100vw-2rem)] p-0 max-h-[80vh] overflow-y-auto !z-[100] bg-popover border shadow-xl"
         side="bottom"

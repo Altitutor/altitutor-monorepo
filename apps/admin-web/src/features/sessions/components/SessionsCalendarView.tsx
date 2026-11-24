@@ -156,7 +156,7 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Sessions calendar">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Sessions calendar">
       <div className="flex shrink-0 items-center justify-end">
 
 
@@ -171,7 +171,12 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto">
+      <div
+        role="region"
+        aria-label="Sessions calendar grid"
+        tabIndex={0}
+        className="relative min-h-0 min-w-0 flex-1 overflow-auto"
+      >
         <div
           className="grid gap-0 min-h-full relative bg-background"
           style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(${days.length}, minmax(150px, 1fr))` }}
