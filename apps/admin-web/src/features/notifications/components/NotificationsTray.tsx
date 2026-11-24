@@ -1,11 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCheck } from 'lucide-react';
-import { Button, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@altitutor/ui';
-import { NotificationsButton } from './NotificationsButton';
+import { NotificationTray } from '@altitutor/ui';
 import { NotificationItem } from './NotificationItem';
-import { NotificationsEmptyState } from './NotificationsEmptyState';
 import {
   useNotifications,
   useUnreadCount,
@@ -42,68 +39,28 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <NotificationsButton unreadCount={unreadCount} />
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">Notifications</TooltipContent>
-      </Tooltip>
-      <PopoverContent
-        className="w-96 max-w-[calc(100vw-2rem)] p-0 max-h-[80vh] overflow-y-auto !z-[100] bg-popover border shadow-xl"
-        side="bottom"
-        align="end"
-        sideOffset={8}
-        collisionPadding={16}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <h3 className="font-semibold text-sm">Notifications</h3>
-            <p className="text-xs text-muted-foreground">
-              {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
-            </p>
-          </div>
-          {unreadCount > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              disabled={markAllReadMutation.isPending}
-              onClick={() => markAllReadMutation.mutate(staffId)}
-            >
-              <CheckCheck className="h-4 w-4" />
-              Mark all read
-            </Button>
-          ) : null}
-        </div>
-        <div className="divide-y">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            </div>
-          ) : notifications.length === 0 ? (
-            <NotificationsEmptyState />
-          ) : (
-            notifications.map((notification: Notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onDismiss={() => handleDismiss(notification.id)}
-                onOpen={() => {
-                  handleOpenNotification(notification);
-                  if (notification.action_url) {
-                    setIsOpen(false);
-                  }
-                }}
-              />
-            ))
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <NotificationTray
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      unreadCount={unreadCount}
+      isLoading={isLoading}
+      isEmpty={notifications.length === 0}
+      isMarkingAllRead={markAllReadMutation.isPending}
+      onMarkAllRead={() => markAllReadMutation.mutate(staffId)}
+    >
+      {notifications.map((notification: Notification) => (
+        <NotificationItem
+          key={notification.id}
+          notification={notification}
+          onDismiss={() => handleDismiss(notification.id)}
+          onOpen={() => {
+            handleOpenNotification(notification);
+            if (notification.action_url) {
+              setIsOpen(false);
+            }
+          }}
+        />
+      ))}
+    </NotificationTray>
   );
 }
