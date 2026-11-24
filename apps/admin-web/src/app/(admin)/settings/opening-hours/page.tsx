@@ -39,7 +39,8 @@ export default function OpeningHoursPage() {
         actions={(
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Add Opening Hours"
+            createShortcut
+            label="Create opening hours"
             onClick={() => setAddButtonClick(prev => prev + 1)}
           />
         )}

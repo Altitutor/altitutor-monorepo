@@ -243,7 +243,7 @@ test("Student record offers contextual task creation without duplicate palette c
   await page
     .getByRole("button", { name: "Record actions", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Add task", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Create task", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create Task", exact: true });
   await expect(
     dialog.locator(
@@ -279,11 +279,11 @@ test("Student record offers contextual task creation without duplicate palette c
       name: "Search commands and entities",
       exact: true,
     })
-    .fill("Add task");
+    .fill("Create task");
   const commands = page
     .getByRole("listbox", { name: "Search results", exact: true })
     .getByRole("option")
-    .filter({ hasText: /Add task/i });
+    .filter({ hasText: /Create task/i });
   await expect(commands).toHaveCount(1);
   await expect(commands).toContainText("Alice Williams");
   await commands.click();
@@ -321,7 +321,7 @@ test("rich-text record chips show a titled key-value hover card", async ({
   await page
     .getByRole("button", { name: "Record actions", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Add task", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Create task", exact: true }).click();
   const chip = page
     .getByRole("dialog", { name: "Create Task", exact: true })
     .locator('[data-mention][data-type="student"]')
@@ -668,7 +668,7 @@ test("reference details and search refuse a signed-in account without active adm
   ).toBe(403);
 });
 
-test("Add issue uses one main-record command and persists the contextual reference", async ({
+test("Create issue uses one main-record command and persists the contextual reference", async ({
   page,
   baseURL,
 }) => {
@@ -682,11 +682,11 @@ test("Add issue uses one main-record command and persists the contextual referen
       name: "Search commands and entities",
       exact: true,
     })
-    .fill("Add issue");
+    .fill("Create issue");
   const commands = page
     .getByRole("listbox", { name: "Search results", exact: true })
     .getByRole("option")
-    .filter({ hasText: /Add issue/i });
+    .filter({ hasText: /Create issue/i });
   await expect(commands).toHaveCount(1);
   await expect(commands).toContainText("Alice Williams");
   await commands.click();
@@ -721,7 +721,7 @@ test("Add issue uses one main-record command and persists the contextual referen
   await page
     .getByRole("button", { name: "Record actions", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Create issue", exact: true }).click();
   await expect(
     dialog.locator('[data-mention][data-type="student"]'),
   ).toContainText("Alice Williams");
@@ -783,11 +783,11 @@ test("Issues retain editable priority through create, autosave and hover preview
   expect(invalid.error).not.toBeNull();
 
   await panel.getByRole("button", { name: "Record actions", exact: true }).click();
-  await expect(page.getByRole("menuitem", { name: "Add issue", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Create issue", exact: true })).toHaveCount(0);
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto("/students/10000000-0000-0000-0000-000000000001");
   await page.locator("[data-admin-main]").getByRole("button", { name: "Record actions", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Add issue", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Create issue", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "Create Issue",
     exact: true,

@@ -61,7 +61,7 @@ export default function SessionsPage() {
               <AdminPageActionButton
                 icon={<Plus className="h-4 w-4" />}
                 createShortcut
-                label="Add meeting"
+                label="Create meeting"
                 trailingIcon={<ChevronDown className="h-4 w-4" />}
               />
             </DropdownMenuTrigger>

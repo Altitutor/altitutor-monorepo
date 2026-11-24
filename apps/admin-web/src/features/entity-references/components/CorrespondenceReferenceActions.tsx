@@ -66,14 +66,14 @@ export function CorrespondenceReferenceActions({
   const actions: RecordMenuAction[] = [
     {
       id: "add-task",
-      title: "Add task",
+      title: "Create task",
       icon: CheckSquare,
       action: () =>
         quick.openCreateTaskDialog({ type, id, label: details.title }),
     },
     {
       id: "add-issue",
-      title: "Add issue",
+      title: "Create issue",
       icon: AlertTriangle,
       action: () =>
         quick.openCreateIssueDialog({ type, id, label: details.title }),

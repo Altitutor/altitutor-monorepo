@@ -1,4 +1,5 @@
 "use client";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import type { ProjectUpdate } from "../types";
 import { ProjectCard } from "./ProjectCard";
 import { CreateProjectDialog } from "./CreateProjectDialog";
@@ -448,6 +449,11 @@ export function ProjectsList({
     },
     [activeColumnKey],
   );
+  function openProject(id: string) {
+    setSelectedProjectId(id);
+    setIsEditDialogOpen(true);
+  }
+
   return (
     <>
       <EntityCollection<ProjectWithLead>
@@ -466,16 +472,22 @@ export function ProjectsList({
               project={item}
               rightPills={rightPills}
               visiblePillKeys={keys}
-              onOpen={(id) => {
-                setSelectedProjectId(id);
-                setIsEditDialogOpen(true);
-              }}
+              onOpen={openProject}
             />
           ),
           onAdd: handleBoardAdd,
         }}
         items={displayProjects}
         getItemId={(p) => p.id}
+        renderActions={(item) => (
+          <ActionsMenu
+            type="project"
+            entityId={item.id}
+            copyTagDisplayText={item.name ?? undefined}
+            onOpenInPage={() => openProject(item.id)}
+            menuOnly
+          />
+        )}
         renderName={(p) => p.name ?? ""}
         statusColumn={statusColumn}
         rightPills={rightPills}
@@ -530,10 +542,7 @@ export function ProjectsList({
           return valueKey === "__null__" ? "No value" : valueKey;
         }}
         onAdd={hideToolbar ? undefined : handleAdd}
-        onRowClick={(p) => {
-          setSelectedProjectId(p.id);
-          setIsEditDialogOpen(true);
-        }}
+        onRowClick={(item) => openProject(item.id)}
         addButtonLabel="Add project"
         addButtonVariant="default"
         addButtonShowLabel={true}

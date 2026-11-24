@@ -154,7 +154,8 @@ export function MailPage() {
   useRegisterPageActions("/email", [
     {
       id: "compose-email",
-      title: "Compose email",
+      title: "Create email",
+      keywords: ["compose"],
       icon: Plus,
       action: compose,
       disabled: !mailbox.data,
@@ -242,7 +243,7 @@ export function MailPage() {
         <AdminPageActionButton
           icon={<Plus className="size-4" />}
           createShortcut
-          label="Compose"
+          label="Create email"
           onClick={compose}
           disabled={!mailbox.data}
         />

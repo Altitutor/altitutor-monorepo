@@ -172,8 +172,7 @@ export function ConversationList({
   const composeButton = (
     <AdminPageActionButton
       createShortcut
-      label="New conversation"
-      title="New conversation"
+      label="Create conversation"
       icon={<Plus className="size-4" />}
       onClick={() => setIsNewConversationDialogOpen(true)}
       compact={!showComposeLabel}

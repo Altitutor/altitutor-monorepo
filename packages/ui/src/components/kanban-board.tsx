@@ -60,6 +60,7 @@ export interface KanbanBoardProps<TItem> {
   onActiveColumnKeyChange?: (key: string) => void;
 
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
+  renderActions?: (item: TItem) => React.ReactNode;
 
   // Shared features with EntityList
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
@@ -165,6 +166,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     activeColumnKey,
     onActiveColumnKeyChange,
     renderCard,
+    renderActions,
     statusColumn,
     rightPills,
     groupBy: controlledGroupBy,
@@ -531,6 +533,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     items={columnItems}
                     getItemId={getItemId}
                     renderCard={renderCard}
+                    renderActions={renderActions}
                     onAdd={onAdd ? () => onAdd(option.value) : undefined}
                     addButtonLabel={addButtonLabel}
                     groupBy={groupBy}
@@ -573,6 +576,7 @@ interface KanbanColumnProps<TItem> {
   items: TItem[];
   getItemId: (item: TItem) => string;
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
+  renderActions?: (item: TItem) => React.ReactNode;
   onAdd?: () => void;
   addButtonLabel: string;
   groupBy: string | null;
@@ -591,6 +595,7 @@ function KanbanColumn<TItem>({
   items,
   getItemId,
   renderCard,
+  renderActions,
   onAdd,
   addButtonLabel,
   groupBy,
@@ -716,6 +721,7 @@ function KanbanColumn<TItem>({
                     item={row.item}
                     getItemId={getItemId}
                     renderCard={renderCard}
+                    renderActions={renderActions}
                     visiblePillKeys={visiblePillKeys}
                     animateLayoutChanges={animateLayoutChanges}
                   />
@@ -745,6 +751,7 @@ function KanbanColumn<TItem>({
                         item={item}
                         getItemId={getItemId}
                         renderCard={renderCard}
+                        renderActions={renderActions}
                         visiblePillKeys={visiblePillKeys}
                         animateLayoutChanges={animateLayoutChanges}
                       />
@@ -773,6 +780,7 @@ interface SortableCardProps<TItem> {
   item: TItem;
   getItemId: (item: TItem) => string;
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
+  renderActions?: (item: TItem) => React.ReactNode;
   visiblePillKeys: string[];
   animateLayoutChanges: boolean;
 }
@@ -781,6 +789,7 @@ function SortableCard<TItem>({
   item,
   getItemId,
   renderCard,
+  renderActions,
   visiblePillKeys,
   animateLayoutChanges,
 }: SortableCardProps<TItem>) {
@@ -817,7 +826,7 @@ function SortableCard<TItem>({
       {...listeners}
       aria-labelledby={contentId}
     >
-      <CollectionRecord id={id} layout="board">
+      <CollectionRecord id={id} layout="board" actions={renderActions?.(item)}>
         <div id={contentId} className="contents">
           <CardContent item={item} renderCard={renderCard} visiblePillKeys={visiblePillKeys} />
         </div>

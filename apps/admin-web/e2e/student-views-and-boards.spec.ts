@@ -188,12 +188,65 @@ test('individual conversations start with Emails hidden and allow opting in', as
   await expect(emails).toHaveAttribute('aria-checked', 'true');
 });
 
+test('create actions and record menus belong to their pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await signIn(page);
+  await page.goto('/students?pane=%2Ftasks');
+  const students = page.locator('[data-admin-main]');
+  const tasks = page.frameLocator('iframe[data-admin-pane-frame]');
+  const student = students.getByRole('row').filter({ hasText: 'Alice Williams' });
+  const createStudent = students.getByRole('button', { name: 'Create student', exact: true });
+
+  await createStudent.hover();
+  const hint = page.getByRole('tooltip');
+  await expect(hint).toContainText('Create student');
+  await expect(hint).toContainText('C');
+  await page.keyboard.press('c');
+  const localDialog = page.locator('[data-dialog-scope-portal]').getByRole('dialog');
+  await expect(localDialog).toBeVisible();
+  await expect(tasks.getByRole('region', { name: 'Board', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(localDialog).toBeHidden();
+
+  await student.hover();
+  await page.keyboard.press('m');
+  await expect(page.getByRole('menuitem', { name: 'Copy ID', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  const task = tasks.locator('[data-work-item-card]').filter({ hasText: 'Board drag check 002' });
+  await task.hover();
+  await page.keyboard.press('m');
+  await expect(tasks.getByRole('menuitem', { name: 'Open task', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await tasks.getByRole('button', { name: 'Create task', exact: true }).click();
+  const taskDialog = tasks.locator('[data-dialog-scope-portal]').getByRole('dialog', { name: 'Create Task' });
+  await expect(taskDialog).toBeVisible();
+  await expect(createStudent).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(taskDialog).toBeHidden();
+
+  await createStudent.focus();
+  await page.keyboard.press('ControlOrMeta+k');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands and entities' }).fill('Create task');
+  await palette.getByRole('option', { name: /Create task/i }).click();
+  const viewportDialog = page.getByRole('dialog', { name: 'Create Task', exact: true });
+  await expect(viewportDialog).toBeVisible();
+  expect(await viewportDialog.evaluate(node => node.closest('[data-dialog-scope-portal]'))).toBeNull();
+  await page.keyboard.press('Escape');
+
+  await page.goto('/tasks?view=list&search=Board%20drag%20check%20002');
+  await page.locator('[data-work-item-row]').filter({ hasText: 'Board drag check 002' }).hover();
+  await page.keyboard.press('m');
+  await expect(page.getByRole('menuitem', { name: 'Open task', exact: true })).toBeVisible();
+});
+
 test('work-item boards align toolbars, span the page and scroll columns independently', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 900 });
   await signIn(page);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
   // Wait for the page action portal before measuring the header's final height.
-  await expect(page.getByRole('button', { name: 'Add student', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create student', exact: true })).toBeVisible();
   const toolbarInsets = async () => {
     const button = (await page.getByRole('button', { name: 'Display options', exact: true }).boundingBox())!;
     const main = (await page.locator('[data-admin-main]').boundingBox())!;
@@ -404,7 +457,7 @@ test('Shift opens a record or a collection in a separate pane', async ({ page })
   await page.keyboard.press('Shift+g');
   await page.keyboard.press('Shift+m');
   const messages = page.frameLocator('iframe[data-admin-pane-frame][title="Messages pane content"]');
-  await expect(messages.getByRole('button', { name: 'New conversation', exact: true })).toBeVisible();
+  await expect(messages.getByRole('button', { name: 'Create conversation', exact: true })).toBeVisible();
   await expect(card).toBeVisible();
 });
 

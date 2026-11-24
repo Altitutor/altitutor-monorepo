@@ -144,7 +144,7 @@ it("uses C only for a page action that opts into creation", () => {
   render(
     <AdminShortcuts>
       <AdminPageActionButton label="Export VCF" icon={null} onClick={exportContacts} />
-      <AdminPageActionButton label="Add student" icon={null} onClick={create} createShortcut />
+      <AdminPageActionButton label="Create student" icon={null} onClick={create} createShortcut />
     </AdminShortcuts>,
   );
   fireEvent.keyDown(window, { key: "c" });
@@ -524,6 +524,34 @@ it('uses clicked accessory content for fields and lets a hovered primary record 
   fireEvent.click(screen.getByRole('option',{name:/Done/}));
   await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
   expect(right).toHaveBeenCalledTimes(1);
+});
+
+it("opens the hovered student menu instead of the pane header menu", () => {
+  const headerMenu = jest.fn();
+  const rowMenu = jest.fn();
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <header data-admin-page-header>
+          <button data-shortcut-menu onClick={headerMenu}>Page actions</button>
+        </header>
+        <div data-record-type="student" data-record-id="first">
+          <span>First student</span>
+          <button data-shortcut-menu>First student actions</button>
+        </div>
+        <div data-record-type="student" data-record-id="second">
+          <span>Second student</span>
+          <button data-shortcut-menu onClick={rowMenu}>Second student actions</button>
+        </div>
+      </main>
+    </AdminShortcuts>,
+  );
+
+  fireEvent.pointerOver(screen.getByText("Second student"));
+  fireEvent.keyDown(window, { key: "m" });
+
+  expect(rowMenu).toHaveBeenCalledTimes(1);
+  expect(headerMenu).not.toHaveBeenCalled();
 });
 
 it('opens contextual menus and custom filters from the focused right pane', () => {

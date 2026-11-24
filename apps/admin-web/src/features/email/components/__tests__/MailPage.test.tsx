@@ -294,7 +294,7 @@ it("selects Inbox once its first sync discovers folders", async () => {
   );
 });
 
-it("places filled Compose in the shared primary header and opens the existing compose workflow", async () => {
+it("places filled Create email in the shared primary header and opens the existing compose workflow", async () => {
   mockComposeEmail.mockClear();
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
@@ -318,7 +318,7 @@ it("places filled Compose in the shared primary header and opens the existing co
       </QuickActionsProvider>,
     );
     const compose = await screen.findByRole("button", {
-      name: "Compose",
+      name: "Create email",
     });
     expect(header).toContainElement(compose);
     await waitFor(() => expect(compose).toBeEnabled());

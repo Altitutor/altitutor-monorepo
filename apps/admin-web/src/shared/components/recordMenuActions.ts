@@ -82,8 +82,8 @@ export function recordMenuActions(
       disabled: common.bulkMessageDisabled,
     });
   }
-  add("add-task", "Add task", Plus, common.addTask, { primaryOnly: true });
-  add("add-issue", "Add issue", Plus, common.addIssue, { primaryOnly: true });
+  add("add-task", "Create task", Plus, common.addTask, { primaryOnly: true });
+  add("add-issue", "Create issue", Plus, common.addIssue, { primaryOnly: true });
   switch (props.type) {
     case "student":
       add("edit", "Edit details", Pencil, props.onEditDetails);

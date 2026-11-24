@@ -1,4 +1,5 @@
 "use client";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { TaskCard } from "./TaskCard";
 import { CreateTaskDialog } from "./CreateTaskDialog";
 
@@ -1091,6 +1092,11 @@ export function TasksList({
     [activeColumnKey, issueId, projectId],
   );
 
+  function openTask(id: string) {
+    setSelectedTaskId(id);
+    setIsEditDialogOpen(true);
+  }
+
   return (
     <>
       <EntityCollection<TaskWithAssignee>
@@ -1110,16 +1116,22 @@ export function TasksList({
               task={item}
               rightPills={rightPills}
               visiblePillKeys={keys}
-              onOpen={(id) => {
-                setSelectedTaskId(id);
-                setIsEditDialogOpen(true);
-              }}
+              onOpen={openTask}
             />
           ),
           onAdd: handleBoardAdd,
         }}
         items={filteredTasks}
         getItemId={(t) => t.id}
+        renderActions={(item) => (
+          <ActionsMenu
+            type="task"
+            entityId={item.id}
+            copyTagDisplayText={item.title ?? undefined}
+            onOpenInPage={() => openTask(item.id)}
+            menuOnly
+          />
+        )}
         renderName={(t) => t.title ?? ""}
         statusColumn={
           statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>
@@ -1137,10 +1149,7 @@ export function TasksList({
         }
         onSortChange={embedLocked ? undefined : handleSortChange}
         onAdd={showInlineAddRow ? handleAdd : undefined}
-        onRowClick={(t) => {
-          setSelectedTaskId(t.id);
-          setIsEditDialogOpen(true);
-        }}
+        onRowClick={(item) => openTask(item.id)}
         inlineAdd
         addButtonLabel="Add task"
         addButtonVariant="default"

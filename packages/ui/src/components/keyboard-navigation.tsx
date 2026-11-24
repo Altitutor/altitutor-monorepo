@@ -32,7 +32,9 @@ const trackPane = (event: Event) => {
 };
 const trackPointer = (event: Event) => {
   if (!(event.target instanceof Element)) return;
-  const node = event.target.closest<HTMLElement>('[data-keyboard-record],[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target]');
+  const node = event.target.closest<HTMLElement>(
+    '[data-keyboard-record],[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target]',
+  ) ?? event.target.closest<HTMLElement>('[data-record-type][data-record-id]');
   setKeyboardPointerTarget(node);
 };
 const clearPointer = (event: Event) => {
