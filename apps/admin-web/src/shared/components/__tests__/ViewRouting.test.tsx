@@ -104,3 +104,20 @@ it("keeps explicitly ungrouped Views ungrouped after reload, including operator 
   expect(state.filters.due_date).toEqual(settings);
 });
 function getViewSettingsForTest() {return [{type:'date_range',start:'2026-10-22'}];}
+
+it("offers a history destination only after the selected View's URL commits", async () => {
+  mockReplace.mockClear();
+  mockSearch = new URLSearchParams({ sort: "priority", order: "asc", status: "backlog" });
+  const { rerender } = render(<Toolbar />);
+  const boardView = screen.getByRole("button", { name: "Board view" });
+
+  await userEvent.click(boardView);
+  await waitFor(() => expect(boardView).toHaveAttribute("aria-pressed", "true"));
+  expect(boardView).toHaveAttribute("data-saved-view-href", "");
+
+  const href = String(mockReplace.mock.calls.at(-1)?.[0]);
+  mockSearch = new URL(href, "http://localhost").searchParams;
+  rerender(<Toolbar />);
+
+  await waitFor(() => expect(boardView).toHaveAttribute("data-saved-view-href", href));
+});
