@@ -21,6 +21,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@altitutor/ui";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
@@ -529,12 +532,40 @@ export function EmailThreadView({
                       email={message.sender}
                       label={message.senderName || message.sender}
                     />
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      To {message.to.join(", ")}
-                      {message.cc.length
-                        ? ` · Cc ${message.cc.join(", ")}`
-                        : ""}
-                    </p>
+                    {Boolean(message.to.length || message.cc.length) && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Show recipients"
+                            className="mt-1 block max-w-full truncate text-left text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            To {message.to.join(", ")}
+                            {message.cc.length > 0 && ` · Cc ${message.cc.join(", ")}`}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] space-y-3">
+                          {([["To", message.to], ["Cc", message.cc]] as const).map(([label, recipients]) =>
+                            recipients.length ? (
+                              <div key={label} className="space-y-1">
+                                <p className="text-xs text-muted-foreground">{label}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {[...new Set(recipients)].map((email) => (
+                                    <EmailParticipant
+                                      key={email}
+                                      email={email}
+                                      label={email}
+                                      threadId={threadId}
+                                      mailboxAddress={mailbox.data!.mailboxAddress}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null,
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
                   <time className="shrink-0 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
                     {time(message.sentAt ?? message.receivedAt)}

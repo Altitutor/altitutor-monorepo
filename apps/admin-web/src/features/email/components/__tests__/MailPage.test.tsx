@@ -8,21 +8,23 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MailPage } from "../MailPage";
-import { AdminPageActionsTarget } from "@/shared/components/AdminPageActions";
+import type { User } from "@supabase/supabase-js";
+import { useAuthStore } from "@/shared/lib/supabase/auth";
 import type { MailboxData } from "../../types";
 
 jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
   useQuickFilters: () => ({ data: [] }),
 }));
-const mockOpenThread = jest.fn();
+const mockNavigate = jest.fn();
 const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
-  useOpenEmailThread: () => mockOpenThread,
+  useOpenEmailThread: () => jest.fn(),
   useComposeEmail: () => mockComposeEmail,
 }));
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockNavigate }),
   usePathname: () => "/email",
+  useSearchParams: () => new URLSearchParams(),
 }));
 const mailbox: MailboxData = {
   configured: false,
@@ -54,8 +56,14 @@ const mailbox: MailboxData = {
   ],
 };
 const originalFetch = global.fetch;
+beforeEach(() => {
+  sessionStorage.clear();
+  useAuthStore.setState({ user: { id: "mail-ui-admin" } as User });
+});
+
 afterEach(() => {
   global.fetch = originalFetch;
+  useAuthStore.setState({ user: null });
 });
 it("keeps folder navigation visible while another folder is loading", async () => {
   global.fetch = jest.fn(async (input) => {
@@ -137,7 +145,7 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
 });
 
 it("opens a conversation when the non-button space inside its highlighted row is clicked", async () => {
-  mockOpenThread.mockClear();
+  mockNavigate.mockClear();
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
@@ -156,7 +164,7 @@ it("opens a conversation when the non-button space inside its highlighted row is
     name: "Open Lesson update",
   });
   fireEvent.click(rowButton.parentElement!);
-  expect(mockOpenThread).toHaveBeenCalledWith("thread-one", "Lesson update");
+  expect(mockNavigate).toHaveBeenCalledWith("/email?conversation=thread-one", { scroll: false });
 });
 
 it("offers an Undo toast for a successful folder move and executes its server receipt", async () => {
@@ -299,32 +307,16 @@ it("places filled Compose in the shared primary header and opens the existing co
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
-  const header = document.createElement("div");
-  document.body.appendChild(header);
-  try {
-    render(
-      <QuickActionsProvider>
-        <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <AdminPageActionsTarget.Provider
-          value={{ primary: header, secondary: null }}
-        >
-          <MailPage />
-        </AdminPageActionsTarget.Provider>
+  render(
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MailPage />
       </QueryClientProvider>
-      </QuickActionsProvider>,
-    );
-    const compose = await screen.findByRole("button", {
-      name: "Compose",
-    });
-    expect(header).toContainElement(compose);
-    await waitFor(() => expect(compose).toBeEnabled());
-    fireEvent.click(compose);
-    expect(mockComposeEmail).toHaveBeenCalledTimes(1);
-  } finally {
-    header.remove();
-  }
+    </QuickActionsProvider>,
+  );
+  const compose = await screen.findByRole("button", { name: "Compose" });
+  expect(compose.closest("[data-admin-page-header]")).toHaveTextContent("Email");
+  await waitFor(() => expect(compose).toBeEnabled());
+  fireEvent.click(compose);
+  expect(mockComposeEmail).toHaveBeenCalledTimes(1);
 });

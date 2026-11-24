@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, Reply } from "lucide-react";
 import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
 import { EmailThreadView } from "./EmailThreadView";
-import { paneCloseEvent } from "@/shared/components/pane-workspace/pane-routing";
+import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
 import {
   DataTableToolbar,
   Skeleton,
@@ -42,6 +42,7 @@ export function MailPage() {
   const inlineThread = searchParams.get("conversation");
   const wide = usePanelMediaQuery("(min-width: 960px)");
   const showList = wide || !inlineThread;
+  useEffect(() => setSelected(inlineThread ?? undefined), [inlineThread]);
   const inlineClose = useRef<((next?: () => void) => void) | null>(null);
   const registerInlineClose = useCallback((gate: typeof inlineClose.current) => {
     inlineClose.current = gate;
@@ -160,7 +161,10 @@ export function MailPage() {
       params.delete(key);
     }
     if (thread) params.set("conversation", thread);
-    router.push(params.size ? `/email?${params}` : "/email", { scroll: false });
+    const query = params.toString();
+    const href = query ? `/email?${query}` : "/email";
+    if (thread) router.push(href, { scroll: false });
+    else withPaneCloseGate(() => router.replace(href, { scroll: false }));
   }
   function open(row: EmailSummary) {
     setSelected(row.id);

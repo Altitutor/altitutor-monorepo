@@ -36,16 +36,15 @@ const savedState = z.object({
 export function useMailListState() {
   const userId = useAuthStore((state) => state.user?.id);
   const [list, setList] = useState(initialState);
-  const [loaded, setLoaded] = useState<{ userId: string; key: string }>();
-  const ready = Boolean(userId && loaded?.userId === userId);
+  const [loadedKey, setLoadedKey] = useState<string>();
+  const storageKey = userId ? `admin-email-list-v1:${userId}:primary` : undefined;
+  const ready = Boolean(storageKey && loadedKey === storageKey);
 
   useEffect(() => {
-    if (!userId) return;
-    const pane = window.frameElement?.closest('[id^="workspace-pane-"]')?.id ?? "primary";
-    const key = `admin-email-list-v1:${userId}:${pane}`;
+    if (!storageKey) return;
     let next = initialState;
     try {
-      const saved = savedState.safeParse(JSON.parse(sessionStorage.getItem(key) ?? "null"));
+      const saved = savedState.safeParse(JSON.parse(sessionStorage.getItem(storageKey) ?? "null"));
       if (saved.success) {
         const { display, ...preferences } = saved.data;
         const settings = getViewSettings(display);
@@ -55,21 +54,21 @@ export function useMailListState() {
       // A blocked or invalid session store starts with the inbox defaults.
     }
     setList(next);
-    setLoaded({ userId, key });
-  }, [userId]);
+    setLoadedKey(storageKey);
+  }, [storageKey]);
 
   useEffect(() => {
-    if (!ready || !loaded) return;
+    if (!ready || !storageKey) return;
     const { settings, ...preferences } = list;
     try {
-      sessionStorage.setItem(loaded.key, JSON.stringify({
+      sessionStorage.setItem(storageKey, JSON.stringify({
         ...preferences,
         display: encodeViewConfig(settings),
       }));
     } catch {
       // The mounted inbox retains its state when storage is unavailable.
     }
-  }, [list, loaded, ready]);
+  }, [list, ready, storageKey]);
 
   return { list, setList, ready };
 }

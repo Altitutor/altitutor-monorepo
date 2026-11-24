@@ -250,7 +250,7 @@ test("Email opens in the reading pane and restores the list when going back", as
       id, thread_id: id, folder_id: folderId, occurred_at: occurredAt,
       data: {
         id, threadId: id, folderId, subject, bodyText: "This message belongs in the reading pane.",
-        sender: "family@example.test", to: ["admin@altitutor.test"], read: true, draft: false, receivedAt: occurredAt,
+        sender: "family@example.test", to: ["recipient@example.test"], read: true, draft: false, receivedAt: occurredAt,
       },
     }),
     await db.from("email_record_links").insert({
@@ -273,6 +273,12 @@ test("Email opens in the reading pane and restores the list when going back", as
   const email = page.getByRole("article", { name: `Email: ${subject}` });
   await expect(email).toContainText("This message belongs in the reading pane.");
   await expect(inbox).toBeVisible();
+  const participant = page.getByRole("button", { name: "Link recipient@example.test", exact: true });
+  await expect(participant).toHaveCount(0);
+  await email.getByRole("button", { name: "Show recipients", exact: true }).click();
+  await expect(participant).toBeVisible();
+  await page.keyboard.press("Escape");
+
   const name = page.getByRole("button", { name: "Bob Taylor", exact: true });
   await expect(name).toHaveAttribute("data-type", "student");
   await name.click({ button: "right" });
@@ -286,6 +292,9 @@ test("Email opens in the reading pane and restores the list when going back", as
   await expect(inbox).toBeVisible();
   await expect(folder).toHaveAttribute("aria-current", "page");
   await expect(view).toHaveAttribute("aria-pressed", "true");
+  await page.goBack();
+  await expect(inbox).toBeVisible();
+  await expect(email).toBeHidden();
 
   await page.goto(`/email/${encodeURIComponent(id)}`, { waitUntil: "domcontentloaded" });
   await expect(email).toBeVisible();
