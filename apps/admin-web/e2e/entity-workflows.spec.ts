@@ -624,6 +624,7 @@ test("pane resizing preserves edits, keyboard bounds and responsive tabs", async
   await expect(title).toHaveValue(name);
   await title.fill(`${name} edited`);
   const divider = page.getByRole("separator", { name: "Resize adjacent panes", exact: true });
+  await divider.press("Escape");
   const width = async () => Math.round((await panel.boundingBox())!.width);
   const before = await width();
   const handle = (await divider.boundingBox())!;
