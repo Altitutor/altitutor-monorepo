@@ -3,7 +3,8 @@ import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { CheckSquare, AlertTriangle } from "lucide-react";
 import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
-import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { Breadcrumb, BreadcrumbName, type BreadcrumbItem } from "@/shared/components/Breadcrumb";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 import {
   useCallback,
   useEffect,
@@ -20,13 +21,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@altitutor/ui";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
 import { activityApi } from "@/features/activity/api";
 import { communicationActivityAt } from "@/features/activity/lib/entityCommunication";
-import { useEmailConversationContact } from "../api/useEmailConversationContact";
+import { emailConversationPerson, useEmailConversationContact } from "../api/useEmailConversationContact";
 import { useConversationMeetingActions } from "@/features/messages/hooks/useConversationMeetingActions";
 import { useEmailCommand, useEmailThread, useMailbox } from "../api/client";
 import {
@@ -38,7 +42,7 @@ import { toast } from "sonner";
 import { EmailComposer, type RegisterDraftClose } from "./EmailComposer";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailBody } from "./EmailBodyEditor";
-import { EmailActions, EmailActionGroup } from "./EmailActions";
+import { EmailActions } from "./EmailActions";
 import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
@@ -46,6 +50,8 @@ import { isEditableDraft } from "./drafts";
 import { EmailParticipant } from "./EmailParticipant";
 import { EmailAttachments } from "./EmailAttachments";
 import { EmailPendingMessage } from "./EmailPendingMessage";
+import { MailFolders, mailFolderLabel } from "./MailFolders";
+import { createPortal } from "react-dom";
 const time = (value?: string | null) =>
   value
     ? new Date(value).toLocaleString("en-AU", {
@@ -98,11 +104,18 @@ function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
 export function EmailThreadView({
   threadId,
   registerInlineClose,
+  onBack,
+  headerTarget,
+  folderItem,
 }: {
   threadId: string;
   registerInlineClose?: (gate: ((next?: () => void) => void) | null) => void;
+  onBack?: () => void;
+  headerTarget?: HTMLElement | null;
+  folderItem?: BreadcrumbItem;
 }) {
-  const { searchParams } = usePaneNavigation();
+  const { router, searchParams } = usePaneNavigation();
+  const navigation = useEntityNavigation();
   const targetMessageId = searchParams.get("message");
   const referenceFocus = searchParams.get("focus");
   const targetKey = `${targetMessageId ?? ""}:${referenceFocus ?? ""}`;
@@ -163,6 +176,7 @@ export function EmailThreadView({
     });
     return () => registerClose(null);
   }, [registerClose, closeConversation]);
+  const [collapsedEmails, setCollapsedEmails] = useState<Set<string>>(() => new Set());
   const [showActivity, setShowActivity] = useState(false);
   const [showMessages, setShowMessages] = useState(true);
   const [draft, setDraft] = useState<EmailMessage | null>(null);
@@ -191,8 +205,18 @@ export function EmailThreadView({
       !message.draft || isEditableDraft(message, mailbox.data?.folders ?? []),
   );
   useEffect(() => {
+    if (!targetMessageId) return;
+    setCollapsedEmails((current) => {
+      if (!current.has(targetMessageId)) return current;
+      const next = new Set(current);
+      next.delete(targetMessageId);
+      return next;
+    });
+  }, [targetMessageId, targetKey]);
+  useEffect(() => {
     if (
       !targetMessageId ||
+      collapsedEmails.has(targetMessageId) ||
       revealedMessage.current === targetKey ||
       !showMessages
     )
@@ -205,7 +229,7 @@ export function EmailThreadView({
       card.focus({ preventScroll: true });
       revealedMessage.current = targetKey;
     }
-  }, [targetMessageId, targetKey, thread.data, showMessages]);
+  }, [collapsedEmails, targetMessageId, targetKey, thread.data, showMessages]);
   useEffect(() => {
     if (targetMessageId) setShowMessages(true);
   }, [targetMessageId]);
@@ -241,6 +265,16 @@ export function EmailThreadView({
   }, [focusDraftId, liveDrafts.length, scope?.active, showMessages]);
   const latest =
     messages.filter((message) => !message.draft).at(-1) ?? messages.at(-1);
+  const replyTarget = messages.findLast((message) => !message.draft && !message.removed);
+  const canReply = Boolean(replyTarget && !draft);
+  function toggleEmail(id: string) {
+    setCollapsedEmails((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const subject =
     draftSubject ||
     latest?.subject ||
@@ -301,10 +335,10 @@ export function EmailThreadView({
   }, [thread.data, scope?.active]);
   function start(
     mode: "reply" | "replyAll" | "forward",
-    original = latest,
+    original = replyTarget,
     forceNew = false,
   ) {
-    if (closing.current || !original || !mailbox.data || draft) return;
+    if (closing.current || !original || original.draft || original.removed || !mailbox.data || draft) return;
     if (!forceNew && mode !== "forward") {
       const existing = liveDrafts.find(
         (message) =>
@@ -444,21 +478,21 @@ export function EmailThreadView({
       id: "reply",
       title: "Reply to email",
       icon: Reply,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("reply"),
     },
     {
       id: "reply-all",
       title: "Reply all",
       icon: Reply,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("replyAll"),
     },
     {
       id: "forward",
       title: "Forward email",
       icon: Forward,
-      disabled: closingEditors || !latest || Boolean(draft),
+      disabled: closingEditors || !canReply,
       action: () => start("forward"),
     },
     {
@@ -482,37 +516,53 @@ export function EmailThreadView({
         command.mutate({ action: "read", ids: nonDraftIds, read: false }),
     },
   ]);
+  const folders = mailbox.data?.folders ?? [];
+  const originFolder = searchParams.get("folder") ?? undefined;
+  const folder = originFolder ?? latest?.folderId ?? undefined;
+  const openFolder = (id?: string) => router.push(id === undefined
+    ? "/email"
+    : `/email?${new URLSearchParams({ folder: id })}`);
+  const breadcrumbs = (
+    <Breadcrumb
+      items={[
+        { label: "Email", onClick: onBack ?? (() => openFolder(originFolder)) },
+        folderItem ?? {
+          label: mailFolderLabel(folders, folder),
+          control: <MailFolders folders={folders} selected={folder} onSelect={openFolder} />,
+        },
+        { label: subject },
+      ]}
+      className="m-0 min-w-0 gap-1.5 [&>div:first-child]:shrink-0"
+    />
+  );
+  function renderHeader(header: ReactNode) {
+    return headerTarget === undefined ? header : headerTarget && createPortal(header, headerTarget);
+  }
+
   if (!mailbox.data || (!draft && !thread.data && !creating))
     return (
-      <p
-        role={thread.error || mailbox.error ? "alert" : undefined}
-        className="p-4 text-sm text-muted-foreground"
-      >
-        {thread.error?.message ??
-          mailbox.error?.message ??
-          "Loading email conversation…"}
-      </p>
+      <>
+        {renderHeader(<header className={adminPageHeaderClass} data-admin-page-header>{breadcrumbs}</header>)}
+        <p
+          role={thread.error || mailbox.error ? "alert" : undefined}
+          className="p-4 text-sm text-muted-foreground"
+        >
+          {thread.error?.message ??
+            mailbox.error?.message ??
+            "Loading email conversation…"}
+        </p>
+      </>
     );
   const data = thread.data;
-  const contacts = [
-    ...new Set(
-      messages
-        .flatMap((message) => [message.sender, ...message.to, ...message.cc])
-        .filter(
-          (email) =>
-            email &&
-            email.toLowerCase() !== mailbox.data.mailboxAddress.toLowerCase(),
-        ),
-    ),
-  ];
+  const headerPerson = emailConversationPerson(data);
   const entries: Array<{ id: string; at: string; content: ReactNode }> =
     showMessages
       ? messages
           .filter((message) => !message.draft && (!messageSearch.trim() || `${message.subject} ${message.bodyText}`.toLowerCase().includes(messageSearch.trim().toLowerCase())))
-          .map((message) => ({
-            id: message.id,
-            at: message.sentAt ?? message.receivedAt ?? "",
-            content: (
+          .map((message) => {
+            const collapsed = collapsedEmails.has(message.id);
+            const bodyId = `email-body-${message.id}`;
+            const content = (
               <article
                 data-email-message-id={message.id}
                 data-email-shortcut-target
@@ -527,25 +577,69 @@ export function EmailThreadView({
                 tabIndex={0}
                 aria-label={`Email: ${message.subject || "No subject"}`}
               >
-                <header className="relative mb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                <header
+                  className="relative flex min-h-6 cursor-pointer items-start gap-3"
+                  onClick={(event) => {
+                    if (event.target instanceof Element && !event.target.closest("button, a, [role=button], [role=menuitem]")) toggleEmail(message.id);
+                  }}
+                >
+                  <button
+                    type="button"
+                    aria-label={`${collapsed ? "Expand" : "Collapse"} email from ${message.senderName || message.sender}`}
+                    aria-expanded={!collapsed}
+                    aria-controls={bodyId}
+                    className="absolute -inset-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => toggleEmail(message.id)}
+                  />
+                  <div className="relative max-w-[50%] min-w-0 shrink">
                     <EmailParticipant
                       mailboxAddress={mailbox.data!.mailboxAddress}
                       threadId={threadId}
                       email={message.sender}
                       label={message.senderName || message.sender}
                     />
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      To {message.to.join(", ")}
-                      {message.cc.length
-                        ? ` · Cc ${message.cc.join(", ")}`
-                        : ""}
-                    </p>
+                    {!collapsed && Boolean(message.to.length || message.cc.length) && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Show recipients"
+                            className="mt-1 block max-w-full truncate text-left text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            To {message.to.join(", ")}
+                            {message.cc.length > 0 && ` · Cc ${message.cc.join(", ")}`}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="max-h-[var(--radix-popover-content-available-height)] w-[min(22rem,calc(100vw-2rem))] space-y-3 overflow-y-auto">
+                          {([["To", message.to], ["Cc", message.cc]] as const).map(([label, recipients]) =>
+                            recipients.length ? (
+                              <div key={label} className="space-y-1">
+                                <p className="text-xs text-muted-foreground">{label}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {[...new Set(recipients)].map((email) => (
+                                    <EmailParticipant
+                                      key={email}
+                                      email={email}
+                                      label={email}
+                                      threadId={threadId}
+                                      mailboxAddress={mailbox.data!.mailboxAddress}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null,
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
-                  <time className="shrink-0 text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
+                  {collapsed && <p data-email-preview className="pointer-events-none min-w-0 flex-1 truncate self-center text-xs text-muted-foreground">
+                    {message.bodyText.replace(/\s+/g, " ").trim() || message.subject}
+                  </p>}
+                  <time className="pointer-events-none ml-auto shrink-0 self-center text-xs text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0">
                     {time(message.sentAt ?? message.receivedAt)}
                   </time>
-                  <div className="absolute right-0 top-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100">
+                  <div className={`absolute right-0 z-10 rounded-full bg-background opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:relative [@media(hover:none)]:opacity-100 ${collapsed ? "top-1/2 -translate-y-1/2 [@media(hover:none)]:top-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:self-center" : "top-0"}`}>
                     <EmailActions
                       messageId={message.id}
                       messageLabel={message.subject || "No subject"}
@@ -576,18 +670,30 @@ export function EmailThreadView({
                     />
                   </div>
                 </header>
-                <EmailBody html={message.bodyHtml} text={message.bodyText} />
-                {message.removed && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Saved correspondence history
-                  </p>
-                )}
-                {message.hasAttachments && !message.removed && (
-                  <EmailAttachments id={message.id} />
-                )}
+                <div
+                  id={bodyId}
+                  data-email-body
+                  inert={collapsed}
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="pt-4">
+                      <EmailBody html={message.bodyHtml} text={message.bodyText} />
+                      {message.removed && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Saved correspondence history
+                        </p>
+                      )}
+                      {message.hasAttachments && !message.removed && (
+                        <EmailAttachments id={message.id} />
+                      )}
+                    </div>
+                  </div>
+                </div>
               </article>
-            ),
-          }))
+            );
+            return { id: message.id, at: message.sentAt ?? message.receivedAt ?? "", content };
+          })
       : [];
   entries.push(...activity.entries);
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
@@ -602,21 +708,6 @@ export function EmailThreadView({
     if (creating) scope?.close();
     else void thread.refetch();
   }
-  const participants = (
-    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-      {contacts.map((email) => (
-        <span key={email} className="shrink-0">
-          <EmailParticipant
-            email={email}
-            label={email}
-            includeStudents
-            threadId={threadId}
-            mailboxAddress={mailbox.data!.mailboxAddress}
-          />
-        </span>
-      ))}
-    </div>
-  );
   return (
     <div
       className="flex h-full min-h-0 flex-col"
@@ -625,15 +716,25 @@ export function EmailThreadView({
       inert={closingEditors}
       aria-busy={closingEditors}
     >
-      <header className="shrink-0">
+      {renderHeader(<header className="shrink-0" inert={closingEditors}>
         <div
-          data-admin-page-header={scope ? "" : undefined}
-          className={scope ? adminPageHeaderClass : "flex min-w-0 items-center justify-between gap-2 border-b px-3 py-1.5"}
+          data-admin-page-header
+          className={adminPageHeaderClass}
           data-email-shortcut-target
           onMouseEnter={() => setToolbarHovered(true)}
           onMouseLeave={() => setToolbarHovered(false)}
         >
-          {scope ? <AccessoryBreadcrumb currentTitle={subject} /> : participants}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {breadcrumbs}
+            {headerPerson?.label && (
+              <BreadcrumbName
+                label={headerPerson.label}
+                entity={headerPerson}
+                onClick={() => navigation.openEntity(headerPerson.type, headerPerson.id)}
+                className="max-w-[35%] min-w-0 shrink-0 text-sm text-muted-foreground"
+              />
+            )}
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <EmailActions
               onSearchToggle={() => { if (searchOpen) setMessageSearch(""); setSearchOpen(!searchOpen); }}
@@ -649,9 +750,9 @@ export function EmailThreadView({
               mailbox={mailbox.data}
               hovered={toolbarHovered && !hoveredCard}
               captureWhenIdle
-              onReply={!draft ? () => start("reply") : undefined}
-              onReplyAll={!draft ? () => start("replyAll") : undefined}
-              onForward={!draft ? () => start("forward") : undefined}
+              onReply={canReply ? () => start("reply") : undefined}
+              onReplyAll={canReply ? () => start("replyAll") : undefined}
+              onForward={canReply ? () => start("forward") : undefined}
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -676,11 +777,14 @@ export function EmailThreadView({
             </DropdownMenu>
           </div>
         </div>
-        {searchOpen && <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />}
-      </header>
+        {searchOpen && (
+          <div className="px-4 pt-4">
+            <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />
+          </div>
+        )}
+      </header>)}
       {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {scope && contacts.length > 0 && <div className="flex border-b px-3 py-2">{participants}</div>}
         {entries.map((entry) => (
           <div key={entry.id}>{entry.content}</div>
         ))}
@@ -793,39 +897,7 @@ export function EmailThreadView({
             onSubjectChange={setDraftSubject}
             onClose={closeDraft}
           />
-        ) : (
-          showMessages &&
-          latest &&
-          !latest.draft && (
-            <div className="flex gap-2 p-4">
-              <EmailActionGroup label="Respond to email">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("reply")}
-                >
-                  <Reply className="mr-1.5 h-4 w-4" />
-                  Reply
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("replyAll")}
-                >
-                  Reply all
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => start("forward")}
-                >
-                  <Forward className="mr-1.5 h-4 w-4" />
-                  Forward
-                </Button>
-              </EmailActionGroup>
-            </div>
-          )
-        )}
+        ) : null}
         {(command.error || thread.error || mailbox.error) && (
           <p role="alert" className="p-3 text-xs text-destructive">
             {command.error?.message ??

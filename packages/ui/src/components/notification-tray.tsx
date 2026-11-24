@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Bell, CheckCheck, X } from 'lucide-react';
 import { Button } from './button';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 import { cn } from '../lib/cn';
 
 interface NotificationTrayProps {
@@ -24,22 +25,29 @@ export function NotificationTray({
 }: NotificationTrayProps) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="relative h-9 w-9 shrink-0"
-          aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
-        >
-          <Bell className="h-[1.2rem] w-[1.2rem]" aria-hidden />
-          {unreadCount > 0 && (
-            <span aria-hidden className="absolute -right-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white tabular-nums">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="relative size-8 shrink-0"
+                aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+              >
+                <Bell className="size-4" aria-hidden />
+                {unreadCount > 0 && (
+                  <span aria-hidden className="absolute -right-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white tabular-nums">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Notifications</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <PopoverContent
         aria-label="Notifications"
         className="!z-[100] w-96 max-w-[calc(100vw-2rem)] overflow-hidden bg-popover p-0 shadow-xl"

@@ -1,15 +1,10 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
-import { FileText } from 'lucide-react';
-import { Button, SearchableSelect } from '@altitutor/ui';
-import type { Tables, Json } from '@altitutor/shared';
+import type { ReactNode } from 'react';
+import { Button } from '@altitutor/ui';
 import type { JSONContent } from '@tiptap/core';
-import { NotesEditorWithMentions, type NotesEditorWithMentionsRef } from '@/shared/components/NotesEditorWithMentions';
+import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
-import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
-import { useRichTextTemplates } from '@/features/rich-text-templates';
-import { insertTemplateAtEnd } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 
 interface NoteComposerWithTemplateProps {
   content: JSONContent;
@@ -20,8 +15,7 @@ interface NoteComposerWithTemplateProps {
   placeholder?: string;
   minHeight?: string;
   className?: string;
-  floatingToolbar?: boolean;
-  /** When set, this control sits in the bottom toolbar, to the left of the template button. */
+  /** When set, this control sits in the bottom toolbar, to the left of the Post button. */
   modeControl?: ReactNode;
 }
 
@@ -34,104 +28,25 @@ export function NoteComposerWithTemplate({
   placeholder = 'Add a note...',
   minHeight = '80px',
   className,
-  floatingToolbar = false,
   modeControl,
 }: NoteComposerWithTemplateProps) {
-  const editorRef = useRef<NotesEditorWithMentionsRef | null>(null);
-  const { data: templates = [], isLoading: isTemplatesLoading } = useRichTextTemplates();
   const isEmpty = isTiptapContentEmpty(content);
-
-  const handleTemplateSelect = (template: Tables<'rich_text_templates'> | null) => {
-    if (!template) return;
-    void insertTemplateAtEnd(
-      editorRef.current?.getEditor() ?? null,
-      (template.content as JSONContent | null) ?? null
-    );
-  };
-
-  const templateSelect = (
-    <SearchableSelect<Tables<'rich_text_templates'>>
-      items={templates}
-      value={null}
-      onValueChange={handleTemplateSelect}
-      getItemId={(template) => template.id}
-      getItemLabel={(template) => template.name}
-      getItemValue={(template) =>
-        `${template.name} ${extractTextFromNoteContent(template.content as Json)}`
-      }
-      searchPlaceholder="Search templates..."
-      emptyMessage={isTemplatesLoading ? 'Loading templates...' : 'No templates found'}
-      loading={isTemplatesLoading}
-      showChevron={false}
-      trigger={
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className={modeControl ? 'h-10 shrink-0' : 'mt-1 shrink-0'}
-          disabled={isSubmitting || !canPost}
-        >
-          {modeControl ? <FileText className="mr-2 h-4 w-4" /> : null}
-          Template
-        </Button>
-      }
-      renderItem={(template) => (
-        <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
-          <span className="truncate font-medium">{template.name}</span>
-          <span className="truncate text-xs text-muted-foreground">
-            {extractTextFromNoteContent(template.content as Json) || '(empty)'}
-          </span>
-        </div>
-      )}
-    />
-  );
 
   return (
     <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
-      {modeControl ? (
-        <NotesEditorWithMentions
-          ref={editorRef}
-          content={content}
-          onChange={onChange}
-          placeholder={placeholder}
-          disabled={isSubmitting || !canPost}
-          minHeight={minHeight}
-          floatingToolbar={floatingToolbar}
-        />
-      ) : (
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <NotesEditorWithMentions
-              ref={editorRef}
-              content={content}
-              onChange={onChange}
-              placeholder={placeholder}
-              disabled={isSubmitting || !canPost}
-              minHeight={minHeight}
-              floatingToolbar={floatingToolbar}
-            />
-          </div>
-          {templateSelect}
-        </div>
-      )}
+      <NotesEditorWithMentions
+        content={content}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={isSubmitting || !canPost}
+        minHeight={minHeight}
+        insertTemplates
+      />
 
       <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {modeControl ? (
-            <>
-              {modeControl}
-              {templateSelect}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {isSubmitting ? 'Posting...' : ''}
-            </span>
-          )}
-        </div>
+        {modeControl ?? <span className="text-xs text-muted-foreground">{isSubmitting ? 'Posting...' : ''}</span>}
         <div className="flex items-center gap-2">
-          {modeControl && isSubmitting ? (
-            <span className="text-xs text-muted-foreground">Posting...</span>
-          ) : null}
+          {modeControl && isSubmitting && <span className="text-xs text-muted-foreground">Posting...</span>}
           <Button
             type="button"
             onClick={() => void onSubmit()}

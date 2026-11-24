@@ -141,10 +141,24 @@ test('Student account actions live in the record menu and command palette', asyn
 
 test('Parent conversation leads to actions for every linked student', async ({ page }) => {
   await signIn(page);
-  await page.goto('/messages');
-  await page.getByRole('button', { name: /^Context Parent / }).click();
+  await page.goto('/messages', { waitUntil: 'domcontentloaded' });
+  const conversation = page.getByRole('button', { name: /^Context Parent / });
+  await expect(conversation).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Messages conversation', exact: true })).toHaveCount(0);
+  expect((await page.locator('[data-pane-toolbar]').boundingBox())!.width).toBeGreaterThan(640);
+  await expect(page).not.toHaveURL(/[?&](contact|group|conversation)=/);
+  await conversation.getByText('Context Parent', { exact: true }).click();
+  const divider = page.getByRole('separator', { name: 'Resize conversation panes' });
+  await expect(divider).toHaveAttribute('aria-valuenow', '320');
+  await divider.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(divider).toHaveAttribute('aria-valuenow', '336');
   const header = page.locator('[data-admin-page-header]');
-  await header.getByRole('button', { name: 'Context Parent', exact: true }).click();
+  const parentName = header.getByRole('button', { name: 'Context Parent', exact: true });
+  await parentName.click({ button: 'right' });
+  await expect(page.getByRole('combobox', { name: 'Search menu' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await parentName.click();
   await expect(page).toHaveURL(/\/parents\/[^/?]+/);
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Go to Alice Williams', exact: true })).toBeVisible();
@@ -186,6 +200,41 @@ test('individual conversations start with Emails hidden and allow opting in', as
   await expect(emails).toHaveAttribute('aria-checked', 'false');
   await emails.click();
   await expect(emails).toHaveAttribute('aria-checked', 'true');
+});
+
+test('Students and Parents lists scroll through the toolbar and table together', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 360 });
+  await signIn(page);
+  for (const path of ['/parents', '/students?view=list']) {
+    // Park the pointer outside the directory so navigation cannot leave a record preview over the table.
+    await page.mouse.move(1, 1);
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const toolbar = page.getByRole('button', { name: 'Display options', exact: true });
+    const row = page.getByRole('table').first().locator('tbody tr').first();
+    await expect(row).toBeInViewport();
+    await expect(toolbar).toBeVisible();
+    await row.hover({ position: { x: 4, y: 8 } });
+    const before = (await toolbar.boundingBox())!.y;
+    await page.mouse.wheel(0, 300);
+    await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeLessThan(before);
+  }
+});
+
+test('Sessions and Classes calendar grids scroll under the pointer at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await signIn(page);
+  for (const [path, label] of [
+    ['/sessions?view=calendar&calendarMode=week', 'Sessions calendar grid'],
+    ['/classes?view=calendar', 'Classes calendar grid'],
+  ]) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const grid = page.getByRole('region', { name: label, exact: true });
+    await expect(grid).toBeVisible({ timeout: 30000 });
+    await expect.poll(() => grid.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+    await grid.hover({ position: { x: 140, y: 120 } });
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => grid.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  }
 });
 
 test('work-item boards align toolbars, span the page and scroll columns independently', async ({ page }) => {

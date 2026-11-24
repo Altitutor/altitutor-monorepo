@@ -73,7 +73,7 @@ export default function ClassesPage() {
   };
 
   return (
-    <div className="p-6 space-y-4">
+    <div className={view === "calendar" ? "flex h-full min-h-0 min-w-0 flex-col p-6" : "space-y-4 p-6"}>
       <ListSettingsMenu list="classes" />
       <AdminPageActions>
         <div className="flex items-center gap-4">

@@ -222,7 +222,7 @@ export function AdminShiftDetailView({
         <div className="flex min-h-0 w-full flex-col p-0">
           <div className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
-            <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
+            <div className="flex-shrink-0 bg-card sticky top-0 z-10">
               <div className="pb-3">
                 <div className={adminPageHeaderClass} data-admin-page-header>
                   <PrimaryEntityBreadcrumb label={`${getDayOfWeek(adminShiftData.day_of_week)} ${formatTime(adminShiftData.start_time)} - ${formatTime(adminShiftData.end_time)}`} />
