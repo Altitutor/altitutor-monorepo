@@ -1,5 +1,7 @@
 "use client";
 
+import { useRecordRecentPage } from "@/features/recently-viewed/useRecordRecentPage";
+
 import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -207,7 +209,9 @@ export function PaneWorkspace({
     previousContraction.current = shouldContractSidebar;
   }, [shouldContractSidebar, collapseSidebar]);
   const hrefForPane = (id: string) => id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? mainHref;
-  const activePath = hrefForPane(active).split(/[?#]/)[0];
+  const activeHref = hrefForPane(active);
+  const activePath = activeHref.split(/[?#]/)[0];
+  useRecordRecentPage(active, activeHref, paneTitle(activeHref));
   useEffect(() => onActivePathChange?.(activePath), [activePath, onActivePathChange]);
   useEffect(() => onPeerGoHintsChange?.(goHintPane === active), [goHintPane, active, onPeerGoHintsChange]);
   useEffect(() => onPeerPaletteChange?.(paletteHint?.id === active ? paletteHint.modifier : null), [paletteHint, active, onPeerPaletteChange]);

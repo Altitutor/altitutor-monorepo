@@ -76,7 +76,7 @@ export interface DataTableToolbarProps {
   viewContent?: import("./toolbar-filters").ToolbarFilterEditor;
   allowEmptyColumns?: boolean;
   groupByRequired?: boolean;
-  state: DataTableState;
+  state: DataTableState & { committedViewHref?: string };
   onSearchChange: (value: string) => void;
   onFiltersChange: (filters: Record<string, unknown[]>) => void;
   onSortChange: (field: string | null, direction: "asc" | "desc") => void;
@@ -815,6 +815,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
           {!hideViews ? (
             <ToolbarSavedViews
               hideShortcutHints={compact}
+              committedViewHref={state.committedViewHref}
               views={quickFilters}
               target={viewTarget ?? quickFilters[0]?.target_entity}
               current={currentSettings}

@@ -60,6 +60,7 @@ export function IssuesList({
 
   const { data: savedViews = [] } = useQuickFilters("issues");
   const {
+    committedViewHref,
     visiblePillKeys,
     setVisiblePillKeys,
     applyQuickFilter,
@@ -350,6 +351,7 @@ export function IssuesList({
           { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateIssue.mutateAsync({ id: item.id, updates: { priority: Number(value)  } }) },
         ]}
         viewTarget="issues"
+        committedViewHref={committedViewHref}
         quickFilters={savedViews}
         onApplyQuickFilter={(view) => applyQuickFilter(view, currentStaff?.id)}
         layout={layout}

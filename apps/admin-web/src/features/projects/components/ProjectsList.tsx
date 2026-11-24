@@ -68,6 +68,7 @@ export function ProjectsList({
   const embedLocked = hideToolbar && embedView != null;
 
   const {
+    committedViewHref,
     visiblePillKeys,
     setVisiblePillKeys,
     filters,
@@ -464,6 +465,7 @@ export function ProjectsList({
           { key: "a", label: "Change lead", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateProject.mutateAsync({id: item.id, updates: { project_lead_id: value === null ? null : String(value) } }) },
         ]}
         viewTarget="projects"
+        committedViewHref={committedViewHref}
         layout={layout}
         board={{
           columnDefs,

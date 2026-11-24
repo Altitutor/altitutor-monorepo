@@ -11,6 +11,7 @@ import { cn, navLinkActiveStyles } from '@/shared/utils';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
+import { RecentlyViewedMenu } from '@/features/recently-viewed/RecentlyViewedMenu';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 
@@ -102,6 +103,7 @@ export function Navbar({ tabsRef }: { tabsRef?: Ref<HTMLDivElement> }) {
                 </TooltipContent>
               </Tooltip>
             )}
+            {user && staffRecord?.id && <RecentlyViewedMenu staffId={staffRecord.id} />}
             {user && staffRecord?.id && <NotificationsTray staffId={staffRecord.id} />}
           </div>
         </TooltipProvider>
