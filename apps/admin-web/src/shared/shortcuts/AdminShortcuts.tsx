@@ -176,7 +176,11 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
         const record = key === "m"
           ? hoveredMenuRecord() ?? keyboardRecordFor(document.activeElement)
           : null;
-        if (currentDialog && (!record || !currentDialog.contains(record) || currentDialog.matches('[role="menu"]'))) return;
+        if (currentDialog && (
+          pane.matches('[role="menu"]') ||
+          (event.target instanceof Element && event.target.closest('[role="menu"]')) ||
+          !record?.closest('[role="dialog"],[role="alertdialog"]')
+        )) return;
 
         const menu = record
           ? visibleControl<HTMLButtonElement>(record, selector)

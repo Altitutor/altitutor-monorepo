@@ -554,6 +554,30 @@ it("opens the hovered student menu instead of the pane header menu", () => {
   expect(headerMenu).not.toHaveBeenCalled();
 });
 
+it("routes M to a record in a second pane dialog and leaves the open menu in control", () => {
+  render(
+    <AdminShortcuts>
+      <section role="dialog" aria-label="First pane dialog">First pane</section>
+      <section role="dialog" aria-label="Second pane dialog">
+        <div data-shortcut-record>
+          <span>Second pane record</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger data-shortcut-menu>Record menu</DropdownMenuTrigger>
+            <DropdownMenuContent><DropdownMenuItem>Move record</DropdownMenuItem></DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </section>
+    </AdminShortcuts>,
+  );
+
+  fireEvent.pointerOver(screen.getByText("Second pane record"));
+  fireEvent.keyDown(window, { key: "m" });
+  const menu = screen.getByRole("menu");
+  fireEvent.keyDown(menu, { key: "m" });
+
+  expect(screen.getByRole("combobox", { name: "Search menu" })).toHaveValue("m");
+});
+
 it('opens contextual menus and custom filters from the focused right pane', () => {
   const filter=jest.fn();
   render(<AdminShortcuts><main data-admin-main><button data-shortcut-menu>Left menu</button></main><aside data-accessory-tab="active"><DropdownMenu><DropdownMenuTrigger data-shortcut-menu>Right menu</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem>Right action</DropdownMenuItem></DropdownMenuContent></DropdownMenu><button data-shortcut-filter onClick={filter}>Right filter</button></aside></AdminShortcuts>);
