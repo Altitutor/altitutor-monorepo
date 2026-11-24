@@ -37,7 +37,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
+      <body className={inter.className} style={{ "--navbar-height": "44px" } as React.CSSProperties}>
         <ReactQueryProvider>
           <AuthProvider>
             <ThemeProvider

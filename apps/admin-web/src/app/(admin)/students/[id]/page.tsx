@@ -329,7 +329,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
     <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
       <div className={insetAdminPageHeaderClass} data-admin-page-header>
-        <PrimaryEntityBreadcrumb />
+        <PrimaryEntityBreadcrumb label={`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim()} />
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="student" entityId={student.id} />
 

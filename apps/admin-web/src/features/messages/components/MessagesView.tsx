@@ -14,6 +14,7 @@ import { Breadcrumb } from '@/shared/components/Breadcrumb';
 import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
+import { ConversationPanes } from '@/shared/components/ConversationPanes';
 import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useAccessoryTab } from '@/shared/contexts/AccessoryTabContext';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -392,23 +393,18 @@ export function MessagesView() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {conversationHeader}
-      <div className="flex min-h-0 flex-1">
-        <div
-          className={`shrink-0 ${tabScope ? "hidden" : isDesktopSplitPane ? "w-80" : mobileView === "thread" ? "hidden" : "w-full"}`}
-        >
+      <ConversationPanes
+        label="Messages conversation"
+        threadOnly={Boolean(tabScope)}
+        list={
           <ConversationList
             filterScope={tabScope ? `tab:${tabScope.tab.key}` : "page"}
             composeTarget={composeTarget}
             activeSelection={activeSelection}
             onSelect={handleConversationSelect}
           />
-        </div>
-        <div
-          className={`
-          flex-1 flex-col min-w-0
-          ${!tabScope && !isDesktopSplitPane && mobileView === 'list' ? 'hidden' : 'flex'}
-        `}
-        >
+        }
+        thread={showConversation && (
           <div className="flex-1 flex flex-col min-h-0">
             {linkedEntity && activeContactId && !targetMessageId ? (
               <EntityCommunicationPanel
@@ -480,14 +476,10 @@ export function MessagesView() {
                   onDraftClear={handleDraftClear}
                 />
               </>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Select a conversation to start messaging
-              </div>
-            )}
+            ) : null}
           </div>
-        </div>
-      </div>
+        )}
+      />
 
       {linking.linkingModals}
     </div>

@@ -3,7 +3,7 @@ import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { CheckSquare, AlertTriangle } from "lucide-react";
 import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
-import { Breadcrumb, BreadcrumbName } from "@/shared/components/Breadcrumb";
+import { Breadcrumb, BreadcrumbName, type BreadcrumbItem } from "@/shared/components/Breadcrumb";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 import {
   useCallback,
@@ -50,6 +50,8 @@ import { isEditableDraft } from "./drafts";
 import { EmailParticipant } from "./EmailParticipant";
 import { EmailAttachments } from "./EmailAttachments";
 import { EmailPendingMessage } from "./EmailPendingMessage";
+import { MailFolders, mailFolderLabel } from "./MailFolders";
+import { createPortal } from "react-dom";
 const time = (value?: string | null) =>
   value
     ? new Date(value).toLocaleString("en-AU", {
@@ -103,10 +105,14 @@ export function EmailThreadView({
   threadId,
   registerInlineClose,
   onBack,
+  headerTarget,
+  folderItem,
 }: {
   threadId: string;
   registerInlineClose?: (gate: ((next?: () => void) => void) | null) => void;
   onBack?: () => void;
+  headerTarget?: HTMLElement | null;
+  folderItem?: BreadcrumbItem;
 }) {
   const { router, searchParams } = usePaneNavigation();
   const navigation = useEntityNavigation();
@@ -489,16 +495,42 @@ export function EmailThreadView({
         command.mutate({ action: "read", ids: nonDraftIds, read: false }),
     },
   ]);
+  const folders = mailbox.data?.folders ?? [];
+  const originFolder = searchParams.get("folder") ?? undefined;
+  const folder = originFolder ?? latest?.folderId ?? undefined;
+  const openFolder = (id?: string) => router.push(id === undefined
+    ? "/email"
+    : `/email?${new URLSearchParams({ folder: id })}`);
+  const breadcrumbs = (
+    <Breadcrumb
+      items={[
+        { label: "Email", onClick: onBack ?? (() => openFolder(originFolder)) },
+        folderItem ?? {
+          label: mailFolderLabel(folders, folder),
+          control: <MailFolders folders={folders} selected={folder} onSelect={openFolder} />,
+        },
+        { label: subject },
+      ]}
+      className="m-0 min-w-0 gap-1.5 [&>div:first-child]:shrink-0"
+    />
+  );
+  function renderHeader(header: ReactNode) {
+    return headerTarget === undefined ? header : headerTarget && createPortal(header, headerTarget);
+  }
+
   if (!mailbox.data || (!draft && !thread.data && !creating))
     return (
-      <p
-        role={thread.error || mailbox.error ? "alert" : undefined}
-        className="p-4 text-sm text-muted-foreground"
-      >
-        {thread.error?.message ??
-          mailbox.error?.message ??
-          "Loading email conversation…"}
-      </p>
+      <>
+        {renderHeader(<header className={adminPageHeaderClass} data-admin-page-header>{breadcrumbs}</header>)}
+        <p
+          role={thread.error || mailbox.error ? "alert" : undefined}
+          className="p-4 text-sm text-muted-foreground"
+        >
+          {thread.error?.message ??
+            mailbox.error?.message ??
+            "Loading email conversation…"}
+        </p>
+      </>
     );
   const data = thread.data;
   const headerPerson = emailConversationPerson(data);
@@ -635,7 +667,7 @@ export function EmailThreadView({
       inert={closingEditors}
       aria-busy={closingEditors}
     >
-      <header className="shrink-0">
+      {renderHeader(<header className="shrink-0" inert={closingEditors}>
         <div
           data-admin-page-header
           className={adminPageHeaderClass}
@@ -644,13 +676,7 @@ export function EmailThreadView({
           onMouseLeave={() => setToolbarHovered(false)}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Breadcrumb
-              items={[
-                { label: "Email", onClick: onBack ?? (() => router.push("/email")) },
-                { label: subject },
-              ]}
-              className="m-0 min-w-0 gap-1.5 [&>div:first-child]:shrink-0"
-            />
+            {breadcrumbs}
             {headerPerson?.label && (
               <BreadcrumbName
                 label={headerPerson.label}
@@ -703,7 +729,7 @@ export function EmailThreadView({
           </div>
         </div>
         {searchOpen && <Input type="search" aria-label="Search conversation" placeholder="Search this conversation" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} autoFocus />}
-      </header>
+      </header>)}
       {meetings.dialogs}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {entries.map((entry) => (

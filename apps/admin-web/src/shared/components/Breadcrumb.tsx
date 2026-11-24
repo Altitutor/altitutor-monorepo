@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
@@ -36,6 +37,7 @@ export interface BreadcrumbItem {
   href?: string;
   onClick?: () => void;
   entity?: BreadcrumbEntity;
+  control?: ReactNode;
 }
 
 interface BreadcrumbProps {
@@ -53,6 +55,7 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
     <nav
       aria-label="Breadcrumb"
       data-primary-breadcrumb={primary || undefined}
+      data-pane-title={items.at(-1)?.label}
       className={cn('flex items-center gap-2 text-sm text-muted-foreground mb-4', className)}
     >
       {items.map((item, index) => {
@@ -60,7 +63,7 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
 
         return (
           <div key={index} className="flex min-w-0 items-center gap-2">
-            {item.onClick ? (
+            {item.control ?? (item.onClick ? (
               <BreadcrumbName
                 label={item.label}
                 onClick={item.onClick}
@@ -78,7 +81,7 @@ export function Breadcrumb({ items, className, primary }: BreadcrumbProps) {
               <span className={cn("truncate", isLast && "font-medium text-foreground")} title={item.label}>
                 {item.label}
               </span>
-            )}
+            ))}
             {!isLast && (
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             )}

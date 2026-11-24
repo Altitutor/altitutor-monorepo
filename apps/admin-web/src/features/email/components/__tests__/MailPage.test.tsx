@@ -9,6 +9,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MailPage } from "../MailPage";
 import type { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { useAuthStore } from "@/shared/lib/supabase/auth";
 import type { MailboxData } from "../../types";
 
@@ -85,6 +86,8 @@ it("keeps folder navigation visible while another folder is loading", async () =
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
+  fireEvent.click(screen.getByRole("button", { name: "Inbox" }));
+  fireEvent.change(await screen.findByRole("textbox", { name: "Search folders" }), { target: { value: "arch" } });
   fireEvent.click(screen.getByRole("button", { name: "Archive" }));
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
@@ -92,10 +95,12 @@ it("keeps folder navigation visible while another folder is loading", async () =
       expect.anything(),
     ),
   );
-  expect(screen.getByRole("button", { name: "Inbox" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  expect(await screen.findByRole("button", { name: "Inbox" })).toBeInTheDocument();
 });
 it("moves a dragged email immediately and restores it if Microsoft rejects the move", async () => {
+  const notify = jest.spyOn(toast, "error");
   let failMove: (response: Response) => void = () => {};
   global.fetch = jest.fn(async (_input, init) =>
     init?.body
@@ -143,6 +148,8 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
     } as Response),
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
+  expect(notify).toHaveBeenCalledWith("Could not move email", { description: "Move rejected" });
+  notify.mockRestore();
 });
 
 it("opens a conversation when the non-button space inside its highlighted row is clicked", async () => {
@@ -165,7 +172,7 @@ it("opens a conversation when the non-button space inside its highlighted row is
     name: "Open Lesson update",
   });
   fireEvent.click(rowButton.parentElement!);
-  expect(mockNavigate).toHaveBeenCalledWith("/email?conversation=thread-one", { scroll: false });
+  expect(mockNavigate).toHaveBeenCalledWith("/email?folder=inbox&conversation=thread-one", { scroll: false });
 });
 
 it("offers an Undo toast for a successful folder move and executes its server receipt", async () => {
@@ -290,7 +297,7 @@ it("selects Inbox once its first sync discovers folders", async () => {
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
-  await screen.findByRole("heading", { name: "All mail" });
+  await screen.findByRole("button", { name: "All mail" });
   discovered = true;
   await act(async () => {
     await client.invalidateQueries({ queryKey: ["email", "mailbox"] });

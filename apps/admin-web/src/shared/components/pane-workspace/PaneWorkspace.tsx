@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, FileText, FolderKanban, PanelTop, X } from "lucide-react";
 import { navItems } from "@/shared/constants/adminNavigation";
@@ -21,10 +22,10 @@ const isEmbedded = () => window.frameElement?.hasAttribute(paneFrameAttribute) ?
 export function useEmbeddedPane() {
   return useSyncExternalStore(subscribe, isEmbedded, () => false);
 }
-type Peer = { id: string; initial: string; href: string };
+type Peer = { id: string; initial: string; href: string; title?: string };
 type FrameMessage =
   | { action: "activate" | "ready" }
-  | { action: "location"; href: string }
+  | { action: "location"; href: string; title?: string }
   | { action: "go-hints"; visible: boolean }
   | { action: "open"; href: string }
   | { action: "back" | "close" };
@@ -50,10 +51,37 @@ function currentRoute(pathname: string, search: string) {
   return paneHref(`${pathname}${search ? `?${search}` : ""}`) ?? "/dashboard";
 }
 
+function usePaneTitle(href: string) {
+  const [current, setCurrent] = useState<{ href: string; title?: string }>();
+  useEffect(() => {
+    const url = new URL(href, location.origin);
+    const detail = url.pathname.split("/").filter(Boolean).length > 1 ||
+      (url.pathname === "/email" && url.searchParams.has("conversation")) ||
+      (url.pathname === "/messages" &&
+        ["conversation", "contact", "group"].some((key) => url.searchParams.has(key)));
+    const main = document.querySelector("[data-admin-main]");
+    if (!detail || !main) return;
+    const update = () => {
+      const title = main.querySelector<HTMLElement>("[data-admin-page-header] [data-pane-title]")
+        ?.dataset.paneTitle?.trim();
+      setCurrent((previous) => previous?.href === href && previous.title === title
+        ? previous
+        : { href, title });
+    };
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(main, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-pane-title"] });
+    return () => observer.disconnect();
+  }, [href]);
+  return current?.href === href ? current.title : undefined;
+}
+
 export function EmbeddedPaneEvents() {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams().toString();
+  const href = currentRoute(pathname, search);
+  const title = usePaneTitle(href);
   const goHints = useContext(GoHintsContext);
   useEffect(() => {
     window.parent.postMessage(
@@ -104,10 +132,10 @@ export function EmbeddedPaneEvents() {
   }, [router]);
   useEffect(() => {
     window.parent.postMessage(
-      { adminPane: { action: "location", href: currentRoute(pathname, search) } },
+      { adminPane: { action: "location", href, title } satisfies FrameMessage },
       location.origin,
     );
-  }, [pathname, search]);
+  }, [href, title]);
   return null;
 }
 
@@ -127,9 +155,10 @@ function paneTitle(href: string) {
 const paneIcons = { issues: AlertTriangle, projects: FolderKanban, documents: FileText, notes: FileText };
 
 export function PaneWorkspace({
-  children, onActivePathChange, onPeerGoHintsChange,
+  children, tabsTarget, onActivePathChange, onPeerGoHintsChange,
 }: {
   children: ReactNode;
+  tabsTarget: HTMLDivElement | null;
   onActivePathChange?: (pathname: string) => void;
   onPeerGoHintsChange?: (visible: boolean) => void;
 }) {
@@ -138,6 +167,7 @@ export function PaneWorkspace({
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const mainHref = currentRoute(pathname, search);
+  const mainTitle = usePaneTitle(mainHref);
   const params = new URLSearchParams(search);
   const [mainOpen, setMainOpen] = useState(() => params.get("hidePrimaryPane") !== "1");
   const [peers, setPeers] = useState(() => initialPeers(params).slice(0, mainOpen ? 2 : 3));
@@ -163,6 +193,13 @@ export function PaneWorkspace({
     restoreFocus.current = false;
     document.getElementById(`workspace-${narrow ? "tab" : "pane"}-${active}`)?.focus();
   }, [peers, active, mainOpen, narrow]);
+  useEffect(() => {
+    if (!narrow || !tabsTarget) return;
+    document.getElementById(`workspace-tab-${active}`)?.parentElement?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [active, narrow, tabsTarget, mainTitle, peers]);
   const state = { active, peers, mainOpen, visibleIds, mainHref };
   const latest = useRef(state);
   latest.current = state;
@@ -264,7 +301,7 @@ export function PaneWorkspace({
       } else if (canReachPeer(id)) {
         send(id, { action: replace ? "replace" : "navigate", href });
       } else {
-        setPeers((current) => current.map((peer) => peer.id === id ? { ...peer, initial: href, href } : peer));
+        setPeers((current) => current.map((peer) => peer.id === id ? { ...peer, initial: href, href, title: undefined } : peer));
       }
     }
     function back(id: string) {
@@ -304,11 +341,13 @@ export function PaneWorkspace({
       if (message.action === "location") {
         const href = paneHref(message.href);
         const peer = latest.current.peers.find((value) => value.id === id);
-        if (!href || !peer || peer.href === href) return;
-        if (!pendingReplace.current.delete(id)) {
+        if (!href || !peer) return;
+        const title = typeof message.title === "string" ? message.title : undefined;
+        if (peer.href === href && peer.title === title) return;
+        if (peer.href !== href && !pendingReplace.current.delete(id)) {
           histories.current.set(id, [...(histories.current.get(id) ?? []), peer.href]);
         }
-        setPeers((current) => current.map((value) => value.id === id ? { ...value, href } : value));
+        setPeers((current) => current.map((value) => value.id === id ? { ...value, href, title } : value));
       }
     };
     const click = (event: MouseEvent) => {
@@ -403,20 +442,20 @@ export function PaneWorkspace({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col p-1" data-admin-pane-workspace>
-      {narrow && (
-        <div role="tablist" aria-label="Open panes" className="flex h-11 min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b bg-background px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {narrow && tabsTarget && createPortal(
+        <div role="tablist" aria-label="Open panes" className="flex h-full min-w-0 items-center gap-1 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleIds.map((id, index) => {
             const href = hrefForPane(id);
             const root = href.split(/[/?#]/)[1];
             const item = navItems.find((entry) => entry.type !== "heading" &&
               (entry.href === `/${root}` || entry.children?.some((child) => child.href === `/${root}`)));
             const Icon = paneIcons[root as keyof typeof paneIcons] ?? (item?.type !== "heading" ? item?.icon : undefined) ?? PanelTop;
-            const label = paneTitle(href);
+            const label = (id === primary ? mainTitle : peers.find((peer) => peer.id === id)?.title) || paneTitle(href);
             return (
               <div key={id} className={`group flex shrink-0 items-center rounded-lg transition-colors ${id === active ? `${navLinkActiveStyles} text-foreground` : `${navLinkInactiveStyles} text-muted-foreground hover:text-foreground`}`}>
                 <button id={`workspace-tab-${id}`} type="button" role="tab"
                   title={label} aria-selected={id === active} aria-controls={`workspace-pane-${id}`} tabIndex={id === active ? 0 : -1}
-                  className="flex max-w-44 items-center gap-2 rounded-lg px-2.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex max-w-44 items-center gap-2 rounded-lg px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={() => setActive(id)}
                   onKeyDown={(event) => {
                     const count = visibleIds.length;
@@ -439,7 +478,7 @@ export function PaneWorkspace({
               </div>
             );
           })}
-        </div>
+        </div>, tabsTarget,
       )}
       <div ref={host} className="flex min-h-0 min-w-0 flex-1">
         {renderPane(primary, mainHref, <ResponsivePane className="min-h-0 flex-1 overflow-hidden">{children}</ResponsivePane>)}

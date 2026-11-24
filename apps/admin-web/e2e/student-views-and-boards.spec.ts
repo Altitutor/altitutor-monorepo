@@ -144,9 +144,15 @@ test('Parent conversation leads to actions for every linked student', async ({ p
   await page.goto('/messages', { waitUntil: 'domcontentloaded' });
   const conversation = page.getByRole('button', { name: /^Context Parent / });
   await expect(conversation).toBeVisible();
-  await expect(page.getByText('Select a conversation to start messaging', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Messages conversation', exact: true })).toHaveCount(0);
+  expect((await page.locator('[data-pane-toolbar]').boundingBox())!.width).toBeGreaterThan(640);
   await expect(page).not.toHaveURL(/[?&](contact|group|conversation)=/);
   await conversation.getByText('Context Parent', { exact: true }).click();
+  const divider = page.getByRole('separator', { name: 'Resize conversation panes' });
+  await expect(divider).toHaveAttribute('aria-valuenow', '320');
+  await divider.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(divider).toHaveAttribute('aria-valuenow', '336');
   const header = page.locator('[data-admin-page-header]');
   const parentName = header.getByRole('button', { name: 'Context Parent', exact: true });
   await parentName.click({ button: 'right' });

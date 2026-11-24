@@ -7,7 +7,7 @@ import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, Reply } from "lucide-react";
-import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
+import { ConversationPanes } from "@/shared/components/ConversationPanes";
 import { EmailThreadView } from "./EmailThreadView";
 import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
 import {
@@ -30,18 +30,25 @@ import {
 import type { EmailSummary } from "../types";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailActions } from "./EmailActions";
-import { MailFolders, emailDragType } from "./MailFolders";
+import { MailFolders, emailDragType, mailFolderLabel } from "./MailFolders";
 import { defaultMailListSettings as defaults, useMailListState } from "../hooks/useMailListState";
 
 export function MailPage() {
   const { list, setList, ready } = useMailListState();
-  const { folder, search, offset, settings } = list;
+  const { search, offset, settings } = list;
   const [term, setTerm] = useState<string>();
   const [selected, setSelected] = useState<string>();
   const { router, searchParams } = usePaneNavigation();
   const inlineThread = searchParams.get("conversation");
-  const wide = usePanelMediaQuery("(min-width: 960px)");
-  const showList = wide || !inlineThread;
+  const routeFolder = searchParams.get("folder");
+  const folder = routeFolder ?? list.folder;
+  const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (ready && routeFolder !== null) {
+      setList((current) => current.folder === routeFolder ? current : { ...current, folder: routeFolder, offset: 0 });
+    }
+  }, [ready, routeFolder, setList]);
   useEffect(() => setSelected(inlineThread ?? undefined), [inlineThread]);
   const inlineClose = useRef<((next?: () => void) => void) | null>(null);
   const registerInlineClose = useCallback((gate: typeof inlineClose.current) => {
@@ -155,16 +162,20 @@ export function MailPage() {
     },
   ]);
   const rows = mailbox.data?.threads ?? [];
-  function setPreviewThread(thread?: string) {
+  function setPreviewThread(thread?: string, nextFolder = folder) {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of ["conversation", "message", "focus", "action", "token"]) {
       params.delete(key);
     }
+    if (nextFolder !== undefined) params.set("folder", nextFolder);
     if (thread) params.set("conversation", thread);
     const query = params.toString();
     const href = query ? `/email?${query}` : "/email";
     if (thread && !inlineThread) router.push(href, { scroll: false });
-    else withPaneCloseGate(() => router.replace(href, { scroll: false }));
+    else withPaneCloseGate(() => {
+      if (nextFolder !== folder) setList((current) => ({ ...current, folder: nextFolder, offset: 0 }));
+      router.replace(href, { scroll: false });
+    });
   }
   function open(row: EmailSummary) {
     setSelected(row.id);
@@ -179,63 +190,67 @@ export function MailPage() {
     .filter((value): value is string => Boolean(value))
     .sort()
     .at(-1);
-  const title =
-    folder === "@scheduled"
-      ? "Scheduled"
-      : (mailbox.data?.folders.find((item) => item.id === folder)?.name ??
-        "All mail");
+  const folders = mailbox.data?.folders ?? [];
+  const folderItem = {
+    label: mailFolderLabel(folders, folder),
+    control: (
+      <MailFolders
+        folders={folders}
+        selected={folder}
+        dragging={dragging}
+        onDragComplete={() => setDragging(false)}
+        onSelect={(id) => setPreviewThread(undefined, id)}
+      />
+    ),
+  };
+  const folderQuery = folder === undefined ? "" : `?${new URLSearchParams({ folder })}`;
   const loading = !ready || mailbox.isLoading || mailbox.isPlaceholderData;
   return (
-    <div className="@container/email-body flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      {showList && (
-        <div className={adminPageHeaderClass} data-admin-page-header>
-          <Breadcrumb items={[{ label: "Email" }]} className="mb-0 min-w-0 flex-1" />
-          <ListSettingsMenu list="mail" inline />
-          <AdminActionGroup label="Email actions">
-            <EmailIconButton
-              label={
-                sync.error
-                  ? sync.error.message
-                  : sync.isPending
-                    ? "Syncing with Microsoft…"
-                    : configured === false
-                      ? "Mailbox connection is not configured"
-                      : lastPage
-                        ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
-                        : "Not synced yet"
-              }
-              aria-label="Sync mailbox"
-              variant="ghost"
-              className="border-0 bg-transparent shadow-none"
-              disabled={sync.isPending || !configured}
-              onClick={() => sync.mutate()}
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
-              />
-            </EmailIconButton>
-          </AdminActionGroup>
-          <AdminPageActionButton
-            icon={<Plus className="size-4" />}
-            createShortcut
-            label="Compose"
-            onClick={compose}
-            disabled={!mailbox.data}
-          />
-        </div>
-      )}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div
-          className={`min-h-0 min-w-0 flex-col overflow-hidden @min-[480px]/email-body:flex-row ${!showList ? "hidden" : wide ? "flex w-[31rem] shrink-0" : "flex flex-1"}`}
-        >
-        <MailFolders
-          folders={mailbox.data?.folders ?? []}
-          loading={!mailbox.data}
-          selected={folder}
-          onSelect={(id) => setList((current) => ({ ...current, folder: id, offset: 0 }))}
-        />
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div ref={setHeaderTarget} className="shrink-0">
+        {!inlineThread && (
+          <div className={adminPageHeaderClass} data-admin-page-header>
+            <Breadcrumb items={[{ label: "Email" }, folderItem]} className="mb-0 min-w-0 flex-1" />
+            <ListSettingsMenu list="mail" inline />
+            <AdminActionGroup label="Email actions">
+              <EmailIconButton
+                label={
+                  sync.error
+                    ? sync.error.message
+                    : sync.isPending
+                      ? "Syncing with Microsoft…"
+                      : configured === false
+                        ? "Mailbox connection is not configured"
+                        : lastPage
+                          ? `Updated ${new Date(lastPage).toLocaleTimeString("en-AU")}`
+                          : "Not synced yet"
+                }
+                aria-label="Sync mailbox"
+                variant="ghost"
+                className="border-0 bg-transparent shadow-none"
+                disabled={sync.isPending || !configured}
+                onClick={() => sync.mutate()}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`}
+                />
+              </EmailIconButton>
+            </AdminActionGroup>
+            <AdminPageActionButton
+              icon={<Plus className="size-4" />}
+              createShortcut
+              label="Compose"
+              onClick={compose}
+              disabled={!mailbox.data}
+            />
+          </div>
+        )}
+      </div>
+      <ConversationPanes
+        label="Email reading pane"
+        list={
         <section
-          className={`flex min-h-0 min-w-0 flex-col p-3 sm:p-5 ${wide ? "w-80 shrink-0" : "flex-1"}`}
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
           aria-label="Email list"
           tabIndex={0}
           onKeyDown={(event) => {
@@ -338,7 +353,6 @@ export function MailPage() {
             searchPlaceholder="Search mail…"
           />
 
-          <h2 className="shrink-0 px-3 py-4 text-sm font-semibold">{title}</h2>
           {mailbox.error && (
             <p role="alert" className="p-3 text-sm text-destructive">
               {mailbox.error.message}
@@ -372,14 +386,16 @@ export function MailPage() {
                   data-shortcut-list-item
                   tabIndex={0}
                   data-email-shortcut-target
-                  data-pane-href={`/email/${encodeURIComponent(row.id)}`}
+                  data-pane-href={`/email/${encodeURIComponent(row.id)}${folderQuery}`}
                   onDragStart={(event) => {
                     event.dataTransfer.effectAllowed = "move";
+                    setDragging(true);
                     event.dataTransfer.setData(
                       emailDragType,
                       JSON.stringify(row.messageIds),
                     );
                   }}
+                  onDragEnd={() => setDragging(false)}
                   onMouseEnter={() => setHovered(row.id)}
                   onMouseLeave={() => setHovered(undefined)}
                   onFocus={() => { setHovered(row.id); setSelected(row.id); }}
@@ -510,25 +526,18 @@ export function MailPage() {
             className="mt-4 shrink-0"
           />
         </section>
-        </div>
-        {(wide || inlineThread) && (
-          <section
-            aria-label="Email reading pane"
-            className={`flex min-w-0 flex-1 flex-col overflow-hidden ${wide ? "border-l" : ""}`}
-          >
-            {inlineThread ? (
-              <EmailThreadView
-                key={inlineThread}
-                threadId={inlineThread}
-                registerInlineClose={registerInlineClose}
-                onBack={() => setPreviewThread()}
-              />
-            ) : (
-              <p className="p-5 text-sm text-muted-foreground">Select a conversation</p>
-            )}
-          </section>
+        }
+        thread={inlineThread && (
+          <EmailThreadView
+            key={inlineThread}
+            threadId={inlineThread}
+            registerInlineClose={registerInlineClose}
+            onBack={() => setPreviewThread()}
+            headerTarget={headerTarget}
+            folderItem={folderItem}
+          />
         )}
-      </div>
+      />
     </div>
   );
 }

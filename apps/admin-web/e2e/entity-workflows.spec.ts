@@ -236,6 +236,9 @@ test("mail actions form one segmented pill and retain tooltips", async ({
 });
 
 test("Email opens in the reading pane and restores the list when going back", async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 1536, height: 900 });
+  await signIn(page);
+  expect((await page.request.get("/api/email")).ok()).toBe(true);
   const db = localDatabase(baseURL);
   const key = randomUUID();
   const id = `reading-pane-${key}+/=`;
@@ -246,6 +249,9 @@ test("Email opens in the reading pane and restores the list when going back", as
   const alternateSubject = "Another email in the current view";
   const occurredAt = new Date().toISOString();
   for (const result of [
+    await db.from("email_folders").upsert({
+      id: "browser-inbox", name: "Inbox", role: "inbox", present: true,
+    }),
     await db.from("email_folders").insert({ id: folderId, name: folderName, present: true }),
     await db.from("email_threads").insert([{ id }, { id: alternateId }]),
     await db.from("email_messages").insert({
@@ -269,20 +275,35 @@ test("Email opens in the reading pane and restores the list when going back", as
     if (result.error) throw new Error(result.error.message);
   }
 
-  await page.setViewportSize({ width: 1536, height: 900 });
-  await signIn(page);
   await page.goto("/email", { waitUntil: "domcontentloaded" });
   const folder = page.getByRole("button", { name: folderName, exact: true });
   const inbox = page.getByRole("region", { name: "Email list" });
   const view = inbox.getByRole("button", { name: "Unassigned", exact: true });
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Inbox", exact: true }).click();
+  await page.getByRole("textbox", { name: "Search folders" }).fill(folderName);
   await folder.click();
+  await expect(page.getByRole("region", { name: "Email reading pane" })).toHaveCount(0);
+  const fullWidth = (await inbox.boundingBox())!.width;
   await view.click();
-  await inbox.getByRole("button", { name: `Open ${subject}`, exact: true }).click();
+  const row = inbox.getByRole("button", { name: `Open ${subject}`, exact: true });
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await row.dispatchEvent("dragstart", { dataTransfer: transfer });
+  await expect(page.getByRole("dialog", { name: "Email folders" })).toBeVisible();
+  await row.dispatchEvent("dragend", { dataTransfer: transfer });
+  await expect(page.getByRole("dialog", { name: "Email folders" })).toBeHidden();
+  await transfer.dispose();
+  await row.click();
 
   const email = page.getByRole("article", { name: `Email: ${subject}` });
   await expect(email).toContainText("This message belongs in the reading pane.");
   await expect(inbox).toBeVisible();
-  expect((await inbox.boundingBox())?.width).toBe(320);
+  await expect.poll(async () => Math.round((await inbox.boundingBox())?.width ?? 0)).toBe(320);
+  expect(fullWidth).toBeGreaterThan(640);
+  await expect(page.locator("[data-admin-page-header]")).toHaveCount(1);
+  const divider = page.getByRole("separator", { name: "Resize conversation panes" });
+  await divider.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => Math.round((await inbox.boundingBox())?.width ?? 0)).toBe(336);
   expect((await page.getByRole("region", { name: "Email reading pane" }).boundingBox())?.width).toBeGreaterThan(400);
   const participant = page.getByRole("button", { name: "Link recipient@example.test", exact: true });
   await expect(participant).toHaveCount(0);
@@ -301,12 +322,12 @@ test("Email opens in the reading pane and restores the list when going back", as
   await inbox.getByRole("button", { name: `Open ${subject}`, exact: true }).click();
   await expect(email).toBeVisible();
 
-  await page.setViewportSize({ width: 820, height: 900 });
+  await page.setViewportSize({ width: 700, height: 900 });
   await expect(email).toBeVisible();
   await expect(inbox).toBeHidden();
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Email", exact: true }).click();
   await expect(inbox).toBeVisible();
-  await expect(folder).toHaveAttribute("aria-current", "page");
+  await expect(folder).toBeVisible();
   await expect(view).toHaveAttribute("aria-pressed", "true");
   await page.goBack();
   await expect(inbox).toBeVisible();
@@ -315,7 +336,7 @@ test("Email opens in the reading pane and restores the list when going back", as
   await page.goto(`/email/${encodeURIComponent(id)}`, { waitUntil: "domcontentloaded" });
   await expect(email).toBeVisible();
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Email", exact: true }).click();
-  await expect(folder).toHaveAttribute("aria-current", "page");
+  await expect(folder).toBeVisible();
   await expect(view).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -618,13 +639,44 @@ test("pane resizing preserves edits, keyboard bounds and responsive tabs", async
   await expect(title).toHaveValue(`${name} edited`);
 
   await page.setViewportSize({ width: 580, height: 900 });
-  await expect(page.getByRole("tab", { name: "Issues", exact: true })).toHaveAttribute("aria-selected", "true");
+  const tabs = page.locator("[data-admin-navbar]").getByRole("tablist", { name: "Open panes" });
+  const issueTab = tabs.getByRole("tab", { name: `${name} edited`, exact: true });
+  await expect(issueTab).toHaveAttribute("aria-selected", "true");
   await expect(divider).toBeHidden();
   await page.getByRole("tab", { name: "Students", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Students", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("tab", { name: "Issues", exact: true }).click();
+  await issueTab.click();
   await page.reload();
   await expect(title).toHaveValue(`${name} edited`);
+});
+
+test("compact workspace names the student tab and keeps its record header visible", async ({ page }) => {
+  await page.setViewportSize({ width: 580, height: 740 });
+  await signIn(page);
+  await page.goto("/students/10000000-0000-0000-0000-000000000002?pane=%2Fparents");
+  const tabs = page.locator("[data-admin-navbar]").getByRole("tablist", { name: "Open panes" });
+  await expect(tabs.getByRole("tab", { name: "Bob Taylor", exact: true })).toHaveAttribute("aria-selected", "true");
+  const header = page.getByRole("tabpanel", { name: "Bob Taylor", exact: true }).locator("[data-admin-page-header]");
+  await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Bob Taylor");
+  const position = await header.evaluate((bar) => {
+    const scrollingContent = bar.parentElement;
+    if (!scrollingContent) throw new Error("No student content");
+    const spacer = document.createElement("div");
+    spacer.style.height = "150vh";
+    scrollingContent.append(spacer);
+    const before = bar.getBoundingClientRect().top;
+    scrollingContent.scrollTop = 200;
+    return { before, after: bar.getBoundingClientRect().top, scrolled: scrollingContent.scrollTop };
+  });
+  expect(position.scrolled).toBeGreaterThan(0);
+  expect(position.after).toBeLessThanOrEqual(position.before);
+  expect(position.after).toBeGreaterThanOrEqual(position.before - 16);
+
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/students/10000000-0000-0000-0000-000000000002?pane=%2Fparents&pane=%2Ftasks&activePane=2");
+  const taskTab = tabs.getByRole("tab", { name: "Tasks", exact: true });
+  await expect(taskTab).toHaveAttribute("aria-selected", "true");
+  await expect(taskTab).toBeInViewport({ ratio: 1 });
 });
 
 test("reference previews cover people, scheduling and work-item projections", async ({

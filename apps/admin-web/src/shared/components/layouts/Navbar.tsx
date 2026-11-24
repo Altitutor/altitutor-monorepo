@@ -2,7 +2,7 @@
 
 import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
 import { Button, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@altitutor/ui';
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useMessageSubscription } from '@/features/messages/hooks/useMessageSubscription';
 import { PanelLeft } from 'lucide-react';
@@ -28,7 +28,7 @@ function SidebarShortcutTooltip({ label, shortcut, children }: { label: string; 
   </Tooltip></TooltipProvider>;
 }
 
-export function Navbar() {
+export function Navbar({ tabsRef }: { tabsRef?: Ref<HTMLDivElement> }) {
   useMessageSubscription();
   const { user } = useAuthStore();
   const { resolvedTheme } = useTheme();
@@ -42,8 +42,8 @@ export function Navbar() {
   useNotificationsRealtime(staffRecord?.id ?? '');
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] bg-card">
-      <div className="h-full w-full px-4 flex items-center gap-4">
+    <nav data-admin-navbar className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] bg-card">
+      <div className="flex h-full w-full items-center gap-2 px-2 sm:px-3">
         {/* Mobile Hamburger Menu Button */}
         {user && (
           <SidebarShortcutTooltip label={isMobileMenuOpen ? 'Close menu' : 'Open menu'} shortcut="left">
@@ -55,7 +55,7 @@ export function Navbar() {
             aria-expanded={isMobileMenuOpen}
             aria-controls="admin-mobile-sidebar"
             aria-keyshortcuts="["
-            className={cn("relative inline-flex h-9 w-9 flex-shrink-0 md:hidden", isMobileMenuOpen && navLinkActiveStyles)}
+            className={cn("relative inline-flex h-8 w-8 flex-shrink-0 md:hidden", isMobileMenuOpen && navLinkActiveStyles)}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
             <PanelLeft className="h-4 w-4" />
@@ -70,7 +70,7 @@ export function Navbar() {
             size="icon"
             aria-keyshortcuts="[" onClick={toggleSidebar}
             aria-pressed={!sidebarCollapsed}
-            className={cn("relative hidden h-9 w-9 flex-shrink-0 md:inline-flex", !sidebarCollapsed && navLinkActiveStyles)}
+            className={cn("relative hidden h-8 w-8 flex-shrink-0 md:inline-flex", !sidebarCollapsed && navLinkActiveStyles)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <PanelLeft className="h-4 w-4" />
@@ -79,26 +79,20 @@ export function Navbar() {
         )}
 
         {/* Desktop Logo - hidden on mobile */}
-        <div className="hidden md:flex items-center gap-3 min-w-[180px]">
-          <div className="h-12 flex items-center gap-1">
+        <div className="hidden shrink-0 items-center md:flex">
+          <div className="flex h-8 w-32 items-center">
             <Image
               src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
               alt="Altitutor"
               width={160}
               height={36}
               priority
-              className="object-contain"
-              style={{ width: 'auto', height: 'auto' }}
+              className="h-auto w-full object-contain"
             />
           </div>
         </div>
 
-        {/* Search Button - same on desktop and mobile */}
-        {user && (
-          <div className="flex-1 flex justify-center min-w-0">
-            {/* Spacer to center the search button */}
-          </div>
-        )}
+        <div ref={tabsRef} className="h-full min-w-0 flex-1" />
 
         <div className="flex items-center gap-2 flex-shrink-0 justify-end">
 
@@ -108,7 +102,7 @@ export function Navbar() {
               variant="outline"
               size="icon"
               aria-keyshortcuts="Alt+K Meta+K Control+K" onClick={toggleCommandPalette}
-              className="relative h-9 w-9"
+              className="relative h-8 w-8"
               aria-label="Open command palette"
               title="Search (Alt+K / Cmd+K / Ctrl+K)"
             >

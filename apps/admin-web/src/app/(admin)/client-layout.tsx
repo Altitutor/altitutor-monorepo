@@ -518,6 +518,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
   const [activePanePath, setActivePanePath] = useState<string | null>(null);
   const [peerGoHintsActive, setPeerGoHintsActive] = useState(false);
+  const [tabsTarget, setTabsTarget] = useState<HTMLDivElement | null>(null);
   const showBreadcrumbs =
     pathname !== "/messages" &&
     pathname !== "/email" &&
@@ -529,13 +530,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   const wrapWorkspace = (content: React.ReactNode) => embeddedPane
     ? content
-    : <PaneWorkspace onActivePathChange={setActivePanePath} onPeerGoHintsChange={setPeerGoHintsActive}>{content}</PaneWorkspace>;
+    : <PaneWorkspace tabsTarget={tabsTarget} onActivePathChange={setActivePanePath} onPeerGoHintsChange={setPeerGoHintsActive}>{content}</PaneWorkspace>;
 
   return (
     <AdminToolbarViewsProvider>
       <AdminShortcuts peerGoHintsActive={peerGoHintsActive}>
         <ActivePanePath.Provider value={activePanePath}>
-        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar />}
+        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar tabsRef={setTabsTarget} />}
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
         <CommandPaletteModal
           isOpen={isCommandPaletteOpen}

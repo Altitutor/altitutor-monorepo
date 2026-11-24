@@ -1,163 +1,115 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+
+import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Input, Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { toast } from "sonner";
 import { z } from "zod";
-import {
-  Archive,
-  Check,
-  Clock,
-  File,
-  Folder,
-  Inbox,
-  Mail,
-  Send,
-  ShieldAlert,
-  Trash2,
-} from "lucide-react";
-import { Skeleton } from "@altitutor/ui";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder } from "../types";
 import { rememberEmailFolder } from "./EmailActions";
+
 export const emailDragType = "application/x-altitutor-email-message-ids";
-export function MailFolders({
-  folders,
-  loading,
-  selected,
-  onSelect,
-}: {
+const messageIds = z.array(z.string().min(1)).min(1).max(10000);
+const pinnedRoles = ["inbox", "drafts", "sentitems"];
+
+export function mailFolderLabel(folders: EmailFolder[], id?: string) {
+  if (id === "@scheduled") return "Scheduled";
+  if (id === "") return "All mail";
+  const folder = folders.find((item) => item.id === id);
+  return folder?.role === "sentitems" ? "Sent" : folder?.name ?? folders.find((item) => item.role === "inbox")?.name ?? "All mail";
+}
+
+export function MailFolders({ folders, selected, onSelect, dragging = false, onDragComplete }: {
   folders: EmailFolder[];
-  loading: boolean;
   selected?: string;
   onSelect: (id: string) => void;
+  dragging?: boolean;
+  onDragComplete?: () => void;
 }) {
   const command = useEmailCommand();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [over, setOver] = useState<string>();
-  const [moved, setMoved] = useState<string>();
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const pinned = ["inbox", "drafts", "sentitems"].flatMap((role) =>
-    folders.filter((folder) => folder.role === role),
-  );
-  function item(folder: EmailFolder) {
-    const Icon =
-      folder.role === "inbox"
-        ? Inbox
-        : folder.role === "drafts"
-          ? File
-          : folder.role === "sentitems"
-            ? Send
-            : folder.role === "archive"
-              ? Archive
-              : folder.role === "deleteditems"
-                ? Trash2
-                : folder.role === "junkemail"
-                  ? ShieldAlert
-                  : Folder;
-    return (
-      <button
-        key={folder.id}
-        title={folder.name}
-        type="button"
-        aria-current={selected === folder.id ? "page" : undefined}
-        className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-left text-sm transition-colors ${over === folder.id ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : moved === folder.id ? "bg-primary/10 motion-safe:animate-pulse" : selected === folder.id ? "bg-muted" : "hover:bg-muted/50"}`}
-        onClick={() => onSelect(folder.id)}
-        onDragOver={(event) => {
-          if (event.dataTransfer.types.includes(emailDragType)) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            setOver(folder.id);
-          }
-        }}
-        onDragLeave={(event) => {
-          if (
-            !(event.relatedTarget instanceof Node) ||
-            !event.currentTarget.contains(event.relatedTarget)
-          )
-            setOver(undefined);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          setOver(undefined);
-          try {
-            const ids = z
-              .array(z.string().min(1))
-              .min(1)
-              .max(10000)
-              .parse(JSON.parse(event.dataTransfer.getData(emailDragType)));
-            command.mutate(
-              { action: "move", ids, folderId: folder.id },
-              {
-                onSuccess: () => {
-                  rememberEmailFolder(folder.id);
-                  setMoved(folder.id);
-                  clearTimeout(timer.current);
-                  timer.current = setTimeout(() => setMoved(undefined), 900);
-                },
-              },
-            );
-          } catch {
-            /* Foreign drags have no mailbox command. */
-          }
-        }}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="truncate">
-          {folder.role === "sentitems" ? "Sent" : folder.name}
-        </span>
-        {moved === folder.id && (
-          <Check aria-label="Moved" className="ml-auto h-3.5 w-3.5" />
-        )}
-      </button>
-    );
-  }
+  useEffect(() => {
+    if (dragging) setQuery("");
+    else setOver(undefined);
+  }, [dragging]);
+  const items = [
+    ...pinnedRoles.flatMap((role) => folders.filter((folder) => folder.role === role)),
+    { id: "@scheduled" },
+    { id: "" },
+    ...folders
+      .filter((folder) => !pinnedRoles.includes(folder.role ?? ""))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  ].filter(({ id }) => mailFolderLabel(folders, id).toLowerCase().includes(query.trim().toLowerCase()));
+  const label = mailFolderLabel(folders, selected);
+
   return (
-    <aside
-      aria-label="Microsoft email folders"
-      className="flex max-h-28 shrink-0 items-center gap-1 overflow-auto @min-[480px]/email-body:block border-b p-2 @min-[480px]/email-body:max-h-none @min-[480px]/email-body:w-44 @min-[480px]/email-body:border-b-0 @min-[480px]/email-body:border-r @min-[480px]/email-body:p-3"
-    >
-      {loading ? (
-        <div aria-label="Loading folders" className="space-y-2">
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
-          ))}
+    <Popover open={open || dragging} onOpenChange={(next) => {
+      setOpen(next);
+      if (!next) setQuery("");
+    }}>
+      <PopoverTrigger asChild>
+        <button type="button" title={label} className="flex min-w-0 items-center gap-1 text-left hover:text-foreground">
+          <span className="truncate">{label}</span>
+          <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        aria-label="Email folders"
+        className="w-72 space-y-2 p-2"
+        onOpenAutoFocus={(event) => { if (dragging) event.preventDefault(); }}
+        onCloseAutoFocus={(event) => { if (dragging) event.preventDefault(); }}
+      >
+        <Input
+          aria-label="Search folders"
+          placeholder="Search folders…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="max-h-[min(20rem,calc(var(--radix-popover-content-available-height)-4rem))] overflow-y-auto">
+          {items.map(({ id }) => {
+            const canMove = id !== "" && id !== "@scheduled" && id !== selected;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-current={selected === id ? "page" : undefined}
+                className={`block w-full truncate rounded-md px-3 py-2 text-left text-sm hover:bg-muted ${over === id || selected === id ? "bg-muted" : ""}`}
+                onClick={() => { onSelect(id); setOpen(false); setQuery(""); }}
+                onDragOver={(event) => {
+                  if (!canMove || !event.dataTransfer.types.includes(emailDragType)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setOver(id);
+                }}
+                onDragLeave={() => setOver(undefined)}
+                onDrop={(event) => {
+                  if (!canMove || !event.dataTransfer.types.includes(emailDragType)) return;
+                  event.preventDefault();
+                  setOver(undefined);
+                  setOpen(false);
+                  onDragComplete?.();
+                  try {
+                    const ids = messageIds.parse(JSON.parse(event.dataTransfer.getData(emailDragType)));
+                    command.mutate({ action: "move", ids, folderId: id }, {
+                      onSuccess: () => rememberEmailFolder(id),
+                      onError: (error) => toast.error("Could not move email", { description: error.message }),
+                    });
+                  } catch {
+                    // An invalid drag has no mailbox command.
+                  }
+                }}
+              >
+                {mailFolderLabel(folders, id)}
+              </button>
+            );
+          })}
+          {!items.length && <p className="p-2 text-sm text-muted-foreground">No folders found</p>}
         </div>
-      ) : (
-        <>
-          <div className="flex w-max items-center gap-1 @min-[480px]/email-body:w-auto @min-[480px]/email-body:flex-col @min-[480px]/email-body:items-stretch">
-            {pinned.map(item)}
-            <button
-              type="button"
-              aria-current={selected === "@scheduled" ? "page" : undefined}
-              onClick={() => onSelect("@scheduled")}
-              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-sm ${selected === "@scheduled" ? "bg-muted" : "hover:bg-muted/50"}`}
-            >
-              <Clock className="h-4 w-4" />
-              Scheduled
-            </button>
-          </div>
-          <h2 className="mb-2 mt-6 hidden px-3 text-xs font-medium text-muted-foreground @min-[480px]/email-body:block">
-            Folders
-          </h2>
-          <div className="flex w-max items-center gap-1 @min-[480px]/email-body:w-auto @min-[480px]/email-body:flex-col @min-[480px]/email-body:items-stretch">
-            <button
-              type="button"
-              aria-current={selected === "" ? "page" : undefined}
-              onClick={() => onSelect("")}
-              className={`flex w-auto shrink-0 items-center gap-2 rounded-lg @min-[480px]/email-body:w-full px-3 py-2 text-sm ${selected === "" ? "bg-muted" : "hover:bg-muted/50"}`}
-            >
-              <Mail className="h-4 w-4" />
-              All mail
-            </button>
-            {folders
-              .filter((folder) => !pinned.some((pin) => pin.id === folder.id))
-              .map(item)}
-          </div>
-        </>
-      )}
-      {command.error && (
-        <p role="alert" className="p-2 text-xs text-destructive">
-          {command.error.message}
-        </p>
-      )}
-    </aside>
+      </PopoverContent>
+    </Popover>
   );
 }
