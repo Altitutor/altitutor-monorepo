@@ -5,7 +5,7 @@ import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/compone
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
-import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
@@ -171,9 +171,9 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>
-    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto px-4 pb-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
-      <div className={`${adminPageHeaderClass} mb-3 px-0`} data-admin-page-header>
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="parent" entityId={parent.id} />

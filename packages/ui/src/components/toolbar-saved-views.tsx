@@ -103,9 +103,11 @@ export function ToolbarSavedViews({
   defaults,
   onApply,
   renderEditor,
+  hideShortcutHints = false,
 }: {
   views: SavedView[];
   target?: string;
+  hideShortcutHints?: boolean;
   current: DisplaySettings;
   defaults: DisplaySettings;
   onApply: (view: SavedView) => void;
@@ -262,7 +264,7 @@ export function ToolbarSavedViews({
             }}
           >
             {view.name}
-            {hints && index < 9 && <KeyboardShortcut keys={[String(index + 1)]} className="ml-2" />}
+            {!hideShortcutHints && hints && index < 9 && <KeyboardShortcut keys={[String(index + 1)]} className="ml-2" />}
             {ViewBadge && <ViewBadge view={view} />}
           </button>
         ))}

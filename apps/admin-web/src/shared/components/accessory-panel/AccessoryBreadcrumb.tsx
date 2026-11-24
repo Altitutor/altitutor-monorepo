@@ -25,6 +25,7 @@ export function AccessoryBreadcrumb({
   return (
     <nav
       aria-label="Breadcrumb"
+      data-pane-title={label}
       className="flex min-w-0 flex-1 items-center gap-1.5 text-sm"
     >
       <button
@@ -48,11 +49,11 @@ export function AccessoryBreadcrumb({
         </>
       )}
       {onCurrentClick ? (
-        <button type="button" className="truncate text-left font-medium hover:underline" title={label} data-recent-page-title onClick={onCurrentClick}>
+        <button type="button" className="truncate text-left font-medium hover:text-foreground" title={label} onClick={onCurrentClick}>
           {label}
         </button>
       ) : (
-        <span className="truncate font-medium" title={label} data-recent-page-title>
+        <span className="truncate font-medium" title={label}>
           {label}
         </span>
       )}

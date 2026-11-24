@@ -6,7 +6,7 @@ import { recordRecentPage } from './history';
 
 function recentDestination(href: string, content: Element, fallbackTitle: string) {
   const url = new URL(href, window.location.origin);
-  const lastCrumb = content.querySelector('[data-recent-page-title]');
+  const pageTitle = content.querySelector<HTMLElement>('[data-admin-page-header] [data-pane-title]')?.dataset.paneTitle;
   const inlineThread = url.pathname === '/email' ? url.searchParams.get('conversation') : null;
   if (inlineThread) {
     url.pathname = `/email/${encodeURIComponent(inlineThread)}`;
@@ -22,11 +22,11 @@ function recentDestination(href: string, content: Element, fallbackTitle: string
   const view = record || path === '/email' ? null : content.querySelector<HTMLElement>('[data-saved-view-id][aria-pressed="true"]');
   const viewName = view?.dataset.savedViewName;
   const inlineSubject = content.querySelector<HTMLElement>('[data-recent-email-subject]')?.dataset.recentEmailSubject;
-  const title = (inlineThread ? inlineSubject : lastCrumb?.textContent?.trim()) || fallbackTitle;
+  const title = (inlineThread ? inlineSubject : pageTitle?.trim()) || fallbackTitle;
 
   // A record can render asynchronously. Wait for a useful label in its own pane.
   if (inlineThread && !inlineSubject) return null;
-  if (record && (!lastCrumb || title === 'Messages' || title === 'Loading topic…' || /^[\da-f]{8}\.\.\.$/i.test(title))) return null;
+  if (record && ((!pageTitle && !inlineThread) || title === 'Messages' || title === 'Loading topic…' || /^[\da-f]{8}\.\.\.$/i.test(title))) return null;
 
   // Preserve destination and saved-view settings, leaving ad hoc search text out of history.
   url.searchParams.delete('search');
@@ -72,7 +72,7 @@ export function useRecordRecentPage(staffId: string | undefined, activePane: str
 
       record();
       observer = new MutationObserver(record);
-      observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'data-recent-email-subject'] });
+      observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'data-pane-title', 'data-recent-email-subject'] });
     };
 
     observe();

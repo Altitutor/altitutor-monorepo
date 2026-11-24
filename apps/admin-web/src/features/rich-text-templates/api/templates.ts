@@ -17,9 +17,10 @@ export const richTextTemplatesKeys = {
 /**
  * Fetch all rich text templates
  */
-export function useRichTextTemplates() {
+export function useRichTextTemplates(enabled = true) {
   return useQuery({
     queryKey: richTextTemplatesKeys.list(),
+    enabled,
     queryFn: async (): Promise<Tables<'rich_text_templates'>[]> => {
       const supabase = getSupabaseClient();
       const { data, error } = await (supabase as SupabaseClient<Database>)
