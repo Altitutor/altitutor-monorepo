@@ -622,6 +622,7 @@ export function EmailThreadView({
       className="flex h-full min-h-0 flex-col"
       ref={referenceRoot}
       aria-label="Email conversation"
+      data-recent-email-subject={!scope && data ? subject : undefined}
       inert={closingEditors}
       aria-busy={closingEditors}
     >
