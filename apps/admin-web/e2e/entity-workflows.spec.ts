@@ -129,7 +129,8 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   await signIn(page);
   expect((await page.request.get("/api/email")).ok()).toBe(true);
   const db = localDatabase(baseURL);
-  const id = `mail-browser-${randomUUID()}`;
+  const searchId = `mail-browser-${randomUUID()}`;
+  const id = `${searchId}+/=`;
   const occurredAt = new Date().toISOString();
   for (const result of [
     await db.from("email_folders").upsert({
@@ -166,7 +167,7 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   expect(await search.json()).toEqual(
     expect.arrayContaining([expect.objectContaining({ type: "email", id })]),
   );
-  await page.goto(`/email/${id}`);
+  await page.goto(`/email/${encodeURIComponent(id)}`);
   const threadActions = page.getByRole("group", { name: "Conversation actions", exact: true });
   await expect(threadActions.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   await expect(threadActions.getByRole("button", { name: "More", exact: true })).toBeVisible();
@@ -208,7 +209,7 @@ test("mail actions form one segmented pill and retain tooltips", async ({
   const editor = task.locator('[contenteditable="true"]').first();
   await editor.click();
   await editor.press("ControlOrMeta+End");
-  await editor.pressSequentially(` @${id}`);
+  await editor.pressSequentially(` @${searchId}`);
   await task
     .getByRole("button", {
       name: /Segmented mail actions.*family@example.test.*Emails/,

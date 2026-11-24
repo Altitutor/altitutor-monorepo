@@ -11,6 +11,10 @@ beforeAll(() => {
     disconnect() {}
   };
   Element.prototype.scrollIntoView = jest.fn();
+  Object.defineProperties(Range.prototype, {
+    getClientRects: { configurable: true, value: () => [] },
+    getBoundingClientRect: { configurable: true, value: () => new DOMRect() },
+  });
 });
 
 it.each(["page", "dialog"])("opens the floating template picker and inserts the selected template in a %s", async (surface) => {
