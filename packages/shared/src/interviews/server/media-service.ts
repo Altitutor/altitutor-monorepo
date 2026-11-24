@@ -7,7 +7,10 @@ import {
   type InterviewMediaTicket,
   type InterviewMediaRound,
 } from "../media";
-import { DailyInterviewProvider } from "./daily";
+import {
+  DailyProviderError,
+  type DailyInterviewProvider,
+} from "./daily";
 
 export interface InterviewMediaSession {
   id: string;
@@ -225,16 +228,15 @@ export class InterviewMediaService {
     const expiresAt =
       policy.expiresAt ??
       new Date(Date.parse(round.phaseStartedAt) + 4 * 60 * 60 * 1000).toISOString();
-    if (Date.parse(expiresAt) <= this.now()) return empty;
+    // Daily enforces the rounded-down whole-second expiry sent to its API.
+    if (Math.floor(Date.parse(expiresAt) / 1000) <= Math.floor(this.now() / 1000))
+      return empty;
     const session =
       sessions.find((candidate) => candidate.key === sessionKey(policy)) ??
       (await this.createSession(roundId, policy, expiresAt));
-    if (
-      session.closedAt ||
-      !session.url ||
-      Date.parse(session.expiresAt) <= this.now()
-    )
-      return empty;
+    const tokenExpiresAt = Math.floor(Date.parse(session.expiresAt) / 1000);
+    const tokenExpired = () => tokenExpiresAt * 1000 <= this.now();
+    if (session.closedAt || !session.url || tokenExpired()) return empty;
     const beforeMint = await this.store.round(roundId);
     if (resolvePolicy(beforeMint)?.key !== policy.key) {
       await this.closeSession(session);
@@ -245,21 +247,38 @@ export class InterviewMediaService {
         ? { canSend: false, canReceive: true }
         : { canSend: policy.canSend, canReceive: policy.canReceive };
     const accessKey = `${actor.role}:${policy.key}`;
-    const token =
-      knownSessionId === session.id && knownAccessKey === accessKey
-        ? undefined
-        : await this.provider.token(
-            session.roomName,
-            actor.id,
-            (actor.role === "tutor" ? round.tutors : actor.role === "student" ? round.students : [])?.find((person) => person.id === actor.id)?.name ?? actor.name,
-            Math.floor(Date.parse(session.expiresAt) / 1000),
-            permissions,
-          );
+    let token: string | undefined;
+    if (knownSessionId !== session.id || knownAccessKey !== accessKey) {
+      if (tokenExpired()) return { ...empty, serverNow: beforeMint?.serverNow };
+      try {
+        token = await this.provider.token(
+          session.roomName,
+          actor.id,
+          (actor.role === "tutor"
+            ? round.tutors
+            : actor.role === "student"
+              ? round.students
+              : [])?.find((person) => person.id === actor.id)?.name ?? actor.name,
+          tokenExpiresAt,
+          permissions,
+        );
+      } catch (error) {
+        // The provider may receive the request after the phase deadline.
+        if (
+          error instanceof DailyProviderError &&
+          error.status === 400 &&
+          tokenExpired()
+        )
+          return { ...empty, serverNow: beforeMint?.serverNow };
+        throw error;
+      }
+    }
     const current = token ? await this.store.round(roundId) : beforeMint;
     if (resolvePolicy(current)?.key !== policy.key) {
       await this.closeSession(session);
       return { ...empty, serverNow: current?.serverNow };
     }
+    if (tokenExpired()) return { ...empty, serverNow: current?.serverNow };
     return {
       ...empty,
       sessionId: session.id,
