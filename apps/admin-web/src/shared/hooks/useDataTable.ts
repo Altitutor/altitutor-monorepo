@@ -356,7 +356,7 @@ export function useDataTable({
       ? buildTableHref(pathname, new URLSearchParams(searchParams.toString()))
       : '';
   }, [getInitialState, pathname, searchParams, skipUrlSync, state]);
-  const stateWithDestination = useMemo(
+  const stateWithDestination = useMemo<DataTableState & { committedViewHref?: string }>(
     () => committedViewHref === undefined ? state : { ...state, committedViewHref },
     [committedViewHref, state],
   );

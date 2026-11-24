@@ -7,6 +7,7 @@ import { EntityToolbar } from "./entity-toolbar";
 import { KanbanBoard, type KanbanColumnDef } from "./kanban-board";
 
 export interface EntityCollectionProps<TItem> extends EntityListProps<TItem> {
+  committedViewHref?: string;
   keyboardActions?: CollectionKeyboardAction<TItem>[];
   layout?: "list" | "board";
   board?: {
@@ -20,6 +21,7 @@ export interface EntityCollectionProps<TItem> extends EntityListProps<TItem> {
 export function EntityCollection<TItem>({
   layout = "list",
   board,
+  committedViewHref,
   ...props
 }: EntityCollectionProps<TItem>) {
   const [internalCollapsedGroupKeys, setInternalCollapsedGroupKeys] =
@@ -80,6 +82,7 @@ export function EntityCollection<TItem>({
         >
           <EntityToolbar
             viewTarget={props.viewTarget}
+            committedViewHref={committedViewHref}
             statusColumn={props.statusColumn}
             rightPills={props.rightPills}
             filters={filters}

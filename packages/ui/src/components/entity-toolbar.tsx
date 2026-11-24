@@ -26,6 +26,7 @@ type StoredDateRange = {
 
 export function EntityToolbar<TItem>({
   viewTarget,
+  committedViewHref,
   statusColumn,
   rightPills,
   columnDefs = [],
@@ -50,6 +51,7 @@ export function EntityToolbar<TItem>({
   viewContent,
 }: {
   viewTarget?: string;
+  committedViewHref?: string;
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
   columnDefs?: Column[];
@@ -157,6 +159,7 @@ export function EntityToolbar<TItem>({
       viewTarget={viewTarget}
       filterStateAdapter={{ read: toToolbarFilters, write: toStoredFilters }}
       state={{
+        committedViewHref,
         search,
         filters: toolbarFilters,
         sortBy: sortBy === "name" ? null : sortBy,
