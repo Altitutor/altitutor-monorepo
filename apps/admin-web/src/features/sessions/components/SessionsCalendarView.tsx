@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, parse, isValid } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
@@ -26,6 +26,7 @@ type Props = {
   visibleProperties?: string[];
   onRangeChange?: (from:string,to:string) => void;
   onOpenSession?: (id: string) => void;
+  renderSessionActions?: (session: Tables<'sessions'>) => ReactNode;
   initialDate?: string;
   initialViewMode?: 'day' | 'week';
   preview?: {
@@ -42,7 +43,7 @@ function parseDateParam(value?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
-export function SessionsCalendarView({ expandToSessions = true, focusedStudentId, onOpenSession, initialDate, initialViewMode, source, roundEvents: providedRounds, visibleProperties, onRangeChange, preview }: Props) {
+export function SessionsCalendarView({ expandToSessions = true, focusedStudentId, onOpenSession, renderSessionActions, initialDate, initialViewMode, source, roundEvents: providedRounds, visibleProperties, onRangeChange, preview }: Props) {
   const parsedInitialDate = useMemo(() => parseDateParam(initialDate), [initialDate]);
   const [anchor, setAnchor] = useState<Date>(parsedInitialDate ?? new Date());
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
@@ -155,7 +156,7 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Sessions calendar">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Sessions calendar">
       <div className="flex shrink-0 items-center justify-end">
 
 
@@ -170,7 +171,12 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto">
+      <div
+        role="region"
+        aria-label="Sessions calendar grid"
+        tabIndex={0}
+        className="relative min-h-0 min-w-0 flex-1 overflow-auto"
+      >
         <div
           className="grid gap-0 min-h-full relative bg-background"
           style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(${days.length}, minmax(150px, 1fr))` }}
@@ -353,6 +359,7 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
                                   hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
+                                  actions={renderSessionActions?.(s)}
                                   classData={showProperty("class") ? cls : undefined}
                                   subject={showProperty("class") ? subj : undefined}
                                   staff={showProperty("staff") ? sessionStaff : []}
@@ -404,6 +411,7 @@ export function SessionsCalendarView({ expandToSessions = true, focusedStudentId
                                   hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
+                                  actions={renderSessionActions?.(s)}
                                   classData={showProperty("class") ? cls : undefined}
                                   subject={showProperty("class") ? subj : undefined}
                                   staff={showProperty("staff") ? sessionStaff : []}

@@ -144,3 +144,5 @@ export { ActionSearchScope, useMenuEntry as useSearchableAction } from "./compon
 
 export { CollectionField } from "./components/collection-picker-context";
 export * from "./components/interview-rejoin-banner";
+
+export * from './components/notification-tray';

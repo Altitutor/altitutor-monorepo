@@ -218,6 +218,7 @@ export function StudentModalSessionsTable({
                 return (
                   <TableRow
                     key={session.id}
+                    data-shortcut-record
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSessionClick(session.id)}
                   >
@@ -271,7 +272,7 @@ export function StudentModalSessionsTable({
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon" className="shrink-0">
+                          <Button variant="outline" size="icon" className="shrink-0" data-shortcut-menu aria-keyshortcuts="M" aria-label="Session actions">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

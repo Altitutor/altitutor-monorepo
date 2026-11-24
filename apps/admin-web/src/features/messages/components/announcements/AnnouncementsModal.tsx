@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { addDays, format, startOfWeek } from "date-fns";
 import {
   Button,
-  Checkbox,
   SearchableSelect,
   Switch,
   Textarea,
@@ -427,10 +426,6 @@ function BulkMessageWizard({
         }
       : row;
   });
-  const enabledCount = people.filter(
-    (person) =>
-      person.included || (person.kind === "student" && person.parents),
-  ).length;
   const students = people.filter(
     (row): row is Extract<BulkPerson, { kind: "student" }> =>
       row.kind === "student",
@@ -447,6 +442,7 @@ function BulkMessageWizard({
           ? "Delivery progress"
           : `${step === "recipients" ? "Step 1 of 3 · Recipients" : step === "compose" ? "Step 2 of 3 · Compose" : "Step 3 of 3 · Review"}`
       }
+      fillHeight
       contentClassName="md:max-w-4xl"
       footer={
         <div className="flex w-full justify-between">
@@ -467,7 +463,7 @@ function BulkMessageWizard({
                 busy ||
                 prefill.isFetching ||
                 prefill.isError ||
-                !enabledCount ||
+                !people.length ||
                 (step !== "recipients" && (!message.trim() || !effectiveSender))
               }
               onClick={() =>
@@ -606,19 +602,6 @@ function BulkMessageWizard({
                   key={personKey(row)}
                   className="flex items-center gap-2 border-b px-3 py-3 last:border-0"
                 >
-                  <Checkbox
-                    aria-label={`Include ${personName(row.person)}`}
-                    checked={row.included}
-                    onCheckedChange={(checked) =>
-                      setPeople((current) =>
-                        current.map((item) =>
-                          personKey(item) === personKey(row)
-                            ? { ...item, included: checked === true }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
                   <EntityActionChip
                     entityType={row.kind}
                     entityId={row.person.id}
@@ -671,17 +654,6 @@ function BulkMessageWizard({
         {step === "compose" && (
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-3">
-              <SearchableSelect
-                items={senders}
-                value={sender ?? null}
-                onValueChange={(row) => setSenderId(row?.id ?? "")}
-                getItemId={(row) => row.id}
-                getItemLabel={(row) => row.label || row.phone_e164 || "Sender"}
-                placeholder="Select sender"
-              />
-              <MessageTemplatesPicker
-                onSelect={(template) => setMessage(template.content)}
-              />
               <label
                 className="block text-sm font-medium"
                 htmlFor="bulk-message"
@@ -694,10 +666,19 @@ function BulkMessageWizard({
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Use {"{first_name}"}, {"{full_name}"} and {"{sender_name}"}.
-                Student templates also support class and invitation variables.
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <SearchableSelect
+                  items={senders}
+                  value={sender ?? null}
+                  onValueChange={(row) => setSenderId(row?.id ?? "")}
+                  getItemId={(row) => row.id}
+                  getItemLabel={(row) => row.label || row.phone_e164 || "Sender"}
+                  placeholder="Select sender"
+                />
+                <MessageTemplatesPicker
+                  onSelect={(template) => setMessage(template.content)}
+                />
+              </div>
             </div>
             <div className="rounded-lg border bg-muted/30 p-4">
               <p className="mb-4 text-sm font-medium">Message preview</p>
@@ -706,7 +687,7 @@ function BulkMessageWizard({
                   "Your message appears here. Review shows the personalised text for every recipient."}
               </p>
               <p className="mt-3 text-xs text-muted-foreground">
-                {enabledCount} selected people · parents are resolved once at
+                {people.length} selected people · parents are resolved once at
                 review.
               </p>
             </div>

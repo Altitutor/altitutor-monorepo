@@ -76,7 +76,7 @@ export interface DataTableToolbarProps {
   viewContent?: import("./toolbar-filters").ToolbarFilterEditor;
   allowEmptyColumns?: boolean;
   groupByRequired?: boolean;
-  state: DataTableState;
+  state: DataTableState & { committedViewHref?: string };
   onSearchChange: (value: string) => void;
   onFiltersChange: (filters: Record<string, unknown[]>) => void;
   onSortChange: (field: string | null, direction: "asc" | "desc") => void;
@@ -199,8 +199,9 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     searchFromViewGroups,
     columnViewGroups = [],
   } = props;
-  const narrow = !useMediaQuery("(min-width: 768px)", !compactProp);
-  const compact = compactProp || narrow;
+  const widePane = useMediaQuery("(min-width: 768px)", !compactProp);
+  const [narrowToolbar, setNarrowToolbar] = React.useState<boolean>();
+  const compact = compactProp || (narrowToolbar ?? !widePane);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = React.useState(state.search);
@@ -217,6 +218,18 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
 
   const keyboardEnabled = useKeyboardNavigation();
   const toolbarRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const root = toolbarRef.current;
+    if (!root || compactProp || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const width = root.clientWidth;
+      setNarrowToolbar(width > 0 ? width < 768 : undefined);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [compactProp, displayInline]);
   const [filterRequested, setFilterRequested] = React.useState(false);
   React.useEffect(() => {
     if (!keyboardEnabled || displayInline) return;
@@ -801,6 +814,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         <div className="min-w-0 flex-1 overflow-x-auto py-1">
           {!hideViews ? (
             <ToolbarSavedViews
+              hideShortcutHints={compact}
+              committedViewHref={state.committedViewHref}
               views={quickFilters}
               target={viewTarget ?? quickFilters[0]?.target_entity}
               current={currentSettings}

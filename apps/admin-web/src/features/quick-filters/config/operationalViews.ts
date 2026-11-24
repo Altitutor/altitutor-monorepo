@@ -23,7 +23,11 @@ export const operationalViews = {
     filters: { status: ['void'] }, sortBy: 'invoice_date', sortDirection: 'desc',
     groupBy: null, visibleColumns: invoiceColumns,
   }),
-  noPayment: view('students', 'no-payment-method', 'Students without a payment method', {
+  noClasses: view('students', 'no-classes', 'No classes', {
+    layout: 'list', filters: { reconciliation: ['no-classes'] }, sortBy: 'last_name',
+    sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'classes'],
+  }),
+  noPayment: view('students', 'no-payment-method', 'No payment method', {
     layout: 'list', filters: { reconciliation: ['no-payment-method'] }, sortBy: 'last_name',
     sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'status', 'payment_method'],
   }),
@@ -31,10 +35,6 @@ export const operationalViews = {
   noStaff: view('classes', 'no-staff', 'Classes without staff', {
     layout: 'table', filters: { staffing: ['unassigned'] }, sortBy: 'day_of_week',
     sortDirection: 'asc', groupBy: null, visibleColumns: ['day', 'time', 'subject', 'students', 'staff'],
-  }),
-  noClasses: view('students', 'no-classes', 'Students without classes', {
-    layout: 'list', filters: { reconciliation: ['no-classes'] }, sortBy: 'last_name',
-    sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'classes'],
   }),
   unassignedTasks: view('tasks', 'unassigned', 'Unassigned tasks', {
     layout: 'list', filters: { assignee: ['__null__'], status: ['backlog', 'todo', 'in_progress', 'in_review'] },

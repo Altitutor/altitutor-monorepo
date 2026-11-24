@@ -21,7 +21,7 @@ import {
 } from "./model";
 
 type RegisteredAction = Omit<RecordMenuAction, "action"> &
-  Pick<PaletteCommand, "action" | "submenu"> & { ready?: () => boolean };
+  Pick<PaletteCommand, "action" | "submenu" | "keywords"> & { ready?: () => boolean };
 
 type Source = {
   target?: RecordTarget;

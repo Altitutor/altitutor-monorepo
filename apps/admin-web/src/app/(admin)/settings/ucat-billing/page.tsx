@@ -74,7 +74,8 @@ export default function UcatBillingSettingsPage() {
           activeTab === 'offers' ? (
             <AdminPageActionButton
               icon={<Plus className="h-4 w-4" />}
-              label="New Offer"
+              createShortcut
+              label="Create offer"
               onClick={() => setCreateOfferClick((prev) => prev + 1)}
             />
           ) : undefined

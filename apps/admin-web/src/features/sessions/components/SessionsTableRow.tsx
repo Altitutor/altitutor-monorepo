@@ -20,6 +20,8 @@ import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
 import { AttendanceCell } from './AttendanceCell';
+import { StudentCount } from '@/shared/components/StudentCount';
+import { summarizeSessionAttendance } from '../utils/attendanceDerivation';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
@@ -176,7 +178,8 @@ export function SessionsTableRow({
     visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView;
 
   return (
-    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
+    <TableRow data-shortcut-list-item data-record-type="session" data-record-id={session.id}
+      tabIndex={-1} className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
       {visibleColumns.includes('date') && (
         <TableCell>
           <div className="flex items-center gap-2">
@@ -202,37 +205,36 @@ export function SessionsTableRow({
       )}
       {showStaff && (
         <TableCell>
-          {!staffList.length ? (
-            <span className="text-muted-foreground text-sm">-</span>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {staffList.map((s) => {
-                const planned_absence = s.planned_absence === true;
-                const nameClass = planned_absence ? 'text-muted-foreground line-through' : '';
-                return (
-                  <div key={s.id} className="flex items-center gap-2 flex-wrap">
-                    <EntityActionChip
-                      className={nameClass}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenStaff?.(s.id);
-                      }}
-                     entityType="staff" entityId={s.id} label={`${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Staff'} />
-                    {s.actual_attended !== null &&
-                      (s.actual_attended ? (
-                        <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-600 flex-shrink-0" />
-                      ))}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground tabular-nums">{staffList.length} staff</span>
+            {staffList.map((s) => {
+              const planned_absence = s.planned_absence === true;
+              const nameClass = planned_absence ? 'text-muted-foreground line-through' : '';
+              return (
+                <div key={s.id} className="flex items-center gap-2 flex-wrap">
+                  <EntityActionChip
+                    className={nameClass}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenStaff?.(s.id);
+                    }}
+                   entityType="staff" entityId={s.id} label={`${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Staff'} />
+                  {s.actual_attended !== null &&
+                    (s.actual_attended ? (
+                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                    ))}
+                </div>
+              );
+            })}
+          </div>
         </TableCell>
       )}
       {showStudents && (
         <TableCell>
+          <StudentCount count={studentList.length}
+            attendance={summarizeSessionAttendance(studentList, session.end_at ?? session.start_at, hasTutorLog)} />
           {!studentList.length ? (
             <span className="text-muted-foreground text-sm">-</span>
           ) : (
@@ -408,7 +410,6 @@ export function SessionsTableRow({
             modals={modals}
             currentStaff={currentStaff}
             onCopySessionId={onCopySessionId}
-            toast={toast}
           />
         ) : (
           <SessionsTableRowDefaultActions
@@ -438,6 +439,7 @@ export function SessionsTableRow({
 
 // --- Student attendance view: dropdown actions ---
 interface SessionsTableRowStudentActionsProps {
+  compact?: boolean;
   invoiceActions?: React.ReactNode;
   session: Tables<'sessions'>;
   studentList: SessionTableStudent[];
@@ -466,10 +468,10 @@ interface SessionsTableRowStudentActionsProps {
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
-  toast: ReturnType<typeof useToast>['toast'];
 }
 
-function SessionsTableRowStudentActions({
+export function SessionsTableRowStudentActions({
+  compact = false,
   invoiceActions,
   session,
   studentList,
@@ -480,14 +482,14 @@ function SessionsTableRowStudentActions({
   sessionShortName,
   getClassShortDisplayName,
   getShortSessionName,
-  onOpenSession: _onOpenSession,
+  onOpenSession,
   onUndoLogAbsenceStudent,
   onRemoveStudentFromSession,
   modals,
   currentStaff,
   onCopySessionId,
-  toast,
 }: SessionsTableRowStudentActionsProps) {
+  const { toast } = useToast();
   const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
   const plannedStudentIds = new Set(studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id));
   const attendance = selectedStudent
@@ -541,12 +543,24 @@ function SessionsTableRowStudentActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
+        <Button
+          variant={compact ? "ghost" : "outline"}
+          size="icon"
+          className={cn("shrink-0", compact && "h-6 w-6")}
+          data-shortcut-menu aria-keyshortcuts="M" aria-label="Session actions"
+          onClick={(event) => event.stopPropagation()}
+        >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
         {invoiceActions}
+        {compact && onOpenSession && (
+          <DropdownMenuItem onSelect={() => onOpenSession(session.id)}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open session
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={async () => {
             await onCopySessionId(session.id, getClassShortDisplayName(session) || session.id);
@@ -704,7 +718,7 @@ function SessionsTableRowDefaultActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="shrink-0" aria-label="Session actions">
+        <Button variant="outline" size="icon" className="shrink-0" data-shortcut-menu aria-keyshortcuts="M" aria-label="Session actions">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

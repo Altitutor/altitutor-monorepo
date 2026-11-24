@@ -186,6 +186,7 @@ export function ActivityItem({
                     placeholder="Edit note..."
                     disabled={isUpdatingNote}
                     minHeight="80px"
+                    insertTemplates
                   />
                   <div className="flex items-center gap-2">
                     <Button

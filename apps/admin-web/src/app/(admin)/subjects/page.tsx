@@ -37,7 +37,8 @@ export default function SubjectsPage() {
 
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
-          label="Add Subject"
+          createShortcut
+          label="Create subject"
           onClick={() => setIsAddModalOpen(true)}
         />
       </AdminPageActions>

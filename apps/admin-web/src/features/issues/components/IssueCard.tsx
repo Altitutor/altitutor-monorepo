@@ -24,6 +24,8 @@ export const IssueCard = memo(function IssueCard({
   return (
     <div
       data-work-item-card
+      data-record-type="issue"
+      data-record-id={issue.id}
       onClick={() => onOpen?.(issue.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',

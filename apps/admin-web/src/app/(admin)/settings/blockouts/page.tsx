@@ -39,7 +39,8 @@ export default function BlockoutsPage() {
         actions={(
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Add Blockout"
+            createShortcut
+            label="Create blockout"
             onClick={() => setAddButtonClick(prev => prev + 1)}
           />
         )}

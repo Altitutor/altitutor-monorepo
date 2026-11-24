@@ -103,9 +103,13 @@ export function ToolbarSavedViews({
   defaults,
   onApply,
   renderEditor,
+  hideShortcutHints = false,
+  committedViewHref,
 }: {
   views: SavedView[];
   target?: string;
+  hideShortcutHints?: boolean;
+  committedViewHref?: string;
   current: DisplaySettings;
   defaults: DisplaySettings;
   onApply: (view: SavedView) => void;
@@ -224,6 +228,9 @@ export function ToolbarSavedViews({
             aria-keyshortcuts={keyboardEnabled && index < 9 ? String(index + 1) : undefined}
             type="button"
             aria-pressed={active?.id === view.id}
+            data-saved-view-id={view.id}
+            data-saved-view-name={view.name}
+            data-saved-view-href={active?.id === view.id ? committedViewHref : undefined}
             title={
               view.id.startsWith("builtin:")
                 ? "Apply default view"
@@ -260,7 +267,7 @@ export function ToolbarSavedViews({
             }}
           >
             {view.name}
-            {hints && index < 9 && <KeyboardShortcut keys={[String(index + 1)]} className="ml-2" />}
+            {!hideShortcutHints && hints && index < 9 && <KeyboardShortcut keys={[String(index + 1)]} className="ml-2" />}
             {ViewBadge && <ViewBadge view={view} />}
           </button>
         ))}

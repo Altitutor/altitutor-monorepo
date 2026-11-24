@@ -144,3 +144,15 @@ export async function readAdminInterviewMediaRound(roundId: string) {
     },
   };
 }
+
+/** Media participation writes liveness; inspecting the observer projection does not. */
+export async function renewAdminInterviewPresence(
+  access: { actorId: string; admin: ReturnType<typeof getServerSupabaseAdmin> },
+  roundId: string,
+) {
+  const { error } = await access.admin.rpc("interview_command", {
+    p_actor_user_id: access.actorId,
+    p_command: { type: "heartbeat", roundId, commandId: crypto.randomUUID() },
+  });
+  if (error) throw error;
+}

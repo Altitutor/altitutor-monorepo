@@ -8,21 +8,25 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MailPage } from "../MailPage";
-import { AdminPageActionsTarget } from "@/shared/components/AdminPageActions";
+import type { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
+import { useAuthStore } from "@/shared/lib/supabase/auth";
 import type { MailboxData } from "../../types";
 
 jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
   useQuickFilters: () => ({ data: [] }),
 }));
-const mockOpenThread = jest.fn();
+const mockNavigate = jest.fn();
+let mockUserId = 0;
 const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
-  useOpenEmailThread: () => mockOpenThread,
+  useOpenEmailThread: () => jest.fn(),
   useComposeEmail: () => mockComposeEmail,
 }));
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockNavigate }),
   usePathname: () => "/email",
+  useSearchParams: () => new URLSearchParams(),
 }));
 const mailbox: MailboxData = {
   configured: false,
@@ -54,8 +58,18 @@ const mailbox: MailboxData = {
   ],
 };
 const originalFetch = global.fetch;
+beforeEach(() => {
+  global.ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(), disconnect: jest.fn(), unobserve: jest.fn(),
+  }));
+  HTMLElement.prototype.scrollIntoView = jest.fn();
+  sessionStorage.clear();
+  useAuthStore.setState({ user: { id: `mail-ui-admin-${++mockUserId}` } as User });
+});
+
 afterEach(() => {
   global.fetch = originalFetch;
+  useAuthStore.setState({ user: null });
 });
 it("keeps folder navigation visible while another folder is loading", async () => {
   global.fetch = jest.fn(async (input) => {
@@ -76,17 +90,21 @@ it("keeps folder navigation visible while another folder is loading", async () =
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
-  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  fireEvent.click(screen.getByRole("button", { name: "Inbox" }));
+  fireEvent.change(await screen.findByPlaceholderText("Search folders…"), { target: { value: "arch" } });
+  fireEvent.click(screen.getByRole("option", { name: "Archive" }));
   await waitFor(() =>
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("folder=archive"),
       expect.anything(),
     ),
   );
-  expect(screen.getByRole("button", { name: "Inbox" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+  expect(await screen.findByRole("option", { name: "Inbox" })).toBeInTheDocument();
 });
 it("moves a dragged email immediately and restores it if Microsoft rejects the move", async () => {
+  const notify = jest.spyOn(toast, "error");
   let failMove: (response: Response) => void = () => {};
   global.fetch = jest.fn(async (_input, init) =>
     init?.body
@@ -119,7 +137,7 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
     getData: (key: string) => values.get(key) ?? "",
   };
   fireEvent.dragStart(row.parentElement!, { dataTransfer });
-  fireEvent.drop(screen.getByRole("button", { name: "Archive" }), {
+  fireEvent.drop(screen.getByRole("option", { name: "Archive" }), {
     dataTransfer,
   });
   await waitFor(() =>
@@ -134,10 +152,12 @@ it("moves a dragged email immediately and restores it if Microsoft rejects the m
     } as Response),
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
+  expect(notify).toHaveBeenCalledWith("Could not move email", { description: "Move rejected" });
+  notify.mockRestore();
 });
 
 it("opens a conversation when the non-button space inside its highlighted row is clicked", async () => {
-  mockOpenThread.mockClear();
+  mockNavigate.mockClear();
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
@@ -156,7 +176,7 @@ it("opens a conversation when the non-button space inside its highlighted row is
     name: "Open Lesson update",
   });
   fireEvent.click(rowButton.parentElement!);
-  expect(mockOpenThread).toHaveBeenCalledWith("thread-one", "Lesson update");
+  expect(mockNavigate).toHaveBeenCalledWith("/email?folder=inbox&conversation=thread-one", { scroll: false });
 });
 
 it("offers an Undo toast for a successful folder move and executes its server receipt", async () => {
@@ -193,7 +213,7 @@ it("offers an Undo toast for a successful folder move and executes its server re
     getData: (key: string) => values.get(key) ?? "",
   };
   fireEvent.dragStart(row.parentElement!, { dataTransfer });
-  fireEvent.drop(screen.getByRole("button", { name: "Archive" }), {
+  fireEvent.drop(screen.getByRole("option", { name: "Archive" }), {
     dataTransfer,
   });
   await waitFor(() =>
@@ -281,7 +301,7 @@ it("selects Inbox once its first sync discovers folders", async () => {
     </QuickActionsProvider>,
   );
   await screen.findByRole("button", { name: "Open Lesson update" });
-  await screen.findByRole("heading", { name: "All mail" });
+  await screen.findByRole("button", { name: "All mail" });
   discovered = true;
   await act(async () => {
     await client.invalidateQueries({ queryKey: ["email", "mailbox"] });
@@ -294,37 +314,63 @@ it("selects Inbox once its first sync discovers folders", async () => {
   );
 });
 
-it("places filled Compose in the shared primary header and opens the existing compose workflow", async () => {
+it("places filled Create email in the shared primary header and opens the existing compose workflow", async () => {
   mockComposeEmail.mockClear();
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
-  const header = document.createElement("div");
-  document.body.appendChild(header);
+  render(
+    <QuickActionsProvider>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MailPage />
+      </QueryClientProvider>
+    </QuickActionsProvider>,
+  );
+  const compose = await screen.findByRole("button", { name: "Create email" });
+  expect(compose.closest("[data-admin-page-header]")).toHaveTextContent("Email");
+  await waitFor(() => expect(compose).toBeEnabled());
+  fireEvent.click(compose);
+  expect(mockComposeEmail).toHaveBeenCalledTimes(1);
+});
+
+
+it("loads more rows in the same list when its end comes into view", async () => {
+  const originalObserver = global.IntersectionObserver;
+  let intersect: (entries: Array<{ isIntersecting: boolean }>) => void = () => {};
+  const observe = jest.fn();
+  global.IntersectionObserver = jest.fn().mockImplementation((callback: typeof intersect) => {
+    intersect = callback;
+    return { observe, disconnect: jest.fn() };
+  });
+  global.fetch = jest.fn(async (input) => {
+    const query = new URL(String(input), "http://localhost").searchParams;
+    const next = query.get("offset") === "50";
+    return {
+      ok: true,
+      json: async () => ({
+        ...mailbox,
+        hasMore: !next,
+        threads: next
+          ? [{ ...mailbox.threads[0], id: "thread-two", subject: "Older email" }]
+          : mailbox.threads,
+      }),
+    } as Response;
+  });
   try {
     render(
       <QuickActionsProvider>
-        <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <AdminPageActionsTarget.Provider
-          value={{ primary: header, secondary: null }}
-        >
+        <QueryClientProvider client={new QueryClient()}>
           <MailPage />
-        </AdminPageActionsTarget.Provider>
-      </QueryClientProvider>
+        </QueryClientProvider>
       </QuickActionsProvider>,
     );
-    const compose = await screen.findByRole("button", {
-      name: "Compose",
-    });
-    expect(header).toContainElement(compose);
-    await waitFor(() => expect(compose).toBeEnabled());
-    fireEvent.click(compose);
-    expect(mockComposeEmail).toHaveBeenCalledTimes(1);
+    await screen.findByRole("button", { name: "Open Lesson update" });
+    await waitFor(() => expect(observe).toHaveBeenCalled());
+    await act(async () => intersect([{ isIntersecting: true }]));
+    expect(await screen.findByRole("button", { name: "Open Older email" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Lesson update" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next page" })).not.toBeInTheDocument();
   } finally {
-    header.remove();
+    global.IntersectionObserver = originalObserver;
   }
 });

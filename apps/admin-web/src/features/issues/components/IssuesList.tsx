@@ -1,4 +1,5 @@
 "use client";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import type { IssueUpdate } from "../types";
 import { PriorityEntityPill } from "@/shared/components/PriorityEntityPill";
 import { PRIORITY_OPTIONS, getPriorityLabel } from "@/shared/constants";
@@ -59,6 +60,7 @@ export function IssuesList({
 
   const { data: savedViews = [] } = useQuickFilters("issues");
   const {
+    committedViewHref,
     visiblePillKeys,
     setVisiblePillKeys,
     applyQuickFilter,
@@ -335,6 +337,11 @@ export function IssuesList({
     },
     [activeColumnKey],
   );
+  function openIssue(id: string) {
+    setSelectedIssueId(id);
+    setIsEditDialogOpen(true);
+  }
+
   return (
     <>
       <EntityCollection<IssueWithTags>
@@ -344,6 +351,7 @@ export function IssuesList({
           { key: "p", label: "Change priority", options: PRIORITY_OPTIONS, apply: (item, value) => updateIssue.mutateAsync({ id: item.id, updates: { priority: Number(value)  } }) },
         ]}
         viewTarget="issues"
+        committedViewHref={committedViewHref}
         quickFilters={savedViews}
         onApplyQuickFilter={(view) => applyQuickFilter(view, currentStaff?.id)}
         layout={layout}
@@ -354,16 +362,22 @@ export function IssuesList({
               issue={item}
               rightPills={rightPills}
               visiblePillKeys={keys}
-              onOpen={(id) => {
-                setSelectedIssueId(id);
-                setIsEditDialogOpen(true);
-              }}
+              onOpen={openIssue}
             />
           ),
           onAdd: handleBoardAdd,
         }}
         items={issues}
         getItemId={(i) => i.id}
+        renderActions={(item) => (
+          <ActionsMenu
+            type="issue"
+            entityId={item.id}
+            copyTagDisplayText={item.name ?? undefined}
+            onOpenInPage={() => openIssue(item.id)}
+            menuOnly
+          />
+        )}
         renderName={(i) => i.name ?? ""}
         statusColumn={statusColumn}
         rightPills={rightPills}
@@ -404,10 +418,7 @@ export function IssuesList({
           return valueKey === "__null__" ? "No value" : valueKey;
         }}
         onAdd={hideToolbar ? undefined : handleAdd}
-        onRowClick={(i) => {
-          setSelectedIssueId(i.id);
-          setIsEditDialogOpen(true);
-        }}
+        onRowClick={(item) => openIssue(item.id)}
         addButtonLabel="Add issue"
         addButtonVariant="default"
         addButtonShowLabel={true}

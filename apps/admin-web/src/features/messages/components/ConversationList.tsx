@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useMemo, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { AdminPageActionButton } from '@/shared/components/admin-page-action-button';
+import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
 import { useActiveAdminStaff, useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
 import {
-  Button,
   DataTableToolbar,
   useToast,
 } from '@altitutor/ui';
@@ -22,7 +24,6 @@ import { useMessagingListFilters, type MessagingFilterScope } from '../state/mes
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
-import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import { matchesConversationListQuery } from '../utils/conversationListQuery';
 import { CONVERSATION_LIST_COLUMNS, conversationListDefaults, conversationListViews } from '../utils/conversationListViews';
 import type { Database } from '@altitutor/shared';
@@ -38,16 +39,18 @@ interface Props {
   activeSelection?: ConversationSelection | null;
   onSelect: (selection: ConversationSelection) => void;
   filterScope: MessagingFilterScope;
-  /** The messages page puts compose in the breadcrumb header. Other surfaces keep it beside the list. */
-  composePlacement?: 'header' | 'list';
+  /** Omit to keep compose beside the list. */
+  composeTarget?: HTMLDivElement | null;
 }
 
 export function ConversationList({
   activeSelection,
   onSelect,
   filterScope,
-  composePlacement = 'list',
+  composeTarget,
 }: Props) {
+  const hasComposeSpace = usePanelMediaQuery("(min-width: 640px)");
+  const showComposeLabel = composeTarget === undefined || hasComposeSpace;
   const { ownedNumberFilter: selectedOwnedNumberId } = useMessagingListFilters(filterScope);
   const { data: currentStaff } = useCurrentStaff();
   const quickActions = useQuickActions();
@@ -167,19 +170,22 @@ export function ConversationList({
     quickActions.openCreateTaskDialog({ type: 'message', id: messageId, label });
   };
   const composeButton = (
-    <Button data-shortcut-create onClick={() => setIsNewConversationDialogOpen(true)} size="sm" variant="default">
-      <Plus className="mr-2 h-4 w-4" />
-      New conversation
-    </Button>
+    <AdminPageActionButton
+      createShortcut
+      label="Create conversation"
+      icon={<Plus className="size-4" />}
+      onClick={() => setIsNewConversationDialogOpen(true)}
+      compact={!showComposeLabel}
+    />
   );
 
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
-      {composePlacement === 'header' ? <AdminPageActions>{composeButton}</AdminPageActions> : null}
+      {composeTarget && createPortal(composeButton, composeTarget)}
       <div data-pane-toolbar className="flex items-center gap-2 px-3 pt-3">
         <DataTableToolbar
           className="min-w-0 flex-1"
-          compact={composePlacement === 'list'}
+          compact
           viewTarget="messages"
           state={state}
           onSearchChange={setSearch}
@@ -216,7 +222,7 @@ export function ConversationList({
           }))}
           searchPlaceholder="Search conversations"
         />
-        {composePlacement === 'list' ? composeButton : null}
+        {composeTarget === undefined && composeButton}
       </div>
       
       <div className="flex-1 overflow-y-auto divide-y dark:divide-brand-dark-border">
@@ -244,6 +250,7 @@ export function ConversationList({
                   <div
                     role="button"
                     data-shortcut-list-item
+                    data-pane-href={`/messages?group=${encodeURIComponent(aggregated.conversationId)}`}
                     tabIndex={0}
                     className={`w-full p-3 text-left hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                     onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
@@ -302,6 +309,7 @@ export function ConversationList({
                 <div
                   role="button"
                   data-shortcut-list-item
+                  data-pane-href={`/messages?contact=${encodeURIComponent(aggregated.contactId)}`}
                   tabIndex={0}
                   className={`w-full text-left p-3 hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                   onClick={() => onSelect({ kind: 'contact', contactId: aggregated.contactId })}

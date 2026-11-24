@@ -62,7 +62,7 @@ export function CommandPalette({
   onEntitySelected,
   onCreateDocument,
 }: CommandPaletteProps) {
-  const { router } = usePaneNavigation();
+  const { router } = usePaneNavigation(true);
   const commandActions = useCommandPaletteCommandActions(onClose);
   const { commandsWithActions } = useCommandPaletteCommands({ commandActions });
   const recordCommands = useRecordCommands();
@@ -76,7 +76,7 @@ export function CommandPalette({
       : []),
     {
       id: "create-document",
-      title: "Document",
+      title: "Create document",
       icon: FileText,
       keywords: ["new", "create", "note"],
       action: onCreateDocument,

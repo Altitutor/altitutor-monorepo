@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DialogScopeProvider, DialogScopePane, useMediaQuery } from "@altitutor/ui";
+import { DialogScope, DialogScopeProvider, DialogScopePane, useMediaQuery } from "@altitutor/ui";
 import { usePathname, useSearchParams } from "next/navigation";
 import styles from "./accessory-panel.module.css";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
@@ -243,7 +243,9 @@ export function AccessoryPanelLayout({ children }: { children: ReactNode }) {
             className="h-full"
             style={docked ? { width: actualWidth } : undefined}
           >
-            <AccessoryTabs />
+            <DialogScope>
+              <AccessoryTabs />
+            </DialogScope>
           </div>
         </aside>
         {dragging && docked && (

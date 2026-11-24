@@ -1,4 +1,5 @@
 "use client";
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
@@ -92,8 +93,8 @@ export function DocumentDetailView({
         className="h-full min-h-0 flex flex-col overflow-hidden"
         data-rich-text-toolbar-container
       >
-        <div className="shrink-0 border-b bg-background px-4 py-2 flex min-w-0 items-center justify-between gap-2">
-          <AccessoryBreadcrumb ownerIds={[form.watch("project_id")]} />
+        <div className={adminPageHeaderClass} data-admin-page-header>
+          <AccessoryBreadcrumb currentTitle={form.watch("title")} ownerIds={[form.watch("project_id")]} />
           <div className="flex shrink-0 items-center gap-2">
             {
               <>

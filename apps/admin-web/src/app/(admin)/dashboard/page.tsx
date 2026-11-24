@@ -102,7 +102,7 @@ export default function DashboardPage() {
     <div className="space-y-6 p-6">
       <AdminPageActions>
         <Button variant="outline" disabled={!preferences.data} onClick={openCustomization}>
-          <SlidersHorizontal /> Customize dashboard
+          <SlidersHorizontal /> Customize Home
         </Button>
       </AdminPageActions>
       {preferences.isError && <div role="alert" className="flex items-center gap-2 text-sm">

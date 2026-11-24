@@ -84,7 +84,7 @@ it("shows session actions below preview information and runs the requested recor
     expect(
       await screen.findByRole("option", { name: "Open session" }),
     ).toBeVisible();
-    await userEvent.click(screen.getByRole("option", { name: "Log session" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Log session" }));
     expect(
       await screen.findByText("The requested session log opened"),
     ).toBeVisible();
@@ -213,7 +213,7 @@ it.each(["message", "email"] as const)(
         </ToastProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByRole("button", { name: "Add task" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Create task" })).toBeVisible();
     expect(
       screen.getByRole("button", {
         name: type === "email" ? "Reply to email" : "Mark as unread",

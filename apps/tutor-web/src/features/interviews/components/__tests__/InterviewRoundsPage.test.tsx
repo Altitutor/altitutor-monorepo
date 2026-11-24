@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { InterviewRound, TutorInterviewRoundSummary } from "@altitutor/shared";
 import { InterviewRoundsPage } from "../InterviewRoundsPage";
@@ -26,6 +26,63 @@ function listResponse(url: URL) {
   if (url.searchParams.get("collection") === "history") return { rounds: [], nextCursor: null };
   return [summary];
 }
+
+it.each([false, true])("reviews a started round's saved work and respects participant presence (%s)", async (present) => {
+  const started = { ...summary, startedAt: "2026-11-23T09:00:00Z", phase: "feedback" as const };
+  const detail = {
+    ...started, rotation: 0, progress: [], connectedStudentIds: [], connectedTutorIds: present ? ["actor"] : [],
+    phaseStartedAt: null, phaseDeadline: null, pausedAt: null, pausedBy: null,
+    remainingMilliseconds: null, releasedResults: [], recordings: [],
+    stations: [{ id: "station", name: "Communication", maximumPoints: 6, prompt: "Scenario", questions: [{ id: "question", questionId: "question", question: "What would you do?", rubric: "", rubricVersion: 1, tagIds: [] }] }],
+    attempts: [{ id: "attempt", studentId: "student", stationId: "station", version: 9, score: 0, notAssessedReason: null,
+      generalFeedback: "Introduce yourself before answering.", feedback: [{ placementId: "question", value: "Explain your reasoning." }],
+      completed: false, updatedAt: "2026-11-23T09:05:00Z", updatedBy: "actor" }],
+  };
+  detail.releasedResults = [{ studentId: "student", revision: 1, attempts: [{ ...detail.attempts[0], score: 4,
+    generalFeedback: "Previously published advice." }] }] as unknown as typeof detail.releasedResults;
+  let deleted = false;
+  const commands: unknown[] = [];
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), "https://portal.test");
+    let body: unknown;
+    if (url.pathname.endsWith("/commands")) {
+      commands.push(JSON.parse(String(init?.body)) as unknown); deleted = true; body = { id: "round-1", version: 5 };
+    } else if (url.pathname.endsWith("/catalog")) body = { actorId: "actor", interviews: [], students: [], tutors: [] };
+    else if (url.pathname.endsWith("/rounds")) body = url.searchParams.get("collection") === "current"
+      ? { rounds: deleted ? [] : [started], history: [] } : { rounds: [], nextCursor: null };
+    else body = detail;
+    return { ok: true, json: async () => body } as Response;
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const view = render(<QueryClientProvider client={client}><InterviewRoundsPage /></QueryClientProvider>);
+  try {
+    await screen.findByText("Monday circuit");
+    fireEvent.keyDown(screen.getByRole("button", { name: "Row actions" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete round" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(await within(dialog).findByText("Introduce yourself before answering.")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("Explain your reasoning.")).toHaveLength(2);
+    expect(within(dialog).getByText("0 / 6")).toBeInTheDocument();
+    expect(within(dialog).getByText("Previously published advice.")).toBeInTheDocument();
+    expect(within(dialog).getByText("4 / 6")).toBeInTheDocument();
+    // Background list updates re-render table cells. Review state must outlive
+    // those cells, including while a tutor is reading the saved feedback.
+    view.rerender(<QueryClientProvider client={client}><InterviewRoundsPage /></QueryClientProvider>);
+    expect(screen.getByRole("alertdialog")).toBe(dialog);
+    expect(commands).toEqual([]);
+    if (present) {
+      expect(within(dialog).getByRole("status")).toHaveTextContent("Jordan");
+      expect(within(dialog).getByRole("button", { name: "Delete round" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(commands).toEqual([]);
+      return;
+    }
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete round" }));
+    await waitFor(() => expect(screen.queryByText("Monday circuit")).not.toBeInTheDocument());
+    expect(commands).toEqual([expect.objectContaining({ type: "deleteRound", roundId: "round-1", expectedVersion: 4,
+      expectedAttemptVersions: [{ id: "attempt", version: 9 }] })]);
+  } finally { view.unmount(); client.clear(); }
+});
 
 it("keeps the tutor roster searchable and loads full print prompts only after Print is selected", async () => {
   const detailReads = jest.fn().mockResolvedValue({ ...summary, stations: [{ id: "station", prompt: "Private station prompt" }] });

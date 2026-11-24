@@ -1,9 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
-import { Button } from '@altitutor/ui';
-import { cn } from '@/shared/utils';
+import { NotificationRow } from '@altitutor/ui';
 import { formatRelativeDate } from '@/shared/utils/datetime';
 import type { Notification } from '../types';
 
@@ -39,54 +37,14 @@ export function NotificationItem({
   };
 
   return (
-    <div
-      className={cn(
-        'p-4 hover:bg-muted/50 transition-all',
-        unread && 'bg-primary/[0.045]',
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div
-          className="flex-1 cursor-pointer min-w-0"
-          onClick={handleClick}
-        >
-          <div className="flex items-start gap-2">
-            <h4 className={cn('text-sm', unread ? 'font-semibold' : 'font-medium')}>
-              {notification.title}
-            </h4>
-            {unread ? (
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-            ) : null}
-          </div>
-          {notification.body && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-              {notification.body}
-            </p>
-          )}
-          <p className="text-xs text-muted-foreground mt-2">
-            {notification.created_at ? formatRelativeDate(notification.created_at) : 'unknown'}
-          </p>
-        </div>
-        <Button
-          variant={isArmed ? 'destructive' : 'outline'}
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isArmed) {
-              onConfirmDismiss();
-            } else {
-              onArm();
-            }
-          }}
-          className={cn(
-            'h-8 w-8 flex-shrink-0 transition-all duration-200',
-            isArmed && 'scale-110',
-          )}
-          aria-label={isArmed ? 'Confirm dismiss' : 'Dismiss'}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+    <NotificationRow
+      title={notification.title}
+      body={notification.body}
+      timestamp={notification.created_at ? formatRelativeDate(notification.created_at) : 'unknown'}
+      unread={unread}
+      onOpen={handleClick}
+      onDismiss={isArmed ? onConfirmDismiss : onArm}
+      dismissArmed={isArmed}
+    />
   );
 }

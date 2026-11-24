@@ -190,6 +190,7 @@ export function CreateProjectDialog({
                 }
                 getCurrentContent={() => form.getValues("description") ?? null}
                 onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                showInsert={false}
               />
             </DropdownMenuContent>
           </DropdownMenu>

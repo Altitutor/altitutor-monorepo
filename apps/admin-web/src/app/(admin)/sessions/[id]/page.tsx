@@ -1,5 +1,6 @@
 "use client";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
@@ -413,9 +414,9 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden [--detail-page-gutter:1rem]" : "min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]"}>
-      <div className={isEditing ? "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4" : "contents"}>
-      <div className="flex items-center gap-2 mb-3">
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden [--detail-page-gutter:1rem]" : "min-w-0 flex-1 overflow-y-auto px-4 pb-4 [--detail-page-gutter:1rem]"}>
+      <div className={isEditing ? "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" : "contents"}>
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
 
         <IssuePill entityType="session" entityId={id} enabled />

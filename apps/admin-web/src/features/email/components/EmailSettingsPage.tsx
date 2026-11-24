@@ -170,7 +170,8 @@ function EmailSettingsContent({ mailbox }: { mailbox: MailboxData }) {
           tab === "templates" ? (
             <AdminPageActionButton
               icon={<Plus className="h-4 w-4" />}
-              label="New template"
+              createShortcut
+              label="Create template"
               onClick={() => edit()}
             />
           ) : undefined

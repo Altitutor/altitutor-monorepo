@@ -1,3 +1,4 @@
+import { OFFICE_ADDRESS } from "@altitutor/email/company-address";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -11,7 +12,6 @@ import { PageMotion } from "./page-motion";
 import { SectionNavigation } from "./section-navigation";
 import { Navigation } from "./navigation";
 import { SiteLogo } from "./site-logo";
-import { AnnouncementBanner } from "./announcement-banner";
 import styles from "../marketing.module.css";
 import type { PrimaryAction } from "../conversion-actions";
 
@@ -40,7 +40,6 @@ export function SiteFrame({
 }) {
   return (
     <div className={styles.site}>
-      <AnnouncementBanner />
       <Navigation primaryAction={primaryAction} />
       <PageMotion>{children}</PageMotion>
       <SectionNavigation />
@@ -57,9 +56,7 @@ export function SiteFrame({
             </p>
             <div className={styles.footerContact}>
               <address>
-                Level 1, 17A Solomon St
-                <br />
-                Adelaide SA 5000
+                {OFFICE_ADDRESS}
               </address>
               <a href="mailto:admin@altitutor.com">
                 admin@altitutor.com

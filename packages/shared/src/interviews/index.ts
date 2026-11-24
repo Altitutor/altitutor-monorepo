@@ -305,7 +305,7 @@ export type InterviewCommand =
       rounds: { roundId: string; setup: InterviewRoundSetup }[];
     })
   | (RoundCommand & { type: "updateRound"; setup: InterviewRoundSetup })
-  | (RoundCommand & { type: "deleteRound" })
+  | (RoundCommand & { type: "deleteRound"; expectedAttemptVersions?: { id: string; version: number }[] })
   | (RoundCommand & { type: "replaceStudent"; studentId: string; targetStudentId: string })
   | (RoundCommand & { type: "swapStationStudents"; studentId: string; targetStudentId: string; stationId: string })
   | (RoundCommand & {

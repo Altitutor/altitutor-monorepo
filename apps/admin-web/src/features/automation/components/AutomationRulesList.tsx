@@ -76,7 +76,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
             </TableHeader>
             <TableBody>
               {rules.map((rule) => (
-                <TableRow key={rule.id}>
+                <TableRow key={rule.id} data-shortcut-record>
                   <TableCell className="font-medium">{rule.name}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{rule.entity_type}</Badge>
@@ -108,7 +108,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" data-shortcut-menu aria-keyshortcuts="M" aria-label="Rule actions">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

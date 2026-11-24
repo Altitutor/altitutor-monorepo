@@ -48742,6 +48742,16 @@ export type Database = {
       }
       onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
       onboarding_journeys_board: { Args: never; Returns: Json }
+      onboarding_journeys_read: {
+        Args: {
+          p_cohort?: string
+          p_directory?: boolean
+          p_from?: string
+          p_student_id?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       onboarding_journeys_scoped: {
         Args: { p_journey_ids: string[] }
         Returns: Json

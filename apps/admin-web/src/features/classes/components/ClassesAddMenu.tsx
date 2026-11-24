@@ -16,17 +16,18 @@ export function ClassesAddMenu({
   onAddAdminShift: () => void;
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
-          label="Add"
+          createShortcut
+          label="Create"
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onAddClass}>Add class</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAddClass}>Create class</DropdownMenuItem>
         <DropdownMenuItem onSelect={onAddAdminShift}>
-          Add admin shift
+          Create admin shift
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

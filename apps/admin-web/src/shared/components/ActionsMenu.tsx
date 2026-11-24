@@ -34,7 +34,7 @@ import {
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import { usePathname } from 'next/navigation';
-import { RichTextTemplateMenuItems, RichTextTemplateRecordActions } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import { RichTextTemplateMenuItems, RichTextTemplateRecordActions, usesFloatingTemplatePicker } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
 
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
@@ -125,6 +125,7 @@ interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: "parent";
+  students?: ReadonlyArray<{ id: string; name: string }>;
   onEditDetails?: () => void;
   onDelete?: () => void;
   onBookCheckIn?: () => void;
@@ -155,19 +156,19 @@ interface RichTextTemplateConfig {
 
 interface IssueActionsMenuProps extends BaseActionsMenuProps {
   type: "issue";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface TaskActionsMenuProps extends BaseActionsMenuProps {
   type: "task";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface ProjectActionsMenuProps extends BaseActionsMenuProps {
   type: "project";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
@@ -377,7 +378,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
 
   if (props.type === "invoice") {
     return (
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
@@ -519,7 +520,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <TooltipContent>{action.title}</TooltipContent>
             </Tooltip>
           ))}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
@@ -541,7 +542,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
                 .map(renderAction)}
               {"richTextTemplateConfig" in props &&
                 props.richTextTemplateConfig && (
-                  <RichTextTemplateMenuItems {...props.richTextTemplateConfig} />
+                  <RichTextTemplateMenuItems
+                    {...props.richTextTemplateConfig}
+                    showInsert={!usesFloatingTemplatePicker(props.type)}
+                  />
                 )}
               {groups.map((group) => (
                 <DropdownMenuSub key={group}>

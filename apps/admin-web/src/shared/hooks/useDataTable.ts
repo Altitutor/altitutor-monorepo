@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePaneNavigation } from './usePaneNavigation';
 import { DataTableState, QuickFilter, resolveQuickFilterPlaceholders, getViewSettings, readViewSettings, isFilterMetadata } from '@altitutor/shared';
 
@@ -349,8 +349,20 @@ export function useDataTable({
     commitTableUrl(resetState);
   }, [commitTableUrl, defaultFilters, defaultGroupBy, defaultSort.direction, defaultSort.field, defaultVisibleColumns, initialPageSize, skipUrlSync, updateState]);
 
+  const committedViewHref = useMemo(() => {
+    if (skipUrlSync) return undefined;
+    // Empty means the optimistic table state has not reached the pane URL yet.
+    return isEqual(getInitialState(), state)
+      ? buildTableHref(pathname, new URLSearchParams(searchParams.toString()))
+      : '';
+  }, [getInitialState, pathname, searchParams, skipUrlSync, state]);
+  const stateWithDestination = useMemo<DataTableState & { committedViewHref?: string }>(
+    () => committedViewHref === undefined ? state : { ...state, committedViewHref },
+    [committedViewHref, state],
+  );
+
   return {
-    state,
+    state: stateWithDestination,
     setSearch,
     setSort,
     setGroupBy,
