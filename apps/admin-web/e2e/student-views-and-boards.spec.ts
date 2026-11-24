@@ -208,6 +208,8 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   await page.goto('/students?pane=' + encodeURIComponent('/tasks?search=Board%20drag%20check%20002'));
   const students = page.locator('[data-admin-main]');
   const tasks = page.frameLocator('iframe[data-admin-pane-frame]');
+  const board = tasks.getByRole('region', { name: 'Board', exact: true });
+  await expect(board).toBeVisible({ timeout: 30_000 });
   const student = students.getByRole('row').filter({ hasText: 'Alice Williams' });
   const createStudent = students.getByRole('button', { name: 'Create student', exact: true });
 
@@ -218,7 +220,7 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   await page.keyboard.press('c');
   const localDialog = page.locator('[data-dialog-scope-portal]').getByRole('dialog');
   await expect(localDialog).toBeVisible();
-  await expect(tasks.getByRole('region', { name: 'Board', exact: true })).toBeVisible();
+  await expect(board).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(localDialog).toBeHidden();
 
