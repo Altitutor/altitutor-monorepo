@@ -101,7 +101,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
   // Other actions
   {
     id: 'add-task',
-    title: 'Add Task',
+    title: 'Create task',
     description: 'Create a new task',
     icon: CheckSquare,
     keywords: ['task', 'create', 'new', 'todo'],
@@ -109,7 +109,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
   },
   {
     id: 'add-issue',
-    title: 'Add Issue',
+    title: 'Create issue',
     description: 'Create a new issue',
     icon: AlertTriangle,
     keywords: ['issue', 'create', 'new', 'ticket'],
@@ -117,7 +117,7 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
   },
   {
     id: 'add-project',
-    title: 'Add Project',
+    title: 'Create project',
     description: 'Create a new project',
     icon: FolderKanban,
     keywords: ['project', 'create', 'new'],

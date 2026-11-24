@@ -47,11 +47,11 @@ export function InterviewRoundCalendarCard({
         label: "Open interview",
       }}
     >
-      <div className="relative h-full [&>button]:pr-8">
+      <div data-shortcut-record className="relative h-full [&>button]:pr-8">
         <RoundCard name={round.name} onClick={onOpen} />
         <div className="absolute right-1 top-1">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Interview actions"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6" data-shortcut-menu aria-keyshortcuts="M" aria-label="Interview actions"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={onOpen}>Open interview</DropdownMenuItem>
               <DropdownMenuItem asChild><Link href={interviewRoundRoomUrl(round)}>Open interview room</Link></DropdownMenuItem>

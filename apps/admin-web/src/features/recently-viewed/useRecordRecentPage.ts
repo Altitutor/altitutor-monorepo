@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { paneHref } from '@/shared/components/pane-workspace/pane-routing';
 import { recordRecentPage } from './history';
 
@@ -41,7 +42,9 @@ function recentDestination(href: string, content: Element, fallbackTitle: string
   };
 }
 
-export function useRecordRecentPage(staffId: string | undefined, activePane: string, href: string, fallbackTitle: string) {
+export function useRecordRecentPage(activePane: string, href: string, fallbackTitle: string) {
+  const { data: staff } = useCurrentStaff();
+  const staffId = staff?.id;
   const visit = useRef<{ staffId: string; key: string } | null>(null);
 
   useEffect(() => {
@@ -65,7 +68,7 @@ export function useRecordRecentPage(staffId: string | undefined, activePane: str
           : null;
         if (!page || (page.key === previous?.key && page.href === previous.href && page.title === previous.title)) return;
         previous = page;
-        const promote = visit.current?.staffId !== staffId || visit.current.key !== page.key;
+        const promote = visit.current?.staffId !== staffId || visit.current?.key !== page.key;
         recordRecentPage(staffId, page, promote);
         visit.current = { staffId, key: page.key };
       };

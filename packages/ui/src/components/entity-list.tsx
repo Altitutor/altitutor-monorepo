@@ -103,6 +103,7 @@ export interface EntityListProps<TItem> {
   items: TItem[];
   getItemId: (item: TItem) => string;
   renderName: (item: TItem) => React.ReactNode;
+  renderActions?: (item: TItem) => React.ReactNode;
   leftIcons?: EntityListLeftIcon<TItem>[];
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
@@ -223,6 +224,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     items,
     getItemId,
     renderName,
+    renderActions,
     leftIcons = [],
     statusColumn,
     rightPills,
@@ -501,7 +503,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 )}
                 {(!groupBy || !collapsedGroups.has(groupCollapseKey(group.key))) && <div className="space-y-0.5 w-full">
                   {group.items.map((item) => (
-                    <CollectionRecord id={getItemId(item)} key={getItemId(item)}><EntityListRow
+                    <CollectionRecord id={getItemId(item)} key={getItemId(item)} actions={renderActions?.(item)}><EntityListRow
                       item={item}
                       renderName={renderName}
                       leftIcons={leftIcons}

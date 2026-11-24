@@ -219,6 +219,7 @@ export function InvoicesTable() {
                 return (
                   <TableRow
                     key={invoice.id}
+                    data-shortcut-record
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setActiveInvoiceId(invoice.id)}
                   >

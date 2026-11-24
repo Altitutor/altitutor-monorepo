@@ -164,10 +164,9 @@ function paneTitle(href: string) {
 const paneIcons = { issues: AlertTriangle, projects: FolderKanban, documents: FileText, notes: FileText };
 
 export function PaneWorkspace({
-  children, staffId, tabsTarget, onActivePathChange, onPeerGoHintsChange, onPeerPaletteChange,
+  children, tabsTarget, onActivePathChange, onPeerGoHintsChange, onPeerPaletteChange,
 }: {
   children: ReactNode;
-  staffId?: string;
   tabsTarget: HTMLDivElement | null;
   onActivePathChange?: (pathname: string) => void;
   onPeerGoHintsChange?: (visible: boolean) => void;
@@ -212,7 +211,7 @@ export function PaneWorkspace({
   const hrefForPane = (id: string) => id === primary ? mainHref : peers.find((peer) => peer.id === id)?.href ?? mainHref;
   const activeHref = hrefForPane(active);
   const activePath = activeHref.split(/[?#]/)[0];
-  useRecordRecentPage(staffId, active, activeHref, paneTitle(activeHref));
+  useRecordRecentPage(active, activeHref, paneTitle(activeHref));
   useEffect(() => onActivePathChange?.(activePath), [activePath, onActivePathChange]);
   useEffect(() => onPeerGoHintsChange?.(goHintPane === active), [goHintPane, active, onPeerGoHintsChange]);
   useEffect(() => onPeerPaletteChange?.(paletteHint?.id === active ? paletteHint.modifier : null), [paletteHint, active, onPeerPaletteChange]);

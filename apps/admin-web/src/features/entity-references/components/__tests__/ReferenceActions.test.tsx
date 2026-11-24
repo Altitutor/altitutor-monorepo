@@ -213,7 +213,7 @@ it.each(["message", "email"] as const)(
         </ToastProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByRole("button", { name: "Add task" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Create task" })).toBeVisible();
     expect(
       screen.getByRole("button", {
         name: type === "email" ? "Reply to email" : "Mark as unread",

@@ -22,7 +22,14 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
-import { keyboardPane, keyboardBulkOwner, keyboardPointerTarget, isVisibleShortcutTarget } from "@altitutor/ui";
+import {
+  hoveredKeyboardRecord,
+  isVisibleShortcutTarget,
+  keyboardBulkOwner,
+  keyboardPane,
+  keyboardPointerTarget,
+  keyboardRecordFor,
+} from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
   AltHintsContext,
@@ -31,9 +38,30 @@ import {
   type PaletteModifier,
   ShortcutAvailabilityContext,
 } from "./context";
-import { activeDialog, searchControl, searchTrigger } from "./search";
+import { activeDialog, searchControl, searchTrigger, visibleControl } from "./search";
 import { SearchHint } from "./SearchHint";
 import { NewDocumentDialog } from "./NewDocumentDialog";
+
+const workspaceFrame = "iframe[data-admin-pane-frame]";
+
+function pointerDocument() {
+  const workspace = window.frameElement?.matches(workspaceFrame) ? window.parent.document : document;
+  return workspace.querySelector<HTMLIFrameElement>(`${workspaceFrame}:hover`)?.contentDocument ?? workspace;
+}
+
+function hoveredMenuRecord() {
+  const hoveredDocument = pointerDocument();
+  if (hoveredDocument === document) return keyboardPointerTarget();
+  return hoveredKeyboardRecord(hoveredDocument);
+}
+
+function activateShortcutButton(button: HTMLButtonElement) {
+  if (button.getAttribute("aria-haspopup") === "menu") {
+    button.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  } else {
+    button.click();
+  }
+}
 
 export function AdminShortcuts({ children, peerGoHintsActive = false, peerPaletteModifier = null }: {
   children: ReactNode;
@@ -123,7 +151,8 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
         !event.altKey && !event.metaKey && !event.ctrlKey && !event.isComposing;
       const typing = isTypingTarget(event.target);
       const key = event.key.toLowerCase();
-      if (typing || activeDialog()) cancelGo();
+      const currentDialog = activeDialog();
+      if (typing || currentDialog) cancelGo();
       if (
         bare &&
         !goPending.current &&
@@ -145,29 +174,36 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
           return;
         }
       }
-      if (bare && !typing && !activeDialog() && !event.repeat && !goPending.current && !event.shiftKey && ['m','f'].includes(key)) {
-        const target = keyboardPointerTarget() ?? keyboardPane();
-        const selector = key === "m" ? "[data-shortcut-menu]" : "[data-shortcut-filter]";
+      if (bare && !typing && !event.repeat && !goPending.current && !event.shiftKey &&
+        (key === "m" || (key === "f" && !currentDialog))) {
+        const pointer = keyboardPointerTarget();
         const pane = keyboardPane();
         const activePane = document.querySelector("[data-admin-active-pane='true']");
-        const peerDocument = activePane?.querySelector<HTMLIFrameElement>("iframe[data-admin-pane-frame]")?.contentDocument;
-        const menuScope = peerDocument?.querySelector("[data-admin-main]") ?? (activePane && peerDocument ? activePane : pane);
-        const headerControls = key === "m"
-          ? menuScope.querySelectorAll<HTMLButtonElement>(`[data-admin-page-header] ${selector}`)
-          : [];
-        const menu = [
-          ...(peerDocument || target === pane ? [] : target.querySelectorAll<HTMLButtonElement>(selector)),
-          ...headerControls,
-          ...menuScope.querySelectorAll<HTMLButtonElement>(selector),
-        ].find((node) => isVisibleShortcutTarget(node) && !node.disabled);
-        if(menu){
+        const peerPane = activePane
+          ?.querySelector<HTMLIFrameElement>(workspaceFrame)
+          ?.contentDocument?.querySelector("[data-admin-main]");
+        const scope = pointer ? pane : peerPane ?? pane;
+        const selector = key === "m" ? "[data-shortcut-menu]" : "[data-shortcut-filter]";
+        const record = key === "m"
+          ? hoveredMenuRecord() ?? keyboardRecordFor(document.activeElement)
+          : null;
+        if (currentDialog && (
+          pane.matches('[role="menu"]') ||
+          (event.target instanceof Element && event.target.closest('[role="menu"]')) ||
+          !record?.closest('[role="dialog"],[role="alertdialog"]')
+        )) return;
+
+        const menu = record
+          ? visibleControl<HTMLButtonElement>(record, selector)
+          : visibleControl<HTMLButtonElement>(scope, `[data-admin-page-header] ${selector}`)
+            ?? visibleControl<HTMLButtonElement>(scope, selector);
+        if (menu) {
           event.preventDefault();
-          if (menu.getAttribute('aria-haspopup') === 'menu') menu.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
-          else menu.click();
+          activateShortcutButton(menu);
           return;
         }
       }
-      if (bare && !typing && !activeDialog() && !event.repeat) {
+      if (bare && !typing && !currentDialog && !event.repeat) {
         if (goPending.current && key === "shift") return;
         if (goPending.current) {
           const openInNewPane = goPending.current.openInNewPane || event.shiftKey;
@@ -250,17 +286,15 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
                 documents: createDocument,
               }[pathname.split("/")[1]]
             : createNew;
-          const button = [
-            ...pane.querySelectorAll<HTMLButtonElement>(
-              "[data-shortcut-create]",
-            ),
-          ].find(isVisibleShortcutTarget);
-          if (create || button) {
+          const button =
+            visibleControl<HTMLButtonElement>(pointerDocument(), "[data-shortcut-create]:hover")
+            ?? [...pane.querySelectorAll<HTMLButtonElement>("[data-shortcut-create]")].find(isVisibleShortcutTarget);
+          if (button && !button.disabled) {
             event.preventDefault();
-            if (button?.getAttribute("aria-haspopup") === "menu") {
-              button.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-            } else if (button) button.click();
-            else create?.();
+            activateShortcutButton(button);
+          } else if (!button && create) {
+            event.preventDefault();
+            create();
           }
           return;
         }
@@ -278,10 +312,9 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
         palette.toggle();
         return;
       }
-      const dialog = activeDialog();
       // Dialogs own keyboard interaction except focusing their own search field.
       const closesMobileSidebar = id === "left" && mobile.isOpen && keyboardPane().id === "admin-mobile-sidebar";
-      if (dialog && !palette.isOpen && id !== "search" && !closesMobileSidebar) return;
+      if (currentDialog && !palette.isOpen && id !== "search" && !closesMobileSidebar) return;
       if (id === "search") {
         const input = searchControl(panel?.expanded ? panel.activeKey : null);
         if (input) {

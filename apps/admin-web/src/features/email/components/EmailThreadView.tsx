@@ -446,7 +446,7 @@ export function EmailThreadView({
   useRegisterRecordActions("email", threadId, subject, [
     {
       id: "add-task",
-      title: "Add task",
+      title: "Create task",
       icon: CheckSquare,
       primaryOnly: true,
       disabled: !latest,
@@ -461,7 +461,7 @@ export function EmailThreadView({
     },
     {
       id: "add-issue",
-      title: "Add issue",
+      title: "Create issue",
       icon: AlertTriangle,
       primaryOnly: true,
       disabled: !latest,

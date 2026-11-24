@@ -156,19 +156,19 @@ interface RichTextTemplateConfig {
 
 interface IssueActionsMenuProps extends BaseActionsMenuProps {
   type: "issue";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface TaskActionsMenuProps extends BaseActionsMenuProps {
   type: "task";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface ProjectActionsMenuProps extends BaseActionsMenuProps {
   type: "project";
-  onDelete: () => void;
+  onDelete?: () => void;
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
