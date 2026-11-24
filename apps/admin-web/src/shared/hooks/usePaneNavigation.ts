@@ -4,7 +4,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   useAccessoryPanelActions,
   type AccessoryKind,
-  accessoryFamily,
+  accessoryHref,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { ownedPrimaryHref } from "@/shared/utils/primaryOwnership";
@@ -26,7 +26,13 @@ export function accessoryDestination(href: string) {
   const [route, pathId] = url.pathname.split("/").filter(Boolean);
   const destination = ACCESSORY_ROUTES[route] ?? ACCESSORY_ROUTES[`${route}s`];
   if (!destination) return null;
-  const id = pathId ?? (destination.kind === "messages"
+  let decodedId: string | undefined;
+  try {
+    decodedId = pathId === undefined ? undefined : decodeURIComponent(pathId);
+  } catch {
+    return null;
+  }
+  const id = decodedId ?? (destination.kind === "messages"
     ? url.searchParams.get("contact") ?? url.searchParams.get("group") ?? url.searchParams.get("conversation")
     : null);
   if (!id) return null;
@@ -64,7 +70,7 @@ export function usePaneNavigation(globalNavigation = false) {
     return {
       router: { ...router, push: navigate, replace: (href: string, options?: { scroll?: boolean }) => navigate(href, options, true) },
       pathname: scope
-        ? `/${accessoryFamily(scope.tab.kind)}${scope.tab.id && scope.tab.kind !== "messages" ? `/${scope.tab.id}` : ""}`
+        ? accessoryHref({ ...scope.tab, query: "" })
         : pathname,
       searchParams: scope ? new URLSearchParams(scope.tab.query) : searchParams,
     };

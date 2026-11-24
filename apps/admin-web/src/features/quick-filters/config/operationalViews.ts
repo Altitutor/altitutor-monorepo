@@ -23,11 +23,11 @@ export const operationalViews = {
     filters: { status: ['void'] }, sortBy: 'invoice_date', sortDirection: 'desc',
     groupBy: null, visibleColumns: invoiceColumns,
   }),
-  noClasses: view('students', 'no-classes', 'Students without classes', {
+  noClasses: view('students', 'no-classes', 'No classes', {
     layout: 'list', filters: { reconciliation: ['no-classes'] }, sortBy: 'last_name',
     sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'classes'],
   }),
-  noPayment: view('students', 'no-payment-method', 'Students without a payment method', {
+  noPayment: view('students', 'no-payment-method', 'No payment method', {
     layout: 'list', filters: { reconciliation: ['no-payment-method'] }, sortBy: 'last_name',
     sortDirection: 'asc', groupBy: null, visibleColumns: ['student', 'status', 'payment_method'],
   }),

@@ -34,6 +34,8 @@ import { matchShortcut, pageShortcuts } from "./registry";
 import {
   AltHintsContext,
   GoHintsContext,
+  PaletteModifierContext,
+  type PaletteModifier,
   ShortcutAvailabilityContext,
 } from "./context";
 import { activeDialog, searchControl, searchTrigger, visibleControl } from "./search";
@@ -61,7 +63,11 @@ function activateShortcutButton(button: HTMLButtonElement) {
   }
 }
 
-export function AdminShortcuts({ children, peerGoHintsActive = false }: { children: ReactNode; peerGoHintsActive?: boolean }) {
+export function AdminShortcuts({ children, peerGoHintsActive = false, peerPaletteModifier = null }: {
+  children: ReactNode;
+  peerGoHintsActive?: boolean;
+  peerPaletteModifier?: PaletteModifier;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [go, setGo] = useState(false);
@@ -69,6 +75,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
   const goTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [help, setHelp] = useState(false);
   const [held, setHeld] = useState(false);
+  const [paletteModifier, setPaletteModifier] = useState<PaletteModifier>(null);
   const [modified, setModified] = useState(false);
   const [typing, setTyping] = useState(false);
   const [dialogActive, setDialogActive] = useState(false);
@@ -114,11 +121,15 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
     };
     const reset = () => {
       setHeld(false);
+      setPaletteModifier(null);
       setModified(false);
       setTyping(false);
       cancelGo();
     };
     const updateModifiers = (event: KeyboardEvent) => {
+      setPaletteModifier(!event.altKey && !event.shiftKey
+        ? event.metaKey ? "⌘" : event.ctrlKey ? "Ctrl" : null
+        : null);
       setHeld(
         event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey,
       );
@@ -398,6 +409,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
           <GoHintsContext.Provider
             value={(go || peerGoHintsActive) && !typing && !dialogActive}
           >
+            <PaletteModifierContext.Provider value={paletteModifier ?? peerPaletteModifier}>
             <AltHintsContext.Provider value={held}>
               {children}
               <ShortcutHelp open={help} onOpenChange={setHelp} />
@@ -409,6 +421,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false }: { childr
                 onClose={() => setNewDocument(false)}
               />
             </AltHintsContext.Provider>
+            </PaletteModifierContext.Provider>
           </GoHintsContext.Provider>
         </ShortcutAvailabilityContext.Provider>
       </KeyboardHintsContext.Provider>

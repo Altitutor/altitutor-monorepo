@@ -35,7 +35,7 @@ export default function StudentsPage() {
   }, [params, presetOnly, relationship, router]);
   if (presetOnly) return null;
   return (
-    <div className="h-full min-h-0 overflow-hidden">
+    <div className="h-full min-h-0">
       <ListSettingsMenu list="students" />
       <AdminPageActions>
         {relationship === "trial" && (

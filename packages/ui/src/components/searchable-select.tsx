@@ -95,6 +95,10 @@ export interface SearchableSelectProps<T> {
   showChevron?: boolean;
   /** Button variant for the default trigger (default: field) */
   triggerVariant?: 'outline' | 'field';
+  /** Keep focus on the drag source when opening as a drop target. */
+  autoFocus?: boolean;
+  popoverLabel?: string;
+  getItemDragProps?: (item: T) => Pick<React.ComponentProps<typeof CommandItem>, "className" | "onDragOver" | "onDragLeave" | "onDrop">;
   /** Render the portaled menu with the light UCAT editor palette. */
   forceLight?: boolean;
 }
@@ -140,6 +144,9 @@ export function SearchableSelect<T>({
   showChevron = true,
   triggerVariant = 'field',
   forceLight = false,
+  autoFocus = true,
+  popoverLabel,
+  getItemDragProps,
 }: SearchableSelectProps<T>) {
   const collectionPicker = React.useContext(CollectionPickerContext);
   const keyboardEnabled = useKeyboardNavigation();
@@ -309,6 +316,9 @@ export function SearchableSelect<T>({
         )}
         align={align}
         side={side}
+        aria-label={popoverLabel}
+        onOpenAutoFocus={(event) => { if (!autoFocus) event.preventDefault(); }}
+        onCloseAutoFocus={(event) => { if (!autoFocus) event.preventDefault(); }}
         style={{
           ...(contentWidth ? { width: contentWidth } : {}),
           ...(forceLight ? { backgroundColor: '#ffffff', color: '#000000' } : {}),
@@ -368,15 +378,17 @@ export function SearchableSelect<T>({
                         const isSelected = value ? getItemId(value) === id : false;
                         const itemValue = `${id}-${getValue(item)}`;
                         const isDisabled = getItemDisabled?.(item) ?? false;
+                        const dragProps = getItemDragProps?.(item);
 
                         return (
                           <CommandItem
                             key={id}
                             value={itemValue}
+                            {...dragProps}
                             disabled={isDisabled || selecting || collectionPicker?.busy}
                             data-picker-shortcut={shortcutFor(item)}
                             onSelect={() => !isDisabled && handleSelect(item)}
-                            className="flex items-center gap-2"
+                            className={cn("flex items-center gap-2", dragProps?.className)}
                           >
                             {renderItem ? (
                               renderItem(item, isSelected)
@@ -419,15 +431,17 @@ export function SearchableSelect<T>({
                       const isSelected = value ? getItemId(value) === id : false;
                       const itemValue = `${id}-${getValue(item)}`;
                       const isDisabled = getItemDisabled?.(item) ?? false;
+                      const dragProps = getItemDragProps?.(item);
 
                       return (
                         <CommandItem
                           key={id}
                           value={itemValue}
+                          {...dragProps}
                           disabled={isDisabled || selecting || collectionPicker?.busy}
                           data-picker-shortcut={shortcutFor(item)}
                           onSelect={() => !isDisabled && handleSelect(item)}
-                          className="flex items-center gap-2"
+                          className={cn("flex items-center gap-2", dragProps?.className)}
                         >
                           {renderItem ? (
                             renderItem(item, isSelected)

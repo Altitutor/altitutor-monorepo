@@ -1,6 +1,6 @@
 'use client';
 import { DialogScope } from "@altitutor/ui";
-import { GoHintsContext } from "@/shared/shortcuts/context";
+import { GoHintsContext, type PaletteModifier } from "@/shared/shortcuts/context";
 import { GoHint } from "@/shared/shortcuts/GoHint";
 
 import { AdminToolbarViewsProvider } from '@/features/quick-filters/components/ToolbarViewsService';
@@ -40,7 +40,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
-import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { adminSidebarWidth, useAdminShell } from '@/shared/contexts/AdminShellContext';
 import { SettingsNavMenu } from '@/features/settings/SettingsNavMenu';
 import { isSettingsRoute } from '@/features/settings/settings-nav';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
@@ -450,8 +450,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
     <div
       data-admin-sidebar
       className={cn(
-        "hidden md:flex shrink-0 flex-col bg-card h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
-        collapsed ? "w-[70px]" : "w-[250px]",
+        "hidden h-full w-[var(--admin-sidebar-width)] shrink-0 flex-col bg-card md:flex",
         className,
       )}
       {...props}
@@ -627,8 +626,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
   const [activePanePath, setActivePanePath] = useState<string | null>(null);
   const [peerGoHintsActive, setPeerGoHintsActive] = useState(false);
+  const [peerPaletteModifier, setPeerPaletteModifier] = useState<PaletteModifier>(null);
+  const [tabsTarget, setTabsTarget] = useState<HTMLDivElement | null>(null);
   const showBreadcrumbs =
     pathname !== "/messages" &&
+    pathname !== "/email" &&
     !/^\/(tasks|issues|projects|documents|notes|email)\/[^/]+$/.test(pathname) &&
     !/^\/subjects\/[^/]+\/topics\/[^/]+$/.test(pathname) &&
     !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+$/.test(
@@ -637,13 +639,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   const wrapWorkspace = (content: React.ReactNode) => embeddedPane
     ? content
-    : <PaneWorkspace onActivePathChange={setActivePanePath} onPeerGoHintsChange={setPeerGoHintsActive}>{content}</PaneWorkspace>;
+    : <PaneWorkspace tabsTarget={tabsTarget} onActivePathChange={setActivePanePath} onPeerGoHintsChange={setPeerGoHintsActive} onPeerPaletteChange={setPeerPaletteModifier}>{content}</PaneWorkspace>;
 
   return (
     <AdminToolbarViewsProvider>
-      <AdminShortcuts peerGoHintsActive={peerGoHintsActive}>
+      <AdminShortcuts peerGoHintsActive={peerGoHintsActive} peerPaletteModifier={peerPaletteModifier}>
         <ActivePanePath.Provider value={activePanePath}>
-        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar />}
+        <div className="flex h-dvh flex-col overflow-hidden bg-card" style={{ "--admin-sidebar-width": `${collapsed ? adminSidebarWidth.collapsed : adminSidebarWidth.expanded}px` } as React.CSSProperties}>
+        {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar tabsRef={setTabsTarget} />}
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
         <QuickActionsProvider>
           <CommandPaletteModal
@@ -652,9 +655,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           />
           <QuickActionDialogs onlyWhenOpen />
         </QuickActionsProvider>
-        <div data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex overflow-hidden bg-card", embeddedPane
-          ? "h-dvh flex-col"
-          : "mt-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))]")}>
+        <div data-admin-workspace-row data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex min-h-0 flex-1 overflow-hidden", embeddedPane && "flex-col")}>
           {!embeddedPane && <SidebarNav collapsed={collapsed} />}
           {wrapWorkspace(
             <DialogScope>
@@ -692,6 +693,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               </div>
             </DialogScope>
           )}
+        </div>
         </div>
         </ActivePanePath.Provider>
       </AdminShortcuts>

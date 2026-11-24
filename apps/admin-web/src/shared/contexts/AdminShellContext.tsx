@@ -2,9 +2,12 @@
 
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
+export const adminSidebarWidth = { expanded: 250, collapsed: 70 };
+
 type AdminShellContextValue = {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  collapseSidebar: () => void;
   collapsedGroups: string[];
   toggleGroup: (title: string) => void;
 };
@@ -21,6 +24,7 @@ export function AdminShellProvider({ children }: { children: React.ReactNode }) 
       collapsedGroups,
       toggleGroup: (title: string) => setCollapsedGroups(groups => groups.includes(title) ? groups.filter(group => group !== title) : [...groups, title]),
       toggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
+      collapseSidebar: () => setSidebarCollapsed(true),
     }),
     [sidebarCollapsed, collapsedGroups],
   );
@@ -41,6 +45,7 @@ export function useAdminShell() {
       collapsedGroups: [],
       toggleGroup: (_title: string) => {},
       toggleSidebar: () => {},
+      collapseSidebar: () => {},
     };
   }
 

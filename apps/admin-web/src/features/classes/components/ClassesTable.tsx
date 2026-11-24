@@ -480,9 +480,11 @@ export function ClassesTable({
   // Non-virtualized list for stability for now (can re-enable later)
   // parentRef declared above to keep hook order
 
+  const showCalendar = viewMode === "calendar" && renderCalendar;
   return (
-    <div className="space-y-4">
+    <div className={showCalendar ? "flex h-full min-h-0 min-w-0 flex-col gap-4" : "space-y-4"}>
       <DataTableToolbar
+        className={showCalendar ? "shrink-0" : undefined}
         view={toolbarView}
         viewContent={calendarControls}
         state={state}
@@ -503,8 +505,8 @@ export function ClassesTable({
         isLoading={isFetching}
       />
 
-      {viewMode === "calendar" && renderCalendar ? (
-        renderCalendar({
+      {showCalendar ? (
+        showCalendar({
           filters: state.filters,
           search: state.search,
           visibleColumns: state.visibleColumns,
