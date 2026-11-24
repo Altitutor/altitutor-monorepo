@@ -318,6 +318,8 @@ export function MessagesView() {
 
   const showConversation = Boolean(activeSelection) &&
     (Boolean(tabScope) || isDesktopSplitPane || mobileView === "thread");
+  // A linked message needs the final thread width before scrolling to its bubble.
+  const animateConversationListResize = !targetMessageId;
 
   const conversationHeader = (
     <>
@@ -396,6 +398,7 @@ export function MessagesView() {
       <ConversationPanes
         label="Messages conversation"
         threadOnly={Boolean(tabScope)}
+        animateListResize={animateConversationListResize}
         list={
           <ConversationList
             filterScope={tabScope ? `tab:${tabScope.tab.key}` : "page"}

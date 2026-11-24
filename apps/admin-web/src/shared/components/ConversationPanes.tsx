@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePanelMediaQuery } from "@/shared/hooks/usePanelMediaQuery";
+import { cn } from "@/shared/utils";
 
 const minListWidth = 260;
 const minThreadWidth = 360;
 const defaultListWidth = 320;
 
-export function ConversationPanes({ list, thread, label, threadOnly = false }: {
+export function ConversationPanes({ list, thread, label, threadOnly = false, animateListResize = true }: {
   list: ReactNode;
   thread?: ReactNode;
   label: string;
   threadOnly?: boolean;
+  animateListResize?: boolean;
 }) {
   const wide = usePanelMediaQuery("(min-width: 768px)");
   const host = useRef<HTMLDivElement>(null);
@@ -41,7 +43,10 @@ export function ConversationPanes({ list, thread, label, threadOnly = false }: {
         className={
           thread && !split
             ? "hidden"
-            : "flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden motion-safe:transition-[flex-basis] motion-safe:duration-150 data-[resizing]:transition-none"
+            : cn(
+                "flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden",
+                animateListResize && "motion-safe:transition-[flex-basis] motion-safe:duration-150 data-[resizing]:transition-none",
+              )
         }
         style={{ flexBasis: split ? listWidth : "100%" }}
         data-resizing={resizing || undefined}
