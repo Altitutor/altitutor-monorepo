@@ -206,15 +206,17 @@ test('Students and Parents lists scroll through the toolbar and table together',
   await page.setViewportSize({ width: 1280, height: 360 });
   await signIn(page);
   for (const path of ['/parents', '/students?view=list']) {
+    // Park the pointer outside the directory so navigation cannot leave a record preview over the table.
+    await page.mouse.move(1, 1);
     await page.goto(path, { waitUntil: 'domcontentloaded' });
     const toolbar = page.getByRole('button', { name: 'Display options', exact: true });
-    const table = page.getByRole('table').first();
-    await expect(table).toBeVisible();
+    const row = page.getByRole('table').first().locator('tbody tr').first();
+    await expect(row).toBeInViewport();
     await expect(toolbar).toBeVisible();
-    const before = await toolbar.boundingBox();
-    await table.locator('tbody tr').first().hover();
+    await row.hover({ position: { x: 4, y: 8 } });
+    const before = (await toolbar.boundingBox())!.y;
     await page.mouse.wheel(0, 300);
-    await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeLessThan(before!.y);
+    await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeLessThan(before);
   }
 });
 
