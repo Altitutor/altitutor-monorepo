@@ -1,11 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCheck } from 'lucide-react'
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui'
-import { NotificationsButton } from './NotificationsButton'
+import { NotificationTray } from '@altitutor/ui';
 import { NotificationItem } from './NotificationItem'
-import { NotificationsEmptyState } from './NotificationsEmptyState'
 import {
   useNotifications,
   useUnreadCount,
@@ -182,90 +179,51 @@ export function NotificationsTray() {
     }
   }
 
-  const handleTriggerClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    handleOpenChange(!isOpen)
-  }
-
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <NotificationsButton unreadCount={effectiveUnreadCount} onClick={handleTriggerClick} />
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-96 max-w-[calc(100vw-2rem)] p-0 max-h-[80vh] overflow-y-auto !z-[100] bg-popover border shadow-xl"
-        side="bottom"
-        align="end"
-        sideOffset={8}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <h3 className="font-semibold text-sm">Notifications</h3>
-            <p className="text-xs text-muted-foreground">
-              {effectiveUnreadCount > 0 ? `${effectiveUnreadCount} unread` : "You're all caught up"}
-            </p>
-          </div>
-          {effectiveUnreadCount > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              disabled={markAllReadMutation.isPending}
-              onClick={() => markAllReadMutation.mutate({ markAllRead: true })}
-            >
-              <CheckCheck className="h-4 w-4" />
-              Mark all read
-            </Button>
-          ) : null}
-        </div>
-        <div className="divide-y">
-          {isLoading && displayNotifications.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            </div>
-          ) : displayNotifications.length === 0 ? (
-            <NotificationsEmptyState />
-          ) : (
-            displayNotifications.map((notification: Notification) => {
-              const metadata = parseUcatGenerationNotificationMetadata(notification.metadata)
-              const run = metadata?.generationRunId
-                ? runsById.get(metadata.generationRunId) ?? null
-                : null
-              const generationProgress = resolveGenerationNotificationProgress({
-                notificationType: notification.notification_type,
-                metadata: notification.metadata,
-                body: notification.body,
-                run,
-              })
+    <NotificationTray
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      unreadCount={effectiveUnreadCount}
+      isLoading={isLoading}
+      isEmpty={displayNotifications.length === 0}
+      isMarkingAllRead={markAllReadMutation.isPending}
+      onMarkAllRead={() => markAllReadMutation.mutate({ markAllRead: true })}
+    >
+      {displayNotifications.map((notification: Notification) => {
+        const metadata = parseUcatGenerationNotificationMetadata(notification.metadata)
+        const run = metadata?.generationRunId
+          ? runsById.get(metadata.generationRunId) ?? null
+          : null
+        const generationProgress = resolveGenerationNotificationProgress({
+          notificationType: notification.notification_type,
+          metadata: notification.metadata,
+          body: notification.body,
+          run,
+        })
 
-              return (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  isArmed={armedIds.has(notification.id ?? '')}
-                  generationProgress={generationProgress}
-                  onArm={() => notification.id && handleArm(notification.id)}
-                  onConfirmDismiss={() => handleConfirmDismiss(notification)}
-                  onOpen={() => {
-                    handleOpenNotification(notification)
-                    const metadata = parseUcatGenerationNotificationMetadata(notification.metadata)
-                    const isCompletedGeneration = notification.notification_type === 'ucat.ai_generation.completed'
-                      || metadata?.status === 'completed'
-                    if (isCompletedGeneration && metadata?.generationRunId) {
-                      openUcatGenerationReview(metadata.generationRunId, metadata.generatedStemIds)
-                    }
-                    if (notification.action_url) {
-                      setIsOpen(false)
-                    }
-                  }}
-                />
-              )
-            })
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
+        return (
+          <NotificationItem
+            key={notification.id}
+            notification={notification}
+            isArmed={armedIds.has(notification.id ?? '')}
+            generationProgress={generationProgress}
+            onArm={() => notification.id && handleArm(notification.id)}
+            onConfirmDismiss={() => handleConfirmDismiss(notification)}
+            onOpen={() => {
+              handleOpenNotification(notification)
+              const metadata = parseUcatGenerationNotificationMetadata(notification.metadata)
+              const isCompletedGeneration = notification.notification_type === 'ucat.ai_generation.completed'
+                || metadata?.status === 'completed'
+              if (isCompletedGeneration && metadata?.generationRunId) {
+                openUcatGenerationReview(metadata.generationRunId, metadata.generatedStemIds)
+              }
+              if (notification.action_url) {
+                setIsOpen(false)
+              }
+            }}
+          />
+        )
+      })}
+    </NotificationTray>
+  );
 }
