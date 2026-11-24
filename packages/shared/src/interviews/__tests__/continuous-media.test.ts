@@ -320,7 +320,8 @@ it("withholds a token when Daily's whole-second deadline has passed", async () =
   const dailyExpiry = Math.floor(Date.parse(deadline) / 1000);
   const actor = { id: "tutor", name: "Tutor", role: "tutor" } as const;
   f.setRound({ ...base, phaseDeadline: deadline });
-  await f.service.ticket("round", actor);
+  const liveTicket = await f.service.ticket("round", actor);
+  expect(liveTicket.expiresAt).toBe(new Date(dailyExpiry * 1000).toISOString());
   f.token.mockClear();
   f.setNow(dailyExpiry * 1000 + 500);
   f.token.mockRejectedValueOnce(new DailyProviderError(400));

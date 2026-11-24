@@ -65,6 +65,11 @@ function sessionKey(policy: CallPolicy) {
   return `${policy.scope === "waiting" ? "waiting-v1" : "phase-v2"}:${policy.key}`;
 }
 
+/** Daily enforces its room and token deadlines in whole epoch seconds. */
+function dailyExpirySeconds(expiresAt: string): number {
+  return Math.floor(Date.parse(expiresAt) / 1000);
+}
+
 export class InterviewMediaService {
   constructor(
     private readonly store: InterviewMediaStore,
@@ -228,13 +233,11 @@ export class InterviewMediaService {
     const expiresAt =
       policy.expiresAt ??
       new Date(Date.parse(round.phaseStartedAt) + 4 * 60 * 60 * 1000).toISOString();
-    // Daily enforces the rounded-down whole-second expiry sent to its API.
-    if (Math.floor(Date.parse(expiresAt) / 1000) <= Math.floor(this.now() / 1000))
-      return empty;
+    if (dailyExpirySeconds(expiresAt) * 1000 <= this.now()) return empty;
     const session =
       sessions.find((candidate) => candidate.key === sessionKey(policy)) ??
       (await this.createSession(roundId, policy, expiresAt));
-    const tokenExpiresAt = Math.floor(Date.parse(session.expiresAt) / 1000);
+    const tokenExpiresAt = dailyExpirySeconds(session.expiresAt);
     const tokenExpired = () => tokenExpiresAt * 1000 <= this.now();
     if (session.closedAt || !session.url || tokenExpired()) return empty;
     const beforeMint = await this.store.round(roundId);
@@ -263,7 +266,7 @@ export class InterviewMediaService {
           permissions,
         );
       } catch (error) {
-        // The provider may receive the request after the phase deadline.
+        // Once the cutoff passes, the room is unusable even if the 400 arrived for another reason.
         if (
           error instanceof DailyProviderError &&
           error.status === 400 &&
@@ -285,7 +288,7 @@ export class InterviewMediaService {
       accessKey,
       url: session.url,
       token,
-      expiresAt: session.expiresAt,
+      expiresAt: new Date(tokenExpiresAt * 1000).toISOString(),
       ...permissions,
       attemptId: policy.scope === "station" ? policy.attemptId : undefined,
       recordingEnabled: policy.recordingEnabled,
@@ -304,7 +307,7 @@ export class InterviewMediaService {
     const roomName = `mmi-${id}`;
     const url = await this.provider.createRoom(
       roomName,
-      Math.floor(Date.parse(expiresAt) / 1000),
+      dailyExpirySeconds(expiresAt),
       policy.scope === "waiting" ? 200 : 8,
     );
     const session = await this.store.ensureSession({
