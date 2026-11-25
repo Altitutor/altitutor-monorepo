@@ -5,7 +5,7 @@ import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
-import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
+import { useWorkItemDetail } from "@/features/work-item-editing/useWorkItemDetail";
 import {
   EditorCloseConfirmDialog,
   EditorControls,
@@ -93,8 +93,7 @@ export function ProjectDetailView({
   variant,
 }: ProjectDetailViewProps) {
   const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
-  const { data: project, isLoading } = useProject(projectId, enabled);
-  useAccessoryTitle(project?.name);
+  const detail = useProject(projectId, enabled);
   const [section, setSection] = useState<ProjectSection>("overview");
   const [documentSearch, setDocumentSearch] = useState("");
   const [documentOrder, setDocumentOrder] = useState(defaultDocumentOrder);
@@ -146,7 +145,9 @@ export function ProjectDetailView({
     },
   });
 
-  const editor = useWorkItemEditor({
+  const { editor, record: project, isLoading, title } = useWorkItemDetail({
+    detail,
+    title: form.watch("name"),
     kind: "project",
     id: projectId,
     enabled,
@@ -155,6 +156,8 @@ export function ProjectDetailView({
     toRecord: projectToRecord,
     onClose,
   });
+
+  useAccessoryTitle(title || project?.name);
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();
@@ -239,7 +242,7 @@ export function ProjectDetailView({
       <div className="h-full min-h-0 flex flex-col overflow-hidden">
         <div className={adminPageHeaderClass} data-admin-page-header>
           <div className="flex min-w-0 items-center justify-between gap-2 w-full">
-            <AccessoryBreadcrumb currentTitle={form.watch("name") || project?.name} />
+            <AccessoryBreadcrumb currentTitle={title || project?.name} />
 
             <div className="flex shrink-0 items-center gap-2">
               {
@@ -250,7 +253,7 @@ export function ProjectDetailView({
                     type="project"
                     entityId={projectId}
                     copyTagDisplayText={
-                      form.watch("name") || project?.name || "Untitled project"
+                      title || project?.name || "Untitled project"
                     }
                     onDelete={() => {
                       if (editor.editable) setIsDeleteDialogOpen(true);
@@ -273,7 +276,7 @@ export function ProjectDetailView({
 
         <EditorNotices editor={editor} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          {isLoading || !editor.session ? (
+          {isLoading ? (
             <div className="p-6">Loading project data...</div>
           ) : !project ? (
             <div className="p-6">Project not found</div>
