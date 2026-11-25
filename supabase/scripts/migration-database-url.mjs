@@ -18,6 +18,8 @@ export function buildMigrationDatabaseUrl(poolerUrl) {
   // session mode, which is required for connection-level migration settings.
   url.port = "5432";
   url.searchParams.set("options", MIGRATION_OPTIONS);
+  // libpq's URI parser requires percent-encoded spaces.
+  url.search = url.searchParams.toString().replaceAll("+", "%20");
 
   return url.toString();
 }

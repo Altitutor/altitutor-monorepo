@@ -13,6 +13,10 @@ test("builds a passwordless session-pooler URL with bounded migration timeouts",
   assert.equal(url.username, "postgres.example");
   assert.equal(url.password, "");
   assert.equal(url.port, "5432");
+  assert.match(
+    result,
+    /options=-c%20statement_timeout%3D30min%20-c%20lock_timeout%3D30s$/,
+  );
   assert.equal(
     url.searchParams.get("options"),
     "-c statement_timeout=30min -c lock_timeout=30s",
