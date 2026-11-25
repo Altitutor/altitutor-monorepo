@@ -167,6 +167,7 @@ jobs:
           # Use the linked session-pooler URL so large, bounded migrations can
           # override that default without changing database-wide settings.
           migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" bash supabase/scripts/recover-interview-receipt-backfill.sh "$migration_db_url"
           PGPASSWORD="$SUPABASE_DB_PASSWORD" supabase db push --db-url "$migration_db_url" --include-all
 
       - name: Verify hosted Storage accepts interview video recordings
