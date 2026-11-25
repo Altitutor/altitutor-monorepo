@@ -5,7 +5,7 @@ import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
-import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
+import { useTaskDetailEditor } from "@/features/work-item-editing/useTaskDetailEditor";
 import {
   EditorCloseConfirmDialog,
   EditorControls,
@@ -13,12 +13,7 @@ import {
   EditorNotices,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
-import {
-  taskFromRecord,
-  taskToRecord,
-} from "@/features/work-item-editing/fields";
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,7 +30,6 @@ import {
   Form,
 } from "@altitutor/ui";
 import { Loader2 } from "lucide-react";
-import { useTask } from "../api/queries";
 import type { Tables } from "@altitutor/shared";
 import type { TaskFormData, TaskStatus } from "../types";
 import { useNotes } from "@/shared/hooks/useNotes";
@@ -107,19 +101,6 @@ export function TaskDetailView({
   variant,
 }: TaskDetailViewProps) {
   const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
-  const { data: task, isLoading } = useTask(taskId, enabled);
-  useAccessoryTitle(task?.title);
-  const [selectedAssignee, setSelectedAssignee] =
-    useState<Tables<"staff"> | null>(null);
-  const [selectedIssue, setSelectedIssue] = useState<{
-    id: string;
-    name: string | null;
-  } | null>(issue ?? null);
-  const [selectedProject, setSelectedProject] = useState<{
-    id: string;
-    name: string | null;
-  } | null>(project ?? null);
-  const lastResetTaskIdRef = useRef<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
@@ -147,59 +128,13 @@ export function TaskDetailView({
     },
   });
 
-  const editor = useWorkItemEditor({
-    kind: "task",
-    id: taskId,
-    enabled,
-    form,
-    fromRecord: taskFromRecord,
-    toRecord: taskToRecord,
-    onClose,
-  });
+  const {
+    editor, record: task, isLoading, title,
+    selectedAssignee, selectedIssue, selectedProject,
+    setSelectedAssignee, setSelectedIssue, setSelectedProject,
+  } = useTaskDetailEditor({ id: taskId, enabled, form, onClose, issue, project });
 
-  useEffect(() => {
-    if (
-      task &&
-      enabled &&
-      !isLoading &&
-      task.id !== lastResetTaskIdRef.current
-    ) {
-      if (task.assignee) {
-        setSelectedAssignee({
-          id: task.assignee.id,
-          first_name: task.assignee.first_name,
-          last_name: task.assignee.last_name,
-        } as Tables<"staff">);
-      } else {
-        setSelectedAssignee(null);
-      }
-
-      setSelectedIssue(
-        task.issue
-          ? { id: task.issue.id, name: task.issue.name }
-          : issue?.id
-            ? { id: issue.id, name: issue.name }
-            : null,
-      );
-      setSelectedProject(
-        task.project
-          ? { id: task.project.id, name: task.project.name }
-          : project?.id
-            ? { id: project.id, name: project.name }
-            : null,
-      );
-      lastResetTaskIdRef.current = task.id;
-    }
-  }, [task, enabled, isLoading, form, issue, project]);
-
-  useEffect(() => {
-    if (!enabled) {
-      lastResetTaskIdRef.current = null;
-      setSelectedAssignee(null);
-      setSelectedIssue(issue ?? null);
-      setSelectedProject(project ?? null);
-    }
-  }, [enabled, issue, project]);
+  useAccessoryTitle(title || task?.title);
 
   const handleDelete = async () => {
     try {
@@ -216,7 +151,7 @@ export function TaskDetailView({
         <div className={adminPageHeaderClass} data-admin-page-header>
           <div className="flex min-w-0 items-center justify-between gap-2 w-full">
             <AccessoryBreadcrumb
-              currentTitle={form.watch("title") || task?.title}
+              currentTitle={title || task?.title}
               ownerIds={[task?.project_id, task?.issue_id]}
             />
 
@@ -229,7 +164,7 @@ export function TaskDetailView({
                     type="task"
                     entityId={taskId}
                     copyTagDisplayText={
-                      form.watch("title") || task?.title || "Untitled task"
+                      title || task?.title || "Untitled task"
                     }
                     onDelete={() => {
                       if (editor.editable) setIsDeleteDialogOpen(true);
@@ -252,7 +187,7 @@ export function TaskDetailView({
 
         <EditorNotices editor={editor} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          {isLoading || !editor.session ? (
+          {isLoading ? (
             <div className="p-6">Loading task data...</div>
           ) : !task ? (
             <div className="p-6">Task not found</div>

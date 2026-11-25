@@ -91,6 +91,7 @@ export function useWorkItemEditor<T extends FieldValues>({
 }) {
   const accessoryTab = useAccessoryTab();
   const cache = useQueryClient();
+  const [identity, setIdentity] = useState({ kind, id });
   const [session, setSession] = useState<WorkItemSnapshot | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -353,6 +354,7 @@ export function useWorkItemEditor<T extends FieldValues>({
   useEffect(() => {
     const s = newState();
     state.current = s;
+    setIdentity({ kind, id });
     setSession(null);
     setUnavailable(false);
     setDirty(false);
@@ -623,10 +625,11 @@ export function useWorkItemEditor<T extends FieldValues>({
     }
   };
 
+  const current = enabled && identity.kind === kind && identity.id === id;
   return {
-    session,
-    editable: !!session && !deleting && !unavailable,
-    unavailable,
+    session: current ? session : null,
+    editable: current && !!session && !deleting && !unavailable,
+    unavailable: current && unavailable,
     dirty,
     saving,
     deleting,
