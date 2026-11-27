@@ -90,6 +90,7 @@ it('enriches conversation-id messages with their sender for system attribution',
   const items = result.current.data?.pages[0].items ?? [];
   expect(items.map((message) => message.id)).toEqual(['scheduled', 'message']);
   expect(messageQuery.is).toHaveBeenCalledWith('scheduled_at', null);
+  expect(messageQuery.neq).toHaveBeenCalledWith('status', 'CANCELED');
   expect(scheduledQuery.eq).toHaveBeenCalledWith('status', 'SCHEDULED');
   const message = items[1];
   expect(message?.sender?.provider).toBe('IMESSAGE');

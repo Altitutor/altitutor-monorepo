@@ -652,9 +652,10 @@ export function MessageThread({
   // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
-    const items = data.pages.flatMap((p) => p.items).sort(
-      (a, b) => (messageTimelineAt(b) ?? '').localeCompare(messageTimelineAt(a) ?? ''),
-    );
+    const items = data.pages
+      .flatMap((page) => page.items)
+      .filter((message) => message.status !== 'CANCELED')
+      .sort((a, b) => (messageTimelineAt(b) ?? '').localeCompare(messageTimelineAt(a) ?? ''));
     const reactionsByTarget = buildReactionsByTargetGuid(items);
     const attachedReactionIds = collectAttachedReactionIds(
       items,

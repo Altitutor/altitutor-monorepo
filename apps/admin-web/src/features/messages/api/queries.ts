@@ -336,6 +336,7 @@ async function fetchThreadMessagePage(
       .select(threadMessageFields)
       .in('conversation_id', conversationIds)
       .not(column, 'is', null)
+      .neq('status', 'CANCELED')
       .order(column, { ascending: false })
       .order('id', { ascending: false })
       .limit(PAGE_SIZE);
