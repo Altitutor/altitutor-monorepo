@@ -302,13 +302,37 @@ it("shows and filters interviews in both session layouts and opens an admin roun
   await userEvent.click(
     screen.getByRole("button", { name: "Display options" }),
   );
+  const sessionTypes = within(screen.getByRole("group", { name: "Session type" }));
+  const calendar = within(screen.getByLabelText("Sessions calendar"));
+  const interviewRound = () =>
+    calendar.queryByRole("button", { name: "Interview round Evening MMI" });
+
+  expect(sessionTypes.getByRole("button", { name: "Homework Help", pressed: true })).toBeVisible();
+  await userEvent.click(sessionTypes.getByRole("button", { name: "Interview round", pressed: true }));
+  expect(interviewRound()).not.toBeInTheDocument();
+  await userEvent.click(sessionTypes.getByRole("button", { name: "Interview round", pressed: false }));
+  expect(interviewRound()).toBeVisible();
+
   await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Session Type" }));
-  await userEvent.click(
-    await screen.findByRole("option", { name: "Interview" }),
-  );
+  expect(screen.queryByRole("menuitem", { name: /session type/i })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("menuitem", { name: "Subject" }));
+  await userEvent.click(await screen.findByRole("option", { name: "Biology" }));
   await userEvent.keyboard("{Escape}");
-  expect(screen.queryByText("Biology")).not.toBeInTheDocument();
+  if (!screen.queryByRole("group", { name: "Session type" })) {
+    await userEvent.click(screen.getByRole("button", { name: "Display options" }));
+  }
+  await userEvent.click(sessionTypes.getByRole("button", { name: "Class", pressed: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+  expect(calendar.queryByText("Biology")).not.toBeInTheDocument();
+  expect(interviewRound()).toBeVisible();
+
+  for (const pill of sessionTypes.getAllByRole("button", { pressed: true })) {
+    await userEvent.click(pill);
+  }
+  expect(interviewRound()).not.toBeInTheDocument();
+  expect(calendar.queryByText("Office shift")).not.toBeInTheDocument();
+  await userEvent.click(sessionTypes.getByRole("button", { name: "Interview round", pressed: false }));
+  expect(interviewRound()).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Table" }));
   await userEvent.click(
     await screen.findByRole("button", { name: "View interview" }),

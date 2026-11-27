@@ -167,7 +167,7 @@ export function useSessionsTable({
     ascending: sortDirection === 'asc',
     matchingIds: queueIds,
     loggedOnly: showLogged && !showUnlogged,
-    exhaustPages: typeFilters.includes('ADMIN_MEETING'),
+    exhaustPages: filters.type__operator?.[0] !== 'none' && typeFilters.includes('ADMIN_MEETING'),
   }, { enabled: (!queueActive || !!queueIds) && !(effectiveRangeStart && effectiveRangeEnd && effectiveRangeStart > effectiveRangeEnd) });
   const retry = useCallback(async () => {
     if (queueActive && !queueIds) return retryQueue();
