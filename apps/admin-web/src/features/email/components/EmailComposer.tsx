@@ -75,6 +75,8 @@ export type RegisterDraftClose = (
   id: string,
   prepare: () => Promise<boolean>,
 ) => () => void;
+export type EmailDraftCloseOutcome = "kept" | "removed";
+
 export function EmailComposer({
   draft,
   mailbox,
@@ -95,7 +97,7 @@ export function EmailComposer({
   dialogTitle?: string;
   signature?: string;
   initialContent?: { subject: string; bodyText: string; to: string[] };
-  onClose: () => void;
+  onClose: (outcome: EmailDraftCloseOutcome) => void;
   onSubjectChange?: (subject: string) => void;
   draftReady?: Promise<{ message?: EmailMessage }>;
   prepareDraft?: () => Promise<{ message?: EmailMessage }>;
@@ -118,7 +120,7 @@ export function EmailComposer({
   const [preparing, setPreparing] = useState(Boolean(draftReady));
   const [creationError, setCreationError] = useState("");
   const scope = useAccessoryTab();
-  const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
+  const [pendingClose, setPendingClose] = useState<((outcome: EmailDraftCloseOutcome) => void) | null>(null);
   const [saveRevision, setSaveRevision] = useState(0);
   const [message, setMessage] = useState(draft);
   const [content, setContent] = useState<Content>(() => ({
@@ -590,7 +592,7 @@ export function EmailComposer({
           /* Optional recovery store. */
         }
         setDirty(false);
-        onClose();
+        onClose("removed");
       } else if (result.state === "failed") {
         setBlocked(false);
         setStatus(
@@ -1006,7 +1008,7 @@ export function EmailComposer({
     if (creationError || (prepareDraft && !deferredDraft.current)) {
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("removed");
       return;
     }
     try {
@@ -1023,7 +1025,7 @@ export function EmailComposer({
       }
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("removed");
     } catch {
       setStatus("Could not delete draft; it remains here.");
     }
@@ -1039,7 +1041,7 @@ export function EmailComposer({
         });
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("kept");
     } catch {
       setStatus("Could not close the shared editor; please retry.");
     }

@@ -285,15 +285,19 @@ function existingThread(
     </QuickActionsProvider>,
   );
 }
-it("opens existing drafts as editable cards without an Edit step", async () => {
-  existingThread([originalMessage, existingDraft]);
-  expect(
-    await screen.findByRole("textbox", { name: "Email subject" }),
-  ).toHaveValue("Re: Lesson");
-  expect(
-    screen.queryByRole("button", { name: /^Edit$/ }),
-  ).not.toBeInTheDocument();
-});
+it.each([undefined, "reply", "replyAll"])(
+  "opens a saved reply draft (mode %s) inline without an Edit step",
+  async (draftMode) => {
+    existingThread([originalMessage, { ...existingDraft, draftMode }]);
+    expect(
+      await screen.findByRole("textbox", { name: "Email subject" }),
+    ).toHaveValue("Re: Lesson");
+    expect(
+      screen.queryByRole("button", { name: /^Edit$/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  },
+);
 it("does not render a deleted draft that remains in cached conversation history", async () => {
   existingThread([
     originalMessage,
@@ -394,6 +398,43 @@ it("scrolls and focuses the specific draft selected in the folder", async () => 
   await waitFor(() => expect(subject).toHaveFocus());
   expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
 });
+it.each([
+  ["new", "New email", "An unfinished new email"],
+  ["forward", "Forward email", "Fwd: Lesson"],
+])("resumes a saved %s draft selected from the folder in a dialog", async (draftMode, dialogTitle, subject) => {
+  localStorage.clear();
+  existingThread(
+    [originalMessage, { ...existingDraft, draftMode, subject }],
+    <AccessoryPanelProvider>
+      <DraftWorkspace />
+    </AccessoryPanelProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open selected draft" }));
+  const dialog = await screen.findByRole("dialog", { name: dialogTitle });
+  expect(within(dialog).getByRole("textbox", { name: "Email subject" })).toHaveValue(subject);
+  expect(within(dialog).getByRole("textbox", { name: "Email body" })).toHaveTextContent("Work already written");
+  expect(global.fetch).not.toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ body: expect.stringContaining('"action":"draft"') }),
+  );
+});
+
+it("lets the user resume a saved forward from the thread and reopen it after closing", async () => {
+  existingThread([
+    originalMessage,
+    { ...existingDraft, draftMode: "forward", subject: "Fwd: Lesson" },
+  ]);
+  const resume = await screen.findByRole("button", { name: "Resume forward" });
+  expect(screen.queryByRole("textbox", { name: "Email subject" })).not.toBeInTheDocument();
+  fireEvent.click(resume);
+  const dialog = await screen.findByRole("dialog", { name: "Forward email" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "Resume forward" }));
+  expect(await screen.findByRole("dialog", { name: "Forward email" })).toBeVisible();
+});
+
 it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject", async () => {
   existingThread([
     { ...originalMessage, internetMessageId: "<original@example.test>" },
@@ -521,7 +562,7 @@ it("keeps the same draft editor mounted when Messages are hidden and shown", asy
 });
 
 it("shows a full scheduled-email preview and send time instead of an editable draft", async () => {
-  existingThread([originalMessage, existingDraft], undefined, [
+  existingThread([originalMessage, { ...existingDraft, draftMode: "forward" }], undefined, [
     {
       message_id: existingDraft.id,
       state: "scheduled",
