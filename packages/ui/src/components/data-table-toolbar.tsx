@@ -1056,8 +1056,9 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
           )}
           <PopoverContent
             align="end"
+            collisionPadding={8}
             aria-label="Display options"
-            className="max-h-[min(80vh,700px)] w-[min(420px,calc(100vw-24px))] overflow-y-auto p-0"
+            className="max-h-[min(80dvh,700px,var(--radix-popover-content-available-height))] w-[min(420px,calc(100vw-24px))] overflow-y-auto overscroll-contain p-0"
           >
             {displayContent}
           </PopoverContent>

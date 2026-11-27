@@ -128,7 +128,7 @@ test('Student account actions live in the record menu and command palette', asyn
   await expect(properties.getByText('Has account', { exact: true })).toBeVisible();
   await expect(properties.getByRole('heading', { name: 'Password reset', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Send password reset', exact: true }).click();
   const resetDialog = page.getByRole('dialog', { name: 'Password reset', exact: true });
   await expect(resetDialog).toBeVisible();
@@ -232,7 +232,7 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   const task = tasks.locator('[data-work-item-card]').filter({ hasText: 'Board drag check 002' });
   await task.hover();
   await page.keyboard.press('m');
-  await expect(tasks.getByRole('dialog', { name: 'Task preview' }).getByRole('button', { name: 'Open task', exact: true })).toBeVisible();
+  await expect(tasks.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await tasks.getByRole('button', { name: 'Create task', exact: true }).click();
   const taskDialog = tasks.locator('[data-dialog-scope-portal]').getByRole('dialog', { name: 'Create Task' });
@@ -256,7 +256,7 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   await page.goto('/tasks?view=list&search=Board%20drag%20check%20002');
   await page.locator('[data-work-item-row]').filter({ hasText: 'Board drag check 002' }).hover();
   await page.keyboard.press('m');
-  await expect(page.getByRole('dialog', { name: 'Task preview' }).getByRole('button', { name: 'Open task', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
 });
 
 test('Students and Parents lists scroll through the toolbar and table together', async ({ page }) => {
