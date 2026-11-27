@@ -16,7 +16,7 @@ export interface InterviewReviewMock {
     maximumPoints: number;
     notAssessedReason: string | null;
     feedback: Json;
-    questions: { id: string; title: Json; feedback: Json }[];
+    questions: { id: string; title: Json; feedback: Json; score?: number | null }[];
   }[];
 }
 

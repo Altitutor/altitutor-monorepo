@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { Json } from "@altitutor/shared";
-import { isInterviewReviewDocument } from "@/features/interviews/server/performance-review-document";
+import { isInterviewReviewDocument, type Json } from "@altitutor/shared";
 import {
   createInterviewServiceClient,
   interviewApiError,

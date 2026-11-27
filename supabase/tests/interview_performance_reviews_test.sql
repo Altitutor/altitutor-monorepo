@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(29);
+SELECT plan(33);
 
 UPDATE public.classes SET subject_id = (SELECT id FROM public.subjects WHERE name = 'Medicine Interview')
 WHERE id = '20000000-0000-0000-0000-000000000001';
@@ -14,7 +14,7 @@ VALUES ('36400000-0000-4000-8000-000000000201','36400000-0000-4000-8000-00000000
   '00000000-0000-0000-0000-000000000010', ARRAY['00000000-0000-0000-0000-000000000010'::uuid],
   ARRAY['10000000-0000-0000-0000-000000000001'::uuid],
   '{"name":"Before the review","phase":"completed","startedAt":"2026-11-04T05:30:00Z",
-     "stations":[{"id":"station-1","name":"Ethics","maximumPoints":6,"questions":[]}],"attempts":[]}'),
+     "stations":[{"id":"station-1","name":"Ethics","maximumPoints":6,"questions":[{"id":"q1","question":"What would you do?"}]}],"attempts":[]}'),
  ('36400000-0000-4000-8000-000000000202','36400000-0000-4000-8000-000000000200',
   '00000000-0000-0000-0000-000000000010', ARRAY['00000000-0000-0000-0000-000000000010'::uuid],
   ARRAY['10000000-0000-0000-0000-000000000001'::uuid],
@@ -22,7 +22,7 @@ VALUES ('36400000-0000-4000-8000-000000000201','36400000-0000-4000-8000-00000000
      "stations":[{"id":"station-1","name":"Ethics","maximumPoints":6,"questions":[]}],"attempts":[]}');
 INSERT INTO public.interview_result_releases (round_id, student_id, revision, snapshot, released_by)
 VALUES ('36400000-0000-4000-8000-000000000201','10000000-0000-0000-0000-000000000001',1,
-  '{"score":4,"possiblePoints":6,"attempts":[{"studentId":"10000000-0000-0000-0000-000000000001","stationId":"station-1","score":4}]}',
+  '{"score":4,"possiblePoints":6,"attempts":[{"studentId":"10000000-0000-0000-0000-000000000001","stationId":"station-1","score":4,"feedback":[{"placementId":"q1","score":0}]}]}',
   '00000000-0000-0000-0000-000000000010'),
  ('36400000-0000-4000-8000-000000000202','10000000-0000-0000-0000-000000000001',1,
   '{"score":6,"possiblePoints":6,"attempts":[]}', '00000000-0000-0000-0000-000000000010');
@@ -87,7 +87,7 @@ RESET ROLE;
 
 INSERT INTO public.interview_result_releases (round_id, student_id, revision, snapshot, released_by)
 VALUES ('36400000-0000-4000-8000-000000000201','10000000-0000-0000-0000-000000000001',2,
-  '{"score":5,"possiblePoints":6,"attempts":[{"studentId":"10000000-0000-0000-0000-000000000001","stationId":"station-1","score":5}]}',
+  '{"score":5,"possiblePoints":6,"attempts":[{"studentId":"10000000-0000-0000-0000-000000000001","stationId":"station-1","score":5,"feedback":[{"placementId":"q1","score":4.5}]}]}',
   '00000000-0000-0000-0000-000000000010');
 
 SET LOCAL ROLE authenticated;
@@ -98,6 +98,8 @@ SELECT is((SELECT count(*) FROM public.vstudent_notifications WHERE notification
   1::bigint, 'one in-app notification is delivered for publication');
 SELECT is((SELECT jsonb_array_length(data->'mocks') FROM public.vstudent_interview_performance_reviews), 1, 'publication excludes later mock dates');
 SELECT is((SELECT data->'mocks'->0->>'score' FROM public.vstudent_interview_performance_reviews), '4', 'a later mock correction cannot rewrite the published review evidence');
+SELECT is((SELECT data #>> '{mocks,0,stations,0,questions,0,score}' FROM public.vstudent_interview_performance_reviews),
+  '0', 'the published review retains the original zero question score');
 SELECT is((SELECT count(*) FROM public.vstudent_notifications WHERE notification_type = 'interview_mock_result_released'),
   3::bigint, 'the student receives one in-app notification per mock release');
 SELECT set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
@@ -128,6 +130,8 @@ RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 SELECT is((SELECT data->'mocks'->0->>'score' FROM public.vstudent_interview_performance_reviews), '5', 'the new review version captures the latest eligible mock release');
+SELECT is((SELECT data #>> '{mocks,0,stations,0,questions,0,score}' FROM public.vstudent_interview_performance_reviews),
+  '4.5', 'a new review release captures the corrected fractional question score');
 SELECT is((SELECT count(*) FROM public.vstudent_notifications WHERE notification_type = 'interview_performance_review_released'),
   2::bigint, 'a released correction creates a second review notification');
 RESET ROLE;
@@ -157,5 +161,26 @@ SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 SELECT is((SELECT count(*) FROM public.vtutor_interview_performance_reviews WHERE id = '46300000-0000-4000-8000-000000000001'), 0::bigint, 'deleted draft disappears from the tutor facade');
 SELECT ok((SELECT jsonb_array_length(details->'mocks') >= 2 FROM public.vtutor_interview_performance_review_students WHERE id = '10000000-0000-0000-0000-000000000001'), 'eligible student directory includes completed mock history');
 RESET ROLE;
+
+UPDATE public.interview_rounds
+SET data = jsonb_set(data, '{withdrawnResultRevisions}', '{"10000000-0000-0000-0000-000000000001":2}')
+WHERE id = '36400000-0000-4000-8000-000000000201';
+
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{}', true);
+SELECT lives_ok(
+  $$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+    '{"type":"publishReview","id":"36400000-0000-4000-8000-000000000101","expectedVersion":5,
+      "studentId":"10000000-0000-0000-0000-000000000001","date":"2026-11-05",
+      "body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Review after withdrawal"}]}]}}')$$,
+  'the author can publish a review after a mock release is withdrawn');
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+SELECT is((SELECT data->'mocks' FROM public.vstudent_interview_performance_reviews), '[]'::jsonb,
+  'a new review cannot publish scores or feedback from a withdrawn mock result');
+RESET ROLE;
+
 SELECT * FROM finish();
 ROLLBACK;
