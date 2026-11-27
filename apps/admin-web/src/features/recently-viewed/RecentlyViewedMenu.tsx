@@ -23,6 +23,7 @@ const recordSections = {
   parents: recordEntities.parent,
   staff: recordEntities.staff,
   subjects: recordEntities.subject,
+  files: recordEntities.file,
   topics: recordEntities.topic,
   classes: recordEntities.class,
   sessions: recordEntities.session,

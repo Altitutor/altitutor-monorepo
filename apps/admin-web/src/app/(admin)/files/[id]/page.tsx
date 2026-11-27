@@ -14,6 +14,7 @@ export default function TopicFilePage({ params }: { params: Promise<{ id: string
   return (
     <TopicFilePreviewModal
       isOpen
+      showInPaneHistory
       topicFileId={id}
       onClose={() => {
         if (embedded && requestPane("close")) return;
