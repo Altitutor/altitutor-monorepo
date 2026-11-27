@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
 import {
   act,
@@ -5,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MailPage } from "../MailPage";
@@ -18,10 +20,8 @@ jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
 }));
 const mockNavigate = jest.fn();
 let mockUserId = 0;
-const mockComposeEmail = jest.fn();
 jest.mock("../../hooks/useOpenEmailThread", () => ({
   useOpenEmailThread: () => jest.fn(),
-  useComposeEmail: () => mockComposeEmail,
 }));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockNavigate }),
@@ -58,7 +58,11 @@ const mailbox: MailboxData = {
   ],
 };
 const originalFetch = global.fetch;
+beforeAll(() => {
+  Object.defineProperty(crypto, "randomUUID", { configurable: true, value: randomUUID });
+});
 beforeEach(() => {
+  mockNavigate.mockClear();
   global.ResizeObserver = jest.fn().mockImplementation(() => ({
     observe: jest.fn(), disconnect: jest.fn(), unobserve: jest.fn(),
   }));
@@ -314,8 +318,7 @@ it("selects Inbox once its first sync discovers folders", async () => {
   );
 });
 
-it("places filled Create email in the shared primary header and opens the existing compose workflow", async () => {
-  mockComposeEmail.mockClear();
+it("opens Create email in a dialog over the mailbox", async () => {
   global.fetch = jest.fn(
     async () => ({ ok: true, json: async () => mailbox }) as Response,
   );
@@ -330,7 +333,13 @@ it("places filled Create email in the shared primary header and opens the existi
   expect(compose.closest("[data-admin-page-header]")).toHaveTextContent("Email");
   await waitFor(() => expect(compose).toBeEnabled());
   fireEvent.click(compose);
-  expect(mockComposeEmail).toHaveBeenCalledTimes(1);
+  const composer = await screen.findByRole("dialog", { name: "New email" });
+  expect(within(composer).getByRole("textbox", { name: "Email subject" })).toBeInTheDocument();
+  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(global.fetch).not.toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ method: "POST" }),
+  );
 });
 
 

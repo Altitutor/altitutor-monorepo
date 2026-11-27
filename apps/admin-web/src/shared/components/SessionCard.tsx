@@ -4,7 +4,6 @@ import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { openEntityReference } from '@/shared/utils/entityReference';
 
 import React from 'react';
-import { StudentCount } from '@/shared/components/StudentCount';
 import { Users, MapPin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -109,7 +108,6 @@ export function SessionCard({
                 <h4 className="min-w-0 font-semibold text-sm leading-5">
                   {sessionTitle}
                 </h4>
-                <StudentCount count={students?.length} />
                 <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />
               </div>
               <div className="flex flex-col gap-0.5 mt-1">

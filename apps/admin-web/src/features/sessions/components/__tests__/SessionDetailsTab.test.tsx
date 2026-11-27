@@ -110,6 +110,17 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
 }
 
 describe('SessionDetailsTab', () => {
+  it("routes Shift-clicked student and Message actions to the workspace", async () => {
+    const onMessageStudent = jest.fn();
+    renderComponent({ onMessageStudent });
+    const student = screen.getByRole("button", { name: "Normal Student" });
+    expect(student).toHaveAttribute("data-pane-href", "/students/student-normal");
+    const row = student.closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: "" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Message" }), { shiftKey: true });
+    expect(onMessageStudent).toHaveBeenCalledWith("student-normal", true);
+  });
+
   it('keeps the Subject available when editing a Drafting session', async () => {
     const onSubmit = jest.fn().mockResolvedValue(undefined);
     const { container } = renderComponent({

@@ -128,7 +128,7 @@ test('Student account actions live in the record menu and command palette', asyn
   await expect(properties.getByText('Has account', { exact: true })).toBeVisible();
   await expect(properties.getByRole('heading', { name: 'Password reset', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Send password reset', exact: true }).click();
   const resetDialog = page.getByRole('dialog', { name: 'Password reset', exact: true });
   await expect(resetDialog).toBeVisible();
@@ -232,7 +232,7 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   const task = tasks.locator('[data-work-item-card]').filter({ hasText: 'Board drag check 002' });
   await task.hover();
   await page.keyboard.press('m');
-  await expect(tasks.getByRole('menuitem', { name: 'Open task', exact: true })).toBeVisible();
+  await expect(tasks.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await tasks.getByRole('button', { name: 'Create task', exact: true }).click();
   const taskDialog = tasks.locator('[data-dialog-scope-portal]').getByRole('dialog', { name: 'Create Task' });
@@ -241,9 +241,11 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   await page.keyboard.press('Escape');
   await expect(taskDialog).toBeHidden();
 
-  await createStudent.focus();
+  await tasks.getByRole('button', { name: 'Create task', exact: true }).focus();
   await page.keyboard.press('ControlOrMeta+k');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await expect(palette).toBeVisible();
+  await expect(tasks.getByRole('dialog', { name: 'Command palette' })).toHaveCount(0);
   await palette.getByRole('searchbox', { name: 'Search commands and entities' }).fill('Create task');
   await palette.getByRole('option', { name: /Create task/i }).click();
   const viewportDialog = page.getByRole('dialog', { name: 'Create Task', exact: true });
@@ -254,7 +256,7 @@ test('create actions and record menus belong to their pane', async ({ page }) =>
   await page.goto('/tasks?view=list&search=Board%20drag%20check%20002');
   await page.locator('[data-work-item-row]').filter({ hasText: 'Board drag check 002' }).hover();
   await page.keyboard.press('m');
-  await expect(page.getByRole('menuitem', { name: 'Open task', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
 });
 
 test('Students and Parents lists scroll through the toolbar and table together', async ({ page }) => {
@@ -675,4 +677,39 @@ test('Record actions start in-person onboarding for a student with an existing U
   const ucat = await db.from('student_online_product_relationships').select('product').eq('student_id', id).single();
   if (ucat.error) throw ucat.error;
   expect(ucat.data.product).toBe('UCAT_WEB');
+});
+
+test('browser Back and Forward change only the navigated pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1450, height: 900 });
+  await signIn(page);
+  await page.goto('/students?pane=%2Ftasks&activePane=1');
+  const frameSelector = 'iframe[data-admin-pane-frame]';
+  const peer = page.frameLocator(frameSelector);
+  await expect(peer.getByRole('button', { name: 'Create task', exact: true })).toBeVisible();
+
+  await page.evaluate((selector) => {
+    document.querySelector('#workspace-pane-primary')?.setAttribute('data-history-probe', 'primary');
+    document.querySelector(selector)?.setAttribute('data-history-probe', 'peer');
+    window.dispatchEvent(new CustomEvent('admin-pane-request', {
+      cancelable: true,
+      detail: { action: 'navigate', href: '/parents' },
+    }));
+  }, frameSelector);
+
+  const expectPanesPreserved = async () => {
+    await expect(page.locator('#workspace-pane-primary')).toHaveAttribute('data-history-probe', 'primary');
+    await expect(page.locator(frameSelector)).toHaveAttribute('data-history-probe', 'peer');
+    await expect(page).toHaveURL(/\/students(?:\?|$)/);
+  };
+  const parentButton = peer.getByRole('button', { name: 'Create parent', exact: true });
+  await expect(parentButton).toBeVisible();
+  await expectPanesPreserved();
+
+  await page.evaluate(() => window.history.back());
+  await expect(peer.getByRole('button', { name: 'Create task', exact: true })).toBeVisible();
+  await expectPanesPreserved();
+
+  await page.evaluate(() => window.history.forward());
+  await expect(parentButton).toBeVisible();
+  await expectPanesPreserved();
 });

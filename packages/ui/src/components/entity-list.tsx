@@ -13,6 +13,7 @@ import { Input } from './input';
 import { ScrollArea } from './scroll-area';
 import { SearchableSelect } from './searchable-select';
 import { cn } from '../lib/cn';
+import { entityReferenceDragProps } from '../lib/entity-reference-drag';
 import { type JSONContent } from './rich-text-editor';
 import {
   Plus,
@@ -699,6 +700,11 @@ function EntityListRow<TItem>({
   recordId,
   recordType,
 }: EntityListRowProps<TItem>) {
+  const name = renderName(item);
+  const dragProps = recordType && recordId && typeof name === 'string' && name
+    ? entityReferenceDragProps({ id: recordId, type: recordType, label: name })
+    : undefined;
+
   return (
     <div
       data-work-item-row
@@ -744,12 +750,13 @@ function EntityListRow<TItem>({
       {/* Name */}
       <div className="flex-1 min-w-0">
         <div
+          {...dragProps}
           className={cn(
             'text-sm font-medium',
             compact ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : 'line-clamp-1'
           )}
         >
-          {renderName(item)}
+          {name}
         </div>
       </div>
 

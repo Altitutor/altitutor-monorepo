@@ -1,5 +1,4 @@
 "use client";
-import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import type { ProjectUpdate } from "../types";
 import { ProjectCard } from "./ProjectCard";
 import { CreateProjectDialog } from "./CreateProjectDialog";
@@ -481,15 +480,6 @@ export function ProjectsList({
         }}
         items={displayProjects}
         getItemId={(p) => p.id}
-        renderActions={(item) => (
-          <ActionsMenu
-            type="project"
-            entityId={item.id}
-            copyTagDisplayText={item.name ?? undefined}
-            onOpenInPage={() => openProject(item.id)}
-            menuOnly
-          />
-        )}
         renderName={(p) => p.name ?? ""}
         statusColumn={statusColumn}
         rightPills={rightPills}

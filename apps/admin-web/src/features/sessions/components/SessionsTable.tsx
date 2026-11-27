@@ -20,6 +20,7 @@ import {
 import { ArrowUpDown, Search } from "lucide-react";
 import {
   encodeViewConfig,
+  Supabase,
   type QuickFilter,
   type DisplaySettings,
   type DataTableFilterDefinition,
@@ -49,18 +50,7 @@ import { getShortSessionName } from "../utils/session-helpers";
 import { useUninvoicedSessions } from "@/features/reconciliation/api/queries";
 import { useStudentSessionBillingDetails } from "../hooks/useStudentSessionBillingDetails";
 
-const SESSION_TYPES = [
-  "INTERVIEW",
-  "CLASS",
-  "DRAFTING",
-  "EXAM_COURSE",
-  "SUBSIDY_INTERVIEW",
-  "TRIAL_SESSION",
-  "STAFF_INTERVIEW",
-  "CHECK_IN",
-  "ADMIN_MEETING",
-  "ADMIN_SHIFT",
-] as const;
+const SESSION_TYPES = ["INTERVIEW", ...Supabase.Constants.public.Enums.session_type] as const;
 
 type SessionsTableProps = {
   renderMode?: "table" | "calendar";
@@ -402,7 +392,7 @@ export function SessionsTable({
               choiceOperators: true,
               label: "Session Type",
               options: SESSION_TYPES.map((t) => ({
-                label: t === "INTERVIEW" ? "Interview" : formatSessionType(t),
+                label: t === "INTERVIEW" ? "Interview round" : formatSessionType(t),
                 value: t,
               })),
             },
@@ -655,6 +645,9 @@ export function SessionsTable({
             onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
             onReset={resetFilters}
             filterDefinitions={availableFilters}
+            displayChoiceFilter={toolbarView || renderMode === "calendar"
+              ? { key: "type", label: "Session type", layout: "calendar" }
+              : undefined}
             sortOptions={sortOptions}
             columnDefinitions={
               renderMode === "calendar"

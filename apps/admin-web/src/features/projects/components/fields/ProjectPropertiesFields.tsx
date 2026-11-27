@@ -179,7 +179,7 @@ export function ProjectPropertiesFields({
         control={form.control}
         name="startDate"
         render={({ field }) => (
-          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+          <FormItem data-work-item-property="start-date" className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
             <FormLabel className="text-muted-foreground">Start date</FormLabel>
             <FormControl>
               <SmartDatePickerField

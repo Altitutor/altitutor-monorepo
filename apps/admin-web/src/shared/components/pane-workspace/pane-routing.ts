@@ -3,6 +3,14 @@ export type PaneRequest = { action: PaneAction; href?: string; source?: "primary
 export const paneRequestEvent = "admin-pane-request";
 export const paneCloseEvent = "admin-pane-before-navigation";
 export const paneFrameAttribute = "data-admin-pane-frame";
+export const workspaceShortcutEvent = "admin-workspace-shortcut";
+export type WorkspaceShortcut = "palette" | "left";
+
+export function forwardWorkspaceShortcut(shortcut: WorkspaceShortcut) {
+  if (!window.frameElement?.hasAttribute(paneFrameAttribute)) return false;
+  window.parent.dispatchEvent(new CustomEvent(workspaceShortcutEvent, { detail: shortcut }));
+  return true;
+}
 
 export function paneHref(value: unknown) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;
@@ -27,13 +35,13 @@ const paths: Record<string, string> = {
   session: "sessions", invoice: "invoices", subject: "subjects", topic: "topics",
   "admin-shift": "admin-shifts", adminShift: "admin-shifts",
   issue: "issues", task: "tasks", project: "projects", note: "documents",
-  document: "documents",
+  document: "documents", file: "files",
 };
 
-export function openReferenceInPane(type: string, id: string, href?: string) {
-  if (href && requestPane("open", href)) return true;
+export function openReferenceInPane(type: string, id: string, href?: string, action: "open" | "navigate" = "open") {
+  if (href && requestPane(action, href)) return true;
   const root = paths[type];
-  if (root) return requestPane("open", `/${root}/${encodeURIComponent(id)}`);
+  if (root) return requestPane(action, `/${root}/${encodeURIComponent(id)}`);
   if (!["message", "email", "tutor-log", "tutorLog"].includes(type)) return false;
   void fetch(`/api/entity-references/${encodeURIComponent(type)}/${encodeURIComponent(id)}`)
     .then(async (response) => {
@@ -46,7 +54,7 @@ export function openReferenceInPane(type: string, id: string, href?: string) {
       const route = details.href ?? (target?.kind === "messages"
         ? `/messages?${target.query ?? new URLSearchParams({ contact: target.id })}`
         : target?.kind === "email" ? `/email/${encodeURIComponent(target.id)}${target.query ? `?${target.query}` : ""}` : undefined);
-      if (route) requestPane("open", route);
+      if (route) requestPane(action, route);
     })
     .catch(() => undefined);
   return true;

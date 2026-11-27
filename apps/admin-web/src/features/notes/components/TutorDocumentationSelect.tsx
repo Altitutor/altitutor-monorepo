@@ -44,7 +44,7 @@ export function TutorDocumentationSelect({
           TUTOR_VISIBILITY_OPTIONS[0];
 
         return (
-          <FormItem className={PROPERTIES_GRID_CLASS}>
+          <FormItem data-work-item-property="tutor-visibility" className={PROPERTIES_GRID_CLASS}>
             <FormLabel className="text-muted-foreground">Tutor visibility</FormLabel>
             <FormControl>
               <SearchableSelect<TutorVisibilityOption>

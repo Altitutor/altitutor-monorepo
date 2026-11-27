@@ -189,7 +189,7 @@ export function IssueDetailView({
     <>
       <WorkItemEditableContext.Provider value={editor.editable}>
         <Form {...form}>
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="h-full min-h-0 flex flex-col overflow-hidden" data-work-item-detail>
             <div className={adminPageHeaderClass} data-admin-page-header>
               <div className="flex min-w-0 items-center justify-between gap-2 w-full">
                 <AccessoryBreadcrumb currentTitle={title || issue?.name} />
@@ -202,6 +202,7 @@ export function IssueDetailView({
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
+                        propertyActions={{ editable: editor.editable, ready: Boolean(editor.session) }}
                         copyTagDisplayText={
                           title || issue?.name || "Untitled issue"
                         }

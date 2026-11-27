@@ -37,16 +37,3 @@ export function useOpenEmailThread() {
     [panel, workspace?.tabs],
   );
 }
-
-export function useComposeEmail() {
-  const panel = useAccessoryPanelActions();
-  return useCallback(
-    () =>
-      panel?.openTab({
-        kind: "email",
-        id: `compose:${crypto.randomUUID()}`,
-        title: "New email",
-      }),
-    [panel],
-  );
-}

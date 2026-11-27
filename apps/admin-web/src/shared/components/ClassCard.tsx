@@ -74,7 +74,7 @@ export function ClassCard({
   cardWidth
 }: ClassCardProps) {
   const students = suppliedStudents ?? [];
-  const studentRoster = details?.students ?? suppliedStudents;
+  const studentRoster = details?.students ?? students;
   const staffRoster = details?.staff ?? staff;
 
   // Measure actual card dimensions using ResizeObserver

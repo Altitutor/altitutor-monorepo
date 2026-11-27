@@ -24,6 +24,18 @@ import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type SmartDatePickerValueFormat = 'date' | 'iso';
 
+const DayPreviewContext = React.createContext<React.ComponentType<{ date: string }> | null>(null);
+
+export function SmartDatePickerDayPreviewProvider({
+  preview,
+  children,
+}: {
+  preview: React.ComponentType<{ date: string }>;
+  children: React.ReactNode;
+}) {
+  return <DayPreviewContext.Provider value={preview}>{children}</DayPreviewContext.Provider>;
+}
+
 export interface SmartDatePickerPreset {
   label: string;
   value: Date;
@@ -146,6 +158,22 @@ export function SmartDatePickerPopover({
 }: SmartDatePickerPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const [previewDate, setPreviewDate] = React.useState<string | null>(null);
+  const DayPreview = React.useContext(DayPreviewContext);
+  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  React.useEffect(() => () => clearTimeout(previewTimer.current), []);
+
+  const requestPreview = (day: Date) => {
+    if (!DayPreview) return;
+    const next = format(day, 'yyyy-MM-dd');
+    clearTimeout(previewTimer.current);
+    previewTimer.current = setTimeout(() => setPreviewDate(next), 180);
+  };
+
+  const clearPreview = () => {
+    clearTimeout(previewTimer.current);
+    setPreviewDate(null);
+  };
   const inputRef = React.useRef<HTMLInputElement>(null);
   const inputValue = toDateInputValue(value);
   const [month, setMonth] = React.useState(() =>
@@ -173,6 +201,7 @@ export function SmartDatePickerPopover({
     const result = onChange(date ? dateToIsoDate(date) : null);
     if (result instanceof Promise ? await result === false : result === false) return;
     setQuery('');
+    clearPreview();
     setOpen(false);
     onBlur?.();
   };
@@ -180,6 +209,7 @@ export function SmartDatePickerPopover({
   const handleOpenChange = (nextOpen: boolean) => {
     if (disabled && nextOpen) return;
     setOpen(nextOpen);
+    clearPreview();
     if (nextOpen) setMonth(startOfMonth(inputValue ? parseISO(inputValue) : new Date()));
     if (!nextOpen) {
       setQuery('');
@@ -228,7 +258,10 @@ export function SmartDatePickerPopover({
                 type="button"
                 disabled={!isDateAllowed(parsedQueryDate, minDate, maxDate)}
                 onClick={() => selectDate(parsedQueryDate)}
-                className="mb-2 w-full rounded-md px-2 py-2 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                onMouseEnter={() => requestPreview(parsedQueryDate)}
+                onMouseLeave={() => clearTimeout(previewTimer.current)}
+                onFocus={() => requestPreview(parsedQueryDate)}
+                className="mb-2 w-full rounded-md px-2 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               >
                 Use {formatDateOption(parsedQueryDate)}
               </button>
@@ -243,7 +276,7 @@ export function SmartDatePickerPopover({
               size="icon"
               className="h-8 w-8"
               aria-label="Previous month"
-              onClick={() => setMonth((previous) => addMonths(previous, -1))}
+              onClick={() => { clearPreview(); setMonth((previous) => addMonths(previous, -1)); }}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -254,7 +287,7 @@ export function SmartDatePickerPopover({
               size="icon"
               className="h-8 w-8"
               aria-label="Next month"
-              onClick={() => setMonth((previous) => addMonths(previous, 1))}
+              onClick={() => { clearPreview(); setMonth((previous) => addMonths(previous, 1)); }}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -277,6 +310,9 @@ export function SmartDatePickerPopover({
                   aria-current={date === todayValue ? 'date' : undefined}
                   disabled={!isDateAllowed(day, minDate, maxDate)}
                   onClick={() => selectDate(day)}
+                  onMouseEnter={() => requestPreview(day)}
+                  onMouseLeave={() => clearTimeout(previewTimer.current)}
+                  onFocus={() => requestPreview(day)}
                   className={cn(
                     'aspect-square min-w-0 rounded-md border border-transparent text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
                     date === inputValue ? navActiveStyles : navHoverStyles,
@@ -296,12 +332,20 @@ export function SmartDatePickerPopover({
                   type="button"
                   disabled={!isDateAllowed(preset.value, minDate, maxDate)}
                   onClick={() => selectDate(preset.value)}
-                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                  onMouseEnter={() => requestPreview(preset.value)}
+                  onMouseLeave={() => clearTimeout(previewTimer.current)}
+                  onFocus={() => requestPreview(preset.value)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted disabled:opacity-50"
                 >
                   <span>{preset.label}</span>
                   <span className="text-xs text-muted-foreground">{formatDateOption(preset.value)}</span>
                 </button>
               ))}
+            </div>
+          ) : null}
+          {DayPreview && previewDate ? (
+            <div className="mt-3 border-t pt-3">
+              <DayPreview date={previewDate} />
             </div>
           ) : null}
         </div>

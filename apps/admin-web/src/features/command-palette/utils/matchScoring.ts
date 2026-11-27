@@ -6,6 +6,8 @@
 
 import type { CommandPaletteCommand, CommandPalettePage } from '../config/commandPalette.config';
 import type { CommandPaletteEntityResult } from '../types';
+import { parseSubjectQualifiedSearch } from '@altitutor/shared';
+import type { PaletteEntity } from '../model';
 import { getEntityDisplayText } from './entityFormatters';
 
 // Internal type for match scoring (uses config types directly)
@@ -93,6 +95,21 @@ export function scoreEntityText(
   if (subtitleLower.includes(queryLower)) return 300;
 
   return 0;
+}
+
+/** Prefer an exact topic or file code, including a matching subject qualifier. */
+export function scorePaletteEntity(entity: PaletteEntity, query: string): number {
+  const score = scoreEntityText(entity, query);
+  if (!entity.code || (entity.type !== 'topic' && entity.type !== 'file')) return score;
+
+  const parsed = parseSubjectQualifiedSearch(query.toLowerCase());
+  const code = parsed.mode === 'qualified' ? parsed.codeQuery : parsed.query;
+  const subject = entity.parents?.find((parent) => parent.type === 'subject')?.title.toLowerCase();
+  if (entity.code.toLowerCase() !== code ||
+      (parsed.mode === 'qualified' && !subject?.includes(parsed.subjectQuery))) return score;
+
+  const expectedType = /^\d+(?:\.\d+)*$/.test(code) ? 'topic' : 'file';
+  return 2000 + (entity.type === expectedType ? 100 : 0) + score;
 }
 
 /**

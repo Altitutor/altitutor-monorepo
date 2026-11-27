@@ -345,6 +345,17 @@ export function summarizeSessionAttendance(
   };
 }
 
+export function formatSessionAttendanceCount(
+  members: readonly { plannedStatus: string; actualAttended?: boolean | null }[],
+  hasTutorLog: boolean,
+): string {
+  const count = members.filter(member => hasTutorLog
+    ? member.actualAttended === true
+    : member.plannedStatus.startsWith("attending"),
+  ).length;
+  return `${count}/${members.length} ${hasTutorLog ? "attended" : "attending"}`;
+}
+
 export function isStudentAbsentInCalendar(student: StudentAttendanceInput, hasTutorLog: boolean): boolean {
   return hasTutorLog
     ? student.actual_attended !== true

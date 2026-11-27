@@ -33,7 +33,7 @@ interface AddParentModalProps {
 // Schema for form validation
 const formSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  lastName: z.string().trim(),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z
     .union([
@@ -198,9 +198,6 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone, i
                 {...register('lastName')} 
                 disabled={isSubmitting} 
               />
-              {errors.lastName && (
-                <p className="text-sm text-red-500">{errors.lastName.message}</p>
-              )}
             </div>
           </div>
           

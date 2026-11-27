@@ -640,9 +640,6 @@ export function ManualMeetingModal(props: ManualMeetingModalProps) {
                   }}
                 />
               </PropertyFormRow>
-              <PropertyFormRow label="Staff member">
-                {staffControl}
-              </PropertyFormRow>
               {sessionType === "DRAFTING" && (
                 <PropertyFormRow label="Subject">
                   <SubjectSelectPopover

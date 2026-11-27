@@ -775,16 +775,15 @@ test("the top bar aligns with the workspace and contracts the sidebar before tab
   expect((await workspace.getByRole("region", { name: "Students pane", exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(305);
   await navbar.getByRole("button", { name: "Expand sidebar" }).click();
   await expect(tabs).toBeVisible();
-  const sidebarBox = (await sidebar.boundingBox())!;
+  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(250);
   const tabsBox = (await tabs.boundingBox())!;
-  expect(sidebarBox.width).toBe(250);
   expect(tabsBox.x).toBe((await workspace.getByRole("tabpanel").boundingBox())!.x);
   await page.setViewportSize({ width: 1320, height: 740 });
   await expect(tabs).toHaveCount(0);
   await page.setViewportSize({ width: 980, height: 740 });
   await expect(navbar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   await expect(tabs).toBeVisible();
-  expect((await sidebar.boundingBox())!.width).toBe(70);
+  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(70);
 });
 
 test("reference previews cover people, scheduling and work-item projections", async ({
@@ -823,7 +822,7 @@ test("reference previews cover people, scheduling and work-item projections", as
     [
       "class",
       classes.data.id,
-      ["Subject", "Scheduled offerings", "Students (3)", "Staff"],
+      ["Subject", "Scheduled offerings", "Students (3)", "Staff (2)"],
     ],
     ["session", loggedSessionId, ["Subject", "Day", "Time"]],
     ["task", taskId, ["Priority", "Assignee", "Due date"]],

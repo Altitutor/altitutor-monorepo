@@ -4,7 +4,6 @@ import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { openEntityReference } from '@/shared/utils/entityReference';
 
 import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
-import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Users } from 'lucide-react';
@@ -12,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
-import { isStudentAbsentInCalendar, summarizeSessionAttendance } from '../utils/attendanceDerivation';
+import { isStudentAbsentInCalendar } from '../utils/attendanceDerivation';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -26,7 +25,9 @@ function getInitials(firstName: string, lastName: string): string {
 interface SessionsCardProps {
   hasTutorLog?: boolean;
   details?: { classData?: Tables<'classes'>; subject?: Tables<'subjects'>; students: CalendarStudent[]; staff: CalendarStaff[] };
-  session: Tables<'sessions'>;
+  session: Pick<Tables<'sessions'>, 'id'> &
+    Partial<Pick<Tables<'sessions'>, 'long_name' | 'short_name' | 'start_at' | 'end_at' | 'status'>> &
+    { type?: string | null };
   classData?: Tables<'classes'>;
   subject?: Tables<'subjects'>;
   staff?: Array<Tables<'staff'> & CalendarStaff>;
@@ -73,7 +74,6 @@ export function SessionsCard({
   const studentRoster = details?.students ?? suppliedStudents;
   const staff = suppliedStaff ?? [];
   const staffRoster = details?.staff ?? suppliedStaff;
-  const attendance = summarizeSessionAttendance(studentRoster, session.end_at ?? session.start_at, hasTutorLog);
 
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
@@ -189,10 +189,6 @@ export function SessionsCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <StudentCount
-                  count={studentRoster?.length}
-                  attendance={attendance}
-                />
                 {actions ?? (!isSelecting && /^[0-9a-f-]{36}$/i.test(session.id) && <EntityActionChip iconOnly entityType="session" entityId={session.id} label={session.short_name || session.long_name || 'Session'} onClick={() => openEntityReference('session', session.id)} />)}
                 {!shouldUseCompact && classData?.level && (
                   <span className="text-xs text-muted-foreground">• {classData.level}</span>

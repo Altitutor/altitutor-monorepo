@@ -7,13 +7,14 @@ import { ActionSearchScope, EntityChip, Badge, Skeleton, isTypingTarget } from "
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
+import { formatSessionAttendanceCount } from "@/features/sessions/utils/attendanceDerivation";
 import { ReferenceActions } from './ReferenceActions';
 import { ReferenceActionList } from './ReferenceActionList';
 import { useContextualChipHoverActions } from './chipHoverActions';
 import { openEntityReference } from '@/shared/utils/entityReference';
 import type { RecordMenuAction } from '@/shared/components/recordMenuActions';
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate, contextualActions, autoFocusSearch = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void; contextualActions?: RecordMenuAction[]; autoFocusSearch?: boolean }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, onActivate, contextualActions, autoFocusSearch = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; onActivate?: () => void; contextualActions?: RecordMenuAction[]; autoFocusSearch?: boolean }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -70,11 +71,14 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
           <div className="mt-3 space-y-3">
             {(["Student", "Staff"] as const).map((role) => {
               const members = query.data.people?.filter((person) => person.role === role) ?? [];
-              if (!members.length && !(role === "Student" && (type === "session" || type === "class"))) return null;
+              if (!members.length && type !== "session") return null;
+              const count = type === "session"
+                ? formatSessionAttendanceCount(members, Boolean(query.data.logged))
+                : members.length;
               return (
                 <section key={role} className="space-y-1.5">
-                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? `Students (${studentCount ?? members.length})` : "Staff"}</h4>
-                  {role === "Student" && (studentCount ?? members.length) === 0 ? <p className="text-xs text-muted-foreground">None</p> : null}
+                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? "Students" : "Staff"} ({count})</h4>
+                  {!members.length ? <p className="text-xs text-muted-foreground">None</p> : null}
                   {members.map((person) => (
                     <AttendancePersonRow
                       key={`${person.role}:${person.id}`}

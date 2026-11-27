@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget, isTypingTarget } from "@altitutor/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  EntityChipIcon,
+  SearchableSelect,
+  keyboardPane,
+  keyboardPointerTarget,
+  isTypingTarget,
+} from "@altitutor/ui";
 import { Mail, UserRound } from "lucide-react";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
 import { EmailIconButton } from "@/features/email/components/EmailIconButton";
@@ -34,6 +44,7 @@ export function ConversationRowActions({
   onCreateTask: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const assignee = staff.find((member) => member.id === assigneeId) ?? null;
   const assignedLabel = assignee ? staffName(assignee) : assigneeId ? "Assigned" : "Unassigned";
@@ -41,14 +52,19 @@ export function ConversationRowActions({
   current.current = {onCreateTask, onMarkRead, onMarkUnread, unread};
 
   useEffect(() => {
+    const row = root.current?.closest("[data-conversation-row]");
+    const openContextMenu = (event: Event) => {
+      if (event.defaultPrevented || isTypingTarget(event.target) || !menuTrigger.current) return;
+      event.preventDefault();
+      menuTrigger.current.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    };
     const onKey = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (!["t", "a", "u"].includes(key) || event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || event.isComposing || isTypingTarget(event.target)) return;
-      const row = root.current?.closest("[data-conversation-row]");
       const pane = keyboardPane();
       if (!row || row.closest('[hidden],[inert]') || !pane.contains(row) || pane.matches('[role="dialog"],[role="menu"],[role="alertdialog"]')) return;
       const focused = document.activeElement?.closest("[data-conversation-row]");
-      const hovered = keyboardPointerTarget()?.closest("[data-conversation-row]") ?? document.querySelector("[data-conversation-row]:hover");
+      const hovered = keyboardPointerTarget()?.closest("[data-conversation-row]");
       if (row !== (hovered ?? focused)) return;
       event.preventDefault();
       if (key === "t") current.current.onCreateTask();
@@ -59,11 +75,42 @@ export function ConversationRowActions({
       }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    row?.addEventListener("contextmenu", openContextMenu);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      row?.removeEventListener("contextmenu", openContextMenu);
+    };
   }, []);
 
   return (
     <div ref={root} className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            ref={menuTrigger}
+            type="button"
+            tabIndex={-1}
+            className="pointer-events-none absolute right-3 top-1/2 size-px opacity-0"
+            data-shortcut-menu
+            aria-label="Conversation actions menu"
+            aria-keyshortcuts="M"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onCreateTask}>
+            <span className="mr-2"><EntityChipIcon entityType="task" /></span>
+            Create task
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={unread ? onMarkRead : onMarkUnread}>
+            <Mail className="mr-2 size-4" />
+            {unread ? "Mark as read" : "Mark as unread"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setAssigneeOpen(true)}>
+            <UserRound className="mr-2 size-4" />
+            Assign conversation
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 [@media(hover:none)]:opacity-100">
         <EmailActionGroup label="Conversation actions">
           <EmailIconButton label="Create task" shortcut="T" className="size-6" onClick={onCreateTask}>

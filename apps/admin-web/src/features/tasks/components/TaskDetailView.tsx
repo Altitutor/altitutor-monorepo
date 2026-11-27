@@ -147,7 +147,7 @@ export function TaskDetailView({
 
   return (
     <>
-      <div className="h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="h-full min-h-0 flex flex-col overflow-hidden" data-work-item-detail>
         <div className={adminPageHeaderClass} data-admin-page-header>
           <div className="flex min-w-0 items-center justify-between gap-2 w-full">
             <AccessoryBreadcrumb
@@ -163,6 +163,7 @@ export function TaskDetailView({
                   <ActionsMenu
                     type="task"
                     entityId={taskId}
+                  propertyActions={{ editable: editor.editable, ready: Boolean(editor.session) }}
                     copyTagDisplayText={
                       title || task?.title || "Untitled task"
                     }

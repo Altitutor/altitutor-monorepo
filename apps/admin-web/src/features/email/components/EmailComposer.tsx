@@ -38,6 +38,7 @@ import {
   CloudCheck,
   CircleAlert,
 } from "lucide-react";
+import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import Link from "next/link";
 import { EmailActionGroup } from "./EmailActions";
@@ -74,6 +75,8 @@ export type RegisterDraftClose = (
   id: string,
   prepare: () => Promise<boolean>,
 ) => () => void;
+export type EmailDraftCloseOutcome = "kept" | "removed";
+
 export function EmailComposer({
   draft,
   mailbox,
@@ -85,15 +88,16 @@ export function EmailComposer({
   onSubjectChange,
   disabledReason,
   registerForClose,
+  dialogTitle,
 }: {
   registerForClose?: RegisterDraftClose;
   disabledReason?: string;
   draft: EmailMessage;
   mailbox: MailboxData;
-  inline?: boolean;
+  dialogTitle?: string;
   signature?: string;
   initialContent?: { subject: string; bodyText: string; to: string[] };
-  onClose: () => void;
+  onClose: (outcome: EmailDraftCloseOutcome) => void;
   onSubjectChange?: (subject: string) => void;
   draftReady?: Promise<{ message?: EmailMessage }>;
   prepareDraft?: () => Promise<{ message?: EmailMessage }>;
@@ -116,7 +120,7 @@ export function EmailComposer({
   const [preparing, setPreparing] = useState(Boolean(draftReady));
   const [creationError, setCreationError] = useState("");
   const scope = useAccessoryTab();
-  const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
+  const [pendingClose, setPendingClose] = useState<((outcome: EmailDraftCloseOutcome) => void) | null>(null);
   const [saveRevision, setSaveRevision] = useState(0);
   const [message, setMessage] = useState(draft);
   const [content, setContent] = useState<Content>(() => ({
@@ -588,7 +592,7 @@ export function EmailComposer({
           /* Optional recovery store. */
         }
         setDirty(false);
-        onClose();
+        onClose("removed");
       } else if (result.state === "failed") {
         setBlocked(false);
         setStatus(
@@ -1004,7 +1008,7 @@ export function EmailComposer({
     if (creationError || (prepareDraft && !deferredDraft.current)) {
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("removed");
       return;
     }
     try {
@@ -1021,7 +1025,7 @@ export function EmailComposer({
       }
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("removed");
     } catch {
       setStatus("Could not delete draft; it remains here.");
     }
@@ -1037,14 +1041,16 @@ export function EmailComposer({
         });
       const next = pendingClose;
       setPendingClose(null);
-      next?.();
+      next?.("kept");
     } catch {
       setStatus("Could not close the shared editor; please retry.");
     }
   }
-  return (
+  const composer = (
     <section
-      className={`relative m-4 space-y-4 rounded-2xl p-4 ring-1 ring-inset ${draggingFiles ? "bg-primary/10 ring-primary/50" : "bg-muted/60 ring-border/40"}`}
+      className={dialogTitle
+        ? `relative space-y-4 px-6 py-4 ${draggingFiles ? "bg-primary/10" : "bg-background"}`
+        : `relative m-4 space-y-4 rounded-2xl p-4 ring-1 ring-inset ${draggingFiles ? "bg-primary/10 ring-primary/50" : "bg-muted/60 ring-border/40"}`}
       onDragOverCapture={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
@@ -1163,6 +1169,7 @@ export function EmailComposer({
               <TooltipContent>{disabledReason ?? status}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {dialogTitle && <h2 className="text-lg font-semibold">{dialogTitle}</h2>}
         </div>
         <Badge variant="secondary" className="rounded-full">
           Draft
@@ -1236,5 +1243,21 @@ export function EmailComposer({
       )}
       <div className="min-w-0 border-t pt-3">{footer}</div>
     </section>
+  );
+
+  if (!dialogTitle) return composer;
+  return (
+    <AdminDialogShell
+      open
+      fillHeight
+      hideHeader
+      title={dialogTitle}
+      onClose={close}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-y-auto p-0"
+      dialogContentProps={{ hideCloseButton: true, primaryShortcut: false, dismissOnOverlay: false, "aria-describedby": undefined }}
+    >
+      {composer}
+    </AdminDialogShell>
   );
 }

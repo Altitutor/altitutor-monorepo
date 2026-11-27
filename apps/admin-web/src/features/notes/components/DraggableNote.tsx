@@ -7,6 +7,8 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { FileText, FolderKanban, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/shared/utils';
+import { useRunRecordAction } from '@/features/command-palette/RecordActionsContext';
+import { workItemPropertyActions } from '@/features/work-item-editing/propertyActions';
 import { Button, navLinkInactiveStyles } from '@altitutor/ui';
 import {
   DropdownMenu,
@@ -44,6 +46,10 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const deleteNote = useDeleteNote();
+  const runRecordAction = useRunRecordAction();
+  const properties = workItemPropertyActions('note', (actionId) => {
+    runRecordAction?.('note', note.id, actionId);
+  });
 
   const {
     attributes,
@@ -77,6 +83,9 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
     <>
       <div
         data-shortcut-list-item
+        data-record-type="note"
+        data-record-id={note.id}
+        data-label={note.title}
         ref={setNodeRef}
         style={style}
         className={cn(
@@ -117,6 +126,9 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
               variant="outline"
               size="icon"
               className="h-7 w-7 shrink-0"
+              data-shortcut-menu
+              aria-keyshortcuts="M"
+              aria-label="Document actions"
               onClick={(e) => {
                 e.stopPropagation();
               }}
@@ -137,6 +149,16 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
                 <Pencil className="h-4 w-4 mr-2" />
                 Rename
               </DropdownMenuItem>
+              {properties.map((property) => (
+                <DropdownMenuItem
+                  key={property.id}
+                  disabled={!runRecordAction}
+                  onSelect={property.action}
+                >
+                  <property.icon className="h-4 w-4 mr-2" />
+                  {property.title}
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => {

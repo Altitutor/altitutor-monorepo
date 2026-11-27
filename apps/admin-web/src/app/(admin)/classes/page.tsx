@@ -100,11 +100,10 @@ export default function ClassesPage() {
             <label className="flex items-center justify-between gap-4 py-1.5 text-sm text-muted-foreground">
               Show admin shifts
               <Checkbox
-                checked={filters.show_admin_shifts?.includes(1) ?? false}
+                checked={!filters.show_admin_shifts?.includes(0)}
                 onCheckedChange={(checked) => {
                   const next = { ...filters };
-                  if (checked === true) next.show_admin_shifts = [1];
-                  else delete next.show_admin_shifts;
+                  next.show_admin_shifts = [checked === true ? 1 : 0];
                   onChange(next);
                 }}
               />
@@ -117,6 +116,7 @@ export default function ClassesPage() {
                   students = filters.student ?? [],
                   staff = filters.staff ?? [];
                 return (
+                  cls.status === "ACTIVE" &&
                   (!subjects.length || subjects.includes(cls.subject_id)) &&
                   (!students.length ||
                     (classStudents[cls.id] ?? []).some((student) =>
@@ -139,7 +139,7 @@ export default function ClassesPage() {
               adminShifts={adminShifts}
               adminShiftStaff={adminShiftStaff}
               onAdminShiftClick={handleAdminShiftClick}
-              showAdminShifts={filters.show_admin_shifts?.includes(1) ?? false}
+              showAdminShifts={!filters.show_admin_shifts?.includes(0)}
             />
           )}
         />

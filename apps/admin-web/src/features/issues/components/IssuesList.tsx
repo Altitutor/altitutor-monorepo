@@ -1,5 +1,4 @@
 "use client";
-import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import type { IssueUpdate } from "../types";
 import { PriorityEntityPill } from "@/shared/components/PriorityEntityPill";
 import { PRIORITY_OPTIONS, getPriorityLabel } from "@/shared/constants";
@@ -369,15 +368,6 @@ export function IssuesList({
         }}
         items={issues}
         getItemId={(i) => i.id}
-        renderActions={(item) => (
-          <ActionsMenu
-            type="issue"
-            entityId={item.id}
-            copyTagDisplayText={item.name ?? undefined}
-            onOpenInPage={() => openIssue(item.id)}
-            menuOnly
-          />
-        )}
         renderName={(i) => i.name ?? ""}
         statusColumn={statusColumn}
         rightPills={rightPills}

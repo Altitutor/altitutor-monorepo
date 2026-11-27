@@ -2749,6 +2749,7 @@ export type Database = {
           last_message_id: string | null
           needs_follow_up: boolean
           owned_number_id: string
+          scheduled_message_at: string | null
           status: string
           updated_at: string | null
         }
@@ -2767,6 +2768,7 @@ export type Database = {
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id: string
+          scheduled_message_at?: string | null
           status?: string
           updated_at?: string | null
         }
@@ -2785,6 +2787,7 @@ export type Database = {
           last_message_id?: string | null
           needs_follow_up?: boolean
           owned_number_id?: string
+          scheduled_message_at?: string | null
           status?: string
           updated_at?: string | null
         }
@@ -7235,6 +7238,8 @@ export type Database = {
           read_at: string | null
           received_at: string | null
           resent_from_message_id: string | null
+          scheduled_at: string | null
+          scheduled_dispatch_at: string | null
           sent_at: string | null
           status: string
           status_updated_at: string | null
@@ -7270,6 +7275,8 @@ export type Database = {
           read_at?: string | null
           received_at?: string | null
           resent_from_message_id?: string | null
+          scheduled_at?: string | null
+          scheduled_dispatch_at?: string | null
           sent_at?: string | null
           status: string
           status_updated_at?: string | null
@@ -7305,6 +7312,8 @@ export type Database = {
           read_at?: string | null
           received_at?: string | null
           resent_from_message_id?: string | null
+          scheduled_at?: string | null
+          scheduled_dispatch_at?: string | null
           sent_at?: string | null
           status?: string
           status_updated_at?: string | null
@@ -47479,6 +47488,21 @@ export type Database = {
           p_year_level?: number
         }
         Returns: Json
+      }
+      create_scheduled_admin_text: {
+        Args: {
+          p_attachments?: Json
+          p_body: string
+          p_conversation_id: string
+          p_from_number?: string
+          p_message_id?: string
+          p_onboarding_journey_id?: string
+          p_onboarding_purpose?: string
+          p_resent_from_message_id?: string
+          p_scheduled_at: string
+          p_to_number: string
+        }
+        Returns: string
       }
       create_teaching_tutor_log: {
         Args: { p_annotations: Json; p_input: Json; p_submission_id: string }

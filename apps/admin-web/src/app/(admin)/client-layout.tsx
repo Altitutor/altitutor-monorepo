@@ -450,7 +450,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
     <div
       data-admin-sidebar
       className={cn(
-        "hidden h-full w-[var(--admin-sidebar-width)] shrink-0 flex-col bg-card md:flex",
+        "hidden h-full w-[var(--admin-sidebar-width)] shrink-0 flex-col overflow-hidden bg-card transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
         className,
       )}
       {...props}
@@ -545,6 +545,7 @@ function QuickActionDialogs({ onlyWhenOpen = false }: { onlyWhenOpen?: boolean }
             sessionType={bookingSessionType}
             onBookingCreated={closeBookingModal}
             initialStudentId={bookingPrefill?.initialStudentId}
+            initialParent={bookingPrefill?.initialParent}
             initialCreateStudent={bookingPrefill?.createNewStudent}
           />
         )
@@ -647,12 +648,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         <ActivePanePath.Provider value={activePanePath}>
         <div className="flex h-dvh flex-col overflow-hidden bg-card" style={{ "--admin-sidebar-width": `${collapsed ? adminSidebarWidth.collapsed : adminSidebarWidth.expanded}px` } as React.CSSProperties}>
         {embeddedPane ? <EmbeddedPaneEvents /> : <Navbar tabsRef={setTabsTarget} />}
-        <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
+        {!embeddedPane && <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />}
         <QuickActionsProvider>
-          <CommandPaletteModal
-            isOpen={isCommandPaletteOpen}
-            onClose={closeCommandPalette}
-          />
+          {!embeddedPane && (
+            <CommandPaletteModal
+              isOpen={isCommandPaletteOpen}
+              onClose={closeCommandPalette}
+            />
+          )}
           <QuickActionDialogs onlyWhenOpen />
         </QuickActionsProvider>
         <div data-admin-workspace-row data-admin-embedded-pane={embeddedPane || undefined} className={cn("flex min-h-0 flex-1 overflow-hidden", embeddedPane && "flex-col")}>

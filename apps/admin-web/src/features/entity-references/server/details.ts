@@ -158,10 +158,10 @@ export async function referenceDetails(
           field("Subject", row.subjects?.short_name || row.subjects?.name),
           field("Scheduled offerings", row.schedule_summary_long),
           field(
-            students ? `Students (${students.length})` : "Students",
+            `Students (${students?.length ?? 0})`,
             list((students ?? []).map((link) => person(link.students))),
           ),
-          field("Staff", list((staff ?? []).map((link) => person(link.staff)))),
+          field(`Staff (${staff?.length ?? 0})`, list((staff ?? []).map((link) => person(link.staff)))),
         ],
       };
     }
@@ -203,16 +203,19 @@ export async function referenceDetails(
       const logged = Boolean(log?.id);
       const [studentAttendance, staffAttendance] = logged && log
         ? await Promise.all([
-            read(db.from("tutor_logs_student_attendance").select("student_id,attended").eq("tutor_log_id", log.id)),
-            read(db.from("tutor_logs_staff_attendance").select("staff_id,attended").eq("tutor_log_id", log.id)),
+            read(db.from("tutor_logs_student_attendance").select("student_id,attended,students(id,first_name,last_name)").eq("tutor_log_id", log.id)),
+            read(db.from("tutor_logs_staff_attendance").select("staff_id,attended,staff!tutor_logs_staff_attendance_staff_id_fkey(id,first_name,last_name)").eq("tutor_log_id", log.id)),
           ])
         : [[], []];
       const plannedStudentIds = new Set((students ?? []).map((row) => row.student_id));
+      const plannedStaffIds = new Set((staff ?? []).map((row) => row.staff_id));
+      const studentAttendanceById = new Map((studentAttendance ?? []).map((row) => [row.student_id, row]));
+      const staffAttendanceById = new Map((staffAttendance ?? []).map((row) => [row.staff_id, row]));
       const context = { hasTutorLog: logged, plannedStudentIds };
       const people = [
         ...(students ?? []).flatMap((row) => {
           if (!row.students) return [];
-          const actual = (studentAttendance ?? []).find((item) => item.student_id === row.student_id);
+          const actual = studentAttendanceById.get(row.student_id);
           const derived = deriveStudentAttendanceStatus(
             {
               student_id: row.student_id,
@@ -236,7 +239,7 @@ export async function referenceDetails(
         }),
         ...(staff ?? []).flatMap((row) => {
           if (!row.staff) return [];
-          const actual = (staffAttendance ?? []).find((item) => item.staff_id === row.staff_id);
+          const actual = staffAttendanceById.get(row.staff_id);
           const derived = deriveStaffAttendanceStatus(
             {
               planned_absence: row.planned_absence,
@@ -255,6 +258,28 @@ export async function referenceDetails(
             actualAttended: actual?.attended ?? null,
           }];
         }),
+        ...(studentAttendance ?? []).flatMap((row) =>
+          row.students && !plannedStudentIds.has(row.student_id)
+            ? [{
+                role: "Student" as const,
+                id: row.students.id,
+                name: person(row.students),
+                plannedStatus: "unplanned",
+                actualAttended: row.attended,
+              }]
+            : [],
+        ),
+        ...(staffAttendance ?? []).flatMap((row) =>
+          row.staff && !plannedStaffIds.has(row.staff_id)
+            ? [{
+                role: "Staff" as const,
+                id: row.staff.id,
+                name: person(row.staff),
+                plannedStatus: "unplanned",
+                actualAttended: row.attended,
+              }]
+            : [],
+        ),
       ];
       const time = (value: string | null) =>
         value

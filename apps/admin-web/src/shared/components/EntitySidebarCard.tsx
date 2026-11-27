@@ -26,7 +26,7 @@ export function EntitySidebarCard({
   return (
     <AccordionItem value={value} className="border-0">
       <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
-        <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+        <AccordionTrigger data-entity-sidebar-toggle={value} className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
           <span className="text-sm font-semibold">{title}</span>
         </AccordionTrigger>
         <AccordionContent

@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import type { RenderOptions } from "@testing-library/react";
 import { ToastProvider } from "@altitutor/ui";
 import { QuickActionsProvider } from "@/shared/contexts/QuickActionsContext";
-import { render as rtlRender, screen, within, waitFor, act } from "@testing-library/react";
+import { render as rtlRender, screen, within, waitFor, act, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import type { Tables } from "@altitutor/shared";
 import { SessionsCard } from "@/features/sessions/components/SessionsCard";
 import { ClassCard } from "../ClassCard";
+import { CalendarDetailsTooltip } from "../CalendarDetailsTooltip";
 import { AdminShiftCard } from "../AdminShiftCard";
 
 function render(ui: ReactNode, options?: RenderOptions) { return rtlRender(<ToastProvider><QuickActionsProvider>{ui}</QuickActionsProvider></ToastProvider>, options); }
@@ -58,10 +59,14 @@ it("shows full session details and planned/actual attendance on calendar hover",
       staff={[staff]}
     />,
   );
-  await userEvent.hover(screen.getByLabelText("Extension session details"));
+  const sessionCard = screen.getByLabelText("Extension session details");
+  expect(sessionCard).not.toHaveTextContent(/\d+\/\d+ attended/);
+  await userEvent.hover(sessionCard);
   const tooltip = within(await screen.findByRole("dialog"));
   expect(tooltip.getByText("Extension session")).toBeVisible();
   expect(tooltip.getByText("Thu 22 Oct")).toBeVisible();
+  expect(tooltip.getByText("Students (0/1 attended)")).toBeVisible();
+  expect(tooltip.getByText("Staff (1/1 attended)")).toBeVisible();
   expect(tooltip.getByText("Alice Student")).toBeVisible();
   expect(tooltip.getByText("Absent")).toBeVisible();
   expect(
@@ -91,8 +96,31 @@ it("shows class enrollment details on keyboard focus", async () => {
   await userEvent.tab();
   const tooltip = within(await screen.findByRole("dialog"));
   expect(tooltip.getByText("Extension class")).toBeVisible();
+  expect(tooltip.getByText("Students (1)")).toBeVisible();
+  expect(tooltip.getByText("Staff (1)")).toBeVisible();
   expect(tooltip.getByText("Future enrollment")).toBeVisible();
   expect(tooltip.getByText("Bob Tutor")).toBeVisible();
+});
+it("shows explicit zero student and staff counts for an empty class", async () => {
+  render(
+    <ClassCard
+      isCalendarView
+      compact
+      class={{
+        id: "empty-class",
+        long_name: "Empty class",
+        day_of_week: 1,
+        start_time: "16:00",
+        end_time: "17:00",
+      } as Tables<"classes">}
+      staff={[]}
+    />,
+  );
+
+  await userEvent.hover(screen.getByLabelText("Empty class details"));
+  const tooltip = within(await screen.findByRole("dialog"));
+  expect(tooltip.getByText("Students (0)")).toBeVisible();
+  expect(tooltip.getByText("Staff (0)")).toBeVisible();
 });
 it("shows admin shift day/time and staff on hover", async () => {
   render(
@@ -197,6 +225,8 @@ it("uses the chip session preview with linked people and recorded attendance", a
     await screen.findByRole("dialog", { name: "Trial lesson details" }),
   );
   expect(details.getByText("Biology")).toBeVisible();
+  expect(details.getByText("Students (0/1 attended)")).toBeVisible();
+  expect(details.getByText("Staff (0/1 attended)")).toBeVisible();
   expect(details.getByRole("link", { name: "Alice Student" })).toHaveAttribute(
     "href",
     "/students/student",
@@ -273,4 +303,39 @@ it("allows keyboard entry into details between calendar cards and returns on Esc
   expect(trigger).toHaveFocus();
   await userEvent.tab();
   expect(secondTrigger).toHaveFocus();
+});
+
+
+it("opens calendar details on right click and closes the previous preview", async () => {
+  render(
+    <>
+      <AdminShiftCard isCalendarView adminShift={{ id: "monday", day_of_week: 1, start_time: "16:00", end_time: "17:00" } as Tables<"admin_shifts">} staff={[staff]} />
+      <AdminShiftCard isCalendarView adminShift={{ id: "tuesday", day_of_week: 2, start_time: "16:00", end_time: "17:00" } as Tables<"admin_shifts">} staff={[staff]} />
+    </>,
+  );
+  const [monday, tuesday] = screen.getAllByRole("button", { name: "Admin shift details" });
+  fireEvent.contextMenu(monday);
+  expect(within(await screen.findByRole("dialog")).getByText("Monday")).toBeVisible();
+  fireEvent.contextMenu(tuesday);
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(within(screen.getByRole("dialog")).getByText("Tuesday")).toBeVisible();
+});
+
+it("places details vertically when neither side of a calendar card fits in its pane", async () => {
+  const paneWidth = jest.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(380);
+  render(<CalendarDetailsTooltip enabled title="Calendar edge" subtitle={null} staff={[]}><span>Session</span></CalendarDetailsTooltip>);
+  const trigger = screen.getByLabelText("Calendar edge details");
+  const bounds = jest.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+    x: 150, y: 200, left: 150, right: 230, top: 200, bottom: 240,
+    width: 80, height: 40, toJSON: () => ({}),
+  });
+
+  try {
+    await userEvent.hover(trigger);
+    const details = await screen.findByRole("dialog", { name: "Calendar edge details" });
+    expect(details.getAttribute("data-side")).toMatch(/^(top|bottom)$/);
+  } finally {
+    bounds.mockRestore();
+    paneWidth.mockRestore();
+  }
 });

@@ -125,6 +125,7 @@ export * from "./components/timed-calendar";
 export * from "./components/interview-round-calendar-card";
 
 export * from './components/entity-chip';
+export { entityReferenceDragProps } from './lib/entity-reference-drag';
 export * from './extensions/entity-mention';
 
 export * from "./components/keyboard-shortcut";

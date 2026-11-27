@@ -32,7 +32,7 @@ import {
   type SearchPaletteEntities,
 } from "../model";
 import { EntityPill } from "./EntityPill";
-import { scoreEntityText } from "../utils/matchScoring";
+import { scorePaletteEntity } from "../utils/matchScoring";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { focusCommandPaletteInput } from "@altitutor/shared";
 
@@ -57,12 +57,12 @@ type Item = {
   disabled?: boolean;
   destructive?: boolean;
   enter?: Frame[];
-  action?: () => void;
+  action?: (openInNewPane?: boolean) => void;
 };
 interface PaletteBrowserProps {
   isOpen: boolean;
   onClose: () => void;
-  onEntitySelected: (type: PaletteEntityType, id: string) => void;
+  onEntitySelected: (type: PaletteEntityType, id: string, openInNewPane?: boolean) => void;
   commands: PaletteCommand[];
   pages: CommandPalettePage[];
   onPageSelected?: (href: string) => void;
@@ -244,9 +244,10 @@ export function PaletteBrowser({
           },
         });
   }
-  const openEntity = (entity: EntityTarget) => {
+  const openEntity = (entity: EntityTarget, openInNewPane?: boolean) => {
     onClose();
-    onEntitySelected(entity.type, entity.id);
+    if (openInNewPane) onEntitySelected(entity.type, entity.id, true);
+    else onEntitySelected(entity.type, entity.id);
   };
   const entityItem = (entity: PaletteEntity): Item => {
     const config = paletteEntities[entity.type];
@@ -296,7 +297,7 @@ export function PaletteBrowser({
             next,
           ]
         : undefined,
-      action: nested ? undefined : () => openEntity(entity),
+      action: nested ? undefined : (openInNewPane) => openEntity(entity, openInNewPane),
     };
   };
   if (
@@ -309,7 +310,7 @@ export function PaletteBrowser({
       title: `Open ${current.entity.type === "subject" ? "subject" : "topic"}`,
       target: current.entity,
       icon: ExternalLink,
-      action: () => openEntity(current.entity!),
+      action: (openInNewPane) => openEntity(current.entity!, openInNewPane),
     });
   if (!pendingQuery) {
     const entities = queries.flatMap((result) =>
@@ -318,7 +319,7 @@ export function PaletteBrowser({
     if (!current) {
       entities.sort(
         (a, b) =>
-          scoreEntityText(b, query) - scoreEntityText(a, query) ||
+          scorePaletteEntity(b, query) - scorePaletteEntity(a, query) ||
           Number(a.type === "email") - Number(b.type === "email"),
       );
     }
@@ -333,12 +334,12 @@ export function PaletteBrowser({
       .getElementById(`${listId}-${activeIndex}`)
       ?.scrollIntoView?.({ block: "nearest" });
   }, [activeIndex, listId]);
-  const choose = (item: Item) => {
+  const choose = (item: Item, openInNewPane = false) => {
     if (!item.disabled) {
       if (item.enter) enter(item.enter);
       else {
         if (item.id.startsWith("command-")) onClose();
-        item.action?.();
+        item.action?.(openInNewPane);
       }
     }
   };
@@ -444,7 +445,7 @@ export function PaletteBrowser({
               }
               if (event.key === "Enter") {
                 event.preventDefault();
-                if (items[activeIndex]) choose(items[activeIndex]);
+                if (items[activeIndex]) choose(items[activeIndex], event.shiftKey);
               }
             }}
           />
@@ -492,7 +493,7 @@ export function PaletteBrowser({
               id={`${listId}-${index}`}
               key={item.id}
               onMouseMove={() => setSelected(index)}
-              onClick={() => choose(item)}
+              onClick={(event) => choose(item, event.shiftKey)}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm ${activeIndex === index ? "bg-muted" : "hover:bg-muted/60"} ${item.disabled ? "opacity-50" : ""}`}
             >
               <item.icon

@@ -39,7 +39,7 @@ import {
   type EmailThread,
 } from "../types";
 import { toast } from "sonner";
-import { EmailComposer, type RegisterDraftClose } from "./EmailComposer";
+import { EmailComposer, type EmailDraftCloseOutcome, type RegisterDraftClose } from "./EmailComposer";
 import { EmailIconButton } from "./EmailIconButton";
 import { EmailBody } from "./EmailBodyEditor";
 import { EmailActions } from "./EmailActions";
@@ -59,6 +59,10 @@ const time = (value?: string | null) =>
         timeStyle: "short",
       })
     : "Draft";
+function composeDialogTitle(mode: EmailMessage["draftMode"]) {
+  if (mode === "forward") return "Forward email";
+  if (mode === "new") return "New email";
+}
 function useThreadActivity(thread: EmailThread | undefined, enabled: boolean) {
   const links =
     thread?.links.filter((link) =>
@@ -295,6 +299,7 @@ export function EmailThreadView({
       cc: [],
       bcc: [],
       draft: true,
+      draftMode: "new",
       removed: false,
     });
     setSignature(mailbox.data.signature);
@@ -408,6 +413,19 @@ export function EmailThreadView({
     );
   }
 
+  function resumeDraft(message: EmailMessage) {
+    setDismissedDrafts((all) => all.filter((id) => id !== message.id));
+    setShowMessages(true);
+    if (!composeDialogTitle(message.draftMode) || pendingSend(message.id)) {
+      setFocusDraftId(message.id);
+      return;
+    }
+    setFocusDraftId(undefined);
+    setPreparedDraftId(undefined);
+    setDraftReady(undefined);
+    setSignature(undefined);
+    setDraft(message);
+  }
   useEffect(() => {
     const query = scope?.tab.query ?? "";
     if (
@@ -430,11 +448,7 @@ export function EmailThreadView({
       const candidate =
         candidates.find((message) => message.id === requested) ??
         candidates.at(-1);
-      if (candidate) {
-        setDismissedDrafts((all) => all.filter((id) => id !== candidate.id));
-        setShowMessages(true);
-        setFocusDraftId(candidate.id);
-      }
+      if (candidate) resumeDraft(candidate);
     } else start(action);
     if (scope) panel?.updateQuery(scope.tab.key, "");
     // Intent is consumed once after the target conversation has loaded.
@@ -698,9 +712,11 @@ export function EmailThreadView({
   entries.push(...activity.entries);
   entries.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const sends = data?.sends ?? [];
-  function closeDraft() {
-    if (preparedDraftId || draft?.id)
-      setDismissedDrafts((all) => [...all, preparedDraftId ?? draft!.id]);
+  function closeDraft(outcome: EmailDraftCloseOutcome) {
+    const closedId = preparedDraftId ?? draft?.id;
+    if (closedId && (outcome === "removed" || !composeDialogTitle(draft?.draftMode))) {
+      setDismissedDrafts((all) => [...all, closedId]);
+    }
     setDraft(null);
     setDraftReady(undefined);
     setPreparedDraftId(undefined);
@@ -806,6 +822,7 @@ export function EmailThreadView({
             )
             .map((message) => {
               const pending = pendingSend(message.id);
+              const dialogTitle = composeDialogTitle(message.draftMode);
               return (
                 <div
                   key={message.id}
@@ -828,12 +845,19 @@ export function EmailThreadView({
                         })
                       }
                     />
+                  ) : dialogTitle ? (
+                    <div className="mx-4 mb-3 flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+                      <span className="min-w-0 truncate text-sm">{message.subject || "No subject"}</span>
+                      <Button type="button" size="sm" variant="outline" disabled={Boolean(draft) || closingEditors}
+                        onClick={() => resumeDraft(message)}>
+                        {message.draftMode === "forward" ? "Resume forward" : "Resume new email"}
+                      </Button>
+                    </div>
                   ) : (
                     <EmailComposer
                       registerForClose={registerDraftClose}
                       draft={message}
                       mailbox={mailbox.data!}
-                      inline
                       onClose={() => {
                         setDismissedDrafts((all) => [...all, message.id]);
                         void thread.refetch();
@@ -894,7 +918,7 @@ export function EmailThreadView({
             mailbox={mailbox.data}
             signature={signature}
             draftReady={draftReady}
-            inline
+            dialogTitle={composeDialogTitle(draft.draftMode)}
             onSubjectChange={setDraftSubject}
             onClose={closeDraft}
           />

@@ -48,6 +48,10 @@ const trackPointer = (event: Event) => {
   if (!(event.target instanceof Element)) return;
   setKeyboardPointerTarget(keyboardRecordFor(event.target));
 };
+const trackPointerMovement = (event: Event) => {
+  // KeyboardCollection owns movement within its records, including the hover transition.
+  if (event.target instanceof Element && !event.target.closest(collectionRecord)) trackPointer(event);
+};
 const clearPointer = (event: Event) => {
   const related = (event as MouseEvent).relatedTarget;
   if (!(related instanceof Node) || !pointerTarget?.contains(related)) setKeyboardPointerTarget(null);
@@ -70,6 +74,7 @@ export function subscribeKeyboardScope(listener: () => void) {
     document.addEventListener("focusin", trackPane);
     document.addEventListener("pointerdown", trackPane, true);
     document.addEventListener("pointerover", trackPointer);
+    document.addEventListener("pointermove", trackPointerMovement);
     document.addEventListener("pointerout", clearPointer);
     document.addEventListener("focusout", notifyScope);
     scopeObserver = new MutationObserver(notifyScope);
@@ -95,6 +100,7 @@ export function subscribeKeyboardScope(listener: () => void) {
       document.removeEventListener("focusin", trackPane);
       document.removeEventListener("pointerdown", trackPane, true);
       document.removeEventListener("pointerover", trackPointer);
+      document.removeEventListener("pointermove", trackPointerMovement);
       document.removeEventListener("pointerout", clearPointer);
       document.removeEventListener("focusout", notifyScope);
       scopeObserver?.disconnect();
