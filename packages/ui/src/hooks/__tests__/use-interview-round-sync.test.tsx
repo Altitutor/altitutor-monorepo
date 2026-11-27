@@ -70,6 +70,58 @@ test("active participation uses slow fallback reads and heartbeats without perio
   }
 });
 
+test("a recent live read defers the next fallback and a disconnected room still recovers every ten seconds", async () => {
+  jest.useFakeTimers();
+  const refresh = jest.fn().mockResolvedValue(undefined);
+  const send = jest.fn().mockResolvedValue({});
+  let signalChange: () => void;
+  let signalConnection: (connected: boolean) => void;
+  const root = createRoot(document.createElement("div"));
+  function View() {
+    useInterviewRoundSync({
+      scope: "actor:round",
+      round,
+      participate: true,
+      adapter: {
+        refresh,
+        send,
+        subscribe: (changed, connected) => {
+          signalChange = changed;
+          signalConnection = connected;
+          connected(true);
+          return () => undefined;
+        },
+      },
+    });
+    return null;
+  }
+  try {
+    await act(async () => root.render(<View />));
+    await act(async () => jest.advanceTimersByTimeAsync(29_000));
+    await act(async () => signalChange());
+    expect(refresh).toHaveBeenCalledTimes(2);
+
+    await act(async () => jest.advanceTimersByTimeAsync(29_999));
+    expect(refresh).toHaveBeenCalledTimes(2);
+    await act(async () => jest.advanceTimersByTimeAsync(1));
+    expect(refresh).toHaveBeenCalledTimes(3);
+
+    await act(async () => signalConnection(false));
+    await act(async () => jest.advanceTimersByTimeAsync(5_000));
+    await act(async () => signalConnection(false));
+    await act(async () => jest.advanceTimersByTimeAsync(4_999));
+    expect(refresh).toHaveBeenCalledTimes(3);
+    await act(async () => jest.advanceTimersByTimeAsync(1));
+    expect(refresh).toHaveBeenCalledTimes(4);
+
+    await act(async () => signalConnection(true));
+    expect(refresh).toHaveBeenCalledTimes(5);
+  } finally {
+    await act(async () => root.unmount());
+    jest.useRealTimers();
+  }
+});
+
 test("phase changes cancel stale deadline wakeups and resume ticks once at the new server deadline", async () => {
   jest.useFakeTimers();
   const send = jest.fn().mockResolvedValue({});
