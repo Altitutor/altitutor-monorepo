@@ -16,7 +16,9 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
     JOIN public.interview_rounds r ON r.student_ids @> ARRAY[e.id]
     LEFT JOIN LATERAL (
       SELECT snapshot FROM public.interview_result_releases
-      WHERE round_id = r.id AND student_id = e.id ORDER BY revision DESC LIMIT 1
+      WHERE round_id = r.id AND student_id = e.id
+        AND revision > coalesce((r.data->'withdrawnResultRevisions'->>e.id::text)::integer, 0)
+      ORDER BY revision DESC LIMIT 1
     ) released ON true
     WHERE r.data->>'phase' = 'completed' AND (p_review_date IS NULL OR released.snapshot IS NOT NULL)
   ), evidence AS (

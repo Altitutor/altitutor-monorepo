@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import type { JSONContent } from "@tiptap/core";
-import { formatInterviewReviewDate, interviewText, type InterviewReviewMock, type Json } from "@altitutor/shared";
+import { formatInterviewReviewDate, interviewReviewFeedbackDocument, interviewText, type InterviewReviewMock, type Json } from "@altitutor/shared";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { RichTextEditor } from "./rich-text-editor";
@@ -53,12 +53,14 @@ function Feedback({ content, showEmpty = false }: { content: Json; showEmpty?: b
   if (!text) {
     return showEmpty ? <p className="px-2 py-1 text-xs text-muted-foreground">No written feedback.</p> : null;
   }
-  if (!content || typeof content !== "object" || Array.isArray(content) || content.type !== "doc") {
+  const document = interviewReviewFeedbackDocument(content);
+  if (!document) {
     return <p className="px-2 py-1 text-sm whitespace-pre-wrap text-muted-foreground">{text}</p>;
   }
   return (
     <RichTextEditor
-      content={content as JSONContent}
+      content={document as JSONContent}
+      allowMedia={false}
       editable={false}
       autoHeight
       minHeight="0"

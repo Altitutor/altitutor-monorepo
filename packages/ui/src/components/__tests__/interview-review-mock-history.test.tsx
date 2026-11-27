@@ -25,6 +25,7 @@ const mock: InterviewReviewMock = {
     feedback: {
       type: "doc",
       content: [
+        { type: "image", attrs: { src: "https://images.example.test/feedback.png", alt: "Embedded feedback image" } },
         { type: "paragraph", content: [{ type: "text", text: "Clear opening", marks: [{ type: "bold" }] }] },
         { type: "paragraph", content: [{ type: "text", text: "Explain the trade-off next." }] },
       ],
@@ -37,13 +38,14 @@ const mock: InterviewReviewMock = {
 };
 
 test("preserves the formatting of mock feedback", async () => {
-  render(<InterviewReviewMockHistory round={mock} />);
+  const { container } = render(<InterviewReviewMockHistory round={mock} />);
 
   fireEvent.click(screen.getByRole("button", { name: /Practice mock/ }));
   fireEvent.click(screen.getByRole("button", { name: /Ethics/ }));
 
   expect((await screen.findByText("Clear opening")).tagName).toBe("STRONG");
   expect(screen.getByText("Explain the trade-off next.").tagName).toBe("P");
+  expect(container.querySelector('img[src="https://images.example.test/feedback.png"]')).toBeNull();
 });
 
 test("shows a zero question score while accepting old snapshots without question scores", () => {

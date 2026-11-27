@@ -64,5 +64,6 @@ export type { SharedLessonDocument } from './teaching/types';
 export * from "./utils/past-session-history";
 
 export * from './interviews/performance-reviews';
+export * from './interviews/performance-review-document';
 
 export * from './observability/subject-cover-diagnostics';

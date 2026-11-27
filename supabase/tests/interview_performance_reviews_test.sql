@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(31);
+SELECT plan(33);
 
 UPDATE public.classes SET subject_id = (SELECT id FROM public.subjects WHERE name = 'Medicine Interview')
 WHERE id = '20000000-0000-0000-0000-000000000001';
@@ -161,5 +161,26 @@ SELECT set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 SELECT is((SELECT count(*) FROM public.vtutor_interview_performance_reviews WHERE id = '46300000-0000-4000-8000-000000000001'), 0::bigint, 'deleted draft disappears from the tutor facade');
 SELECT ok((SELECT jsonb_array_length(details->'mocks') >= 2 FROM public.vtutor_interview_performance_review_students WHERE id = '10000000-0000-0000-0000-000000000001'), 'eligible student directory includes completed mock history');
 RESET ROLE;
+
+UPDATE public.interview_rounds
+SET data = jsonb_set(data, '{withdrawnResultRevisions}', '{"10000000-0000-0000-0000-000000000001":2}')
+WHERE id = '36400000-0000-4000-8000-000000000201';
+
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{}', true);
+SELECT lives_ok(
+  $$SELECT public.interview_performance_review_command('00000000-0000-0000-0000-000000000010',
+    '{"type":"publishReview","id":"36400000-0000-4000-8000-000000000101","expectedVersion":5,
+      "studentId":"10000000-0000-0000-0000-000000000001","date":"2026-11-05",
+      "body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Review after withdrawal"}]}]}}')$$,
+  'the author can publish a review after a mock release is withdrawn');
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+SELECT is((SELECT data->'mocks' FROM public.vstudent_interview_performance_reviews), '[]'::jsonb,
+  'a new review cannot publish scores or feedback from a withdrawn mock result');
+RESET ROLE;
+
 SELECT * FROM finish();
 ROLLBACK;

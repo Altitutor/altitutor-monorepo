@@ -1,4 +1,4 @@
-import type { Json } from "@altitutor/shared";
+import type { Json } from "../supabase/generated";
 
 const inline = ["text", "hardBreak", "inlineMath"];
 const blocks = ["paragraph", "heading", "blockquote", "bulletList", "orderedList", "codeBlock", "horizontalRule", "table", "details", "blockMath"];
@@ -105,4 +105,22 @@ function validNode(node: unknown, allowed: string[], depth: number): boolean {
 /** Reviews are shared across accounts. Embedded frames and media are outside this document surface. */
 export function isInterviewReviewDocument(value: unknown): value is Json {
   return validNode(value, ["doc"], 0);
+}
+
+function withoutEmbeddedMedia(node: Json, depth = 0): Json {
+  if (depth >= 32 || !node || typeof node !== "object" || Array.isArray(node) || !Array.isArray(node.content)) {
+    return node;
+  }
+  return {
+    ...node,
+    content: node.content
+      .filter((child) => !isRecord(child) || (child.type !== "image" && child.type !== "externalVideo"))
+      .map((child) => withoutEmbeddedMedia(child, depth + 1)),
+  };
+}
+
+/** Reuse the review document rules for rich feedback with older embedded media. */
+export function interviewReviewFeedbackDocument(value: Json): Json | null {
+  const document = withoutEmbeddedMedia(value);
+  return isInterviewReviewDocument(document) ? document : null;
 }
