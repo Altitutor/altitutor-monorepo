@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { CollectionField } from '@altitutor/ui';
+import { CollectionField, entityReferenceDragProps } from '@altitutor/ui';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import type { ProjectWithLead } from '../types';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils';
@@ -26,6 +26,7 @@ export const ProjectCard = memo(function ProjectCard({
       data-work-item-card
       data-record-type="project"
       data-record-id={project.id}
+      {...entityReferenceDragProps({ id: project.id, type: 'project', label: project.name || 'Untitled project' })}
       onClick={() => onOpen?.(project.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',

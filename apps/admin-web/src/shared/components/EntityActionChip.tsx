@@ -3,6 +3,7 @@
 import type { ComponentProps } from "react";
 import {
   EntityChip,
+  entityReferenceDragProps,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -30,8 +31,14 @@ export function EntityActionChip({
       props.entityType === "message" && "max-w-40",
     ),
   };
-  if (!iconOnly || !props.entityId || !onClick)
-    return <EntityChip {...props} onClick={onClick} data-hover-actions-key={hoverActionsKey} />;
+  if (!iconOnly || !props.entityId || !onClick) {
+    const dragProps = props.entityId && props.label ? entityReferenceDragProps({
+      id: props.entityId,
+      type: props.entityType,
+      label: props.label,
+    }) : undefined;
+    return <EntityChip {...dragProps} {...props} onClick={onClick} data-hover-actions-key={hoverActionsKey} />;
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
