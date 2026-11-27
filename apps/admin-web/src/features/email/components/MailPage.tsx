@@ -7,8 +7,11 @@ import { ListSettingsMenu } from "@/shared/components/ListSettingsMenu";
 import { AdminActionGroup } from "@/shared/components/AdminActionGroup";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, Reply } from "lucide-react";
+import { toast } from "sonner";
 import { ConversationPanes } from "@/shared/components/ConversationPanes";
 import { EmailThreadView } from "./EmailThreadView";
+import { NewEmailComposer } from "./NewEmailComposer";
+import type { RegisterDraftClose } from "./EmailComposer";
 import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
 import {
   DataTableToolbar,
@@ -22,10 +25,7 @@ import {
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { useRegisterPageActions } from "@/features/command-palette/RecordActionsContext";
 import { useMailboxList, useSyncMailbox } from "../api/client";
-import {
-  useComposeEmail,
-  useOpenEmailThread,
-} from "../hooks/useOpenEmailThread";
+import { useOpenEmailThread } from "../hooks/useOpenEmailThread";
 import type { EmailSummary } from "../types";
 import { EmailIconButton } from "./EmailIconButton";
 import styles from "./mail-list.module.css";
@@ -44,6 +44,16 @@ export function MailPage() {
   const folder = routeFolder ?? list.folder;
   const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const compose = useCallback(() => setComposing(true), []);
+  const composeClose = useRef<(() => Promise<boolean>) | null>(null);
+  const savingCompose = useRef(false);
+  const registerComposeClose = useCallback<RegisterDraftClose>((_id, prepare) => {
+    composeClose.current = prepare;
+    return () => {
+      if (composeClose.current === prepare) composeClose.current = null;
+    };
+  }, []);
   useEffect(() => {
     if (ready && routeFolder !== null) {
       setList((current) => current.folder === routeFolder ? current : { ...current, folder: routeFolder });
@@ -56,9 +66,26 @@ export function MailPage() {
   }, []);
   useEffect(() => {
     const close = (event: Event) => {
-      if (!inlineClose.current) return;
+      const prepare = composeClose.current;
+      if (event.defaultPrevented || (!inlineClose.current && !prepare)) return;
       event.preventDefault();
-      inlineClose.current((event as CustomEvent<() => void>).detail);
+      const navigate = (event as CustomEvent<() => void>).detail;
+      const next = () => {
+        if (inlineClose.current) inlineClose.current(navigate);
+        else navigate();
+      };
+      if (!prepare) {
+        next();
+      } else if (!savingCompose.current) {
+        savingCompose.current = true;
+        void prepare().then((saved) => {
+          if (saved) {
+            setComposing(false);
+            next();
+          }
+        }).catch(() => toast.error("The email draft could not be saved."))
+          .finally(() => { savingCompose.current = false; });
+      }
     };
     window.addEventListener(paneCloseEvent, close);
     return () => window.removeEventListener(paneCloseEvent, close);
@@ -91,7 +118,6 @@ export function MailPage() {
   const sync = useSyncMailbox();
   const syncBusy = useRef(false);
   const openThread = useOpenEmailThread();
-  const compose = useComposeEmail();
   const savedViews = useQuickFilters("email");
   useEffect(() => {
     if (!ready) return;
@@ -567,6 +593,13 @@ export function MailPage() {
           />
         )}
       />
+      {composing && mailboxData && (
+        <NewEmailComposer
+          mailbox={mailboxData}
+          registerForClose={registerComposeClose}
+          onClose={() => setComposing(false)}
+        />
+      )}
     </div>
   );
 }

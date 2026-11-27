@@ -188,7 +188,6 @@ it("autosaves to the shared draft and prevents another submission while the send
         <EmailComposer
           draft={draft}
           mailbox={mailbox}
-          inline
           onClose={() => {}}
         />
       </TooltipProvider>
@@ -278,7 +277,6 @@ it.each(["keep", "microsoft"] as const)(
           <EmailComposer
             draft={draft}
             mailbox={mailbox}
-            inline
             onClose={() => {}}
           />
         </TooltipProvider>
@@ -357,7 +355,6 @@ it("keeps typing and submission responsive after an autosave without refreshing 
         <EmailComposer
           draft={draft}
           mailbox={mailbox}
-          inline
           onClose={() => {}}
         />
       </TooltipProvider>
@@ -417,7 +414,6 @@ it("dismisses only after Microsoft accepts the saved draft", async () => {
         <EmailComposer
           draft={draft}
           mailbox={mailbox}
-          inline
           onClose={closed}
         />
       </TooltipProvider>
@@ -472,7 +468,6 @@ it("opens an editable local draft while Microsoft prepares it and saves only its
           draft={{ ...draft, id: "local:instant" }}
           draftReady={preparation}
           mailbox={mailbox}
-          inline
           onClose={() => {}}
         />
       </TooltipProvider>
@@ -517,7 +512,6 @@ it.each(["Close draft", "Delete draft"])(
           <EmailComposer
             draft={draft}
             mailbox={mailbox}
-            inline
             onClose={closed}
           />
         </TooltipProvider>
@@ -629,7 +623,6 @@ it.each([false, true])(
           draft={{ ...draft, id: "local:reply" }}
           draftReady={preparation}
           mailbox={mailbox}
-          inline
           onClose={() => {}}
         />
       </QueryClientProvider>,
@@ -683,7 +676,6 @@ it("blocks remote image nodes before mounting a provider draft in the rich edito
             '<p>Quoted work<img src="https://tracker.example.test/pixel"></p>',
         }}
         mailbox={mailbox}
-        inline
         onClose={() => {}}
       />
     </QueryClientProvider>,
@@ -707,7 +699,6 @@ it("requires an incomplete recipient to be committed or corrected before Send", 
       <EmailComposer
         draft={draft}
         mailbox={mailbox}
-        inline
         onClose={() => {}}
       />
     </QueryClientProvider>,

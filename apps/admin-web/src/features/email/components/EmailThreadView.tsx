@@ -295,6 +295,7 @@ export function EmailThreadView({
       cc: [],
       bcc: [],
       draft: true,
+      draftMode: "new",
       removed: false,
     });
     setSignature(mailbox.data.signature);
@@ -833,7 +834,6 @@ export function EmailThreadView({
                       registerForClose={registerDraftClose}
                       draft={message}
                       mailbox={mailbox.data!}
-                      inline
                       onClose={() => {
                         setDismissedDrafts((all) => [...all, message.id]);
                         void thread.refetch();
@@ -894,7 +894,10 @@ export function EmailThreadView({
             mailbox={mailbox.data}
             signature={signature}
             draftReady={draftReady}
-            inline
+            dialogTitle={
+              draft.draftMode === "forward" ? "Forward email" :
+              draft.draftMode === "new" ? "New email" : undefined
+            }
             onSubjectChange={setDraftSubject}
             onClose={closeDraft}
           />

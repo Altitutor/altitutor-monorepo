@@ -14,10 +14,7 @@ import {
   useAccessoryPanel,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
-import {
-  useComposeEmail,
-  useOpenEmailThread,
-} from "../../hooks/useOpenEmailThread";
+import { useOpenEmailThread } from "../../hooks/useOpenEmailThread";
 import { EmailThreadView } from "../EmailThreadView";
 import { AccessoryTabs } from "@/shared/components/accessory-panel/AccessoryTabs";
 jest.mock("@/features/messages/api/queries", () => ({
@@ -72,18 +69,19 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 function Workspace() {
-  const compose = useComposeEmail();
   const panel = useAccessoryPanel()!;
   const tab = panel.tabs.find((item) => item.key === panel.activeKey);
   return (
     <>
-      <button onClick={compose}>Compose</button>
+      <button onClick={() => panel.openTab({ kind: "email", id: "compose:restored", title: "New email" })}>
+        Restore compose tab
+      </button>
       <output>{tab?.id ?? "No thread"}</output>
       <AccessoryTabs />
     </>
   );
 }
-it("opens new composition inside the existing accessory workspace and preserves typing when Microsoft gives it a thread identity", async () => {
+it("preserves typing in a restored compose tab when Microsoft gives it a thread identity", async () => {
   localStorage.clear();
   let sequence = 0;
   Object.defineProperty(crypto, "randomUUID", {
@@ -170,12 +168,10 @@ it("opens new composition inside the existing accessory workspace and preserves 
       </QuickActionsProvider>
     </StrictMode>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Compose" }));
-  const subject = await screen.findByRole("textbox", { name: "Email subject" });
+  fireEvent.click(screen.getByRole("button", { name: "Restore compose tab" }));
+  const composer = await screen.findByRole("dialog", { name: "New email" });
+  const subject = within(composer).getByRole("textbox", { name: "Email subject" });
   fireEvent.change(subject, { target: { value: "Work written immediately" } });
-  expect(
-    screen.queryByRole("dialog", { name: "Compose email" }),
-  ).not.toBeInTheDocument();
   await act(async () =>
     prepared({
       ok: true,
@@ -190,10 +186,10 @@ it("opens new composition inside the existing accessory workspace and preserves 
   expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
   expect(subject).toHaveValue("Work written immediately");
   expect(
-    screen.getByRole("tab", { name: "Work written immediately" }),
+    screen.getByRole("tab", { name: "Work written immediately", hidden: true }),
   ).toBeInTheDocument();
   expect(create).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole("button", { name: "Email" }));
+  fireEvent.click(screen.getByRole("button", { name: "Email", hidden: true }));
   expect(mockPrimaryNavigation).toHaveBeenCalledWith("/email", undefined);
   expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
 });
@@ -313,6 +309,39 @@ it("does not render a deleted draft that remains in cached conversation history"
     screen.queryByRole("textbox", { name: "Email subject" }),
   ).not.toBeInTheDocument();
 });
+it("opens Forward in a composer dialog and keeps Reply all inline", async () => {
+  existingThread([originalMessage]);
+  const get = global.fetch;
+  global.fetch = jest.fn(async (input, init) => {
+    if (!init?.body) return get(input, init);
+    const command = JSON.parse(String(init.body));
+    return {
+      ok: true,
+      json: async () => ({
+        state: "draft",
+        message: {
+          ...existingDraft,
+          to: command.mode === "forward" ? [] : existingDraft.to,
+          subject: command.mode === "forward" ? "Fwd: Lesson" : "Re: Lesson",
+          draftMode: command.mode,
+        },
+      }),
+    } as Response;
+  });
+
+  const email = await screen.findByRole("article", { name: "Email: Lesson" });
+  fireEvent.click(within(email).getByRole("button", { name: "Forward" }));
+  const forward = await screen.findByRole("dialog", { name: "Forward email" });
+  expect(within(forward).getByRole("textbox", { name: "Email subject" })).toHaveValue("Fwd: Lesson");
+  fireEvent.click(within(forward).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
+  await waitFor(() => expect(forward).not.toBeInTheDocument());
+
+  fireEvent.click(within(email).getByRole("button", { name: "Reply all" }));
+  expect(await screen.findByRole("textbox", { name: "Email subject" })).toHaveValue("Re: Lesson");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("offers the same-message draft before creating another reply", async () => {
   existingThread([originalMessage, { ...existingDraft, draftMode: "reply" }]);
   await screen.findByRole("textbox", { name: "Email subject" });
