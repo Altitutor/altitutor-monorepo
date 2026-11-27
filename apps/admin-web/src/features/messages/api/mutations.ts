@@ -28,6 +28,7 @@ export function useSendMessage() {
       destinationAddress?: string | null;
       resentFromMessageId?: string;
       scheduledAt?: string;
+      scheduleRequestIds?: { message: string; linkCopy: string };
       onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
       attachments?: Array<{
         storageUrl: string;
@@ -119,6 +120,7 @@ export function useSendMessage() {
       if (scheduleAt) {
         const schedule = async (body: string, includeAttachments: boolean) => {
           const { data, error } = await supabase.rpc('create_scheduled_admin_text', {
+            p_message_id: includeAttachments ? args.scheduleRequestIds?.message : args.scheduleRequestIds?.linkCopy,
             p_conversation_id: conversationId,
             p_body: body,
             p_from_number: outboundMessage.from_number_e164 ?? undefined,
@@ -229,7 +231,7 @@ export function useCancelScheduledText() {
     mutationFn: async ({ messageId }: { messageId: string; conversationId: string; contactId?: string | null }) => {
       const supabase = getSupabaseClient();
       const { error, data } = await supabase.from('messages')
-        .delete()
+        .update({ status: 'CANCELED' })
         .eq('id', messageId)
         .eq('status', 'SCHEDULED')
         .select('id');

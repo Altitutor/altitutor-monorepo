@@ -9,7 +9,7 @@ jest.mock('@/shared/lib/supabase/auth', () => ({ useAuthStore: jest.fn() }));
 
 function setup(rows: Array<{ id: string }>) {
   const query = {
-    delete: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     select: jest.fn().mockResolvedValue({ data: rows, error: null }),
   };
@@ -32,9 +32,10 @@ function setup(rows: Array<{ id: string }>) {
   };
 }
 
-it('deletes and refreshes a pending text', async () => {
+it('cancels and refreshes a pending text', async () => {
   const { cancel, query, refresh } = setup([{ id: 'message' }]);
   await act(async () => { await cancel(); });
+  expect(query.update).toHaveBeenCalledWith({ status: 'CANCELED' });
   expect(query.eq.mock.calls).toEqual([['id', 'message'], ['status', 'SCHEDULED']]);
   expect(refresh).toHaveBeenCalled();
 });

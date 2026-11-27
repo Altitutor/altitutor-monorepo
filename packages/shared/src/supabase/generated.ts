@@ -7239,6 +7239,7 @@ export type Database = {
           received_at: string | null
           resent_from_message_id: string | null
           scheduled_at: string | null
+          scheduled_dispatch_at: string | null
           sent_at: string | null
           status: string
           status_updated_at: string | null
@@ -7275,6 +7276,7 @@ export type Database = {
           received_at?: string | null
           resent_from_message_id?: string | null
           scheduled_at?: string | null
+          scheduled_dispatch_at?: string | null
           sent_at?: string | null
           status: string
           status_updated_at?: string | null
@@ -7311,6 +7313,7 @@ export type Database = {
           received_at?: string | null
           resent_from_message_id?: string | null
           scheduled_at?: string | null
+          scheduled_dispatch_at?: string | null
           sent_at?: string | null
           status?: string
           status_updated_at?: string | null
@@ -47492,6 +47495,7 @@ export type Database = {
           p_body: string
           p_conversation_id: string
           p_from_number?: string
+          p_message_id?: string
           p_onboarding_journey_id?: string
           p_onboarding_purpose?: string
           p_resent_from_message_id?: string

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(22);
+SELECT plan(27);
 
 INSERT INTO public.contacts (id, phone_e164, email, contact_type) VALUES
   ('f9600000-0000-4000-8000-000000000001', '+61400996901', 'scheduled-recipient@example.test', 'OTHER'),
@@ -11,7 +11,7 @@ INSERT INTO public.conversations (id, contact_id, owned_number_id) VALUES
   ('f9600000-0000-4000-8000-000000000005', 'f9600000-0000-4000-8000-000000000002', 'f9600000-0000-4000-8000-000000000003');
 
 SELECT ok(NOT has_function_privilege('anon',
-  'public.create_scheduled_admin_text(uuid,text,text,timestamptz,text,jsonb,uuid,uuid,text)', 'EXECUTE'),
+  'public.create_scheduled_admin_text(uuid,text,text,timestamptz,text,jsonb,uuid,uuid,text,uuid)', 'EXECUTE'),
   'Anonymous callers cannot execute the scheduled enqueue RPC');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"role":"authenticated","sub":"10000000-0000-0000-0000-000000000001"}', true);
@@ -46,6 +46,23 @@ SELECT is((SELECT scheduled_message_at FROM public.conversations WHERE id = 'f96
   now() + interval '1 hour', 'The conversation reflects its scheduled send time');
 SELECT is((SELECT last_message_at FROM public.conversations WHERE id = 'f9600000-0000-4000-8000-000000000004'),
   NULL::timestamptz, 'A scheduled text is not yet the latest substantive message');
+SELECT set_config('scheduled_text_test.retry', public.create_scheduled_admin_text(
+  'f9600000-0000-4000-8000-000000000004', 'Retry-safe text', '+61400996901',
+  now() + interval '1 hour', p_message_id := 'f9600000-0000-4000-8000-000000000011'
+)::text, true);
+SELECT is(public.create_scheduled_admin_text(
+  'f9600000-0000-4000-8000-000000000004', 'Retry-safe text', '+61400996901',
+  now() + interval '1 hour', p_message_id := 'f9600000-0000-4000-8000-000000000011'
+), current_setting('scheduled_text_test.retry')::uuid, 'Replaying the enqueue returns the same message');
+SELECT is((SELECT count(*) FROM public.messages WHERE body = 'Retry-safe text'),
+  1::bigint, 'A replay schedules only one text');
+UPDATE public.messages SET status = 'CANCELED'
+WHERE id = 'f9600000-0000-4000-8000-000000000011' AND status = 'SCHEDULED';
+SELECT throws_ok($$
+  SELECT public.create_scheduled_admin_text(
+    'f9600000-0000-4000-8000-000000000004', 'Retry-safe text', '+61400996901',
+    now() + interval '1 hour', p_message_id := 'f9600000-0000-4000-8000-000000000011')
+$$, '22023', 'This scheduled text was already canceled.', 'A retry cannot revive a canceled text');
 RESET ROLE;
 SELECT is((SELECT count(*) FROM public.imessage_commands WHERE message_id = current_setting('scheduled_text_test.message')::uuid),
   0::bigint, 'A scheduled insert does not enqueue a bridge command');
@@ -63,6 +80,10 @@ SELECT is((SELECT count(*) FROM public.claim_imessage_commands('scheduled-text-t
   0::bigint, 'An early command cannot claim a due text before dispatch releases it');
 UPDATE public.messages SET status = 'SENDING', status_updated_at = now()
   WHERE id = current_setting('scheduled_text_test.message')::uuid;
+SELECT is((SELECT scheduled_dispatch_at FROM public.messages WHERE id = current_setting('scheduled_text_test.message')::uuid),
+  now(), 'A released text records dispatch time separately from draft creation');
+SELECT ok((SELECT scheduled_dispatch_at >= created_at FROM public.messages WHERE id = current_setting('scheduled_text_test.message')::uuid),
+  'Scheduled history can page by dispatch even when the draft was created earlier');
 CREATE TEMP TABLE scheduled_text_claim AS
 SELECT item FROM public.claim_imessage_commands('scheduled-text-test', 100) AS item
 WHERE item->>'id' = current_setting('scheduled_text_test.command');

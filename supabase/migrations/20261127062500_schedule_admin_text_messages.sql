@@ -1,19 +1,25 @@
-ALTER TABLE public.messages ADD COLUMN scheduled_at timestamptz;
+ALTER TABLE public.messages
+  ADD COLUMN scheduled_at timestamptz,
+  ADD COLUMN scheduled_dispatch_at timestamptz;
 ALTER TABLE public.messages DROP CONSTRAINT messages_status_check;
 ALTER TABLE public.messages ADD CONSTRAINT messages_status_check CHECK (
   status IN (
-    'SCHEDULED', 'QUEUED', 'SENDING', 'SENT', 'DELIVERED', 'READ',
+    'SCHEDULED', 'CANCELED', 'QUEUED', 'SENDING', 'SENT', 'DELIVERED', 'READ',
     'UNDELIVERED', 'FAILED', 'AMBIGUOUS', 'RECEIVED'
   )
 );
 ALTER TABLE public.messages ADD CONSTRAINT messages_scheduled_outbound CHECK (
-  (status <> 'SCHEDULED' OR scheduled_at IS NOT NULL)
+  (status NOT IN ('SCHEDULED', 'CANCELED') OR scheduled_at IS NOT NULL)
   AND (scheduled_at IS NULL OR (direction = 'OUTBOUND' AND NOT is_reaction))
+  AND (scheduled_dispatch_at IS NULL OR (scheduled_at IS NOT NULL AND status NOT IN ('SCHEDULED', 'CANCELED')))
 );
 
 CREATE INDEX messages_scheduled_due ON public.messages (scheduled_at) WHERE status = 'SCHEDULED';
 CREATE INDEX messages_conversation_scheduled ON public.messages (conversation_id, scheduled_at DESC)
   WHERE status = 'SCHEDULED';
+CREATE INDEX messages_conversation_scheduled_history
+  ON public.messages (conversation_id, scheduled_dispatch_at DESC, id DESC)
+  WHERE scheduled_dispatch_at IS NOT NULL;
 ALTER TABLE public.conversations ADD COLUMN scheduled_message_at timestamptz;
 CREATE INDEX conversations_scheduled_message ON public.conversations (scheduled_message_at DESC NULLS LAST);
 
@@ -59,15 +65,31 @@ CREATE TRIGGER refresh_conversation_scheduled_message_delete
 AFTER DELETE ON public.messages FOR EACH ROW WHEN (OLD.status = 'SCHEDULED')
 EXECUTE FUNCTION private.refresh_conversation_scheduled_message();
 
+CREATE FUNCTION private.capture_scheduled_text_dispatch() RETURNS trigger
+LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF NEW.status NOT IN ('SCHEDULED', 'CANCELED') THEN
+    NEW.scheduled_dispatch_at := COALESCE(
+      NEW.sent_at, NEW.scheduled_dispatch_at, NEW.status_updated_at, clock_timestamp()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION private.capture_scheduled_text_dispatch() FROM PUBLIC, anon, authenticated;
+
+CREATE TRIGGER capture_scheduled_text_dispatch
+BEFORE UPDATE OF status, sent_at ON public.messages FOR EACH ROW
+WHEN (NEW.scheduled_at IS NOT NULL)
+EXECUTE FUNCTION private.capture_scheduled_text_dispatch();
+
 CREATE OR REPLACE FUNCTION public.update_conversation_last_message()
 RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 DECLARE
   message_at timestamptz :=
-    CASE WHEN TG_OP = 'UPDATE' AND OLD.status = 'SCHEDULED' AND NEW.status = 'SENDING'
-      THEN NEW.status_updated_at
-      ELSE COALESCE(NEW.sent_at, NEW.received_at, NEW.created_at, now()) END;
+    COALESCE(NEW.scheduled_dispatch_at, NEW.sent_at, NEW.received_at, NEW.created_at, now());
 BEGIN
-  IF NEW.is_reaction OR NEW.status = 'SCHEDULED' THEN
+  IF NEW.is_reaction OR NEW.status IN ('SCHEDULED', 'CANCELED') THEN
     RETURN NEW;
   END IF;
 
@@ -81,7 +103,7 @@ $$;
 
 DROP TRIGGER trg_messages_set_needs_follow_up ON public.messages;
 CREATE TRIGGER trg_messages_set_needs_follow_up
-AFTER INSERT ON public.messages FOR EACH ROW WHEN (NEW.status <> 'SCHEDULED')
+AFTER INSERT ON public.messages FOR EACH ROW WHEN (NEW.status NOT IN ('SCHEDULED', 'CANCELED'))
 EXECUTE FUNCTION public.set_conversations_needs_follow_up();
 
 CREATE TRIGGER set_needs_follow_up_on_text_dispatch
@@ -98,7 +120,8 @@ CREATE FUNCTION public.create_scheduled_admin_text(
   p_attachments jsonb DEFAULT '[]'::jsonb,
   p_resent_from_message_id uuid DEFAULT NULL,
   p_onboarding_journey_id uuid DEFAULT NULL,
-  p_onboarding_purpose text DEFAULT NULL
+  p_onboarding_purpose text DEFAULT NULL,
+  p_message_id uuid DEFAULT gen_random_uuid()
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -108,6 +131,7 @@ AS $$
 DECLARE
   creator_id uuid;
   message_id uuid;
+  existing_status text;
 BEGIN
   IF NOT public.is_adminstaff_active() THEN
     RAISE EXCEPTION 'Active ADMINSTAFF required' USING ERRCODE = '42501';
@@ -124,13 +148,35 @@ BEGIN
   END IF;
 
   INSERT INTO public.messages (
-    conversation_id, direction, status, body, from_number_e164, to_number_e164,
+    id, conversation_id, direction, status, body, from_number_e164, to_number_e164,
     scheduled_at, created_by_staff_id, resent_from_message_id, onboarding_journey_id, onboarding_purpose
   ) VALUES (
-    p_conversation_id, 'OUTBOUND', 'SCHEDULED', p_body, p_from_number, p_to_number,
+    p_message_id, p_conversation_id, 'OUTBOUND', 'SCHEDULED', p_body, p_from_number, p_to_number,
     p_scheduled_at, creator_id, p_resent_from_message_id, p_onboarding_journey_id, p_onboarding_purpose
   )
+  ON CONFLICT (id) DO NOTHING
   RETURNING id INTO message_id;
+
+  IF message_id IS NULL THEN
+    SELECT m.status INTO existing_status FROM public.messages m
+    WHERE m.id = p_message_id
+      AND m.created_by_staff_id = creator_id
+      AND m.conversation_id = p_conversation_id
+      AND m.scheduled_at = p_scheduled_at
+      AND m.body = p_body
+      AND m.from_number_e164 IS NOT DISTINCT FROM p_from_number
+      AND m.to_number_e164 = p_to_number
+      AND m.resent_from_message_id IS NOT DISTINCT FROM p_resent_from_message_id
+      AND m.onboarding_journey_id IS NOT DISTINCT FROM p_onboarding_journey_id
+      AND m.onboarding_purpose IS NOT DISTINCT FROM p_onboarding_purpose;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'The scheduled text ID is already in use.' USING ERRCODE = '23505';
+    END IF;
+    IF existing_status = 'CANCELED' THEN
+      RAISE EXCEPTION 'This scheduled text was already canceled.' USING ERRCODE = '22023';
+    END IF;
+    RETURN p_message_id;
+  END IF;
 
   INSERT INTO public.message_attachments (message_id, storage_url, filename, mime_type, size_bytes)
   SELECT message_id, entry.storage_url, entry.filename, entry.mime_type, entry.size_bytes
@@ -139,9 +185,9 @@ BEGIN
   RETURN message_id;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.create_scheduled_admin_text(uuid, text, text, timestamptz, text, jsonb, uuid, uuid, text)
+REVOKE ALL ON FUNCTION public.create_scheduled_admin_text(uuid, text, text, timestamptz, text, jsonb, uuid, uuid, text, uuid)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.create_scheduled_admin_text(uuid, text, text, timestamptz, text, jsonb, uuid, uuid, text)
+GRANT EXECUTE ON FUNCTION public.create_scheduled_admin_text(uuid, text, text, timestamptz, text, jsonb, uuid, uuid, text, uuid)
   TO authenticated;
 
 -- Repeat the recipient check at connector claim: the Mac may have been offline
@@ -212,7 +258,7 @@ BEGIN
       )
       AND cmd.available_at <= now()
       AND cmd.attempts < cmd.max_attempts
-      AND (m.scheduled_at IS NULL OR (m.scheduled_at <= now() AND m.status <> 'SCHEDULED'))
+      AND (m.scheduled_at IS NULL OR (m.scheduled_at <= now() AND m.status NOT IN ('SCHEDULED', 'CANCELED')))
     ORDER BY cmd.available_at, cmd.created_at
     FOR UPDATE OF cmd SKIP LOCKED
     LIMIT LEAST(GREATEST(p_limit, 1), 100)

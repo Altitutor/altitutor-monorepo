@@ -4,7 +4,7 @@ import { ActivityFeedToolbar, messageActivityFilters } from "@/features/activity
 import { useActivityHistorySearch } from "@/features/activity/hooks/useActivityHistorySearch";
 import { matchesActivityFilters, type ActivityFilters } from "@/features/activity/lib/activityFeedFilters";
 import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
-import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
+import { type ThreadMessage, threadMessageHistoryAt, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
@@ -47,10 +47,8 @@ import {
 } from '../utils/reactions';
 import { isSystemOutboundMessage } from '../utils/conversationPreview';
 
-function messageTimelineAt(message: Pick<ThreadMessage, 'created_at' | 'sent_at' | 'status' | 'scheduled_at' | 'status_updated_at'>) {
-  if (!message.scheduled_at) return message.created_at;
-  if (message.status === 'SCHEDULED') return message.scheduled_at;
-  return message.sent_at ?? message.status_updated_at ?? message.created_at;
+function messageTimelineAt(message: ThreadMessage) {
+  return message.status === 'SCHEDULED' ? message.scheduled_at : threadMessageHistoryAt(message);
 }
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;

@@ -125,6 +125,7 @@ export function Composer({
   const { toast } = useToast();
   const send = useSendMessage();
   const sendingRef = useRef(false);
+  const scheduledRequest = useRef<{ fingerprint: string; ids: { message: string; linkCopy: string } } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -324,6 +325,26 @@ export function Composer({
       return;
     }
 
+    const address = isIMessageSender && !groupChatId ? destinationAddress || undefined : undefined;
+    const linkCopyBody = sendLinkCopy ? getLinkCopyBody(body) : undefined;
+    const uploaded = successfulAttachments.map((att) => ({
+      storageUrl: att.storageUrl!,
+      filename: att.file.name,
+      mimeType: att.file.type,
+      sizeBytes: att.file.size,
+    }));
+    if (sendAt) {
+      const fingerprint = JSON.stringify([scheduleRecipient, sendAt, selectedSenderId, address, body, linkCopyBody, uploaded, onboarding]);
+      if (scheduledRequest.current?.fingerprint !== fingerprint) {
+        scheduledRequest.current = {
+          fingerprint,
+          ids: { message: crypto.randomUUID(), linkCopy: crypto.randomUUID() },
+        };
+      }
+    } else {
+      scheduledRequest.current = null;
+    }
+
     sendingRef.current = true;
 
     // Clear draft (either via callback or directly)
@@ -346,18 +367,15 @@ export function Composer({
         groupChatId,
         body,
         scheduledAt: sendAt,
-        linkCopyBody: sendLinkCopy ? getLinkCopyBody(body) : undefined,
+        scheduleRequestIds: scheduledRequest.current?.ids,
+        linkCopyBody,
         selectedSenderId,
-        destinationAddress: isIMessageSender && !groupChatId ? destinationAddress || undefined : undefined,
-        attachments: successfulAttachments.map(att => ({
-          storageUrl: att.storageUrl!,
-          filename: att.file.name,
-          mimeType: att.file.type,
-          sizeBytes: att.file.size,
-        })),
+        destinationAddress: address,
+        attachments: uploaded,
       });
 
-      // Clear attachments after successful send
+      // Keep the same scheduled IDs until a successful response is observed.
+      scheduledRequest.current = null;
       clearAll();
       setSendLinkCopy(false);
       setScheduledAt(null);
