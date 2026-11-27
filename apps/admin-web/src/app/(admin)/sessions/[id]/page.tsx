@@ -1,4 +1,5 @@
 "use client";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
@@ -247,13 +248,14 @@ function SessionDetailView({ id }: { id: string }) {
     router.push(`/classes/${classId}`);
   };
 
-  const handleMessageStudent = async (studentId: string) => {
+  const handleMessageStudent = async (studentId: string, openInNewPane = false) => {
     try {
       const conversationId = await ensureConversationForRelated(
         studentId,
         "student",
       );
       if (conversationId) {
+        if (openInNewPane && requestPane("open", `/messages?conversation=${encodeURIComponent(conversationId)}`)) return;
         openWindow({ conversationId, title: "Student" });
       }
     } catch (error) {
@@ -261,13 +263,14 @@ function SessionDetailView({ id }: { id: string }) {
     }
   };
 
-  const handleMessageStaff = async (staffId: string) => {
+  const handleMessageStaff = async (staffId: string, openInNewPane = false) => {
     try {
       const conversationId = await ensureConversationForRelated(
         staffId,
         "staff",
       );
       if (conversationId) {
+        if (openInNewPane && requestPane("open", `/messages?conversation=${encodeURIComponent(conversationId)}`)) return;
         openWindow({ conversationId, title: "Staff" });
       }
     } catch (error) {

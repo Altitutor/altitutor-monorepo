@@ -49,6 +49,7 @@ export type RecordTarget = Omit<EntityTarget, "type"> & {
   type: keyof typeof recordEntities;
 };
 export type PaletteEntity = EntityTarget & {
+  code?: string | null;
   subtitle?: string;
   parents?: EntityTarget[];
 };

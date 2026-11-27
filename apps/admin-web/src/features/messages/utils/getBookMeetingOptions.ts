@@ -31,7 +31,10 @@ export function getBookMeetingOptions(contact: BookMeetingContact): BookMeetingO
   }
 
   if (contact.parents?.id) {
-    return [{ kind: 'check-in', label: 'Check in', requiresPhoneOwner: false }];
+    return [
+      { kind: 'check-in', label: 'Check in', requiresPhoneOwner: false },
+      { kind: 'trial', label: 'Trial session', requiresPhoneOwner: false },
+    ];
   }
 
   if (contact.staff?.id) {

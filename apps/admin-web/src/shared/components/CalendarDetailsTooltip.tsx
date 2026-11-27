@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useId, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useId, type ReactNode } from "react";
 import { EntityReferencePreview } from "@/features/entity-references/components/EntityReferenceHovers";
 import Link from "next/link";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
@@ -17,6 +17,7 @@ import { statusToneClass } from "@/shared/utils/statusTone";
 import {
   deriveStudentAttendanceStatus,
   deriveStaffAttendanceStatus,
+  formatSessionAttendanceCount,
   type StudentAttendanceInput,
   type StaffAttendanceInput,
 } from "@/features/sessions/utils/attendanceDerivation";
@@ -30,6 +31,22 @@ export type CalendarPerson = {
 export type CalendarStudent = CalendarPerson & StudentAttendanceInput;
 export type CalendarStaff = CalendarPerson &
   StaffAttendanceInput & { is_swapped_in?: boolean };
+
+const openCalendarDetails = new WeakMap<Document, () => void>();
+const detailsCollisionPadding = 8;
+
+function detailsSide(anchor: HTMLElement): "right" | "bottom" {
+  const { documentElement, defaultView } = anchor.ownerDocument;
+  const viewportWidth = documentElement.clientWidth;
+  if (!viewportWidth) return "right";
+
+  const { left, right } = anchor.getBoundingClientRect();
+  const rootFontSize = Number.parseFloat(defaultView?.getComputedStyle(documentElement).fontSize ?? "") || 16;
+  // Keep the declared 20rem width when either horizontal side can fit the card.
+  const detailsWidth = Math.min(20 * rootFontSize, viewportWidth - 24);
+  const hasRoomOnEitherSide = Math.max(left, viewportWidth - right) >= detailsWidth + detailsCollisionPadding + 4;
+  return hasRoomOnEitherSide ? "right" : "bottom";
+}
 
 const label = (value: string) =>
   value
@@ -65,6 +82,7 @@ export function CalendarDetailsTooltip({
   openEntity?: { href: string; label: string };
 }) {
   const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"right" | "bottom">("right");
   const contentId = useId();
   const instructionsId = useId();
   const triggerHovered = useRef(false);
@@ -73,10 +91,37 @@ export function CalendarDetailsTooltip({
   const triggerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const cancel = () => clearTimeout(timer.current);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const dismiss = useCallback(() => {
+    clearTimeout(timer.current);
+    setOpen(false);
+  }, []);
+  const updateOpen = (next: boolean) => {
+    const anchor = triggerRef.current;
+    if (next && anchor) setSide(detailsSide(anchor));
+    const document = anchor?.ownerDocument;
+    if (document) {
+      const current = openCalendarDetails.get(document);
+      if (next && current !== dismiss) {
+        current?.();
+        openCalendarDetails.set(document, dismiss);
+      } else if (!next && current === dismiss) {
+        openCalendarDetails.delete(document);
+      }
+    }
+    setOpen(next);
+  };
+  useEffect(() => {
+    const document = triggerRef.current?.ownerDocument;
+    return () => {
+      clearTimeout(timer.current);
+      if (document && openCalendarDetails.get(document) === dismiss) {
+        openCalendarDetails.delete(document);
+      }
+    };
+  }, [dismiss, enabled]);
   const show = () => {
     cancel();
-    timer.current = setTimeout(() => setOpen(true), 250);
+    timer.current = setTimeout(() => updateOpen(true), 250);
   };
   const hide = () => {
     cancel();
@@ -89,7 +134,7 @@ export function CalendarDetailsTooltip({
         contentRef.current?.contains(focused)
       )
         return;
-      setOpen(false);
+      updateOpen(false);
     }, 200);
   };
   useEffect(() => {
@@ -107,30 +152,29 @@ export function CalendarDetailsTooltip({
   };
   if (!enabled) return <>{children}</>;
   const subjectColor = getSubjectColorStyle(subject);
+  const plannedStudentIds = new Set(
+    students?.filter((student) => student.sessions_students_id).map((student) => student.id),
+  );
   const people = (
     members: CalendarStudent[] | CalendarStaff[],
     kind: "students" | "staff",
-  ) => (
-    <section className="space-y-1.5">
-      <h4 className="text-xs font-medium text-muted-foreground">
-        {kind === "students" ? `Students (${members.length})` : "Staff"}
-      </h4>
-      {members.length ? (
-        members.map((person) => {
-          const input = { ...person, student_id: person.id };
-          const context = {
-            hasTutorLog,
-            plannedStudentIds: new Set(
-              students
-                ?.filter((student) => student.sessions_students_id)
-                .map((student) => student.id),
-            ),
-          };
-          const derived =
-            kind === "students"
-              ? deriveStudentAttendanceStatus(input, context)
-              : deriveStaffAttendanceStatus(input, context);
-          return (
+  ) => {
+    const details = members.map((person) => {
+      const input = { ...person, student_id: person.id };
+      const context = { hasTutorLog, plannedStudentIds };
+      const { plannedStatus } = kind === "students"
+        ? deriveStudentAttendanceStatus(input, context)
+        : deriveStaffAttendanceStatus(input, context);
+      return { person, plannedStatus, actualAttended: person.actual_attended };
+    });
+    const count = attendance ? formatSessionAttendanceCount(details, hasTutorLog) : members.length;
+    return (
+      <section className="space-y-1.5">
+        <h4 className="text-xs font-medium text-muted-foreground">
+        {kind === "students" ? "Students" : "Staff"} ({count})
+        </h4>
+        {members.length ? (
+          details.map(({ person, plannedStatus, actualAttended }) => (
             <div
               key={person.id}
               className="flex flex-wrap items-center gap-1.5 text-xs"
@@ -139,8 +183,8 @@ export function CalendarDetailsTooltip({
                 <AttendancePersonRow
                   href={`/${kind}/${person.id}`}
                   name={`${person.first_name} ${person.last_name}`}
-                  plannedStatus={derived.plannedStatus}
-                  actualAttended={person.actual_attended}
+                  plannedStatus={plannedStatus}
+                  actualAttended={hasTutorLog ? actualAttended : null}
                 />
               ) : (
                 <Link
@@ -158,15 +202,15 @@ export function CalendarDetailsTooltip({
                 </Badge>
               ) : null}
             </div>
-          );
-        })
+          ))
       ) : (
         <p className="text-xs text-muted-foreground">None</p>
-      )}
-    </section>
-  );
+        )}
+      </section>
+    );
+  };
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={updateOpen}>
       <PopoverAnchor asChild>
         <div
           ref={triggerRef}
@@ -185,13 +229,19 @@ export function CalendarDetailsTooltip({
               event.preventDefault();
               event.stopPropagation();
               cancel();
-              setOpen(true);
+              updateOpen(true);
               requestAnimationFrame(() =>
                 contentRef.current
                   ?.querySelector<HTMLAnchorElement>("a")
                   ?.focus(),
               );
             }
+          }}
+          onContextMenu={(event) => {
+            if (event.defaultPrevented || event.shiftKey) return;
+            event.preventDefault();
+            cancel();
+            updateOpen(true);
           }}
           onMouseEnter={() => {
             triggerHovered.current = true;
@@ -203,7 +253,7 @@ export function CalendarDetailsTooltip({
           }}
           onFocus={() => {
             cancel();
-            setOpen(true);
+            updateOpen(true);
           }}
           onBlur={blur}
           className="h-full min-h-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -221,9 +271,10 @@ export function CalendarDetailsTooltip({
           cancel();
           contentHovered.current = false;
           triggerRef.current?.focus();
-          setOpen(false);
+          updateOpen(false);
         }}
-        side="right"
+        side={side}
+        collisionPadding={detailsCollisionPadding}
         aria-label={`${title} details`}
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
@@ -240,7 +291,7 @@ export function CalendarDetailsTooltip({
         onClick={(event) => event.stopPropagation()}
         className="z-[100] max-h-[min(70dvh,480px,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-24px)] overflow-y-auto overscroll-contain border bg-popover p-4 text-popover-foreground shadow-lg"
       >
-        {attendance && openEntity?.href.startsWith("/sessions/") ? <EntityReferencePreview type="session" id={openEntity.href.split("/")[2].split("?")[0]} fallbackTitle={title} studentCount={students?.length} autoFocusSearch embedded /> : <div className="space-y-3">
+        {attendance && openEntity?.href.startsWith("/sessions/") ? <EntityReferencePreview type="session" id={openEntity.href.split("/")[2].split("?")[0]} fallbackTitle={title} autoFocusSearch embedded /> : <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-sm font-semibold">{title}</h3>
@@ -275,7 +326,7 @@ export function CalendarDetailsTooltip({
               {subtitle}
             </div>
           </div>
-          {students ? people(students, "students") : null}
+          {students || attendance ? people(students ?? [], "students") : null}
           {people(staff, "staff")}
           {openEntity ? (
             <Button asChild size="sm" variant="outline" className="h-7 text-xs">

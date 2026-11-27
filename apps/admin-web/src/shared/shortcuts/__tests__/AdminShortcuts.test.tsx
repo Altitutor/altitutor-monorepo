@@ -11,6 +11,8 @@ import {
 } from "@altitutor/ui";
 import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
 import type { TaskFormData } from "@/features/tasks/types";
+import { TopicsHierarchy } from "@/features/topics/components/TopicsHierarchy";
+import type { Tables } from "@altitutor/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
@@ -376,6 +378,31 @@ it("lets an open menu search with C instead of creating a task", () => {
   expect(createTask).not.toHaveBeenCalled();
   expect(screen.getByPlaceholderText("Search menu…")).toBeInTheDocument();
 });
+it("moves among visible subject topics with J and K and opens the focused topic with Enter", () => {
+  const open = jest.fn();
+  const topic = (id: string, name: string, index: number): Tables<"topics"> => ({
+    id, name, index, code: String(index), subject_id: "subject", parent_id: null,
+    created_at: null, created_by: null, updated_at: null, deleted_at: null, deleted_by: null,
+  });
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <TopicsHierarchy subjectId="subject" allTopics={[topic("first", "First topic", 1), topic("second", "Second topic", 2)]} onTopicClick={open} />
+      </main>
+    </AdminShortcuts>,
+  );
+
+  const first = screen.getByRole("button", { name: "1 First topic" });
+  const second = screen.getByRole("button", { name: "2 Second topic" });
+  fireEvent.keyDown(document.body, { key: "j" });
+  expect(first).toHaveFocus();
+  fireEvent.keyDown(first, { key: "j" });
+  expect(second).toHaveFocus();
+  fireEvent.keyDown(second, { key: "k" });
+  expect(first).toHaveFocus();
+  fireEvent.keyDown(first, { key: "Enter" });
+  expect(open).toHaveBeenCalledWith("first");
+});
 it("leaves Enter on nested list action buttons alone", () => {
   const open = jest.fn();
   render(
@@ -527,6 +554,27 @@ it('uses clicked accessory content for fields and lets a hovered primary record 
   fireEvent.click(screen.getByRole('option',{name:/Done/}));
   await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
   expect(right).toHaveBeenCalledTimes(1);
+});
+
+it("uses contextual actions on the keyboard-selected record without a menu button", () => {
+  const first = jest.fn((event: React.MouseEvent) => event.preventDefault());
+  const second = jest.fn((event: React.MouseEvent) => event.preventDefault());
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <div role="button" tabIndex={-1} data-shortcut-list-item data-record-type="task" data-record-id="first" onContextMenu={first}>First task</div>
+        <div role="button" tabIndex={-1} data-shortcut-list-item data-record-type="task" data-record-id="second" onContextMenu={second}>Second task</div>
+      </main>
+    </AdminShortcuts>,
+  );
+  fireEvent.pointerOver(screen.getByRole("button", { name: "First task" }));
+  fireEvent.keyDown(document.body, { key: "j" });
+  fireEvent.keyDown(document.activeElement!, { key: "j" });
+  expect(screen.getByRole("button", { name: "Second task" })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "m" });
+
+  expect(second).toHaveBeenCalledTimes(1);
+  expect(first).not.toHaveBeenCalled();
 });
 
 it("opens the hovered student menu instead of the pane header menu", () => {

@@ -38,6 +38,7 @@ export function EntityPropertiesToggle({ showDocked = false }: { showDocked?: bo
         className="h-9 w-9 shrink-0"
         aria-label="Right sidebar"
         aria-controls={state.id}
+        data-entity-properties-toggle
         title="Focus right sidebar"
         onClick={state.focusSidebar}
       >
@@ -54,6 +55,7 @@ export function EntityPropertiesToggle({ showDocked = false }: { showDocked?: bo
         className="h-9 w-9 shrink-0"
         aria-label="Right sidebar"
         aria-controls={state.id}
+        data-entity-properties-toggle
         onClick={(event) => state.setAnimate(event.detail > 0)}
       >
         <PanelRight className="h-4 w-4" />

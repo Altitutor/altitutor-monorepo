@@ -51,9 +51,9 @@ export function BookMeetingMenu({
     onAction?.();
     switch (kind) {
       case 'trial':
-        openBookingModal('TRIAL_SESSION', {
-          createNewStudent: phone ? { phone, phoneOwner: phoneOwner ?? 'student' } : undefined,
-        });
+        openBookingModal('TRIAL_SESSION', contact?.parents?.id
+          ? { initialParent: { id: contact.parents.id, ...personName(contact.parents) } }
+          : { createNewStudent: phone ? { phone, phoneOwner: phoneOwner ?? 'student' } : undefined });
         return;
       case 'subsidy':
         openBookingModal('SUBSIDY_INTERVIEW', contact?.students?.id

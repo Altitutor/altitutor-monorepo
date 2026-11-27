@@ -11,6 +11,7 @@ import {
 import { useRunRecordAction } from "@/features/command-palette/RecordActionsContext";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { useOpenPersonMessages } from "@/features/messages/hooks/useOpenPersonMessages";
+import { workItemPropertyActions } from "@/features/work-item-editing/propertyActions";
 import { openEntityReference } from "@/shared/utils/entityReference";
 import type { ReferenceDetails } from "../types";
 import { ReferenceActionList } from "./ReferenceActionList";
@@ -203,7 +204,7 @@ export function ReferenceActions({
           addIssue: !["task", "project", "issue"].includes(type)
             ? () => quickActions.openCreateIssueDialog(reference)
             : undefined,
-        })
+        }).concat(workItemPropertyActions(type, run))
       : [{ id: "copy-id", title: "Copy ID", icon: Copy, action: copy }]),
   ];
   return (

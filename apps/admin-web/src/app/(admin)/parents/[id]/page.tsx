@@ -183,7 +183,6 @@ export default function ParentDetailPage(props: { params: Promise<{ id: string }
           type="parent"
           students={students.map((student) => ({ id: student.id, name: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() }))}
           onEditDetails={editFlow.startEdit}
-          detailsInSidebar
           entityId={parent.id}
           copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
           onOpenInPage={() => {

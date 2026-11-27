@@ -336,7 +336,6 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         {!student.deleted_at && <FormResponseCommands record={{ type: "student", id: student.id, title: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() }} />}
         {!student.deleted_at && <ActionsMenu
           type="student"
-          detailsInSidebar
           entityId={student.id}
           copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}

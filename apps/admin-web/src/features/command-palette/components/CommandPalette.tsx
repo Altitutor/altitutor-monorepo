@@ -53,7 +53,7 @@ const allPages = [
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
-  onEntitySelected?: (type: string, id: string) => void;
+  onEntitySelected?: (type: string, id: string, openInNewPane?: boolean) => void;
   onCreateDocument: () => void;
 }
 export function CommandPalette({
@@ -88,8 +88,8 @@ export function CommandPalette({
       <PaletteBrowser
         isOpen={isOpen}
         onClose={onClose}
-        onEntitySelected={(type: PaletteEntityType, id) =>
-          onEntitySelected?.(type, id)
+        onEntitySelected={(type: PaletteEntityType, id, openInNewPane) =>
+          onEntitySelected?.(type, id, openInNewPane)
         }
         commands={commands}
         pages={allPages}

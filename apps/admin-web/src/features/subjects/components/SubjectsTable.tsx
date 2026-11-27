@@ -379,6 +379,10 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                   key={subject.id}
                   type="button"
                   className="rounded-lg border bg-card p-4 text-left hover:bg-muted/40"
+                  data-shortcut-list-item={!isSelectMode ? true : undefined}
+                  data-record-type={!isSelectMode ? "subject" : undefined}
+                  data-record-id={!isSelectMode ? subject.id : undefined}
+                  data-label={subject.name}
                   onClick={(event) => handleSubjectClick(subject.id, event)}
                 >
                   <SubjectCover subjectId={subject.id} />
@@ -482,6 +486,11 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                       !isSelectMode && "cursor-pointer",
                       isSelected && "bg-muted/50"
                     )}
+                    tabIndex={isSelectMode ? undefined : -1}
+                    data-shortcut-list-item={!isSelectMode ? true : undefined}
+                    data-record-type={!isSelectMode ? "subject" : undefined}
+                    data-record-id={!isSelectMode ? subject.id : undefined}
+                    data-label={subject.name}
                     onClick={(e) => handleSubjectClick(subject.id, e)}
                   >
                     {isSelectMode && (

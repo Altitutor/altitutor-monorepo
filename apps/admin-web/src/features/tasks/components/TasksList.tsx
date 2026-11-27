@@ -1,5 +1,4 @@
 "use client";
-import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { TaskCard } from "./TaskCard";
 import { CreateTaskDialog } from "./CreateTaskDialog";
 
@@ -1125,15 +1124,6 @@ export function TasksList({
         }}
         items={filteredTasks}
         getItemId={(t) => t.id}
-        renderActions={(item) => (
-          <ActionsMenu
-            type="task"
-            entityId={item.id}
-            copyTagDisplayText={item.title ?? undefined}
-            onOpenInPage={() => openTask(item.id)}
-            menuOnly
-          />
-        )}
         renderName={(t) => t.title ?? ""}
         statusColumn={
           statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>

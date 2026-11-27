@@ -2,10 +2,14 @@ import { act, renderHook } from "@testing-library/react";
 import { useOpenPersonMessages } from "../useOpenPersonMessages";
 
 const mockOpenTab = jest.fn();
+const mockRequestPane = jest.fn();
 const mockToast = jest.fn();
 const mockEnsureStudent = jest.fn();
 const mockEnsureParent = jest.fn();
 const mockEnsureStaff = jest.fn();
+jest.mock("@/shared/components/pane-workspace/pane-routing", () => ({
+  requestPane: (...args: unknown[]) => mockRequestPane(...args),
+}));
 jest.mock("@altitutor/ui", () => ({ useToast: () => ({ toast: mockToast }) }));
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
   useAccessoryPanelActions: () => ({ openTab: mockOpenTab }),
@@ -56,4 +60,19 @@ it("explains when there is no messaging address", async () => {
   expect(mockToast).toHaveBeenCalledWith(
     expect.objectContaining({ variant: "destructive" }),
   );
+});
+
+it("opens an existing person message in a workspace split pane when shifted", async () => {
+  mockEnsureStudent.mockResolvedValue("contact-1");
+  mockRequestPane.mockReturnValue(true);
+  const { result } = renderHook(() =>
+    useOpenPersonMessages("student", "person-1"),
+  );
+
+  await act(async () => {
+    await result.current.openMessages(true);
+  });
+
+  expect(mockRequestPane).toHaveBeenCalledWith("open", "/messages?contact=contact-1");
+  expect(mockOpenTab).not.toHaveBeenCalled();
 });

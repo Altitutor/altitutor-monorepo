@@ -405,3 +405,58 @@ it('preserves keyboard resize focus when a layout change brings a chip under the
     client.clear();
   }
 });
+
+it("sets a task property through its existing picker after opening the record", async () => {
+  window.history.replaceState({}, "", "/tasks");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ title: "Follow up", fields: [] }),
+  });
+  const queryClient = new QueryClient();
+  const openPicker = jest.fn();
+  const geometry = jest.spyOn(HTMLElement.prototype, "getClientRects")
+    .mockReturnValue([{}] as unknown as DOMRectList);
+
+  function TaskFixture() {
+    const [destination, setDestination] = useState(false);
+    useEffect(() => {
+      const navigate = () => {
+        window.history.replaceState({}, "", "/tasks/requested-task");
+        setDestination(true);
+      };
+      window.addEventListener("mentionClick", navigate);
+      return () => window.removeEventListener("mentionClick", navigate);
+    }, []);
+
+    return (
+      <>
+        <EntityReferencePreview type="task" id="requested-task" />
+        {destination && (
+          <main data-work-item-detail>
+            <ActionsMenu type="task" entityId="requested-task" propertyActions={{ ready: true, editable: true }} />
+            <div data-shortcut-field="e"><button onClick={openPicker}>Estimate picker</button></div>
+          </main>
+        )}
+      </>
+    );
+  }
+  try {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <QuickActionsProvider>
+            <RecordActionsProvider><TaskFixture /></RecordActionsProvider>
+          </QuickActionsProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByRole("option", { name: "Set estimate" }));
+    await waitFor(() => expect(openPicker).toHaveBeenCalledTimes(1));
+    expect(window.location.pathname).toBe("/tasks/requested-task");
+  } finally {
+    geometry.mockRestore();
+    globalThis.fetch = originalFetch;
+    queryClient.clear();
+  }
+});

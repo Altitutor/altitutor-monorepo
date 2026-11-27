@@ -409,6 +409,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
               type,
               id: topic.id,
               title: topicName(topic),
+              code: topic.code,
               parents: [
                 {
                   type: "subject",
@@ -470,6 +471,7 @@ export function createPaletteSearchApi(db: SupabaseClient<Database>): {
             files.map((file) => ({
               type,
               id: file.id,
+              code: file.code,
               title: [file.code, file.file.filename].filter(Boolean).join(" "),
               parents: [
                 {

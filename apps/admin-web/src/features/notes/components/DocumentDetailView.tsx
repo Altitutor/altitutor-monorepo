@@ -92,6 +92,7 @@ export function DocumentDetailView({
       <div
         className="h-full min-h-0 flex flex-col overflow-hidden"
         data-rich-text-toolbar-container
+        data-work-item-detail
       >
         <div className={adminPageHeaderClass} data-admin-page-header>
           <AccessoryBreadcrumb currentTitle={form.watch("title")} ownerIds={[form.watch("project_id")]} />
@@ -103,6 +104,7 @@ export function DocumentDetailView({
                 <ActionsMenu
                   type="document"
                   entityId={noteId}
+                  propertyActions={{ editable: editor.editable, ready: Boolean(editor.session) }}
                   copyTagDisplayText={
                     form.watch("title") || "Untitled document"
                   }

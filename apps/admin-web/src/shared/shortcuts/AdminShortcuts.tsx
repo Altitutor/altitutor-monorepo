@@ -21,7 +21,12 @@ import {
 } from "@altitutor/ui";
 import { usePathname, useRouter } from "next/navigation";
 import { ShortcutHelp } from "./ShortcutHelp";
-import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
+import {
+  forwardWorkspaceShortcut,
+  requestPane,
+  workspaceShortcutEvent,
+  type WorkspaceShortcut,
+} from "@/shared/components/pane-workspace/pane-routing";
 import {
   hoveredKeyboardRecord,
   isVisibleShortcutTarget,
@@ -29,6 +34,7 @@ import {
   keyboardPane,
   keyboardPointerTarget,
   keyboardRecordFor,
+  setKeyboardPointerTarget,
 } from "@altitutor/ui";
 import { matchShortcut, pageShortcuts } from "./registry";
 import {
@@ -61,6 +67,16 @@ function activateShortcutButton(button: HTMLButtonElement) {
   } else {
     button.click();
   }
+}
+
+function openRecordContextMenu(record: HTMLElement) {
+  const selector = "[data-record-type][data-record-id]";
+  const target = record.matches(selector) ? record : record.querySelector<HTMLElement>(selector);
+  const view = target?.ownerDocument.defaultView;
+  return Boolean(target && view && !target.dispatchEvent(new view.MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+  })));
 }
 
 export function AdminShortcuts({ children, peerGoHintsActive = false, peerPaletteModifier = null }: {
@@ -143,6 +159,18 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
       if (editing || activeDialog()) cancelGo();
     };
     const focusout = (event: FocusEvent) => setTyping(isTypingTarget(event.relatedTarget));
+    const toggleLeftSidebar = () => {
+      if (window.matchMedia("(max-width: 767px)").matches) mobile.toggle();
+      else shell.toggleSidebar();
+    };
+    const receiveWorkspaceShortcut = (event: Event) => {
+      const shortcut = (event as CustomEvent<WorkspaceShortcut>).detail;
+      if (shortcut === "palette") palette.toggle();
+      if (shortcut === "left") {
+        palette.close();
+        toggleLeftSidebar();
+      }
+    };
     const keyup = updateModifiers;
     const keydown = (event: KeyboardEvent) => {
       updateModifiers(event);
@@ -200,6 +228,10 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
         if (menu) {
           event.preventDefault();
           activateShortcutButton(menu);
+          return;
+        }
+        if (key === "m" && record && openRecordContextMenu(record)) {
+          event.preventDefault();
           return;
         }
       }
@@ -269,6 +301,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
                 ];
               event.preventDefault();
               event.stopPropagation();
+              setKeyboardPointerTarget(null);
               next.focus();
               next.scrollIntoView?.({ block: "nearest" });
               return;
@@ -309,7 +342,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
       }
       if (id === "palette") {
         event.preventDefault();
-        palette.toggle();
+        if (!forwardWorkspaceShortcut("palette")) palette.toggle();
         return;
       }
       // Dialogs own keyboard interaction except focusing their own search field.
@@ -359,12 +392,12 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
       event.preventDefault();
       palette.close();
       if (id === "left") {
-        if (window.matchMedia("(max-width: 767px)").matches) mobile.toggle();
-        else shell.toggleSidebar();
+        if (!forwardWorkspaceShortcut("left")) toggleLeftSidebar();
       } else if (id === "right") panel?.toggle();
     };
     document.addEventListener("focusin", focus);
     document.addEventListener("focusout", focusout);
+    window.addEventListener(workspaceShortcutEvent, receiveWorkspaceShortcut);
     window.addEventListener("keydown", keydown, true);
     window.addEventListener("keyup", keyup, true);
     window.addEventListener("blur", reset);
@@ -372,6 +405,7 @@ export function AdminShortcuts({ children, peerGoHintsActive = false, peerPalett
     return () => {
       document.removeEventListener("focusin", focus);
       document.removeEventListener("focusout", focusout);
+      window.removeEventListener(workspaceShortcutEvent, receiveWorkspaceShortcut);
       window.removeEventListener("keydown", keydown, true);
       window.removeEventListener("keyup", keyup, true);
       window.removeEventListener("blur", reset);

@@ -228,6 +228,9 @@ it("keeps a topic subtree scoped, offers an explicit Open action, and uses Escap
   );
   expect(opened).toHaveBeenCalledWith("topic", "functions");
   await user.click(screen.getByRole("searchbox"));
+  await user.keyboard("{Shift>}{Enter}{/Shift}");
+  expect(opened).toHaveBeenLastCalledWith("topic", "functions", true);
+  await user.click(screen.getByRole("searchbox"));
   await user.keyboard("{Escape}");
   expect(screen.getByRole("searchbox")).toHaveAttribute(
     "placeholder",

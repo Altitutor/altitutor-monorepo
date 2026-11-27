@@ -1,6 +1,6 @@
 import React from "react";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { WeekViewCalendar } from "../WeekViewCalendar";
 import { renderWithProviders } from "@/shared/test-utils";
 import type { Tables } from "@altitutor/shared";
@@ -91,4 +91,41 @@ describe("WeekViewCalendar", () => {
       screen.getAllByRole("button", { name: "Mathematical Methods" }).length,
     ).toBeGreaterThan(0);
   });
+});
+
+
+it("groups narrow session choices by time and lets the user select a session chip", async () => {
+  const bounds = jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, width: 420, height: 440, left: 0, right: 420, top: 0, bottom: 440, toJSON: () => ({}) });
+  const choose = jest.fn();
+  try {
+    const session = (id: string, hour: number) => ({
+      id,
+      start_at: new Date(2026, 8, 8, hour).toISOString(),
+      end_at: new Date(2026, 8, 8, hour + 1).toISOString(),
+      type: "CLASS" as const,
+      class_id: null,
+      short_name: id,
+    });
+    renderWithProviders(
+      <WeekViewCalendar
+        sessions={[session("Biology", 17), session("Mathematics", 15)]}
+        selectedSessionIds={new Set(["Biology"])}
+        onToggleSession={choose}
+        currentWeekStart={new Date(2026, 8, 7)}
+        onWeekChange={jest.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("combobox", { name: "Select sessions" }));
+    const list = within(await screen.findByLabelText("Daily session list"));
+    await userEvent.click(list.getByRole("button", { name: /Tue 8/ }));
+    const maths = list.getByRole("button", { name: "Mathematics", pressed: false });
+    const biology = list.getByRole("button", { name: "Biology", pressed: true });
+    expect(maths.compareDocumentPosition(biology) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.getByText("3:00 pm")).toBeVisible();
+    expect(list.getByText("5:00 pm")).toBeVisible();
+    await userEvent.click(maths);
+    expect(choose).toHaveBeenCalledWith("Mathematics");
+  } finally {
+    bounds.mockRestore();
+  }
 });

@@ -17,9 +17,10 @@ describe('getBookMeetingOptions', () => {
     ]);
   });
 
-  it('offers check in for a parent', () => {
+  it('offers check in and a trial session for a parent', () => {
     expect(getBookMeetingOptions({ parents: { id: 'p-1' } })).toEqual([
       { kind: 'check-in', label: 'Check in', requiresPhoneOwner: false },
+      { kind: 'trial', label: 'Trial session', requiresPhoneOwner: false },
     ]);
   });
 

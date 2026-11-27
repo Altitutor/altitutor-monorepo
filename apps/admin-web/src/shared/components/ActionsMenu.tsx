@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
 import { EntityChipIcon } from "@altitutor/ui";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
@@ -37,13 +37,14 @@ import { usePathname } from 'next/navigation';
 import { RichTextTemplateMenuItems, RichTextTemplateRecordActions, usesFloatingTemplatePicker } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
 
 import { recordMenuActions, type RecordMenuAction } from "./recordMenuActions";
+import { openWorkItemProperty, workItemPropertyActions } from "@/features/work-item-editing/propertyActions";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useOpenPersonMessages } from "@/features/messages/hooks/useOpenPersonMessages";
 import { EmailActionGroup } from "@/features/email/components/EmailActions";
 
 interface BaseActionsMenuProps {
-  detailsInSidebar?: boolean;
   menuOnly?: boolean;
+  propertyActions?: { editable: boolean; ready: boolean };
   onOpenInPage?: () => void;
   entityId?: string;
   copyTagType?: string;
@@ -214,6 +215,7 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<
 };
 
 export function ActionsMenu(props: ActionsMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const { toast } = useToast();
   const quickActions = useQuickActions();
@@ -344,7 +346,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
   ) : null;
 
   const canAddRelatedWork = reference && !["task", "project", "issue"].includes(props.type);
-  const allActions = recordMenuActions(props, {
+  const commonActions = recordMenuActions(props, {
     messageStudents: () => { void openBulkMembers('student'); },
     messageStaff: () => { void openBulkMembers('staff'); },
     bulkMessageDisabled: loadingBulk,
@@ -366,9 +368,16 @@ export function ActionsMenu(props: ActionsMenuProps) {
       ? () => quickActions.openCreateTaskDialog(reference)
       : undefined,
   });
+  const propertyActions = props.propertyActions
+    ? workItemPropertyActions(props.type, (_id, selector) => {
+        const scope = menuRef.current?.closest<HTMLElement>("[data-work-item-detail]");
+        if (scope) openWorkItemProperty(scope, selector);
+      }, props.propertyActions)
+    : [];
+  const allActions = [...commonActions, ...propertyActions];
   const route = props.type === 'class' ? 'classes' : props.type === 'staff' ? 'staff' : props.type === 'adminShift' ? 'admin-shifts' : props.type === 'document' ? 'documents' : `${props.type}s`;
   const isOwnPage = Boolean(props.entityId && pathname?.endsWith(`/${route}/${props.entityId}`));
-  const actions = allActions.filter((action) => !(isOwnPage && action.id === 'open') && !(props.detailsInSidebar && action.id === 'edit'));
+  const actions = allActions.filter((action) => !(isOwnPage && action.id === 'open'));
   useRegisterRecordActions(
     props.type,
     props.entityId,
@@ -487,7 +496,10 @@ export function ActionsMenu(props: ActionsMenuProps) {
     <DropdownMenuItem
       key={action.id}
       disabled={action.disabled}
-      onSelect={action.action}
+      onSelect={action.id === "message" ? undefined : action.action}
+      onClick={action.id === "message" ? (event) => {
+        void messageAction.openMessages(event.shiftKey);
+      } : undefined}
       className={action.destructive ? "!text-destructive focus:!text-destructive focus:bg-destructive/10" : undefined}
     >
       <span className="mr-2 flex size-4 shrink-0 items-center justify-center">
@@ -506,7 +518,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     ),
   ];
   return (
-    <div className="flex items-center gap-2">
+    <div ref={menuRef} className="flex items-center gap-2">
       {'richTextTemplateConfig' in props && props.richTextTemplateConfig && <RichTextTemplateRecordActions type={props.type} id={props.entityId} title={props.copyTagDisplayText} config={props.richTextTemplateConfig} />}
       <EmailActionGroup label="Common record actions">
         <TooltipProvider delayDuration={0}>

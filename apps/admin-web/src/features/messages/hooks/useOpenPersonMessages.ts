@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@altitutor/ui";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
 import {
   ensureContactForStudent,
@@ -23,7 +24,7 @@ export function useOpenPersonMessages(
   const panel = useAccessoryPanelActions();
   const { toast } = useToast();
   const [isOpening, setIsOpening] = useState(false);
-  const openMessages = async () => {
+  const openMessages = async (openInNewPane = false) => {
     if (!type || !id || !panel || isOpening) return;
     setIsOpening(true);
     try {
@@ -37,11 +38,13 @@ export function useOpenPersonMessages(
         });
         return;
       }
+      const query = new URLSearchParams({ contact: contactId }).toString();
+      if (openInNewPane && requestPane("open", `/messages?${query}`)) return;
       panel.openTab({
         kind: "messages",
         id: contactId,
         title: title || "Messages",
-        query: `contact=${encodeURIComponent(contactId)}`,
+        query,
       });
     } catch {
       toast({

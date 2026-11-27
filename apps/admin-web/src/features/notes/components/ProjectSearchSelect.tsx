@@ -128,7 +128,7 @@ export function ProjectSearchSelect({
 
         if (isProperties) {
           return (
-            <FormItem className={PROPERTIES_GRID_CLASS}>
+            <FormItem data-work-item-property="project" className={PROPERTIES_GRID_CLASS}>
               <FormLabel className="text-muted-foreground">Project</FormLabel>
               <FormControl>{searchableSelect}</FormControl>
               <FormMessage className="col-start-2" />

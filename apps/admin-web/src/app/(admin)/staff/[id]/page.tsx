@@ -230,7 +230,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         <FormResponseCommands record={{ type: "staff", id: staffMember.id, title: `${staffMember.first_name ?? ""} ${staffMember.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="staff"
-          detailsInSidebar
           entityId={staffMember.id}
           copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
           {...staffActions}
