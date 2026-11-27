@@ -8,6 +8,7 @@ import { useActiveAdminStaff, useAvailableSenders, useConversationList } from '.
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
+import { formatScheduledTextTime } from '../utils/textSchedule';
 import { formatConversationDate } from '../utils/formatDate';
 import {
   DataTableToolbar,
@@ -267,6 +268,7 @@ export function ConversationList({
                       sender={senderLabel(senders, [aggregated.ownedNumberId])}
                       preview={aggregated.latestMessage?.preview ?? null}
                       at={aggregated.latestMessageAt}
+                      scheduledAt={aggregated.scheduledMessageAt}
                       show={show}
                       unread={aggregated.unreadCount > 0}
                       actions={
@@ -325,6 +327,7 @@ export function ConversationList({
                     sender={senderLabel(senders, latestConversation ? [latestConversation.owned_number_id] : [])}
                     preview={aggregated.latestMessage?.preview ?? null}
                     at={aggregated.latestMessageAt}
+                      scheduledAt={aggregated.scheduledMessageAt}
                     show={show}
                     unread={isUnreadConv}
                     actions={
@@ -377,6 +380,7 @@ function ConversationRow({
   sender,
   preview,
   at,
+  scheduledAt,
   show,
   unread,
   actions,
@@ -386,6 +390,7 @@ function ConversationRow({
   sender: string;
   preview: ConversationMessagePreview | null;
   at: string | null;
+  scheduledAt?: string | null;
   show: (column: (typeof CONVERSATION_LIST_COLUMNS)[number]) => boolean;
   unread: boolean;
   actions: ReactNode;
@@ -412,6 +417,11 @@ function ConversationRow({
             )}
           </div>
         </div>
+        {scheduledAt && (
+          <time className="block truncate text-xs text-muted-foreground" dateTime={scheduledAt}>
+            Scheduled for {formatScheduledTextTime(scheduledAt)} Adelaide time
+          </time>
+        )}
         {show('preview') ? <ConversationPreviewText preview={preview} /> : null}
       </div>
     </div>

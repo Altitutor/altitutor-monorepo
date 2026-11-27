@@ -33,6 +33,7 @@ type ConversationRow = {
   id: string;
   status: string;
   last_message_at: string | null;
+  scheduled_message_at: string | null;
   last_message_id: string | null;
   last_message_direction: string | null;
   assigned_staff_id: string | null;
@@ -159,6 +160,7 @@ async function fetchLatestNonReactionPreviews(
           .select(MESSAGE_PREVIEW_SELECT)
           .eq('conversation_id', conversationId)
           .eq('is_reaction', false)
+          .neq('status', 'SCHEDULED')
           .order('created_at', { ascending: false })
           .limit(1);
         if (signal) query = query.abortSignal(signal);
@@ -279,7 +281,7 @@ export function useConversations() {
       const { data, error } = await supabase
         .from('conversations')
         .select(`
-          id, status, last_message_at, last_message_id, last_message_direction,
+          id, status, last_message_at, last_message_id, last_message_direction, scheduled_message_at,
           assigned_staff_id, contact_id, owned_number_id,
           is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
@@ -291,6 +293,7 @@ export function useConversations() {
           owned_numbers(id, phone_e164, label),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
+        .order('scheduled_message_at', { ascending: false, nullsFirst: false })
         .order('last_message_at', { ascending: false })
         .limit(100);
       
@@ -313,6 +316,18 @@ export type MessageWithRelations = Tables<'messages'> & {
   message_attachments: Array<Pick<Tables<'message_attachments'>, 'id' | 'storage_url' | 'filename' | 'mime_type' | 'size_bytes'>>;
 };
 
+const threadMessageFields = '*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)';
+
+async function fetchScheduledThreadMessages(supabase: ReturnType<typeof getSupabaseClient>, conversationIds: string[]) {
+  const { data, error } = await supabase.from('messages')
+    .select(threadMessageFields)
+    .in('conversation_id', conversationIds)
+    .eq('status', 'SCHEDULED')
+    .order('scheduled_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as MessageWithRelations[];
+}
+
 type ConversationMessageSender = Pick<
   Tables<'owned_numbers'>,
   'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'
@@ -332,8 +347,9 @@ export function useMessages(conversationId: string) {
       
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
+        .select(threadMessageFields)
         .eq('conversation_id', conversationId)
+        .neq('status', 'SCHEDULED')
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
       
@@ -347,7 +363,9 @@ export function useMessages(conversationId: string) {
         .eq('id', conversationId)
         .maybeSingle();
 
-      const [messagesResult, conversationResult] = await Promise.all([query, conversationQuery]);
+      const [messagesResult, conversationResult, scheduled] = await Promise.all([
+        query, conversationQuery, pageParam ? [] : fetchScheduledThreadMessages(supabase, [conversationId]),
+      ]);
       const { data, error } = messagesResult;
       if (error) throw error;
       if (conversationResult.error) throw conversationResult.error;
@@ -360,7 +378,7 @@ export function useMessages(conversationId: string) {
         : undefined;
       
       return {
-        items: messages.map((message) => ({
+        items: [...scheduled, ...messages].map((message) => ({
           ...message,
           sender: conversation?.owned_numbers ?? null,
           conversation_owned_number_id: conversation?.owned_number_id ?? null,
@@ -670,7 +688,7 @@ export async function fetchConversationList(
   let query = supabase
     .from('conversations')
     .select(`
-      id, status, last_message_at, last_message_id, last_message_direction,
+      id, status, last_message_at, last_message_id, last_message_direction, scheduled_message_at,
       assigned_staff_id, contact_id, owned_number_id,
       is_group_chat, group_chat_id, group_chat_name,
       needs_follow_up,
@@ -697,6 +715,7 @@ export async function fetchConversationList(
   }
   query = query
     .in('status', ['OPEN', 'SNOOZED'])
+    .order('scheduled_message_at', { ascending: false, nullsFirst: false })
     .order('last_message_at', { ascending: false })
     .limit(CONVERSATION_LIST_LIMIT);
 
@@ -756,6 +775,7 @@ export async function fetchConversationList(
         participantNames: participants.map((participant) => participant.name),
         ownedNumberId: conv.owned_number_id,
         latestMessageAt: conv.last_message_at,
+        scheduledMessageAt: conv.scheduled_message_at,
         latestMessage: latestMessageForConversation(
           conv,
           previewsById,
@@ -799,6 +819,10 @@ export async function fetchConversationList(
       assigned_staff_id: conv.assigned_staff_id,
     });
 
+    if (conv.scheduled_message_at && (!aggregated.scheduledMessageAt || conv.scheduled_message_at > aggregated.scheduledMessageAt)) {
+      aggregated.scheduledMessageAt = conv.scheduled_message_at;
+    }
+
     if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
       aggregated.latestMessageAt = conv.last_message_at;
       aggregated.latestMessage = latestMessageForConversation(
@@ -823,10 +847,8 @@ export async function fetchConversationList(
   }));
 
   return [...contacts, ...groups].sort((a, b) => {
-    if (!a.latestMessageAt && !b.latestMessageAt) return 0;
-    if (!a.latestMessageAt) return 1;
-    if (!b.latestMessageAt) return -1;
-    return b.latestMessageAt.localeCompare(a.latestMessageAt);
+    const scheduled = (b.scheduledMessageAt ?? '').localeCompare(a.scheduledMessageAt ?? '');
+    return scheduled || (b.latestMessageAt ?? '').localeCompare(a.latestMessageAt ?? '');
   });
 }
 
@@ -922,8 +944,9 @@ export function useMessagesForContact(contactId: string | null, ownedNumberId?: 
       // Fetch messages from all conversations
       let query = supabase
         .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
+        .select(threadMessageFields)
         .in('conversation_id', conversationIds)
+        .neq('status', 'SCHEDULED')
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
       
@@ -931,12 +954,14 @@ export function useMessagesForContact(contactId: string | null, ownedNumberId?: 
         query = query.lt('created_at', pageParam);
       }
       
-      const { data: messages, error } = await query;
+      const [{ data: messages, error }, scheduled] = await Promise.all([
+        query, pageParam ? [] : fetchScheduledThreadMessages(supabase, conversationIds),
+      ]);
       if (error) throw error;
-      
+
       // Attach sender info to each message
       const typedMessages = (messages || []) as MessageWithRelations[];
-      const enrichedMessages = typedMessages.map((msg) => {
+      const enrichedMessages = [...scheduled, ...typedMessages].map((msg) => {
         const senderInfo = senderMap.get(msg.conversation_id);
         return {
           ...msg,
@@ -945,8 +970,8 @@ export function useMessagesForContact(contactId: string | null, ownedNumberId?: 
         };
       });
       
-      const nextCursor = enrichedMessages.length === PAGE_SIZE 
-        ? enrichedMessages[enrichedMessages.length - 1].created_at 
+      const nextCursor = typedMessages.length === PAGE_SIZE
+        ? typedMessages[typedMessages.length - 1].created_at
         : undefined;
       
       return { items: enrichedMessages, nextCursor };

@@ -27,6 +27,7 @@ export function useSendMessage() {
       selectedSenderId: string;
       destinationAddress?: string | null;
       resentFromMessageId?: string;
+      scheduledAt?: string;
       onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
       attachments?: Array<{
         storageUrl: string;
@@ -36,7 +37,10 @@ export function useSendMessage() {
       }>;
     }) => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      
+      if (args.scheduledAt && !(Date.parse(args.scheduledAt) > Date.now())) {
+        throw new Error('Choose a future time to schedule this text.');
+      }
+
       // Get staff ID
       const { data: staffRow } = await supabase
         .from('staff')
@@ -104,6 +108,42 @@ export function useSendMessage() {
         from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null,
         to_number_e164: toNumber,
       } as const;
+      const attachments = args.attachments?.map(att => ({
+        storage_url: att.storageUrl,
+        filename: att.filename,
+        mime_type: att.mimeType,
+        size_bytes: att.sizeBytes,
+      })) ?? [];
+
+      const scheduleAt = args.scheduledAt;
+      if (scheduleAt) {
+        const schedule = async (body: string, includeAttachments: boolean) => {
+          const { data, error } = await supabase.rpc('create_scheduled_admin_text', {
+            p_conversation_id: conversationId,
+            p_body: body,
+            p_from_number: outboundMessage.from_number_e164 ?? undefined,
+            p_to_number: toNumber,
+            p_scheduled_at: scheduleAt,
+            ...(includeAttachments ? {
+              p_attachments: attachments,
+              p_resent_from_message_id: args.resentFromMessageId,
+              p_onboarding_journey_id: args.onboarding?.journeyId,
+              p_onboarding_purpose: args.onboarding?.purpose,
+            } : {}),
+          });
+          if (error) throw error;
+          return data;
+        };
+        const result = { messageId: await schedule(args.body, true), conversationId };
+        if (!args.linkCopyBody) return result;
+        try {
+          await schedule(args.linkCopyBody, false);
+          return result;
+        } catch (error) {
+          console.error('[useSendMessage] Could not schedule link copy', error);
+          return { ...result, linkCopyFailed: true };
+        }
+      }
 
       const { data: created, error: insertErr } = await supabase
         .from('messages')
@@ -128,14 +168,8 @@ export function useSendMessage() {
       }
 
       // Create message_attachments records if attachments provided
-      if (args.attachments && args.attachments.length > 0) {
-        const attachmentInserts = args.attachments.map(att => ({
-          message_id: created.id,
-          storage_url: att.storageUrl,
-          filename: att.filename,
-          mime_type: att.mimeType,
-          size_bytes: att.sizeBytes,
-        }));
+      if (attachments.length > 0) {
+        const attachmentInserts = attachments.map(att => ({ ...att, message_id: created.id }));
 
         const { error: attErr } = await supabase
           .from('message_attachments')
@@ -184,6 +218,30 @@ export function useSendMessage() {
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
       qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
       qc.invalidateQueries({ queryKey: ['entity-communication', 'messages'] });
+    },
+  });
+}
+
+
+export function useCancelScheduledText() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; conversationId: string; contactId?: string | null }) => {
+      const supabase = getSupabaseClient();
+      const { error, data } = await supabase.from('messages')
+        .delete()
+        .eq('id', messageId)
+        .eq('status', 'SCHEDULED')
+        .select('id');
+      if (error) throw error;
+      if (!data.length) throw new Error('This text is no longer scheduled.');
+    },
+    onSettled: (_result, _error, { contactId, conversationId }) => {
+      if (contactId) void qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(contactId) });
+      void qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
+      void qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+      void qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      void qc.invalidateQueries({ queryKey: ['entity-communication', 'messages'] });
     },
   });
 }

@@ -8,7 +8,9 @@ import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeade
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
+import { formatScheduledTextTime } from '../utils/textSchedule';
 import { StaffAvatar, SystemAvatar } from './StaffAvatar';
+import { toast } from 'sonner';
 import { X, File, Download, Music, Play, Pause } from 'lucide-react';
 import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
@@ -21,7 +23,7 @@ import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issu
 import { extractMentions } from '@/shared/utils/extractMentions';
 import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
-import { useSendMessage } from '../api/mutations';
+import { useCancelScheduledText, useSendMessage } from '../api/mutations';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
 import { AutomationRecoveryDialog } from './AutomationRecoveryDialog';
 import {
@@ -44,6 +46,12 @@ import {
   type MessageReaction,
 } from '../utils/reactions';
 import { isSystemOutboundMessage } from '../utils/conversationPreview';
+
+function messageTimelineAt(message: Pick<ThreadMessage, 'created_at' | 'sent_at' | 'status' | 'scheduled_at' | 'status_updated_at'>) {
+  if (!message.scheduled_at) return message.created_at;
+  if (message.status === 'SCHEDULED') return message.scheduled_at;
+  return message.sent_at ?? message.status_updated_at ?? message.created_at;
+}
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
@@ -488,6 +496,7 @@ export function MessageThread({
   const channelNonce = useId().replace(/:/g, "");
   const { data: availableSenders = [] } = useAvailableSenders();
   const sendMessage = useSendMessage();
+  const cancelScheduledText = useCancelScheduledText();
   const smsSender = defaultPhoneSmsSender(availableSenders);
   const isGroupThread = Boolean(conversationId) && !contactId;
   const [activeEnquiryMessage, setActiveEnquiryMessage] = useState<string>();
@@ -645,7 +654,9 @@ export function MessageThread({
   // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
-    const items = data.pages.flatMap((p) => p.items);
+    const items = data.pages.flatMap((p) => p.items).sort(
+      (a, b) => (messageTimelineAt(b) ?? '').localeCompare(messageTimelineAt(a) ?? ''),
+    );
     const reactionsByTarget = buildReactionsByTargetGuid(items);
     const attachedReactionIds = collectAttachedReactionIds(
       items,
@@ -689,7 +700,7 @@ export function MessageThread({
         !attachedReactionIds.has(message.id) &&
         (!activityMessageType || matchesActivityFilters(
           activityFilters, activitySearch, `message:${activityMessageType}`,
-          message.created_at ?? "", message.body,
+          messageTimelineAt(message) ?? "", message.body,
         ))
       ),
     );
@@ -751,7 +762,7 @@ export function MessageThread({
         item.type === "feed"
           ? item.at
           : item.type === "message"
-            ? (item.created_at ?? "")
+            ? (messageTimelineAt(item) ?? "")
             : "";
       const comparison = dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
       return feed.direction === "desc" ? -comparison : comparison;
@@ -1041,15 +1052,13 @@ export function MessageThread({
 
             // TypeScript now knows item.type === 'message'
             const m = item as Extract<typeof item, { type: "message" }>;
-            if (!m.created_at) return null; // Skip messages without created_at
+            const messageAt = messageTimelineAt(m);
+            if (!messageAt) return null;
 
             const prevItem = arr[index - 1];
             const prevIsMessage =
               prevItem && "type" in prevItem && prevItem.type === "message";
-            const prevCreatedAt =
-              prevIsMessage &&
-              (prevItem as Extract<typeof prevItem, { type: "message" }>)
-                .created_at;
+            const prevCreatedAt = prevIsMessage ? messageTimelineAt(prevItem) : null;
 
             // Show date separator at the first message of each day.
             const showDateSeparator =
@@ -1057,7 +1066,7 @@ export function MessageThread({
               (index === 0 ||
                 (prevIsMessage &&
                   prevCreatedAt &&
-                  isDifferentDay(m.created_at, prevCreatedAt)));
+                  isDifferentDay(messageAt, prevCreatedAt)));
 
             const direction = m.direction as "INBOUND" | "OUTBOUND";
             const cleanedBody =
@@ -1099,7 +1108,7 @@ export function MessageThread({
               >
                 {showDateSeparator && (
                   <div className="text-center text-xs text-muted-foreground my-3">
-                    {formatDaySeparator(m.created_at)}
+                    {formatDaySeparator(messageAt)}
                   </div>
                 )}
                 <div
@@ -1212,12 +1221,14 @@ export function MessageThread({
                           {cleanedBody ? (
                             <div
                               className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
-                                messageBubbleClassName({
-                                  direction,
-                                  provider: asOwnedNumberProvider(m.sender?.provider),
-                                  appleService: asAppleService(m.apple_service),
-                                  isGroup: isGroupThread,
-                                })
+                                m.status === "SCHEDULED"
+                                  ? "border border-dashed border-foreground/40 bg-muted text-foreground"
+                                  : messageBubbleClassName({
+                                      direction,
+                                      provider: asOwnedNumberProvider(m.sender?.provider),
+                                      appleService: asAppleService(m.apple_service),
+                                      isGroup: isGroupThread,
+                                    })
                               } break-words [overflow-wrap:anywhere] max-w-full`}
                             >
                               {isSearching && searchTerm
@@ -1252,8 +1263,26 @@ export function MessageThread({
                       <div
                         className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <span>{formatMessageDate(m.created_at)}</span>
-                        {direction === "OUTBOUND" && m.status && (
+                        {m.status === "SCHEDULED" && m.scheduled_at ? (
+                          <>
+                            <time dateTime={m.scheduled_at}>Scheduled for {formatScheduledTextTime(m.scheduled_at)} Adelaide time</time>
+                            {!activityMessageType && (
+                              <Button type="button" variant="ghost" size="sm"
+                                className="h-6 px-1.5 text-[10px]"
+                                disabled={cancelScheduledText.isPending}
+                                onClick={() => cancelScheduledText.mutate(
+                                  { messageId: m.id, conversationId: m.conversation_id, contactId },
+                                  { onError: (error) => toast.error(error.message || 'Could not cancel scheduled text') },
+                                )}
+                              >
+                                Cancel send
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <span>{formatMessageDate(messageAt)}</span>
+                        )}
+                        {direction === "OUTBOUND" && m.status && m.status !== "SCHEDULED" && (
                           <span
                             className={outboundStatusClassName(
                               m.status,

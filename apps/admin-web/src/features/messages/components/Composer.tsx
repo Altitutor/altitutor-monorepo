@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { AdminDialogShell } from '@/shared/components';
+import { formatScheduledTextTime, quietHoursSendTime } from '../utils/textSchedule';
 import { outboundMessageDestination } from '../utils/messagingHandle';
 import { useContactMessagingAddresses } from '../api/queries';
 import { useSendMessage } from '../api/mutations';
@@ -15,8 +17,10 @@ import { resolveComposerSenderId } from '../utils/resolveComposerSenderId';
 import {
   Button,
   DropdownMenu,
+  DateTimePickerPopover,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
@@ -34,6 +38,35 @@ import { ComposerRecipientSelector, type ComposerRecipientSelection } from './Co
 import { ComposerControlTooltip } from './ComposerControlTooltip';
 import { isMessageComposerSendShortcut } from '../utils/composerShortcut';
 import { getLinkCopyBody } from '../utils/getLinkCopyBody';
+
+const quietHoursChange = 'altitutor-text-quiet-hours';
+
+function subscribeToQuietHours(update: () => void) {
+  window.addEventListener('storage', update);
+  window.addEventListener(quietHoursChange, update);
+  return () => {
+    window.removeEventListener('storage', update);
+    window.removeEventListener(quietHoursChange, update);
+  };
+}
+
+const doNotSubscribe = () => () => {};
+
+function subscribeToScheduleClock(update: () => void) {
+  let next: ReturnType<typeof setTimeout>;
+  function start() {
+    next = setTimeout(() => {
+      update();
+      start();
+    }, 60_000 - Date.now() % 60_000);
+  }
+  start();
+  document.addEventListener('visibilitychange', update);
+  return () => {
+    clearTimeout(next);
+    document.removeEventListener('visibilitychange', update);
+  };
+}
 
 interface Props {
   onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
@@ -83,6 +116,12 @@ export function Composer({
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
   const [sendLinkCopy, setSendLinkCopy] = useState(false);
+  const scheduleRecipient = groupChatId ?? contactId ?? conversationId ?? null;
+  const [schedule, setSchedule] = useState<{ recipient: string | null; at: string | null } | null>(null);
+  const scheduledAt = schedule?.recipient === scheduleRecipient ? schedule.at : null;
+  const setScheduledAt = (at: string | null) => setSchedule(at ? { recipient: scheduleRecipient, at } : null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [draftSchedule, setDraftSchedule] = useState<string | null>(null);
   const { toast } = useToast();
   const send = useSendMessage();
   const sendingRef = useRef(false);
@@ -91,6 +130,30 @@ export function Composer({
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
   const { data: currentStaff } = useCurrentStaff();
+  const quietHoursKey = currentStaff?.id ? `${quietHoursChange}:${currentStaff.id}` : null;
+  const autoSchedule = useSyncExternalStore(subscribeToQuietHours, () => {
+    try {
+      return quietHoursKey !== null && window.localStorage.getItem(quietHoursKey) === 'on';
+    } catch {
+      return false;
+    }
+  }, () => false);
+  const quietHoursTime = useSyncExternalStore(
+    autoSchedule ? subscribeToScheduleClock : doNotSubscribe,
+    () => autoSchedule ? quietHoursSendTime(new Date()) : undefined,
+    () => undefined,
+  );
+  const scheduleTime = scheduledAt ?? quietHoursTime;
+
+  function setAutoSchedule(enabled: boolean) {
+    if (!quietHoursKey) return;
+    try {
+      window.localStorage.setItem(quietHoursKey, enabled ? 'on' : 'off');
+      window.dispatchEvent(new Event(quietHoursChange));
+    } catch {
+      toast({ title: 'Could not save the auto-schedule setting', variant: 'destructive' });
+    }
+  }
   const { data: availableSenders } = useAvailableSenders();
   const { data: lastInboundOwnedNumberId, isFetched: lastInboundFetched } =
     useLastInboundOwnedNumberId(groupChatId ? null : contactId);
@@ -235,6 +298,11 @@ export function Composer({
 
   const onSend = async () => {
     const body = text.trim();
+    const sendAt = scheduledAt ?? (autoSchedule ? quietHoursSendTime(new Date()) : undefined);
+    if (sendAt && !(Date.parse(sendAt) > Date.now())) {
+      toast({ title: 'Choose a future time to schedule this text', variant: 'destructive' });
+      return;
+    }
     // Allow sending if there's text OR attachments (for iMessage, can send attachments without text)
     const hasContent = body || (isIMessageSender && hasAttachments);
     if (sendingRef.current || !hasContent || (!contactId && !conversationId) || !selectedSenderId) return;
@@ -277,6 +345,7 @@ export function Composer({
         conversationId,
         groupChatId,
         body,
+        scheduledAt: sendAt,
         linkCopyBody: sendLinkCopy ? getLinkCopyBody(body) : undefined,
         selectedSenderId,
         destinationAddress: isIMessageSender && !groupChatId ? destinationAddress || undefined : undefined,
@@ -291,6 +360,10 @@ export function Composer({
       // Clear attachments after successful send
       clearAll();
       setSendLinkCopy(false);
+      setScheduledAt(null);
+      if (sendAt) {
+        toast({ title: 'Text scheduled', description: formatScheduledTextTime(sendAt) + ' Adelaide time' });
+      }
       if ('linkCopyFailed' in result) {
         toast({
           title: 'Link copy could not be queued',
@@ -303,6 +376,7 @@ export function Composer({
       console.error(e);
       // Restore draft on error
       setText(body);
+      toast({ title: sendAt ? 'Could not schedule text' : 'Could not send text', variant: 'destructive' });
     } finally {
       sendingRef.current = false;
     }
@@ -589,6 +663,22 @@ export function Composer({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => {
+                    setDraftSchedule(scheduledAt);
+                    setScheduleDialogOpen(true);
+                  }}>
+                    {scheduledAt ? 'Change scheduled time' : 'Schedule send'}
+                  </DropdownMenuItem>
+                  {scheduledAt && (
+                    <DropdownMenuItem onSelect={() => setScheduledAt(null)}>Clear scheduled time</DropdownMenuItem>
+                  )}
+                  <DropdownMenuCheckboxItem
+                    checked={autoSchedule}
+                    onCheckedChange={setAutoSchedule}
+                    disabled={!quietHoursKey}
+                  >
+                    Auto-schedule between 10 pm and 8 am (Adelaide)
+                  </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem checked={sendLinkCopy} onCheckedChange={setSendLinkCopy}>
                     Also send links separately
                   </DropdownMenuCheckboxItem>
@@ -674,11 +764,40 @@ export function Composer({
                 (!text.trim() && !(isIMessageSender && hasAttachments))
               }
             >
-              {send.isPending ? 'Sending…' : 'Send'}
+              {send.isPending ? (scheduleTime ? 'Scheduling…' : 'Sending…') : scheduleTime ? 'Schedule' : 'Send'}
             </button>
           </div>
         </div>
+        {scheduleTime && (
+          <p className="mt-1 text-right text-xs text-muted-foreground">
+            Sends {formatScheduledTextTime(scheduleTime)} Adelaide time
+          </p>
+        )}
       </div>
+      <AdminDialogShell
+        open={scheduleDialogOpen}
+        onClose={() => setScheduleDialogOpen(false)}
+        title="Schedule text"
+        footer={
+          <Button type="button" disabled={!draftSchedule || Date.parse(draftSchedule) <= Date.now()} onClick={() => {
+            setScheduledAt(draftSchedule);
+            setScheduleDialogOpen(false);
+          }}>
+            Set scheduled time
+          </Button>
+        }
+      >
+        <DateTimePickerPopover
+          value={draftSchedule}
+          onChange={setDraftSchedule}
+          label="Schedule text"
+          minDate={new Date().toLocaleDateString('en-CA')}
+        >
+          <Button type="button" variant="outline">
+            {draftSchedule ? `${formatScheduledTextTime(draftSchedule)} Adelaide time` : 'Choose date and time'}
+          </Button>
+        </DateTimePickerPopover>
+      </AdminDialogShell>
     </div>
   );
 }

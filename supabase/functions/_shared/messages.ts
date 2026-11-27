@@ -80,6 +80,9 @@ export interface MessageSendData {
     id: string;
     body: string;
     conversation_id: string;
+    scheduled_at: string | null;
+    created_by_staff_id: string | null;
+    to_number_e164: string;
   };
   conversation: {
     id: string;
@@ -91,6 +94,7 @@ export interface MessageSendData {
   contact: {
     phone_e164: string | null;
     email: string | null;
+    is_opted_out: boolean;
   } | null;
   ownedNumber: {
     id: string;
@@ -110,7 +114,7 @@ export async function loadMessageSendData(
   // Load message
   const { data: message, error: msgErr } = await supabase
     .from('messages')
-    .select('id, body, conversation_id')
+    .select('id, body, conversation_id, scheduled_at, to_number_e164, created_by_staff_id')
     .eq('id', messageId)
     .maybeSingle();
   
@@ -141,11 +145,11 @@ export async function loadMessageSendData(
   }
 
   // Load contact if individual chat
-  let contact: { phone_e164: string | null; email: string | null } | null = null;
+  let contact: MessageSendData['contact'] = null;
   if (!convo.is_group_chat && convo.contact_id) {
     const { data: contactData, error: ctErr } = await supabase
       .from('contacts')
-      .select('phone_e164, email')
+      .select('phone_e164, email, is_opted_out')
       .eq('id', convo.contact_id)
       .maybeSingle();
     
@@ -160,6 +164,9 @@ export async function loadMessageSendData(
       id: message.id,
       body: message.body,
       conversation_id: message.conversation_id,
+      scheduled_at: message.scheduled_at ?? null,
+      created_by_staff_id: message.created_by_staff_id ?? null,
+      to_number_e164: message.to_number_e164,
     },
     conversation: {
       id: convo.id,
