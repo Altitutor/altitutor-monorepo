@@ -28,6 +28,23 @@ const mock: InterviewReviewMock = {
         { type: "image", attrs: { src: "https://images.example.test/feedback.png", alt: "Embedded feedback image" } },
         { type: "paragraph", content: [{ type: "text", text: "Clear opening", marks: [{ type: "bold" }] }] },
         { type: "paragraph", content: [{ type: "text", text: "Explain the trade-off next." }] },
+        {
+          type: "paragraph",
+          content: [{
+            type: "text",
+            text: "Further reading",
+            marks: [{
+              type: "link",
+              attrs: {
+                href: "https://example.test/feedback",
+                target: "_blank",
+                rel: "noopener noreferrer nofollow",
+                class: "text-primary underline cursor-pointer",
+                title: null,
+              },
+            }],
+          }],
+        },
       ],
     },
     questions: [
@@ -45,6 +62,7 @@ test("preserves the formatting of mock feedback", async () => {
 
   expect((await screen.findByText("Clear opening")).tagName).toBe("STRONG");
   expect(screen.getByText("Explain the trade-off next.").tagName).toBe("P");
+  expect(screen.getByRole("link", { name: "Further reading" }).getAttribute("href")).toBe("https://example.test/feedback");
   expect(container.querySelector('img[src="https://images.example.test/feedback.png"]')).toBeNull();
 });
 

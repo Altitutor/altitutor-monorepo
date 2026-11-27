@@ -107,20 +107,31 @@ export function isInterviewReviewDocument(value: unknown): value is Json {
   return validNode(value, ["doc"], 0);
 }
 
-function withoutEmbeddedMedia(node: Json, depth = 0): Json {
-  if (depth >= 32 || !node || typeof node !== "object" || Array.isArray(node) || !Array.isArray(node.content)) {
-    return node;
+function normalizeFeedbackNode(value: Json, depth = 0): Json {
+  if (depth > 32 || !value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const attrs = value.attrs;
+  if (value.type === "link" && attrs && typeof attrs === "object" && !Array.isArray(attrs)) {
+    // Feedback editors store a presentation class on ordinary links.
+    const linkAttrs = { ...attrs };
+    delete linkAttrs.class;
+    return { ...value, attrs: linkAttrs };
   }
-  return {
-    ...node,
-    content: node.content
+
+  const node = { ...value };
+  if (Array.isArray(value.marks)) {
+    node.marks = value.marks.map((mark) => normalizeFeedbackNode(mark, depth + 1));
+  }
+  if (Array.isArray(value.content)) {
+    node.content = value.content
       .filter((child) => !isRecord(child) || (child.type !== "image" && child.type !== "externalVideo"))
-      .map((child) => withoutEmbeddedMedia(child, depth + 1)),
-  };
+      .map((child) => normalizeFeedbackNode(child, depth + 1));
+  }
+  return node;
 }
 
 /** Reuse the review document rules for rich feedback with older embedded media. */
 export function interviewReviewFeedbackDocument(value: Json): Json | null {
-  const document = withoutEmbeddedMedia(value);
+  const document = normalizeFeedbackNode(value);
   return isInterviewReviewDocument(document) ? document : null;
 }
