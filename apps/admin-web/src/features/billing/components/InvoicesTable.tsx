@@ -1,4 +1,6 @@
 'use client';
+
+import { entityReferenceDragProps } from '@altitutor/ui';
 import { EntityActionChip } from '@/shared/components/EntityActionChip';
 
 
@@ -222,6 +224,7 @@ export function InvoicesTable() {
                     data-shortcut-record
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setActiveInvoiceId(invoice.id)}
+                    {...entityReferenceDragProps({ type: 'invoice', id: invoice.id, label: invoice.stripe_invoice_number || 'Invoice' })}
                   >
                     {state.visibleColumns.includes('invoice_number') && (
                       <TableCell>

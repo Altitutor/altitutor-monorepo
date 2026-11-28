@@ -19,7 +19,7 @@ type MinimalClass = Pick<
  * Represents a searchable entity (student, staff, parent, class, subject, topic, or file)
  */
 export type CommandPaletteEntityResult =
-  | { type: "email" | "message";
+  | { type: "email" | "message" | "session" | "invoice" | "adminShift" | "tutorLog";
       id: string;
       data: { title: string; subtitle: string | null };
     }

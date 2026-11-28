@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { searchPaletteEntities } from "@/features/command-palette/api/search";
 import { useDebounce } from "./useDebounce";
 import { studentsApi } from "@/features/students/api/students";
 import { staffApi } from "@/features/staff/api/staff";
@@ -21,7 +22,7 @@ export interface UseEntitySearchOptions {
   enabled?: boolean;
   debounceMs?: number;
   excludeCompleted?: boolean;
-  types?: (keyof typeof entityTypes)[];
+  types?: readonly (keyof typeof entityTypes)[];
 }
 
 /**
@@ -77,6 +78,31 @@ export function useEntitySearch({
       shouldSearch && (types.includes("emails") || types.includes("messages")),
     staleTime: 30000,
   });
+  const groupTypes = { invoices: "invoice", adminShifts: "adminShift", tutorLogs: "tutorLog" } as const;
+  const additional = (Object.keys(groupTypes) as (keyof typeof groupTypes)[]).filter((type) => types.includes(type));
+  const additionalQuery = useQuery({
+    queryKey: ["entity-search-additional", trimmedSearch, types.includes("sessions"), ...additional],
+    queryFn: async (): Promise<CommandPaletteEntityResult[]> => {
+      const results = await Promise.allSettled([
+        ...(types.includes("sessions") ? [searchPaletteEntities({ type: "session", search: trimmedSearch, limit: entityTypes.sessions.limit })
+          .then(({ results }): CommandPaletteEntityResult[] => results.map((result) => ({
+            type: "session", id: result.id, data: { title: result.title, subtitle: result.subtitle ?? null },
+          })))] : []),
+        ...additional.map(async (group) => {
+          const response = await fetch(
+            `/api/entity-references?type=${groupTypes[group]}&search=${encodeURIComponent(trimmedSearch)}`,
+          );
+          if (!response.ok) throw new Error("Reference search unavailable");
+          return response.json() as Promise<CommandPaletteEntityResult[]>;
+        }),
+      ]);
+      if (results.every((result) => result.status === "rejected")) throw new Error("Reference search unavailable");
+      return results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+    },
+    enabled: shouldSearch && (types.includes("sessions") || additional.length > 0),
+    staleTime: 30000,
+  });
+
   const studentsQuery = useQuery({
     queryKey: ["entity-search-students", trimmedSearch],
     queryFn: async () => {
@@ -311,6 +337,7 @@ export function useEntitySearch({
 
   const allResults: CommandPaletteEntityResult[] = [
     ...(communicationQuery.data || []),
+    ...(additionalQuery.data || []),
     ...(studentsQuery.data || []),
     ...(staffQuery.data || []),
     ...(parentsQuery.data || []),
@@ -325,6 +352,7 @@ export function useEntitySearch({
   ];
 
   const isLoading =
+    (shouldSearch && additionalQuery.isFetching) ||
     (shouldSearch &&
       (types.includes("emails") || types.includes("messages")) &&
       communicationQuery.isFetching) ||
@@ -342,6 +370,7 @@ export function useEntitySearch({
 
   const hasError =
     communicationQuery.isError ||
+    additionalQuery.isError ||
     (types.includes("students") && studentsQuery.isError) ||
     (types.includes("staff") && staffQuery.isError) ||
     (types.includes("parents") && parentsQuery.isError) ||

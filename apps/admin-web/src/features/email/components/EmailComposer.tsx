@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,6 +32,7 @@ import {
   Clock,
   ArrowUp,
   X,
+  Ellipsis,
   LogOut,
   Trash2,
   LoaderCircle,
@@ -1046,10 +1047,106 @@ export function EmailComposer({
       setStatus("Could not close the shared editor; please retry.");
     }
   }
+  function handleSendShortcut(event: KeyboardEvent<HTMLElement>) {
+    if (
+      event.currentTarget.contains(event.target as Node) &&
+      !event.repeat &&
+      (event.metaKey || event.ctrlKey) &&
+      event.key === "Enter" &&
+      !event.altKey &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      void send();
+    }
+  }
+
+  const draftControls = (
+    <div className="flex shrink-0 items-center gap-2">
+      <DropdownMenu
+        open={Boolean(pendingClose)}
+        onOpenChange={(open) => {
+          if (open) close();
+          else setPendingClose(null);
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <EmailIconButton
+            label={dialogTitle ? "Draft options" : "Close editor"}
+            destructive={!dialogTitle}
+            variant="ghost"
+            onClick={close}
+          >
+            {dialogTitle ? <Ellipsis className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          </EmailIconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-52"
+          aria-label="Draft options"
+        >
+          <DropdownMenuItem
+            className="justify-start"
+            disabled={
+              sending ||
+              queuedFiles > 0 ||
+              preparing ||
+              command.isPending ||
+              Boolean(creationError) ||
+              Object.values(pendingRecipients).some(Boolean)
+            }
+            onClick={() => void saveAndClose()}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Close draft
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="justify-start text-destructive focus:bg-destructive/10 focus:text-destructive"
+            disabled={
+              sending ||
+              queuedFiles > 0 ||
+              preparing ||
+              command.isPending ||
+              blocked
+            }
+            onClick={() => void discardAndClose()}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {creationError || (prepareDraft && !startedDraft) ? "Close without saving" : "Delete draft"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              role="status"
+              aria-label={disabledReason ?? status}
+              tabIndex={0}
+              className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground"
+            >
+              {preparing || queuedFiles || sending || command.isPending ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : /(?:failed|could not|changed|rejected|unresolved|invalid|restricted)/i.test(
+                  status,
+                ) ? (
+                <CircleAlert className="h-4 w-4 text-destructive" />
+              ) : (
+                <CloudCheck className="h-4 w-4" />
+              )}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{disabledReason ?? status}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
   const composer = (
     <section
       className={dialogTitle
-        ? `relative space-y-4 px-6 py-4 ${draggingFiles ? "bg-primary/10" : "bg-background"}`
+        ? `relative space-y-4 ${draggingFiles ? "bg-primary/10" : "bg-background"}`
         : `relative m-4 space-y-4 rounded-2xl p-4 ring-1 ring-inset ${draggingFiles ? "bg-primary/10 ring-primary/50" : "bg-muted/60 ring-border/40"}`}
       onDragOverCapture={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
@@ -1073,108 +1170,16 @@ export function EmailComposer({
         setDraggingFiles(false);
         attachFiles(Array.from(event.dataTransfer.files));
       }}
-      onKeyDownCapture={(event) => {
-        if (
-          event.currentTarget.contains(event.target as Node) &&
-          !event.repeat &&
-          (event.metaKey || event.ctrlKey) &&
-          event.key === "Enter" &&
-          !event.altKey &&
-          !event.shiftKey &&
-          !event.nativeEvent.isComposing
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          void send();
-        }
-      }}
+      onKeyDownCapture={dialogTitle ? undefined : handleSendShortcut}
       aria-label="Shared email draft"
       data-email-shortcut-scope="typing"
     >
-      <header className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <DropdownMenu
-            open={Boolean(pendingClose)}
-            onOpenChange={(open) => {
-              if (open) close();
-              else setPendingClose(null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <EmailIconButton
-                label="Close editor"
-                destructive
-                variant="ghost"
-                onClick={close}
-              >
-                <X className="h-4 w-4" />
-              </EmailIconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-52"
-              aria-label="Draft options"
-            >
-              <DropdownMenuItem
-                className="justify-start"
-                disabled={
-                  sending ||
-                  queuedFiles > 0 ||
-                  preparing ||
-                  command.isPending ||
-                  Boolean(creationError) ||
-                  Object.values(pendingRecipients).some(Boolean)
-                }
-                onClick={() => void saveAndClose()}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Close draft
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="justify-start text-destructive focus:bg-destructive/10 focus:text-destructive"
-                disabled={
-                  sending ||
-                  queuedFiles > 0 ||
-                  preparing ||
-                  command.isPending ||
-                  blocked
-                }
-                onClick={() => void discardAndClose()}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {creationError || (prepareDraft && !startedDraft) ? "Close without saving" : "Delete draft"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  role="status"
-                  aria-label={disabledReason ?? status}
-                  tabIndex={0}
-                  className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground"
-                >
-                  {preparing || queuedFiles || sending || command.isPending ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                  ) : /(?:failed|could not|changed|rejected|unresolved|invalid|restricted)/i.test(
-                      status,
-                    ) ? (
-                    <CircleAlert className="h-4 w-4 text-destructive" />
-                  ) : (
-                    <CloudCheck className="h-4 w-4" />
-                  )}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{disabledReason ?? status}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {dialogTitle && <h2 className="text-lg font-semibold">{dialogTitle}</h2>}
-        </div>
-        <Badge variant="secondary" className="rounded-full">
-          Draft
-        </Badge>
-      </header>
+      {!dialogTitle && (
+        <header className="flex items-center justify-between gap-2">
+          {draftControls}
+          <Badge variant="secondary" className="rounded-full">Draft</Badge>
+        </header>
+      )}
       {draggingFiles && (
         <p className="pointer-events-none absolute inset-x-4 top-12 z-10 rounded-lg bg-primary p-3 text-center text-sm text-primary-foreground">
           Drop files to attach
@@ -1241,7 +1246,7 @@ export function EmailComposer({
           Choose a future send time or clear the schedule.
         </p>
       )}
-      <div className="min-w-0 border-t pt-3">{footer}</div>
+      {!dialogTitle && <div className="min-w-0 border-t pt-3">{footer}</div>}
     </section>
   );
 
@@ -1250,12 +1255,23 @@ export function EmailComposer({
     <AdminDialogShell
       open
       fillHeight
-      hideHeader
       title={dialogTitle}
+      headerActions={<Badge variant="secondary" className="rounded-full">Draft</Badge>}
+      footer={
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+          {draftControls}
+          <div className="min-w-0 flex-1">{footer}</div>
+        </div>
+      }
       onClose={close}
       contentClassName="md:max-w-4xl"
-      bodyClassName="min-h-0 flex-1 overflow-y-auto p-0"
-      dialogContentProps={{ hideCloseButton: true, primaryShortcut: false, dismissOnOverlay: false, "aria-describedby": undefined }}
+      dialogContentProps={{
+        hideCloseButton: true,
+        primaryShortcut: false,
+        dismissOnOverlay: false,
+        "aria-describedby": undefined,
+        onKeyDownCapture: handleSendShortcut,
+      }}
     >
       {composer}
     </AdminDialogShell>

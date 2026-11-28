@@ -2,11 +2,11 @@ import { useMemo } from 'react';
 import { ReactRenderer } from '@tiptap/react';
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
-import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
+import { ADMIN_MENTION_GROUPS, type AdminMentionGroup } from '@/shared/utils/adminMentionGroups';
 import { MentionList, type MentionListRef } from '@/shared/components/MentionList';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
-type MentionSearchType = keyof typeof entityTypes;
+type MentionSearchType = AdminMentionGroup;
 
 interface UseMentionSuggestionsOptions {
   types?: readonly MentionSearchType[];
@@ -19,25 +19,9 @@ interface UseMentionSuggestionsOptions {
  * Items resolve immediately so the dropdown (pills) appears right away;
  * MentionList fetches results via useEntitySearch and shows skeleton while loading.
  */
-const DEFAULT_MENTION_TYPES = [
-  "emails",
-  "messages",
-  'students',
-  'staff',
-  'parents',
-  'classes',
-  'subjects',
-  'tasks',
-  'issues',
-  'projects',
-  'topics',
-  'files',
-  'notes',
-] as const;
-
 export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
   const types = useMemo(
-    () => options?.types ?? DEFAULT_MENTION_TYPES,
+    () => options?.types ?? ADMIN_MENTION_GROUPS,
     [options?.types]
   );
 

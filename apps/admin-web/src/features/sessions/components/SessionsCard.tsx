@@ -7,7 +7,7 @@ import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Users } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import { entityReferenceDragProps, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
@@ -131,6 +131,7 @@ export function SessionsCard({
     <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
+      {...(!isSelecting && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) && entityReferenceDragProps({ type: "session", id: session.id, label: title || session.short_name || session.long_name || subjectDisplay }))}
       className={cn(
         'group relative border rounded-lg transition-all h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',

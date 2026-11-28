@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@altitutor/ui';
+import { entityReferenceDragProps, Button } from '@altitutor/ui';
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { buildTopicTree, type TopicTree } from '../utils/codes';
@@ -90,6 +90,7 @@ export function TopicNode({
           data-shortcut-list-item={onTopicClick ? true : undefined}
           data-record-type="topic"
           data-record-id={topic.id}
+            {...entityReferenceDragProps({ type: "topic", id: topic.id, label: topic.name || 'Topic' })}
           data-label={topic.name}
           className="flex-1 text-left hover:underline flex items-center gap-2"
         >

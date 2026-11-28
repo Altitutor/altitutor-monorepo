@@ -17,7 +17,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminUrlSync } from "@/shared/hooks/useAdminUrlSync";
-import {
+import { entityReferenceDragProps,
   Table,
   TableBody,
   TableCell,
@@ -560,6 +560,7 @@ export function ClassesTable({
                         tabIndex={-1}
                         data-record-type="class"
                         data-record-id={cls.id}
+            {...entityReferenceDragProps({ type: "class", id: cls.id, label: cls.short_name || cls.long_name || 'Class' })}
                         onClick={() => handleClassClick(cls)}
                       >
                         {state.visibleColumns.includes("day") && (

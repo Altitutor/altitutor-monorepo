@@ -1,4 +1,6 @@
 "use client";
+
+import { entityReferenceDragProps } from "@altitutor/ui";
 import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
 import { CheckSquare, AlertTriangle } from "lucide-react";
@@ -592,6 +594,7 @@ export function EmailThreadView({
                 aria-label={`Email: ${message.subject || "No subject"}`}
               >
                 <header
+                  {...entityReferenceDragProps({ type: "email", id: message.id, label: message.subject || "Email" })}
                   className="relative flex min-h-6 cursor-pointer items-start gap-3"
                   onClick={(event) => {
                     if (event.target instanceof Element && !event.target.closest("button, a, [role=button], [role=menuitem]")) toggleEmail(message.id);

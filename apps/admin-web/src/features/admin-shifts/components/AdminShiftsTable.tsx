@@ -1,4 +1,6 @@
 'use client';
+
+import { entityReferenceDragProps } from '@altitutor/ui';
 import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
@@ -286,6 +288,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                   return (
                     <TableRow
                       key={shift.id}
+                      {...entityReferenceDragProps({ type: 'adminShift', id: shift.id, label: `${getDayOfWeek(shift.day_of_week)} admin shift` })}
                       data-shortcut-record
                       data-index={index}
                       className="cursor-pointer hover:bg-muted/50"

@@ -68,8 +68,8 @@ export function RecentlyViewedMenu({ staffId }: { staffId: string }) {
           const section = pageSection(href);
           const Icon = section?.icon ?? History;
           return (
-            <DropdownMenuItem key={key} title={title} onSelect={() => requestPane('navigate', href)}>
-              <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <DropdownMenuItem key={key} title={title} className="gap-1.5" onSelect={() => requestPane('navigate', href)}>
+              <Icon className="mr-1.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
               {section && section.label !== title && (
                 <>
                   <span className="shrink-0 text-muted-foreground">{section.label}</span>

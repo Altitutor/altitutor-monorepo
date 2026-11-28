@@ -28,7 +28,7 @@ export interface EntityDisplayText {
  * Extract display text (title and subtitle) from an entity result
  */
 export function getEntityDisplayText(result: CommandPaletteEntityResult): EntityDisplayText {
-  if (result.type === "email" || result.type === "message")
+  if ("subtitle" in result.data && "title" in result.data)
     return { title: result.data.title, subtitle: result.data.subtitle };
   if (result.type === 'student') {
     const studentData = result.data as Tables<'students'>;

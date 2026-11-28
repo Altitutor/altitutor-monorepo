@@ -1,5 +1,7 @@
 'use client';
 
+import { entityReferenceDragProps } from '@altitutor/ui';
+
 import { useState, useMemo, useEffect } from 'react';
 import {
   DndContext,
@@ -65,10 +67,12 @@ function SortableSolutionItem({ solution }: SortableSolutionItemProps) {
       ref={setNodeRef}
       style={style}
       className="flex items-center gap-2 p-2 border rounded bg-background cursor-grab active:cursor-grabbing min-w-0"
-      {...attributes}
-      {...listeners}
+      {...entityReferenceDragProps({ type: 'file', id: solution.id, label: code || solution.file.filename })}
     >
-      <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      <button type="button" aria-label={`Move ${solution.file.filename}`} className="shrink-0 touch-none"
+        {...attributes} {...listeners}>
+        <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </button>
       <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -158,6 +162,7 @@ function SortableFileItem({ file, onSolutionLink: _onSolutionLink, onSolutionUnl
       {/* File Card - Half Width */}
       <div
         ref={setNodeRef}
+        {...entityReferenceDragProps({ type: 'file', id: file.id, label: code || file.file.filename })}
         style={style}
         className="w-1/2 flex items-center gap-2 p-3 border rounded-lg bg-background min-w-0"
       >

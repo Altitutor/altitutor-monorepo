@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@altitutor/ui';
+import { Button, entityReferenceDragProps } from '@altitutor/ui';
 import { Download, Loader2, Edit, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { 
   AlertDialog,
@@ -177,6 +177,9 @@ export function FileCard({
     <>
       <div
         data-shortcut-record
+        {...(topicFileId && entityReferenceDragProps({
+          type: 'file', id: topicFileId, label: fileCode || displayFileName,
+        }))}
         className={cn(
           'group flex cursor-pointer items-center justify-between rounded-lg border bg-card p-3 transition-all',
           clickableCardInteractiveCn,

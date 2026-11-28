@@ -1,4 +1,5 @@
-import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent, type MentionClickDetail } from '@altitutor/ui';
+import { AdminRichTextEditor } from '@/shared/components/AdminRichTextEditor';
+import { type RichTextEditorRef as NoteEditorRef, type JSONContent, type MentionClickDetail } from '@altitutor/ui';
 import { forwardRef, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -80,7 +81,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
     >
-      <RichTextEditor
+      <AdminRichTextEditor
         {...rest}
         content={editorContent}
         onChange={handleChange}

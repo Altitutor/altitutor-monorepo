@@ -30,7 +30,6 @@ import {
 import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
 import { AdminRichTextEditorWithImages } from "@/features/rich-text-images";
 import { useMentionSuggestions } from "@/shared/hooks/useMentionSuggestions";
-import { DOCUMENT_NOTE_MENTION_TYPES } from "../constants/documentEditorMentions";
 import { DOCUMENT_TITLE_FIELD_CLASS } from "../constants/documentTitle";
 import { useFitDocumentTitle } from "../hooks/useFitDocumentTitle";
 import { useFolders } from "../api/queries";
@@ -84,7 +83,6 @@ export function DocumentDetailView({
   const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
   useFitDocumentTitle(titleRef, form.watch("title"));
   const mentions = useMentionSuggestions({
-    types: DOCUMENT_NOTE_MENTION_TYPES,
     excludeIds: [noteId],
   });
   return (

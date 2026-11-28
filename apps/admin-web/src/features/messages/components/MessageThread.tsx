@@ -12,7 +12,7 @@ import { formatScheduledTextTime } from '../utils/textSchedule';
 import { StaffAvatar, SystemAvatar } from './StaffAvatar';
 import { toast } from 'sonner';
 import { X, File, Download, Music, Play, Pause } from 'lucide-react';
-import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
+import { entityReferenceDragProps, Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1279,7 +1279,10 @@ export function MessageThread({
                             )}
                           </>
                         ) : (
-                          <span>{formatMessageDate(messageAt)}</span>
+                          <time dateTime={messageAt} className="cursor-grab" title="Drag to tag this message"
+                            {...entityReferenceDragProps({ type: "message", id: m.id, label: m.body?.trim().slice(0, 100) || 'Text message' })}>
+                            {formatMessageDate(messageAt)}
+                          </time>
                         )}
                         {direction === "OUTBOUND" && m.status && m.status !== "SCHEDULED" && (
                           <span

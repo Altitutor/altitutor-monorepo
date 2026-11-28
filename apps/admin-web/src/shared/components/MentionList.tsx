@@ -14,52 +14,16 @@ import { excludeDoneEntities } from '@/features/command-palette/utils/excludeDon
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
-// Map singular entity types to plural keys in entityTypes config
-const ENTITY_TYPE_MAPPING: Record<string, string> = {
-  email: "emails",
-  message: "messages",
-  student: 'students',
-  staff: 'staff',
-  parent: 'parents',
-  class: 'classes',
-  subject: 'subjects',
-  task: 'tasks',
-  issue: 'issues',
-  project: 'projects',
-  topic: 'topics',
-  file: 'files',
-  note: 'notes',
-};
+import { ADMIN_MENTION_GROUPS, adminMentionGroupByType, adminMentionTypeByGroup, type AdminMentionGroup } from '@/shared/utils/adminMentionGroups';
 
-// Map plural entity types to singular for pill ordering
-const PLURAL_TO_SINGULAR: Record<string, string> = {
-  emails: "email",
-  messages: "message",
-  students: 'student',
-  staff: 'staff',
-  parents: 'parent',
-  classes: 'class',
-  subjects: 'subject',
-  tasks: 'task',
-  issues: 'issue',
-  projects: 'project',
-  topics: 'topic',
-  files: 'file',
-  notes: 'note',
-};
-
-const ENTITY_PILL_ORDER = [
-  "email",
-  "message",
-  'student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file', 'note'] as const;
-
-const DEFAULT_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes'] as const;
+const ENTITY_TYPE_MAPPING: Readonly<Record<string, AdminMentionGroup>> = adminMentionGroupByType;
+const ENTITY_PILL_ORDER = Object.keys(adminMentionGroupByType);
 
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
   command: (item: CommandPaletteEntityResult) => void;
   query: string;
-  types?: readonly string[];
+  types?: readonly AdminMentionGroup[];
   /** Omit entities (by id) from the picker, e.g. the document being edited. */
   excludeEntityIds?: readonly string[];
 }
@@ -72,7 +36,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(null);
 
-  const effectiveTypes = (props.types ?? DEFAULT_TYPES) as string[];
+  const effectiveTypes = props.types ?? ADMIN_MENTION_GROUPS;
   const { results, isLoading } = useEntitySearch({
     search: props.query ?? '',
     enabled: true,
@@ -177,7 +141,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
 
   const pillTypes = typesWithResults.length > 0
     ? ENTITY_PILL_ORDER.filter((t) => typesWithResults.includes(t))
-    : effectiveTypes.map((t) => PLURAL_TO_SINGULAR[t] ?? t).filter(Boolean);
+    : effectiveTypes.map((t) => adminMentionTypeByGroup[t] ?? t).filter(Boolean);
 
   const showSkeleton = isLoading;
   const emptyMessage = props.query.trim().length < 2 ? 'Start typing to search...' : 'No results found';
