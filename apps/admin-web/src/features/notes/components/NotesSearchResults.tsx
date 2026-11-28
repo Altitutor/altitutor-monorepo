@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { FileText, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { navLinkInactiveStyles } from '@altitutor/ui';
+import { entityReferenceDragProps, navLinkInactiveStyles } from '@altitutor/ui';
 import { proseMirrorToPlainText } from '../utils/rich-text';
 import { highlightSearchTerms, getSearchTerms } from '../utils/highlight';
 import type { Note } from '../types';
@@ -74,6 +74,7 @@ export function NotesSearchResults({ notes, searchQuery, order = defaultDocument
             data-shortcut-list-item
             data-record-type="note"
             data-record-id={note.id}
+            {...entityReferenceDragProps({ type: "note", id: note.id, label: note.title || 'Document' })}
             data-label={note.title}
             onClick={() => handleNoteClick(note.id)}
             onKeyDown={(e) => {

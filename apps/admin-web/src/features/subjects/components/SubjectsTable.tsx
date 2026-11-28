@@ -3,7 +3,7 @@
 import { AdminPageActions } from '@/shared/components/AdminPageActions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
+import { entityReferenceDragProps,
   Table,
   TableBody,
   TableCell,
@@ -383,6 +383,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                   data-record-type={!isSelectMode ? "subject" : undefined}
                   data-record-id={!isSelectMode ? subject.id : undefined}
                   data-label={subject.name}
+                  {...(!isSelectMode && entityReferenceDragProps({ type: "subject", id: subject.id, label: subject.name }))}
                   onClick={(event) => handleSubjectClick(subject.id, event)}
                 >
                   <SubjectCover subjectId={subject.id} />
@@ -491,6 +492,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                     data-record-type={!isSelectMode ? "subject" : undefined}
                     data-record-id={!isSelectMode ? subject.id : undefined}
                     data-label={subject.name}
+                  {...(!isSelectMode && entityReferenceDragProps({ type: "subject", id: subject.id, label: subject.name }))}
                     onClick={(e) => handleSubjectClick(subject.id, e)}
                   >
                     {isSelectMode && (

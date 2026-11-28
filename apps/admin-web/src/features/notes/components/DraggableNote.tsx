@@ -9,7 +9,7 @@ import { FileText, FolderKanban, MoreVertical, Trash2, Pencil } from 'lucide-rea
 import { cn } from '@/shared/utils';
 import { useRunRecordAction } from '@/features/command-palette/RecordActionsContext';
 import { workItemPropertyActions } from '@/features/work-item-editing/propertyActions';
-import { Button, navLinkInactiveStyles } from '@altitutor/ui';
+import { entityReferenceDragProps, Button, navLinkInactiveStyles } from '@altitutor/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,9 +83,11 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
     <>
       <div
         data-shortcut-list-item
+        tabIndex={-1}
         data-record-type="note"
         data-record-id={note.id}
         data-label={note.title}
+        {...entityReferenceDragProps({ type: "note", id: note.id, label: note.title || 'Document' })}
         ref={setNodeRef}
         style={style}
         className={cn(
@@ -100,10 +102,11 @@ export function DraggableNote({ note, project, onClick, onProjectClick, indent =
             onClick(e);
           }
         }}
-        {...attributes}
-        {...listeners}
       >
-        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <button type="button" className="shrink-0 text-muted-foreground" aria-label={`Move ${note.title}`}
+          {...attributes} {...listeners} onClick={(event) => event.stopPropagation()}>
+          <FileText className="h-4 w-4" aria-hidden />
+        </button>
         <span className="flex-1 truncate">{note.title}</span>
         {project && onProjectClick && (
           <button

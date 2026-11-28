@@ -8,7 +8,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
-import {
+import { entityReferenceDragProps,
   Table,
   TableBody,
   TableCell,
@@ -290,6 +290,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                     tabIndex={-1}
                     data-record-type="parent"
                     data-record-id={parent.id}
+            {...entityReferenceDragProps({ type: "parent", id: parent.id, label: [parent.first_name, parent.last_name].filter(Boolean).join(' ') || 'Parent' })}
                     onClick={() => handleParentClick(parent.id)}
                   >
                     {state.visibleColumns.includes('parent') && (

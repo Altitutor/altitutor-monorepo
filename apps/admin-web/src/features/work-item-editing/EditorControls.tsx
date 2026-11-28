@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminRichTextEditor } from '@/shared/components/AdminRichTextEditor';
+
 import {
   Button,
   AlertDialog,
@@ -8,7 +10,6 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  RichTextEditor,
   type JSONContent,
 } from "@altitutor/ui";
 import type { ReactNode } from "react";
@@ -161,7 +162,7 @@ function LatestValue({
 }) {
   if (field === "description" || field === "content") {
     return (
-      <RichTextEditor
+      <AdminRichTextEditor
         content={(value ?? "") as JSONContent | string}
         editable={false}
         minHeight="80px"

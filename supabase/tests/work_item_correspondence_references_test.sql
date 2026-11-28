@@ -1,5 +1,5 @@
 begin;
-select plan(9);
+select plan(10);
 insert into auth.users(id) values ('fd277000-0000-4000-8000-000000000001');
 insert into public.staff(id,user_id,first_name,last_name,role,status)
 values ('fd277000-0000-4000-8000-000000000002','fd277000-0000-4000-8000-000000000001','Reference','Test','ADMINSTAFF','ACTIVE');
@@ -31,15 +31,18 @@ select is(
   'email','projects support correspondence references');
 select is(
   public.admin_work_item_change('document',null,null,'reference-document',jsonb_build_object('title','Message document','content',(select body from reference_docs where kind='message')))#>>'{record,content,content,0,content,0,attrs,type}',
-  'message','documents support correspondence without broadening unrelated document links');
+  'message','documents support correspondence references');
 select throws_ok($$select public.admin_work_item_change('task',null,null,'missing-email','{"title":"Missing email","description":{"type":"doc","content":[{"type":"mention","attrs":{"type":"email","id":"missing-email"}}]}}')$$,
   '22023','Referenced entity not found','new email references must resolve');
 select throws_ok($$select public.admin_work_item_change('issue',null,null,'missing-message','{"name":"Missing message","description":{"type":"doc","content":[{"type":"mention","attrs":{"type":"message","id":"fd277000-0000-4000-8000-000000000099"}}]}}')$$,
   '22023','Referenced entity not found','new message references must resolve');
 select throws_ok($$select public.admin_work_item_change('task',null,null,'invalid-message','{"title":"Invalid message","description":{"type":"doc","content":[{"type":"mention","attrs":{"type":"message","id":"not-a-uuid"}}]}}')$$,
   '22023','Invalid reference ID','invalid message IDs are rejected as validation failures');
-select throws_ok($$select public.admin_work_item_change('document',null,null,'unrelated-document-reference','{"title":"Unrelated reference","content":{"type":"doc","content":[{"type":"mention","attrs":{"type":"staff","id":"fd277000-0000-4000-8000-000000000002"}}]}}')$$,
-  '22023','Documents support document, email and message references only','the existing document reference boundary remains enforced');
+select is(
+  public.admin_work_item_change('document',null,null,'staff-document-reference','{"title":"Staff reference","content":{"type":"doc","content":[{"type":"mention","attrs":{"type":"staff","id":"fd277000-0000-4000-8000-000000000002"}}]}}')#>>'{record,content,content,0,attrs,id}',
+  'fd277000-0000-4000-8000-000000000002','documents save the same core record references as other work items');
+select throws_ok($$select public.admin_work_item_change('document',null,null,'missing-staff-document-reference','{"title":"Missing staff reference","content":{"type":"doc","content":[{"type":"mention","attrs":{"type":"staff","id":"fd277000-0000-4000-8000-000000000099"}}]}}')$$,
+  '22023','Referenced entity not found','documents still reject missing core entity references');
 select ok(not has_function_privilege('authenticated','admin_operations.validate_references(jsonb,jsonb,boolean)','execute'),'reference validation stays private to the authorized public mutation API');
 select * from finish();
 rollback;

@@ -1,5 +1,7 @@
 'use client';
 
+import { entityReferenceDragProps } from '@altitutor/ui';
+
 import { EntityActionChip } from './EntityActionChip';
 import { openEntityReference } from '@/shared/utils/entityReference';
 
@@ -85,10 +87,13 @@ export function AdminShiftCard({
   const defaultBorderClass = 'border-indigo-200 dark:border-indigo-800';
   const iconBackgroundColor = { backgroundColor: adminShiftColorHex };
 
+  const referenceDrag = { type: 'adminShift', id: adminShift.id, label: `${day} admin shift` };
+
   return (
-    <CalendarDetailsTooltip enabled={isCalendarView} title="Admin shift" subtitle={<><span>{day}</span><span>{timeRange}</span></>} staff={staff}>
+    <CalendarDetailsTooltip referenceDrag={referenceDrag} enabled={isCalendarView} title="Admin shift" subtitle={<><span>{day}</span><span>{timeRange}</span></>} staff={staff}>
     <div
       ref={cardRef}
+      {...(!isCalendarView && entityReferenceDragProps(referenceDrag))}
       className={cn(
         'group relative border rounded-lg transition-all h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',

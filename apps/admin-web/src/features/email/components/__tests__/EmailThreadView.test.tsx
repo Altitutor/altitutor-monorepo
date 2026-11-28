@@ -337,7 +337,7 @@ it("opens Forward in a composer dialog and keeps Reply all inline", async () => 
   fireEvent.click(within(email).getByRole("button", { name: "Forward" }));
   const forward = await screen.findByRole("dialog", { name: "Forward email" });
   expect(within(forward).getByRole("textbox", { name: "Email subject" })).toHaveValue("Fwd: Lesson");
-  fireEvent.click(within(forward).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(within(forward).getByRole("button", { name: /^Close$/ }));
   fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
   await waitFor(() => expect(forward).not.toBeInTheDocument());
 
@@ -428,7 +428,7 @@ it("lets the user resume a saved forward from the thread and reopen it after clo
   expect(screen.queryByRole("textbox", { name: "Email subject" })).not.toBeInTheDocument();
   fireEvent.click(resume);
   const dialog = await screen.findByRole("dialog", { name: "Forward email" });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
   fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole("button", { name: "Resume forward" }));

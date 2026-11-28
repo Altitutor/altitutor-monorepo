@@ -5,7 +5,7 @@ import { openEntityReference } from '@/shared/utils/entityReference';
 import { StudentCount } from '@/shared/components/StudentCount';
 import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
-import { Badge } from '@altitutor/ui';
+import { entityReferenceDragProps, Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
@@ -135,9 +135,12 @@ export function ClassCard({
   // Icon stroke color (adapts to background luminance)
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
+  const referenceDrag = { type: "class", id: classData.id, label: classData.short_name || classData.long_name || subjectDisplay };
+
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={staffRoster}>
+    <CalendarDetailsTooltip referenceDrag={referenceDrag} subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={staffRoster}>
     <div
+      {...(!isCalendarView && entityReferenceDragProps(referenceDrag))}
       data-shortcut-record={Boolean(hasMenuActions) || undefined}
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',

@@ -8,7 +8,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 
 import { memo, useCallback, useState } from 'react';
-import { TableCell, TableRow, Label, Input } from "@altitutor/ui";
+import { entityReferenceDragProps, TableCell, TableRow, Label, Input } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -160,6 +160,7 @@ export const StaffTableRow = memo(function StaffTableRow({
         tabIndex={-1}
         data-record-type="staff"
         data-record-id={staff.id}
+            {...entityReferenceDragProps({ type: "staff", id: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(' ') || 'Staff' })}
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={handleClick}
       >

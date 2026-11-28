@@ -10,7 +10,7 @@ import { studentAccountAction } from '../utils/studentAccountAction';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
-import {
+import { entityReferenceDragProps,
   Table,
   TableBody,
   TableCell,
@@ -551,6 +551,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     tabIndex={-1}
                     data-record-type="student"
                     data-record-id={student.id}
+            {...entityReferenceDragProps({ type: "student", id: student.id, label: [student.first_name, student.last_name].filter(Boolean).join(' ') || 'Student' })}
                     onClick={() => handleStudentClick(student.id)}
                   >
                     {state.visibleColumns.includes('status') && (

@@ -74,6 +74,21 @@ it("shows full session details and planned/actual attendance on calendar hover",
   ).not.toBeInTheDocument();
   expect(tooltip.getByRole("img", { name: "Actual: Attended" })).toBeVisible();
 });
+it("exposes the persisted session reference when a calendar card is dragged", () => {
+  const id = "50000000-0000-4000-8000-000000000005";
+  render(<SessionsCard isCalendarView session={{ id, short_name: "Extension session" }} />);
+
+  const card = screen.getByLabelText("Extension session details");
+  const setData = jest.fn();
+  fireEvent.dragStart(card, { dataTransfer: { setData } });
+
+  expect(card).toHaveAttribute("draggable", "true");
+  expect(setData).toHaveBeenCalledWith(
+    "application/x-altitutor-entity-reference",
+    JSON.stringify({ type: "session", id, label: "Extension session" }),
+  );
+});
+
 it("shows class enrollment details on keyboard focus", async () => {
   render(
     <ClassCard

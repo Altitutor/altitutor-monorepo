@@ -1,5 +1,7 @@
 'use client';
 
+import { entityReferenceDragProps } from '@altitutor/ui';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
@@ -452,6 +454,7 @@ function TopicRow({
   return (
     <>
       <TableRow
+        {...entityReferenceDragProps({ type: "topic", id: topic.id, label: `${topic.code} ${topic.name}`.trim() })}
         className={onViewTopic ? "cursor-pointer hover:bg-muted/50" : undefined}
         onClick={onViewTopic ? handleRowClick : undefined}
       >

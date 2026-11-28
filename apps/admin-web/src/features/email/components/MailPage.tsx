@@ -13,7 +13,7 @@ import { EmailThreadView } from "./EmailThreadView";
 import { NewEmailComposer } from "./NewEmailComposer";
 import type { RegisterDraftClose } from "./EmailComposer";
 import { paneCloseEvent, withPaneCloseGate } from "@/shared/components/pane-workspace/pane-routing";
-import {
+import { entityReferenceDragProps,
   DataTableToolbar,
   Skeleton,
 } from "@altitutor/ui";
@@ -438,7 +438,12 @@ export function MailPage() {
                   data-email-shortcut-target
                   data-pane-href={`/email/${encodeURIComponent(row.id)}${folderQuery}`}
                   onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = "move";
+                    entityReferenceDragProps({
+                      type: "email",
+                      id: row.messageIds.at(-1) || row.id,
+                      label: row.subject || "Email",
+                    }).onDragStart(event);
+                    event.dataTransfer.effectAllowed = "copyMove";
                     setDragging(true);
                     event.dataTransfer.setData(
                       emailDragType,

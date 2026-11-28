@@ -2,7 +2,7 @@
 import { EntityActionChip } from '@/shared/components/EntityActionChip';
 
 import React from 'react';
-import {
+import { entityReferenceDragProps,
   TableCell,
   TableRow,
   Button,
@@ -179,6 +179,7 @@ export function SessionsTableRow({
 
   return (
     <TableRow data-shortcut-list-item data-record-type="session" data-record-id={session.id}
+      {...entityReferenceDragProps({ type: "session", id: session.id, label: sessionShortName || 'Session' })}
       tabIndex={-1} className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
       {visibleColumns.includes('date') && (
         <TableCell>

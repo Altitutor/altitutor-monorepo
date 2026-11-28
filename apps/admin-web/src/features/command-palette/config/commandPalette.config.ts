@@ -44,6 +44,7 @@ import {
   Printer,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { recordEntities } from '../model';
 import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
 
 export type CommandAction = () => void;
@@ -239,6 +240,10 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
     limit: 8,
     enabled: true,
   },
+  sessions: { id: 'sessions', ...recordEntities.session, limit: 8, enabled: true },
+  invoices: { id: 'invoices', ...recordEntities.invoice, limit: 8, enabled: true },
+  adminShifts: { id: 'adminShifts', ...recordEntities.adminShift, limit: 8, enabled: true },
+  tutorLogs: { id: 'tutorLogs', ...recordEntities.tutorLog, limit: 8, enabled: true },
   subjects: {
     id: 'subjects',
     label: 'Subjects',

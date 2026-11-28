@@ -2,7 +2,7 @@
 
 import { type RichTextEditorRef, type JSONContent } from '@altitutor/ui';
 import { forwardRef } from 'react';
-import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
+import type { AdminMentionGroup } from '@/shared/utils/adminMentionGroups';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 
@@ -14,7 +14,7 @@ export interface NotesEditorWithMentionsProps {
   placeholder?: string;
   disabled?: boolean;
   minHeight?: string;
-  types?: readonly (keyof typeof entityTypes)[];
+  types?: readonly AdminMentionGroup[];
   className?: string;
   /** Default 200ms — fewer RHF updates while typing long notes in activity tabs. */
   onChangeDebounceMs?: number;

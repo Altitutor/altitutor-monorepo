@@ -11,13 +11,13 @@ import {
   useState,
 } from 'react';
 import {
-  RichTextEditor,
   type RichTextEditorRef,
   type RichTextEditorProps,
   type JSONContent,
 } from '@altitutor/ui';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useAdminRichTextImageUpload } from '../hooks/useAdminRichTextImageUpload';
+import { AdminRichTextEditor } from '@/shared/components/AdminRichTextEditor';
 import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import type { AdminRichTextImageContext } from '../api/uploadAdminRichTextImage';
 import { InsertTemplateToolbarAction } from '@/features/rich-text-templates/components/InsertTemplateToolbarAction';
@@ -165,7 +165,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
         }}
         onDrop={!sessionEditable || editorProps.editable === false ? undefined : handleDrop}
       >
-        <RichTextEditor
+        <AdminRichTextEditor
           ref={ref}
           content={editorContent}
           onChange={handleChange}

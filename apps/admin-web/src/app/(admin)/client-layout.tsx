@@ -18,11 +18,19 @@ import Link from 'next/link';
 import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
 import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import {
+  Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub,
+  DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@altitutor/ui';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { requestPane } from '@/shared/components/pane-workspace/pane-routing';
+import { SidebarPreferencesDialog } from '@/features/sidebar/SidebarPreferencesDialog';
+import { defaultSidebarPreferences, orderSidebarEntries, setSidebarVisibility, sidebarChildKey, sidebarEntries, sidebarPreferencesSchema, type SidebarPreferences } from '@/features/sidebar/preferences';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { QuickActionsProvider, useQuickActions } from '@/shared/contexts/QuickActionsContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
 import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
@@ -167,6 +175,7 @@ function ExpandableNavGroup({
   pathname,
   collapsed = false,
   counts,
+  visibleChildren,
 }: {
   item: Extract<NavItem, { type?: "link" }> & {
     children: { title: string; href: string }[];
@@ -174,6 +183,7 @@ function ExpandableNavGroup({
   pathname: string;
   collapsed?: boolean;
   counts: ReconciliationCounts;
+  visibleChildren: { title: string; href: string }[];
 }) {
   const activePath = pathname.replace(/^\/invoices(?=\/|$)/, "/billing/invoices")
     .replace(/^\/notes(?=\/|$)/, "/documents");
@@ -193,6 +203,7 @@ function ExpandableNavGroup({
           <TooltipTrigger asChild>
             <Link
               href={item.href}
+              data-sidebar-entry={item.href}
               aria-current={active ? "page" : undefined}
               prefetch={false}
               className={cn(
@@ -218,6 +229,7 @@ function ExpandableNavGroup({
   return (
     <div className="space-y-0.5">
       <div
+        data-sidebar-entry={item.href}
         className={cn(
           "flex items-center rounded-md text-sm",
           active ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -234,7 +246,7 @@ function ExpandableNavGroup({
             {queues && <ReconciliationCountBadge queues={queues} counts={counts} />}
           </SidebarSignals>
         </Link>
-        <button
+        {visibleChildren.length > 0 && <button
           type="button"
           aria-expanded={expanded}
           aria-label={
@@ -249,14 +261,15 @@ function ExpandableNavGroup({
               expanded ? "rotate-0" : "-rotate-90",
             )}
           />
-        </button>
+        </button>}
       </div>
-      <SidebarExpandablePanel expanded={expanded || goHints}>
+      <SidebarExpandablePanel expanded={visibleChildren.length > 0 && (expanded || goHints)}>
         <div className="ml-4 space-y-0.5 border-l border-border pl-2">
-          {item.children.map((child) => (
+          {visibleChildren.map((child) => (
             <Link
               key={child.href}
               href={child.href}
+              data-sidebar-entry={sidebarChildKey(item.href, child.href)}
               aria-current={childNavActive(activePath, child.href) ? "page" : undefined}
               prefetch={false}
               className={cn(
@@ -292,8 +305,49 @@ function AdminNavMenu({
   const { data: unreadMessages = 0 } = useUnreadConversationCount();
   const { data: unreadMail = 0 } = useUnreadMailCount();
   const counts = useReconciliationCounts();
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const queryKey = ['admin-sidebar-preferences', user?.id] as const;
+  const query = useQuery({
+    queryKey,
+    enabled: Boolean(user?.id),
+    queryFn: () => loadSidebarPreferences(),
+    staleTime: 60_000,
+  });
+  const save = useMutation({
+    mutationFn: (next: SidebarPreferences) => loadSidebarPreferences(next),
+    onSuccess: (next) => queryClient.setQueryData(queryKey, next),
+  });
+  const preferences = query.data ?? defaultSidebarPreferences;
   const sections = groupNavItems(navItems);
   const goHints = React.useContext(GoHintsContext);
+  const [draft, setDraft] = useState<SidebarPreferences | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const contextEntry = sidebarEntries.find(({ id }) => id === contextMenu?.id);
+  const children = navItems.find((item): item is NavLink => item.type !== 'heading' && item.href === contextEntry?.id)?.children;
+  const canEdit = query.isSuccess && !save.isPending;
+  const hiddenEntries = sidebarEntries.filter(({ id }) => preferences.hidden.includes(id));
+  const openInNewPane = (href: string) => {
+    requestPane('open', href);
+    onAccessoryNavigate?.();
+  };
+  const customise = () => setDraft(preferences);
+  const setVisible = (id: string, visible: boolean) => {
+    if (!canEdit) return;
+    save.mutate(setSidebarVisibility(preferences, id, visible), {
+      onError: () => toast({ title: 'Could not save sidebar preferences.', variant: 'destructive' }),
+    });
+  };
+  const { toast } = useToast();
+
+  function openContextMenu(event: React.MouseEvent<HTMLDivElement>) {
+    const item = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-sidebar-entry]') : null;
+    const id = item?.dataset.sidebarEntry;
+    if (!item || !id) return;
+    event.preventDefault();
+    const rect = item.getBoundingClientRect();
+    setContextMenu({ id, x: event.clientX || rect.left, y: event.clientY || rect.bottom });
+  }
 
   const openAccessory = (event: React.MouseEvent, href: string) => {
     if (!accessoryDestination(href)) return;
@@ -303,13 +357,15 @@ function AdminNavMenu({
   };
 
   return (
-    <>
+    <div className="contents" onContextMenu={openContextMenu}>
       {sections.map((section) => {
         const sectionExpanded =
           goHints || collapsed ||
           !section.title ||
           !collapsedGroups.includes(section.title);
-        const links = section.items.map((item) => {
+        const links = orderSidebarEntries(section.items, preferences.order, (item) => item.href)
+          .filter((item) => !preferences.hidden.includes(item.href))
+          .map((item) => {
           const Icon = item.icon;
           const itemHref = item.href;
           if (item.children?.length) {
@@ -320,6 +376,8 @@ function AdminNavMenu({
                 pathname={pathname}
                 collapsed={collapsed}
                 counts={counts}
+                visibleChildren={orderSidebarEntries(item.children, preferences.order, (child) => sidebarChildKey(item.href, child.href))
+                  .filter((child) => !preferences.hidden.includes(sidebarChildKey(item.href, child.href)))}
               />
             );
           }
@@ -332,6 +390,7 @@ function AdminNavMenu({
           const link = (
             <Link
               href={itemHref}
+              data-sidebar-entry={itemHref}
               onClick={(event) => openAccessory(event, itemHref)}
               prefetch={false}
               aria-label={linkLabel}
@@ -401,8 +460,60 @@ function AdminNavMenu({
           </div>
         );
       })}
-    </>
+      {sections.every((section) => section.items.every((item) => preferences.hidden.includes(item.href))) && (
+        <Button variant="ghost" size="sm" disabled={!canEdit} onClick={customise}>Customise sidebar</Button>
+      )}
+      <DropdownMenu open={contextMenu !== null} onOpenChange={(open) => { if (!open) setContextMenu(null); }} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <span tabIndex={-1} aria-hidden className="pointer-events-none fixed size-px"
+            style={{ left: contextMenu?.x, top: contextMenu?.y }} />
+        </DropdownMenuTrigger>
+        {contextEntry && (
+          <DropdownMenuContent align="start" onCloseAutoFocus={(event) => event.preventDefault()}>
+            {children?.length ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Open</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {children.map((child) => <DropdownMenuItem key={child.href} onSelect={() => {
+                    paneRouter.push(child.href);
+                    onAccessoryNavigate?.();
+                  }}>{child.title}</DropdownMenuItem>)}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+            <DropdownMenuItem onSelect={() => openInNewPane(contextEntry.href)}>Open in new pane</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={!canEdit}>Visibility</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={!hiddenEntries.length}>Show</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {hiddenEntries.map((entry) => <DropdownMenuItem key={entry.id} onSelect={() => setVisible(entry.id, true)}>
+                      {entry.parent ? `${sidebarEntries.find(({ id }) => id === entry.parent)?.title} › ` : ''}{entry.title}
+                    </DropdownMenuItem>)}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onSelect={() => setVisible(contextEntry.id, false)}>Hide</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem disabled={!canEdit} onSelect={customise}>Customise sidebar</DropdownMenuItem>
+          </DropdownMenuContent>
+        )}
+      </DropdownMenu>
+      {draft && <SidebarPreferencesDialog preferences={draft} saving={save.isPending}
+        onSave={async (next) => { await save.mutateAsync(next); }} onClose={() => setDraft(null)} />}
+    </div>
   );
+}
+
+async function loadSidebarPreferences(preferences?: SidebarPreferences) {
+  const response = await fetch('/api/sidebar/preferences', preferences ? {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(preferences),
+  } : undefined);
+  if (!response.ok) throw new Error('Sidebar preferences are unavailable.');
+  return sidebarPreferencesSchema.parse(await response.json());
 }
 
 function ShellNav({
