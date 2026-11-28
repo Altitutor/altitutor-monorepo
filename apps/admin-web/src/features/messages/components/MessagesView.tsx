@@ -7,7 +7,7 @@ import { useRouter as useNextRouter } from 'next/navigation';
 import { ConversationList } from '@/features/messages/components/ConversationList';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
-import { Composer } from '@/features/messages/components/Composer';
+import { PersistedComposer } from '@/features/messages/components/Composer';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Breadcrumb } from '@/shared/components/Breadcrumb';
@@ -43,7 +43,6 @@ import { GroupConversationActions } from '@/features/messages/imessage/GroupConv
 import {
   getMessagingDraftKey,
   useMessagingListFilters,
-  usePersistedConversationDraft,
 } from '@/features/messages/state/messagingUiStore';
 
 export function MessagesView() {
@@ -65,16 +64,10 @@ export function MessagesView() {
   const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
     useMessagingListFilters(tabScope ? `tab:${tabScope.tab.key}` : "page");
   const nextRouter = useNextRouter();
-  const {
-    draft: currentDraft,
-    onDraftChange: handleDraftChange,
-    onDraftClear: handleDraftClear,
-  } = usePersistedConversationDraft(
-    getMessagingDraftKey(
-      activeGroupId
-        ? { kind: "group", conversationId: activeGroupId }
-        : { kind: "contact", contactId: activeContactId },
-    ),
+  const draftKey = getMessagingDraftKey(
+    activeGroupId
+      ? { kind: "group", conversationId: activeGroupId }
+      : { kind: "contact", contactId: activeContactId },
   );
 
   const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
@@ -457,7 +450,7 @@ export function MessagesView() {
                     setComposerSenderId(smsOwnedNumberId);
                   }}
                 />
-                <Composer
+                <PersistedComposer
                   contactId={activeContactId}
                   initialDestinationAddress={
                     composeIntent?.contactId === activeContactId
@@ -473,10 +466,8 @@ export function MessagesView() {
                       : undefined)
                   }
                   preferredSenderId={composerSenderId}
-                  onTyping={() => setIsSearching(false)}
-                  draft={currentDraft}
-                  onDraftChange={handleDraftChange}
-                  onDraftClear={handleDraftClear}
+                  onTyping={isSearching ? () => setIsSearching(false) : undefined}
+                  draftKey={draftKey}
                 />
               </>
             ) : null}

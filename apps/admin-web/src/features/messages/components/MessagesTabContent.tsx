@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMessageContactsForStudent } from "../api/queries";
 import { Button as UIButton } from "@altitutor/ui";
 import { MessageThread } from "./MessageThread";
-import { Composer } from "./Composer";
+import { PersistedComposer } from "./Composer";
 import { useChatStore } from "../state/chatStore";
 import {
   getContactIdByRelatedId,
@@ -14,7 +14,6 @@ import {
 import { useContactIdFromConversation } from "../hooks/useContactQueries";
 import {
   getMessagingDraftKey,
-  usePersistedConversationDraft,
 } from "../state/messagingUiStore";
 
 interface MessagesTabContentProps {
@@ -54,14 +53,8 @@ export function MessagesTabContent({
   const viewingHistory = Boolean(
     selectedContact && !selectedContact.is_current,
   );
-  const {
-    draft: currentDraft,
-    onDraftChange: handleDraftChange,
-    onDraftClear: handleDraftClear,
-  } = usePersistedConversationDraft(
-    getMessagingDraftKey({ kind: "contact", contactId }) ??
-      (relatedId && relatedType ? `related:${relatedType}:${relatedId}` : null),
-  );
+  const draftKey = getMessagingDraftKey({ kind: "contact", contactId }) ??
+    (relatedId && relatedType ? `related:${relatedType}:${relatedId}` : null);
 
   // Convert conversationId to contactId if provided (for backward compatibility)
   const { data: contactIdFromConversation } = useContactIdFromConversation(
@@ -151,12 +144,10 @@ export function MessagesTabContent({
                 messages.
               </p>
             ) : (
-              <Composer
+              <PersistedComposer
                 contactId={contactId}
                 onBeforeSend={handleFirstMessage}
-                draft={currentDraft}
-                onDraftChange={handleDraftChange}
-                onDraftClear={handleDraftClear}
+                draftKey={draftKey}
               />
             )}
           </div>
@@ -168,12 +159,10 @@ export function MessagesTabContent({
           </div>
           {/* Fixed Footer with Composer */}
           <div className="flex-shrink-0 border-t bg-background">
-            <Composer
+            <PersistedComposer
               contactId={null}
               onBeforeSend={handleFirstMessage}
-              draft={currentDraft}
-              onDraftChange={handleDraftChange}
-              onDraftClear={handleDraftClear}
+              draftKey={draftKey}
             />
           </div>
         </>
