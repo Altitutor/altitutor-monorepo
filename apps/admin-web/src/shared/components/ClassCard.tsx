@@ -135,10 +135,12 @@ export function ClassCard({
   // Icon stroke color (adapts to background luminance)
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
+  const referenceDrag = { type: "class", id: classData.id, label: classData.short_name || classData.long_name || subjectDisplay };
+
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={staffRoster}>
+    <CalendarDetailsTooltip referenceDrag={referenceDrag} subject={details?.subject ?? subject ?? undefined} openEntity={{href:`/classes/${classData.id}`,label:"Open class"}} enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={studentRoster} staff={staffRoster}>
     <div
-      {...entityReferenceDragProps({ type: "class", id: classData.id, label: classData.short_name || classData.long_name || subjectDisplay })}
+      {...(!isCalendarView && entityReferenceDragProps(referenceDrag))}
       data-shortcut-record={Boolean(hasMenuActions) || undefined}
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',

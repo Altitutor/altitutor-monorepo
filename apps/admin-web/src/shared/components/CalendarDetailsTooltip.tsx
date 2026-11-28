@@ -11,6 +11,7 @@ import {
   Popover,
   PopoverAnchor,
   PopoverContent,
+  entityReferenceDragProps,
 } from "@altitutor/ui";
 import { getSubjectColorStyle, formatSessionType, cn } from "@/shared/utils";
 import { statusToneClass } from "@/shared/utils/statusTone";
@@ -67,6 +68,7 @@ export function CalendarDetailsTooltip({
   subject,
   sessionType,
   openEntity,
+  referenceDrag,
 }: {
   enabled: boolean;
   title: string;
@@ -80,6 +82,7 @@ export function CalendarDetailsTooltip({
   subject?: Tables<"subjects">;
   sessionType?: string | null;
   openEntity?: { href: string; label: string };
+  referenceDrag?: Parameters<typeof entityReferenceDragProps>[0];
 }) {
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<"right" | "bottom">("right");
@@ -209,6 +212,7 @@ export function CalendarDetailsTooltip({
       </section>
     );
   };
+  const dragProps = referenceDrag ? entityReferenceDragProps(referenceDrag) : undefined;
   return (
     <Popover open={open} onOpenChange={updateOpen}>
       <PopoverAnchor asChild>
@@ -221,6 +225,17 @@ export function CalendarDetailsTooltip({
           aria-expanded={open}
           aria-controls={open ? contentId : undefined}
           aria-describedby={instructionsId}
+          data-record-type={referenceDrag?.type}
+          data-record-id={referenceDrag?.id}
+          data-label={referenceDrag?.label}
+          draggable={dragProps?.draggable}
+          onDragStart={dragProps ? (event) => {
+            dragProps.onDragStart(event);
+            if (event.target === event.currentTarget) {
+              cancel();
+              updateOpen(false);
+            }
+          } : undefined}
           onKeyDown={(event) => {
             if (
               event.target === event.currentTarget &&
@@ -251,7 +266,13 @@ export function CalendarDetailsTooltip({
             triggerHovered.current = false;
             hide();
           }}
-          onFocus={() => {
+          onPointerDown={(event) => {
+            if (!dragProps || event.button !== 0) return;
+            cancel();
+            updateOpen(false);
+          }}
+          onFocus={(event) => {
+            if (dragProps && !event.target.matches(":focus-visible")) return;
             cancel();
             updateOpen(true);
           }}

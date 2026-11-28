@@ -109,6 +109,10 @@ export function SessionsCard({
   const shouldUseCompact = forceCompact || !iconVisible;
   
   const subjectDisplay = title ?? (subject?.name?.trim() || subject?.long_name?.trim() || subject?.short_name?.trim() || formatSessionType(session.type));
+  const persistedSession = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id);
+  const referenceDrag = !isSelecting && persistedSession
+    ? { type: "session", id: session.id, label: title || session.short_name || session.long_name || subjectDisplay }
+    : undefined;
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at
@@ -128,10 +132,10 @@ export function SessionsCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
-    <CalendarDetailsTooltip subject={details?.subject ?? subject} sessionType={session.type} openEntity={/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster ?? staff} hasTutorLog={hasTutorLog} attendance>
+    <CalendarDetailsTooltip referenceDrag={referenceDrag} subject={details?.subject ?? subject} sessionType={session.type} openEntity={persistedSession ? {href:`/sessions/${session.id}`,label:"Open session"} : undefined} enabled={isCalendarView} title={title ?? (session.long_name?.trim() || session.short_name?.trim() || subjectDisplay)} subtitle={<><span>{sessionDate ? format(sessionDate,'EEE d MMM') : ''}</span><span>{timeRange}</span></>} status={session.status} students={studentRoster} staff={staffRoster ?? staff} hasTutorLog={hasTutorLog} attendance>
     <div
       ref={cardRef}
-      {...(!isSelecting && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.id) && entityReferenceDragProps({ type: "session", id: session.id, label: title || session.short_name || session.long_name || subjectDisplay }))}
+      {...(!isCalendarView && referenceDrag && entityReferenceDragProps(referenceDrag))}
       className={cn(
         'group relative border rounded-lg transition-all h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',
