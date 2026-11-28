@@ -40,6 +40,17 @@
       "env": {
         "EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT": "production"
       }
+    },
+    "iap-sandbox": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "environment": "preview",
+      "channel": "iap-sandbox",
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT": "preview",
+        "EXPO_PUBLIC_UCAT_WEB_URL": "https://ucat.development.altitutor.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ysfslbdcacpbemodkwtl.supabase.co"
+      }
     }
   },
   "submit": {

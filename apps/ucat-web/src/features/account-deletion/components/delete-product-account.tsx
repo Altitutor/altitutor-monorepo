@@ -100,11 +100,20 @@ export function DeleteProductAccount({
             <AlertDialogDescription>
               This deletes your UCAT practice history, scores, and study plan.
               Later percentiles and answer statistics will no longer include
-              your attempts. A paid plan is cancelled immediately and the
-              current period is not refunded. Invoices and tutoring records stay
-              for accounting. If Altitutor UCAT is your only relationship, you
-              will need to sign up again to use it. The same email reopens UCAT
-              without your old practice.
+              your attempts. A paid website plan is cancelled immediately and
+              the current period is not refunded. Deleting this account does not
+              cancel an Apple subscription. Manage any Apple renewal separately.{" "}
+              <a
+                href="https://apps.apple.com/account/subscriptions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Manage Apple subscription
+              </a>
+              . Invoices and tutoring records stay for accounting. If Altitutor
+              UCAT is your only relationship, you will need to sign up again to
+              use it. The same email reopens UCAT without your old practice.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:space-x-0">

@@ -112,3 +112,16 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(true);
   });
 });
+
+test("Apple billing recovery remains reachable after paid learning access ends", () => {
+  expect(
+    shouldShowSubscriptionTab({
+      accessLoading: false,
+      billingLoading: false,
+      onlineTier: "free",
+      subscriptionCount: 0,
+      invoiceCount: 0,
+      hasAppleSubscription: true,
+    }),
+  ).toBe(true);
+});

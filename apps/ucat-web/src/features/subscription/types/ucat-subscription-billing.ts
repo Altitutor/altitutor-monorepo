@@ -1,3 +1,4 @@
+import type { UcatAppleBillingState } from "@altitutor/shared";
 export type UcatSubscriptionDetails = {
   id: string;
   status: string;
@@ -38,6 +39,7 @@ export type UcatSubscriptionInvoice = {
 };
 
 export type UcatSubscriptionBillingResponse = {
+  appleSubscription?: UcatAppleBillingState["apple"];
   founderPercentOff?: number | null;
   subscription: UcatSubscriptionDetails | null;
   subscriptions: UcatSubscriptionDetails[];

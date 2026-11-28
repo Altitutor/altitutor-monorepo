@@ -39,6 +39,7 @@ export function PlanPage({ defaultTab = "current" }: PlanPageProps) {
     onlineTier: access.onlineTier,
     subscriptionCount: billing?.subscriptions.length ?? 0,
     invoiceCount: billing?.invoices.length ?? 0,
+    hasAppleSubscription: Boolean(billing?.appleSubscription),
   });
 
   useEffect(() => {

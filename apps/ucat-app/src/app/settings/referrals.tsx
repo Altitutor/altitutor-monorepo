@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Share, Text } from "react-native";
+import { Platform, Share, Text } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
   Action,
@@ -18,6 +18,18 @@ import { resolveReferralOfferCopy } from "@/features/subscription/lib/referral-o
 import { buildAvailableRewardDisplay } from "@/features/subscription/lib/referral-rewards-display";
 
 export default function Referrals() {
+  return Platform.OS === "ios" ? (
+    <Screen>
+      <Group title="Referrals">
+        <Copy>Referral billing offers are not available in this app.</Copy>
+      </Group>
+    </Screen>
+  ) : (
+    <ReferralDetails />
+  );
+}
+
+function ReferralDetails() {
   const c = useColors();
   const [shareError, setShareError] = useState<Error | null>(null);
   const q = useQuery({

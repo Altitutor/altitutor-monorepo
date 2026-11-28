@@ -10,6 +10,15 @@ const isSentrySourceMapUploadConfigured = Boolean(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingIncludes: {
+    "/api/ucat/apple/notifications": [
+      "./src/features/apple-subscription/certificates/*.cer",
+    ],
+    "/api/cron/ucat-apple-subscriptions": [
+      "./src/features/apple-subscription/certificates/*.cer",
+    ],
+    "/api/ucat/apple": ["./src/features/apple-subscription/certificates/*.cer"],
+  },
   allowedDevOrigins: getLocalDevOrigins(),
   env: {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:

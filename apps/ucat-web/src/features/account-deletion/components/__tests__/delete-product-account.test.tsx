@@ -126,3 +126,16 @@ describe("DeleteProductAccount", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 });
+
+test("account deletion explains that Apple renewal must be cancelled separately", () => {
+  render(<DeleteProductAccount firstName="Ada" lastName="Lovelace" />);
+  fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+  expect(
+    screen.getByText(
+      /deleting this account does not cancel an apple subscription/i,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Manage Apple subscription" }),
+  ).toHaveAttribute("href", "https://apps.apple.com/account/subscriptions");
+});

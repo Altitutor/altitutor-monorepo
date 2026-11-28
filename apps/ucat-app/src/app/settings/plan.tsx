@@ -1,3 +1,6 @@
+import { ApplePlanActions } from "@/features/apple-subscription/apple-plan-actions";
+import { useApplePurchases } from "@/features/apple-subscription/purchase-context";
+import { Platform } from "react-native";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +17,7 @@ import { dataApi } from "@/features/dashboard/api";
 
 export default function Plan() {
   const c = useColors();
+  const apple = useApplePurchases();
   const q = useQuery({ queryKey: ["quota"], queryFn: dataApi.quota });
   const free = q.data?.onlineTier === "free" && !q.data.isQuotaExempt;
   const highlights = free
@@ -21,7 +25,9 @@ export default function Plan() {
     : [
         "Unlimited online access",
         "All mocks and analytics",
-        "Practice discounts",
+        ...(Platform.OS !== "ios" || apple.state?.provider === "stripe"
+          ? ["Practice discounts"]
+          : []),
       ];
   return (
     <Screen>
@@ -56,6 +62,7 @@ export default function Plan() {
               </View>
             ))}
           </Group>
+          <ApplePlanActions />
           {free && (
             <Group title="Your free quotas" dividers>
               {q.data.areas.map((area) => (

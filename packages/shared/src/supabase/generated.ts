@@ -21607,6 +21607,110 @@ export type Database = {
           },
         ]
       }
+      ucat_apple_accounts: {
+        Row: {
+          account_token: string
+          created_at: string
+          student_id: string
+        }
+        Insert: {
+          account_token?: string
+          created_at?: string
+          student_id: string
+        }
+        Update: {
+          account_token?: string
+          created_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_apple_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_apple_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_apple_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_apple_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_apple_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_apple_subscriptions: {
+        Row: {
+          access_until: string | null
+          account_token: string
+          environment: string
+          last_checked_at: string | null
+          observed_at: string
+          original_transaction_id: string
+          product_id: string
+          sandbox_authorized: boolean
+          signed_at: string
+          status: number
+          transaction_id: string
+        }
+        Insert: {
+          access_until?: string | null
+          account_token: string
+          environment: string
+          last_checked_at?: string | null
+          observed_at: string
+          original_transaction_id: string
+          product_id: string
+          sandbox_authorized?: boolean
+          signed_at: string
+          status: number
+          transaction_id: string
+        }
+        Update: {
+          access_until?: string | null
+          account_token?: string
+          environment?: string
+          last_checked_at?: string | null
+          observed_at?: string
+          original_transaction_id?: string
+          product_id?: string
+          sandbox_authorized?: boolean
+          signed_at?: string
+          status?: number
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_apple_subscriptions_account_token_fkey"
+            columns: ["account_token"]
+            isOneToOne: false
+            referencedRelation: "ucat_apple_accounts"
+            referencedColumns: ["account_token"]
+          },
+        ]
+      }
       ucat_checkout_holds: {
         Row: {
           checkout_session_id: string | null
@@ -33025,6 +33129,15 @@ export type Database = {
             referencedColumns: ["ucat_section_id"]
           },
         ]
+      }
+      vstudent_ucat_apple_subscriptions: {
+        Row: {
+          access_until: string | null
+          environment: string | null
+          product_id: string | null
+          status: number | null
+        }
+        Relationships: []
       }
       vstudent_ucat_attempt_reviews: {
         Row: {
@@ -47993,6 +48106,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ensure_ucat_apple_account: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       expire_stale_ucat_exam_attempts: {
         Args: { p_student_id: string }
         Returns: number
@@ -48399,6 +48516,10 @@ export type Database = {
         Returns: string[]
       }
       has_admin_mcp_access: { Args: never; Returns: boolean }
+      has_managed_ucat_apple_subscription: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
@@ -48832,6 +48953,10 @@ export type Database = {
         Args: { p_artifact_id: string; p_owner_staff_id: string }
         Returns: string
       }
+      prepare_ucat_apple_purchase: {
+        Args: { p_product_id: string; p_student_id: string }
+        Returns: string
+      }
       preview_admin_shift_schedule: {
         Args: { p_proposal: Json }
         Returns: Json
@@ -48948,6 +49073,14 @@ export type Database = {
         Args: { p_customer_id: string; p_student_id: string }
         Returns: undefined
       }
+      record_ucat_apple_subscription: {
+        Args: {
+          p_allow_sandbox?: boolean
+          p_observed_at: string
+          p_snapshot: Json
+        }
+        Returns: boolean
+      }
       record_ucat_resend_email_event: {
         Args: {
           p_event_type: string
@@ -49018,6 +49151,10 @@ export type Database = {
       release_billing_runner_lock: {
         Args: { p_lock_name?: string; p_run_id?: string }
         Returns: boolean
+      }
+      release_ucat_apple_checkout: {
+        Args: { p_student_id: string }
+        Returns: undefined
       }
       replace_scheduled_class_enrolment: {
         Args: {

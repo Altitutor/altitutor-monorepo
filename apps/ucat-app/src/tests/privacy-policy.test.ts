@@ -19,6 +19,7 @@ function renderPrivacyButton(route: string, browserFails = false, linkingFails =
     "react/jsx-runtime": { jsx, jsxs: jsx },
     react: { useState: () => [null, () => undefined] },
     "react-native": {
+      Platform: { OS: "ios" },
       Linking: { openURL: (url: string) => {
         calls.push(`external:${url}`);
         const result = linkingFails ? Promise.reject(new Error(`Unable to open URL: ${url}`)) : Promise.resolve();

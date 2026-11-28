@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
 import { useRouter } from "next/navigation";
 import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
@@ -19,7 +20,27 @@ type SignupCompletePlanStepProps = {
   onGiftReady?: (available: boolean) => void;
 };
 
-export function SignupCompletePlanStep({
+export function SignupCompletePlanStep(props: SignupCompletePlanStepProps) {
+  const destination = new URL(props.returnTo, "https://ucat.altitutor.com");
+  if (
+    destination.pathname === "/mobile-auth" &&
+    destination.searchParams.get("store") === "apple"
+  ) {
+    return (
+      <section className="rounded-ucatShell border bg-card p-6 space-y-4">
+        <h2 className="text-xl font-semibold">Your account is ready</h2>
+        <p>
+          Continue to the app with free daily practice. Your existing Unlimited
+          access, if any, works across web and app.
+        </p>
+        <Button onClick={props.onComplete}>Continue to app</Button>
+      </section>
+    );
+  }
+  return <WebsiteSignupPlanStep {...props} />;
+}
+
+function WebsiteSignupPlanStep({
   onComplete,
   onContinueCurrentPlan,
   returnTo,

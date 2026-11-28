@@ -1,5 +1,5 @@
 import { openPrivacyPolicy } from "@/features/settings/open-privacy-policy";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { Action, Group, Row, Screen } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
@@ -15,7 +15,9 @@ export default function Settings() {
         />
         <Row title="My profile" icon="person" href="/settings/profile" />
         <Row title="Plan" icon="plan" href="/settings/plan" />
-        <Row title="Refer friends" icon="people" href="/settings/referrals" />
+        {Platform.OS !== "ios" && (
+          <Row title="Refer friends" icon="people" href="/settings/referrals" />
+        )}
       </Group>
       <Action
         title="Privacy policy"
@@ -40,12 +42,17 @@ export default function Settings() {
                   void disablePushNotifications()
                     .then(() => supabase.auth.signOut({ scope: "local" }))
                     .then(({ error }) => {
-                      if (error) Alert.alert("Unable to sign out", error.message);
+                      if (error)
+                        Alert.alert("Unable to sign out", error.message);
                     })
-                    .catch((error: unknown) => Alert.alert(
-                      "Unable to sign out",
-                      error instanceof Error ? error.message : "Please try again.",
-                    ));
+                    .catch((error: unknown) =>
+                      Alert.alert(
+                        "Unable to sign out",
+                        error instanceof Error
+                          ? error.message
+                          : "Please try again.",
+                      ),
+                    );
                 },
               },
             ],

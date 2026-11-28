@@ -7,12 +7,19 @@
   "functions": {
     "src/app/api/cron/ucat-preparation-refreshes/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/ucat-apple-subscriptions/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
     {
       "path": "/api/cron/ucat-preparation-refreshes",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/ucat-apple-subscriptions",
+      "schedule": "17 * * * *"
     }
   ]
 }

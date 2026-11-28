@@ -61,6 +61,7 @@ export function CurrentPlanSection() {
 
   const planName = UCAT_ONLINE_TIER_LABELS[displayKey] ?? displayKey;
   const isFree = displayKey === "free";
+  const appleManaged = Boolean(data?.appleSubscription);
   const planSummary = isFree
     ? "Build your UCAT routine with daily access across the platform."
     : "Unlimited access to the entire Altitutor UCAT platform.";
@@ -69,7 +70,7 @@ export function CurrentPlanSection() {
     : [
         "Unlimited online access",
         "All mocks and analytics",
-        "Practice discounts",
+        ...(subscription ? ["Practice discounts"] : ["Learning resources"]),
       ];
 
   return (
@@ -125,9 +126,21 @@ export function CurrentPlanSection() {
             <Button
               type="button"
               className={cn("shrink-0", UCAT_PRIMARY_ACTION_BUTTON)}
-              onClick={() => openPlanPicker({ title: "Choose your plan" })}
+              onClick={() => {
+                if (appleManaged)
+                  window.open(
+                    "https://apps.apple.com/account/subscriptions",
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                else openPlanPicker({ title: "Choose your plan" });
+              }}
             >
-              {isFree ? "Explore paid plans" : "Change plan"}
+              {appleManaged
+                ? "Manage Apple subscription"
+                : isFree
+                  ? "Explore paid plans"
+                  : "Change plan"}
               <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
             </Button>
           </div>

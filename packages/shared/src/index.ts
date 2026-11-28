@@ -67,3 +67,4 @@ export * from './interviews/performance-reviews';
 export * from './interviews/performance-review-document';
 
 export * from './observability/subject-cover-diagnostics';
+export * from './types/ucat-apple-billing';
