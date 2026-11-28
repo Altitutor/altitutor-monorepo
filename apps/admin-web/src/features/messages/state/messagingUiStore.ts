@@ -123,11 +123,12 @@ export const useMessagingUiStore = create<MessagingUiState>()(
 
 export function useMessagingUiHydration() {
   useEffect(() => {
-    void useMessagingUiStore.persist.rehydrate();
+    if (!useMessagingUiStore.persist.hasHydrated()) void useMessagingUiStore.persist.rehydrate();
   }, []);
 }
 
 export function useMessagingListFilters(scope: MessagingFilterScope) {
+  useMessagingUiHydration();
   const listFilter = useMessagingUiStore((s) => s.filters[scope]?.listFilter ?? 'all');
   const ownedNumberFilter = useMessagingUiStore((s) => s.filters[scope]?.ownedNumberFilter ?? null);
   const setListFilter = useMessagingUiStore((s) => s.setListFilter);
@@ -142,6 +143,7 @@ export function useMessagingListFilters(scope: MessagingFilterScope) {
 }
 
 export function usePersistedConversationDraft(draftKey: string | null) {
+  useMessagingUiHydration();
   const draft = useMessagingUiStore((s) => (draftKey ? (s.drafts[draftKey] ?? '') : ''));
   const setDraft = useMessagingUiStore((s) => s.setDraft);
   const clearDraft = useMessagingUiStore((s) => s.clearDraft);

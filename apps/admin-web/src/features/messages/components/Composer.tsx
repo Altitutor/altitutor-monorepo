@@ -1,5 +1,6 @@
 'use client';
 
+import { usePersistedConversationDraft } from '../state/messagingUiStore';
 import { useState, useRef, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { AdminDialogShell } from '@/shared/components';
 import { formatScheduledTextTime, quietHoursSendTime } from '../utils/textSchedule';
@@ -85,6 +86,17 @@ interface Props {
   /** Sits immediately before the template button in the bottom toolbar. */
   toolbarBeforeTemplate?: ReactNode;
   recipients?: ComposerRecipientSelection;
+}
+
+/**
+ * Keep the persisted draft subscription next to the input. Typing should
+ * update the composer without rendering its conversation list and thread.
+ */
+export function PersistedComposer({ draftKey, ...props }: Omit<Props, 'draft' | 'onDraftChange' | 'onDraftClear'> & {
+  draftKey: string | null;
+}) {
+  const { draft, onDraftChange, onDraftClear } = usePersistedConversationDraft(draftKey);
+  return <Composer {...props} draft={draft} onDraftChange={onDraftChange} onDraftClear={onDraftClear} />;
 }
 
 export function Composer({

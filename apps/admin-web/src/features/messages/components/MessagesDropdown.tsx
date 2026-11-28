@@ -7,7 +7,7 @@ import { MessageCircle } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageThread } from './MessageThread';
-import { Composer } from './Composer';
+import { PersistedComposer } from './Composer';
 import { formatContactName } from '../utils/formatContactName';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -22,7 +22,6 @@ import {
   getMessagingDraftKey,
   useMessagingUiHydration,
   useMessagingUiStore,
-  usePersistedConversationDraft,
 } from '../state/messagingUiStore';
 import { cn } from '@/shared/utils';
 import type { ConversationSelection } from '../types';
@@ -56,8 +55,7 @@ export function MessagesDropdown() {
   }, [activeConversationId, contactIdFromStore, setActiveConversation, setDropdownSelection, setView]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const { draft: currentDraft, onDraftChange: handleDraftChange, onDraftClear: handleDraftClear } =
-    usePersistedConversationDraft(getMessagingDraftKey(dropdownSelection));
+  const draftKey = getMessagingDraftKey(dropdownSelection);
   
   // Modal states
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -257,14 +255,12 @@ export function MessagesDropdown() {
                         />
                       </div>
                       <div className="flex-shrink-0 border-t">
-                        <Composer 
+                        <PersistedComposer
                           contactId={activeContactId} 
                           initialDestinationAddress={dropdownSelection?.kind === 'contact' ? dropdownSelection.destinationAddress : undefined}
                           initialSenderId={dropdownSelection?.kind === 'contact' ? dropdownSelection.senderId : undefined}
-                          onTyping={() => setIsSearching(false)}
-                          draft={currentDraft}
-                          onDraftChange={handleDraftChange}
-                          onDraftClear={handleDraftClear}
+                          onTyping={isSearching ? () => setIsSearching(false) : undefined}
+                          draftKey={draftKey}
                         />
                       </div>
                     </>
