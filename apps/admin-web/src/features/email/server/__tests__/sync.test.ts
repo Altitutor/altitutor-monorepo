@@ -17,6 +17,7 @@ it("resets an expired development cursor through the existing RPC and releases t
       rpcCalls.push({ name, args });
       if (name === "email_claim_scheduled_sends") return Response.json([]);
       if (name === "email_assert_mailbox") return Response.json(address);
+      if (name === "email_read_sync_folder_inventory") return Response.json(null);
       if (
         name === "email_reset_sync_cursor" &&
         Object.keys(args).sort().join(",") !== "p_expected_cursor,p_folder_id"
@@ -72,11 +73,15 @@ it("resets an expired development cursor through the existing RPC and releases t
   expect(rpcCalls.at(-1)?.name).toBe("email_release_sync");
 });
 
-it("keeps Outlook delta progress on every pass while scheduled work remains due", async () => {
+it("reuses recent inventory across workers while keeping deltas and due sends on every successful pass", async () => {
   const address = "admin@development.altitutor.com";
   let claimed = 0,
     sent = 0,
-    deltas = 0;
+    deltas = 0,
+    inventories = 0,
+    aliases = 0;
+  let currentInventory: string[] | null = null;
+  let inventoryRefreshFails = false;
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = new URL(String(input)),
       path = decodeURIComponent(url.pathname),
@@ -92,6 +97,15 @@ it("keeps Outlook delta progress on every pass while scheduled work remains due"
           change_key: "one",
         },
       ]);
+    if (path.endsWith("/rpc/email_read_sync_folder_inventory"))
+      return Response.json(currentInventory);
+    if (path.endsWith("/rpc/email_reconcile_sync_folder_inventory")) {
+      const { p_folders } = JSON.parse(String(init?.body)) as {
+        p_folders: Array<{ id: string }>;
+      };
+      currentInventory = p_folders.map(({ id }) => id);
+      return Response.json(null);
+    }
     if (path.includes("/rpc/")) return Response.json(true);
     if (
       path.endsWith("/email_operational_sends") ||
@@ -120,14 +134,21 @@ it("keeps Outlook delta progress on every pass while scheduled work remains due"
         "@odata.deltaLink": `https://graph.microsoft.com/v1.0/users/${address}/mailFolders/inbox/messages/delta?$deltatoken=next`,
       });
     }
-    if (path.endsWith("/mailFolders"))
+    if (path.endsWith("/mailFolders")) {
+      inventories++;
       return Response.json({
         value: [{ id: "inbox", displayName: "Inbox", childFolderCount: 0 }],
       });
-    if (path.endsWith("/mailFolders/inbox"))
+    }
+    if (path.endsWith("/mailFolders/inbox")) {
+      aliases++;
+      if (inventoryRefreshFails) return new Response(null, { status: 503 });
       return Response.json({ id: "inbox", displayName: "Inbox" });
-    if (path.includes("/mailFolders/"))
+    }
+    if (path.includes("/mailFolders/")) {
+      aliases++;
       return new Response(null, { status: 404 });
+    }
     if (path.endsWith("/send")) {
       sent++;
       return new Response(null, { status: 202 });
@@ -142,7 +163,7 @@ it("keeps Outlook delta progress on every pass while scheduled work remains due"
       });
     throw new Error(`Unexpected boundary: ${path}`);
   };
-  const db = createClient<Database>("http://127.0.0.1:1", "fixture-key", {
+  const db = () => createClient<Database>("http://127.0.0.1:1", "fixture-key", {
     global: { fetch: fetchImpl },
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -155,14 +176,29 @@ it("keeps Outlook delta progress on every pass while scheduled work remains due"
     accessToken: "fixture-token",
     fetchImpl,
   });
-  await expect(syncMailbox(db, mailbox)).resolves.toMatchObject({
+  await expect(syncMailbox(db(), mailbox)).resolves.toMatchObject({
     pages: 1,
     scheduled: 1,
   });
-  await expect(syncMailbox(db, mailbox)).resolves.toMatchObject({
+  expect({ inventories, aliases }).toEqual({ inventories: 1, aliases: 6 });
+  await expect(syncMailbox(db(), mailbox)).resolves.toMatchObject({
     pages: 1,
     scheduled: 1,
   });
   expect(deltas).toBe(2);
   expect(sent).toBe(2);
+  expect({ inventories, aliases }).toEqual({ inventories: 1, aliases: 6 });
+
+  currentInventory = null;
+  inventoryRefreshFails = true;
+  await expect(syncMailbox(db(), mailbox)).rejects.toThrow();
+  expect(currentInventory).toBeNull();
+  expect(sent).toBe(3);
+
+  inventoryRefreshFails = false;
+  await expect(syncMailbox(db(), mailbox)).resolves.toMatchObject({
+    pages: 1,
+    scheduled: 1,
+  });
+  expect({ inventories, deltas, sent }).toEqual({ inventories: 3, deltas: 3, sent: 4 });
 });

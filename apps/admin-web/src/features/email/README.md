@@ -68,6 +68,10 @@ Each pass uses at most two concurrent sync requests and commits each folder page
 with its cursor atomically. Recent-first bootstrap progressively imports all
 primary mailbox history; completed delta tokens then track changes. Expired
 cursors retain history until a fresh bootstrap reconciles current membership.
+Each pass checks message deltas against the last complete folder inventory.
+Folder discovery and role lookup refresh every five minutes under the same
+lease. Scheduled sends and message sync retain their existing cadence. A failed
+folder discovery preserves the last catalog and is retried on the next pass.
 Folder errors stay visible and do not stop other folders progressing. Foreground
 refresh runs every 30 seconds when visible; cached list/thread polling runs every
 15 seconds. Actual freshness depends on Microsoft latency/throttling and mailbox
