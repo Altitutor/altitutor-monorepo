@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(8);
+SELECT plan(10);
 
 UPDATE public.classes SET subject_id=(SELECT id FROM public.subjects WHERE name='Medicine Interview')
 WHERE id='20000000-0000-0000-0000-000000000001';
@@ -75,6 +75,16 @@ SELECT is((SELECT attempt->>'mockScore' FROM public.vtutor_interview_statistics,
   WHERE attempt->>'roundId'='51051000-0000-4000-8000-000000000004'), '3', 'tutor statistics include corrected marks before student release');
 SELECT cmp_ok((SELECT (tutor->>'reviews')::integer FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'tutors') tutor
   WHERE tutor->>'id'='00000000-0000-0000-0000-000000000011'), '>=', 1, 'the tutor count includes a draft performance review');
+RESET ROLE;
+
+UPDATE public.interview_rounds SET data=jsonb_set(data,'{attempts,0,notAssessedReason}','"Not scored"')
+WHERE id='51051000-0000-4000-8000-000000000004';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000011","role":"authenticated"}',true);
+SELECT cmp_ok((SELECT (tutor->>'interviews')::integer FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'tutors') tutor
+  WHERE tutor->>'id'='00000000-0000-0000-0000-000000000011'), '>=', 1, 'a tutor counts a completed interview when the encounter was unscored');
+SELECT is((SELECT attempt->'score' FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'attempts') attempt
+  WHERE attempt->>'roundId'='51051000-0000-4000-8000-000000000004'), 'null'::jsonb, 'an unscored encounter appears without its superseded mark');
 RESET ROLE;
 
 SELECT * FROM finish();

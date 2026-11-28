@@ -381,7 +381,8 @@ export function InterviewStationBank() {
                 id: "statistics",
                 header: "Average score per student",
                 cell: ({ row }: { row: { original: InterviewStation } }) =>
-                  statistics.isPending ? "Loading…" : statistics.error ? "Unavailable"
+                  statistics.error || statistics.access.error || statistics.access.data === false
+                    ? "Unavailable" : statistics.isPending ? "Loading…"
                     : averageContentScore(statistics.data?.attempts ?? [], "station", row.original.id),
               }] : []),
               ...(visible.has("updated")

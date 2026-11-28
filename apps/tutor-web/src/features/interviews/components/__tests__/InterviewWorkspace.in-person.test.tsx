@@ -719,6 +719,21 @@ describe("in-person interview round", () => {
     );
   });
 
+  it("retries a presence rejection once if the student already reconnected before refresh", async () => {
+    const round = roundFixture("online");
+    currentRound = {
+      ...round,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: round.progress.map((item) => ({ ...item, ready: true })),
+      connectedStudentIds: ["student-1"],
+    };
+    mockMutateAsync.mockRejectedValue(new Error("Students are disconnected; explicit override required"));
+    await act(async () => { render(<InterviewWorkspace id="round-1" />); });
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+  });
+
   it("makes a paused round obvious and offers resume", () => {
     currentRound = {
       ...roundFixture("in_person"),

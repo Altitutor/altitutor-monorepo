@@ -35,7 +35,7 @@ interface InterviewStatistics {
 export function useInterviewStatistics(enabled = true) {
   const userId = useAuthStore((state) => state.user?.id);
   const access = useInterviewAccess();
-  return useQuery({
+  const query = useQuery({
     queryKey: ["interviews", "statistics", userId],
     enabled: enabled && !!userId && access.data === true,
     staleTime: 0,
@@ -45,4 +45,5 @@ export function useInterviewStatistics(enabled = true) {
       return response.json();
     },
   });
+  return { ...query, data: access.data === true && !access.error ? query.data : undefined, access };
 }

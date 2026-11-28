@@ -6,7 +6,6 @@ import { DataTable, TablePagination } from "@altitutor/ui";
 import { tutorDefaultDisplaySettings, type DataTableColumnDefinition, type DataTableFilterDefinition } from "@altitutor/shared";
 import { TutorEntityToolbar } from "@/features/quick-filters/components/TutorEntityToolbar";
 import { tutorCardCn, tutorDataTableProps, tutorToolbarProps } from "@/shared/lib/tutor-visual";
-import { useInterviewAccess } from "../hooks/use-interview-access";
 import { useInterviewStatistics, type InterviewScoredAttempt, type InterviewTutorStatistics } from "../hooks/use-interview-statistics";
 import { InterviewPageHeader, interviewCrumbs } from "./interview-page";
 import { InterviewError } from "./interview-ui";
@@ -89,6 +88,8 @@ function InterviewScoredStudents({ attempts }: { attempts: InterviewScoredAttemp
 
 export function InterviewContentStatistics({ kind, id }: { kind: "station" | "interview"; id: string }) {
   const query = useInterviewStatistics();
+  if (query.access.error) return <InterviewError error={query.access.error} retry={() => void query.access.refetch()} />;
+  if (query.access.data === false) return <p>Medicine Interview tutor access is required.</p>;
   if (query.isPending) return <p role="status">Loading statistics…</p>;
   if (query.error) return <InterviewError error={query.error} retry={() => void query.refetch()} />;
   const attempts = query.data?.attempts ?? [];
@@ -129,8 +130,8 @@ function inRange(value: number, filters: Record<string, unknown[]>, key: string)
 }
 
 export function InterviewTutorsPage({ tutorId }: { tutorId?: string }) {
-  const access = useInterviewAccess();
-  const query = useInterviewStatistics(!!access.data);
+  const query = useInterviewStatistics();
+  const { access } = query;
   const table = useInterviewTable(keys, undefined, { sortBy: "name", sortDirection: "asc" });
   const tutors = useMemo(() => {
     const attemptsByTutor = new Map<string, InterviewScoredAttempt[]>();
@@ -158,7 +159,8 @@ export function InterviewTutorsPage({ tutorId }: { tutorId?: string }) {
   const page = pageRows(rows, table.state.page, table.state.pageSize);
   const visible = new Set(table.state.visibleColumns);
 
-  if (access.error || query.error) return <InterviewError error={access.error ?? query.error} retry={() => { void access.refetch(); void query.refetch(); }} />;
+  if (access.error) return <InterviewError error={access.error} retry={() => void access.refetch()} />;
+  if (query.error) return <InterviewError error={query.error} retry={() => void query.refetch()} />;
   if (!access.isPending && !access.data) return <p className="py-8">Medicine Interview tutor access is required.</p>;
   if (access.isPending || query.isPending) return <p role="status" className="py-8">Loading interview statistics…</p>;
 

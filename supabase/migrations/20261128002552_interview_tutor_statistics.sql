@@ -25,14 +25,15 @@ WITH caller AS MATERIALIZED (
   SELECT mock.round_id, mock.interview_id, mock.student_id, mock.student_name,
     station.value->>'stationId' AS bank_station_id, station.value->>'name' AS station_name,
     staff.id AS tutor_id, concat_ws(' ', staff.first_name, staff.last_name) AS tutor_name,
-    (mark.value->>'score')::numeric AS score, (station.value->>'maximumPoints')::numeric AS maximum,
+    CASE WHEN mark.value->>'notAssessedReason' IS NULL THEN (mark.value->>'score')::numeric END AS score,
+    (station.value->>'maximumPoints')::numeric AS maximum,
     (mock.snapshot->>'score')::numeric AS published_score, (mock.snapshot->>'possiblePoints')::numeric AS published_maximum
   FROM completed_mocks mock
   CROSS JOIN LATERAL jsonb_array_elements(coalesce(mock.snapshot->'attempts', mock.data->'attempts')) mark
   JOIN LATERAL jsonb_array_elements(mock.data->'stations') station ON station.value->>'id' = mark.value->>'stationId'
   JOIN LATERAL jsonb_array_elements(mock.data->'assignments') assignment ON assignment.value->>'stationId' = mark.value->>'stationId'
   JOIN public.staff staff ON staff.id::text = assignment.value->>'tutorId'
-  WHERE mark.value->>'studentId'=mock.student_id::text AND mark.value->>'notAssessedReason' IS NULL
+  WHERE mark.value->>'studentId'=mock.student_id::text
     AND (station.value->>'maximumPoints')::numeric > 0
 ), attempts AS (
   SELECT encounters.*,
@@ -42,7 +43,9 @@ WITH caller AS MATERIALIZED (
   WINDOW mock_attempts AS (PARTITION BY round_id, student_id)
 ), tutor_attribution AS (
   SELECT tutor.id, tutor.name,
-    (SELECT count(DISTINCT attempt.round_id) FROM attempts attempt WHERE attempt.tutor_id=tutor.id) AS interviews,
+    (SELECT count(*) FROM public.interview_rounds round
+      WHERE round.data->>'phase'='completed' AND round.data->>'deletedAt' IS NULL
+        AND round.tutor_ids @> ARRAY[tutor.id]) AS interviews,
     (SELECT count(*) FROM public.interview_performance_reviews review WHERE review.author_id=tutor.id) AS reviews,
     (SELECT count(DISTINCT se.id)
       FROM public.tutor_logs_staff_attendance attendance

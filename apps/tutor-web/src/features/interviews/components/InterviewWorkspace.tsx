@@ -1466,6 +1466,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const round = query.data;
   const { actorId: roundActor, refreshForAction } = query;
   const { mutateAsync, reset: resetCommand } = command;
+  const autoStartAttempt = useRef<string | null>(null);
+  const autoStartPresenceRetry = useRef<string | null>(null);
+  const [autoStartRetry, setAutoStartRetry] = useState(0);
   const run = useCallback(async (action: InterviewCommand, automaticReading = false) => {
     if (actionRunning.current) return;
     actionRunning.current = true;
@@ -1489,6 +1492,17 @@ export function InterviewWorkspace({ id }: { id: string }) {
           resetCommand();
           return;
         }
+        if (latest && latest.version === round.version &&
+          error instanceof Error && error.message === "Students are disconnected; explicit override required" &&
+          latest.studentIds.every((studentId) => latest.connectedStudentIds.includes(studentId))) {
+          const retryKey = `${round.id}:${round.rotation}:${round.version}`;
+          if (autoStartPresenceRetry.current !== retryKey) {
+            autoStartPresenceRetry.current = retryKey;
+            resetCommand();
+            setAutoStartRetry((attempt) => attempt + 1);
+            return;
+          }
+        }
       }
       setLocalError(
         error instanceof Error ? error : new Error("Unable to save changes."),
@@ -1498,8 +1512,6 @@ export function InterviewWorkspace({ id }: { id: string }) {
       setActionPending(false);
     }
   }, [round, roundActor, refreshForAction, mutateAsync, resetCommand]);
-  const autoStartAttempt = useRef<string | null>(null);
-  const [autoStartRetry, setAutoStartRetry] = useState(0);
   const allReady = Boolean(round?.progress.length && round.progress.every((item) => item.ready));
   const missingStudents = round?.studentIds.filter(
     (studentId) => !round.connectedStudentIds.includes(studentId),

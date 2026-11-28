@@ -215,7 +215,8 @@ export function InterviewBankPage() {
                 id: "statistics",
                 header: "Average score per student",
                 cell: ({ row }: { row: { original: InterviewTemplate } }) =>
-                  statistics.isPending ? "Loading…" : statistics.error ? "Unavailable"
+                  statistics.error || statistics.access.error || statistics.access.data === false
+                    ? "Unavailable" : statistics.isPending ? "Loading…"
                     : averageContentScore(statistics.data?.attempts ?? [], "interview", row.original.id),
               }] : []),
               ...(visible.has("updated")
