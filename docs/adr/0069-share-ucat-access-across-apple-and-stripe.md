@@ -1,0 +1,11 @@
+# Share UCAT Unlimited access across Apple and Stripe
+
+UCAT subscriptions purchased through Stripe on the website and Apple In-App Purchase on iOS grant the same account-level Unlimited learning access across clients. Keep provider-specific billing records and management separate: Apple renewals, refunds and grace periods must not be translated into fictional Stripe subscriptions, invoices or credits. Resolve access from all valid sources so an expired or revoked purchase cannot remove another legitimate grant; existing administrator overrides and account closure remain authoritative.
+
+Matthew approved an iOS-first fixed-price launch matching the enabled website weekly/monthly base prices as closely as Apple price points allow, without commission markup or an introductory trial. Apple subscriptions do not earn practice-day invoice credits, founder discounts or referral billing rewards in this release. Existing Stripe subscribers retain their commercial terms and can use both clients. This deliberately separates identical learning access from provider-specific billing promotions.
+
+Purchases require Altitutor sign-in and a durable account binding. Restore must never silently transfer a purchase to a different account. Apple purchases are verified on the server, including current status, product, bundle and environment; ordinary production users must not receive access from sandbox transactions. Cancellation is managed by the original billing provider. Deleting an Altitutor account does not cancel an Apple subscription and must explain the separate Apple cancellation step without blocking account deletion.
+
+Apple manages changes between its weekly and monthly products within one subscription group. ADR 0003's Stripe interval lock still protects Stripe practice-day credits; those credits do not exist for Apple subscriptions. There is no automatic provider migration or cancellation of an existing subscription when buying through another provider.
+
+Apple server notifications drive renewal/refund updates, and a bounded hourly reconciliation checks managed subscriptions against Apple's current server state as a backstop. A native restore or account refresh also reconciles current purchases. Server time bounds all stored access; a stale response cannot extend a later revocation.

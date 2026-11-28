@@ -1,5 +1,7 @@
 "use client";
 
+import { AppleSubscriptionCard } from "./apple-subscription-card";
+
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -396,6 +398,21 @@ export function SubscriptionBillingSection() {
     );
   }
 
+  if (data?.appleSubscription && !subscription) {
+    return (
+      <div className="space-y-6">
+        <AppleSubscriptionCard subscription={data.appleSubscription} />
+        <PastSubscriptionsSection subscriptions={pastSubscriptions} />
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Website invoices
+          </h2>
+          <SubscriptionInvoicesTable invoices={invoices} />
+        </section>
+      </div>
+    );
+  }
+
   if (!subscription) {
     return (
       <div className="space-y-6">
@@ -430,6 +447,9 @@ export function SubscriptionBillingSection() {
 
   return (
     <div className="space-y-6">
+      {data?.appleSubscription && (
+        <AppleSubscriptionCard subscription={data.appleSubscription} />
+      )}
       {isPaymentRecovery ? (
         <div
           role="alert"

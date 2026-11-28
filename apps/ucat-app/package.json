@@ -35,6 +35,7 @@
     "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
+    "expo-iap": "6.5.0",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.10",
     "expo-notifications": "~57.0.21",

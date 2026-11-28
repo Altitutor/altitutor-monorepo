@@ -4,6 +4,7 @@ type ShouldShowSubscriptionTabInput = {
   onlineTier: string | null;
   subscriptionCount: number;
   invoiceCount: number;
+  hasAppleSubscription?: boolean;
 };
 
 /**
@@ -19,7 +20,9 @@ export function shouldShowSubscriptionTab({
   onlineTier,
   subscriptionCount,
   invoiceCount,
+  hasAppleSubscription = false,
 }: ShouldShowSubscriptionTabInput): boolean {
+  if (hasAppleSubscription) return true;
   if (accessLoading || billingLoading) {
     if (onlineTier != null && onlineTier !== "free") return true;
     if (subscriptionCount > 0 || invoiceCount > 0) return true;

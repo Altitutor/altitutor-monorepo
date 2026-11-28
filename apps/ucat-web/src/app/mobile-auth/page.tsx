@@ -15,6 +15,7 @@ export default async function MobileAuth({
     callback?: string;
     state?: string;
     challenge?: string;
+    store?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -47,6 +48,7 @@ export default async function MobileAuth({
       callback,
       state: params.state!,
       challenge: params.challenge!,
+      ...(params.store === "apple" ? { store: "apple" } : {}),
     });
     redirect(`/login?redirect=${encodeURIComponent(`/mobile-auth?${query}`)}`);
   }
@@ -67,6 +69,7 @@ export default async function MobileAuth({
       callback,
       state: params.state!,
       challenge: params.challenge!,
+      ...(params.store === "apple" ? { store: "apple" } : {}),
     });
     redirect(
       `/signup/complete?redirect=${encodeURIComponent(`/mobile-auth?${query}`)}`,

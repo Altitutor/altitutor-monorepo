@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -89,6 +90,7 @@ export async function signInWithBrowser(mode: "login" | "signup") {
     handoff.searchParams.set("challenge", challenge);
     handoff.searchParams.set("state", state);
     handoff.searchParams.set("callback", callback);
+    if (Platform.OS === "ios") handoff.searchParams.set("store", "apple");
     const url = mode === "login" ? handoff : new URL(browserWebUrl("/signup"));
     if (mode === "signup")
       url.searchParams.set("redirect", handoff.pathname + handoff.search);

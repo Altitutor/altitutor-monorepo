@@ -157,3 +157,11 @@ GRANT SELECT ON public.vtutor_interview_round_index,
 -- Preserve DEV-491's read-only live snapshot facade after local role emulation.
 REVOKE ALL ON public.vtutor_interview_live_rounds FROM PUBLIC,anon,authenticated;
 GRANT SELECT ON public.vtutor_interview_live_rounds TO authenticated;
+
+-- Preserve DEV-531's private Apple ledger and read-only Student facade after
+-- broad local fixture grants. Production receives these grants from migration.
+REVOKE ALL ON public.ucat_apple_accounts, public.ucat_apple_subscriptions,
+  public.vstudent_ucat_apple_subscriptions FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT ON public.ucat_apple_accounts TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.ucat_apple_subscriptions TO service_role;
+GRANT SELECT ON public.vstudent_ucat_apple_subscriptions TO authenticated, service_role;

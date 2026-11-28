@@ -40,7 +40,7 @@ export async function GET() {
     // enrich those owned records with billing fields unavailable in the views.
     if (!supabaseAdmin) throw new Error("Server not configured");
     const invoiceIds = billing.invoices.map((invoice) => invoice.id);
-    const [redemption, invoiceTotals] = await Promise.all([
+    const [redemption, invoiceTotals, apple] = await Promise.all([
       billing.subscription
         ? supabaseAdmin
             .from("ucat_founder_redemptions")
@@ -59,14 +59,30 @@ export async function GET() {
             .select("id, total_cents")
             .in("id", invoiceIds)
         : Promise.resolve({ data: [], error: null }),
+      supabase.from("vstudent_ucat_apple_subscriptions").select("*"),
     ]);
+    if (apple.error) throw apple.error;
     if (redemption.error) throw redemption.error;
     if (invoiceTotals.error) throw invoiceTotals.error;
     const totals = new Map(
       (invoiceTotals.data ?? []).map((row) => [row.id, row.total_cents]),
     );
+    const managedApple = apple.data?.find(
+      (row) =>
+        row.status === 3 ||
+        ([1, 4].includes(row.status ?? 0) &&
+          row.access_until &&
+          Date.parse(row.access_until) > Date.now()),
+    );
     return NextResponse.json({
       ...billing,
+      appleSubscription: managedApple
+        ? {
+            status: managedApple.status,
+            accessUntil: managedApple.access_until,
+            environment: managedApple.environment,
+          }
+        : null,
       founderPercentOff:
         redemption.data?.ucat_founder_offers?.percent_off ?? null,
       invoices: billing.invoices.map((invoice) => ({

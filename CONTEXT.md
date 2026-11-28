@@ -1501,3 +1501,9 @@
 - **Business record deletion** — An AdminStaff action that hides a main operational record from normal directories and new activity while retaining its identity, relationships and history. Live services or work must be resolved first; restoration does not reclaim released contacts or reactivate access or services. Student deletion retains its separately defined recovery rules, and configuration deletion remains separate.
 
 - **Deleted entities directory** — The Settings directory of retained deleted business records, identified by entity type and name. Eligible operational records can be explicitly restored; financial and learning-content records retain their own recovery rules.
+
+## UCAT billing across stores
+
+- **UCAT billing provider** — The service that collects payment and manages renewal, cancellation and refunds for a UCAT subscription. Website subscriptions use Stripe; iOS In-App Purchase subscriptions use Apple. A subscription remains managed by its original provider even when the Student uses another client.
+- **Shared Unlimited access** — The same Unlimited learning benefits available to a Student across web and native clients through a valid UCAT entitlement. Billing promotions can differ by provider without changing learning access. An expired entitlement does not cancel another valid entitlement.
+- **Apple purchase account binding** — The durable association of an Apple UCAT subscription with one Altitutor Student. Restoring a purchase on another device restores that Student's purchase; changing the signed-in Altitutor account does not transfer it.
