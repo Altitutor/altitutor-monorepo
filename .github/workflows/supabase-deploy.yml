@@ -292,7 +292,7 @@ jobs:
   select-production-web:
     name: Select production web builds
     needs: deploy
-    if: github.ref == 'refs/heads/main'
+    if: "!cancelled() && github.ref == 'refs/heads/main' && needs.deploy.result == 'success'"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -314,7 +314,10 @@ jobs:
   deploy-web:
     name: Deploy ${{ matrix.app }} to Vercel production
     needs: [deploy, select-production-web]
-    if: github.ref == 'refs/heads/main' && needs.select-production-web.outputs.has_builds == 'true'
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/main' &&
+      needs.deploy.result == 'success' && needs.select-production-web.result == 'success' &&
+      needs.select-production-web.outputs.has_builds == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: production
@@ -361,7 +364,7 @@ jobs:
     name: Smoke production web apps
     needs: [select-production-web, deploy-web]
     if: >-
-      always() && !cancelled() && github.ref == 'refs/heads/main' &&
+      !cancelled() && github.ref == 'refs/heads/main' &&
       needs.select-production-web.result == 'success' &&
       (needs.deploy-web.result == 'success' ||
        (needs.deploy-web.result == 'skipped' && needs.select-production-web.outputs.has_builds == 'false'))
@@ -418,7 +421,7 @@ jobs:
   update-production-apps:
     name: Deliver ${{ matrix.app }} ${{ matrix.platform }} production
     needs: smoke-production
-    if: github.ref == 'refs/heads/main'
+    if: "!cancelled() && github.ref == 'refs/heads/main' && needs.smoke-production.result == 'success'"
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: production
@@ -452,7 +455,7 @@ jobs:
   publish-sentry-release:
     name: Publish Sentry production release
     needs: smoke-production
-    if: github.ref == 'refs/heads/main'
+    if: "!cancelled() && github.ref == 'refs/heads/main' && needs.smoke-production.result == 'success'"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: production

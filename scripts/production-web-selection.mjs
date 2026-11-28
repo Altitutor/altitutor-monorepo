@@ -84,6 +84,31 @@ function githubJson(path) {
   }));
 }
 
+export function loadProductionWebBaseline({ repository, currentRunId, readJson = githubJson }) {
+  const workflow = WORKFLOW_PATH.split("/").at(-1);
+  // GitHub allows reruns for 30 days and a workflow can then live for
+  // up to 35 days. A truncated history could hide an older rerun.
+  const oldest = encodeURIComponent(`>=${new Date(Date.now() - 65 * 86_400_000).toISOString()}`);
+  // Include pending reruns. Filtering for completed runs can hide their earlier
+  // attempts, which may already have promoted a subset of the apps.
+  const { workflow_runs: runs, total_count: total } = readJson(
+    `repos/${repository}/actions/workflows/${workflow}/runs?branch=main&created=${oldest}&per_page=100`,
+  );
+  if (total !== runs.length) throw new Error("Incomplete release history");
+  return findProductionWebBaseline({
+    repository,
+    currentRunId,
+    runs,
+    jobsForAttempt: (id, attempt) => {
+      const { jobs, total_count: jobCount } = readJson(
+        `repos/${repository}/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100`,
+      );
+      if (jobCount !== jobs.length) throw new Error("Incomplete release attempt");
+      return jobs;
+    },
+  });
+}
+
 function main() {
   const event = process.env.GITHUB_EVENT_NAME;
   const head = process.env.GITHUB_SHA;
@@ -92,26 +117,7 @@ function main() {
   let baseline = null;
   if (event === "push" && !rerun && checkedOutIdentity().commit === head) {
     try {
-      const workflow = WORKFLOW_PATH.split("/").at(-1);
-      // GitHub allows reruns for 30 days and a workflow can then live for
-      // up to 35 days. A truncated history could hide an older rerun.
-      const oldest = encodeURIComponent(`>=${new Date(Date.now() - 65 * 86_400_000).toISOString()}`);
-      const { workflow_runs: runs, total_count: total } = githubJson(
-        `repos/${repository}/actions/workflows/${workflow}/runs?branch=main&status=completed&created=${oldest}&per_page=100`,
-      );
-      if (total !== runs.length) throw new Error("Incomplete release history");
-      baseline = findProductionWebBaseline({
-        repository,
-        currentRunId: Number(process.env.GITHUB_RUN_ID),
-        runs,
-        jobsForAttempt: (id, attempt) => {
-          const { jobs, total_count: jobCount } = githubJson(
-            `repos/${repository}/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100`,
-          );
-          if (jobCount !== jobs.length) throw new Error("Incomplete release attempt");
-          return jobs;
-        },
-      });
+      baseline = loadProductionWebBaseline({ repository, currentRunId: Number(process.env.GITHUB_RUN_ID) });
     } catch {
       console.log("Release history could not be verified. Selecting every web app.");
     }

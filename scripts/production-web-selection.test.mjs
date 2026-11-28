@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { findProductionWebBaseline, planProductionWebRelease } from "./production-web-selection.mjs";
+import { findProductionWebBaseline, loadProductionWebBaseline, planProductionWebRelease } from "./production-web-selection.mjs";
 
 const repository = "Altitutor/altitutor-monorepo";
 const previous = "a".repeat(40);
@@ -183,4 +183,27 @@ test("forces all apps on a full retry or when a newer partial retry has incomple
     runs: [run(99, current, { run_attempt: 2 }), run(98, previous)],
     jobsForAttempt: (id) => id === 99 ? [] : successfulWeb,
   }), null);
+});
+
+test("includes a pending retry whose previous attempt could have partially deployed", () => {
+  const baseline = loadProductionWebBaseline({
+    repository,
+    currentRunId: 100,
+    readJson: (path) => {
+      const request = new URL(path, "https://api.github.com");
+      assert.equal(request.pathname, `/repos/${repository}/actions/workflows/supabase-deploy.yml/runs`);
+      assert.equal(request.searchParams.get("branch"), "main");
+      assert.equal(request.searchParams.has("status"), false);
+      return {
+        total_count: 3,
+        workflow_runs: [
+          run(100, current, { status: "in_progress" }),
+          run(99, current, { run_attempt: 2, status: "pending" }),
+          run(98, previous),
+        ],
+      };
+    },
+  });
+  assert.equal(baseline, null);
+  assert.deepEqual(apps(planProductionWebRelease({ ...work, baseline })), all);
 });
