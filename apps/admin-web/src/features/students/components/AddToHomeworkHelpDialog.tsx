@@ -167,7 +167,7 @@ function HomeworkHelpWizard({ onClose, student }: AddToHomeworkHelpDialogProps) 
             <h3 className="font-semibold">Selected sessions ({selected.size})</h3>
             {selectedSessions.map(session => (
               <div key={session.id} className="flex items-center gap-2">
-                <div className="min-w-0 flex-1"><SessionsCard session={session} staff={[]} /></div>
+                <div className="min-w-0 flex-1"><SessionsCard session={session} /></div>
                 <Button variant="ghost" size="icon" disabled={isSaving} aria-label={`Remove session on ${formatDate(new Date(session.start_at!))}`} onClick={() => toggle(session.id)}><X className="h-4 w-4" /></Button>
               </div>
             ))}

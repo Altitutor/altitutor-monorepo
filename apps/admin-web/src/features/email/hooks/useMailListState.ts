@@ -1,0 +1,78 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { encodeViewConfig, getViewSettings, type DisplaySettings } from "@altitutor/shared";
+import { z } from "zod";
+import { useAuthStore } from "@/shared/lib/supabase/auth";
+
+export const defaultMailListSettings: DisplaySettings = {
+  filters: {},
+  sortBy: "received",
+  sortDirection: "desc",
+  groupBy: null,
+  visibleColumns: ["sender", "subject", "time", "preview", "assignee"],
+};
+
+interface MailListState {
+  folder?: string;
+  search: string;
+  settings: DisplaySettings;
+}
+
+const initialState: MailListState = {
+  search: "",
+  settings: defaultMailListSettings,
+};
+
+// Each pane keeps its own session preferences while it is open. Browser storage
+// supplies the last-used defaults when the inbox opens in a new pane or reloads.
+const openInboxState = new Map<string, MailListState>();
+
+const savedState = z.object({
+  folder: z.string().optional(),
+  search: z.string(),
+  display: z.record(z.string(), z.array(z.unknown())),
+});
+
+export function useMailListState() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const [list, setList] = useState(initialState);
+  const [loadedKey, setLoadedKey] = useState<string>();
+  const storageKey = userId ? `admin-email-list-v1:${userId}:primary` : undefined;
+  const ready = Boolean(storageKey && loadedKey === storageKey);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    let next = openInboxState.get(storageKey);
+    if (!next) {
+      try {
+        const saved = savedState.safeParse(JSON.parse(sessionStorage.getItem(storageKey) ?? "null"));
+        if (saved.success) {
+          const { display, ...preferences } = saved.data;
+          const settings = getViewSettings(display);
+          if (settings) next = { ...preferences, settings };
+        }
+      } catch {
+        // A blocked or invalid session store starts with the inbox defaults.
+      }
+    }
+    setList(next ?? initialState);
+    setLoadedKey(storageKey);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!ready || !storageKey) return;
+    openInboxState.set(storageKey, list);
+    const { settings, ...preferences } = list;
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        ...preferences,
+        display: encodeViewConfig(settings),
+      }));
+    } catch {
+      // The mounted inbox retains its state when storage is unavailable.
+    }
+  }, [list, ready, storageKey]);
+
+  return { list, setList, ready };
+}

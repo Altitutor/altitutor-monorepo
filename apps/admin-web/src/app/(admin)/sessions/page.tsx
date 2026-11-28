@@ -48,7 +48,7 @@ export default function SessionsPage() {
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className={view === "calendar" ? "flex h-full min-h-0 min-w-0 flex-col p-6" : "space-y-4 p-6"}>
       <ListSettingsMenu list="sessions">
         <DropdownMenuItem disabled={!staff} onSelect={() => setTutorLogOpen(true)}>Add tutor log</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setExportOpen(true)}>Export tutor log</DropdownMenuItem>
@@ -60,7 +60,8 @@ export default function SessionsPage() {
             <DropdownMenuTrigger asChild>
               <AdminPageActionButton
                 icon={<Plus className="h-4 w-4" />}
-                label="Add meeting"
+                createShortcut
+                label="Create meeting"
                 trailingIcon={<ChevronDown className="h-4 w-4" />}
               />
             </DropdownMenuTrigger>
@@ -120,7 +121,7 @@ export default function SessionsPage() {
       {exportOpen && <QuickBooksExportModal isOpen onClose={() => setExportOpen(false)} />}
 
       <Suspense>
-        <SessionsTable renderMode={view} toolbarView={{value:view,options:[{value:'table',label:'Table'},{value:'calendar',label:'Calendar'}],onChange:(next) => {if(next === 'table' || next === 'calendar') setView(next);}}}
+        <SessionsTable fillHeight={view === "calendar"} renderMode={view} toolbarView={{value:view,options:[{value:'table',label:'Table'},{value:'calendar',label:'Calendar'}],onChange:(next) => {if(next === 'table' || next === 'calendar') setView(next);}}}
           initialCalendarDate={search.get('date') ?? undefined}
           initialCalendarMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
           onOpenSession={(id) => entityModals.openSession(id)} onOpenStudent={(id) => entityModals.openStudent(id)} onOpenStaff={(id) => entityModals.openStaff(id)} />

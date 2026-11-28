@@ -159,3 +159,27 @@ it('keeps the assignee when the conversation is already read', async () => {
     conversationIds: ['contact-thread'],
   });
 });
+
+it('puts a pending text thread above newer ordinary messages without changing unread state', async () => {
+  const base = {
+    status: 'OPEN', last_message_direction: 'INBOUND', owned_number_id: 'number',
+    owned_numbers: null, conversation_reads: [], group_chat_participants: [], is_group_chat: false,
+  };
+  const normal = {
+    ...base, id: 'normal', contact_id: 'first', contacts: { id: 'first' },
+    last_message_id: 'inbound', last_message_at: '2026-11-04T00:00:00Z', scheduled_message_at: null,
+  };
+  const scheduled = {
+    ...base, id: 'scheduled', contact_id: 'second', contacts: { id: 'second' },
+    last_message_id: null, last_message_at: null, scheduled_message_at: '2026-11-11T21:30:00Z',
+  };
+  jest.mocked(getSupabaseClient).mockReturnValue({
+    from: jest.fn((table) => queryResult(table === 'conversations' ? [normal, scheduled] : [])),
+    rpc: jest.fn(() => queryResult(['normal'])),
+  } as unknown as ReturnType<typeof getSupabaseClient>);
+
+  const results = await fetchConversationList();
+  expect(results.map(({ scheduledMessageAt, unreadCount }) => [scheduledMessageAt ?? null, unreadCount]))
+    .toEqual([['2026-11-11T21:30:00Z', 0], [null, 1]]);
+  expect(results[0].latestMessage).toBeNull();
+});

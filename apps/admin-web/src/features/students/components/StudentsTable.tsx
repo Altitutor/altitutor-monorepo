@@ -7,7 +7,7 @@ import { useStudentBillingColumns } from '../hooks/useStudentBillingColumns';
 import { useCheckInDates } from '@/features/reconciliation/api/useCheckInDates';
 import { studentAccountAction } from '../utils/studentAccountAction';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
@@ -292,8 +292,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const entries = useMemo(() => data?.entries ?? [], [data?.entries]);
   const filteredStudents = useMemo(() => entries.flatMap(entry => entry.kind === 'student' ? [entry.student] : []), [entries]);
   const billing = useStudentBillingColumns(filteredStudents.map((student) => student.id), state.visibleColumns);
-  // Non-virtualized table for stability (virtualization can be re-enabled later)
-  const parentRef = useRef<HTMLDivElement | null>(null);
 
   // Refetch when onRefresh prop changes
   useEffect(() => {
@@ -435,7 +433,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className={view === "board" ? "flex h-full min-h-0 flex-col overflow-hidden" : "space-y-4 p-6"}>
       <DataTableToolbar
         state={state}
         onSearchChange={setSearch}
@@ -444,7 +442,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         onGroupByChange={setGroupBy}
         groupByOptions={studentGroupOptions}
         view={{ value: view === 'worklist' ? 'list' : view, options: [{ value: 'list', label: 'List' }, { value: 'board', label: 'Board' }], onChange: value => { if (value === 'list' || value === 'board') setView(value); } }}
-        className="px-6 pt-6 pb-2"
+        className={view === "board" ? "px-6 pt-6 pb-2" : undefined}
         onVisibleColumnsChange={setVisibleColumns}
         onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
         onReset={resetFilters}
@@ -463,7 +461,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         isLoading={isFetching}
       />
 
-      {view === 'board' ? <StudentDirectoryBoard entries={entries} groupBy={state.groupBy} columns={state.visibleColumns} open={openEntry} /> : <div className="min-h-0 flex-1 overflow-auto px-6 pt-2" ref={parentRef}><div className="rounded-md border overflow-x-auto">
+      {view === 'board' ? <StudentDirectoryBoard entries={entries} groupBy={state.groupBy} columns={state.visibleColumns} open={openEntry} /> : <div className="rounded-md border overflow-x-auto">
         <Table className="min-w-full">
           <TableHeader>
             <TableRow>
@@ -549,6 +547,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   <TableRow
                     data-index={index}
                     className="cursor-pointer"
+                    data-shortcut-list-item
+                    tabIndex={-1}
+                    data-record-type="student"
+                    data-record-id={student.id}
                     onClick={() => handleStudentClick(student.id)}
                   >
                     {state.visibleColumns.includes('status') && (
@@ -709,16 +711,16 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             )}
           </TableBody>
         </Table>
-      </div></div>}
+      </div>}
 
-      {view !== 'board' && <div className="shrink-0 px-6 py-3"><TablePagination
+      {view !== 'board' && <TablePagination
         page={state.page}
         pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
-      /></div>}
+      />}
       {selectedJourney && <JourneyDetail key={selectedJourney.id} journey={selectedJourney} deadlines={data?.deadlines ?? defaultDeadlines} onClose={() => setSelectedJourneyId(undefined)} />}
 
       {/* Modals ... */}

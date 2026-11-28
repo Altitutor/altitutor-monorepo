@@ -15,14 +15,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin or staff with appropriate permissions
+    // SMS dispatch requires an active AdminStaff session.
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .select('role')
       .eq('user_id', user.id)
+      .eq('status', 'ACTIVE')
       .single<{ role: string }>();
 
-    if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
+    if (staffError || !staffData || staffData.role !== 'ADMINSTAFF') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
@@ -286,22 +287,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call the send-sms edge function
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    
-    const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({ messageId: message.id }),
+    const { error: sendSmsError } = await supabase.functions.invoke('send-message', {
+      body: { messageId: message.id },
     });
 
-    if (!sendSmsResponse.ok) {
-      const errorData = await sendSmsResponse.json();
-      console.error('Failed to send SMS:', errorData);
+    if (sendSmsError) {
+      console.error('Failed to send SMS:', sendSmsError);
       return NextResponse.json(
         { error: 'Failed to send SMS' },
         { status: 500 }

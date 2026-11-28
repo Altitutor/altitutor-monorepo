@@ -2,7 +2,7 @@
 
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { SmartDatePickerField } from '../smart-date-picker';
+import { SmartDatePickerDayPreviewProvider, SmartDatePickerField } from '../smart-date-picker';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -112,4 +112,36 @@ describe('SmartDatePickerField', () => {
     await act(async () => preset?.click());
     expect(onChange).toHaveBeenCalledWith('2026-09-01');
   });
+});
+
+
+it("previews the hovered day without selecting it and resets the preview when the month changes", async () => {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const onChange = jest.fn();
+  const DayPreview = ({ date }: { date: string }) => <p>Sessions for {date}</p>;
+  try {
+    await act(async () => {
+      root.render(
+        <SmartDatePickerDayPreviewProvider preview={DayPreview}>
+          <SmartDatePickerField value="2026-09-07" onChange={onChange} />
+        </SmartDatePickerDayPreviewProvider>,
+      );
+    });
+    await act(async () => container.querySelector("button")?.click());
+    const day = document.querySelector('[aria-label="Tuesday, 8 September 2026"]');
+    expect(day).not.toBeNull();
+    await act(async () => {
+      day?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+    expect(document.body.textContent).toContain("Sessions for 2026-09-08");
+    expect(onChange).not.toHaveBeenCalled();
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Next month"]')?.click());
+    expect(document.body.textContent).not.toContain("Sessions for 2026-09-08");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
 });

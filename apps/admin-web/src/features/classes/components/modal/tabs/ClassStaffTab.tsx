@@ -1,3 +1,4 @@
+import { requestPane } from '@/shared/components/pane-workspace/pane-routing';
 import { EntityActionChip } from '@/shared/components/EntityActionChip';
 import { classStaffReferenceActions } from '@/features/classes/utils/classReferenceActions';
 import { useRegisterRecordActions } from '@/features/command-palette/RecordActionsContext';
@@ -99,10 +100,11 @@ export function ClassStaffTab({
   };
 
   // Handle message staff
-  const handleMessageStaff = async (staffId: string) => {
+  const handleMessageStaff = async (staffId: string, openInNewPane = false) => {
     try {
       const conversationId = await ensureConversationForRelated(staffId, 'staff');
       if (conversationId) {
+        if (openInNewPane && requestPane('open', `/messages?conversation=${encodeURIComponent(conversationId)}`)) return;
         openWindow({ conversationId, title: 'Staff' });
       }
     } catch (error) {
@@ -184,7 +186,7 @@ export function ClassStaffTab({
                         <DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" className="h-8 w-8" aria-label={`Actions for ${staff.first_name} ${staff.last_name}`}><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleViewStaff(staff.id)}><Eye className="mr-2 h-4 w-4" />View staff</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleMessageStaff(staff.id)}><MessageSquare className="mr-2 h-4 w-4" />Message</DropdownMenuItem>
+                          <DropdownMenuItem onClick={(event) => void handleMessageStaff(staff.id, event.shiftKey)}><MessageSquare className="mr-2 h-4 w-4" />Message</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRemoveStaff(staff.id)}><UserMinus className="mr-2 h-4 w-4" />Remove from Class</DropdownMenuItem>
                         </DropdownMenuContent>

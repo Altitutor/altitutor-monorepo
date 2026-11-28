@@ -4,10 +4,11 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   useAccessoryPanelActions,
   type AccessoryKind,
-  accessoryFamily,
+  accessoryHref,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { ownedPrimaryHref } from "@/shared/utils/primaryOwnership";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 export const ACCESSORY_ROUTES: Record<
   string,
   { kind: AccessoryKind; title: string }
@@ -25,21 +26,28 @@ export function accessoryDestination(href: string) {
   const [route, pathId] = url.pathname.split("/").filter(Boolean);
   const destination = ACCESSORY_ROUTES[route] ?? ACCESSORY_ROUTES[`${route}s`];
   if (!destination) return null;
-  const id = pathId ?? (destination.kind === "messages"
+  let decodedId: string | undefined;
+  try {
+    decodedId = pathId === undefined ? undefined : decodeURIComponent(pathId);
+  } catch {
+    return null;
+  }
+  const id = decodedId ?? (destination.kind === "messages"
     ? url.searchParams.get("contact") ?? url.searchParams.get("group") ?? url.searchParams.get("conversation")
     : null);
   if (!id) return null;
   return { ...destination, id, query: url.search.slice(1) };
 }
 /** Accessory views own their query state; primary views continue to use Next routing. */
-export function usePaneNavigation() {
+export function usePaneNavigation(globalNavigation = false) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const panel = useAccessoryPanelActions();
   const scope = useAccessoryTab();
   return useMemo(() => {
-    const navigate = (href: string, options?: { scroll?: boolean }) => {
+    const navigate = (href: string, options?: { scroll?: boolean }, replace = false) => {
+      if (requestPane(replace ? "replace" : "navigate", href, globalNavigation ? undefined : "primary")) return;
       const target = accessoryDestination(href);
       if (panel && target) {
         if (
@@ -60,11 +68,11 @@ export function usePaneNavigation() {
       }
     };
     return {
-      router: { ...router, push: navigate, replace: navigate },
+      router: { ...router, push: navigate, replace: (href: string, options?: { scroll?: boolean }) => navigate(href, options, true) },
       pathname: scope
-        ? `/${accessoryFamily(scope.tab.kind)}${scope.tab.id && scope.tab.kind !== "messages" ? `/${scope.tab.id}` : ""}`
+        ? accessoryHref({ ...scope.tab, query: "" })
         : pathname,
       searchParams: scope ? new URLSearchParams(scope.tab.query) : searchParams,
     };
-  }, [router, pathname, searchParams, panel, scope]);
+  }, [router, pathname, searchParams, panel, scope, globalNavigation]);
 }

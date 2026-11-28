@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { InterviewContentStatistics } from "./InterviewStatistics";
 import {
   Button,
   Input,
   ResponsiveResizablePanels,
+  SegmentedControl,
   type JSONContent,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -77,6 +79,7 @@ export function InterviewStationEditor({
   onBack?: (draft: InterviewStation) => void;
   onSaved?: (station: InterviewStation) => void;
 }) {
+  const [tab, setTab] = useState<"content" | "stats">("content");
   const [draft, setDraft] = useState(station);
   const [baseVersion] = useState(station.version);
   const [naming, setNaming] = useState(false);
@@ -237,6 +240,11 @@ export function InterviewStationEditor({
           handleLabel="Resize station properties"
           primary={
             <section className="flex h-full min-h-0 flex-col overflow-y-auto p-4 lg:p-6">
+              {baseVersion > 0 && <SegmentedControl aria-label="Editor view" value={tab} onValueChange={setTab}
+                options={[{ value: "content", label: "Content" }, { value: "stats", label: "Stats" }]}
+                className="mb-4 self-start" />}
+              {tab === "stats" && <InterviewContentStatistics kind="station" id={station.id} />}
+              <div hidden={tab === "stats"}>
               <InterviewField label="Prompt">
                 <InterviewDocument
                   value={draft.prompt as JSONContent}
@@ -398,6 +406,7 @@ export function InterviewStationEditor({
                   Add question
                 </Button>
               </div>
+              </div>
             </section>
           }
           secondary={
@@ -423,6 +432,14 @@ export function InterviewStationEditor({
                       setDraft({ ...draft, name: e.target.value })
                     }
                   />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Status">
+                  <InterviewSelect label="Publication status" value={draft.publicationStatus ?? "published"}
+                    options={[{ id: "draft", label: "Draft" }, { id: "published", label: "Published" }]}
+                    onChange={(status) => {
+                      if (status === "draft" || status === "published")
+                        setDraft((current) => ({ ...current, publicationStatus: status }));
+                    }} />
                 </UcatSetPropertyRow>
                 <UcatSetPropertyRow label="Category">
                   <InterviewSelect

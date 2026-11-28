@@ -455,7 +455,8 @@ export function FormsSettingsPage() {
         actions={
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="New form"
+            createShortcut
+            label="Create form"
             onClick={openNewForm}
           />
         }

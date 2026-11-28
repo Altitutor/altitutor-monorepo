@@ -1,4 +1,4 @@
-import type { Json } from "@altitutor/shared";
+import type { Json } from "../supabase/generated";
 
 const inline = ["text", "hardBreak", "inlineMath"];
 const blocks = ["paragraph", "heading", "blockquote", "bulletList", "orderedList", "codeBlock", "horizontalRule", "table", "details", "blockMath"];
@@ -105,4 +105,33 @@ function validNode(node: unknown, allowed: string[], depth: number): boolean {
 /** Reviews are shared across accounts. Embedded frames and media are outside this document surface. */
 export function isInterviewReviewDocument(value: unknown): value is Json {
   return validNode(value, ["doc"], 0);
+}
+
+function normalizeFeedbackNode(value: Json, depth = 0): Json {
+  if (depth > 32 || !value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const attrs = value.attrs;
+  if (value.type === "link" && attrs && typeof attrs === "object" && !Array.isArray(attrs)) {
+    // Feedback editors store a presentation class on ordinary links.
+    const linkAttrs = { ...attrs };
+    delete linkAttrs.class;
+    return { ...value, attrs: linkAttrs };
+  }
+
+  const node = { ...value };
+  if (Array.isArray(value.marks)) {
+    node.marks = value.marks.map((mark) => normalizeFeedbackNode(mark, depth + 1));
+  }
+  if (Array.isArray(value.content)) {
+    node.content = value.content
+      .filter((child) => !isRecord(child) || (child.type !== "image" && child.type !== "externalVideo"))
+      .map((child) => normalizeFeedbackNode(child, depth + 1));
+  }
+  return node;
+}
+
+/** Reuse the review document rules for rich feedback with older embedded media. */
+export function interviewReviewFeedbackDocument(value: Json): Json | null {
+  const document = normalizeFeedbackNode(value);
+  return isInterviewReviewDocument(document) ? document : null;
 }

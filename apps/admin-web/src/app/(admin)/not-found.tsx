@@ -9,7 +9,7 @@ export default function AdminNotFound() {
         The page you&apos;re looking for doesn&apos;t exist or may have been moved.
       </p>
       <Button asChild>
-        <Link href="/dashboard">Back to Dashboard</Link>
+        <Link href="/dashboard">Back to Home</Link>
       </Button>
     </div>
   );

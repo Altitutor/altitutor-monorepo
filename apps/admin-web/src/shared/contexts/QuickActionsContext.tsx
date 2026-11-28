@@ -17,6 +17,7 @@ export type BookingSessionType =
 
 export type BookingModalPrefill = {
   initialStudentId?: string;
+  initialParent?: NonNullable<CheckInModalPrefill['parents']>[number];
   createNewStudent?: {
     phone: string;
     phoneOwner: 'student' | 'parent';

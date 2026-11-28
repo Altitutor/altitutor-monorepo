@@ -334,6 +334,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                 return (
                   <TableRow
                     key={invoice.id}
+                    data-shortcut-record
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => window.dispatchEvent(new CustomEvent('open-invoice-modal', { detail: { id: invoice.id } }))}
                   >

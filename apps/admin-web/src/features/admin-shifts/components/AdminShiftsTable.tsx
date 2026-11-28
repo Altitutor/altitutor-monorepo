@@ -286,6 +286,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
                   return (
                     <TableRow
                       key={shift.id}
+                      data-shortcut-record
                       data-index={index}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleAdminShiftClick(shift)}

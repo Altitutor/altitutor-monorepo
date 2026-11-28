@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  choiceFilterMatches,
   encodeViewConfig,
   readViewSettings,
   type DisplaySettings,
@@ -62,6 +63,11 @@ import {
   resolveDefaultVisibleColumns,
 } from "../lib/column-view-layout";
 
+const displayPillClassName = cn(
+  "rounded-full border px-2.5 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+  toolbarControlStyles,
+);
+
 export interface DataTableToolbarProps {
   viewTarget?: string;
   filterStateAdapter?: {
@@ -76,7 +82,7 @@ export interface DataTableToolbarProps {
   viewContent?: import("./toolbar-filters").ToolbarFilterEditor;
   allowEmptyColumns?: boolean;
   groupByRequired?: boolean;
-  state: DataTableState;
+  state: DataTableState & { committedViewHref?: string };
   onSearchChange: (value: string) => void;
   onFiltersChange: (filters: Record<string, unknown[]>) => void;
   onSortChange: (field: string | null, direction: "asc" | "desc") => void;
@@ -86,6 +92,8 @@ export interface DataTableToolbarProps {
   onReset: () => void;
 
   filterDefinitions?: DataTableFilterDefinition[];
+  /** Show a choice filter as visibility pills in the given layout's Display panel. */
+  displayChoiceFilter?: { key: string; label: string; layout: string };
   sortOptions?: DataTableSortOption[];
   groupByOptions?: DataTableGroupByOption[];
   columnDefinitions?: DataTableColumnDefinition[];
@@ -171,7 +179,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     onGroupByChange,
     onVisibleColumnsChange,
     onQuickFilterApply,
-    filterDefinitions = [],
+    filterDefinitions: allFilterDefinitions = [],
+    displayChoiceFilter,
     sortOptions = [],
     groupByOptions = [],
     columnDefinitions = [],
@@ -199,8 +208,18 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     searchFromViewGroups,
     columnViewGroups = [],
   } = props;
-  const narrow = !useMediaQuery("(min-width: 768px)", !compactProp);
-  const compact = compactProp || narrow;
+  const displayChoiceDefinition =
+    displayChoiceFilter && (!view || view.value === displayChoiceFilter.layout)
+      ? allFilterDefinitions.find(({ key }) => key === displayChoiceFilter.key)
+      : undefined;
+  const displayChoiceKey = displayChoiceDefinition?.key;
+  const displayChoiceOperatorKey = displayChoiceKey && `${displayChoiceKey}__operator`;
+  const filterDefinitions = displayChoiceKey
+    ? allFilterDefinitions.filter(({ key }) => key !== displayChoiceKey)
+    : allFilterDefinitions;
+  const widePane = useMediaQuery("(min-width: 768px)", !compactProp);
+  const [narrowToolbar, setNarrowToolbar] = React.useState<boolean>();
+  const compact = compactProp || (narrowToolbar ?? !widePane);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [searchValue, setSearchValue] = React.useState(state.search);
@@ -217,6 +236,18 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
 
   const keyboardEnabled = useKeyboardNavigation();
   const toolbarRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const root = toolbarRef.current;
+    if (!root || compactProp || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const width = root.clientWidth;
+      setNarrowToolbar(width > 0 ? width < 768 : undefined);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [compactProp, displayInline]);
   const [filterRequested, setFilterRequested] = React.useState(false);
   React.useEffect(() => {
     if (!keyboardEnabled || displayInline) return;
@@ -287,7 +318,13 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
   const handleClearAllFilters = () => {
     setClearVersion((version) => version + 1);
     onClearShowDeleted?.();
-    onFiltersChange({});
+    onFiltersChange(
+      Object.fromEntries(
+        Object.entries(state.filters).filter(
+          ([key]) => key === displayChoiceKey || key === displayChoiceOperatorKey,
+        ),
+      ),
+    );
     conditionFilters?.onChange([]);
   };
   const filtersProps = {
@@ -524,6 +561,17 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
     }
     view?.onPresetApply?.(settings);
   };
+  const displayChoiceOptions = displayChoiceDefinition?.options ?? [];
+  const hiddenDisplayChoices = displayChoiceKey && displayChoiceOperatorKey
+    ? displayChoiceOptions
+        .filter(({ value }) => !choiceFilterMatches(
+          state.filters[displayChoiceKey] ?? [],
+          value,
+          state.filters[displayChoiceOperatorKey]?.[0],
+        ))
+        .map(({ value }) => value)
+    : [];
+  const displayChoiceLabel = displayChoiceFilter?.label;
   const displayContent = (
     <>
       {view ? (
@@ -681,6 +729,45 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
           {filterFooter}
         </div>
       ) : null}
+      {displayChoiceKey && displayChoiceOperatorKey && displayChoiceLabel && displayChoiceOptions.length ? (
+        <div className="px-4 py-3" role="group" aria-label={displayChoiceLabel}>
+          <p className="mb-2 text-sm text-muted-foreground">{displayChoiceLabel}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {displayChoiceOptions.map((option) => {
+              const isVisible = !hiddenDisplayChoices.includes(option.value);
+              return (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  aria-pressed={isVisible}
+                  className={cn(
+                    displayPillClassName,
+                    isVisible ? toolbarControlSelectedStyles : toolbarControlUnselectedStyles,
+                  )}
+                  onClick={() => {
+                    const hidden = displayChoiceOptions
+                      .map(({ value }) => value)
+                      .filter((value) =>
+                        value === option.value ? isVisible : hiddenDisplayChoices.includes(value),
+                      );
+                    const nextFilters = { ...state.filters };
+                    if (hidden.length) {
+                      nextFilters[displayChoiceKey] = hidden;
+                      nextFilters[displayChoiceOperatorKey] = ["none"];
+                    } else {
+                      delete nextFilters[displayChoiceKey];
+                      delete nextFilters[displayChoiceOperatorKey];
+                    }
+                    onFiltersChange(nextFilters);
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {columnViewGroups.length || columnDefinitions.length ? (
         <div className="px-4 py-3">
           <p className="mb-2 text-sm text-muted-foreground">
@@ -715,8 +802,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
                       aria-pressed={selected}
                       disabled={required}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                        toolbarControlStyles,
+                        displayPillClassName,
                         selected
                           ? toolbarControlSelectedStyles
                           : toolbarControlUnselectedStyles,
@@ -801,6 +887,8 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
         <div className="min-w-0 flex-1 overflow-x-auto py-1">
           {!hideViews ? (
             <ToolbarSavedViews
+              hideShortcutHints={compact}
+              committedViewHref={state.committedViewHref}
               views={quickFilters}
               target={viewTarget ?? quickFilters[0]?.target_entity}
               current={currentSettings}
@@ -968,8 +1056,9 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
           )}
           <PopoverContent
             align="end"
+            collisionPadding={8}
             aria-label="Display options"
-            className="max-h-[min(80vh,700px)] w-[min(420px,calc(100vw-24px))] overflow-y-auto p-0"
+            className="max-h-[min(80dvh,700px,var(--radix-popover-content-available-height))] w-[min(420px,calc(100vw-24px))] overflow-y-auto overscroll-contain p-0"
           >
             {displayContent}
           </PopoverContent>

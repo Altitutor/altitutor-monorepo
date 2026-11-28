@@ -1,3 +1,5 @@
+import { OFFICE_ADDRESS } from "./company-address";
+
 export type EmailBrand = "altitutor" | "ucat";
 
 export type EmailSender = "altitutor" | "ucat-product" | "founder";
@@ -40,7 +42,7 @@ export const COMPANY_CONTACT = {
   email: "admin@altitutor.com",
   phone: "+61 483 849 842",
   phoneHref: "+61483849842",
-  address: "Level 1, 17A Solomon St, Adelaide SA 5000",
+  address: OFFICE_ADDRESS,
   websiteLabel: "altitutor.com",
   websiteUrl: "https://altitutor.com",
 } as const satisfies EmailBrandContact;

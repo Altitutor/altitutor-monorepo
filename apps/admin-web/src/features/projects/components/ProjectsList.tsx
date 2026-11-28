@@ -67,6 +67,7 @@ export function ProjectsList({
   const embedLocked = hideToolbar && embedView != null;
 
   const {
+    committedViewHref,
     visiblePillKeys,
     setVisiblePillKeys,
     filters,
@@ -448,6 +449,11 @@ export function ProjectsList({
     },
     [activeColumnKey],
   );
+  function openProject(id: string) {
+    setSelectedProjectId(id);
+    setIsEditDialogOpen(true);
+  }
+
   return (
     <>
       <EntityCollection<ProjectWithLead>
@@ -458,6 +464,7 @@ export function ProjectsList({
           { key: "a", label: "Change lead", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateProject.mutateAsync({id: item.id, updates: { project_lead_id: value === null ? null : String(value) } }) },
         ]}
         viewTarget="projects"
+        committedViewHref={committedViewHref}
         layout={layout}
         board={{
           columnDefs,
@@ -466,10 +473,7 @@ export function ProjectsList({
               project={item}
               rightPills={rightPills}
               visiblePillKeys={keys}
-              onOpen={(id) => {
-                setSelectedProjectId(id);
-                setIsEditDialogOpen(true);
-              }}
+              onOpen={openProject}
             />
           ),
           onAdd: handleBoardAdd,
@@ -530,10 +534,7 @@ export function ProjectsList({
           return valueKey === "__null__" ? "No value" : valueKey;
         }}
         onAdd={hideToolbar ? undefined : handleAdd}
-        onRowClick={(p) => {
-          setSelectedProjectId(p.id);
-          setIsEditDialogOpen(true);
-        }}
+        onRowClick={(item) => openProject(item.id)}
         addButtonLabel="Add project"
         addButtonVariant="default"
         addButtonShowLabel={true}

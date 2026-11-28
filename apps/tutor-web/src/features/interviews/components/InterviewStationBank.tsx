@@ -36,6 +36,8 @@ import {
   useInterviewCatalog,
   useInterviewCommand,
 } from "../hooks/use-interviews";
+import { useInterviewStatistics } from "../hooks/use-interview-statistics";
+import { averageContentScore } from "./InterviewStatistics";
 import { InterviewDocument, InterviewError } from "./interview-ui";
 import { InterviewStationPresenter } from "./InterviewStationPresenter";
 import { InterviewStationEditor } from "./InterviewStationEditor";
@@ -62,6 +64,7 @@ const columns: DataTableColumnDefinition[] = [
   },
   { key: "points", label: "Maximum score", visibleByDefault: true },
   { key: "updated", label: "Updated", visibleByDefault: false },
+  { key: "statistics", label: "Average score per student", visibleByDefault: false },
 ];
 const sorts: DataTableSortOption[] = [
   { key: "updated", label: "Updated" },
@@ -177,6 +180,7 @@ export function InterviewStationBank() {
   }, [catalog?.stations, catalog?.interviews, table.state]);
   const paged = pageRows(rows, table.state.page, table.state.pageSize);
   const visible = new Set(table.state.visibleColumns);
+  const statistics = useInterviewStatistics(visible.has("statistics") && !!catalog);
   return (
     <div className="space-y-6 py-8 md:py-10">
       <InterviewPageHeader
@@ -257,7 +261,12 @@ export function InterviewStationBank() {
                       }: {
                         row: { original: InterviewStation };
                       }) => (
-                        <span className="font-medium">{row.original.name}</span>
+                        <span className="flex flex-wrap items-center gap-2 font-medium">
+                      {row.original.name}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {row.original.publicationStatus === "draft" ? "Draft" : "Published"}
+                      </span>
+                    </span>
                       ),
                     },
                   ]
@@ -368,6 +377,14 @@ export function InterviewStationBank() {
                     },
                   ]
                 : []),
+              ...(visible.has("statistics") ? [{
+                id: "statistics",
+                header: "Average score per student",
+                cell: ({ row }: { row: { original: InterviewStation } }) =>
+                  statistics.error || statistics.access.error || statistics.access.data === false
+                    ? "Unavailable" : statistics.isPending ? "Loading…"
+                    : averageContentScore(statistics.data?.attempts ?? [], "station", row.original.id),
+              }] : []),
               ...(visible.has("updated")
                 ? [
                     {

@@ -2,6 +2,7 @@
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useQueryClient } from '@tanstack/react-query';
 import { subjectsKeys } from '@/features/subjects/hooks/useSubjectsQuery';
@@ -292,9 +293,9 @@ export default function SubjectDetailPage(props: { params: Promise<{ id: string 
   }
 
   return (
-    <div className="p-4">
+    <div className="px-4 pb-4">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
 
 

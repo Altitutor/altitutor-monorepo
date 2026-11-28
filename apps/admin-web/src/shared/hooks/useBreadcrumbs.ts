@@ -19,7 +19,7 @@ import { useNote } from '@/features/notes/api/queries';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
-  dashboard: 'Dashboard',
+  dashboard: 'Home',
   tasks: 'Tasks',
   issues: 'Issues',
   projects: 'Projects',
@@ -28,7 +28,7 @@ const pathLabelMap: Record<string, string> = {
   classes: 'Classes',
   sessions: 'Sessions',
   messages: 'Messages',
-  email: 'Mail',
+  email: 'Email',
   'deleted-records': 'Deleted entities',
   feedback: 'Feedback',
   forms: 'Forms',
@@ -403,7 +403,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     if (topicId) return topicBreadcrumbs.data?.length ? topicBreadcrumbs.data : [{label: 'Subjects', href: '/subjects'}, {label: 'Loading topic…'}];
     // If we're on the dashboard, just return Dashboard
     if (segments.length === 0 || (segments.length === 1 && segments[0] === 'dashboard')) {
-      return [{ label: 'Dashboard', href: '/dashboard' }];
+      return [{ label: 'Home', href: '/dashboard' }];
     }
 
     const items: BreadcrumbItem[] = [];

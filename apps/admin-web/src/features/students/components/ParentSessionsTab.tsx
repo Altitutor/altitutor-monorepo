@@ -19,7 +19,7 @@ interface ParentSessionsTabProps {
 }
 
 export function ParentSessionsTab({ parent, onOpenSession }: ParentSessionsTabProps) {
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
   const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();
   const removeParentMutation = useRemoveParentFromSession();

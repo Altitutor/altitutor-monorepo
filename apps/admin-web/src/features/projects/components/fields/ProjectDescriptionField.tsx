@@ -46,7 +46,7 @@ export function ProjectDescriptionField({
               className="min-h-0"
               context="projects"
               mentionSuggestions={mentionSuggestions}
-              floatingToolbar
+              insertTemplates
             />
           </FormControl>
           <FormMessage />

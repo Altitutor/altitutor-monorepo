@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { CollectionField } from '@altitutor/ui';
+import { CollectionField, entityReferenceDragProps } from '@altitutor/ui';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import type { IssueWithTags } from '../types';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils';
@@ -24,6 +24,9 @@ export const IssueCard = memo(function IssueCard({
   return (
     <div
       data-work-item-card
+      data-record-type="issue"
+      data-record-id={issue.id}
+      {...entityReferenceDragProps({ id: issue.id, type: 'issue', label: issue.name || 'Untitled issue' })}
       onClick={() => onOpen?.(issue.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',

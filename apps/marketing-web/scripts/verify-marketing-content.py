@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import runpy
+import subprocess
 import sys
 from urllib.request import urlopen
 
@@ -18,6 +19,12 @@ OVERRIDES = json.loads((ROOT / 'src/features/marketing/content/editorial-overrid
 for path, blocks in CONTENT.items():
     for block in blocks:
         block.update(OVERRIDES.get(path, {}).get(block['id'], {}))
+archived_addresses = json.loads((ROOT / 'src/features/marketing/content/archived-addresses.json').read_text())
+address_pattern = re.compile('|'.join(map(re.escape, archived_addresses)))
+office_address = subprocess.check_output(
+    ['node', '-p', 'require("@altitutor/email/company-address").OFFICE_ADDRESS'],
+    cwd=ROOT, text=True,
+).strip()
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:3013'
 PATHS = ['/', '/about/', '/about/contact/', '/classes/', '/resources/', '/about/subsidy/', '/about/apply/', '/about/testimonials/', '/privacy-policy/'] + [p for p in CONTENT if p.startswith('/classes/') and p != '/classes/']
 # These are navigation labels, not student, course, policy or company copy.
@@ -49,7 +56,7 @@ for path in PATHS:
         bodies = [block.get('html', ''), block.get('detailHtml', '')]
         bodies += [item['html'] for item in block.get('items', [])]
         for body in bodies:
-            tree = Parser(body).root
+            tree = Parser(address_pattern.sub(office_address, body)).root
             chunks = tree.all(lambda n: n.tag in ['p', 'li'])
             chunks = [n for n in chunks if not n.all(lambda c: c is not n and c.tag in ['p', 'li'])]
             texts = [n.text() for n in chunks] if chunks else [tree.text()]

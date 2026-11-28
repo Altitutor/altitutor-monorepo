@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -13,10 +14,7 @@ import {
   useAccessoryPanel,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
-import {
-  useComposeEmail,
-  useOpenEmailThread,
-} from "../../hooks/useOpenEmailThread";
+import { useOpenEmailThread } from "../../hooks/useOpenEmailThread";
 import { EmailThreadView } from "../EmailThreadView";
 import { AccessoryTabs } from "@/shared/components/accessory-panel/AccessoryTabs";
 jest.mock("@/features/messages/api/queries", () => ({
@@ -71,18 +69,19 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 function Workspace() {
-  const compose = useComposeEmail();
   const panel = useAccessoryPanel()!;
   const tab = panel.tabs.find((item) => item.key === panel.activeKey);
   return (
     <>
-      <button onClick={compose}>Compose</button>
+      <button onClick={() => panel.openTab({ kind: "email", id: "compose:restored", title: "New email" })}>
+        Restore compose tab
+      </button>
       <output>{tab?.id ?? "No thread"}</output>
       <AccessoryTabs />
     </>
   );
 }
-it("opens new composition inside the existing accessory workspace and preserves typing when Microsoft gives it a thread identity", async () => {
+it("preserves typing in a restored compose tab when Microsoft gives it a thread identity", async () => {
   localStorage.clear();
   let sequence = 0;
   Object.defineProperty(crypto, "randomUUID", {
@@ -169,12 +168,10 @@ it("opens new composition inside the existing accessory workspace and preserves 
       </QuickActionsProvider>
     </StrictMode>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Compose" }));
-  const subject = await screen.findByRole("textbox", { name: "Email subject" });
+  fireEvent.click(screen.getByRole("button", { name: "Restore compose tab" }));
+  const composer = await screen.findByRole("dialog", { name: "New email" });
+  const subject = within(composer).getByRole("textbox", { name: "Email subject" });
   fireEvent.change(subject, { target: { value: "Work written immediately" } });
-  expect(
-    screen.queryByRole("dialog", { name: "Compose email" }),
-  ).not.toBeInTheDocument();
   await act(async () =>
     prepared({
       ok: true,
@@ -189,10 +186,10 @@ it("opens new composition inside the existing accessory workspace and preserves 
   expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
   expect(subject).toHaveValue("Work written immediately");
   expect(
-    screen.getByRole("tab", { name: "Work written immediately" }),
+    screen.getByRole("tab", { name: "Work written immediately", hidden: true }),
   ).toBeInTheDocument();
   expect(create).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole("button", { name: "Email" }));
+  fireEvent.click(screen.getByRole("button", { name: "Email", hidden: true }));
   expect(mockPrimaryNavigation).toHaveBeenCalledWith("/email", undefined);
   expect(screen.getByRole("textbox", { name: "Email subject" })).toBe(subject);
 });
@@ -288,15 +285,19 @@ function existingThread(
     </QuickActionsProvider>,
   );
 }
-it("opens existing drafts as editable cards without an Edit step", async () => {
-  existingThread([originalMessage, existingDraft]);
-  expect(
-    await screen.findByRole("textbox", { name: "Email subject" }),
-  ).toHaveValue("Re: Lesson");
-  expect(
-    screen.queryByRole("button", { name: /^Edit$/ }),
-  ).not.toBeInTheDocument();
-});
+it.each([undefined, "reply", "replyAll"])(
+  "opens a saved reply draft (mode %s) inline without an Edit step",
+  async (draftMode) => {
+    existingThread([originalMessage, { ...existingDraft, draftMode }]);
+    expect(
+      await screen.findByRole("textbox", { name: "Email subject" }),
+    ).toHaveValue("Re: Lesson");
+    expect(
+      screen.queryByRole("button", { name: /^Edit$/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  },
+);
 it("does not render a deleted draft that remains in cached conversation history", async () => {
   existingThread([
     originalMessage,
@@ -312,10 +313,44 @@ it("does not render a deleted draft that remains in cached conversation history"
     screen.queryByRole("textbox", { name: "Email subject" }),
   ).not.toBeInTheDocument();
 });
+it("opens Forward in a composer dialog and keeps Reply all inline", async () => {
+  existingThread([originalMessage]);
+  const get = global.fetch;
+  global.fetch = jest.fn(async (input, init) => {
+    if (!init?.body) return get(input, init);
+    const command = JSON.parse(String(init.body));
+    return {
+      ok: true,
+      json: async () => ({
+        state: "draft",
+        message: {
+          ...existingDraft,
+          to: command.mode === "forward" ? [] : existingDraft.to,
+          subject: command.mode === "forward" ? "Fwd: Lesson" : "Re: Lesson",
+          draftMode: command.mode,
+        },
+      }),
+    } as Response;
+  });
+
+  const email = await screen.findByRole("article", { name: "Email: Lesson" });
+  fireEvent.click(within(email).getByRole("button", { name: "Forward" }));
+  const forward = await screen.findByRole("dialog", { name: "Forward email" });
+  expect(within(forward).getByRole("textbox", { name: "Email subject" })).toHaveValue("Fwd: Lesson");
+  fireEvent.click(within(forward).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
+  await waitFor(() => expect(forward).not.toBeInTheDocument());
+
+  fireEvent.click(within(email).getByRole("button", { name: "Reply all" }));
+  expect(await screen.findByRole("textbox", { name: "Email subject" })).toHaveValue("Re: Lesson");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("offers the same-message draft before creating another reply", async () => {
   existingThread([originalMessage, { ...existingDraft, draftMode: "reply" }]);
   await screen.findByRole("textbox", { name: "Email subject" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^Reply$/ })[0]);
+  const email = screen.getByRole("article", { name: "Email: Lesson" });
+  fireEvent.click(within(email).getByRole("button", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",
@@ -363,6 +398,43 @@ it("scrolls and focuses the specific draft selected in the folder", async () => 
   await waitFor(() => expect(subject).toHaveFocus());
   expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
 });
+it.each([
+  ["new", "New email", "An unfinished new email"],
+  ["forward", "Forward email", "Fwd: Lesson"],
+])("resumes a saved %s draft selected from the folder in a dialog", async (draftMode, dialogTitle, subject) => {
+  localStorage.clear();
+  existingThread(
+    [originalMessage, { ...existingDraft, draftMode, subject }],
+    <AccessoryPanelProvider>
+      <DraftWorkspace />
+    </AccessoryPanelProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open selected draft" }));
+  const dialog = await screen.findByRole("dialog", { name: dialogTitle });
+  expect(within(dialog).getByRole("textbox", { name: "Email subject" })).toHaveValue(subject);
+  expect(within(dialog).getByRole("textbox", { name: "Email body" })).toHaveTextContent("Work already written");
+  expect(global.fetch).not.toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ body: expect.stringContaining('"action":"draft"') }),
+  );
+});
+
+it("lets the user resume a saved forward from the thread and reopen it after closing", async () => {
+  existingThread([
+    originalMessage,
+    { ...existingDraft, draftMode: "forward", subject: "Fwd: Lesson" },
+  ]);
+  const resume = await screen.findByRole("button", { name: "Resume forward" });
+  expect(screen.queryByRole("textbox", { name: "Email subject" })).not.toBeInTheDocument();
+  fireEvent.click(resume);
+  const dialog = await screen.findByRole("dialog", { name: "Forward email" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close editor" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Close draft" }));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "Resume forward" }));
+  expect(await screen.findByRole("dialog", { name: "Forward email" })).toBeVisible();
+});
+
 it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject", async () => {
   existingThread([
     { ...originalMessage, internetMessageId: "<original@example.test>" },
@@ -373,7 +445,8 @@ it("recognizes an Outlook draft by explicit In-Reply-To rather than its subject"
     },
   ]);
   await screen.findByRole("textbox", { name: "Email subject" });
-  fireEvent.click(screen.getAllByRole("button", { name: /^Reply$/ })[0]);
+  const email = screen.getByRole("article", { name: "Email: Lesson" });
+  fireEvent.click(within(email).getByRole("button", { name: "Reply" }));
   expect(
     await screen.findByRole("dialog", {
       name: "Continue existing reply draft?",
@@ -489,7 +562,7 @@ it("keeps the same draft editor mounted when Messages are hidden and shown", asy
 });
 
 it("shows a full scheduled-email preview and send time instead of an editable draft", async () => {
-  existingThread([originalMessage, existingDraft], undefined, [
+  existingThread([originalMessage, { ...existingDraft, draftMode: "forward" }], undefined, [
     {
       message_id: existingDraft.id,
       state: "scheduled",

@@ -1,5 +1,7 @@
 "use client";
+import { requestPane } from "@/shared/components/pane-workspace/pane-routing";
 import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
@@ -246,13 +248,14 @@ function SessionDetailView({ id }: { id: string }) {
     router.push(`/classes/${classId}`);
   };
 
-  const handleMessageStudent = async (studentId: string) => {
+  const handleMessageStudent = async (studentId: string, openInNewPane = false) => {
     try {
       const conversationId = await ensureConversationForRelated(
         studentId,
         "student",
       );
       if (conversationId) {
+        if (openInNewPane && requestPane("open", `/messages?conversation=${encodeURIComponent(conversationId)}`)) return;
         openWindow({ conversationId, title: "Student" });
       }
     } catch (error) {
@@ -260,13 +263,14 @@ function SessionDetailView({ id }: { id: string }) {
     }
   };
 
-  const handleMessageStaff = async (staffId: string) => {
+  const handleMessageStaff = async (staffId: string, openInNewPane = false) => {
     try {
       const conversationId = await ensureConversationForRelated(
         staffId,
         "staff",
       );
       if (conversationId) {
+        if (openInNewPane && requestPane("open", `/messages?conversation=${encodeURIComponent(conversationId)}`)) return;
         openWindow({ conversationId, title: "Staff" });
       }
     } catch (error) {
@@ -413,9 +417,9 @@ function SessionDetailView({ id }: { id: string }) {
     );
 
   return (
-    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden [--detail-page-gutter:1rem]" : "min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]"}>
-      <div className={isEditing ? "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4" : "contents"}>
-      <div className="flex items-center gap-2 mb-3">
+    <div className={isEditing ? "flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden [--detail-page-gutter:1rem]" : "min-w-0 flex-1 overflow-y-auto px-4 pb-4 [--detail-page-gutter:1rem]"}>
+      <div className={isEditing ? "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" : "contents"}>
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
 
         <IssuePill entityType="session" entityId={id} enabled />

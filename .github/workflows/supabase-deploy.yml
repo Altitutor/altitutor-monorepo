@@ -46,6 +46,9 @@ jobs:
       always() && !cancelled() && needs.integration-evidence.result == 'success' &&
       ((needs.integration-evidence.outputs.reuse == 'true' && needs.verify.result == 'skipped') ||
        needs.verify.result == 'success')
+    outputs:
+      # A reused integration receipt can contain only affected package checks.
+      full_production_typecheck: ${{ github.ref_name == 'main' && needs.verify.result == 'success' }}
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
@@ -335,17 +338,22 @@ jobs:
 
       - name: Deploy the gated commit
         shell: bash
+        env:
+          FULL_PRODUCTION_TYPECHECK: ${{ needs.deploy.outputs.full_production_typecheck }}
         run: |
           set -euo pipefail
-          release_identity=()
+          release_args=()
+          if [ "$FULL_PRODUCTION_TYPECHECK" = "true" ]; then
+            release_args+=(--build-env "ALTITUTOR_TYPECHECK_VERIFIED=true")
+          fi
           if [ "${{ matrix.app }}" = "tutor-web" ]; then
-            release_identity+=(--build-env "TEACHING_RELEASE_SHA=$GITHUB_SHA" --env "TEACHING_RELEASE_SHA=$GITHUB_SHA")
+            release_args+=(--build-env "TEACHING_RELEASE_SHA=$GITHUB_SHA" --env "TEACHING_RELEASE_SHA=$GITHUB_SHA")
           fi
           deployment_url="$(pnpm dlx vercel@48.9.0 deploy \
             --prod \
             --yes \
             --archive=tgz \
-            "${release_identity[@]}" \
+            "${release_args[@]}" \
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
 

@@ -442,11 +442,11 @@ export function CalendarView({
   return (
     <div
       aria-label="Classes calendar"
-      className="flex flex-col h-full space-y-4"
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-4"
     >
       {/* Search and Day Filter */}
       {showFilters && (
-        <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
           <div className="relative w-64">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -510,7 +510,12 @@ export function CalendarView({
         </div>
       ) : (
         /* Calendar Grid */
-        <div className="flex-1 overflow-auto">
+        <div
+          role="region"
+          aria-label="Classes calendar grid"
+          tabIndex={0}
+          className="min-h-0 min-w-0 flex-1 overflow-auto"
+        >
           <div
             className="grid gap-0 min-h-full relative bg-background"
             style={{

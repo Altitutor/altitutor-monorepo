@@ -50,6 +50,7 @@ export function useEntityListTableState({
   );
 
   return {
+    committedViewHref: state.committedViewHref,
     visiblePillKeys: state.columnsConfigured ? state.visibleColumns : undefined,
     setVisiblePillKeys: setVisibleColumns,
     search: state.search,

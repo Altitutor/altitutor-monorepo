@@ -1,5 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
-import { usePaneNavigation } from "../usePaneNavigation";
+import { accessoryDestination, usePaneNavigation } from "../usePaneNavigation";
+import { accessoryHref } from "@/shared/contexts/AccessoryPanelContext";
 const push = jest.fn();
 const updateQuery = jest.fn();
 const openTab = jest.fn();
@@ -68,4 +69,9 @@ test("an email conversation still opens a global accessory tab", () => {
     expect.objectContaining({ kind: "email", id: "thread-one" }),
   );
   expect(push).not.toHaveBeenCalled();
+});
+
+test("passes the original Outlook conversation ID to the detail view", () => {
+  const thread = { kind: "email" as const, id: "AAQk+conversation/ID==", title: "Email" };
+  expect(accessoryDestination(accessoryHref(thread))).toMatchObject(thread);
 });

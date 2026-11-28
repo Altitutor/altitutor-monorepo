@@ -33,6 +33,7 @@ type ConversationRow = {
   id: string;
   status: string;
   last_message_at: string | null;
+  scheduled_message_at: string | null;
   last_message_id: string | null;
   last_message_direction: string | null;
   assigned_staff_id: string | null;
@@ -159,6 +160,7 @@ async function fetchLatestNonReactionPreviews(
           .select(MESSAGE_PREVIEW_SELECT)
           .eq('conversation_id', conversationId)
           .eq('is_reaction', false)
+          .neq('status', 'SCHEDULED')
           .order('created_at', { ascending: false })
           .limit(1);
         if (signal) query = query.abortSignal(signal);
@@ -279,7 +281,7 @@ export function useConversations() {
       const { data, error } = await supabase
         .from('conversations')
         .select(`
-          id, status, last_message_at, last_message_id, last_message_direction,
+          id, status, last_message_at, last_message_id, last_message_direction, scheduled_message_at,
           assigned_staff_id, contact_id, owned_number_id,
           is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
@@ -291,6 +293,7 @@ export function useConversations() {
           owned_numbers(id, phone_e164, label),
           conversation_reads(id, last_read_message_id, last_read_at)
         `)
+        .order('scheduled_message_at', { ascending: false, nullsFirst: false })
         .order('last_message_at', { ascending: false })
         .limit(100);
       
@@ -313,6 +316,65 @@ export type MessageWithRelations = Tables<'messages'> & {
   message_attachments: Array<Pick<Tables<'message_attachments'>, 'id' | 'storage_url' | 'filename' | 'mime_type' | 'size_bytes'>>;
 };
 
+const threadMessageFields = '*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)';
+
+type ThreadCursor = { at: string; id: string };
+
+export function threadMessageHistoryAt(message: Pick<Tables<'messages'>, 'scheduled_dispatch_at' | 'created_at'>) {
+  return message.scheduled_dispatch_at ?? message.created_at;
+}
+
+async function fetchThreadMessagePage(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  conversationIds: string[],
+  cursor?: ThreadCursor,
+) {
+  // Normal messages keep the existing creation-time index. Scheduled messages
+  // enter a small separate stream at dispatch, even if the draft predates page one.
+  const history = (column: 'created_at' | 'scheduled_dispatch_at') => {
+    let query = supabase.from('messages')
+      .select(threadMessageFields)
+      .in('conversation_id', conversationIds)
+      .not(column, 'is', null)
+      .neq('status', 'CANCELED')
+      .order(column, { ascending: false })
+      .order('id', { ascending: false })
+      .limit(PAGE_SIZE);
+    if (column === 'created_at') query = query.is('scheduled_at', null);
+    if (cursor) query = query.or(
+      `${column}.lt.${cursor.at},and(${column}.eq.${cursor.at},id.lt.${cursor.id})`,
+    );
+    return query;
+  };
+  const pending = () => supabase.from('messages')
+    .select(threadMessageFields)
+    .in('conversation_id', conversationIds)
+    .eq('status', 'SCHEDULED')
+    .order('scheduled_at', { ascending: false });
+  const [regular, released, scheduled] = await Promise.all([
+    history('created_at'),
+    history('scheduled_dispatch_at'),
+    cursor ? { data: [], error: null } : pending(),
+  ]);
+  for (const result of [regular, released, scheduled]) {
+    if (result.error) throw result.error;
+  }
+
+  const byId = new Map<string, MessageWithRelations>();
+  for (const message of [...(regular.data ?? []), ...(released.data ?? [])] as MessageWithRelations[]) {
+    byId.set(message.id, message);
+  }
+  const items = [...byId.values()].sort((a, b) => {
+    const byTime = (threadMessageHistoryAt(b) ?? '').localeCompare(threadMessageHistoryAt(a) ?? '');
+    return byTime || b.id.localeCompare(a.id);
+  }).slice(0, PAGE_SIZE);
+  const last = items.length === PAGE_SIZE ? items[PAGE_SIZE - 1] : null;
+  const at = last ? threadMessageHistoryAt(last) : null;
+  const nextCursor = last && at ? { at, id: last.id } : undefined;
+  const future = ((scheduled.data ?? []) as MessageWithRelations[]).filter((message) => !byId.has(message.id));
+  return { items: [...future, ...items], nextCursor };
+}
+
 type ConversationMessageSender = Pick<
   Tables<'owned_numbers'>,
   'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'
@@ -326,20 +388,9 @@ type ConversationMessageContext = {
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({
     queryKey: messagesKeys.messages(conversationId),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: undefined as ThreadCursor | undefined,
     queryFn: async ({ pageParam }) => {
       const supabase = getSupabaseClient();
-      
-      let query = supabase
-        .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: false })
-        .limit(PAGE_SIZE);
-      
-      if (pageParam) {
-        query = query.lt('created_at', pageParam);
-      }
       
       const conversationQuery = supabase
         .from('conversations')
@@ -347,25 +398,19 @@ export function useMessages(conversationId: string) {
         .eq('id', conversationId)
         .maybeSingle();
 
-      const [messagesResult, conversationResult] = await Promise.all([query, conversationQuery]);
-      const { data, error } = messagesResult;
-      if (error) throw error;
+      const [page, conversationResult] = await Promise.all([
+        fetchThreadMessagePage(supabase, [conversationId], pageParam), conversationQuery,
+      ]);
       if (conversationResult.error) throw conversationResult.error;
-
       const conversation = conversationResult.data as ConversationMessageContext | null;
-      
-      const messages = (data || []) as MessageWithRelations[];
-      const nextCursor = messages.length === PAGE_SIZE 
-        ? messages[messages.length - 1].created_at 
-        : undefined;
-      
+
       return {
-        items: messages.map((message) => ({
+        items: page.items.map((message) => ({
           ...message,
           sender: conversation?.owned_numbers ?? null,
           conversation_owned_number_id: conversation?.owned_number_id ?? null,
         })),
-        nextCursor,
+        nextCursor: page.nextCursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -670,7 +715,7 @@ export async function fetchConversationList(
   let query = supabase
     .from('conversations')
     .select(`
-      id, status, last_message_at, last_message_id, last_message_direction,
+      id, status, last_message_at, last_message_id, last_message_direction, scheduled_message_at,
       assigned_staff_id, contact_id, owned_number_id,
       is_group_chat, group_chat_id, group_chat_name,
       needs_follow_up,
@@ -697,6 +742,7 @@ export async function fetchConversationList(
   }
   query = query
     .in('status', ['OPEN', 'SNOOZED'])
+    .order('scheduled_message_at', { ascending: false, nullsFirst: false })
     .order('last_message_at', { ascending: false })
     .limit(CONVERSATION_LIST_LIMIT);
 
@@ -756,6 +802,7 @@ export async function fetchConversationList(
         participantNames: participants.map((participant) => participant.name),
         ownedNumberId: conv.owned_number_id,
         latestMessageAt: conv.last_message_at,
+        scheduledMessageAt: conv.scheduled_message_at,
         latestMessage: latestMessageForConversation(
           conv,
           previewsById,
@@ -799,6 +846,10 @@ export async function fetchConversationList(
       assigned_staff_id: conv.assigned_staff_id,
     });
 
+    if (conv.scheduled_message_at && (!aggregated.scheduledMessageAt || conv.scheduled_message_at > aggregated.scheduledMessageAt)) {
+      aggregated.scheduledMessageAt = conv.scheduled_message_at;
+    }
+
     if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
       aggregated.latestMessageAt = conv.last_message_at;
       aggregated.latestMessage = latestMessageForConversation(
@@ -823,10 +874,8 @@ export async function fetchConversationList(
   }));
 
   return [...contacts, ...groups].sort((a, b) => {
-    if (!a.latestMessageAt && !b.latestMessageAt) return 0;
-    if (!a.latestMessageAt) return 1;
-    if (!b.latestMessageAt) return -1;
-    return b.latestMessageAt.localeCompare(a.latestMessageAt);
+    const scheduled = (b.scheduledMessageAt ?? '').localeCompare(a.scheduledMessageAt ?? '');
+    return scheduled || (b.latestMessageAt ?? '').localeCompare(a.latestMessageAt ?? '');
   });
 }
 
@@ -881,7 +930,7 @@ type SenderInfo = {
 export function useMessagesForContact(contactId: string | null, ownedNumberId?: string | null) {
   return useInfiniteQuery({
     queryKey: messagesKeys.messagesForContact(contactId || '', ownedNumberId),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: undefined as ThreadCursor | undefined,
     queryFn: async ({ pageParam }) => {
       if (!contactId) return { items: [], nextCursor: undefined };
       
@@ -919,37 +968,18 @@ export function useMessagesForContact(contactId: string | null, ownedNumberId?: 
         ])
       );
       
-      // Fetch messages from all conversations
-      let query = supabase
-        .from('messages')
-        .select('*, staff:created_by_staff_id(id, first_name, last_name), message_attachments(id, storage_url, filename, mime_type, size_bytes)')
-        .in('conversation_id', conversationIds)
-        .order('created_at', { ascending: false })
-        .limit(PAGE_SIZE);
-      
-      if (pageParam) {
-        query = query.lt('created_at', pageParam);
-      }
-      
-      const { data: messages, error } = await query;
-      if (error) throw error;
-      
-      // Attach sender info to each message
-      const typedMessages = (messages || []) as MessageWithRelations[];
-      const enrichedMessages = typedMessages.map((msg) => {
-        const senderInfo = senderMap.get(msg.conversation_id);
-        return {
-          ...msg,
-          sender: senderInfo?.sender || null,
-          conversation_owned_number_id: senderInfo?.owned_number_id || null,
-        };
-      });
-      
-      const nextCursor = enrichedMessages.length === PAGE_SIZE 
-        ? enrichedMessages[enrichedMessages.length - 1].created_at 
-        : undefined;
-      
-      return { items: enrichedMessages, nextCursor };
+      const page = await fetchThreadMessagePage(supabase, conversationIds, pageParam);
+      return {
+        items: page.items.map((message) => {
+          const senderInfo = senderMap.get(message.conversation_id);
+          return {
+            ...message,
+            sender: senderInfo?.sender ?? null,
+            conversation_owned_number_id: senderInfo?.owned_number_id ?? null,
+          };
+        }),
+        nextCursor: page.nextCursor,
+      };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!contactId,

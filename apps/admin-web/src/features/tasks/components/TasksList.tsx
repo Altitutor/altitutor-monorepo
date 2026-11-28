@@ -420,6 +420,7 @@ export function TasksList({
   const showInlineAddRow = !hideToolbar || isLinkedTaskList;
 
   const {
+    committedViewHref,
     visiblePillKeys,
     setVisiblePillKeys,
     applyQuickFilter,
@@ -1091,6 +1092,11 @@ export function TasksList({
     [activeColumnKey, issueId, projectId],
   );
 
+  function openTask(id: string) {
+    setSelectedTaskId(id);
+    setIsEditDialogOpen(true);
+  }
+
   return (
     <>
       <EntityCollection<TaskWithAssignee>
@@ -1102,6 +1108,7 @@ export function TasksList({
           { key: "a", label: "Assign", options: [{ value: null, label: "Unassigned" }, ...staffList.map(staff => ({value: staff.id, label: [staff.first_name, staff.last_name].filter(Boolean).join(" ")}))], apply: (item,value) => updateTask.mutateAsync({id: item.id, updates: { assigned_to: value === null ? null : String(value) } }) },
         ]}
         viewTarget="tasks"
+        committedViewHref={committedViewHref}
         layout={layout}
         board={{
           columnDefs,
@@ -1110,10 +1117,7 @@ export function TasksList({
               task={item}
               rightPills={rightPills}
               visiblePillKeys={keys}
-              onOpen={(id) => {
-                setSelectedTaskId(id);
-                setIsEditDialogOpen(true);
-              }}
+              onOpen={openTask}
             />
           ),
           onAdd: handleBoardAdd,
@@ -1137,10 +1141,7 @@ export function TasksList({
         }
         onSortChange={embedLocked ? undefined : handleSortChange}
         onAdd={showInlineAddRow ? handleAdd : undefined}
-        onRowClick={(t) => {
-          setSelectedTaskId(t.id);
-          setIsEditDialogOpen(true);
-        }}
+        onRowClick={(item) => openTask(item.id)}
         inlineAdd
         addButtonLabel="Add task"
         addButtonVariant="default"

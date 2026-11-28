@@ -1,16 +1,13 @@
 'use client';
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogScopeProvider, DialogTitle } from '@altitutor/ui';
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@altitutor/ui';
 import { useAutomationRecovery, useRecoverAutomationMessage } from '../api/automationRecovery';
 
 export function AutomationRecoveryDialog({messageId,onClose}:{messageId:string|null;onClose:()=>void}) {
   const query = useAutomationRecovery(messageId);
   const recovery = useRecoverAutomationMessage();
   const preview = query.data;
-  // Accessory views share the main pane's dialog scope, which is hidden on narrow
-  // screens while the accessory is open. Keep this explicit send review visible.
-  return <DialogScopeProvider disabled>
-    <Dialog open={Boolean(messageId)} onOpenChange={open=>{if(!open && !recovery.isPending) onClose();}}>
+  return <Dialog open={Boolean(messageId)} onOpenChange={open=>{if(!open && !recovery.isPending) onClose();}}>
     <DialogContent>
       <DialogHeader><DialogTitle>Recover one failed delivery</DialogTitle>
         <DialogDescription>Review the original text and the current corrected recipient before sending.</DialogDescription>
@@ -41,5 +38,5 @@ export function AutomationRecoveryDialog({messageId,onClose}:{messageId:string|n
           </div>
         </div> : null}
     </DialogContent>
-  </Dialog></DialogScopeProvider>;
+  </Dialog>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { SessionDay, type SessionDayItem } from "./SessionDay";
+import { useCallback, useState, type ReactNode } from "react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { BUSINESS_TIMEZONE } from "@altitutor/shared";
 import {
@@ -8,13 +9,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
   type SearchableSelectProps,
 } from "@altitutor/ui";
-import { CalendarDays, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 /** Shared session chooser. Callers retain their eligibility, timezone and query
  * rules; this renders the same week selection interaction everywhere. */
@@ -79,6 +77,19 @@ export function SessionSelect<T>({
 }: SessionSelectProps<T>) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
+  const [showWeek, setShowWeek] = useState(true);
+  const measurePopover = useCallback((content: HTMLDivElement | null) => {
+    if (!content) return;
+    const measure = () => {
+      const width = content.getBoundingClientRect().width;
+      if (width > 0) setShowWeek(width >= 720);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
   const calendarDate = (item: T): string | null => {
     const raw = getItemDate
       ? getItemDate(item)
@@ -149,70 +160,47 @@ export function SessionSelect<T>({
       setOpen(false);
     }
   };
-  const renderDay = (index: number) => {
-    const dateKey = format(days[index], "yyyy-MM-dd");
-    const choices = items.filter((item) => calendarDate(item) === dateKey);
-    return (
-      <div className="space-y-2">
-        {choices.map((item) => {
-          const id = getItemId(item);
-          const selected = selectedIds
-            ? selectedIds.has(id)
-            : value !== null && getItemId(value) === id;
-          const label = getItemLabel(item);
-          return (
-            <Tooltip key={id}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-pressed={selected}
-                  disabled={getItemDisabled?.(item)}
-                  onClick={() => choose(item)}
-                  className={`w-full rounded-md border p-2 text-left text-xs hover:bg-muted disabled:opacity-50 ${selected ? "border-foreground/30 bg-muted" : "bg-background"}`}
-                >
-                  <span className="flex items-start justify-between gap-1">
-                    <span className="break-words">{label}</span>
-                    {selected && <Check className="h-3 w-3 shrink-0" />}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                {getItemDescription ? (
-                  getItemDescription(item)
-                ) : (
-                  <div className="space-y-1">
-                    <p>{label}</p>
-                    {item &&
-                      typeof item === "object" &&
-                      "start_at" in item &&
-                      typeof item.start_at === "string" &&
-                      !Number.isNaN(new Date(item.start_at).getTime()) && (
-                        <p>
-                          {new Date(item.start_at).toLocaleString("en-AU", {
-                            timeZone: timezone,
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </p>
-                      )}
-                    {item &&
-                      typeof item === "object" &&
-                      "room" in item &&
-                      typeof item.room === "string" && <p>{item.room}</p>}
-                  </div>
-                )}
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-        {!choices.length && (
-          <p className="py-6 text-center text-xs text-muted-foreground">
-            {emptyMessage}
-          </p>
-        )}
-      </div>
-    );
-  };
+  const itemsByDay = new Map<string, SessionDayItem[]>();
+  if (open) for (const item of items) {
+    const dayKey = calendarDate(item);
+    if (!dayKey) continue;
+    const entries = itemsByDay.get(dayKey) ?? [];
+    const id = getItemId(item);
+    const label = getItemLabel(item);
+    const startsAt = item && typeof item === "object" && "start_at" in item && typeof item.start_at === "string"
+      ? item.start_at
+      : null;
+    const sessionType = item && typeof item === "object" && "type" in item && typeof item.type === "string"
+      ? item.type
+      : null;
+    const room = item && typeof item === "object" && "room" in item && typeof item.room === "string"
+      ? item.room
+      : null;
+    entries.push({
+      id,
+      label,
+      startsAt,
+      sessionType,
+      selected: selectedIds ? selectedIds.has(id) : value !== null && getItemId(value) === id,
+      disabled: getItemDisabled?.(item),
+      select: () => choose(item),
+      description: getItemDescription?.(item) ?? (
+        <>
+          <p>{label}</p>
+          {room ? <p>{room}</p> : null}
+        </>
+      ),
+    });
+    itemsByDay.set(dayKey, entries);
+  }
+  const renderDay = (date: Date, view: "cards" | "chips") => (
+    <SessionDay
+      items={itemsByDay.get(format(date, "yyyy-MM-dd")) ?? []}
+      timezone={timezone}
+      view={view}
+      emptyMessage={loading ? "" : emptyMessage}
+    />
+  );
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -240,9 +228,10 @@ export function SessionSelect<T>({
         )}
       </PopoverTrigger>
       <PopoverContent
+        ref={measurePopover}
         container={popoverContainer}
         align={align}
-        className="w-[min(720px,calc(100vw-2rem))] p-3"
+        className="max-h-[var(--radix-popover-content-available-height)] w-[min(56rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain p-3"
       >
         <div className="mb-3 flex items-center justify-between">
           <Button
@@ -269,8 +258,8 @@ export function SessionSelect<T>({
           </Button>
         </div>
         <TooltipProvider>
-          <div className="hidden grid-cols-7 gap-2 md:grid">
-            {days.map((date, index) => (
+          {showWeek ? <div className="grid grid-cols-7 gap-2" aria-label="Weekly session cards">
+            {days.map((date) => (
               <div
                 key={date.toISOString()}
                 className="min-h-44 min-w-0 space-y-2 border-r pr-1 last:border-0"
@@ -278,11 +267,10 @@ export function SessionSelect<T>({
                 <p className="text-center text-xs font-medium">
                   {format(date, "EEE d")}
                 </p>
-                {renderDay(index)}
+                {renderDay(date, "cards")}
               </div>
             ))}
-          </div>
-          <div className="md:hidden">
+          </div> : <div aria-label="Daily session list">
             <div className="mb-3 grid grid-cols-7 gap-1">
               {days.map((date, index) => (
                 <button
@@ -297,8 +285,8 @@ export function SessionSelect<T>({
                 </button>
               ))}
             </div>
-            {renderDay(day)}
-          </div>
+            {renderDay(days[day], "chips")}
+          </div>}
         </TooltipProvider>
         {loading && (
           <p role="status" className="py-3 text-sm text-muted-foreground">

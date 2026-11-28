@@ -71,3 +71,27 @@ it('routes hovered message row shortcuts ahead of keyboard focus in another pane
   fireEvent.keyDown(document.activeElement!,{key:'t'});fireEvent.keyDown(document.activeElement!,{key:'u'});
   expect(task).toHaveBeenCalledTimes(1);expect(unread).toHaveBeenCalledTimes(1);
 });
+
+it("provides every conversation action in the right-click menu without a visible more button", async () => {
+  const onMarkUnread = jest.fn();
+  render(
+    <div data-conversation-row>
+      <button data-shortcut-list-item>Open conversation</button>
+      <ConversationRowActions
+        unread={false}
+        staff={staff}
+        assigneeId={null}
+        onMarkRead={jest.fn()}
+        onMarkUnread={onMarkUnread}
+        onAssign={jest.fn()}
+        onCreateTask={jest.fn()}
+      />
+    </div>,
+  );
+
+  fireEvent.contextMenu(screen.getByRole("button", { name: "Open conversation" }));
+  expect(await screen.findByRole("menuitem", { name: "Create task" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "Assign conversation" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Mark as unread" }));
+  expect(onMarkUnread).toHaveBeenCalledTimes(1);
+});

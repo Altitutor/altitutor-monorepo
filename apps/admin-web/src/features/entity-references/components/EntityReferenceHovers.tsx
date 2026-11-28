@@ -7,13 +7,14 @@ import { ActionSearchScope, EntityChip, Badge, Skeleton, isTypingTarget } from "
 import { statusLabel, statusToneClass } from "@/shared/utils/statusTone";
 import { AttendancePersonRow } from "@/shared/components/AttendancePersonRow";
 import type { ReferenceDetails } from "../types";
+import { formatSessionAttendanceCount } from "@/features/sessions/utils/attendanceDerivation";
 import { ReferenceActions } from './ReferenceActions';
 import { ReferenceActionList } from './ReferenceActionList';
 import { useContextualChipHoverActions } from './chipHoverActions';
 import { openEntityReference } from '@/shared/utils/entityReference';
 import type { RecordMenuAction } from '@/shared/components/recordMenuActions';
 
-export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, studentCount, onActivate, contextualActions, autoFocusSearch = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; studentCount?: number; onActivate?: () => void; contextualActions?: RecordMenuAction[]; autoFocusSearch?: boolean }) {
+export function EntityReferencePreview({ type, id, fallbackTitle, embedded = false, onActivate, contextualActions, autoFocusSearch = false }: { type: string; id: string; fallbackTitle?: string; embedded?: boolean; onActivate?: () => void; contextualActions?: RecordMenuAction[]; autoFocusSearch?: boolean }) {
   const query = useQuery<ReferenceDetails>({
     queryKey: ["entity-reference", type, id],
     queryFn: async ({ signal }) => {
@@ -70,11 +71,14 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
           <div className="mt-3 space-y-3">
             {(["Student", "Staff"] as const).map((role) => {
               const members = query.data.people?.filter((person) => person.role === role) ?? [];
-              if (!members.length && !(role === "Student" && (type === "session" || type === "class"))) return null;
+              if (!members.length && type !== "session") return null;
+              const count = type === "session"
+                ? formatSessionAttendanceCount(members, Boolean(query.data.logged))
+                : members.length;
               return (
                 <section key={role} className="space-y-1.5">
-                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? `Students (${studentCount ?? members.length})` : "Staff"}</h4>
-                  {role === "Student" && (studentCount ?? members.length) === 0 ? <p className="text-xs text-muted-foreground">None</p> : null}
+                  <h4 className="text-xs font-medium text-muted-foreground">{role === "Student" ? "Students" : "Staff"} ({count})</h4>
+                  {!members.length ? <p className="text-xs text-muted-foreground">None</p> : null}
                   {members.map((person) => (
                     <AttendancePersonRow
                       key={`${person.role}:${person.id}`}
@@ -92,14 +96,13 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
         </>
       )}
       <div className="-mx-4 mt-3 border-t"><ActionSearchScope alwaysSearchable autoFocus={autoFocusSearch}>
-          {query.data && (
-            <ReferenceActions
-              type={type}
-              id={id}
-              details={query.data}
-              onActivate={onActivate}
-            />
-          )}
+          <ReferenceActions
+            type={type}
+            id={id}
+            details={query.data}
+            fallbackTitle={fallbackTitle}
+            onActivate={onActivate}
+          />
           {contextualActions?.length ? (
             <ReferenceActionList
               actions={contextualActions}
@@ -113,25 +116,32 @@ export function EntityReferencePreview({ type, id, fallbackTitle, embedded = fal
 
 /** One delegated surface covers React chips and serialized mentions, including newly loaded rich text. */
 export function EntityReferenceHovers() {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const [selection, setSelection] = useState<{
+    target: HTMLElement;
+    pointerOpened: boolean;
+    contextPoint?: DOMRect;
+  } | null>(null);
+  const target = selection?.target;
+  const pointerOpened = selection?.pointerOpened ?? false;
+  const contextPoint = selection?.contextPoint;
   const contextualActions = useContextualChipHoverActions(target?.dataset.hoverActionsKey);
   const [content, setContent] = useState<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pointerOpened, setPointerOpened] = useState(false);
   useEffect(() => {
     setContent(document.createElement("div"));
     const clear = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = null;
     };
+    const getChip = (event: Event) => {
+      const chip = event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-mention][data-id][data-type]")
+        : null;
+      return chip?.closest("[data-entity-reference-preview]") ? null : chip;
+    };
     const enter = (event: Event) => {
-      const chip =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>(
-              "[data-mention][data-id][data-type]",
-            )
-          : null;
-      if (!chip || chip.closest("[data-entity-reference-preview]")) return;
+      const chip = getChip(event);
+      if (!chip) return;
       const previous = event instanceof MouseEvent ? event.relatedTarget : null;
       if (previous instanceof Node && chip.contains(previous)) return;
       clear();
@@ -140,12 +150,27 @@ export function EntityReferenceHovers() {
           if (chip.isConnected) {
             // Layout changes can move chips under a stationary pointer while a
             // keyboard-operated resize handle still owns focus.
-            setPointerOpened(event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator");
-            setTarget(chip);
+            const pointerOpened = event.type !== "focusin" && document.activeElement?.getAttribute("role") !== "separator";
+            setSelection((current) => current?.contextPoint ? current : { target: chip, pointerOpened });
           }
         },
         0,
       );
+    };
+    const openContext = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.shiftKey) return;
+      const chip = getChip(event);
+      const record = event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-record-type][data-record-id]")
+        : null;
+      const selected = chip ?? record;
+      if (!selected) return;
+      event.preventDefault();
+      clear();
+      const contextPoint = event.button === 2 || event.clientX || event.clientY
+        ? new DOMRect(event.clientX, event.clientY, 0, 0)
+        : selected.getBoundingClientRect();
+      setSelection({ target: selected, pointerOpened: true, contextPoint });
     };
     const leave = (event: MouseEvent) => {
       const chip =
@@ -164,15 +189,16 @@ export function EntityReferenceHovers() {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         clear();
-        setTarget(null);
+        setSelection(null);
       }
     };
     const activate = (event: MouseEvent) => {
       if (event.target instanceof Element && event.target.closest('[data-mention]')) {
         clear();
-        setTarget(null);
+        setSelection(null);
       }
     };
+    document.addEventListener("contextmenu", openContext);
     document.addEventListener("mouseover", enter);
     document.addEventListener("focusin", enter);
     document.addEventListener("mouseout", leave);
@@ -180,6 +206,7 @@ export function EntityReferenceHovers() {
     document.addEventListener('click', activate, true);
     return () => {
       clear();
+      document.removeEventListener("contextmenu", openContext);
       document.removeEventListener("mouseover", enter);
       document.removeEventListener("focusin", enter);
       document.removeEventListener("mouseout", leave);
@@ -196,6 +223,7 @@ export function EntityReferenceHovers() {
     window.visualViewport?.addEventListener('resize', resize);
     const observer = boundary ? new ResizeObserver(resize) : null;
     if (boundary) observer?.observe(boundary);
+    let disposed = false;
     const instance = tippy(target, {
       content,
       interactive: true,
@@ -203,18 +231,26 @@ export function EntityReferenceHovers() {
         if (pointerOpened && !isTypingTarget(document.activeElement)) content.querySelector<HTMLInputElement>('[cmdk-input]')?.focus({preventScroll:true});
       },
       showOnCreate: true,
-      placement: "bottom",
+      ...(contextPoint && {
+        trigger: "manual",
+        getReferenceClientRect: () => contextPoint,
+        onClickOutside: () => setSelection(null),
+      }),
+      placement: contextPoint ? "bottom-start" : "bottom",
       popperOptions: {modifiers:[{name:'preventOverflow',options:{boundary:boundary ?? 'clippingParents',rootBoundary:'viewport',padding:8,altAxis:true,tether:false}}]},
       appendTo: () => target.closest('[role="dialog"]') ?? document.body,
       delay: [0, 150],
-      onHidden: () =>
-        setTarget((current) => (current === target ? null : current)),
+      onHidden: () => {
+        if (!disposed) setSelection((current) => current?.target === target ? null : current);
+      },
     });
     const contentObserver = new ResizeObserver(() => { void instance.popperInstance?.update(); });
     contentObserver.observe(content);
-    return () => { contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
-  }, [target, content, pointerOpened]);
-  return target && content
-    ? createPortal(<EntityReferencePreview key={`${target.dataset.type}:${target.dataset.id}:${target.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={target.dataset.type ?? ""} id={target.dataset.id ?? ""} fallbackTitle={target.dataset.label} contextualActions={contextualActions} onActivate={() => setTarget(null)} />, content)
+    return () => { disposed = true; contentObserver.disconnect(); instance.destroy(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener('resize',resize); observer?.disconnect(); };
+  }, [target, content, pointerOpened, contextPoint]);
+  const type = target?.dataset.type ?? target?.dataset.recordType;
+  const id = target?.dataset.id ?? target?.dataset.recordId;
+  return type && id && content
+    ? createPortal(<EntityReferencePreview key={`${type}:${id}:${target?.dataset.hoverActionsKey}`} autoFocusSearch={pointerOpened} type={type} id={id} fallbackTitle={target?.dataset.label} contextualActions={contextualActions} onActivate={() => setSelection(null)} />, content)
     : null;
 }

@@ -22,6 +22,7 @@ export function createBlankInterview(): InterviewTemplate {
     recordingEnabled: false,
     stations: [],
     archived: false,
+    publicationStatus: "draft",
     updatedAt: "",
   };
 }

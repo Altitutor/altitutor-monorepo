@@ -1,3 +1,4 @@
+import { MarketingPhoto } from "../components/marketing-photo";
 import { content, pageContent } from "../content";
 import {
   Button,
@@ -15,21 +16,28 @@ export function CareersPage() {
   return (
     <>
       <section
-        className={`${styles.container} ${styles.hero} ${styles.editorialHero}`}
+        className={`${styles.container} ${styles.hero} ${styles.aboutHero}`}
       >
-        <Eyebrow>Work with us</Eyebrow>
-        <h1>
-          Help someone
-          <br />
-          <em>find their potential.</em>
-        </h1>
-        <Copy block={content("/about/apply/", "f14c735")} />
-        <div className={styles.actions}>
-          <Button href="#roles">Find your role</Button>
-          <Button href="#apply" secondary>
-            How to apply
-          </Button>
+        <div>
+          <Eyebrow>Work with us</Eyebrow>
+          <h1>
+            Help someone
+            <br />
+            <em>find their potential.</em>
+          </h1>
+          <Copy block={content("/about/apply/", "f14c735")} />
+          <div className={styles.actions}>
+            <Button href="#roles">Find your role</Button>
+            <Button href="#apply" secondary>
+              How to apply
+            </Button>
+          </div>
         </div>
+        <MarketingPhoto
+          name="staff"
+          alt="Altitutor staff together at reception"
+          priority
+        />
       </section>
       <section
         id="roles"

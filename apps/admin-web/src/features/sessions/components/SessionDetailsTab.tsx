@@ -123,8 +123,8 @@ type SessionDetailsTabProps = {
   onOpenParent: (parentId: string) => void;
   onOpenClass: (classId: string) => void;
   onOpenAdminShift?: (adminShiftId: string) => void;
-  onMessageStudent: (studentId: string) => void;
-  onMessageStaff: (staffId: string) => void;
+  onMessageStudent: (studentId: string, openInNewPane?: boolean) => void;
+  onMessageStaff: (staffId: string, openInNewPane?: boolean) => void;
   onOpenTopic: (topicId: string) => void;
   onOpenFile: (fileId: string) => void;
   onLogAbsenceStudent?: (studentId: string) => void;
@@ -588,6 +588,7 @@ export function SessionDetailsTab({
                           <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
+                              data-pane-href={`/students/${encodeURIComponent(data.student.id)}`}
                               onClick={() => onOpenStudent(data.student.id)}
                               className="text-left hover:underline font-medium"
                             >
@@ -644,7 +645,7 @@ export function SessionDetailsTab({
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onMessageStudent(data.student.id);
+                                  onMessageStudent(data.student.id, e.shiftKey);
                                 }}
                               >
                                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -866,7 +867,7 @@ export function SessionDetailsTab({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              onMessageStaff(data.staff.id);
+                              onMessageStaff(data.staff.id, e.shiftKey);
                             }}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
@@ -1118,6 +1119,7 @@ export function SessionDetailsTab({
                           {students.slice(0, 5).map((student) => (
                             <button
                               key={student.id}
+                              data-pane-href={`/students/${encodeURIComponent(student.id)}`}
                               onClick={() => onOpenStudent(student.id)}
                               className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
                             >

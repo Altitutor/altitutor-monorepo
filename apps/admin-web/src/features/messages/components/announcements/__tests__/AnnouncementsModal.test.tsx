@@ -315,9 +315,10 @@ test("overlapping selected sessions add a student only once", async () => {
   );
   await waitFor(() =>
     expect(
-      screen.getAllByRole("checkbox", { name: "Include Alice Williams" }),
+      screen.getAllByText("Alice Williams"),
     ).toHaveLength(1),
   );
+  expect(screen.queryByRole("checkbox", { name: "Include Alice Williams" })).not.toBeInTheDocument();
   view.unmount();
   view.client.clear();
 });

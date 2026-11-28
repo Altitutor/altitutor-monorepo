@@ -113,7 +113,7 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Home', href: '/dashboard' },
     ]);
   });
 
@@ -125,7 +125,7 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Home', href: '/dashboard' },
     ]);
   });
 

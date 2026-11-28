@@ -33,7 +33,7 @@ function FunnelRibbon({ counts }: { counts: number[] }) {
 
 export function ConversionInsights({ from, to }: { from: string; to: string }) {
   const [cohort, setCohort] = useState<EnquiryCohort>("new");
-  const journeys = useOnboardingJourneys();
+  const journeys = useOnboardingJourneys({ from, to, cohort });
   const result = enquiryFunnel(journeys.data ?? [], { from, to }, cohort);
   const total = result.counts[0];
   const converted = result.counts[result.counts.length - 1];

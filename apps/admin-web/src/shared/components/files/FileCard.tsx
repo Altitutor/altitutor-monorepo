@@ -176,6 +176,7 @@ export function FileCard({
   return (
     <>
       <div
+        data-shortcut-record
         className={cn(
           'group flex cursor-pointer items-center justify-between rounded-lg border bg-card p-3 transition-all',
           clickableCardInteractiveCn,
@@ -204,6 +205,7 @@ export function FileCard({
               <Button
                 variant="outline"
                 size="icon"
+                data-shortcut-menu aria-keyshortcuts="M" aria-label="File actions"
                 onClick={(e) => e.stopPropagation()}
                 className="h-8 w-8 flex-shrink-0"
               >

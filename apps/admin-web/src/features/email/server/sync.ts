@@ -121,6 +121,7 @@ async function synchronize(
   queue.sort((a, b) => a.pageAt.localeCompare(b.pageAt));
   let pages = 0,
     imported = 0,
+    removed = 0,
     errors = 0;
   async function worker() {
     while (queue.length && pages < 100 && Date.now() - started < 40_000) {
@@ -140,6 +141,7 @@ async function synchronize(
         if (saved.error) throw saved.error;
         if (saved.data) {
           imported += page.messages.length;
+          removed += page.removedIds.length;
           if (!page.complete) queue.push({ ...folder, cursor: page.cursor });
         }
       } catch (error) {
@@ -171,6 +173,7 @@ async function synchronize(
   return {
     pages,
     imported,
+    removed,
     folders: folders.length,
     more: queue.length > 0 || errors > 0,
     errors,

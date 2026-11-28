@@ -20,6 +20,7 @@ for (
     SENTRY_TEST_OPT_IN: "false",
     SUPABASE_URL: "http://synthetic.invalid",
     SUPABASE_SERVICE_ROLE_KEY: "synthetic-key",
+    SUPABASE_ANON_KEY: "synthetic-anon-key",
     TWILIO_ACCOUNT_SID: "ACsynthetic",
     TWILIO_AUTH_TOKEN: "synthetic-token",
     TWILIO_API_KEY_SID: "",
@@ -143,6 +144,7 @@ function fixture(
       return response;
     }
     const table = url.pathname.split("/").at(-1)!;
+    if (table === "is_adminstaff_active") return Response.json(false);
     if (table === "claim_automation_message_send") {
       return Response.json({
         dispatch: true,
@@ -170,6 +172,9 @@ function fixture(
           return String(row[column]) === expression.slice(3);
         }
         if (expression === "is.null") return row[column] == null;
+        if (expression.startsWith("lte.")) {
+          return String(row[column]) <= expression.slice(4);
+        }
         if (expression.startsWith("in.(")) {
           return expression.slice(4, -1).split(",").includes(
             String(row[column]),
@@ -214,6 +219,7 @@ function fixture(
       rows = [row];
     } else if (req.method === "PATCH") {
       const patch = await req.json() as Row;
+      rows = allRows.filter(matches);
       rows.forEach((row) => {
         Object.assign(row, patch);
         // External database boundary implements the separately tested status trigger.
@@ -361,6 +367,62 @@ Deno.test("new automation can reach a corrected destination without recovering o
     assertEquals(db.messages.length, 4);
     assertEquals(db.messages[0].status, "FAILED");
     assertEquals(db.automation_executions[1].status, "COMPLETED");
+  } finally {
+    globalThis.fetch = fetchBefore;
+  }
+});
+
+Deno.test("scheduled text is held until due and repeated sends claim it once", async () => {
+  const fetchBefore = globalThis.fetch;
+  try {
+    const { db, providerAttempts } = fixture(0);
+    db.conversations.push({
+      id: "scheduled-conversation",
+      contact_id: "recipient-0",
+      owned_number_id: "sender",
+      is_group_chat: false,
+    });
+    db.messages.push({
+      id: "scheduled-message",
+      conversation_id: "scheduled-conversation",
+      body: "Scheduled text fixture",
+      status: "SCHEDULED",
+      scheduled_at: "2099-01-01T00:00:00.000Z",
+      to_number_e164: "+15555550100",
+    });
+
+    const send = () => sendHandler!(new Request("http://synthetic.invalid/functions/v1/send-message", {
+      method: "POST",
+      headers: { Authorization: "Bearer synthetic-key" },
+      body: JSON.stringify({ messageId: "scheduled-message" }),
+    }));
+    assertEquals((await send()).status, 200);
+    assertEquals(providerAttempts, [0, 0]);
+    assertEquals(db.messages[0].status, "SCHEDULED");
+
+    db.messages[0].scheduled_at = "2020-01-01T00:00:00.000Z";
+    const results = await Promise.all([send(), send()]);
+    assertEquals(results.map((response) => response.status), [200, 200]);
+    assertEquals(providerAttempts, [1, 0]);
+    assertEquals(db.messages[0].status, "SENDING");
+  } finally {
+    globalThis.fetch = fetchBefore;
+  }
+});
+
+Deno.test("send-message denies missing and non-admin caller authorization", async () => {
+  const fetchBefore = globalThis.fetch;
+  try {
+    const { providerAttempts } = fixture(0);
+    for (const [authorization, status] of [[null, 401], ["Bearer synthetic-tutor", 403]] as const) {
+      const response = await sendHandler!(new Request("http://synthetic.invalid/functions/v1/send-message", {
+        method: "POST",
+        headers: authorization ? { Authorization: authorization } : {},
+        body: JSON.stringify({ messageId: "any-message" }),
+      }));
+      assertEquals(response.status, status);
+    }
+    assertEquals(providerAttempts, [0, 0]);
   } finally {
     globalThis.fetch = fetchBefore;
   }

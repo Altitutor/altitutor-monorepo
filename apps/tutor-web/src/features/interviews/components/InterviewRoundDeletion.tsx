@@ -22,6 +22,7 @@ export function InterviewRoundDeletion({ round, open, onOpenChange }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const cancelling = !!round.startedAt && round.phase !== "completed";
   const deletion = useInterviewCommand();
   // This read must never heartbeat: reviewing deletion is not participation.
   // Disable it during the mutation so deleting cannot refetch a now-missing round.
@@ -45,10 +46,10 @@ export function InterviewRoundDeletion({ round, open, onOpenChange }: {
   ];
 
   return <ConfirmAction open={open} onOpenChange={onOpenChange}
-    title="Are you sure you want to delete this round?"
+    title={cancelling ? "Cancel this interview round?" : "Are you sure you want to delete this round?"}
     description={`Remove ${round.name} from interview lists. Its scores, feedback and recordings will no longer be available to participants.`}
     destructive preventClose pending={deletion.isPending} confirmDisabled={!fresh || presentIds.size > 0}
-    confirmLabel={deletion.isPending ? "Deleting…" : "Delete round"} error={deletion.error}
+    confirmLabel={cancelling ? (deletion.isPending ? "Cancelling…" : "Cancel round") : (deletion.isPending ? "Deleting…" : "Delete round")} error={deletion.error}
     onConfirm={() => {
       if (!fresh || !snapshot || presentIds.size || deletion.isPending) return;
       void deletion.mutateAsync({ type: "deleteRound", commandId: randomUuid(), roundId: round.id,
@@ -61,7 +62,7 @@ export function InterviewRoundDeletion({ round, open, onOpenChange }: {
       <InterviewError error={query.error} retry={() => void query.refetch()} />
       {fresh && snapshot && <>
         {presentIds.size > 0 && <div role="status" className="rounded-md bg-amber-500/10 p-3 text-sm">
-          Someone is still in this interview{presentNames.length ? `: ${presentNames.join(", ")}` : ""}. They must leave before it can be deleted.
+          Someone is still in this interview{presentNames.length ? `: ${presentNames.join(", ")}` : ""}. They must leave before you can {cancelling ? "cancel" : "delete"} the round.
         </div>}
         <div className="flex items-center justify-between gap-3 text-sm">
           <p>{saved.length} station assessments with saved work · {snapshot.recordings.length} recordings</p>

@@ -128,22 +128,43 @@ test('Student account actions live in the record menu and command palette', asyn
   await expect(properties.getByText('Has account', { exact: true })).toBeVisible();
   await expect(properties.getByRole('heading', { name: 'Password reset', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Edit details', exact: true })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Send password reset', exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Password reset', exact: true }).first()).toBeVisible();
-  await page.keyboard.press('Escape');
+  const resetDialog = page.getByRole('dialog', { name: 'Password reset', exact: true });
+  await expect(resetDialog).toBeVisible();
+  await resetDialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(resetDialog).toBeHidden();
   await page.getByRole('button', { name: 'Open command palette', exact: true }).click();
   await page.getByRole('searchbox').fill('Send password reset');
   await expect(page.getByRole('option', { name: /Send password reset/ })).toBeVisible();
 });
 
-test('Parent conversations include chips for every linked student', async ({ page }) => {
+test('Parent conversation leads to actions for every linked student', async ({ page }) => {
   await signIn(page);
-  await page.goto('/messages');
-  await page.getByRole('button', { name: /^Context Parent / }).click();
-  const header = page.getByRole('tabpanel', { name: /^Context Parent/ }).locator('[data-pane-toolbar]');
-  await expect(header.getByRole('button', { name: 'Alice Williams', exact: true })).toBeVisible();
-  await expect(header.getByRole('button', { name: 'Bob Taylor', exact: true })).toBeVisible();
+  await page.goto('/messages', { waitUntil: 'domcontentloaded' });
+  const conversation = page.getByRole('button', { name: /^Context Parent / });
+  await expect(conversation).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Messages conversation', exact: true })).toHaveCount(0);
+  expect((await page.locator('[data-pane-toolbar]').boundingBox())!.width).toBeGreaterThan(640);
+  await expect(page).not.toHaveURL(/[?&](contact|group|conversation)=/);
+  await conversation.getByText('Context Parent', { exact: true }).click();
+  const divider = page.getByRole('separator', { name: 'Resize conversation panes' });
+  await expect(divider).toHaveAttribute('aria-valuenow', '320');
+  await divider.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(divider).toHaveAttribute('aria-valuenow', '336');
+  const header = page.locator('[data-admin-page-header]');
+  const parentName = header.getByRole('button', { name: 'Context Parent', exact: true });
+  await parentName.click({ button: 'right' });
+  await expect(page.getByRole('combobox', { name: 'Search menu' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await parentName.click();
+  await expect(page).toHaveURL(/\/parents\/[^/?]+/);
+  await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Go to Alice Williams', exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Go to Bob Taylor', exact: true }).click();
+  await expect(page).toHaveURL(/\/students\/[^/?]+/);
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Bob Taylor');
 });
 
 test('closing onboarding refreshes the Student page without reloading', async ({ page }) => {
@@ -181,12 +202,104 @@ test('individual conversations start with Emails hidden and allow opting in', as
   await expect(emails).toHaveAttribute('aria-checked', 'true');
 });
 
+test('create actions and record menus belong to their pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await signIn(page);
+  await page.goto('/students?pane=' + encodeURIComponent('/tasks?search=Board%20drag%20check%20002'));
+  const students = page.locator('[data-admin-main]');
+  const tasks = page.frameLocator('iframe[data-admin-pane-frame]');
+  const board = tasks.getByRole('region', { name: 'Board', exact: true });
+  await expect(board).toBeVisible({ timeout: 30_000 });
+  const student = students.getByRole('row').filter({ hasText: 'Alice Williams' });
+  const createStudent = students.getByRole('button', { name: 'Create student', exact: true });
+
+  await createStudent.hover();
+  const hint = page.getByRole('tooltip');
+  await expect(hint).toContainText('Create student');
+  await expect(hint).toContainText('C');
+  await page.keyboard.press('c');
+  const localDialog = page.locator('[data-dialog-scope-portal]').getByRole('dialog');
+  await expect(localDialog).toBeVisible();
+  await expect(board).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(localDialog).toBeHidden();
+
+  await student.hover();
+  await page.keyboard.press('m');
+  await expect(page.getByRole('menuitem', { name: 'Copy ID', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  const task = tasks.locator('[data-work-item-card]').filter({ hasText: 'Board drag check 002' });
+  await task.hover();
+  await page.keyboard.press('m');
+  await expect(tasks.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await tasks.getByRole('button', { name: 'Create task', exact: true }).click();
+  const taskDialog = tasks.locator('[data-dialog-scope-portal]').getByRole('dialog', { name: 'Create Task' });
+  await expect(taskDialog).toBeVisible();
+  await expect(createStudent).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(taskDialog).toBeHidden();
+
+  await tasks.getByRole('button', { name: 'Create task', exact: true }).focus();
+  await page.keyboard.press('ControlOrMeta+k');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await expect(palette).toBeVisible();
+  await expect(tasks.getByRole('dialog', { name: 'Command palette' })).toHaveCount(0);
+  await palette.getByRole('searchbox', { name: 'Search commands and entities' }).fill('Create task');
+  await palette.getByRole('option', { name: /Create task/i }).click();
+  const viewportDialog = page.getByRole('dialog', { name: 'Create Task', exact: true });
+  await expect(viewportDialog).toBeVisible();
+  expect(await viewportDialog.evaluate(node => node.closest('[data-dialog-scope-portal]'))).toBeNull();
+  await page.keyboard.press('Escape');
+
+  await page.goto('/tasks?view=list&search=Board%20drag%20check%20002');
+  await page.locator('[data-work-item-row]').filter({ hasText: 'Board drag check 002' }).hover();
+  await page.keyboard.press('m');
+  await expect(page.getByRole('dialog', { name: 'Task preview' }).getByRole('option', { name: 'Open task', exact: true })).toBeVisible();
+});
+
+test('Students and Parents lists scroll through the toolbar and table together', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 360 });
+  await signIn(page);
+  for (const path of ['/parents', '/students?view=list']) {
+    // Park the pointer outside the directory so navigation cannot leave a record preview over the table.
+    await page.mouse.move(1, 1);
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const toolbar = page.getByRole('button', { name: 'Display options', exact: true });
+    const row = page.getByRole('table').first().locator('tbody tr').first();
+    await expect(row).toBeInViewport();
+    await expect(toolbar).toBeVisible();
+    await row.hover({ position: { x: 4, y: 8 } });
+    const before = (await toolbar.boundingBox())!.y;
+    await page.mouse.wheel(0, 300);
+    await expect.poll(async () => (await toolbar.boundingBox())?.y).toBeLessThan(before);
+  }
+});
+
+test('Sessions and Classes calendar grids scroll under the pointer at tablet width', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await signIn(page);
+  for (const [path, label] of [
+    ['/sessions?view=calendar&calendarMode=week', 'Sessions calendar grid'],
+    ['/classes?view=calendar', 'Classes calendar grid'],
+  ]) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    const grid = page.getByRole('region', { name: label, exact: true });
+    await expect(grid).toBeVisible({ timeout: 30000 });
+    await expect.poll(() => grid.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+    await grid.hover({ position: { x: 140, y: 120 } });
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => grid.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  }
+});
+
 test('work-item boards align toolbars, span the page and scroll columns independently', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 900 });
   await signIn(page);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
   // Wait for the page action portal before measuring the header's final height.
-  await expect(page.getByRole('button', { name: 'Add Student', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create student', exact: true })).toBeVisible();
   const toolbarInsets = async () => {
     const button = (await page.getByRole('button', { name: 'Display options', exact: true }).boundingBox())!;
     const main = (await page.locator('[data-admin-main]').boundingBox())!;
@@ -194,10 +307,9 @@ test('work-item boards align toolbars, span the page and scroll columns independ
     return { right: Math.round(main.x + main.width - button.x - button.width), top: Math.round(button.y - header.y - header.height) };
   };
   // Compare page insets, so the shell's width animation cannot skew the reference.
-  const studentsToolbar = { right: 24, top: 26 };
-  await expect.poll(toolbarInsets).toEqual(studentsToolbar);
+  const studentsToolbar = await toolbarInsets();
   for (const path of ['/tasks', '/issues', '/projects']) {
-    await page.locator(`nav a[href="${path}"]`).click();
+    await page.goto(path);
     await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText(path.slice(1).replace(/^./, char => char.toUpperCase()));
     const display = page.getByRole('button', { name: 'Display options', exact: true });
     await expect(display).toBeVisible({ timeout: 30_000 });
@@ -254,9 +366,9 @@ test('date and priority pills share their surface in board and detail views', as
   const priorityStyle = await surface(card.getByRole('button', { name: 'Urgent', exact: true }));
   expect(await surface(card.getByRole('button', { name: 'Date', exact: true }))).toEqual(priorityStyle);
   await card.getByText('Board drag check 001', { exact: true }).click();
-  const detail = page.locator('#admin-accessory-panel');
+  const detail = page.locator('[data-admin-main]');
   await expect(detail.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Board drag check 001');
-  const dueDate = detail.getByRole('button', { name: 'Date', exact: true });
+  const dueDate = detail.getByRole('button', { name: 'Date', exact: true }).first();
   if (!(await dueDate.isVisible())) {
     await detail.getByRole('button', { name: 'Right sidebar', exact: true }).click();
   }
@@ -264,35 +376,35 @@ test('date and priority pills share their surface in board and detail views', as
   await expect(detail.getByRole('button', { name: 'Urgent', exact: true }).first()).toBeVisible();
 });
 
-test('Messages accessory breadcrumb returns to the primary Messages collection', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test('Messages breadcrumb returns to the conversation list in the same pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
   await signIn(page);
-  await page.goto('/messages');
-  await page.getByRole('button', { name: /^Alice Williams / }).click();
-  const panel = page.locator('#admin-accessory-panel');
-  await expect(panel.locator('[data-message-composer-controls]')).toBeVisible();
-  await page.locator('nav a[href="/tasks"]').click();
-  await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Tasks');
-  await panel.getByRole('navigation', { name: 'Breadcrumb', exact: true }).getByRole('button', { name: 'Messages', exact: true }).click();
-  await expect(page).toHaveURL(/\/messages(?:\?|$)/);
-  await expect(page.locator('[data-admin-main]').getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Messages');
-  const toolbar = page.locator('[data-admin-main] [data-pane-toolbar]');
-  await toolbar.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByPlaceholder('Search conversations')).toBeVisible();
+  await page.goto('/tasks?pane=%2Fmessages&activePane=1');
+  const messages = page.frameLocator('iframe[data-admin-pane-frame][title="Messages pane content"]');
+  const header = messages.locator('[data-admin-page-header]');
+  const back = header.getByRole('button', { name: 'Messages', exact: true });
+  if (await back.isVisible()) await back.click();
+  await messages.getByRole('button', { name: /^Alice Williams / }).getByText('Alice Williams', { exact: true }).click();
+  await expect(messages.locator('[data-message-composer-controls]')).toBeVisible();
+  await back.click();
+  await expect(header.getByRole('navigation', { name: 'Breadcrumb' })).toHaveText('Messages');
+  await messages.locator('[data-pane-toolbar]').getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(messages.getByPlaceholder('Search conversations')).toBeVisible();
+  await expect(page).toHaveURL(/\/tasks\?/);
 });
 
-test('Right-hand Messages shows direct correspondence without collection controls', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test('A narrow Messages conversation only shows thread controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
   await signIn(page);
   await page.goto('/messages');
-  await page.getByRole('button', { name: /^Alice Williams / }).click();
-  const panel = page.locator('#admin-accessory-panel');
-  await expect(panel.locator('[data-message-composer-controls]')).toBeVisible();
-  await expect(panel.getByText('Thanks for your help!', { exact: true })).toBeVisible();
-  await expect(panel.getByText('Context parent browser fixture', { exact: true })).toHaveCount(0);
-  await expect(panel.getByLabel('Views', { exact: true })).toHaveCount(0);
-  await expect(panel.getByRole('button', { name: 'Search', exact: true })).toHaveCount(1);
-  await expect(panel.getByRole('button', { name: 'Display options', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Alice Williams / }).click({ modifiers: ['Shift'] });
+  const messages = page.frameLocator('iframe[data-admin-pane-frame][title="Messages pane content"]');
+  await expect(messages.locator('[data-message-composer-controls]')).toBeVisible();
+  await expect(messages.getByText('Thanks for your help!', { exact: true })).toBeVisible();
+  await expect(messages.getByLabel('Views', { exact: true })).toBeHidden();
+  await expect(messages.locator('[data-admin-page-header]')).toHaveCount(1);
+  await expect(messages.getByRole('button', { name: 'Search', exact: true })).toHaveCount(1);
+  await expect(messages.getByRole('button', { name: 'Display options', exact: true })).toBeHidden();
 });
 
 
@@ -382,31 +494,29 @@ test('board outer card edges align with the toolbar at both horizontal ends', as
 });
 
 
-test('the accessory panel offers only individual records and recently closed', async ({ page }) => {
+test('Shift opens a record or a collection in a separate pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
-  await page.goto('/tasks?search=Board%20drag%20check%20001', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'Expand accessory panel', exact: true }).click();
-  const panel = page.locator('#admin-accessory-panel');
-  await expect(panel.getByRole('button', { name: 'Tasks', exact: true })).toHaveCount(0);
-  await expect(panel.getByRole('heading', { name: 'Recently closed', exact: true })).toBeVisible();
-  await panel.getByRole('button', { name: 'Add accessory tab', exact: true }).click();
-  const picker = page.getByRole('dialog');
-  await expect(picker.getByText('Views', { exact: true })).toHaveCount(0);
-  await picker.getByRole('combobox').fill('tasks');
-  await expect(picker.getByRole('option', { name: /^Tasks/ })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Alt+t');
-  await expect(panel.getByRole('tab')).toHaveCount(0);
-  await page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true }).click();
-  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
-  await panel.getByRole('button', { name: 'Close Board drag check 001 tab', exact: true }).click();
-  await expect(panel.getByRole('heading', { name: 'Recently closed', exact: true })).toBeVisible();
-  await panel.getByRole('button', { name: 'Board drag check 001', exact: true }).click();
-  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
+  await page.goto('/tasks?search=Board%20drag%20check%20001');
+  const card = page.getByRole('region', { name: 'Board', exact: true }).getByText('Board drag check 001', { exact: true });
+  await card.click({ modifiers: ['Shift'] });
+  const task = page.frameLocator('iframe[data-admin-pane-frame][title="Tasks pane content"]');
+  await expect(task.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Board drag check 001');
+  await expect(card).toBeVisible();
+  const peer = page.locator('iframe[data-admin-pane-frame]');
+  await page.getByRole('button', { name: 'Close Tasks pane', exact: true }).last().press('Enter');
+  await expect(peer).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Tasks pane', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+g');
+  await page.keyboard.press('Shift+m');
+  const messages = page.frameLocator('iframe[data-admin-pane-frame][title="Messages pane content"]');
+  await expect(messages.getByRole('button', { name: 'Create conversation', exact: true })).toBeVisible();
+  await expect(card).toBeVisible();
 });
 
 
 test('Student presets share every column and clearing filters reveals every relationship', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1050 });
   await signIn(page);
   await page.goto('/students', { waitUntil: 'domcontentloaded' });
   const display = page.getByRole('button', { name: 'Display options', exact: true });
@@ -444,30 +554,24 @@ test('Student presets share every column and clearing filters reveals every rela
 });
 
 
-test('restored accessory state discards collection tabs and collection history', async ({ page }) => {
+test('Workspace URLs restore separate pane routes and the selected pane', async ({ page }) => {
+  await page.setViewportSize({ width: 580, height: 900 });
   await signIn(page);
-  await page.goto('/tasks?search=Board%20drag%20check%20001', { waitUntil: 'domcontentloaded' });
-  await page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true }).click();
-  const panel = page.locator('#admin-accessory-panel');
-  await expect(panel.getByRole('tab', { name: 'Board drag check 001', exact: true })).toBeVisible();
-  await page.evaluate(() => {
-    const key = Object.keys(localStorage).find(key => key.startsWith('admin-accessory-v1:'))!;
-    const saved = JSON.parse(localStorage.getItem(key)!);
-    for (const kind of ['tasks', 'messages', 'email']) {
-      const collection = { key: `legacy-${kind}`, kind, title: `Legacy ${kind}`, query: '' };
-      saved.tabs.push(collection);
-      saved.recentlyClosed.push(collection);
-    }
-    localStorage.setItem(key, JSON.stringify(saved));
-  });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(panel.getByRole('tab', { includeHidden: true })).toHaveCount(1);
-  if (!await panel.isVisible()) await page.getByRole('button', { name: 'Expand accessory panel', exact: true }).click();
-  await panel.getByRole('button', { name: 'Close Board drag check 001 tab', exact: true }).click();
-  for (const kind of ['tasks', 'messages', 'email']) {
-    await expect(panel.getByRole('button', { name: `Legacy ${kind}`, exact: true })).toHaveCount(0);
-  }
-  await expect(panel.getByRole('button', { name: 'Board drag check 001', exact: true })).toBeVisible();
+  const params = new URLSearchParams({ search: 'Board drag check 001' });
+  params.append('pane', '/projects?sort=name');
+  params.append('pane', '/login');
+  params.set('activePane', '1');
+  await page.goto(`/tasks?${params}`);
+  const projects = page.getByRole('tab', { name: 'Projects', exact: true });
+  await expect(projects).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('iframe[data-admin-pane-frame]')).toHaveCount(1);
+  await page.reload();
+  await expect(projects).toHaveAttribute('aria-selected', 'true');
+  const frame = page.frameLocator('iframe[data-admin-pane-frame][title="Projects pane content"]');
+  await expect(frame.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Projects');
+  await projects.press('ArrowLeft');
+  await expect(page.getByRole('tab', { name: 'Tasks', exact: true })).toBeFocused();
+  await expect(page.locator('[data-admin-main]').getByText('Board drag check 001', { exact: true })).toBeVisible();
 });
 
 
@@ -573,4 +677,39 @@ test('Record actions start in-person onboarding for a student with an existing U
   const ucat = await db.from('student_online_product_relationships').select('product').eq('student_id', id).single();
   if (ucat.error) throw ucat.error;
   expect(ucat.data.product).toBe('UCAT_WEB');
+});
+
+test('browser Back and Forward change only the navigated pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1450, height: 900 });
+  await signIn(page);
+  await page.goto('/students?pane=%2Ftasks&activePane=1');
+  const frameSelector = 'iframe[data-admin-pane-frame]';
+  const peer = page.frameLocator(frameSelector);
+  await expect(peer.getByRole('button', { name: 'Create task', exact: true })).toBeVisible();
+
+  await page.evaluate((selector) => {
+    document.querySelector('#workspace-pane-primary')?.setAttribute('data-history-probe', 'primary');
+    document.querySelector(selector)?.setAttribute('data-history-probe', 'peer');
+    window.dispatchEvent(new CustomEvent('admin-pane-request', {
+      cancelable: true,
+      detail: { action: 'navigate', href: '/parents' },
+    }));
+  }, frameSelector);
+
+  const expectPanesPreserved = async () => {
+    await expect(page.locator('#workspace-pane-primary')).toHaveAttribute('data-history-probe', 'primary');
+    await expect(page.locator(frameSelector)).toHaveAttribute('data-history-probe', 'peer');
+    await expect(page).toHaveURL(/\/students(?:\?|$)/);
+  };
+  const parentButton = peer.getByRole('button', { name: 'Create parent', exact: true });
+  await expect(parentButton).toBeVisible();
+  await expectPanesPreserved();
+
+  await page.evaluate(() => window.history.back());
+  await expect(peer.getByRole('button', { name: 'Create task', exact: true })).toBeVisible();
+  await expectPanesPreserved();
+
+  await page.evaluate(() => window.history.forward());
+  await expect(parentButton).toBeVisible();
+  await expectPanesPreserved();
 });

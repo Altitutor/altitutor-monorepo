@@ -23,7 +23,7 @@ test.describe('admin access', () => {
     await expect(page).toHaveURL(/\/dashboard$/, {
       timeout: 30_000,
     });
-    await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Dashboard', {
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Home', {
       timeout: 30_000,
     });
     await page.goto('/dashboard/2026-01-01');

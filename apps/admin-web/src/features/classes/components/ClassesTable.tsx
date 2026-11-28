@@ -480,9 +480,11 @@ export function ClassesTable({
   // Non-virtualized list for stability for now (can re-enable later)
   // parentRef declared above to keep hook order
 
+  const showCalendar = viewMode === "calendar" && renderCalendar;
   return (
-    <div className="space-y-4">
+    <div className={showCalendar ? "flex h-full min-h-0 min-w-0 flex-col gap-4" : "space-y-4"}>
       <DataTableToolbar
+        className={showCalendar ? "shrink-0" : undefined}
         view={toolbarView}
         viewContent={calendarControls}
         state={state}
@@ -503,8 +505,8 @@ export function ClassesTable({
         isLoading={isFetching}
       />
 
-      {viewMode === "calendar" && renderCalendar ? (
-        renderCalendar({
+      {showCalendar ? (
+        showCalendar({
           filters: state.filters,
           search: state.search,
           visibleColumns: state.visibleColumns,
@@ -554,6 +556,10 @@ export function ClassesTable({
                         key={cls.id}
                         data-index={index}
                         className="cursor-pointer hover:bg-muted/50"
+                        data-shortcut-list-item
+                        tabIndex={-1}
+                        data-record-type="class"
+                        data-record-id={cls.id}
                         onClick={() => handleClassClick(cls)}
                       >
                         {state.visibleColumns.includes("day") && (
@@ -602,12 +608,10 @@ export function ClassesTable({
                         {state.visibleColumns.includes("staff") && (
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              {getClassStaff(cls).length === 0 ? (
-                                <span className="text-muted-foreground text-sm">
-                                  No staff
-                                </span>
-                              ) : (
-                                getClassStaff(cls).map((staff, staffIndex) => (
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {getClassStaff(cls).length} staff
+                              </span>
+                              {getClassStaff(cls).map((staff, staffIndex) => (
                                   <EntityActionChip
                                     key={`${cls.id}-${staff.id}-${staffIndex}`}
                                     hoverActions={classStaffReferenceActions(
@@ -619,8 +623,7 @@ export function ClassesTable({
                                       handleStaffClick(staff.id, e)
                                     }
                                    entityType="staff" entityId={staff.id} label={`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff'} />
-                                ))
-                              )}
+                              ))}
                             </div>
                           </TableCell>
                         )}

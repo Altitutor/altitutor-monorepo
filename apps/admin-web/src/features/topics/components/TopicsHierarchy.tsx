@@ -87,6 +87,10 @@ export function TopicNode({
         <button
           type="button"
           onClick={() => onTopicClick?.(topic.id)}
+          data-shortcut-list-item={onTopicClick ? true : undefined}
+          data-record-type="topic"
+          data-record-id={topic.id}
+          data-label={topic.name}
           className="flex-1 text-left hover:underline flex items-center gap-2"
         >
           <span className="font-mono text-sm text-muted-foreground">{topic.code}</span>

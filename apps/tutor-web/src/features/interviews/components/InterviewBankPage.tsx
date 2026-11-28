@@ -29,6 +29,8 @@ import {
   InterviewEditorDialog,
 } from "./InterviewEditorDialog";
 import { InterviewPrintDialog } from "./InterviewPrintDialog";
+import { useInterviewStatistics } from "../hooks/use-interview-statistics";
+import { averageContentScore } from "./InterviewStatistics";
 import { pageRows, sortRows, useInterviewTable } from "./interview-table";
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -38,6 +40,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: "timing", label: "Reading / answer", visibleByDefault: true },
   { key: "points", label: "Total points", visibleByDefault: true },
   { key: "updated", label: "Updated", visibleByDefault: false },
+  { key: "statistics", label: "Average score per student", visibleByDefault: false },
 ];
 
 const sortOptions: DataTableSortOption[] = [
@@ -93,6 +96,7 @@ export function InterviewBankPage() {
 
   const paged = pageRows(interviews, table.state.page, table.state.pageSize);
   const visible = new Set(table.state.visibleColumns);
+  const statistics = useInterviewStatistics(visible.has("statistics") && !!catalog);
   const editing =
     catalog?.interviews.find((interview) => interview.id === editingId) ?? null;
   const dialogInterview = creating ?? editing;
@@ -157,7 +161,12 @@ export function InterviewBankPage() {
                       id: "name",
                       header: "Interview",
                       cell: ({ row }: { row: { original: InterviewTemplate } }) => (
-                        <span className="font-medium">{row.original.name}</span>
+                        <span className="flex flex-wrap items-center gap-2 font-medium">
+                      {row.original.name}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {row.original.publicationStatus === "draft" ? "Draft" : "Published"}
+                      </span>
+                    </span>
                       ),
                     },
                   ]
@@ -202,6 +211,14 @@ export function InterviewBankPage() {
                     },
                   ]
                 : []),
+              ...(visible.has("statistics") ? [{
+                id: "statistics",
+                header: "Average score per student",
+                cell: ({ row }: { row: { original: InterviewTemplate } }) =>
+                  statistics.error || statistics.access.error || statistics.access.data === false
+                    ? "Unavailable" : statistics.isPending ? "Loading…"
+                    : averageContentScore(statistics.data?.attempts ?? [], "interview", row.original.id),
+              }] : []),
               ...(visible.has("updated")
                 ? [
                     {

@@ -186,7 +186,7 @@ export function FolderSearchSelect({
 
         if (isProperties) {
           return (
-            <FormItem className={PROPERTIES_GRID_CLASS}>
+            <FormItem data-work-item-property="folder" className={PROPERTIES_GRID_CLASS}>
               <FormLabel className="text-muted-foreground">Folder</FormLabel>
               <FormControl>{searchableSelect}</FormControl>
               <FormMessage className="col-start-2" />

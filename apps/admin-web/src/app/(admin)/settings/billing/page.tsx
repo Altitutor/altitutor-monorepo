@@ -73,7 +73,8 @@ export default function BillingSettingsPage() {
         actions={activeTab === 'overrides' ? (
           <AdminPageActionButton
             icon={<Plus className="h-4 w-4" />}
-            label="Create Override"
+            createShortcut
+            label="Create override"
             onClick={() => setCreateOverrideClick((prev) => prev + 1)}
           />
         ) : undefined}

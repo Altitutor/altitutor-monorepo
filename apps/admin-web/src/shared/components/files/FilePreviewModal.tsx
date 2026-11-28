@@ -22,6 +22,7 @@ import { RemoteFilePreview, type RemotePreviewFile } from './RemoteFilePreview';
 export interface FilePreviewModalProps {
   source?: RemotePreviewFile;
   isOpen: boolean;
+  showInPaneHistory?: boolean;
   fileId?: string | null;
   /**
    * Junction table ID (e.g., topics_files.id, sessions_files.id, staff_files.id)
@@ -65,7 +66,8 @@ export function FilePreviewModal(props: FilePreviewModalProps) {
 }
 
 function StoredFilePreviewModal({
-  isOpen, 
+  isOpen,
+  showInPaneHistory,
   fileId,
   topicFileId, // Deprecated but kept for backward compatibility
   junctionTableId,
@@ -139,6 +141,7 @@ function StoredFilePreviewModal({
   // Also check metadata for display_name (e.g., from staff_files or sessions_files)
   const displayName = providedDisplayName || (metadata && typeof metadata === 'object' && 'display_name' in metadata && typeof metadata.display_name === 'string' ? metadata.display_name : null);
   const displayTitle = displayName || filename;
+  const title = fileCode && topicName ? `${fileCode} ${topicName}` : displayTitle;
   const fileType = (topicFile && 'type' in topicFile && typeof topicFile.type === 'string' ? topicFile.type : 'NOTES') as Enums<'resource_type'>;
   const Icon = getFileTypeIcon(fileType);
   const isPdf = isPdfFile(file);
@@ -151,11 +154,16 @@ function StoredFilePreviewModal({
 
   return (
     <>
+      {showInPaneHistory && title && (
+        <div data-admin-page-header hidden>
+          <span data-pane-title={title} />
+        </div>
+      )}
       <AdminDialogShell
         fillHeight
         open={isOpen}
         onClose={onClose}
-        title={fileCode && topicName ? `${fileCode} ${topicName}` : (displayTitle || 'File Preview')}
+        title={title || 'File Preview'}
         subtitle={<span className="truncate" title={filename}>{filename}</span>}
         contentClassName="md:max-w-4xl"
         bodyClassName="p-0 min-h-0 flex-1 overflow-hidden flex flex-col"

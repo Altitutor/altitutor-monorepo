@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { CollectionField } from '@altitutor/ui';
+import { CollectionField, entityReferenceDragProps } from '@altitutor/ui';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils/index';
 import type { TaskWithAssignee } from '../types';
@@ -27,6 +27,9 @@ export const TaskCard = memo(function TaskCard({
   return (
     <div
       data-work-item-card
+      data-record-type="task"
+      data-record-id={task.id}
+      {...entityReferenceDragProps({ id: task.id, type: 'task', label: task.title || 'Untitled task' })}
       onClick={() => onOpen?.(task.id)}
       className={cn(
         'group rounded-lg border bg-card p-3 cursor-pointer transition-all',
