@@ -1512,7 +1512,11 @@ export function InterviewWorkspace({ id }: { id: string }) {
   const canStartOnline = round?.progress.some((item) => item.studentId) && missingStudentCount === 0;
   useEffect(() => {
     if (!round || !readyToStart || !browserOnline || query.heartbeatFailed ||
-      actionPending || command.isPending || (round.delivery === "online" && !canStartOnline)) return;
+      (round.delivery === "online" && !canStartOnline)) {
+      autoStartAttempt.current = null;
+      return;
+    }
+    if (actionPending || command.isPending) return;
     // Let the first connected station tutor request the existing guarded transition.
     const leader = round.progress.find(
       (item) => item.tutorId === query.actorId || round.connectedTutorIds?.includes(item.tutorId),

@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "@/shared/lib/supabase/auth";
+import { useInterviewAccess } from "./use-interview-access";
 
 export interface InterviewScoredAttempt {
   roundId: string;
@@ -11,7 +13,7 @@ export interface InterviewScoredAttempt {
   studentName: string;
   tutorId: string;
   tutorName: string;
-  score: number;
+  score: number | null;
   maximum: number;
   mockScore: number | null;
   mockMaximum: number | null;
@@ -31,10 +33,12 @@ interface InterviewStatistics {
 }
 
 export function useInterviewStatistics(enabled = true) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const access = useInterviewAccess();
   return useQuery({
-    queryKey: ["interviews", "statistics"],
-    enabled,
-    staleTime: 60_000,
+    queryKey: ["interviews", "statistics", userId],
+    enabled: enabled && !!userId && access.data === true,
+    staleTime: 0,
     queryFn: async (): Promise<InterviewStatistics> => {
       const response = await fetch("/api/interviews/statistics", { cache: "no-store" });
       if (!response.ok) throw new Error("Unable to load interview statistics.");

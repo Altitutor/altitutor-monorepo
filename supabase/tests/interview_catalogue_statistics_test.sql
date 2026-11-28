@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(6);
+SELECT plan(8);
 
 UPDATE public.classes SET subject_id=(SELECT id FROM public.subjects WHERE name='Medicine Interview')
 WHERE id='20000000-0000-0000-0000-000000000001';
@@ -61,6 +61,20 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000011","role":"authenticated"}',true);
 SELECT is((SELECT count(*) FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'attempts') attempt
   WHERE attempt->>'roundId'='51051000-0000-4000-8000-000000000004'),0::bigint,'withdrawn results are excluded');
+RESET ROLE;
+
+UPDATE public.interview_rounds SET data=jsonb_set(data,'{attempts}',
+  '[{"studentId":"10000000-0000-0000-0000-000000000001","stationId":"51051000-0000-4000-8000-000000000003","score":3}]')
+WHERE id='51051000-0000-4000-8000-000000000004';
+INSERT INTO public.interview_performance_reviews(id,author_id,student_id,review_date)
+VALUES ('51051000-0000-4000-8000-000000000005','00000000-0000-0000-0000-000000000011',
+  '10000000-0000-0000-0000-000000000001',current_date);
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000011","role":"authenticated"}',true);
+SELECT is((SELECT attempt->>'mockScore' FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'attempts') attempt
+  WHERE attempt->>'roundId'='51051000-0000-4000-8000-000000000004'), '3', 'tutor statistics include corrected marks before student release');
+SELECT cmp_ok((SELECT (tutor->>'reviews')::integer FROM public.vtutor_interview_statistics, LATERAL jsonb_array_elements(data->'tutors') tutor
+  WHERE tutor->>'id'='00000000-0000-0000-0000-000000000011'), '>=', 1, 'the tutor count includes a draft performance review');
 RESET ROLE;
 
 SELECT * FROM finish();

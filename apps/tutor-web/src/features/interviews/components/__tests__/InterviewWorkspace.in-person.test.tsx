@@ -694,6 +694,31 @@ describe("in-person interview round", () => {
     );
   });
 
+  it("retries automatic reading when a student reconnects at the same round version", async () => {
+    const round = roundFixture("online");
+    currentRound = {
+      ...round,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: round.progress.map((item) => ({ ...item, ready: true })),
+      connectedStudentIds: ["student-1"],
+    };
+    mockMutateAsync.mockImplementationOnce(async () => {
+      currentRound = { ...currentRound, connectedStudentIds: [] };
+      throw new Error("The student disconnected.");
+    });
+    const view = render(<InterviewWorkspace id="round-1" />);
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    view.rerender(<InterviewWorkspace id="round-1" />);
+    currentRound = { ...currentRound, connectedStudentIds: ["student-1"] };
+    await act(async () => view.rerender(<InterviewWorkspace id="round-1" />));
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    expect(mockMutateAsync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "startReading", expectedVersion: round.version }),
+    );
+  });
+
   it("makes a paused round obvious and offers resume", () => {
     currentRound = {
       ...roundFixture("in_person"),

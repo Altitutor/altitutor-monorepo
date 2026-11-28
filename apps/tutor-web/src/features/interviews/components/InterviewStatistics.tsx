@@ -17,7 +17,7 @@ function average(values: number[]) {
 }
 
 function averageAttemptScore(attempts: InterviewScoredAttempt[]) {
-  return average(attempts.map(({ score, maximum }) => 100 * score / maximum));
+  return average(attempts.flatMap(({ score, maximum }) => score === null || maximum <= 0 ? [] : [100 * score / maximum]));
 }
 
 function averageMockScore(attempts: InterviewScoredAttempt[]) {
@@ -59,7 +59,7 @@ function InterviewScoredStudents({ attempts }: { attempts: InterviewScoredAttemp
     rows.set(key, encounters);
   }
 
-  if (!rows.size) return <p className="text-sm text-muted-foreground">There are no released scores yet.</p>;
+  if (!rows.size) return <p className="text-sm text-muted-foreground">There are no completed encounters yet.</p>;
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -68,7 +68,7 @@ function InterviewScoredStudents({ attempts }: { attempts: InterviewScoredAttemp
           <tr>
             <th scope="col" className="p-3">Student</th>
             <th scope="col" className="p-3">Assigned tutor</th>
-            <th scope="col" className="p-3 text-right">Scored encounters</th>
+            <th scope="col" className="p-3 text-right">Completed encounters</th>
             <th scope="col" className="p-3 text-right">Average station score</th>
           </tr>
         </thead>
@@ -102,10 +102,10 @@ export function InterviewContentStatistics({ kind, id }: { kind: "station" | "in
 
 const columns: DataTableColumnDefinition[] = [
   { key: "name", label: "Tutor", visibleByDefault: true },
-  { key: "interviews", label: "Interviews scored", visibleByDefault: true },
+  { key: "interviews", label: "Completed interviews", visibleByDefault: true },
   { key: "averageMock", label: "Average mock score", visibleByDefault: true },
   { key: "averageStation", label: "Average station score", visibleByDefault: true },
-  { key: "reviews", label: "Published performance reviews", visibleByDefault: true },
+  { key: "reviews", label: "Performance reviews", visibleByDefault: true },
   { key: "sessions", label: "Sessions attended", visibleByDefault: true },
 ];
 const keys = columns.map(({ key }) => key);

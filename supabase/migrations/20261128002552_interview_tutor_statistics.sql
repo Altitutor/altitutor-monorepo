@@ -1,4 +1,4 @@
--- Analytics use released assessments and the station assignment frozen for the round.
+-- Tutor analytics use completed encounters and the station assignment frozen for the round.
 CREATE VIEW public.vtutor_interview_statistics WITH (security_barrier = true, security_invoker = false) AS
 WITH caller AS MATERIALIZED (
   SELECT (SELECT public.interview_tutor_id((SELECT auth.uid()))) AS id
@@ -7,35 +7,43 @@ WITH caller AS MATERIALIZED (
   FROM caller
   JOIN public.staff st ON public.interview_tutor_id(st.user_id) = st.id
   WHERE caller.id IS NOT NULL
-), released AS (
-  SELECT DISTINCT ON (r.id, rr.student_id) r.id AS round_id, r.interview_id, r.data,
-    rr.student_id, rr.snapshot, concat_ws(' ', student.first_name, student.last_name) AS student_name
+), completed_mocks AS (
+  SELECT r.id AS round_id, r.interview_id, r.data, student.id AS student_id,
+    concat_ws(' ', student.first_name, student.last_name) AS student_name, released.snapshot
   FROM caller
   JOIN public.interview_rounds r ON r.data->>'phase' = 'completed' AND r.data->>'deletedAt' IS NULL
-  JOIN public.interview_result_releases rr ON rr.round_id = r.id
-  JOIN public.students student ON student.id = rr.student_id
+  CROSS JOIN LATERAL unnest(r.student_ids) member(student_id)
+  JOIN public.students student ON student.id = member.student_id
+  LEFT JOIN LATERAL (
+    SELECT rr.snapshot FROM public.interview_result_releases rr
+    WHERE rr.round_id = r.id AND rr.student_id = student.id
+      AND rr.revision > coalesce((r.data->'withdrawnResultRevisions'->>student.id::text)::integer, 0)
+    ORDER BY rr.revision DESC LIMIT 1
+  ) released ON true
   WHERE caller.id IS NOT NULL AND public.interview_student_has_access(student.id)
-    AND rr.revision > coalesce((r.data->'withdrawnResultRevisions'->>student.id::text)::integer, 0)
-  ORDER BY r.id, rr.student_id, rr.revision DESC
-), attempts AS (
-  SELECT released.round_id, released.interview_id, released.student_id, released.student_name,
+), encounters AS (
+  SELECT mock.round_id, mock.interview_id, mock.student_id, mock.student_name,
     station.value->>'stationId' AS bank_station_id, station.value->>'name' AS station_name,
     staff.id AS tutor_id, concat_ws(' ', staff.first_name, staff.last_name) AS tutor_name,
     (mark.value->>'score')::numeric AS score, (station.value->>'maximumPoints')::numeric AS maximum,
-    (released.snapshot->>'score')::numeric AS mock_score, (released.snapshot->>'possiblePoints')::numeric AS mock_maximum
-  FROM released
-  CROSS JOIN LATERAL jsonb_array_elements(released.snapshot->'attempts') mark
-  JOIN LATERAL jsonb_array_elements(released.data->'stations') station ON station.value->>'id' = mark.value->>'stationId'
-  JOIN LATERAL jsonb_array_elements(released.data->'assignments') assignment ON assignment.value->>'stationId' = mark.value->>'stationId'
+    (mock.snapshot->>'score')::numeric AS published_score, (mock.snapshot->>'possiblePoints')::numeric AS published_maximum
+  FROM completed_mocks mock
+  CROSS JOIN LATERAL jsonb_array_elements(coalesce(mock.snapshot->'attempts', mock.data->'attempts')) mark
+  JOIN LATERAL jsonb_array_elements(mock.data->'stations') station ON station.value->>'id' = mark.value->>'stationId'
+  JOIN LATERAL jsonb_array_elements(mock.data->'assignments') assignment ON assignment.value->>'stationId' = mark.value->>'stationId'
   JOIN public.staff staff ON staff.id::text = assignment.value->>'tutorId'
-  WHERE mark.value->>'studentId'=released.student_id::text
-    AND mark.value->>'notAssessedReason' IS NULL AND jsonb_typeof(mark.value->'score')='number'
+  WHERE mark.value->>'studentId'=mock.student_id::text AND mark.value->>'notAssessedReason' IS NULL
     AND (station.value->>'maximumPoints')::numeric > 0
+), attempts AS (
+  SELECT encounters.*,
+    coalesce(published_score, sum(score) OVER mock_attempts) AS mock_score,
+    coalesce(published_maximum, sum(maximum) FILTER (WHERE score IS NOT NULL) OVER mock_attempts) AS mock_maximum
+  FROM encounters
+  WINDOW mock_attempts AS (PARTITION BY round_id, student_id)
 ), tutor_attribution AS (
   SELECT tutor.id, tutor.name,
     (SELECT count(DISTINCT attempt.round_id) FROM attempts attempt WHERE attempt.tutor_id=tutor.id) AS interviews,
-    (SELECT count(*) FROM public.interview_performance_reviews review WHERE review.author_id=tutor.id
-      AND EXISTS (SELECT 1 FROM public.interview_performance_review_releases published WHERE published.review_id=review.id)) AS reviews,
+    (SELECT count(*) FROM public.interview_performance_reviews review WHERE review.author_id=tutor.id) AS reviews,
     (SELECT count(DISTINCT se.id)
       FROM public.tutor_logs_staff_attendance attendance
       JOIN public.tutor_logs log ON log.id=attendance.tutor_log_id

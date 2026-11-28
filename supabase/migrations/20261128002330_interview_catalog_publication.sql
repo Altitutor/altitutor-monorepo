@@ -31,14 +31,19 @@ BEGIN
   previous := $old$PERFORM public.interview_validate_template(item); ver:=coalesce(t.version,0)+1;$old$;
   IF strpos(definition,previous)=0 THEN RAISE EXCEPTION 'Unrecognized template write'; END IF;
   definition:=replace(definition,previous,$new$PERFORM public.interview_validate_template(item);
-  IF item->>'publicationStatus'='published' AND (
+  item:=item || jsonb_build_object('publicationStatus',coalesce(item->>'publicationStatus',t.data->>'publicationStatus','published'));
+  IF item->>'publicationStatus'='published'
+     AND (t.id IS NULL OR coalesce(t.data->>'publicationStatus','published')='draft'
+       OR item->'stations' IS DISTINCT FROM t.data->'stations') AND (
     jsonb_array_length(item->'stations')=0 OR EXISTS (
       SELECT 1 FROM jsonb_array_elements(item->'stations') placement
       JOIN public.interview_stations station ON station.id=(placement->>'stationId')::uuid
-      WHERE station.publication_status<>'published' OR station.archived
+      WHERE station.publication_status<>'published' OR (station.archived AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(coalesce(t.data->'stations','[]')) existing
+        WHERE existing->>'stationId'=station.id::text
+      ))
     )
   ) THEN RAISE EXCEPTION 'Publish every station before publishing the interview' USING ERRCODE='22023'; END IF;
-  item:=item || jsonb_build_object('publicationStatus',coalesce(item->>'publicationStatus',t.data->>'publicationStatus','published'));
   ver:=coalesce(t.version,0)+1;$new$);
   EXECUTE definition;
 
