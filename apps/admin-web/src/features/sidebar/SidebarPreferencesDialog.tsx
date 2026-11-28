@@ -65,7 +65,7 @@ export function SidebarPreferencesDialog({ preferences, saving, onSave, onClose 
 
   return (
     <AdminDialogShell
-      open title="Customise sidebar" onClose={onClose} closeDisabled={saving}
+      open title="Customise sidebar" subtitle="Drag pages to reorder them, and choose which ones appear." onClose={onClose} closeDisabled={saving}
       bodyClassName="max-h-[65vh] overflow-y-auto"
       footer={<div className="flex w-full justify-between gap-2">
         <Button type="button" variant="ghost" disabled={saving} onClick={() => setDraft(defaultSidebarPreferences)}>Reset to default</Button>
