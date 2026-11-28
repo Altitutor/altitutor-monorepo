@@ -78,6 +78,7 @@ jest.mock("../../hooks/use-interviews", () => ({
     isPending: false,
     error: null,
     mutateAsync: mockMutateAsync,
+    reset: jest.fn(),
   }),
 }));
 
@@ -542,15 +543,11 @@ describe("in-person interview round", () => {
     ).toContain("bg-blue-600");
 
     expect(screen.getAllByText("Tutor").length).toBeGreaterThan(1);
-    expect(
-      screen.getAllByRole("button", { name: "Tutor 1" }).length,
-    ).toBeGreaterThan(1);
-    expect(
-      screen.getAllByRole("button", { name: "Sam Student" }).length,
-    ).toBeGreaterThan(1);
-    expect(screen.getAllByLabelText("Student locked").length).toBeGreaterThan(
-      1,
-    );
+    const stationList = within(screen.getByLabelText("Stations"));
+    expect(stationList.getByRole("button", { name: "Tutor 1" })).toBeInTheDocument();
+    expect(stationList.getByRole("button", { name: "Sam Student" })).toBeInTheDocument();
+    expect(stationList.getByRole("button", { name: "End my station early" })).toBeInTheDocument();
+    expect(stationList.getByLabelText("Student locked")).toBeInTheDocument();
     expect(screen.getAllByLabelText("Here now").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Not yet").length).toBeGreaterThan(0);
     expect(screen.getByText("Reading started by Tutor 1")).toBeInTheDocument();
@@ -669,17 +666,72 @@ describe("in-person interview round", () => {
       })),
     };
     mockMutateAsync.mockClear();
-    render(<InterviewWorkspace id="round-1" />);
-    const startReading = screen.getByRole("button", {
-      name: "Start reading",
-    });
-    expect(startReading).not.toBeDisabled();
-    await act(async () => {
-      fireEvent.click(startReading);
-    });
+    await act(async () => { render(<InterviewWorkspace id="round-1" />); });
+    expect(screen.queryByRole("button", { name: "Start reading" })).not.toBeInTheDocument();
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ type: "startReading" }),
     );
+  });
+
+  it("waits for the missing online student, then starts reading when they connect", async () => {
+    const round = roundFixture("online");
+    currentRound = {
+      ...round,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: round.progress.map((item) => ({ ...item, ready: true })),
+      connectedStudentIds: [],
+    };
+    const { rerender } = render(<InterviewWorkspace id="round-1" />);
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue with missing students" })).toBeInTheDocument();
+    currentRound = { ...currentRound, connectedStudentIds: ["student-1"] };
+    await act(async () => { rerender(<InterviewWorkspace id="round-1" />); });
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "startReading" }),
+    );
+  });
+
+  it("retries automatic reading when a student reconnects at the same round version", async () => {
+    const round = roundFixture("online");
+    currentRound = {
+      ...round,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: round.progress.map((item) => ({ ...item, ready: true })),
+      connectedStudentIds: ["student-1"],
+    };
+    mockMutateAsync.mockImplementationOnce(async () => {
+      currentRound = { ...currentRound, connectedStudentIds: [] };
+      throw new Error("The student disconnected.");
+    });
+    const view = render(<InterviewWorkspace id="round-1" />);
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    view.rerender(<InterviewWorkspace id="round-1" />);
+    currentRound = { ...currentRound, connectedStudentIds: ["student-1"] };
+    await act(async () => view.rerender(<InterviewWorkspace id="round-1" />));
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    expect(mockMutateAsync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "startReading", expectedVersion: round.version }),
+    );
+  });
+
+  it("retries a presence rejection once if the student already reconnected before refresh", async () => {
+    const round = roundFixture("online");
+    currentRound = {
+      ...round,
+      phase: "waiting",
+      phaseDeadline: null,
+      progress: round.progress.map((item) => ({ ...item, ready: true })),
+      connectedStudentIds: ["student-1"],
+    };
+    mockMutateAsync.mockRejectedValue(new Error("Students are disconnected; explicit override required"));
+    await act(async () => { render(<InterviewWorkspace id="round-1" />); });
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
   });
 
   it("makes a paused round obvious and offers resume", () => {
@@ -889,8 +941,8 @@ describe("in-person interview round", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start round" }));
     expect(mockToast).toHaveBeenCalledWith({ description: "Wait until every tutor has joined." });
     expect(screen.getByText("Tutor 1 · You")).toBeInTheDocument();
-    expect(screen.getAllByText("Not joined").length).toBeGreaterThan(0);
-    expect(screen.getByText("Joined")).toBeInTheDocument();
+    expect(screen.getAllByText("Not in portal").length).toBeGreaterThan(0);
+    expect(screen.getByText("In portal")).toBeInTheDocument();
     expect(screen.getByText("In person")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Join links" }),

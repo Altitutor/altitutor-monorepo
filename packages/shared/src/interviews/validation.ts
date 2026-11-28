@@ -44,6 +44,7 @@ function bankStation(v: unknown): boolean {
     rich(v.prompt) &&
     number(v.maximumPoints, 0.01, 1000) &&
     typeof v.archived === "boolean" &&
+    (v.publicationStatus === undefined || v.publicationStatus === "draft" || v.publicationStatus === "published") &&
     array(
       v.questions,
       (q) =>
@@ -133,6 +134,7 @@ export function isInterviewCommand(value: unknown): value is InterviewCommand {
         Number.isInteger(i.questionTimeSeconds) &&
         typeof i.recordingEnabled === "boolean" &&
         typeof i.archived === "boolean" &&
+        (i.publicationStatus === undefined || i.publicationStatus === "draft" || i.publicationStatus === "published") &&
         array(i.stations, station, 6)
       );
     }

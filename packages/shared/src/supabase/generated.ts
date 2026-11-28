@@ -6306,6 +6306,7 @@ export type Database = {
           maximum_points: number
           name: string
           prompt: Json
+          publication_status: string
           updated_at: string
           version: number
         }
@@ -6316,6 +6317,7 @@ export type Database = {
           maximum_points?: number
           name: string
           prompt: Json
+          publication_status?: string
           updated_at?: string
           version?: number
         }
@@ -6326,6 +6328,7 @@ export type Database = {
           maximum_points?: number
           name?: string
           prompt?: Json
+          publication_status?: string
           updated_at?: string
           version?: number
         }
@@ -37952,6 +37955,12 @@ export type Database = {
         Row: {
           data: Json | null
           id: string | null
+        }
+        Relationships: []
+      }
+      vtutor_interview_statistics: {
+        Row: {
+          data: Json | null
         }
         Relationships: []
       }
