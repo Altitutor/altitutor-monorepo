@@ -27,6 +27,7 @@ export class DailyInterviewProvider {
     path: string,
     method = "GET",
     body?: unknown,
+    timeoutMs = 10_000,
   ): Promise<Record<string, unknown>> {
     const response = await this.fetcher(`https://api.daily.co/v1${path}`, {
       method,
@@ -36,7 +37,7 @@ export class DailyInterviewProvider {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) throw new DailyProviderError(response.status);
     if (response.status === 204) return {};
@@ -96,12 +97,28 @@ export class DailyInterviewProvider {
     return string(result.token);
   }
   async closeRoom(room: string): Promise<void> {
-    // Deletion both denies future joins and ejects connected participants.
+    const deleteRoom = async () => {
+      try {
+        // Deletion denies old credentials and ejects connected participants.
+        await this.request(`/rooms/${encodeURIComponent(room)}`, "DELETE", undefined, 4_000);
+      } catch (error) {
+        if (!(error instanceof DailyProviderError) || error.status !== 404)
+          throw error;
+      }
+    };
+
     try {
-      await this.request(`/rooms/${encodeURIComponent(room)}`, "DELETE");
+      await deleteRoom();
     } catch (error) {
-      if (!(error instanceof DailyProviderError) || error.status !== 404)
-        throw error;
+      const transient = error instanceof DailyProviderError
+        ? error.status >= 500 && error.status <= 599
+        : error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
+      if (!transient) throw error;
+
+      // Retry an idempotent retirement once within the current request. A
+      // repeated failure still uses the worker's durable backoff.
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
+      await deleteRoom();
     }
   }
   async recordings(
