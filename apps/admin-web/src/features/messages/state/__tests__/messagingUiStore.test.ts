@@ -1,4 +1,5 @@
-import { getMessagingDraftKey, useMessagingUiStore } from '../messagingUiStore';
+import { renderHook } from '@testing-library/react';
+import { getMessagingDraftKey, useMessagingUiStore, usePersistedConversationDraft } from '../messagingUiStore';
 
 describe('getMessagingDraftKey', () => {
   it('keys contact drafts by contact id', () => {
@@ -34,4 +35,16 @@ describe('messaging list filters', () => {
     expect(filters.dropdown).toEqual({ listFilter: 'unread', ownedNumberFilter: 'num-1' });
     expect(filters.page).toEqual({ listFilter: 'unreplied', ownedNumberFilter: null });
   });
+});
+
+test('restores the persisted draft when the composer mounts without the messages dropdown', () => {
+  sessionStorage.setItem('admin-messaging-ui', JSON.stringify({
+    state: { drafts: { 'contact:fixture': 'Restored text' } },
+    version: 0,
+  }));
+
+  const { result } = renderHook(() => usePersistedConversationDraft('contact:fixture'));
+
+  expect(result.current.draft).toBe('Restored text');
+  useMessagingUiStore.persist.clearStorage();
 });
