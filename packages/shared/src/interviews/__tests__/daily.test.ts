@@ -25,7 +25,7 @@ describe("Daily interview adapter", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
-  it("retries a timed-out delete, but does not retry request cancellation", async () => {
+  it("retries a timed-out delete and returns the result of the second attempt", async () => {
     const request = jest.fn()
       .mockRejectedValueOnce(new DOMException("Timed out", "TimeoutError"))
       .mockRejectedValueOnce(new DOMException("Cancelled", "AbortError"));
@@ -34,10 +34,45 @@ describe("Daily interview adapter", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the ordinary timeout for a slow successful close", async () => {
+    jest.useFakeTimers();
+    const timeout = jest.spyOn(AbortSignal, "timeout");
+    try {
+      const request = jest.fn(() => new Promise<Response>((resolve) => {
+        setTimeout(() => resolve(new Response(null, { status: 204 })), 5_000);
+      }));
+      const closing = new DailyInterviewProvider("test", request).closeRoom("phase-room");
+      await jest.advanceTimersByTimeAsync(5_000);
+      await expect(closing).resolves.toBeUndefined();
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      timeout.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not retry a cancelled first attempt", async () => {
+    const request = jest.fn().mockRejectedValue(new DOMException("Cancelled", "AbortError"));
+    await expect(new DailyInterviewProvider("test", request).closeRoom("phase-room"))
+      .rejects.toMatchObject({ name: "AbortError" });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it.each([400, 401, 403, 429])("does not immediately retry a provider %i response", async (status) => {
     const request = jest.fn().mockResolvedValue(new Response(null, { status }));
     await expect(new DailyInterviewProvider("test", request).closeRoom("phase-room"))
       .rejects.toMatchObject({ status });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a provider-requested delay to the durable worker", async () => {
+    const request = jest.fn().mockResolvedValue(new Response(null, {
+      status: 503,
+      headers: { "Retry-After": "60" },
+    }));
+    await expect(new DailyInterviewProvider("test", request).closeRoom("phase-room"))
+      .rejects.toMatchObject({ status: 503 });
     expect(request).toHaveBeenCalledTimes(1);
   });
 

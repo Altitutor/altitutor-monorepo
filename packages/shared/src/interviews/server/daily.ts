@@ -1,6 +1,6 @@
 /** Server-only Daily adapter. Keep API credentials out of public environment variables. */
 export class DailyProviderError extends Error {
-  constructor(readonly status: number) {
+  constructor(readonly status: number, readonly retryAfter: string | null = null) {
     super(`Interview media provider request failed (${status}).`);
   }
 }
@@ -16,6 +16,8 @@ function string(value: unknown): string {
   return value;
 }
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
 export class DailyInterviewProvider {
   constructor(
     private readonly apiKey: string,
@@ -27,7 +29,7 @@ export class DailyInterviewProvider {
     path: string,
     method = "GET",
     body?: unknown,
-    timeoutMs = 10_000,
+    timeoutMs = REQUEST_TIMEOUT_MS,
   ): Promise<Record<string, unknown>> {
     const response = await this.fetcher(`https://api.daily.co/v1${path}`, {
       method,
@@ -39,7 +41,7 @@ export class DailyInterviewProvider {
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!response.ok) throw new DailyProviderError(response.status);
+    if (!response.ok) throw new DailyProviderError(response.status, response.headers.get("retry-after"));
     if (response.status === 204) return {};
     return object(await response.json());
   }
@@ -97,10 +99,11 @@ export class DailyInterviewProvider {
     return string(result.token);
   }
   async closeRoom(room: string): Promise<void> {
-    const deleteRoom = async () => {
+    const deadline = performance.now() + 14_500;
+    const deleteRoom = async (timeoutMs: number) => {
       try {
         // Deletion denies old credentials and ejects connected participants.
-        await this.request(`/rooms/${encodeURIComponent(room)}`, "DELETE", undefined, 4_000);
+        await this.request(`/rooms/${encodeURIComponent(room)}`, "DELETE", undefined, timeoutMs);
       } catch (error) {
         if (!(error instanceof DailyProviderError) || error.status !== 404)
           throw error;
@@ -108,17 +111,19 @@ export class DailyInterviewProvider {
     };
 
     try {
-      await deleteRoom();
+      await deleteRoom(REQUEST_TIMEOUT_MS);
     } catch (error) {
       const transient = error instanceof DailyProviderError
-        ? error.status >= 500 && error.status <= 599
+        ? error.status >= 500 && error.status <= 599 && !error.retryAfter
         : error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
       if (!transient) throw error;
 
       // Retry an idempotent retirement once within the current request. A
       // repeated failure still uses the worker's durable backoff.
       await new Promise<void>((resolve) => setTimeout(resolve, 500));
-      await deleteRoom();
+      const remaining = Math.floor(deadline - performance.now());
+      if (remaining <= 0) throw error;
+      await deleteRoom(Math.min(REQUEST_TIMEOUT_MS, remaining));
     }
   }
   async recordings(
