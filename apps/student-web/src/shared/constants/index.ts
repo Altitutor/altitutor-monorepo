@@ -1,3 +1,4 @@
+import { OFFICE_ADDRESS } from "@altitutor/email/company-address";
 // App metadata
 export const APP_NAME = 'AltiTutor Admin';
 export const APP_DESCRIPTION = 'A comprehensive CRM system for Altitutor\'s administrative staff';
@@ -29,7 +30,7 @@ export const DATE_TIME_FORMAT = 'dd MMM yyyy HH:mm';
 export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme';
 
 // Venue information
-export const VENUE_ADDRESS = 'Level 1 / 17A Solomon St, Adelaide SA 5000, Australia';
+export const VENUE_ADDRESS = `${OFFICE_ADDRESS}, Australia`;
 export const VENUE_COORDINATES = {
   lat: -34.924080,
   lng: 138.596008,
@@ -43,4 +44,4 @@ export const CONTACT_NO_SLOTS_MESSAGE =
 export const SUBSIDY_INFO_URL = 'https://altitutor.com/about/subsidy/';
 
 // Student welcome modal content
-export const STUDENT_WELCOME_ADDRESS = 'Level 1, 17A Solomon St, Adelaide SA 5000';
+export const STUDENT_WELCOME_ADDRESS = OFFICE_ADDRESS;

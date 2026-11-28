@@ -48,6 +48,7 @@ export function StudentCard({
 
   return (
     <div
+      data-shortcut-record={Boolean(hasMenuActions) || undefined}
       className={cn(
         'group relative flex items-start gap-3 rounded-lg border p-3 transition-all outline-none',
         !isSelected && 'bg-card',
@@ -91,6 +92,7 @@ export function StudentCard({
                   variant="outline"
                   size="icon" 
                   className="h-8 w-8 flex-shrink-0"
+                  data-shortcut-menu aria-keyshortcuts="M" aria-label="Student actions"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-4 w-4" />

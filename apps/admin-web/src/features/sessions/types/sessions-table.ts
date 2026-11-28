@@ -25,7 +25,7 @@ export type SessionTableStudent = Tables<'students'> & {
   rescheduled_session?: {
     session?: {
       id: string;
-      start_at?: string;
+      start_at?: string | null;
       class?: {
         start_time?: string | null;
       } | null;

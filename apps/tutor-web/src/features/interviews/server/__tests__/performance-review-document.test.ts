@@ -1,4 +1,4 @@
-import { isInterviewReviewDocument } from "../performance-review-document";
+import { isInterviewReviewDocument } from "@altitutor/shared";
 
 describe("interview performance review documents", () => {
   it("accepts headings and links in the review editor format", () => {

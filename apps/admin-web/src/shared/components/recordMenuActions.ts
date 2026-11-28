@@ -17,6 +17,7 @@ import {
   UserX,
   type LucideIcon,
 } from "lucide-react";
+import { openEntityReference } from "@/shared/utils/entityReference";
 import type { ActionsMenuProps } from "./ActionsMenu";
 import { SESSION_QUICK_ACTIONS } from "@/shared/constants/quickActions";
 
@@ -81,8 +82,8 @@ export function recordMenuActions(
       disabled: common.bulkMessageDisabled,
     });
   }
-  add("add-task", "Add task", Plus, common.addTask, { primaryOnly: true });
-  add("add-issue", "Add issue", Plus, common.addIssue, { primaryOnly: true });
+  add("add-task", "Create task", Plus, common.addTask, { primaryOnly: true });
+  add("add-issue", "Create issue", Plus, common.addIssue, { primaryOnly: true });
   switch (props.type) {
     case "student":
       add("edit", "Edit details", Pencil, props.onEditDetails);
@@ -152,6 +153,10 @@ export function recordMenuActions(
       });
       break;
     case "parent":
+      for (const student of props.students ?? []) {
+        add(`go-to-student-${student.id}`, `Go to ${student.name || "student"}`, ExternalLink,
+          () => openEntityReference("student", student.id));
+      }
       add("edit", "Edit details", Pencil, props.onEditDetails);
       add("check-in", "Book check in", ClipboardCheck, props.onBookCheckIn, {
         group: "Book meeting",

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { EnquiryAction } from "@/features/onboarding/components/EnquiryAction";
 import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget, KeyboardShortcut } from "@altitutor/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, EntityChipIcon, SearchableSelect, keyboardPane, keyboardPointerTarget } from "@altitutor/ui";
 import { useRegisterRecordActions } from "@/features/command-palette/RecordActionsContext";
 import { useEmailCommand } from "../api/client";
 import type { EmailFolder, MailboxData } from "../types";
@@ -285,35 +285,12 @@ export function EmailActions({
             <EntityChipIcon entityType="task" />
           </EmailIconButton>
         )}
-        {level === "message" && onReply && (
-          <EmailIconButton
-            label="Reply"
-            shortcut="R"
-            disabled={command.isPending}
-            onClick={onReply}
-          >
-            <Reply className="h-4 w-4" />
-          </EmailIconButton>
-        )}
-        {level === "message" && onReplyAll && (
-          <EmailIconButton
-            label="Reply all"
-            shortcut={["Shift", "R"]}
-            disabled={command.isPending}
-            onClick={onReplyAll}
-          >
-            <ReplyAll className="h-4 w-4" />
-          </EmailIconButton>
-        )}
-        {level === "message" && onForward && (
-          <EmailIconButton
-            label="Forward"
-            shortcut={["Shift", "F"]}
-            disabled={command.isPending}
-            onClick={onForward}
-          >
-            <Forward className="h-4 w-4" />
-          </EmailIconButton>
+        {level === "message" && (
+          <>
+            {onReply && <EmailIconButton label="Reply" shortcut="R" disabled={command.isPending} onClick={onReply}><Reply className="size-4" /></EmailIconButton>}
+            {onReplyAll && <EmailIconButton label="Reply all" shortcut={["Shift", "R"]} disabled={command.isPending} onClick={onReplyAll}><ReplyAll className="size-4" /></EmailIconButton>}
+            {onForward && <EmailIconButton label="Forward" shortcut={["Shift", "F"]} disabled={command.isPending} onClick={onForward}><Forward className="size-4" /></EmailIconButton>}
+          </>
         )}
         {level === "thread" && (
           <EmailIconButton
@@ -330,17 +307,44 @@ export function EmailActions({
             )}
           </EmailIconButton>
         )}
-        {level === "thread" && <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-          <DropdownMenuTrigger asChild><EmailIconButton data-shortcut-menu shortcut="M" label="More"><MoreHorizontal className="h-4 w-4" /></EmailIconButton></DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="task" />Create task<KeyboardShortcut keys={["T"]} className="ml-auto" /></DropdownMenuItem>
-            <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}><EntityChipIcon entityType="issue" />Create issue<KeyboardShortcut keys={["I"]} className="ml-auto" /></DropdownMenuItem>
-            {moreMenuItems}
-            <DropdownMenuSeparator />
-            <DropdownMenuSub><DropdownMenuSubTrigger disabled={!ids.length || command.isPending}><FolderInput className="mr-2 h-4 w-4" />Move to folder<KeyboardShortcut keys={["V"]} className="ml-auto" /></DropdownMenuSubTrigger><DropdownMenuSubContent>{folders.map((folder) => <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>{folder.name}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
-            <DropdownMenuItem disabled={!ids.length || command.isPending} className="text-destructive" onSelect={() => command.mutate({ action: "move", ids, folderId: "deleteditems" })}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>}
+        {level === "thread" && (
+          <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+            <DropdownMenuTrigger asChild>
+              <EmailIconButton data-shortcut-menu shortcut="M" label="More">
+                <MoreHorizontal className="size-4" />
+              </EmailIconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="[&_[role=menuitem]]:gap-2 [&_[role=menuitem]>svg]:size-4 [&_[role=menuitem]>svg]:shrink-0">
+              {onReply && <DropdownMenuItem disabled={command.isPending} onSelect={onReply}><Reply className="size-4 shrink-0" />Reply</DropdownMenuItem>}
+              {onReplyAll && <DropdownMenuItem disabled={command.isPending} onSelect={onReplyAll}><ReplyAll className="size-4 shrink-0" />Reply all</DropdownMenuItem>}
+              {onForward && <DropdownMenuItem disabled={command.isPending} onSelect={onForward}><Forward className="size-4 shrink-0" />Forward</DropdownMenuItem>}
+              {(onReply || onReplyAll || onForward) && <DropdownMenuSeparator />}
+              <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateTaskDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}>
+                <EntityChipIcon entityType="task" />Create task
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!taskMessageId} onSelect={() => quickActions.openCreateIssueDialog({ type: "email", id: taskMessageId!, label: messageLabel || "Email" })}>
+                <EntityChipIcon entityType="issue" />Create issue
+              </DropdownMenuItem>
+              {moreMenuItems}
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger disabled={!ids.length || command.isPending}>
+                  <FolderInput className="size-4 shrink-0" />Move to folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {folders.map((folder) => (
+                    <DropdownMenuItem key={folder.id} onSelect={() => command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) })}>
+                      {folder.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem disabled={!ids.length || command.isPending} className="text-destructive" onSelect={() => command.mutate({ action: "move", ids, folderId: "deleteditems" })}>
+                <Trash2 className="size-4 shrink-0" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <SearchableSelect items={folders} value={null} open={moveOpen} onOpenChange={setMoveOpen} getItemId={(folder) => folder.id} getItemLabel={(folder) => folder.name} searchPlaceholder="Search Microsoft folders…" disabled={!ids.length || command.isPending} onValueChange={(folder) => { if (folder) command.mutate({ action: "move", ids, folderId: folder.id }, { onSuccess: () => rememberEmailFolder(folder.id) }); }} trigger={<span aria-hidden="true" />} />
       </EmailActionGroup>
       {!hideAssignee &&

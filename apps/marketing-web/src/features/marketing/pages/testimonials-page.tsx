@@ -1,6 +1,7 @@
+import { MarketingPhoto } from "../components/marketing-photo";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content, pageContent } from "../content";
-import { ResultYearStack } from "../components/result-year-stack";
+import { ResultsTimeline } from "../components/results-timeline";
 import {
   Button,
   Copy,
@@ -24,13 +25,20 @@ export function TestimonialsPage() {
   return (
     <>
       <section
-        className={`${styles.container} ${styles.hero} ${styles.editorialHero}`}
+        className={`${styles.container} ${styles.hero} ${styles.aboutHero}`}
       >
-        <Eyebrow>Results & testimonials</Eyebrow>
-        <h1>
-          Their progress.<em>In their own words.</em>
-        </h1>
-        <Copy block={content("/about/testimonials/", "24797af")} />
+        <div>
+          <Eyebrow>Results & testimonials</Eyebrow>
+          <h1>
+            Their progress.<em>In their own words.</em>
+          </h1>
+          <Copy block={content("/about/testimonials/", "24797af")} />
+        </div>
+        <MarketingPhoto
+          name="students-1"
+          alt="A group of Altitutor students in their classroom"
+          priority
+        />
       </section>
       <div className={styles.container}>
         <PageLinks
@@ -43,38 +51,31 @@ export function TestimonialsPage() {
       </div>
       <section id="results" className={styles.section}>
         <div className={styles.container}>
-          <SectionTitle eyebrow="Student results">
-            A look back.
-            <br />
-            <em>A lot to be proud of.</em>
-          </SectionTitle>
-        </div>
-        <ResultYearStack
-          years={years.map((year, i) => {
-            const start = blocks.indexOf(year);
-            const end =
-              i + 1 < years.length
-                ? blocks.indexOf(years[i + 1])
-                : blocks.findIndex((b) => b.id === "8774f44");
-            const stats = blocks
-              .slice(start, end)
-              .filter((b) => b.kind === "counter");
-            return {
-              id: year.id,
-              title: year.title ?? "Results",
-              stats: stats.map((stat, index) => ({
-                id: stat.id,
-                value: stat.value ?? "",
-                label:
-                  stat.title ||
-                  (index === 4
-                    ? "Average tutor rating"
-                    : "Average course rating"),
-              })),
-            };
-          })}
-        />
-        <div className={styles.container}>
+          <ResultsTimeline
+            years={years.map((year, i) => {
+              const start = blocks.indexOf(year);
+              const end =
+                i + 1 < years.length
+                  ? blocks.indexOf(years[i + 1])
+                  : blocks.findIndex((b) => b.id === "8774f44");
+              const stats = blocks
+                .slice(start, end)
+                .filter((b) => b.kind === "counter");
+              return {
+                id: year.id,
+                title: year.title ?? "Results",
+                stats: stats.map((stat, index) => ({
+                  id: stat.id,
+                  value: stat.value ?? "",
+                  label:
+                    stat.title ||
+                    (index === 4
+                      ? "Average tutor rating"
+                      : "Average course rating"),
+                })),
+              };
+            })}
+          />
           <Questions
             items={content("/about/testimonials/", "8774f44").items ?? []}
           />

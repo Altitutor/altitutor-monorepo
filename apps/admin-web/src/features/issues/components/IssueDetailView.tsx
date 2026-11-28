@@ -1,10 +1,11 @@
 "use client";
 import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMessage";
 
+import { adminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
 import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
-import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
+import { useWorkItemDetail } from "@/features/work-item-editing/useWorkItemDetail";
 import {
   EditorCloseConfirmDialog,
   EditorControls,
@@ -146,11 +147,7 @@ export function IssueDetailView({
   variant,
 }: IssueDetailViewProps) {
   const [sidebarToggleTarget, setSidebarToggleTarget] = useState<HTMLDivElement | null>(null);
-  const { data: queriedIssue, isLoading } = useIssue(issueId, enabled);
-  const [loadedIssue, setLoadedIssue] = useState<IssueWithTags | null>(null);
-  if (loadedIssue && loadedIssue.id !== issueId) setLoadedIssue(null);
-  if (queriedIssue?.id === issueId && queriedIssue !== loadedIssue)
-    setLoadedIssue(queriedIssue);
+  const detail = useIssue(issueId, enabled);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
@@ -174,7 +171,9 @@ export function IssueDetailView({
     },
   });
 
-  const editor = useWorkItemEditor({
+  const { editor, record: issue, isLoading, title } = useWorkItemDetail({
+    detail,
+    title: form.watch("name"),
     kind: "issue",
     id: issueId,
     enabled,
@@ -184,25 +183,16 @@ export function IssueDetailView({
     onClose,
   });
 
-  const hasCurrentSession = editor.session?.record.id === issueId;
-  // Retirement refetches return null. Keep the loaded editor's metadata so
-  // its unsaved form remains visible for copying, without crossing records.
-  const issue =
-    queriedIssue?.id === issueId
-      ? queriedIssue
-      : hasCurrentSession && loadedIssue?.id === issueId
-        ? loadedIssue
-        : null;
-  useAccessoryTitle(issue?.name);
+  useAccessoryTitle(title || issue?.name);
 
   return (
     <>
       <WorkItemEditableContext.Provider value={editor.editable}>
         <Form {...form}>
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 border-b bg-background px-4 py-2">
+          <div className="h-full min-h-0 flex flex-col overflow-hidden" data-work-item-detail>
+            <div className={adminPageHeaderClass} data-admin-page-header>
               <div className="flex min-w-0 items-center justify-between gap-2 w-full">
-                <AccessoryBreadcrumb />
+                <AccessoryBreadcrumb currentTitle={title || issue?.name} />
 
                 <div className="flex shrink-0 items-center gap-2">
                   {
@@ -212,10 +202,9 @@ export function IssueDetailView({
                       <ActionsMenu
                         type="issue"
                         entityId={issueId}
+                        propertyActions={{ editable: editor.editable, ready: Boolean(editor.session) }}
                         copyTagDisplayText={
-                          hasCurrentSession
-                            ? form.watch("name") || issue?.name || "Untitled issue"
-                            : issue?.name || "Untitled issue"
+                          title || issue?.name || "Untitled issue"
                         }
                         onDelete={() => {
                           if (editor.editable) setIsDeleteDialogOpen(true);
@@ -239,7 +228,7 @@ export function IssueDetailView({
 
             <EditorNotices editor={editor} />
             <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-              {isLoading || (!hasCurrentSession && !editor.unavailable) ? (
+              {isLoading ? (
                 <div className="p-6">Loading issue data...</div>
               ) : !issue ? (
                 <div className="p-6">Issue not found</div>

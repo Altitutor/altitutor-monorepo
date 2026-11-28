@@ -1,26 +1,51 @@
 'use client';
 
 import * as React from 'react';
-import { Button, type ButtonProps } from '@altitutor/ui';
+import { Button, KeyboardShortcut, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, type ButtonProps } from '@altitutor/ui';
+import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
+import { cn } from '@/shared/utils';
 
 type AdminPageActionButtonProps = Omit<ButtonProps, 'children' | 'size'> & {
   icon: React.ReactNode;
   label: string;
   trailingIcon?: React.ReactNode;
+  compact?: boolean;
+  createShortcut?: boolean;
 };
 
 export const AdminPageActionButton = React.forwardRef<HTMLButtonElement, AdminPageActionButtonProps>(
-  ({ className, icon, label, trailingIcon, ...props }, ref) => (
-    <Button
-      ref={ref}
-      className={['size-10 px-0 sm:size-auto sm:px-4', className].filter(Boolean).join(' ')}
-      aria-label={props['aria-label'] ?? label}
-      {...props}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-      {trailingIcon ? <span className="hidden sm:inline-flex">{trailingIcon}</span> : null}
-    </Button>
-  )
+  ({ className, icon, label, trailingIcon, compact, createShortcut = false, variant = 'default', ...props }, ref) => {
+    const inlineLabel = usePanelMediaQuery('(min-width: 520px)');
+    const iconOnly = compact ?? !inlineLabel;
+    const button = (
+      <Button
+        ref={ref}
+        size={iconOnly ? "icon" : "sm"}
+        variant={variant}
+        data-shortcut-create={createShortcut ? "" : undefined}
+        aria-keyshortcuts={createShortcut ? "C" : undefined}
+        className={cn("h-8 shrink-0 rounded-full", iconOnly && "w-8 px-0", className)}
+        aria-label={props['aria-label'] ?? label}
+        {...props}
+      >
+        {icon}
+        {!iconOnly && <span>{label}</span>}
+        {!iconOnly && trailingIcon}
+      </Button>
+    );
+    if (!createShortcut) return button;
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent className="flex items-center gap-2">
+            {label}
+            <KeyboardShortcut keys={["C"]} />
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 );
 AdminPageActionButton.displayName = 'AdminPageActionButton';

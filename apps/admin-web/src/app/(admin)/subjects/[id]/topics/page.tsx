@@ -51,7 +51,7 @@ export default function SubjectTopicsPage(props: { params: Promise<{ id: string 
 
   return (
     <div className="p-6">
-      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} label="Add Topic" onClick={() => setIsAddModalOpen(true)} /></AdminPageActions>
+      <AdminPageActions><AdminPageActionButton icon={<Plus className="h-4 w-4" />} createShortcut label="Create topic" onClick={() => setIsAddModalOpen(true)} /></AdminPageActions>
 
       <TopicsTable
         onRefresh={refreshCounter}

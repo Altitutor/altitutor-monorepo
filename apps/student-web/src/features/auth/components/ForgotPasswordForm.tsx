@@ -35,9 +35,9 @@ const footerLinkClassName =
 
 type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ initialError }: { initialError?: string }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [success, setSuccess] = useState(false);
 
   const form = useForm<ForgotPasswordData>({

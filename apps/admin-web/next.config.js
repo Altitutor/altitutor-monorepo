@@ -12,7 +12,11 @@ const nextConfig = {
     NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT:
       process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local",
   },
-  typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
+  typescript: {
+    ignoreBuildErrors:
+      process.env.ALTITUTOR_CI_BUILD === "true" ||
+      process.env.ALTITUTOR_TYPECHECK_VERIFIED === "true",
+  },
   reactStrictMode: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   transpilePackages: ["@altitutor/email", "@altitutor/shared", "@altitutor/ui"],

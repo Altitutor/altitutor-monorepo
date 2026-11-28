@@ -125,6 +125,7 @@ export * from "./components/timed-calendar";
 export * from "./components/interview-round-calendar-card";
 
 export * from './components/entity-chip';
+export { entityReferenceDragProps } from './lib/entity-reference-drag';
 export * from './extensions/entity-mention';
 
 export * from "./components/keyboard-shortcut";
@@ -144,3 +145,5 @@ export { ActionSearchScope, useMenuEntry as useSearchableAction } from "./compon
 
 export { CollectionField } from "./components/collection-picker-context";
 export * from "./components/interview-rejoin-banner";
+
+export * from './components/notification-tray';

@@ -329,31 +329,13 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Call send-sms edge function
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-          
-          if (!supabaseUrl || !supabaseAnonKey) {
-            const errorMsg = 'Missing Supabase URL or anon key';
-            console.error('Missing Supabase configuration:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseAnonKey });
-            errors.push(errorMsg);
-            failureCount++;
-            continue;
-          }
-
-          const sendSmsResponse = await fetch(`${supabaseUrl}/functions/v1/send-message`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseAnonKey}`,
-            },
-            body: JSON.stringify({ messageId: message.id }),
+          const { error: sendSmsError } = await supabase.functions.invoke('send-message', {
+            body: { messageId: message.id },
           });
 
-          if (!sendSmsResponse.ok) {
-            const errorData = await sendSmsResponse.json().catch(() => ({ error: 'Unknown error' }));
-            const errorMsg = `Edge function failed: ${errorData.error || sendSmsResponse.statusText}`;
-            console.error('Failed to send SMS via edge function:', errorData);
+          if (sendSmsError) {
+            const errorMsg = `Edge function failed: ${sendSmsError.message}`;
+            console.error('Failed to send SMS via edge function:', sendSmsError);
             errors.push(errorMsg);
             failureCount++;
           } else {

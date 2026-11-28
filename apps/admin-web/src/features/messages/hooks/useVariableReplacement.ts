@@ -62,8 +62,6 @@ function toParentTable(parentData: ParentWithStudents): Tables<'parents'> {
 
 export function useVariableReplacement(
   contactData: ContactForTemplate,
-  studentHasClasses: Record<string, boolean>,
-  staffHasClasses: Record<string, boolean>,
   currentStaff: Pick<Tables<'staff'>, 'first_name' | 'last_name'> | null | undefined,
   setIsGeneratingTokens: (value: boolean) => void
 ) {
@@ -82,17 +80,7 @@ export function useVariableReplacement(
         return `${student.first_name || ''} ${student.last_name || ''}`.trim();
       if (variable === 'last_name') return student.last_name || '';
 
-      if (variable === 'classes') {
-        try {
-          const classes = await getStudentClasses(student.id);
-          return formatClassesList(classes, 'No classes enrolled');
-        } catch (error) {
-          console.error('Error fetching student classes:', error);
-          return 'No classes enrolled';
-        }
-      }
-
-      if (variable === 'classes_with_start_date') {
+      if (variable === 'classes' || variable === 'classes_with_start_date') {
         try {
           const classesWithDates = await getStudentClassesWithStartDates(student.id);
           return formatClassesWithStartDatesList(classesWithDates, 'No classes enrolled');
@@ -217,17 +205,7 @@ export function useVariableReplacement(
           return `${staff.first_name || ''} ${staff.last_name || ''}`.trim();
         if (variable === 'last_name') return staff.last_name || '';
 
-        if (variable === 'classes') {
-          try {
-            const classes = await getStaffClasses(staff.id);
-            return formatClassesList(classes, 'No classes assigned');
-          } catch (error) {
-            console.error('Error fetching staff classes:', error);
-            return 'No classes assigned';
-          }
-        }
-
-        if (variable === 'classes_with_start_date') {
+        if (variable === 'classes' || variable === 'classes_with_start_date') {
           try {
             const classesWithDates = await getStaffClassesWithStartDates(staff.id);
             return formatClassesWithStartDatesList(classesWithDates, 'No classes assigned');
@@ -293,18 +271,16 @@ export function useVariableReplacement(
     let variables = getVariablesForRecipientType(recipientType);
     if (contactData?.contact_type === 'STUDENT' && contactData.students) {
       const student = contactData.students as Tables<'students'>;
-      const hasClasses = studentHasClasses[student.id] ?? false;
-      variables = variables.filter((v) => canGenerateStudentVariable(v.name, student, hasClasses));
+      variables = variables.filter((v) => canGenerateStudentVariable(v.name, student));
     } else if (contactData?.contact_type === 'STAFF' && contactData.staff) {
       const staff = contactData.staff as Tables<'staff'>;
-      const hasClasses = staffHasClasses[staff.id] ?? false;
-      variables = variables.filter((v) => canGenerateStaffVariable(v.name, staff, hasClasses));
+      variables = variables.filter((v) => canGenerateStaffVariable(v.name, staff));
     } else if (contactData?.contact_type === 'PARENT' && contactData.parents) {
       const parent = contactData.parents as ParentWithStudents;
       variables = variables.filter((v) => canGenerateParentVariable(v.name, parent));
     }
     return [...variables, ...COMPANY_VARIABLES];
-  }, [contactData, studentHasClasses, staffHasClasses]);
+  }, [contactData]);
 
   const getParentStudents = useCallback((): Tables<'students'>[] => {
     if (!contactData || contactData.contact_type !== 'PARENT' || !contactData.parents) {

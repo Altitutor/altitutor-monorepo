@@ -18,16 +18,25 @@ let mockStudents = [
 
 jest.mock("@/shared/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
-    rpc: async () =>
-      mockFallback
-        ? { data: null, error: { code: "PGRST202" } }
-        : { data: mockJourneys, error: null },
+    rpc: () => {
+      const request = {
+        abortSignal: () => request,
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve(
+            mockFallback
+              ? { data: null, error: { code: "PGRST202" } }
+              : { data: mockJourneys, error: null },
+          ).then(resolve),
+      };
+      return request;
+    },
     from: (table: string) => {
       let ids: string[] = [];
       let offset = 0;
       let end = 199;
       const query = {
         select: () => query,
+        abortSignal: () => query,
         order: () => query,
         in: (_column: string, values: string[]) => {
           ids = values;

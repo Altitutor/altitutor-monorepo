@@ -26,7 +26,7 @@ export function DashboardLayoutDialog({ layout, onChange, onClose, onSave, savin
       open
       onClose={onClose}
       closeDisabled={saving}
-      title="Customize dashboard"
+      title="Customize Home"
       subtitle="Choose which widgets appear, their order, and how much space they use."
       footer={<div className="flex w-full flex-wrap justify-between gap-2">
         <Button variant="ghost" disabled={saving} onClick={() => onChange(DEFAULT_DASHBOARD_LAYOUT)}>Reset to default</Button>

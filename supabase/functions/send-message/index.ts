@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import { serveWithSentry } from "../_shared/sentry.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import {
@@ -7,6 +8,30 @@ import {
 } from "../_shared/messages.ts";
 
 type SendBody = { messageId: string };
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+async function authorize(request: Request): Promise<number> {
+  const token = /^Bearer (.+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
+  if (!token) return 401;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (serviceKey && token === serviceKey) return 200;
+  const url = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!url || !anonKey) return 503;
+
+  const client = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await client.rpc("is_adminstaff_active");
+  return !error && data === true ? 200 : 403;
+}
 
 class TwilioSendError extends Error {
   constructor(message: string, readonly code: number | null) {
@@ -159,7 +184,7 @@ async function handleTwilio(
 
   return { success: true, sid: tw.sid };
   } catch (error) {
-    if (sendClaim?.recovery && !(error instanceof TwilioSendError)) {
+    if ((sendClaim?.recovery || message.scheduled_at) && !(error instanceof TwilioSendError)) {
       throw new RecoveryOutcomeUnknownError(
         "Recovery outcome unconfirmed. Reconcile the provider outcome before sending again.",
       );
@@ -232,9 +257,17 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
     });
   }
 
+  if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { headers: cors, status: 405 });
+
   let messageId: string | undefined;
+  let canMarkFailed = false;
+  let dispatchLoaded = false;
 
   try {
+    const access = await authorize(req);
+    if (access !== 200) {
+      return Response.json({ error: "Send not authorized" }, { headers: cors, status: access });
+    }
     const body = (await req.json()) as SendBody;
     messageId = body.messageId;
     console.log("[send-message] Entry", { messageId });
@@ -259,6 +292,7 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
 
     // Load all required data
     const data = await loadMessageSendData(supabase, messageId);
+    dispatchLoaded = true;
     console.log("[send-message] Loaded data", {
       messageId: data.message.id,
       conversationId: data.conversation.id,
@@ -267,6 +301,31 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
     });
 
     const provider = data.ownedNumber.provider;
+    if (data.message.scheduled_at) {
+      // Repeated cron requests and simultaneous invocations must claim the same
+      // message only once, and only after its scheduled time.
+      const now = new Date().toISOString();
+      const { data: claimed, error } = await supabase.from("messages")
+        .update({ status: "SENDING", status_updated_at: now })
+        .eq("id", messageId)
+        .eq("status", "SCHEDULED")
+        .lte("scheduled_at", now)
+        .select("id");
+      if (error) throw error;
+      if (!claimed?.length) return Response.json({ success: true, queued: true }, {
+        headers: cors,
+      });
+      canMarkFailed = true;
+
+      const address = data.message.to_number_e164;
+      if (data.contact?.is_opted_out || (data.conversation.is_group_chat
+          ? address !== data.conversation.group_chat_id
+          : address !== data.contact?.phone_e164
+            && (provider !== "IMESSAGE" || address !== data.contact?.email))) {
+        throw new Error("The scheduled recipient changed or opted out. Review the recipient before sending.");
+      }
+    }
+    canMarkFailed = true;
     let result: {
       success: boolean;
       sid?: string;
@@ -290,6 +349,14 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
       }
     }
 
+    if (data.message.scheduled_at && data.message.created_by_staff_id) {
+      const { error } = await supabase.from("conversations")
+        .update({ assigned_staff_id: null })
+        .eq("id", data.conversation.id)
+        .eq("assigned_staff_id", data.message.created_by_staff_id);
+      if (error) console.warn("[send-message] Could not clear assignment after scheduled send", error);
+    }
+
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: {
@@ -307,13 +374,23 @@ serveWithSentry("send-message", async (req: Request, sentry) => {
     console.error("[send-message] Error", msg);
 
     // Best effort: if we have messageId (captured before error), mark message as failed
-    if (messageId) {
+    if (messageId && (canMarkFailed || !dispatchLoaded)) {
       try {
         const supabase = createSupabaseClient();
-        await updateMessageStatus(supabase, messageId, e instanceof RecoveryOutcomeUnknownError ? "AMBIGUOUS" : "FAILED", {
-          error_message: msg,
-          ...(e instanceof TwilioSendError ? { error_code: e.code } : {}),
-        });
+        if (canMarkFailed) {
+          await updateMessageStatus(supabase, messageId, e instanceof RecoveryOutcomeUnknownError ? "AMBIGUOUS" : "FAILED", {
+            error_message: msg,
+            ...(e instanceof TwilioSendError ? { error_code: e.code } : {}),
+          });
+        } else {
+          // Preserve the immediate-send failure status without changing a
+          // scheduled message that has not been claimed by this invocation.
+          const { error } = await supabase.from("messages")
+            .update({ status: "FAILED", error_message: msg, status_updated_at: new Date().toISOString() })
+            .eq("id", messageId)
+            .is("scheduled_at", null);
+          if (error) throw error;
+        }
       } catch (updateErr) {
         console.error(
           "[send-message] Failed to update message status",

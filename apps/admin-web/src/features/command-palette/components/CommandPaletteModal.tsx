@@ -11,6 +11,7 @@ import { cn } from "@/shared/utils";
 import { AdminDialogShell } from "@/shared/components";
 import { CommandPalette } from "./CommandPalette";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
+import { openReferenceInPane } from "@/shared/components/pane-workspace/pane-routing";
 import { NewDocumentDialog } from "@/shared/shortcuts/NewDocumentDialog";
 
 interface CommandPaletteModalProps {
@@ -89,7 +90,8 @@ export function CommandPaletteModal({
     setDragOffset(0);
   };
 
-  const handleEntitySelected = (type: string, id: string) => {
+  const handleEntitySelected = (type: string, id: string, openInNewPane?: boolean) => {
+    if (openReferenceInPane(type, id, undefined, openInNewPane ? "open" : "navigate")) return;
     entityModals.openEntity(
       type as Parameters<typeof entityModals.openEntity>[0],
       id,

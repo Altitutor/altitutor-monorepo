@@ -163,6 +163,7 @@ export const emailSummarySchema = z.object({
   sender: z.string(),
   senderName: z.string().nullable(),
   at: z.string().nullable(),
+  repliedAt: z.string().nullish(),
   read: z.boolean(),
   draft: z.boolean(),
   assignedStaffId: z.string().nullable(),

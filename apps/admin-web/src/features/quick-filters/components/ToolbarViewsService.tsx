@@ -10,7 +10,7 @@ import { reconciliationViewKey, type ReconciliationViewKey } from '../config/ope
 import { ReconciliationCountBadge } from '@/features/reconciliation/components/ReconciliationCountBadge';
 import { useCurrentStaff } from "@/shared/hooks";
 import { quickFiltersApi } from "../api/quick-filters";
-import { Badge } from '@altitutor/ui';
+import { RedCountBadge } from '@/shared/components/RedCountBadge';
 import { useUnreadConversationCount, useAssignedConversationCount } from '@/features/messages/api/queries';
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 
@@ -49,7 +49,9 @@ function MessageViewCount({ mine }: { mine: boolean }) {
   const unread = useUnreadConversationCount();
   const assigned = useAssignedConversationCount(mine ? staff?.id : undefined);
   const count = mine ? assigned.data : unread.data;
-  return count === undefined ? null : <Badge variant="secondary" className="ml-1.5">{count}</Badge>;
+  return count === undefined ? null : (
+    <RedCountBadge count={count} tooltip={mine ? "Assigned conversations" : "Unread conversations"} className="ml-1.5" />
+  );
 }
 
 function AdminViewBadge({ view }: { view: SavedView }) {

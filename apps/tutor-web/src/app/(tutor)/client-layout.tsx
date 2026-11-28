@@ -165,11 +165,13 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean, isInterviewTutor: boolean
         children: [
           { type: 'heading', title: 'Scheduling' },
           { title: 'Interview rounds', href: '/interviews/rounds', icon: Calendar },
-          { title: 'Students', href: '/interviews/students', icon: Users },
           { title: 'Performance reviews', href: '/interviews/performance-reviews', icon: FileQuestion },
           { type: 'heading', title: 'Content' },
           { title: 'Interview bank', href: '/interviews/bank', icon: Layers },
           { title: 'Station bank', href: '/interviews/stations', icon: FileQuestion },
+          { type: 'heading', title: 'Stats' },
+          { title: 'Students', href: '/interviews/students', icon: Users },
+          { title: 'Tutors', href: '/interviews/tutors', icon: Users },
           { type: 'heading', title: 'Settings' },
           { title: 'Station categories', href: '/interviews/station-categories', icon: FolderTree },
           { title: 'Question tags', href: '/interviews/question-tags', icon: Tag },
@@ -220,6 +222,7 @@ function isInterviewDropdownChildActive(pathname: string, href: string): boolean
       pathname.startsWith('/interviews/stations') ||
       pathname.startsWith('/interviews/rounds') ||
       pathname.startsWith('/interviews/students') ||
+      pathname.startsWith('/interviews/tutors') ||
       isNavLinkActive(pathname, '/interviews/performance-reviews') ||
       pathname.startsWith('/interviews/station-categories') ||
       pathname.startsWith('/interviews/question-tags') ||

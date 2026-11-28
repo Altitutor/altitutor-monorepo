@@ -11,10 +11,14 @@ import {
 } from "@altitutor/ui";
 import { TaskStatusField } from "@/features/tasks/components/fields/TaskStatusField";
 import type { TaskFormData } from "@/features/tasks/types";
+import { TopicsHierarchy } from "@/features/topics/components/TopicsHierarchy";
+import type { Tables } from "@altitutor/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AdminShortcuts } from "../AdminShortcuts";
 import { ShortcutKeys } from "../ShortcutKeys";
 import { matchShortcut } from "../registry";
+import { AdminPageActionButton } from "@/shared/components/admin-page-action-button";
+import { paneRequestEvent, type PaneRequest } from "@/shared/components/pane-workspace/pane-routing";
 
 const openTab = jest.fn();
 const togglePanel = jest.fn();
@@ -104,6 +108,51 @@ it.each(["messages", "tasks", "issues", "documents", "projects"] as const)(
     expect(openTab).not.toHaveBeenCalled();
   },
 );
+it.each([["c", "/sessions"], ["f", "/subjects"]])(
+  "navigates the active pane with G then %s",
+  (key, href) => {
+    render(<AdminShortcuts>Content</AdminShortcuts>);
+    const navigate = jest.fn((event: Event) => event.preventDefault());
+    window.addEventListener(paneRequestEvent, navigate, { once: true });
+    try {
+      fireEvent.keyDown(window, { key: "g" });
+      fireEvent.keyDown(window, { key });
+      expect(navigate).toHaveBeenCalledTimes(1);
+      const request = navigate.mock.calls[0][0] as CustomEvent<PaneRequest>;
+      expect(request.detail).toMatchObject({ action: "navigate", href });
+    } finally {
+      window.removeEventListener(paneRequestEvent, navigate);
+    }
+  },
+);
+it.each([true, false])("opens Messages in a new pane with Shift at the start of the sequence: %s", (shiftOnPrefix) => {
+  render(<AdminShortcuts>Content</AdminShortcuts>);
+  const open = jest.fn((event: Event) => event.preventDefault());
+  window.addEventListener(paneRequestEvent, open, { once: true });
+  try {
+    fireEvent.keyDown(window, { key: shiftOnPrefix ? "G" : "g", shiftKey: shiftOnPrefix });
+    if (!shiftOnPrefix) fireEvent.keyDown(window, { key: "Shift", shiftKey: true });
+    fireEvent.keyDown(window, { key: shiftOnPrefix ? "m" : "M", shiftKey: !shiftOnPrefix });
+    expect(open).toHaveBeenCalledTimes(1);
+    const request = open.mock.calls[0][0] as CustomEvent<PaneRequest>;
+    expect(request.detail).toMatchObject({ action: "open", href: "/messages" });
+  } finally {
+    window.removeEventListener(paneRequestEvent, open);
+  }
+});
+it("uses C only for a page action that opts into creation", () => {
+  const exportContacts = jest.fn();
+  const create = jest.fn();
+  render(
+    <AdminShortcuts>
+      <AdminPageActionButton label="Export VCF" icon={null} onClick={exportContacts} />
+      <AdminPageActionButton label="Create student" icon={null} onClick={create} createShortcut />
+    </AdminShortcuts>,
+  );
+  fireEvent.keyDown(window, { key: "c" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(exportContacts).not.toHaveBeenCalled();
+});
 it("supports Mac Option symbols, Cmd/Ctrl K, and panel toggles", () => {
   render(<AdminShortcuts>Content</AdminShortcuts>);
   press("KeyK", { key: "˚" });
@@ -329,6 +378,31 @@ it("lets an open menu search with C instead of creating a task", () => {
   expect(createTask).not.toHaveBeenCalled();
   expect(screen.getByPlaceholderText("Search menu…")).toBeInTheDocument();
 });
+it("moves among visible subject topics with J and K and opens the focused topic with Enter", () => {
+  const open = jest.fn();
+  const topic = (id: string, name: string, index: number): Tables<"topics"> => ({
+    id, name, index, code: String(index), subject_id: "subject", parent_id: null,
+    created_at: null, created_by: null, updated_at: null, deleted_at: null, deleted_by: null,
+  });
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <TopicsHierarchy subjectId="subject" allTopics={[topic("first", "First topic", 1), topic("second", "Second topic", 2)]} onTopicClick={open} />
+      </main>
+    </AdminShortcuts>,
+  );
+
+  const first = screen.getByRole("button", { name: "1 First topic" });
+  const second = screen.getByRole("button", { name: "2 Second topic" });
+  fireEvent.keyDown(document.body, { key: "j" });
+  expect(first).toHaveFocus();
+  fireEvent.keyDown(first, { key: "j" });
+  expect(second).toHaveFocus();
+  fireEvent.keyDown(second, { key: "k" });
+  expect(first).toHaveFocus();
+  fireEvent.keyDown(first, { key: "Enter" });
+  expect(open).toHaveBeenCalledWith("first");
+});
 it("leaves Enter on nested list action buttons alone", () => {
   const open = jest.fn();
   render(
@@ -398,6 +472,9 @@ it("shows view hints only while their bare-number shortcut can run", async () =>
   global.structuredClone = <T,>(value: T): T =>
     JSON.parse(JSON.stringify(value)) as T;
   const apply = jest.fn();
+  window.matchMedia = jest.fn().mockReturnValue({
+    matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn(),
+  });
   render(
     <AdminShortcuts>
       <main data-admin-main>
@@ -477,6 +554,79 @@ it('uses clicked accessory content for fields and lets a hovered primary record 
   fireEvent.click(screen.getByRole('option',{name:/Done/}));
   await waitFor(()=>expect(apply).toHaveBeenCalledWith({id:'one'},'done'));
   expect(right).toHaveBeenCalledTimes(1);
+});
+
+it("uses contextual actions on the keyboard-selected record without a menu button", () => {
+  const first = jest.fn((event: React.MouseEvent) => event.preventDefault());
+  const second = jest.fn((event: React.MouseEvent) => event.preventDefault());
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <div role="button" tabIndex={-1} data-shortcut-list-item data-record-type="task" data-record-id="first" onContextMenu={first}>First task</div>
+        <div role="button" tabIndex={-1} data-shortcut-list-item data-record-type="task" data-record-id="second" onContextMenu={second}>Second task</div>
+      </main>
+    </AdminShortcuts>,
+  );
+  fireEvent.pointerOver(screen.getByRole("button", { name: "First task" }));
+  fireEvent.keyDown(document.body, { key: "j" });
+  fireEvent.keyDown(document.activeElement!, { key: "j" });
+  expect(screen.getByRole("button", { name: "Second task" })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "m" });
+
+  expect(second).toHaveBeenCalledTimes(1);
+  expect(first).not.toHaveBeenCalled();
+});
+
+it("opens the hovered student menu instead of the pane header menu", () => {
+  const headerMenu = jest.fn();
+  const rowMenu = jest.fn();
+  render(
+    <AdminShortcuts>
+      <main data-admin-main>
+        <header data-admin-page-header>
+          <button data-shortcut-menu onClick={headerMenu}>Page actions</button>
+        </header>
+        <div data-record-type="student" data-record-id="first">
+          <span>First student</span>
+          <button data-shortcut-menu>First student actions</button>
+        </div>
+        <div data-record-type="student" data-record-id="second">
+          <span>Second student</span>
+          <button data-shortcut-menu onClick={rowMenu}>Second student actions</button>
+        </div>
+      </main>
+    </AdminShortcuts>,
+  );
+
+  fireEvent.pointerOver(screen.getByText("Second student"));
+  fireEvent.keyDown(window, { key: "m" });
+
+  expect(rowMenu).toHaveBeenCalledTimes(1);
+  expect(headerMenu).not.toHaveBeenCalled();
+});
+
+it("routes M to a record in a second pane dialog and leaves the open menu in control", () => {
+  render(
+    <AdminShortcuts>
+      <section role="dialog" aria-label="First pane dialog">First pane</section>
+      <section role="dialog" aria-label="Second pane dialog">
+        <div data-shortcut-record>
+          <span>Second pane record</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger data-shortcut-menu>Record menu</DropdownMenuTrigger>
+            <DropdownMenuContent><DropdownMenuItem>Move record</DropdownMenuItem></DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </section>
+    </AdminShortcuts>,
+  );
+
+  fireEvent.pointerOver(screen.getByText("Second pane record"));
+  fireEvent.keyDown(window, { key: "m" });
+  const menu = screen.getByRole("menu");
+  fireEvent.keyDown(menu, { key: "m" });
+
+  expect(screen.getByRole("combobox", { name: "Search menu" })).toHaveValue("m");
 });
 
 it('opens contextual menus and custom filters from the focused right pane', () => {

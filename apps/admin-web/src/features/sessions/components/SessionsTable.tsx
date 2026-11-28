@@ -20,6 +20,7 @@ import {
 import { ArrowUpDown, Search } from "lucide-react";
 import {
   encodeViewConfig,
+  Supabase,
   type QuickFilter,
   type DisplaySettings,
   type DataTableFilterDefinition,
@@ -44,22 +45,12 @@ import { useSessionsTableModals } from "../hooks/useSessionsTableModals";
 import { useDataTable } from "@/shared/hooks/useDataTable";
 import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from "./absences";
-import { SessionsTableRow } from "./SessionsTableRow";
+import { SessionsTableRow, SessionsTableRowStudentActions } from "./SessionsTableRow";
+import { getShortSessionName } from "../utils/session-helpers";
 import { useUninvoicedSessions } from "@/features/reconciliation/api/queries";
 import { useStudentSessionBillingDetails } from "../hooks/useStudentSessionBillingDetails";
 
-const SESSION_TYPES = [
-  "INTERVIEW",
-  "CLASS",
-  "DRAFTING",
-  "EXAM_COURSE",
-  "SUBSIDY_INTERVIEW",
-  "TRIAL_SESSION",
-  "STAFF_INTERVIEW",
-  "CHECK_IN",
-  "ADMIN_MEETING",
-  "ADMIN_SHIFT",
-] as const;
+const SESSION_TYPES = ["INTERVIEW", ...Supabase.Constants.public.Enums.session_type] as const;
 
 type SessionsTableProps = {
   renderMode?: "table" | "calendar";
@@ -401,7 +392,7 @@ export function SessionsTable({
               choiceOperators: true,
               label: "Session Type",
               options: SESSION_TYPES.map((t) => ({
-                label: t === "INTERVIEW" ? "Interview" : formatSessionType(t),
+                label: t === "INTERVIEW" ? "Interview round" : formatSessionType(t),
                 value: t,
               })),
             },
@@ -654,6 +645,9 @@ export function SessionsTable({
             onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
             onReset={resetFilters}
             filterDefinitions={availableFilters}
+            displayChoiceFilter={toolbarView || renderMode === "calendar"
+              ? { key: "type", label: "Session type", layout: "calendar" }
+              : undefined}
             sortOptions={sortOptions}
             columnDefinitions={
               renderMode === "calendar"
@@ -693,6 +687,29 @@ export function SessionsTable({
       {renderMode === "calendar" ? (
         <SessionsCalendarView
           onOpenSession={onOpenSession}
+          renderSessionActions={isStudentAttendanceView && studentId ? (session) => (
+            <SessionsTableRowStudentActions
+              compact
+              session={session}
+              studentList={sessionStudents[session.id] ?? []}
+              studentId={studentId}
+              hasTutorLog={Boolean(tutorLogs[session.id])}
+              classesById={classesById}
+              allSessions={allSessions}
+              sessionShortName={getShortSessionName({
+                ...session,
+                class: session.class_id ? classesById[session.class_id] : undefined,
+              })}
+              getClassShortDisplayName={getClassShortDisplayName}
+              getShortSessionName={getShortSessionName}
+              onOpenSession={onOpenSession}
+              onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
+              onRemoveStudentFromSession={onRemoveStudentFromSession}
+              modals={modals}
+              currentStaff={currentStaff}
+              onCopySessionId={handleCopySessionId}
+            />
+          ) : undefined}
           initialDate={calendarFrom || calendarTo || initialCalendarDate}
           initialViewMode={initialCalendarMode}
           onRangeChange={changeCalendarRange}

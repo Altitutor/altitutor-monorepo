@@ -41,8 +41,8 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
     });
   }
 
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Add class', exact: true }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Create class', exact: true }).click();
   await expect(
     page.getByText('Step 1 of 3: Offering details').last(),
   ).toBeVisible();
@@ -54,8 +54,8 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
 test('shared date and exact-minute time fields retain keyboard edits across wizard steps', async ({ page }) => {
   await signIn(page);
   await page.goto('/classes');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Add class', exact: true }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Create class', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Add Class', exact: true });
   const dates = dialog.getByRole('button', { name: /^\d{1,2} [A-Z][a-z]{2} \d{4}$/ });
   await expect(dates).toHaveCount(2);

@@ -5,6 +5,7 @@
   --ink: rgb(var(--marketing-charcoal));
   --muted-ink: #606970;
   --hairline: rgb(10 41 65 / 14%);
+  --resource-image-background: #e8e9e2;
   --card-shadow: 0 8px 30px rgb(0 0 0 / 4%);
   --card-line: rgb(0 0 0 / 5%);
   background: var(--cream);
@@ -219,23 +220,6 @@
   border-color: rgb(255 255 255 / 65%);
   box-shadow: 0 8px 32px #0a294114;
   backdrop-filter: blur(var(--marketing-glass-blur));
-}
-.site:has([data-announcement-banner]) {
-  padding-top: var(--announcement-height, calc(52px + env(safe-area-inset-top)));
-}
-.site:has([data-announcement-banner]) .navigation {
-  top: calc(24px + var(--announcement-height, 52px + env(safe-area-inset-top)));
-}
-.site:has([data-announcement-banner]) :is(section, [id]) {
-  scroll-margin-top: calc(110px + var(--announcement-height, 52px + env(safe-area-inset-top)));
-}
-@media (max-width: 800px) {
-  .site:has([data-announcement-banner]) {
-    padding-top: var(--announcement-height, calc(76px + env(safe-area-inset-top)));
-  }
-  .site:has([data-announcement-banner]) .navigation {
-    top: calc(16px + var(--announcement-height, 76px + env(safe-area-inset-top)));
-  }
 }
 .brand {
   display: inline-flex;
@@ -939,13 +923,6 @@
   margin-top: 15px;
   font-size: 0.95rem;
 }
-.contactHero {
-  max-width: 1000px;
-}
-.contactHero .lede {
-  margin-top: 30px;
-  max-width: 530px;
-}
 .contactGrid {
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
@@ -1032,7 +1009,7 @@
 }
 .resourceImage {
   padding: 35px;
-  background: #e8e9e2;
+  background: var(--resource-image-background);
   border: 1px solid var(--hairline);
   border-radius: 30px;
   overflow: hidden;
@@ -1125,15 +1102,6 @@
   font-size: 2rem;
   margin: 18px 0;
 }
-.courseChoice .resourceImage {
-  height: 100%;
-  min-height: 250px;
-  background: #e6e9e1;
-  padding: 20px;
-}
-.courseChoice .resourceImage img {
-  height: 265px;
-}
 .courseChoice .copy + .copy {
   margin-top: 18px;
 }
@@ -1184,14 +1152,6 @@
 .courseHero .copy {
   margin-top: 25px;
 }
-.courseHero .resourceImage {
-  background: #e1e5de;
-  border-radius: 150px 150px 30px 30px;
-  padding: 40px;
-}
-.courseHero .resourceImage img {
-  height: 380px;
-}
 .courseFacts {
   border-block: 1px solid var(--hairline);
   padding: 28px 0;
@@ -1225,9 +1185,6 @@
   color: #536d7b;
   border-left: 1px solid var(--hairline);
   padding-left: 20px;
-}
-.site:has([data-announcement-banner]) .courseNav {
-  top: calc(130px + var(--announcement-height, 52px + env(safe-area-inset-top)));
 }
 .courseNav a:hover {
   color: var(--primary);
@@ -1405,68 +1362,6 @@
 .application .eyebrow {
   color: var(--accent-blue);
 }
-.resultsYear {
-  margin-top: 45px;
-}
-.resultStack {
-  padding-bottom: 16vh;
-}
-.resultStackCard {
-  position: sticky;
-  top: 110px;
-  z-index: 1;
-  margin-bottom: 28vh;
-  padding: 40px 44px 32px;
-  border: 1px solid var(--card-line);
-  border-radius: 30px;
-  background: #fff;
-  box-shadow: var(--card-shadow);
-  transform-origin: top center;
-}
-.resultStackCard:last-child {
-  margin-bottom: 0;
-}
-.resultStackCard.resultsYear {
-  margin-top: 0;
-}
-.resultStackCard .stats {
-  border: 0;
-  padding-bottom: 0;
-}
-@media (max-width: 800px) {
-  .resultStackCard {
-    top: 96px;
-    margin-bottom: 22vh;
-    padding: 28px 22px 22px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .resultStack {
-    padding-bottom: 0;
-  }
-  .resultStackCard {
-    position: static;
-    margin-bottom: 24px;
-  }
-}
-.resultsYear h3 {
-  font-size: 1.4rem;
-  margin-bottom: 18px;
-}
-.resultStackCard.resultsYear h3 {
-  font-size: clamp(2rem, 4vw, 3rem);
-}
-.resultsYear .stats {
-  grid-template-columns: repeat(6, 1fr);
-  gap: 20px;
-  padding-block: 26px;
-}
-.resultsYear .statValue {
-  font-size: 3rem;
-}
-.resultsYear .copy {
-  font-size: 0.8rem;
-}
 .moreReviews {
   margin-top: 30px;
 }
@@ -1537,9 +1432,6 @@
   }
   .footerTop {
     gap: 35px;
-  }
-  .resultsYear .stats {
-    grid-template-columns: repeat(3, 1fr);
   }
   .aboutHeroPhoto {
     padding: 18px;
@@ -1645,9 +1537,6 @@
     padding: 25px;
     grid-template-columns: 0.6fr 1fr;
   }
-  .courseChoice .resourceImage img {
-    height: 220px;
-  }
   .courseBody {
     display: block;
     padding-top: 30px;
@@ -1665,14 +1554,6 @@
   .courseFacts ul {
     grid-template-columns: 1fr;
     gap: 15px;
-  }
-  .courseHero .resourceImage {
-    max-width: 550px;
-    width: 100%;
-    margin: auto;
-  }
-  .courseHero .resourceImage img {
-    height: 300px;
   }
   .contactGrid {
     gap: 20px;
@@ -1776,12 +1657,6 @@
   .courseChoice {
     grid-template-columns: 1fr;
   }
-  .courseChoice .resourceImage {
-    min-height: initial;
-  }
-  .courseChoice .resourceImage img {
-    height: 220px;
-  }
   .courseResource {
     grid-template-columns: 1fr;
     gap: 20px;
@@ -1797,9 +1672,6 @@
   .application,
   .teaching > div {
     padding: 27px;
-  }
-  .resultsYear .stats {
-    grid-template-columns: repeat(2, 1fr);
   }
   .stats {
     gap: 28px 20px;

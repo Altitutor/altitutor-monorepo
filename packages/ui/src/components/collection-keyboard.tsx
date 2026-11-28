@@ -41,16 +41,36 @@ export function CollectionRecord({
   id,
   children,
   layout,
+  actions,
 }: {
   id: string;
   children: React.ReactNode;
+  actions?: React.ReactNode;
   layout?: "list" | "board";
 }) {
   const selection = React.useContext(SelectionContext);
   const contentId = React.useId();
-  if (!selection) return <>{children}</>;
+  const board = (layout ?? selection?.layout) === "board";
+  const actionControl = actions && (
+    <div
+      className={cn("shrink-0", board && "absolute right-2 top-2")}
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      {actions}
+    </div>
+  );
+  const reserveMenuSpace = board && actions && "[&_[data-work-item-card]>div:first-child]:pr-9";
+
+  if (!selection) {
+    return actions ? (
+      <div className={cn("relative flex min-w-0 items-start gap-1", reserveMenuSpace)}>
+        <div className="min-w-0 flex-1">{children}</div>
+        {actionControl}
+      </div>
+    ) : <>{children}</>;
+  }
   const selected = selection.selected.has(id);
-  const board = (layout ?? selection.layout) === "board";
   return (
     <div
       data-keyboard-record={id}
@@ -85,6 +105,7 @@ export function CollectionRecord({
       }}
       className={cn(
         "group/collection-record relative flex min-w-0 items-start gap-1 rounded-md outline-none",
+        reserveMenuSpace,
         selection.active === id && "ring-1 ring-border",
         (selected || selection.active === id) &&
           "bg-muted [&_[data-work-item-card]]:bg-muted [&_[data-work-item-row]]:bg-muted",
@@ -111,6 +132,7 @@ export function CollectionRecord({
       <div id={contentId} className="min-w-0 flex-1">
         {children}
       </div>
+      {actionControl}
     </div>
   );
 }

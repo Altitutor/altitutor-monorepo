@@ -113,7 +113,7 @@ export function TaskLinkField({
       control={form.control}
       name="issueId"
       render={() => (
-        <FormItem>
+        <FormItem data-work-item-property="link">
           <FormControl>
             <SearchableSelect<LinkItem>
               items={[]}

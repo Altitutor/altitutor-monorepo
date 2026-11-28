@@ -83,7 +83,7 @@ function JsonNoteViewer({
     const html = generateHTML(renderableContent, VIEW_EXTENSIONS);
 
     const handleMentionPointerDown = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
       const mentionEl = (e.target as HTMLElement).closest('[data-mention]');
       if (!mentionEl) return;
       const id = mentionEl.getAttribute('data-id');

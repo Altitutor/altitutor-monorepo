@@ -1,5 +1,5 @@
 import type { InterviewRound } from "../index";
-import { DailyInterviewProvider } from "../server/daily";
+import { DailyInterviewProvider, DailyProviderError } from "../server/daily";
 import {
   InterviewMediaService,
   type InterviewMediaStore,
@@ -312,4 +312,65 @@ it("withholds station credentials until the shared waiting room has been retired
   const next = await f.service.ticket("round", { id: "tutor", name: "Tutor", role: "tutor" });
   expect(next.sessionId).toBeTruthy();
   expect(f.sessions[0]!.closedAt).toBeTruthy();
+});
+
+it("withholds a token when Daily's whole-second deadline has passed", async () => {
+  const f = fixture();
+  const deadline = "2026-11-05T10:05:00.804Z";
+  const dailyExpiry = Math.floor(Date.parse(deadline) / 1000);
+  const actor = { id: "tutor", name: "Tutor", role: "tutor" } as const;
+  f.setRound({ ...base, phaseDeadline: deadline });
+  const liveTicket = await f.service.ticket("round", actor);
+  expect(liveTicket.expiresAt).toBe(new Date(dailyExpiry * 1000).toISOString());
+  f.token.mockClear();
+  f.setNow(dailyExpiry * 1000 + 500);
+  f.token.mockRejectedValueOnce(new DailyProviderError(400));
+
+  await expect(f.service.ticket("round", actor)).resolves.toMatchObject({
+    sessionId: null,
+    canSend: false,
+    canReceive: false,
+  });
+  expect(f.token).not.toHaveBeenCalled();
+});
+
+it("returns an empty ticket if Daily rejects a mint that crosses its deadline", async () => {
+  const f = fixture();
+  const deadline = Date.parse(base.phaseDeadline!);
+  const actor = { id: "student", name: "Student", role: "student" } as const;
+  await f.service.ticket("round", actor);
+  f.setNow(deadline - 200);
+  f.token.mockImplementationOnce(async () => {
+    f.setNow(deadline + 200);
+    throw new DailyProviderError(400);
+  });
+
+  await expect(f.service.ticket("round", actor)).resolves.toMatchObject({
+    sessionId: null,
+    canSend: false,
+    canReceive: false,
+  });
+});
+
+it("propagates a Daily 400 while the token deadline is still live", async () => {
+  const f = fixture();
+  f.token.mockRejectedValueOnce(new DailyProviderError(400));
+  await expect(
+    f.service.ticket("round", { id: "student", name: "Student", role: "student" }),
+  ).rejects.toThrow("Interview media provider request failed (400).");
+});
+
+it("withholds a successful mint that finished after the deadline", async () => {
+  const f = fixture();
+  const deadline = Date.parse(base.phaseDeadline!);
+  const actor = { id: "tutor", name: "Tutor", role: "tutor" } as const;
+  f.setNow(deadline - 200);
+  f.token.mockImplementationOnce(async () => {
+    f.setNow(deadline + 200);
+    return "stale-token";
+  });
+
+  const ticket = await f.service.ticket("round", actor);
+  expect(ticket.sessionId).toBeNull();
+  expect(ticket.token).toBeUndefined();
 });

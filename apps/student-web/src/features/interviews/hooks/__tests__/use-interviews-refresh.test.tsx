@@ -6,7 +6,24 @@ import { useInterviewRound } from "../use-interviews";
 const actorId = "actor";
 jest.mock("@/shared/lib/supabase/auth", () => ({ useAuthStore: () => ({ user: { id: actorId }, loading: false }) }));
 let changed: () => void;
-jest.mock("@/shared/lib/supabase/client", () => ({ getSupabaseClient: () => ({ channel: () => ({ on: (_type: string, _filter: unknown, callback: () => void) => { changed = callback; return { subscribe: () => ({}) }; } }), removeChannel: jest.fn() }) }));
+let subscriptionStatus: (status: string) => void;
+let connectOnSubscribe = false;
+const mockSubscribe = jest.fn((status: (status: string) => void) => {
+  subscriptionStatus = status;
+  if (connectOnSubscribe) status("SUBSCRIBED");
+  return {};
+});
+jest.mock("@/shared/lib/supabase/client", () => ({
+  getSupabaseClient: () => ({
+    channel: () => ({
+      on: (_type: string, _filter: unknown, callback: () => void) => {
+        changed = callback;
+        return { subscribe: mockSubscribe };
+      },
+    }),
+    removeChannel: jest.fn(),
+  }),
+}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -14,6 +31,39 @@ function deferred<T>() {
   return { promise, resolve };
 }
 const response = (version: number) => ({ ok: true, json: async () => ({ id: "round", version, phase: "waiting", pausedAt: null, phaseDeadline: null, serverNow: "2026-11-20T00:00:00Z" }) }) as Response;
+
+test("a live room connects once and reads once for a reconnect with foreground events", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const hidden = jest.spyOn(document, "hidden", "get").mockReturnValue(false);
+  const read = jest.fn().mockResolvedValue(response(1));
+  global.fetch = jest.fn((input: RequestInfo | URL) =>
+    String(input).endsWith("/commands") ? Promise.resolve(response(1)) : read(),
+  );
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  mockSubscribe.mockClear();
+  connectOnSubscribe = true;
+  const view = renderHook(() => useInterviewRound("round", true), { wrapper });
+  try {
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      subscriptionStatus("CHANNEL_ERROR");
+      subscriptionStatus("SUBSCRIBED");
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+  } finally {
+    view.unmount();
+    client.clear();
+    hidden.mockRestore();
+    connectOnSubscribe = false;
+  }
+});
 
 test("a burst of realtime changes keeps one HTTP read in flight and reads the latest trailing state", async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

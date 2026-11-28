@@ -6,7 +6,7 @@ import { defaultDeadlines, lifecycle, stages } from '../lib/model';
 import { JourneyDetail } from './JourneyDetail';
 
 export function StudentOnboardingSidebar({ studentId }: { studentId: string }) {
-  const { data: journeys = [], isLoading, error } = useOnboardingJourneys();
+  const { data: journeys = [], isLoading, error } = useOnboardingJourneys({ studentId: studentId });
   const { data: settings } = useOnboardingSettings();
   const candidates = journeys.filter(journey => journey.student_id === studentId);
   const journey = candidates.find(item => !item.closed_at) ?? candidates[0];

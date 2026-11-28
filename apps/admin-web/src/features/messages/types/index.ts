@@ -86,6 +86,7 @@ export type AggregatedConversation = {
     assigned_staff_id?: string | null;
   }>;
   latestMessageAt: string | null;
+  scheduledMessageAt?: string | null;
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
   unreadConversationIds: string[];
@@ -101,6 +102,7 @@ export type GroupConversation = {
   participantNames: string[];
   ownedNumberId: string;
   latestMessageAt: string | null;
+  scheduledMessageAt?: string | null;
   latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
   unreadConversationIds: string[];

@@ -7,6 +7,7 @@ import { PersonAccountDialog } from '@/features/auth/components/PersonAccountDia
 import { StudentEducationDetails } from '@/features/students/components/tabs/StudentEducationDetails';
 import { EntityPropertiesLayout, EntityPropertiesToggle } from '@/shared/components/EntityPropertiesLayout';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTab';
 import { studentAccountAction } from '@/features/students/utils/studentAccountAction';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
@@ -85,7 +86,7 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
   const sidebarForm = useRef<HTMLDivElement>(null);
   const [sectionDraft, setSectionDraft] = useState<TablesUpdate<"students"> | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const { data: journeys = [] } = useOnboardingJourneys();
+  const { data: journeys = [] } = useOnboardingJourneys({ studentId: id });
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
@@ -325,17 +326,16 @@ export default function StudentDetailPage(props: { params: Promise<{ id: string 
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><Button variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</Button><Button disabled={mutations.isUpdatingDetails} onClick={() => sidebarForm.current?.querySelector('form')?.requestSubmit()}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</Button></div>}
       </div>
 </>}>
-    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto px-4 pb-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
-      <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
-        <PrimaryEntityBreadcrumb />
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
+        <PrimaryEntityBreadcrumb label={`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim()} />
         <EntityPropertiesToggle />
         <NoteAlertPills entityType="student" entityId={student.id} />
 
         {!student.deleted_at && <FormResponseCommands record={{ type: "student", id: student.id, title: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() }} />}
         {!student.deleted_at && <ActionsMenu
           type="student"
-          detailsInSidebar
           entityId={student.id}
           copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
           {...studentActions}

@@ -8,9 +8,13 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Breadcrumb } from '@/shared/components/Breadcrumb';
+import { ListSettingsMenu } from '@/shared/components/ListSettingsMenu';
 import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
+import { ConversationPanes } from '@/shared/components/ConversationPanes';
 import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useAccessoryTab } from '@/shared/contexts/AccessoryTabContext';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -25,7 +29,6 @@ import {
 } from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useUnknownNumberLinking } from '@/features/messages/hooks/useUnknownNumberLinking';
-import { AccessoryBreadcrumb } from '@/shared/components/accessory-panel/AccessoryBreadcrumb';
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
   linkedConversationEntity,
@@ -56,6 +59,8 @@ export function MessagesView() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>(contactParam || groupParam || conversationParam ? 'thread' : 'list');
   const isDesktopSplitPane = usePanelMediaQuery('(min-width: 768px)');
   const [isSearching, setIsSearching] = useState(false);
+  const [filterTarget, setFilterTarget] = useState<HTMLDivElement | null>(null);
+  const [composeTarget, setComposeTarget] = useState<HTMLDivElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
     useMessagingListFilters(tabScope ? `tab:${tabScope.tab.key}` : "page");
@@ -71,10 +76,6 @@ export function MessagesView() {
         : { kind: "contact", contactId: activeContactId },
     ),
   );
-
-  useEffect(() => {
-    if (contactParam || groupParam) setMobileView("thread");
-  }, [contactParam, groupParam]);
 
   const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
   const { data: conversationsByContact } = useConversationList(
@@ -93,7 +94,8 @@ export function MessagesView() {
 
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
-    if (conversationParam && !contactParam) {
+    if (conversationParam && !contactParam && !groupParam) {
+      let current = true;
       const supabase = getSupabaseClient();
       supabase
         .from("conversations")
@@ -101,9 +103,15 @@ export function MessagesView() {
         .eq("id", conversationParam)
         .maybeSingle<{ contact_id: string | null; is_group_chat: boolean }>()
         .then(({ data }) => {
-          if (data?.is_group_chat) setActiveGroupId(conversationParam);
+          if (!current) return;
+          if (data?.is_group_chat) {
+            setActiveGroupId(conversationParam);
+            setActiveContactId(null);
+            return;
+          }
           if (data?.contact_id) {
             setActiveContactId(data.contact_id);
+            setActiveGroupId(null);
             if (targetMessageId) return;
             // Update URL to use contact instead of conversation
             const params = new URLSearchParams(searchParams.toString());
@@ -112,8 +120,11 @@ export function MessagesView() {
             router.replace(`/messages?${params.toString()}`);
           }
         });
+      return () => {
+        current = false;
+      };
     }
-  }, [conversationParam, contactParam, searchParams, router, targetMessageId]);
+  }, [conversationParam, contactParam, groupParam, searchParams, router, targetMessageId]);
 
   // Fetch active contact details for header
   const { data: activeContact } = useQuery({
@@ -141,46 +152,19 @@ export function MessagesView() {
     enabled: !!activeContactId,
   });
 
-  // Sync from URL params
   useEffect(() => {
-    const contactId = searchParams.get("contact");
-    const groupId = searchParams.get("group");
-    if (contactId) {
-      setActiveContactId(contactId);
+    if (contactParam) {
+      setActiveContactId(contactParam);
       setActiveGroupId(null);
-    } else if (groupId) {
-      setActiveGroupId(groupId);
+    } else if (groupParam) {
+      setActiveGroupId(groupParam);
       setActiveContactId(null);
-    } else if (
-      !tabScope &&
-      !activeContactId &&
-      !activeGroupId &&
-      !conversationParam
-    ) {
-      // Full /messages page: auto-select most recent contact when no URL param.
-      // Accessory tabs stay on the conversation list until the user picks one.
-      (async () => {
-        const supabase = getSupabaseClient();
-        const { data } = await supabase
-          .from("conversations")
-          .select("contact_id")
-          .order("last_message_at", { ascending: false })
-          .limit(1)
-          .maybeSingle<{ contact_id: string }>();
-        if (data?.contact_id) {
-          setActiveContactId(data.contact_id);
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("contact", data.contact_id);
-          router.push(`/messages?${params.toString()}`);
-        }
-      })();
-    } else if (!contactId && !groupId && !conversationParam) {
+    } else if (!conversationParam) {
       setActiveContactId(null);
       setActiveGroupId(null);
-      setMobileView("list");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    setMobileView(contactParam || groupParam || conversationParam ? "thread" : "list");
+  }, [contactParam, groupParam, conversationParam]);
 
   const activeAggregated = conversationsByContact?.find(
     (c): c is Extract<ConversationListItem, { kind: "contact" }> =>
@@ -277,9 +261,9 @@ export function MessagesView() {
     setComposeIntent(selection.kind === "contact" ? selection : null);
     setMobileView("thread");
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("conversation");
-    params.delete("contact");
-    params.delete("group");
+    for (const key of ["contact", "conversation", "group", "message", "focus"]) {
+      params.delete(key);
+    }
     if (selection.kind === "contact") {
       setActiveContactId(selection.contactId);
       setActiveGroupId(null);
@@ -293,7 +277,12 @@ export function MessagesView() {
   };
 
   const handleBack = () => {
-    setMobileView("list");
+    setIsSearching(false);
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of ["contact", "conversation", "group", "message", "focus"]) {
+      params.delete(key);
+    }
+    router.push(params.size ? `/messages?${params}` : "/messages");
   };
 
   const linkedEntity = linkedConversationEntity(activeContact);
@@ -327,27 +316,35 @@ export function MessagesView() {
       }),
   });
 
-  const renderConversationHeader = (filterControl?: ReactNode) => (
+  const showConversation = Boolean(activeSelection) &&
+    (Boolean(tabScope) || isDesktopSplitPane || mobileView === "thread");
+  // A linked message needs the final thread width before scrolling to its bubble.
+  const animateConversationListResize = !targetMessageId;
+
+  const conversationHeader = (
     <>
       <ConversationHeader
-        filterControl={filterControl}
+        showConversationActions={showConversation}
+        filterControl={<div ref={setFilterTarget} className="empty:hidden" />}
+        extraActions={<>
+          {!showConversation && <ListSettingsMenu list="messages" inline />}
+          <div ref={setComposeTarget} className="empty:hidden" />
+        </>}
         compactActions
         paneHeader
         title={conversationTitle}
         titleSlot={
-          tabScope ? (
-            <AccessoryBreadcrumb
-              onCurrentClick={linkedEntity ? handleTitleClick : undefined}
-            />
-          ) : undefined
+          <Breadcrumb
+            primary
+            className="m-0 min-w-0 gap-1.5"
+            items={showConversation ? [
+              { label: "Messages", onClick: handleBack },
+              { label: conversationTitle, onClick: linkedEntity ? handleTitleClick : undefined, entity: linkedEntity ?? undefined },
+            ] : [{ label: "Messages" }]}
+          />
         }
         onSearchToggle={() => setIsSearching(!isSearching)}
         onTitleClick={linkedEntity ? handleTitleClick : undefined}
-        onBack={handleBack}
-        showBackButton={
-          !tabScope && !isDesktopSplitPane && mobileView === "thread"
-        }
-        backButtonClassName="md:hidden"
         isUnread={
           activeSelection && (!activeGroupId || listedGroup)
             ? activeGroup
@@ -396,42 +393,21 @@ export function MessagesView() {
   );
 
   return (
-    <div className="p-0 h-full overflow-hidden">
-      <div className="flex h-full">
-        {/* Conversation List 
-            - Mobile (< md): Full width when viewing list, hidden when viewing thread
-            - Medium (md-xl): Fixed width, always visible alongside messages
-            - Wide (xl+): Fixed width, always visible with info panel
-        */}
-        {!tabScope && (
-          <div
-            className={`
-          flex-shrink-0
-          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[320px]'}
-          md:w-[320px]
-        `}
-          >
-            <ConversationList
-              filterScope="page"
-              activeSelection={activeSelection}
-              onSelect={handleConversationSelect}
-            />
-          </div>
-        )}
-
-        {/* Messages 
-            - Mobile (< md): Full width when viewing thread, hidden when viewing list
-            - Medium (md+): Always visible, flex-1
-        */}
-        <div
-          className={`
-          flex-1 flex-col min-w-0
-          ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}
-        `}
-        >
-          {!tabScope || !linkedEntity || !activeContactId
-            ? renderConversationHeader()
-            : null}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {conversationHeader}
+      <ConversationPanes
+        label="Messages conversation"
+        threadOnly={Boolean(tabScope)}
+        animateListResize={animateConversationListResize}
+        list={
+          <ConversationList
+            filterScope={tabScope ? `tab:${tabScope.tab.key}` : "page"}
+            composeTarget={composeTarget}
+            activeSelection={activeSelection}
+            onSelect={handleConversationSelect}
+          />
+        }
+        thread={showConversation && (
           <div className="flex-1 flex flex-col min-h-0">
             {linkedEntity && activeContactId && !targetMessageId ? (
               <EntityCommunicationPanel
@@ -449,8 +425,11 @@ export function MessagesView() {
                     ? composeIntent.senderId
                     : undefined
                 }
-                hideHistoryToolbar={Boolean(tabScope)}
-                renderHeader={tabScope ? renderConversationHeader : undefined}
+                hideHistoryToolbar
+                renderHeader={(filter) => showConversation && filterTarget
+                  ? createPortal(filter, filterTarget)
+                  : null
+                }
                 isSearching={isSearching}
                 searchTerm={searchTerm}
                 onSearchTermChange={setSearchTerm}
@@ -500,14 +479,10 @@ export function MessagesView() {
                   onDraftClear={handleDraftClear}
                 />
               </>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Select a conversation to start messaging
-              </div>
-            )}
+            ) : null}
           </div>
-        </div>
-      </div>
+        )}
+      />
 
       {linking.linkingModals}
     </div>

@@ -22,10 +22,17 @@ export async function POST(request: Request) {
     const { body } = parsed;
     if (!isInterviewCommand(body))
       return interviewResponse({ error: "Invalid interview command." }, 400);
+    let command = body;
+    if (body.type === "saveStation" && body.expectedVersion === 0 && body.station.publicationStatus === undefined) {
+      command = { ...body, station: { ...body.station, publicationStatus: "draft" } };
+    }
+    if (body.type === "saveInterview" && body.expectedVersion === 0 && body.interview.publicationStatus === undefined) {
+      command = { ...body, interview: { ...body.interview, publicationStatus: "draft" } };
+    }
     const service = createInterviewServiceClient();
     const { data, error } = await service.rpc("interview_command", {
       p_actor_user_id: actor.userId,
-      p_command: body as unknown as Json,
+      p_command: command as unknown as Json,
     });
     if (error) throw error;
     if (

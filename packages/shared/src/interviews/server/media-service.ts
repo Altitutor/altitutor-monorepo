@@ -7,7 +7,10 @@ import {
   type InterviewMediaTicket,
   type InterviewMediaRound,
 } from "../media";
-import { DailyInterviewProvider } from "./daily";
+import {
+  DailyProviderError,
+  type DailyInterviewProvider,
+} from "./daily";
 
 export interface InterviewMediaSession {
   id: string;
@@ -60,6 +63,11 @@ type CallPolicy = InterviewMediaPolicy | InterviewWaitingMediaPolicy;
 function sessionKey(policy: CallPolicy) {
   // Do not reissue credentials for a room from an older recording policy.
   return `${policy.scope === "waiting" ? "waiting-v1" : "phase-v2"}:${policy.key}`;
+}
+
+/** Daily enforces its room and token deadlines in whole epoch seconds. */
+function dailyExpirySeconds(expiresAt: string): number {
+  return Math.floor(Date.parse(expiresAt) / 1000);
 }
 
 export class InterviewMediaService {
@@ -225,16 +233,13 @@ export class InterviewMediaService {
     const expiresAt =
       policy.expiresAt ??
       new Date(Date.parse(round.phaseStartedAt) + 4 * 60 * 60 * 1000).toISOString();
-    if (Date.parse(expiresAt) <= this.now()) return empty;
+    if (dailyExpirySeconds(expiresAt) * 1000 <= this.now()) return empty;
     const session =
       sessions.find((candidate) => candidate.key === sessionKey(policy)) ??
       (await this.createSession(roundId, policy, expiresAt));
-    if (
-      session.closedAt ||
-      !session.url ||
-      Date.parse(session.expiresAt) <= this.now()
-    )
-      return empty;
+    const tokenExpiresAt = dailyExpirySeconds(session.expiresAt);
+    const tokenExpired = () => tokenExpiresAt * 1000 <= this.now();
+    if (session.closedAt || !session.url || tokenExpired()) return empty;
     const beforeMint = await this.store.round(roundId);
     if (resolvePolicy(beforeMint)?.key !== policy.key) {
       await this.closeSession(session);
@@ -245,28 +250,45 @@ export class InterviewMediaService {
         ? { canSend: false, canReceive: true }
         : { canSend: policy.canSend, canReceive: policy.canReceive };
     const accessKey = `${actor.role}:${policy.key}`;
-    const token =
-      knownSessionId === session.id && knownAccessKey === accessKey
-        ? undefined
-        : await this.provider.token(
-            session.roomName,
-            actor.id,
-            (actor.role === "tutor" ? round.tutors : actor.role === "student" ? round.students : [])?.find((person) => person.id === actor.id)?.name ?? actor.name,
-            Math.floor(Date.parse(session.expiresAt) / 1000),
-            permissions,
-          );
+    let token: string | undefined;
+    if (knownSessionId !== session.id || knownAccessKey !== accessKey) {
+      if (tokenExpired()) return { ...empty, serverNow: beforeMint?.serverNow };
+      try {
+        token = await this.provider.token(
+          session.roomName,
+          actor.id,
+          (actor.role === "tutor"
+            ? round.tutors
+            : actor.role === "student"
+              ? round.students
+              : [])?.find((person) => person.id === actor.id)?.name ?? actor.name,
+          tokenExpiresAt,
+          permissions,
+        );
+      } catch (error) {
+        // Once the cutoff passes, the room is unusable even if the 400 arrived for another reason.
+        if (
+          error instanceof DailyProviderError &&
+          error.status === 400 &&
+          tokenExpired()
+        )
+          return { ...empty, serverNow: beforeMint?.serverNow };
+        throw error;
+      }
+    }
     const current = token ? await this.store.round(roundId) : beforeMint;
     if (resolvePolicy(current)?.key !== policy.key) {
       await this.closeSession(session);
       return { ...empty, serverNow: current?.serverNow };
     }
+    if (tokenExpired()) return { ...empty, serverNow: current?.serverNow };
     return {
       ...empty,
       sessionId: session.id,
       accessKey,
       url: session.url,
       token,
-      expiresAt: session.expiresAt,
+      expiresAt: new Date(tokenExpiresAt * 1000).toISOString(),
       ...permissions,
       attemptId: policy.scope === "station" ? policy.attemptId : undefined,
       recordingEnabled: policy.recordingEnabled,
@@ -285,7 +307,7 @@ export class InterviewMediaService {
     const roomName = `mmi-${id}`;
     const url = await this.provider.createRoom(
       roomName,
-      Math.floor(Date.parse(expiresAt) / 1000),
+      dailyExpirySeconds(expiresAt),
       policy.scope === "waiting" ? 200 : 8,
     );
     const session = await this.store.ensureSession({

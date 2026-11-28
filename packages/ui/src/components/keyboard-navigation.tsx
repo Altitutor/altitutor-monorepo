@@ -30,10 +30,27 @@ const trackPane = (event: Event) => {
   const pane = event.target.closest<HTMLElement>(paneSelector);
   if (pane && focusedPane !== pane) {focusedPane = pane;notifyScope();}
 };
+const collectionRecord = "[data-keyboard-record]";
+const otherRecords =
+  "[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target],[data-record-type][data-record-id]";
+
+export function keyboardRecordFor(target: Element | null) {
+  return target?.closest<HTMLElement>(collectionRecord) ??
+    target?.closest<HTMLElement>(otherRecords) ?? null;
+}
+
+export function hoveredKeyboardRecord(root: Document) {
+  return root.querySelector<HTMLElement>(`${collectionRecord}:hover`) ??
+    root.querySelector<HTMLElement>(`:is(${otherRecords}):hover`);
+}
+
 const trackPointer = (event: Event) => {
   if (!(event.target instanceof Element)) return;
-  const node = event.target.closest<HTMLElement>('[data-keyboard-record],[data-shortcut-record],[data-conversation-row],[data-email-shortcut-target]');
-  setKeyboardPointerTarget(node);
+  setKeyboardPointerTarget(keyboardRecordFor(event.target));
+};
+const trackPointerMovement = (event: Event) => {
+  // KeyboardCollection owns movement within its records, including the hover transition.
+  if (event.target instanceof Element && !event.target.closest(collectionRecord)) trackPointer(event);
 };
 const clearPointer = (event: Event) => {
   const related = (event as MouseEvent).relatedTarget;
@@ -57,6 +74,7 @@ export function subscribeKeyboardScope(listener: () => void) {
     document.addEventListener("focusin", trackPane);
     document.addEventListener("pointerdown", trackPane, true);
     document.addEventListener("pointerover", trackPointer);
+    document.addEventListener("pointermove", trackPointerMovement);
     document.addEventListener("pointerout", clearPointer);
     document.addEventListener("focusout", notifyScope);
     scopeObserver = new MutationObserver(notifyScope);
@@ -82,6 +100,7 @@ export function subscribeKeyboardScope(listener: () => void) {
       document.removeEventListener("focusin", trackPane);
       document.removeEventListener("pointerdown", trackPane, true);
       document.removeEventListener("pointerover", trackPointer);
+      document.removeEventListener("pointermove", trackPointerMovement);
       document.removeEventListener("pointerout", clearPointer);
       document.removeEventListener("focusout", notifyScope);
       scopeObserver?.disconnect();

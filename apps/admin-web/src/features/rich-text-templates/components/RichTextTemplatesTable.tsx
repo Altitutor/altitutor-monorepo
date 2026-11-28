@@ -244,6 +244,7 @@ export function RichTextTemplatesTable({ onCreateTrigger }: RichTextTemplatesTab
               filteredAndSortedTemplates.map((template) => (
                 <TableRow
                   key={template.id}
+                  data-shortcut-record
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleEdit(template)}
                 >
@@ -257,7 +258,7 @@ export function RichTextTemplatesTable({ onCreateTrigger }: RichTextTemplatesTab
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" data-shortcut-menu aria-keyshortcuts="M" aria-label="Template actions">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

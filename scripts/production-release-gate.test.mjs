@@ -85,6 +85,30 @@ test("Vercel Git integration cannot bypass the production release gate", async (
   );
 });
 
+test("Vercel reuses type checks only after full production verification", async () => {
+  const workflow = await readFile(workflowPath, "utf8");
+  const deploy = workflow.slice(workflow.indexOf("\n  deploy:"), workflow.indexOf("\n  deploy-web:"));
+  const web = workflow.slice(workflow.indexOf("\n  deploy-web:"), workflow.indexOf("\n  smoke-production:"));
+  const turbo = JSON.parse(await readFile(turboConfigPath, "utf8"));
+
+  // A reused receipt skips verify and must keep Vercel's ordinary Next.js check.
+  assert.match(deploy, /full_production_typecheck: \$\{\{ github\.ref_name == 'main' && needs\.verify\.result == 'success' \}\}/u);
+  assert.match(web, /FULL_PRODUCTION_TYPECHECK: \$\{\{ needs\.deploy\.outputs\.full_production_typecheck \}\}/u);
+  assert.match(web, /if \[ "\$FULL_PRODUCTION_TYPECHECK" = "true" \]; then\n\s+release_args\+=\(--build-env "ALTITUTOR_TYPECHECK_VERIFIED=true"\)\n\s+fi/u);
+  assert.equal(web.match(/ALTITUTOR_TYPECHECK_VERIFIED=/gu)?.length, 1);
+  assert.match(web, /"\$\{release_args\[@\]\}"/u);
+  assert.doesNotMatch(web, /--env "ALTITUTOR_TYPECHECK_VERIFIED=/u);
+  assert.doesNotMatch(web, /ALTITUTOR_CI_BUILD=/u);
+  assert.ok(turbo.tasks.build.env.includes("ALTITUTOR_TYPECHECK_VERIFIED"));
+
+  for (const app of APPS) {
+    const config = await readFile(new URL(`../apps/${app}/next.config.js`, import.meta.url), "utf8");
+    const manifest = JSON.parse(await readFile(new URL(`../apps/${app}/package.json`, import.meta.url), "utf8"));
+    assert.match(config, /ignoreBuildErrors:\s*process\.env\.ALTITUTOR_CI_BUILD === "true"\s*\|\|\s*process\.env\.ALTITUTOR_TYPECHECK_VERIFIED === "true"/u);
+    assert.equal(manifest.scripts.typecheck, "next typegen && tsc --noEmit", app);
+  }
+});
+
 test("every main push runs the migration gate before Vercel production deploys", async () => {
   const workflow = await readFile(workflowPath, "utf8");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("permissions:"));

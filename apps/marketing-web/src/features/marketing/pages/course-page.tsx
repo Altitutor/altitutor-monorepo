@@ -1,5 +1,7 @@
+import { MarketingPhoto } from "../components/marketing-photo";
+import { coursePhotos } from "../course-photos";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { pageContent, type ContentBlock } from "../content";
+import { type coursePaths, pageContent, type ContentBlock } from "../content";
 import {
   Button,
   ContentCard,
@@ -88,13 +90,18 @@ function CourseSectionContent({ section }: { section: CourseSection }) {
   );
 }
 
-export function CoursePage({ path }: { path: string }) {
+export function CoursePage({ path }: { path: (typeof coursePaths)[number] }) {
   const blocks = pageContent(path);
   const sections = sectionsFrom(blocks);
   const introduction = sections[0];
   const body = sections.slice(1);
   const [title, emphasis] = courseHeadings[path];
-  const image = introduction.blocks.find((b) => b.kind === "image");
+  const photo =
+    coursePhotos[
+      path === "/classes/english-assignment-drafting/"
+        ? "/classes/assignment-drafting/"
+        : path
+    ];
   const facts = introduction.blocks.find((b) => b.kind === "icon-list");
   const trialSubject =
     path === "/classes/ucatprep/"
@@ -128,13 +135,7 @@ export function CoursePage({ path }: { path: string }) {
             </Button>
           </div>
         </div>
-        {image?.image ? (
-          <ResourceImage
-            src={image.image}
-            alt={image.alt || `${title} learning resources`}
-            priority
-          />
-        ) : null}
+        <MarketingPhoto {...photo} priority />
       </section>
       <div className={styles.container}>
         {facts ? (

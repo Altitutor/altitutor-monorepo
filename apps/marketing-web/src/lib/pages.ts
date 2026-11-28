@@ -1,3 +1,5 @@
+import { withOfficeAddress } from "./marketing-address";
+import { OFFICE_POSTAL_ADDRESS } from "@altitutor/email/company-address";
 import type { Metadata } from "next";
 import pages from "@/content/pages.json";
 import { SITE_NAME, SITE_URL } from "./site";
@@ -48,7 +50,16 @@ export type MarketingPage = {
   seo: PageSeo;
 };
 
-const marketingPages = pages as MarketingPage[];
+const marketingPages: MarketingPage[] = pages.map((page) => ({
+  ...page,
+  excerpt: withOfficeAddress(page.excerpt),
+  seo: {
+    ...page.seo,
+    og_description: page.seo?.og_description
+      ? withOfficeAddress(page.seo.og_description)
+      : undefined,
+  },
+}));
 
 const REDIRECTED_PATHS = new Set([
   "/new-student-registration/",
@@ -93,7 +104,9 @@ export function getMarketingPage(path: string) {
 }
 
 export function getAllMarketingPages() {
-  return marketingPages.filter((page) => !RETIRED_COMMERCE_PATHS.has(page.path));
+  return marketingPages.filter(
+    (page) => !RETIRED_COMMERCE_PATHS.has(page.path),
+  );
 }
 
 export function getSitemapPages() {
@@ -105,10 +118,7 @@ export function getSitemapPages() {
 
 const ORGANIZATION_ADDRESS = {
   "@type": "PostalAddress",
-  streetAddress: "31 Craighill Rd",
-  addressRegion: "SA",
-  postalCode: "5064",
-  addressCountry: "AU",
+  ...OFFICE_POSTAL_ADDRESS,
 };
 
 export function getPageSchema(page: MarketingPage) {

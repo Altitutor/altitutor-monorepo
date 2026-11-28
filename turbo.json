@@ -143,7 +143,8 @@
     "build": {
       "dependsOn": ["^build"],
       "env": [
-        "ALTITUTOR_CI_BUILD", "VERCEL_ENV", "VERCEL_TARGET_ENV",
+        "ALTITUTOR_CI_BUILD", "ALTITUTOR_TYPECHECK_VERIFIED",
+        "VERCEL_ENV", "VERCEL_TARGET_ENV",
         "SENTRY_DISABLED", "SENTRY_TEST_OPT_IN",
         "NEXT_PUBLIC_SENTRY_*", "EXPO_PUBLIC_SENTRY_*"
       ],

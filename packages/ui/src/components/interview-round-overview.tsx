@@ -102,9 +102,9 @@ export function InterviewRoundOverview({
                     {kind === "students" && round.delivery === "in_person" ? (
                       <span className="text-muted-foreground">In person</span>
                     ) : joined ? (
-                      <Badge variant="success">Joined</Badge>
+                      <Badge variant="success" title="In the interview portal. Camera and microphone are separate.">In portal</Badge>
                     ) : (
-                      <span className="text-muted-foreground">Not joined</span>
+                      <span className="text-muted-foreground">Not in portal</span>
                     )}
                   </li>
                 );

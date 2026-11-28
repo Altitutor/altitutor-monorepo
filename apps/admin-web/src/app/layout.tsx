@@ -15,6 +15,7 @@ import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
 import { EntityNavigationEvents } from '@/shared/contexts/EntityNavigation'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 import { AdminShellProvider } from '@/shared/contexts/AdminShellContext'
+import { AdminDayPreviewProvider } from '@/features/sessions/components/AdminDayPreviewProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -37,7 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} style={{ "--navbar-height": "64px" } as React.CSSProperties}>
+      <body className={inter.className} style={{ "--navbar-height": "44px" } as React.CSSProperties}>
         <ReactQueryProvider>
           <AuthProvider>
             <ThemeProvider
@@ -57,7 +58,9 @@ export default function RootLayout({
                             <EntityNavigationEvents>
                               <div className="flex flex-col min-h-dvh bg-background">
                                 <MainContentWrapper>
-                                  {children}
+                                  <AdminDayPreviewProvider>
+                                    {children}
+                                  </AdminDayPreviewProvider>
                                 </MainContentWrapper>
                               </div>
                             </EntityNavigationEvents>

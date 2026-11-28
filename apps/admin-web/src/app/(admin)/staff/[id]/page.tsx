@@ -10,6 +10,7 @@ import { RetainedDeletionMessage } from "@/shared/components/RetainedDeletionMes
 
 import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { insetAdminPageHeaderClass } from "@/shared/components/adminPageHeaderStyle";
 import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
@@ -218,9 +219,9 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         {editFlow.isEditing && <div className="flex shrink-0 justify-end gap-2 border-t bg-background p-4"><UIButton variant="outline" onClick={editFlow.cancelEdit} disabled={mutations.isUpdatingDetails}>Cancel</UIButton><UIButton disabled={mutations.isUpdatingDetails} onClick={() => { const form = sidebarForm.current?.querySelector('form') ?? null; const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null; if (submitButton) submitButton.click(); else form?.requestSubmit(); }}>{mutations.isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Changes</UIButton></div>}
       </div>
 </>}>
-    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto p-4 [--detail-page-gutter:1rem]'}>
+    <div className={activityLayout ? 'flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden px-4 [--detail-page-gutter:1rem]' : 'min-w-0 flex-1 overflow-y-auto px-4 pb-4 [--detail-page-gutter:1rem]'}>
       {/* Header */}
-      <div className="mb-3 flex shrink-0 items-center gap-2 border-b pb-3">
+      <div className={insetAdminPageHeaderClass} data-admin-page-header>
         <PrimaryEntityBreadcrumb />
         <EntityPropertiesToggle />
         <IssuePill entityType="staff" entityId={id} enabled />
@@ -229,7 +230,6 @@ export default function StaffDetailPage(props: { params: Promise<{ id: string }>
         <FormResponseCommands record={{ type: "staff", id: staffMember.id, title: `${staffMember.first_name ?? ""} ${staffMember.last_name ?? ""}`.trim() }} />
         <ActionsMenu
           type="staff"
-          detailsInSidebar
           entityId={staffMember.id}
           copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
           {...staffActions}

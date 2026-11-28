@@ -1,3 +1,4 @@
+import { withOfficeAddress } from "@/lib/marketing-address";
 import editorial from "./editorial-overrides.json";
 import production from "./production.json";
 
@@ -23,10 +24,11 @@ export function pageContent(path: string): ContentBlock[] {
     string,
     Record<string, Partial<ContentBlock>>
   > = editorial;
-  return (pages[path] ?? []).map((block) => ({
-    ...block,
-    ...overrides[path]?.[block.id],
-  }));
+  return (pages[path] ?? []).map((block) => {
+    const merged = { ...block, ...overrides[path]?.[block.id] };
+    if (merged.html) merged.html = withOfficeAddress(merged.html);
+    return merged;
+  });
 }
 
 /** IDs identify original production copy; page components own its presentation. */
