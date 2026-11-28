@@ -25,6 +25,7 @@ export function blankStation(categoryId: string): InterviewStation {
     maximumPoints: 6,
     questions: [blankQuestion(id)],
     archived: false,
+    publicationStatus: "draft",
     updatedAt: "",
   };
 }
@@ -36,6 +37,7 @@ export function duplicateStation(original: InterviewStation): InterviewStation {
     version: 0,
     name: `${original.name} (copy)`,
     archived: false,
+    publicationStatus: "draft",
     updatedAt: "",
     questions: original.questions.map((q) => ({
       ...q,

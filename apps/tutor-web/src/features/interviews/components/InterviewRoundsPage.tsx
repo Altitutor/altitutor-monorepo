@@ -145,7 +145,7 @@ function RoundActions({
               },
             ]
           : []),
-        { label: "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
+        { label: started && !completed ? "Cancel round" : "Delete round", destructive: true, icon: <Trash2 className="size-4 text-destructive" />,
           onClick: () => onDelete(round) },
         ...(!completed
           ? [

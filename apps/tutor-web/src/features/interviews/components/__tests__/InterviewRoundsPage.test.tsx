@@ -58,7 +58,7 @@ it.each([false, true])("reviews a started round's saved work and respects partic
   try {
     await screen.findByText("Monday circuit");
     fireEvent.keyDown(screen.getByRole("button", { name: "Row actions" }), { key: "Enter" });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete round" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Cancel round" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(await within(dialog).findByText("Introduce yourself before answering.")).toBeInTheDocument();
     expect(within(dialog).getAllByText("Explain your reasoning.")).toHaveLength(2);
@@ -72,12 +72,12 @@ it.each([false, true])("reviews a started round's saved work and respects partic
     expect(commands).toEqual([]);
     if (present) {
       expect(within(dialog).getByRole("status")).toHaveTextContent("Jordan");
-      expect(within(dialog).getByRole("button", { name: "Delete round" })).toBeDisabled();
+      expect(within(dialog).getByRole("button", { name: "Cancel round" })).toBeDisabled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
       expect(commands).toEqual([]);
       return;
     }
-    fireEvent.click(within(dialog).getByRole("button", { name: "Delete round" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel round" }));
     await waitFor(() => expect(screen.queryByText("Monday circuit")).not.toBeInTheDocument());
     expect(commands).toEqual([expect.objectContaining({ type: "deleteRound", roundId: "round-1", expectedVersion: 4,
       expectedAttemptVersions: [{ id: "attempt", version: 9 }] })]);

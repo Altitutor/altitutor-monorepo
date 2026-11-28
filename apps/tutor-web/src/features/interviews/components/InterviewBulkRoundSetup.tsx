@@ -1,5 +1,7 @@
 "use client";
 
+import { isInterviewReadyForScheduling } from "@altitutor/shared";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, addDays, parseISO } from "date-fns";
@@ -74,7 +76,7 @@ function BulkRoundEditor({
   );
   const [step, setStep] = useState(0);
   const [defaults] = useState(() => readRoundDefaults(catalog.actorId));
-  const interviews = catalog.interviews.filter((item) => !item.archived);
+  const interviews = catalog.interviews.filter((item) => isInterviewReadyForScheduling(item, catalog.stations));
   const [interviewId, setInterviewId] = useState<string | null>(
     interviews.find((item) => item.id === defaults?.interviewId)?.id ?? interviews[0]?.id ?? null,
   );

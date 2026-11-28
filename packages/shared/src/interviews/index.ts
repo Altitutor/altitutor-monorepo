@@ -29,6 +29,13 @@ export interface InterviewQuestion {
   rubricVersion: number;
   suggestedTimeSeconds: number;
 }
+export type InterviewPublicationStatus = "draft" | "published";
+
+/** Legacy authored content predates explicit publication and remains usable. */
+export function isInterviewPublished(content: { publicationStatus?: InterviewPublicationStatus }): boolean {
+  return content.publicationStatus !== "draft";
+}
+
 export interface InterviewStation {
   id: string;
   version: number;
@@ -39,6 +46,7 @@ export interface InterviewStation {
   questions: InterviewQuestion[];
   archived: boolean;
   updatedAt: string;
+  publicationStatus?: InterviewPublicationStatus;
 }
 export interface InterviewStationPlacement {
   id: string;
@@ -54,6 +62,12 @@ export interface InterviewTemplate {
   stations: InterviewStationPlacement[];
   archived: boolean;
   updatedAt: string;
+  publicationStatus?: InterviewPublicationStatus;
+}
+export function isInterviewReadyForScheduling(interview: InterviewTemplate, stations: InterviewStation[]): boolean {
+  return !interview.archived && isInterviewPublished(interview) && interview.stations.length > 0 &&
+    interview.stations.every((placement) => stations.some((station) =>
+      station.id === placement.stationId && isInterviewPublished(station)));
 }
 export interface InterviewPerson {
   id: string;

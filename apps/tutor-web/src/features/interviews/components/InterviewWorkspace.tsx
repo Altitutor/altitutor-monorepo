@@ -688,9 +688,11 @@ function StationFacts({
 function StationStrip({
   round,
   actorId,
+  stationControls,
 }: {
   round: InterviewRound;
   actorId: string | undefined;
+  stationControls: React.ReactNode;
 }) {
   return (
     <div className="flex gap-2 overflow-x-auto p-1" aria-label="Stations">
@@ -721,7 +723,7 @@ function StationStrip({
                 <span className="shrink-0 text-xs font-medium">· You</span>
               )}
             </div>
-            <StationFacts round={round} item={item} detailed />
+            {you ? stationControls : <StationFacts round={round} item={item} detailed />}
           </div>
         );
       })}
@@ -830,7 +832,7 @@ function InPersonRoundView({
   station,
   attempt,
   isWaiting,
-  allReady,
+  canStartWithMissingStudents,
   allFinished,
   pending,
   registerFlush,
@@ -843,7 +845,7 @@ function InPersonRoundView({
   onExit,
   onStart,
   onReady,
-  onStartReading,
+  onStartWithMissingStudents,
   onSkipReading,
   onSkipQuestions,
   onEndStation,
@@ -860,7 +862,7 @@ function InPersonRoundView({
   station: InterviewSnapshotStation | undefined;
   attempt: InterviewStationAttempt | undefined;
   isWaiting: boolean;
-  allReady: boolean;
+  canStartWithMissingStudents: boolean;
   allFinished: boolean;
   pending: boolean;
   registerFlush: (flush: (() => Promise<void>) | null) => void;
@@ -873,7 +875,7 @@ function InPersonRoundView({
   onExit: () => void;
   onStart: () => void;
   onReady: () => void;
-  onStartReading: () => void;
+  onStartWithMissingStudents: () => void;
   onSkipReading: () => void;
   onSkipQuestions: () => void;
   onEndStation: () => void;
@@ -911,16 +913,6 @@ function InPersonRoundView({
     (!round.startedAt
       ? "Start the round before marking ready."
       : pendingReason);
-  const readingReason =
-    assignedReason ??
-    (!round.startedAt
-      ? "Start the round before reading can start."
-      : (pendingReason ??
-        (!allReady
-          ? "Every station must be ready before reading can start."
-          : online && !round.progress.some((item) => item.studentId)
-            ? "At least one station needs a student."
-            : undefined)));
   const waitingTutors = unfinishedFeedback(round).map((item) =>
     round.tutors.find((tutor) => tutor.id === item.tutorId)?.name ?? "a station tutor",
   );
@@ -976,13 +968,13 @@ function InPersonRoundView({
     };
   });
   const stationControls = (
-    <InterviewPanel title={station?.name ?? "Your station"} className="min-w-0">
-      <div className={"flex flex-col gap-3"}>
+      <div className="flex min-w-0 flex-col gap-3">
         <div className={online ? "flex flex-col gap-2" : "space-y-4"}>
           {progress ? (
             <StationFacts
               round={round}
               item={progress}
+              detailed
               studentControl={
                 canSelectStudent && station ? (
                   progress.studentId ? (
@@ -1071,13 +1063,14 @@ function InPersonRoundView({
                 {progress?.ready ? "Mark not ready" : "I’m ready"}
               </ActionButton>
             )}
-            {isWaiting && (
+            {canStartWithMissingStudents && (
               <ActionButton
-                reason={readingReason}
-                disabled={Boolean(readingReason)}
-                onClick={onStartReading}
+                variant="outline"
+                reason={pendingReason}
+                disabled={pending}
+                onClick={onStartWithMissingStudents}
               >
-                Start reading
+                Continue with missing students
               </ActionButton>
             )}
             {round.phase === "reading" && !paused && (
@@ -1152,7 +1145,6 @@ function InPersonRoundView({
             ))}
         </div>
       </div>
-    </InterviewPanel>
   );
   return (
     <TooltipProvider delayDuration={150}>
@@ -1294,7 +1286,7 @@ function InPersonRoundView({
             />
           ) : (
             <>
-              <StationStrip round={round} actorId={actorId} />
+              <StationStrip round={round} actorId={actorId} stationControls={stationControls} />
               <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] items-start gap-4 md:grid-cols-2 md:grid-rows-1">
                 <aside className="max-h-[34svh] min-h-0 min-w-0 space-y-4 overflow-y-auto md:max-h-full md:h-full">
                   <InterviewMedia
@@ -1320,10 +1312,8 @@ function InPersonRoundView({
                   />
 
                   {station && <InterviewPanel title="Reading prompt"><InterviewDocument value={station.prompt as JSONContent} /></InterviewPanel>}
-                  {!online ? stationControls : null}
                 </aside>
                 <div className="flex h-full min-h-0 min-w-0 flex-col gap-5 overflow-y-auto">
-                  {online ? stationControls : null}
                   {attempt && station ? (
                     <AttemptEditor
                       key={attempt.id}
@@ -1474,7 +1464,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
     if (query.data?.startedAt) setEditingRound(false);
   }, [query.data?.startedAt]);
   const round = query.data;
-  const run = async (action: InterviewCommand) => {
+  const { actorId: roundActor, refreshForAction } = query;
+  const { mutateAsync, reset: resetCommand } = command;
+  const run = useCallback(async (action: InterviewCommand, automaticReading = false) => {
     if (actionRunning.current) return;
     actionRunning.current = true;
     setActionPending(true);
@@ -1485,12 +1477,19 @@ export function InterviewWorkspace({ id }: { id: string }) {
         await submitRoundCommand(
           action,
           round,
-          query.actorId,
-          query.refreshForAction,
-          command.mutateAsync,
+          roundActor,
+          refreshForAction,
+          mutateAsync,
         );
-      } else await command.mutateAsync(action);
+      } else await mutateAsync(action);
     } catch (error) {
+      if (automaticReading && round) {
+        const latest = await refreshForAction().catch(() => null);
+        if (latest && (latest.phase !== "waiting" || latest.rotation !== round.rotation)) {
+          resetCommand();
+          return;
+        }
+      }
       setLocalError(
         error instanceof Error ? error : new Error("Unable to save changes."),
       );
@@ -1498,7 +1497,33 @@ export function InterviewWorkspace({ id }: { id: string }) {
       actionRunning.current = false;
       setActionPending(false);
     }
-  };
+  }, [round, roundActor, refreshForAction, mutateAsync, resetCommand]);
+  const autoStartAttempt = useRef<string | null>(null);
+  const [autoStartRetry, setAutoStartRetry] = useState(0);
+  const allReady = Boolean(round?.progress.length && round.progress.every((item) => item.ready));
+  const missingStudents = round?.studentIds.filter(
+    (studentId) => !round.connectedStudentIds.includes(studentId),
+  ) ?? [];
+  const missingStudentCount = missingStudents.length;
+  const completedCircuit = round?.attempts.length &&
+    round.attempts.every((attempt) => attempt.completed || !!attempt.notAssessedReason?.trim());
+  const readyToStart = !!round?.startedAt && round.phase === "waiting" && !round.pausedAt &&
+    allReady && !completedCircuit;
+  const canStartOnline = round?.progress.some((item) => item.studentId) && missingStudentCount === 0;
+  useEffect(() => {
+    if (!round || !readyToStart || !browserOnline || query.heartbeatFailed ||
+      actionPending || command.isPending || (round.delivery === "online" && !canStartOnline)) return;
+    // Let the first connected station tutor request the existing guarded transition.
+    const leader = round.progress.find(
+      (item) => item.tutorId === query.actorId || round.connectedTutorIds?.includes(item.tutorId),
+    );
+    if (!leader || leader.tutorId !== query.actorId) return;
+    const attemptKey = `${round.id}:${round.rotation}:${round.version}:${autoStartRetry}`;
+    if (autoStartAttempt.current === attemptKey) return;
+    autoStartAttempt.current = attemptKey;
+    void run({ type: "startReading", roundId: id, expectedVersion: round.version, commandId: randomUuid() }, true);
+  }, [round, readyToStart, browserOnline, query.actorId, query.heartbeatFailed, actionPending,
+    command.isPending, canStartOnline, autoStartRetry, run, id]);
   if (!round)
     return (
       <div className="flex min-h-dvh items-center justify-center p-6">
@@ -1523,11 +1548,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
     expectedVersion: round.version,
     commandId: randomUuid(),
   };
-  const allReady = round.progress.every((item) => item.ready);
   const allFinished = unfinishedFeedback(round).length === 0;
-  const missingStudents = round.studentIds.filter(
-    (studentId) => !round.connectedStudentIds.includes(studentId),
-  );
+  const canStartWithMissingStudents = Boolean(readyToStart && progress && round.delivery === "online" &&
+    round.progress.some((item) => item.studentId) && missingStudentCount);
   const isWaiting = !round.startedAt || round.phase === "waiting";
   const selfStatus = !browserOnline
     ? "offline"
@@ -1567,7 +1590,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         station={station}
         attempt={attempt}
         isWaiting={isWaiting}
-        allReady={allReady}
+        canStartWithMissingStudents={canStartWithMissingStudents}
         allFinished={allFinished}
         pending={actionPending || command.isPending}
         registerFlush={registerFlush}
@@ -1575,7 +1598,9 @@ export function InterviewWorkspace({ id }: { id: string }) {
         registerFinalizeRecording={registerFinalizeRecording}
         error={localError ?? command.error ?? query.error}
         connectionInterrupted={query.isError}
-        onRetry={() => void query.refreshForAction().catch(() => undefined)}
+        onRetry={() => {
+          void query.refreshForAction().then(() => setAutoStartRetry((attempt) => attempt + 1)).catch(() => undefined);
+        }}
         onPause={() =>
           void run({
             ...base,
@@ -1587,11 +1612,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
         onReady={() =>
           void run({ ...base, type: "ready", ready: !progress?.ready })
         }
-        onStartReading={() => {
-          if (round.delivery === "online" && missingStudents.length)
-            setOverride(true);
-          else void run({ ...base, type: "startReading" });
-        }}
+        onStartWithMissingStudents={() => setOverride(true)}
         onSkipReading={() => void run({ ...base, type: "skipReading" })}
         onSkipQuestions={() => void run({ ...base, type: "skipQuestions" })}
         onEndStation={() => void run({ ...base, type: "endStation" })}
@@ -1657,7 +1678,7 @@ export function InterviewWorkspace({ id }: { id: string }) {
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={override} onOpenChange={setOverride}>
+      <Dialog open={override && canStartWithMissingStudents} onOpenChange={setOverride}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Start without every student connected?</DialogTitle>

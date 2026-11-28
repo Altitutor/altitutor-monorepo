@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { InterviewContentStatistics } from "./InterviewStatistics";
 import {
   Button,
   Checkbox,
@@ -15,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   ResponsiveResizablePanels,
+  SegmentedControl,
   type JSONContent,
 } from "@altitutor/ui";
 import { randomUuid } from "@altitutor/ui/lib/random-uuid";
@@ -87,6 +89,7 @@ export function BuilderEditor({
   draftRef.current = draft;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"content" | "stats">("content");
   const [savedStations, setSavedStations] = useState<InterviewStation[]>([]);
   const [stationDialog, setStationDialog] = useState<{
     mode: "create" | "edit";
@@ -225,6 +228,11 @@ export function BuilderEditor({
           handleLabel="Resize interview properties sidebar"
           primary={
             <section className="flex h-full min-h-0 flex-col overflow-y-auto p-4 lg:p-6">
+              {original.version > 0 && <SegmentedControl aria-label="Editor view" value={tab} onValueChange={setTab}
+                options={[{ value: "content", label: "Content" }, { value: "stats", label: "Stats" }]}
+                className="mb-4 self-start" />}
+              {tab === "stats" && <InterviewContentStatistics kind="interview" id={original.id} />}
+              <div hidden={tab === "stats"}>
               <div className="space-y-4">
                 {draft.stations.map((placement, index) => {
                   const station = stationFor(placement.stationId);
@@ -400,6 +408,7 @@ export function BuilderEditor({
                   Create new station
                 </Button>
               </div>
+              </div>
             </section>
           }
           secondary={
@@ -439,6 +448,17 @@ export function BuilderEditor({
                       })
                     }
                   />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Status">
+                  <select aria-label="Publication status" className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    value={draft.publicationStatus ?? "published"}
+                    onChange={(event) => {
+                      const status = event.target.value;
+                      if (status === "draft" || status === "published") change({ ...draft, publicationStatus: status });
+                    }}>
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                  </select>
                 </UcatSetPropertyRow>
                 <UcatSetPropertyRow label="Recording">
                   <label className="flex items-center gap-2 text-sm">

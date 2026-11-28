@@ -1,5 +1,7 @@
 "use client";
 
+import { isInterviewReadyForScheduling } from "@altitutor/shared";
+
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -547,7 +549,7 @@ export function InterviewRoundDialog({
   const [interviewId, setInterviewId] = useState<string | null>(
     existingRound?.interviewId ?? (() => {
       const saved = readRoundDefaults(catalog.actorId)?.interviewId;
-      return catalog.interviews.some((item) => item.id === saved && !item.archived) ? saved ?? null : null;
+      return catalog.interviews.some((item) => item.id === saved && isInterviewReadyForScheduling(item, catalog.stations)) ? saved ?? null : null;
     })(),
   );
   const [bind, setBind] = useState<RoundWizardBind>({
@@ -559,7 +561,7 @@ export function InterviewRoundDialog({
   const interview =
     catalog.interviews.find((item) => item.id === interviewId) ?? null;
   const interviews = catalog.interviews.filter(
-    (item) => !item.archived || item.id === interviewId,
+    (item) => (isInterviewReadyForScheduling(item, catalog.stations)) || item.id === interviewId,
   );
   const onBind = useCallback((next: RoundWizardBind) => {
     setBind(next);
