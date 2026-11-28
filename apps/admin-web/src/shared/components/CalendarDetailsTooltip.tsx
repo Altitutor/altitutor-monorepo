@@ -225,9 +225,6 @@ export function CalendarDetailsTooltip({
           aria-expanded={open}
           aria-controls={open ? contentId : undefined}
           aria-describedby={instructionsId}
-          data-record-type={referenceDrag?.type}
-          data-record-id={referenceDrag?.id}
-          data-label={referenceDrag?.label}
           draggable={dragProps?.draggable}
           onDragStart={dragProps ? (event) => {
             dragProps.onDragStart(event);
