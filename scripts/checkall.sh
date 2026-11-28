@@ -61,6 +61,7 @@ section release-contracts
 node --test \
   scripts/teaching-release.test.mjs \
   scripts/production-release-gate.test.mjs \
+  scripts/production-web-selection.test.mjs \
   scripts/production-web-smoke.test.mjs \
   scripts/start-local-supabase.test.mjs \
   scripts/ucat-system-test-paths.test.mjs \

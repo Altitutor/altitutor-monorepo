@@ -131,7 +131,11 @@ test("every main push runs the migration gate before Vercel production deploys",
   assert.match(workflow, /^  deploy:\n    needs: \[integration-evidence, verify\]$/mu);
   assert.match(workflow, /needs\.verify\.result == 'success'/u);
   assert.match(workflow, /needs\.integration-evidence\.outputs\.reuse == 'true' && needs\.verify\.result == 'skipped'/u);
-  assert.match(workflow, /^    needs: deploy$/mu);
+  assert.match(workflow, /^  select-production-web:\n    name: Select production web builds\n    needs: deploy$/mu);
+  assert.match(workflow, /^  deploy-web:\n    name: Deploy .+\n    needs: \[deploy, select-production-web\]$/mu);
+  assert.match(workflow, /include: \$\{\{ fromJSON\(needs\.select-production-web\.outputs\.deployments\) \}\}/u);
+  assert.match(workflow, /needs\.select-production-web\.result == 'success'/u);
+  assert.match(workflow, /needs\.deploy-web\.result == 'skipped' && needs\.select-production-web\.outputs\.has_builds == 'false'/u);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
   assert.match(workflow, /node scripts\/production-web-smoke\.mjs/u);
@@ -150,9 +154,20 @@ test("every main push runs the migration gate before Vercel production deploys",
   );
   assert.match(workflow, /set_commits: auto/u);
 
-  for (const app of APPS) {
-    assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));
-  }
+});
+
+test("production jobs explicitly allow intentional verification and web-build skips", async () => {
+  const workflow = await readFile(workflowPath, "utf8");
+  const selector = workflow.split("\n  select-production-web:")[1].split("\n  deploy-web:")[0];
+  const builds = workflow.split("\n  deploy-web:")[1].split("\n  smoke-production:")[0];
+  const smoke = workflow.split("\n  smoke-production:")[1].split("\n  update-preview-apps:")[0];
+  const smokeGate = `needs: smoke-production\n    if: "!cancelled() && github.ref == 'refs/heads/main' && needs.smoke-production.result == 'success'"`;
+
+  assert.match(selector, /needs: deploy\n    if: "!cancelled\(\) && github\.ref == 'refs\/heads\/main' && needs\.deploy\.result == 'success'"/u);
+  assert.match(builds, /if: >-\n      !cancelled\(\) && github\.ref == 'refs\/heads\/main' &&\n      needs\.deploy\.result == 'success' && needs\.select-production-web\.result == 'success' &&\n      needs\.select-production-web\.outputs\.has_builds == 'true'/u);
+  assert.match(smoke, /if: >-\n      !cancelled\(\) && github\.ref == 'refs\/heads\/main' &&\n      needs\.select-production-web\.result == 'success' &&\n      \(needs\.deploy-web\.result == 'success' \|\|\n       \(needs\.deploy-web\.result == 'skipped' && needs\.select-production-web\.outputs\.has_builds == 'false'\)\)/u);
+  assert.ok(workflow.split("\n  update-production-apps:")[1].split("\n  publish-sentry-release:")[0].includes(smokeGate));
+  assert.ok(workflow.split("\n  publish-sentry-release:")[1].includes(smokeGate));
 });
 
 test("production deploys synchronize transactional email authentication", async () => {
